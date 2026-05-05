@@ -38,14 +38,15 @@ Example
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project_catalog import ProjectCatalog
-from hydromodpy.project_runner import ProjectRunner
+from hydromodpy.project_runner import ProjectRunner, _pin_parent_sim_id
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.data import LoadedDataContext
@@ -272,7 +273,7 @@ class Project:
         run: Run,
         *,
         name: str | None = None,
-        config_overrides: dict | None = None,
+        config_overrides: Mapping[str, Any] | None = None,
         solver: str | None = None,
         headless: bool = False,
         no_display: bool = False,
@@ -292,8 +293,9 @@ class Project:
         name
             Optional name for the derived run.
         config_overrides
-            Optional deep-merge patch applied to the stored config snapshot
-            before a new :class:`Project` is created.
+            Deep-merge patch applied to the stored config snapshot. Keys must
+            match :class:`HydroModPyConfig` top-level fields; the merged
+            payload is validated by Pydantic, so unknown keys raise.
         solver, headless, no_display
             Options forwarded to the derived :class:`Project`.
         overrides
@@ -306,7 +308,9 @@ class Project:
         """
         snapshot = run.config_snapshot
         if snapshot is None:
-            raise ValueError(f"Simulation '{run.sim_id}' has no config snapshot - cannot rerun")
+            raise ConfigMissingError(
+                f"Simulation '{run.sim_id}' has no config snapshot - cannot rerun"
+            )
 
         from hydromodpy.config import HydroModPyConfig
 
@@ -317,13 +321,10 @@ class Project:
             headless=headless,
             no_display=no_display,
         )
-        new_run = project._runner.run(
-            name=name,
-            _parent_sim_id=run.sim_id,
-            **overrides,
-        )
+        with _pin_parent_sim_id(project._ctx, run.sim_id):
+            new_run = project._runner.run(name=name, **overrides)
         if new_run is None:
-            raise RuntimeError(
+            raise PipelineError(
                 f"rerun of '{run.sim_id}' did not produce a new Run "
                 "(dry_run or short-circuited workflow)."
             )

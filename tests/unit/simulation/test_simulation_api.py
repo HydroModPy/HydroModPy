@@ -707,8 +707,8 @@ class TestSimulationGroup:
         assert first.params["thickness"] == pytest.approx(1.0)
         assert second.params["thickness"] == pytest.approx(2.0)
 
-    def test_project_run_applies_parent_sim_id_temporarily(self, monkeypatch, tmp_path):
-        from hydromodpy.project_runner import ProjectRunner
+    def test_pin_parent_sim_id_overrides_ctx_during_pipeline_run(self, monkeypatch, tmp_path):
+        from hydromodpy.project_runner import ProjectRunner, _pin_parent_sim_id
         from hydromodpy.workflow.internals.state import PipelineState
 
         class _Step:
@@ -775,14 +775,34 @@ class TestSimulationGroup:
             _run_history=[],
         )
 
-        result = ProjectRunner(project).run(
-            name="derived",
-            _parent_sim_id="parent-run",
-        )
+        with _pin_parent_sim_id(ctx, "parent-run"):
+            result = ProjectRunner(project).run(name="derived")
 
         assert result is None
         assert observed == ["parent-run"]
         assert ctx.parent_sim_id == "existing-parent"
+
+    def test_pin_parent_sim_id_restores_on_exception(self):
+        from hydromodpy.project_runner import _pin_parent_sim_id
+
+        ctx = SimpleNamespace(parent_sim_id="initial")
+
+        with pytest.raises(RuntimeError):
+            with _pin_parent_sim_id(ctx, "transient"):
+                assert ctx.parent_sim_id == "transient"
+                raise RuntimeError("boom")
+
+        assert ctx.parent_sim_id == "initial"
+
+    def test_pin_parent_sim_id_none_is_noop(self):
+        from hydromodpy.project_runner import _pin_parent_sim_id
+
+        ctx = SimpleNamespace(parent_sim_id="initial")
+
+        with _pin_parent_sim_id(ctx, None):
+            assert ctx.parent_sim_id == "initial"
+
+        assert ctx.parent_sim_id == "initial"
 
     def test_iter(self, catalog):
         sids = [_register(catalog) for _ in range(2)]

@@ -44,6 +44,7 @@ def stub_project_phases(monkeypatch):
         captured["no_display"] = no_display
         project.cfg = config if not isinstance(config, (str, Path)) else None
         project._config_path = Path(config).resolve() if isinstance(config, (str, Path)) else None
+        project._ctx = SimpleNamespace(parent_sim_id=None)
 
     monkeypatch.setattr(project_phases, "configure", _fake_configure)
     monkeypatch.setattr(project_phases, "build_geographic", lambda *_a, **_k: None)
@@ -120,9 +121,9 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
         captured["config_overrides"] = overrides
         return cfg
 
-    def _fake_run(self, *, name=None, _parent_sim_id=None, **overrides):
+    def _fake_run(self, *, name=None, **overrides):
         captured["name"] = name
-        captured["parent_sim_id"] = _parent_sim_id
+        captured["parent_sim_id"] = self._project._ctx.parent_sim_id
         captured["run_overrides"] = overrides
         return SimpleNamespace(sim_id="child")
 

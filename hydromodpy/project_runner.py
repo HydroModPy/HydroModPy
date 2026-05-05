@@ -9,6 +9,8 @@ a small surface and the god-class limit is respected.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -24,6 +26,24 @@ logger = get_logger(__name__)
 
 
 DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"
+
+
+@contextmanager
+def _pin_parent_sim_id(ctx: object, parent_sim_id: str | None) -> Iterator[None]:
+    """Temporarily set ``ctx.parent_sim_id`` for the duration of the block.
+
+    Restores the previous value on exit, including when an exception
+    propagates. ``None`` is a no-op so callers can pass through unchanged.
+    """
+    if parent_sim_id is None:
+        yield
+        return
+    previous = getattr(ctx, "parent_sim_id", None)
+    ctx.parent_sim_id = str(parent_sim_id)
+    try:
+        yield
+    finally:
+        ctx.parent_sim_id = previous
 
 
 def _resolve_step_index(step: str | int, steps: tuple) -> int:
@@ -216,7 +236,6 @@ class ProjectRunner:
         dry_run: bool = False,
         frozen: bool = False,
         no_display: bool = False,
-        _parent_sim_id: str | None = None,
         **overrides,
     ) -> Run | None:
         """Run the simulation through the canonical workflow Pipeline."""
@@ -315,9 +334,6 @@ class ProjectRunner:
 
             previous_frozen_mode = is_frozen_mode()
             set_frozen_mode(True)
-        previous_parent_sim_id = getattr(project._ctx, "parent_sim_id", None)
-        if _parent_sim_id is not None:
-            project._ctx.parent_sim_id = str(_parent_sim_id)
 
         try:
             final = pipeline.run(initial, resume_from=resume_from)
@@ -339,8 +355,6 @@ class ProjectRunner:
         finally:
             from hydromodpy import project_phases
 
-            if _parent_sim_id is not None:
-                project._ctx.parent_sim_id = previous_parent_sim_id
             if project._store is None:
                 project_phases.open_catalog(project)
             _rebind_run_history_catalog(project)
