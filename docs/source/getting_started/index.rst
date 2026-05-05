@@ -16,8 +16,8 @@ run the data-overview case, then move to the end-to-end simulation case.
 
 .. important::
 
-   If you are unsure where to start, read
-   :doc:`choose-your-first-workflow`, run :doc:`cli-quickstart`, and then
+   If you are unsure where to start, read :doc:`concepts_in_5_min` first,
+   then :doc:`choose-your-first-workflow`, run :doc:`cli-quickstart`, and
    continue with :doc:`data-overview-walkthrough`.
 
 Recommended entry points
@@ -25,6 +25,16 @@ Recommended entry points
 
 .. grid:: 1 1 2 2
    :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: concepts_in_5_min
+      :link-type: doc
+
+      **Concepts in 5 minutes**
+      ^^^
+      The five core concepts (Project, Run, Workflow, Catchment, Solver) the
+      rest of the documentation assumes you have already met.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -69,7 +79,7 @@ Recommended entry points
 Default path
 ------------
 
-1. Read :doc:`choose-your-first-workflow`.
+1. Read :doc:`concepts_in_5_min` and :doc:`choose-your-first-workflow`.
 2. Follow :doc:`cli-quickstart` to scaffold a workspace, create a project,
    and run a first simulation from the command line.
 3. Run :doc:`data-overview-walkthrough` if you want to understand basin setup
@@ -95,6 +105,7 @@ Related sections
    :hidden:
    :maxdepth: 1
 
+   concepts_in_5_min
    choose-your-first-workflow
    cli-quickstart
    data-overview-walkthrough
