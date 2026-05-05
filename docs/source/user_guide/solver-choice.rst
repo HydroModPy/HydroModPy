@@ -47,4 +47,4 @@ Related sections
 
 - :doc:`mesh` for mesh and discretization documentation.
 - :doc:`comparison` for shared-case simulation comparisons.
-- :doc:`../api/hydromodpy-modeling` for solver-facing API reference.
+- :doc:`../api/index` for solver-facing API reference.

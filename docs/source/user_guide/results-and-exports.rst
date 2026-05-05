@@ -255,5 +255,5 @@ Documentation boundaries
 ------------------------
 
 This page is the user entry point. For low-level classes and methods, see
-:doc:`../api/hydromodpy-project-results`. For result-page reading order, see
+:doc:`../api/index`. For result-page reading order, see
 :doc:`../getting_started/reading-results-pages`.

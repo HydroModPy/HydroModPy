@@ -1,6 +1,6 @@
 """
 Flow Initial Condition Normalizers
-=================================
+==================================
 
 Normalization helpers for `[flow.ic]` payloads.
 

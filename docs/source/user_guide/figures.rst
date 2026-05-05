@@ -94,4 +94,4 @@ with:
    hmp inspect <sim_id>
    hmp show <sim_id>
 
-For low-level display objects, see :doc:`../api/hydromodpy-display`.
+For low-level display objects, see :doc:`../api/index`.

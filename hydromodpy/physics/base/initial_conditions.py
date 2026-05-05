@@ -1,6 +1,6 @@
 """
 Prototype Module: Generic Initial-Condition Model
-================================================
+==================================================
 
 Contains the shared `InitialCondition` Pydantic model used as a generic
 building block by process-specific initial-condition schemas.

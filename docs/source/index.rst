@@ -154,13 +154,13 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: api-reference
+      :link: api/index
       :link-type: doc
 
       **API reference**
       ^^^
-      User, scientific, and developer API layers with generated object pages
-      from curated manifests.
+      Auto-generated reference for every public class, function, and module
+      under ``hydromodpy``.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -235,7 +235,7 @@ For any question or collaboration request, contact:
    Case Studies <capability_gallery/index>
    Scientific Background <scientific/index>
    Developer Guide <architecture/index>
-   api-reference
+   API Reference <api/index>
    contribute
 
 .. # HTML helpers

@@ -258,5 +258,5 @@ API reference
 -------------
 
 For the complete generated configuration list, use
-:doc:`../../api/hydromodpy-config`. The generated pages are useful when you
+:doc:`../../api/index`. The generated pages are useful when you
 need every default value, while this page is the user-facing selection guide.

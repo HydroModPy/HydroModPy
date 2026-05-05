@@ -1,6 +1,6 @@
 """
 Prototype Module: Generic Sink/Source Model
-==========================================
+===========================================
 
 Contains the shared `SinkSource` Pydantic model used by process modules for
 typed source/sink payloads.

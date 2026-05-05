@@ -1,6 +1,6 @@
 """
 Prototype Module: Base Process Config Schema
-===========================================
+============================================
 
 Defines `ProcessSpatialConfig`, the minimal shared Pydantic schema used by
 process configuration models.

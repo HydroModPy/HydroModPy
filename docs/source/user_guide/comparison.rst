@@ -46,4 +46,4 @@ Related sections
 - :doc:`solver-choice` for backend and numerical-option trade-offs.
 - :doc:`../scientific/solvers/solver-capability-matrix` for a compact solver
   capability overview.
-- :doc:`../api-reference` for the generated API reference.
+- :doc:`../api/index` for the generated API reference.

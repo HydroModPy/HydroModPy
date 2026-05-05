@@ -22,7 +22,7 @@ from enum import StrEnum
 
 
 class PackageKind(StrEnum):
-    """MODFLOW package families that share a (cell, *attrs) stress-period row."""
+    """MODFLOW package families that share a stress-period row of cell plus attrs."""
 
     DRN = "drn"
     GHB = "ghb"
@@ -56,7 +56,7 @@ class BoundaryCell:
 
 @dataclass(frozen=True)
 class DisvBoundaryCell:
-    """DISV cell reference ``((layer, cell_id), *attrs)``."""
+    """DISV cell reference: layer, cell id, plus attrs."""
 
     layer: int
     cell_id: int

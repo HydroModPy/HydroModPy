@@ -20,10 +20,12 @@ Pipeline in the field framework
 Design choice
 -------------
 The geometry and the physical values are intentionally separated:
+
 - ``GeologyField`` handles *where* zones are located.
 - ``FieldParam`` handles *which value* each zone receives.
 
 This allows:
+
 - reusing the same geology support for multiple calibrated variables
   (for example K, Sy, porosity),
 - changing parameter values without recomputing geometry logic.

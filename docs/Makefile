@@ -2,7 +2,10 @@
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
+# -j auto parallelises reading + writing across all CPU cores. Mandatory:
+# the recursive autosummary over hydromodpy generates ~900 pages, single-threaded
+# writing takes several minutes. Override with `make html SPHINXOPTS=` to disable.
+SPHINXOPTS    ?= -j auto
 SPHINXBUILD   ?= python -m sphinx
 SPHINXPROJ    = HydroModPy
 SOURCEDIR     = source

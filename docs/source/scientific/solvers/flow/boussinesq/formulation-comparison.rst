@@ -278,7 +278,7 @@ update chain is:
 
    python tools/doc_gallery/generate_code_comparison_assets.py
    python -m tools.doc_gallery
-   python -m sphinx -b html docs/source docs/build/html
+   python -m sphinx -b html -j auto docs/source docs/build/html
 
 The first command refreshes the source run under ``out``. The generator then
 rebuilds the committed gallery PNG/JSON files under

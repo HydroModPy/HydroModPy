@@ -127,4 +127,4 @@ Where to continue
 - :doc:`data/custom-data` documents local files and CSV conventions.
 - :doc:`data/cache-and-lockfiles` explains cache inspection, locking, frozen
   runs, and data archives.
-- :doc:`../api/hydromodpy-data` exposes the generated Python API reference.
+- :doc:`../api/index` exposes the generated Python API reference.

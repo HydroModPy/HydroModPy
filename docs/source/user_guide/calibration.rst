@@ -47,4 +47,4 @@ Related sections
 - :doc:`../scientific/foundations/index` for physical scope and assumptions.
 - :doc:`../getting_started/reading-results-pages` for reading generated result
   pages.
-- :doc:`../api-reference` for generated API documentation.
+- :doc:`../api/index` for generated API documentation.

@@ -47,7 +47,7 @@ Reading map
      - :doc:`cache-and-lockfiles`
      - Inspect the cache, update the lockfile, verify hashes, and archive data.
    * - Inspect the generated configuration surface
-     - :doc:`../../api/hydromodpy-config`
+     - :doc:`../../api/index`
      - Read the configuration API pages for typed data and source blocks.
 
 Conceptual model

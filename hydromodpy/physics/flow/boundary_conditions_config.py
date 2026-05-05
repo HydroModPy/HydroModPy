@@ -1,6 +1,6 @@
 """
 Flow Boundary Condition Normalizers
-==================================
+===================================
 
 Normalization and canonicalization helpers for `[flow.bc]` payloads.
 
