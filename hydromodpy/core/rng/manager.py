@@ -21,19 +21,23 @@ derived, and the master seed is persisted in
 from __future__ import annotations
 
 import hashlib
+from typing import Annotated
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
+
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 _INT64_MASK = 0x7FFFFFFFFFFFFFFF
 
 
-class RngManager(BaseModel):
+class RngManager(HydroModelBase):
     """Derive child seeds and ``np.random`` generators from a master seed."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config = ConfigDict(frozen=True)
 
-    master_seed: int = Field(
+    master_seed: Annotated[int, Profile.DEV] = Field(
         ge=0,
         description=(
             "Master seed used to derive sub-seeds for each labeled consumer. "

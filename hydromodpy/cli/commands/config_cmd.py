@@ -24,7 +24,9 @@ HELP: str = "Generate a TOML template, validate a config, or export the JSON Sch
 
 
 def register(subparsers) -> argparse.ArgumentParser:
-    from hydromodpy.core.config_kit.visible_when import PROFILES
+    from hydromodpy.core.config_kit.profile import Profile
+
+    profile_names = [profile.name.lower() for profile in Profile]
 
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="config_command", required=False)
@@ -37,7 +39,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     tpl.add_argument(
         "--profile",
-        choices=list(PROFILES.keys()),
+        choices=profile_names,
         default="expert",
         help="Parameter visibility level (default: expert)",
     )
@@ -76,7 +78,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     wiz.add_argument("output", nargs="?")
     wiz.add_argument(
         "--profile",
-        choices=list(PROFILES.keys()),
+        choices=profile_names,
         default="user",
     )
 

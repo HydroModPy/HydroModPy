@@ -12,10 +12,10 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.analysis.comparison.config import (
-    ComparisonConfig,
     ComparisonFineRaster,
     ComparisonObservable,
     ComparisonSimulation,
+    RuntimeComparisonConfig,
 )
 from hydromodpy.analysis.comparison.runtime_mesh import (
     resolve_bundle_cells,
@@ -468,7 +468,7 @@ def _face_centroids(
 
 
 def _observable_points_for_case(
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     *,
     centroid_x: np.ndarray | None,
     centroid_y: np.ndarray | None,
@@ -496,7 +496,7 @@ def _observable_points_for_case(
 
 def _build_case_configuration_payload(
     *,
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     simulation_summaries: list[dict[str, Any]],
     reference_simulation: str | None,
 ) -> CaseConfigurationPayload | None:
@@ -623,7 +623,7 @@ def _choose_map_slice(
 
 def _build_map_payload(
     *,
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     simulation: ComparisonSimulation,
     summary: dict[str, Any],
     observable: ComparisonObservable,

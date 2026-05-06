@@ -177,7 +177,7 @@ class HydroModPyConfig(HydroModelBase):
             "Global solver selection loaded from [solver], including the active solver_engine."
         ),
     )
-    modflownwt: Annotated[ModflowConfig, Profile.USER] = Field(
+    modflownwt: Annotated[ModflowConfig, Profile.EXPERT] = Field(
         default_factory=ModflowConfig,
         description=(
             "Expert MODFLOW-NWT package configuration loaded from "
@@ -185,7 +185,7 @@ class HydroModPyConfig(HydroModelBase):
             "[modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical]."
         ),
     )
-    modflow6: Annotated[Modflow6Config, Profile.USER] = Field(
+    modflow6: Annotated[Modflow6Config, Profile.EXPERT] = Field(
         default_factory=Modflow6Config,
         description=(
             "Expert MODFLOW 6 package configuration loaded from "
@@ -205,7 +205,7 @@ class HydroModPyConfig(HydroModelBase):
             "`hydromodpy.lock` reproducibility manifest."
         ),
     )
-    analysis: Annotated[AnalysisConfig | None, Profile.USER] = Field(
+    analysis: Annotated[AnalysisConfig | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional analysis hub loaded from [analysis]. Aggregates "
@@ -685,7 +685,7 @@ def _load_optional_analysis_section(
 
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.comparison.config import ComparisonSection
+    from hydromodpy.analysis.comparison.experiment_config import ComparisonSection
 
     parsed: dict[str, Any] = {}
 

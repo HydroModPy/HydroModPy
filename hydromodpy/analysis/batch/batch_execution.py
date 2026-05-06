@@ -193,7 +193,7 @@ def _extract_comparison_output_artifacts(
 
 def _extract_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
     """Extract compact comparison artifacts from one child launcher config."""
-    from hydromodpy.analysis.comparison.config import ComparisonConfig
+    from hydromodpy.analysis.comparison.config import RuntimeComparisonConfig
     from hydromodpy.analysis.comparison.experiment_config import (
         SimulationComparisonConfig,
     )
@@ -209,7 +209,7 @@ def _extract_comparison_child_artifacts(config_path: Path) -> dict[str, Any]:
         if not isinstance(section, Mapping):
             raise ValueError("[comparison] must be a mapping")
         if "variant" in section:
-            cfg = ComparisonConfig.from_toml(payload, config_path=config_path)
+            cfg = RuntimeComparisonConfig.from_toml(payload, config_path=config_path)
         else:
             cfg = SimulationComparisonConfig.from_toml(payload, config_path=config_path)
     except Exception as exc:

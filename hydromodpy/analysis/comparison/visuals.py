@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.config import ComparisonConfig
+from hydromodpy.analysis.comparison.config import RuntimeComparisonConfig
 from hydromodpy.analysis.comparison.visuals_payloads import (
     MapPayload,
     _build_case_configuration_payload,
@@ -42,7 +42,7 @@ from hydromodpy.analysis.comparison.visuals_style import _is_flux_like_name, _sl
 
 def generate_comparison_figures(
     *,
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     simulation_summaries: list[dict[str, Any]],
     rows: list[dict[str, Any]],
     detail_metrics: list[dict[str, Any]],

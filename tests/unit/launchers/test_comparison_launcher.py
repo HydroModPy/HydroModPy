@@ -15,8 +15,8 @@ from hydromodpy.analysis.comparison.child_materialization import (
     materialize_child_configs,
 )
 from hydromodpy.analysis.comparison.config import (
-    ComparisonConfig,
     ComparisonObservable,
+    RuntimeComparisonConfig,
 )
 from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
 from hydromodpy.analysis.comparison.experiment_launcher import (
@@ -511,7 +511,7 @@ def test_comparison_config_resolves_paths(tmp_path: Path) -> None:
     config_path = tmp_path / "config_comparison.toml"
     _write_simulation_comparison_config(config_path, run_folder)
 
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -550,7 +550,7 @@ def test_comparison_config_applies_anchor_file(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -599,7 +599,7 @@ def test_comparison_config_accepts_canonical_anchor_file(tmp_path: Path) -> None
         encoding="utf-8",
     )
 
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -662,7 +662,7 @@ def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -
     store = _write_fake_run_folder(run_folder, bundle_dir)
     config_path = tmp_path / "config_comparison.toml"
     _write_simulation_comparison_config(config_path, run_folder)
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -728,7 +728,7 @@ def test_extract_observable_rows_reads_seepage_areas_from_seepage_mask(
         + "\n",
         encoding="utf-8",
     )
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -818,7 +818,7 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(
         run_folder=run_folder,
         simulation_config_path=simulation_config,
     )
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(comparison_config),
         config_path=comparison_config,
     )
@@ -848,7 +848,7 @@ def test_extract_observable_rows_reads_direct_scalar_outlet_flux(
     config_path = tmp_path / "config_comparison.toml"
     _write_simulation_comparison_config(config_path, run_folder)
     store = _write_direct_outlet_run_folder(run_folder, outlet_value=1.25)
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -877,7 +877,7 @@ def test_extract_observable_rows_reads_boussinesq_outlet_flux(tmp_path: Path) ->
     store = _write_boussinesq_run_folder(run_folder, bundle_dir)
     config_path = tmp_path / "config_comparison.toml"
     _write_simulation_comparison_config(config_path, run_folder)
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -933,7 +933,7 @@ def test_extract_observable_rows_converts_boussinesq_drainage_map_to_outflow_dra
         + "\n",
         encoding="utf-8",
     )
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -1035,7 +1035,7 @@ def test_extract_observable_rows_reads_surface_excess_map_and_series(
         + "\n",
         encoding="utf-8",
     )
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -1348,7 +1348,7 @@ def test_extract_observable_rows_resolves_wsl_bundle_path_on_windows(
         + "\n",
         encoding="utf-8",
     )
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -1408,7 +1408,7 @@ def test_extract_observable_rows_masks_depth_using_head_nodata(tmp_path: Path) -
         + "\n",
         encoding="utf-8",
     )
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )
@@ -1452,7 +1452,7 @@ def test_outlet_without_location_requires_explicit_proxy_opt_in(tmp_path: Path) 
     )
 
     with pytest.raises(ValueError, match="outlet observables require"):
-        ComparisonConfig.from_toml(
+        RuntimeComparisonConfig.from_toml(
             load_toml_with_base_config(config_path),
             config_path=config_path,
         )
@@ -1869,7 +1869,7 @@ def test_build_comparison_metrics_against_reference(tmp_path: Path) -> None:
     )
     config_path = tmp_path / "config_comparison.toml"
     _write_simulation_comparison_config(config_path, reference_run)
-    cfg = ComparisonConfig.from_toml(
+    cfg = RuntimeComparisonConfig.from_toml(
         load_toml_with_base_config(config_path),
         config_path=config_path,
     )

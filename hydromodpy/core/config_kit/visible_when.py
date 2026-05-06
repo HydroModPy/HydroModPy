@@ -6,16 +6,8 @@ and Streamlit forms.
 """
 
 from dataclasses import dataclass
-from typing import Literal
 
 from hydromodpy.core.config_kit.profile import Profile
-
-ProfileName = Literal["user", "dev", "expert"]
-
-#: Ordered mapping of profile names to their numeric threshold.
-#: Aligned on Profile IntEnum values (1/2/3). A field is visible when
-#: ``PROFILES[field_level] <= PROFILES[requested_profile]``.
-PROFILES: dict[str, int] = {"user": 1, "dev": 2, "expert": 3}
 
 
 @dataclass(frozen=True)
@@ -43,4 +35,4 @@ class VisibleWhen:
         return current_value in allowed
 
 
-__all__ = ["Profile", "VisibleWhen", "PROFILES", "ProfileName"]
+__all__ = ["Profile", "VisibleWhen"]

@@ -16,9 +16,9 @@ from hydromodpy.analysis.comparison.child_materialization import (
     materialize_child_configs,
 )
 from hydromodpy.analysis.comparison.config import (
-    ComparisonConfig,
-    ComparisonSection,
     ComparisonSimulation,
+    RuntimeComparisonConfig,
+    RuntimeComparisonSection,
 )
 from hydromodpy.analysis.comparison.experiment_config import SimulationComparisonConfig
 from hydromodpy.analysis.comparison.output_pipeline import (
@@ -280,7 +280,7 @@ class SimulationComparisonLauncher:
     def _build_comparison_cfg(
         self,
         children: list[GeneratedChildConfig],
-    ) -> ComparisonConfig:
+    ) -> RuntimeComparisonConfig:
         simulations = [
             ComparisonSimulation(
                 id=child.simulation_id,
@@ -293,7 +293,7 @@ class SimulationComparisonLauncher:
             )
             for child in children
         ]
-        section = ComparisonSection(
+        section = RuntimeComparisonSection(
             comparison_id=self.cfg.comparison.comparison_id,
             base_simulation_config=str(self.cfg.base_simulation_config_path),
             output_root=str(self.cfg.comparison_root),
@@ -304,7 +304,7 @@ class SimulationComparisonLauncher:
             simulation=simulations,
             observable=self.cfg.comparison.observable,
         )
-        return ComparisonConfig(
+        return RuntimeComparisonConfig(
             config_path=self.cfg.config_path,
             base_dir=self.cfg.base_dir,
             comparison_root=self.cfg.comparison_root,
@@ -316,7 +316,7 @@ class SimulationComparisonLauncher:
 
     def _extract_observables(
         self,
-        comparison_cfg: ComparisonConfig,
+        comparison_cfg: RuntimeComparisonConfig,
         simulation_summaries: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
         rows: list[dict[str, Any]] = []
