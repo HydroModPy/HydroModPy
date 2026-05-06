@@ -405,4 +405,4 @@ Related reading
 - :doc:`../../theory/hydrology/simulated-active-network`
 - :doc:`mental-model-and-design-choices`
 - :doc:`hydrographic-network-uml-diagrams`
-- :doc:`../../getting_started/comparison-workflow`
+- :doc:`../../user_guide/concepts/comparison-workflow`

@@ -356,7 +356,7 @@ Related Reading
 - :doc:`index`
 - :doc:`conceptual-model`
 - :doc:`../hydrology/simulated-active-network`
-- :doc:`../../getting_started/comparison-workflow`
+- :doc:`../../user_guide/concepts/comparison-workflow`
 - :cite:`abherve2023` for the bidirectional downslope-distance metric
   between simulated seepage and observed stream networks; see also
   :doc:`../bibliography`.

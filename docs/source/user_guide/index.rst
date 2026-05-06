@@ -41,7 +41,7 @@ Core concepts
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: ../getting_started/workspace-layout
+      :link: concepts/workspace-layout
       :link-type: doc
 
       **Workspace layout**
@@ -51,7 +51,7 @@ Core concepts
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: ../getting_started/project-vs-run
+      :link: concepts/project-vs-run
       :link-type: doc
 
       **Project vs run**
@@ -68,7 +68,7 @@ workspace.
 
 Read the documentation in this order when you want to avoid duplicates:
 
-1. :doc:`../getting_started/workspace-layout` explains the durable folders:
+1. :doc:`concepts/workspace-layout` explains the durable folders:
    data cache, project TOMLs, generated child configs, runs, outputs, reports,
    and gallery evidence.
 2. :doc:`workflows/index` explains which operation writes to those folders:
@@ -212,9 +212,9 @@ Reading outputs
 
 Use these pages once you have generated or opened result pages:
 
-- :doc:`../getting_started/reading-results-pages` explains how to read gallery,
+- :doc:`concepts/reading-results-pages` explains how to read gallery,
   comparison, and validation pages.
-- :doc:`../getting_started/comparison-output-reading-order` gives the reading
+- :doc:`concepts/comparison-output-reading-order` gives the reading
   order for comparison artifacts.
 
 .. toctree::
@@ -223,9 +223,7 @@ Use these pages once you have generated or opened result pages:
 
    Usage modes <../seven-modes>
    Workflow families <workflows/index>
-   Workflow quick map <../getting_started/workflow-families>
-   Workspace layout <../getting_started/workspace-layout>
-   Project vs run <../getting_started/project-vs-run>
+   Concepts <concepts/index>
    mesh
    comparison
    calibration
@@ -238,6 +236,3 @@ Use these pages once you have generated or opened result pages:
    project-api
    solver-process-map
    solver-choice
-   Reading result pages <../getting_started/reading-results-pages>
-   Comparison workflow <../getting_started/comparison-workflow>
-   Comparison output order <../getting_started/comparison-output-reading-order>

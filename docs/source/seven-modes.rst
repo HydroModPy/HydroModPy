@@ -34,7 +34,7 @@ modes. For example, the standard ``simulation`` workflow can be launched:
 
 If you want the inventory of actual workflow families, their goals, and the
 best current entry point for each one, use
-:doc:`getting_started/workflow-families`.
+:doc:`user_guide/concepts/workflow-families`.
 
 The reference example projects under
 ``examples/projects/02_nancon_watershed/`` provide one concrete file for

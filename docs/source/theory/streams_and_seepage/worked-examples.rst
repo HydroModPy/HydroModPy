@@ -167,7 +167,7 @@ Example 5 - Comparison Output Reading Order
 Use this after any comparison run, including the Nancon sweeps.
 
 Where to read
-   :doc:`../../getting_started/comparison-output-reading-order`
+   :doc:`../../user_guide/concepts/comparison-output-reading-order`
 
 What to open first
    Use this order:
@@ -213,4 +213,4 @@ Related Reading
 - :doc:`status-and-limitations`
 - :doc:`nancon-k-sweep-results`
 - :doc:`../hydrology/simulated-active-network`
-- :doc:`../../getting_started/comparison-output-reading-order`
+- :doc:`../../user_guide/concepts/comparison-output-reading-order`

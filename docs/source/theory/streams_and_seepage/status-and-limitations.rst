@@ -47,7 +47,7 @@ Current Supported Contract
      - Comparison workflows can export active-network occupancy metrics and
        overlap metrics against the observed ``reference`` network when the
        required fields and vector role are present.
-     - :doc:`../../getting_started/comparison-output-reading-order`
+     - :doc:`../../user_guide/concepts/comparison-output-reading-order`
    * - MODFLOW-NWT baseline
      - A stable Nancon MODFLOW-NWT basin page exists and is the best legacy
        baseline for reading order and figure interpretation.

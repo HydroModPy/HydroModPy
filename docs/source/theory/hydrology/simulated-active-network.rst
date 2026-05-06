@@ -294,4 +294,4 @@ Related Reading
 - :doc:`../solvers/modflow-family-methods`
 - :doc:`../solvers/modflow-package-semantics-and-boundary-conditions`
 - :doc:`../../architecture/overview/hydrographic-network-simulated-active-inventory`
-- :doc:`../../getting_started/comparison-workflow`
+- :doc:`../../user_guide/concepts/comparison-workflow`

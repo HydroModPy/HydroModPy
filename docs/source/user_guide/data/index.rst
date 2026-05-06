@@ -27,10 +27,10 @@ Reading map
    * - See every supported family and provider
      - :doc:`provider-matrix`
      - Decide between public APIs, local files, synthetic forcing, and constants.
-   * - Read one page per data family and source
-     - :doc:`families/index`
+   * - Read one page per data family
+     - See `Data families`_ below
      - Inspect the operational contract, examples, checks, and source-specific
-       pages for each data type.
+       sections for each data type.
    * - Connect pages with generated figures
      - :doc:`runs-and-figures`
      - Use the lightest run that explains the data: local file checks,
@@ -97,13 +97,62 @@ diagnostics, not simulation results. For the complete case page, open
    The same retrieval workflow also exposes which observation stations are
    available before any model run is launched.
 
+Data families
+-------------
+
+Each family page documents a typed data input. It lists accepted ``source``
+values, a minimal TOML example, expected loaded shape, and the first
+diagnostic figure to inspect. Each family page also bundles the
+source-specific sections (``custom``, public providers, synthetic) that
+used to live in dedicated leaf pages.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 28 50
+
+   * - Group
+     - Families
+     - Main role
+   * - Spatial support
+     - :doc:`dem`, :doc:`geology`, :doc:`hydrography`
+     - Build watershed support, zones, river networks, and mesh constraints.
+   * - Observations
+     - :doc:`hydrometry`, :doc:`piezometry`, :doc:`intermittency`,
+       :doc:`water-quality`
+     - Discover or ingest stations and observed chronicles.
+   * - Forcing
+     - :doc:`recharge`, :doc:`precipitation`, :doc:`etp`, :doc:`temperature`,
+       :doc:`wind`, :doc:`humidity`, :doc:`radiation`, :doc:`soil-moisture`,
+       :doc:`runoff`
+     - Load gridded or point forcing fields over the project period.
+   * - Coastal boundary
+     - :doc:`oceanic`
+     - Load or declare sea-level data for coastal boundary conditions.
+
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :hidden:
 
    retrieval-workflow
    provider-matrix
-   families/index
    runs-and-figures
    provider-replay-cases
    custom-data
    cache-and-lockfiles
+   dem
+   geology
+   hydrography
+   hydrometry
+   piezometry
+   intermittency
+   water-quality
+   recharge
+   precipitation
+   etp
+   temperature
+   wind
+   humidity
+   radiation
+   soil-moisture
+   runoff
+   oceanic

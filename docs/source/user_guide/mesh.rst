@@ -11,7 +11,7 @@ Start here when the question is:
 User path
 ---------
 
-1. Read :doc:`../getting_started/workflow-families` to see where the ``mesh``
+1. Read :doc:`concepts/workflow-families` to see where the ``mesh``
    workflow fits relative to ``overview`` and ``simulation``.
 2. Open :doc:`../capability_gallery/mesh` to inspect stable mesh examples and
    diagnostics without running anything locally.
@@ -32,7 +32,7 @@ Common questions
    * - Which mesh cases are already documented?
      - :doc:`../capability_gallery/mesh`
    * - Which diagnostics should I inspect first?
-     - :doc:`../getting_started/reading-results-pages`
+     - :doc:`concepts/reading-results-pages`
    * - Why do mesh quality and discretization strategy matter?
      - :doc:`../theory/solvers/mesh-quality-and-acceptance-criteria`
    * - How does a catchment mesh become a solver input?

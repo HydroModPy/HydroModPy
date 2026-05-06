@@ -9,7 +9,7 @@ Calibration Benchmarks
 These cases focus on inverse modelling rather than forward validation: synthetic observations are generated first, then recovered with one or more calibration strategies on the same solver family.
 
 .. seealso::
-   Read :doc:`How to read gallery, comparison, and validation pages </getting_started/reading-results-pages>` if you want a guided entry point before opening the case pages below.
+   Read :doc:`How to read gallery, comparison, and validation pages <../user_guide/concepts/reading-results-pages>` if you want a guided entry point before opening the case pages below.
 
 Current Coverage
 ----------------

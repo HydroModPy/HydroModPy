@@ -270,7 +270,7 @@ This page is best read together with:
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`modflow-package-semantics-and-boundary-conditions`
 - :doc:`xt3d-on-irregular-disv-meshes`
-- :doc:`../../getting_started/comparison-workflow`
+- :doc:`../../user_guide/concepts/comparison-workflow`
 
 Current Limitation
 ------------------

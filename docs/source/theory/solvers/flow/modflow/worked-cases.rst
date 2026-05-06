@@ -12,8 +12,8 @@ Useful gallery and workflow pages:
 
 - :doc:`../../../../capability_gallery/cases/nancon_transient_nwt`
 - :doc:`../../../../capability_gallery/code_comparison`
-- :doc:`../../../../getting_started/comparison-workflow`
-- :doc:`../../../../getting_started/comparison-output-reading-order`
+- :doc:`../../../../user_guide/concepts/comparison-workflow`
+- :doc:`../../../../user_guide/concepts/comparison-output-reading-order`
 
 When adding a new worked case, keep the same reading order:
 

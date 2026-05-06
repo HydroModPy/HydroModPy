@@ -1712,5 +1712,5 @@ Related Pages
 - :doc:`../user_guide/solver-process-map`
 - :doc:`../capability_gallery/cases/surface_interaction_ramp_code_comparison`
 - :doc:`../capability_gallery/cases/surface_interaction_no_seepage_code_comparison`
-- :doc:`../getting_started/comparison-workflow`
+- :doc:`../user_guide/concepts/comparison-workflow`
 - :doc:`../capability_gallery/simulation_comparison`

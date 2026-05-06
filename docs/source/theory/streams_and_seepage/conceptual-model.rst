@@ -238,7 +238,7 @@ Use examples that preserve the same separation:
   gallery case linked from :doc:`worked-examples`;
 - if the question is what to open after a comparison run, use
   :doc:`worked-examples` and
-  :doc:`../../getting_started/comparison-output-reading-order`.
+  :doc:`../../user_guide/concepts/comparison-output-reading-order`.
 
 The rule is the same in every example: the files are useful only when the
 method role, support role, computed field, and validation target are explicit.

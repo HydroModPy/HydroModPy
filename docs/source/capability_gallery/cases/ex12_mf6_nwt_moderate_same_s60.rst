@@ -11,7 +11,7 @@ MF6 vs NWT on the Same 60x60 Grid
 This case compares MODFLOW 6 and MODFLOW-NWT on the exact same 60x60 structured support. It keeps the more readable annual moderate forcing while removing the mesh family difference, so the page focuses on solver behaviour, native flux diagnostics, and execution-time spread.
 
 .. seealso::
-   Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. figure:: /_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png
    :alt: Simulation comparison summary for MF6 vs NWT on the Same 60x60 Grid
@@ -50,7 +50,7 @@ How To Read It
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.
 
 Reproduce

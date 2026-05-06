@@ -199,8 +199,8 @@ Read comparison outputs in this order:
 Next Pages
 ----------
 
-- :doc:`../../getting_started/comparison-workflow`
-- :doc:`../../getting_started/comparison-output-reading-order`
+- :doc:`../concepts/comparison-workflow`
+- :doc:`../concepts/comparison-output-reading-order`
 - :doc:`../comparison`
 - :doc:`../../capability_gallery/simulation_comparison`
 - :doc:`../../theory/solvers/modflow6-vs-modflownwt-scientific-comparison`

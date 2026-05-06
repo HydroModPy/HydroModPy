@@ -11,7 +11,7 @@ MF6 Triangular vs NWT Structured on Demonstrative Forcing
 This case reuses the demonstrative annual forcing chosen to make temporal head changes and drainage signatures easier to read. It compares the committed triangular MODFLOW 6 run against the structured MODFLOW-NWT baseline, again through a shared fine raster, but with a forcing regime designed for stronger visual contrast than the moderate case.
 
 .. seealso::
-   Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. figure:: /_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png
    :alt: Simulation comparison summary for MF6 Triangular vs NWT Structured on Demonstrative Forcing
@@ -50,7 +50,7 @@ How To Read It
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.
 
 Reproduce

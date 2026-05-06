@@ -12,7 +12,7 @@ Start here when the question is:
 User path
 ---------
 
-1. Read :doc:`../getting_started/workflow-families` to see how the
+1. Read :doc:`concepts/workflow-families` to see how the
    ``calibration`` workflow differs from ``simulation`` and ``comparison``.
 2. Open :doc:`../theory/calibration/index` for inverse-problem formulation
    and implemented calibration methods.
@@ -45,6 +45,6 @@ Related sections
 ----------------
 
 - :doc:`../theory/foundations/index` for physical scope and assumptions.
-- :doc:`../getting_started/reading-results-pages` for reading generated result
+- :doc:`concepts/reading-results-pages` for reading generated result
   pages.
 - :doc:`../api/index` for generated API documentation.

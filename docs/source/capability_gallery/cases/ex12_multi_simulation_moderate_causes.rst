@@ -11,7 +11,7 @@ Four-Simulation Moderate Suite with Surface-Excess Diagnostics
 This case keeps the same four simulations as the moderate suite but adds observables that only make sense for the triangular/Boussinesq side of the comparison: surface-excess time series, a surface-excess map, and an explicit budget-diagnostics figure. It is the diagnostic companion page for understanding where the multi-simulation spread comes from.
 
 .. seealso::
-   Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. figure:: /_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes.png
    :alt: Simulation comparison summary for Four-Simulation Moderate Suite with Surface-Excess Diagnostics
@@ -50,7 +50,7 @@ How To Read It
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.
 
 Reproduce

@@ -23,4 +23,4 @@ See also:
 
 - :doc:`flow/modflow/common-concepts`
 - :doc:`flow/modflow/comparison-and-method-choice`
-- :doc:`/getting_started/comparison-output-reading-order`
+- :doc:`/user_guide/concepts/comparison-output-reading-order`

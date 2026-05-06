@@ -130,5 +130,5 @@ Where to go next
 - Open
   :doc:`../capability_gallery/cases/example12_map_simulation_comparison` to compare
   two solver families on the same saved support.
-- Use :doc:`reading-results-pages` to distinguish example pages,
+- Use :doc:`../user_guide/concepts/reading-results-pages` to distinguish example pages,
   comparison pages, and analytical validation pages.

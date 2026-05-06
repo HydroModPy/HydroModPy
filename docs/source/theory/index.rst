@@ -17,7 +17,7 @@ Workflow orchestration, entry points, and user-facing run families are
 documented elsewhere:
 
 - :doc:`../seven-modes` explains how HydroModPy is driven;
-- :doc:`../getting_started/workflow-families` explains which workflows exist;
+- :doc:`../user_guide/concepts/workflow-families` explains which workflows exist;
 - this section explains the theoretical content those workflows rely on.
 
 .. toctree::

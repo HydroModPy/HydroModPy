@@ -308,5 +308,5 @@ Where To Go Next
   committed figures.
 - Use :doc:`../theory/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt`
   for the package-path explanation.
-- Use :doc:`reading-results-pages` if you want to distinguish gallery pages,
+- Use :doc:`../user_guide/concepts/reading-results-pages` if you want to distinguish gallery pages,
   validation pages, and comparison pages more generally.

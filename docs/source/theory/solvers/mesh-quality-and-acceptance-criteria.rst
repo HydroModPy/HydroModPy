@@ -134,7 +134,7 @@ Related Pages
 - :doc:`mesh-and-discretization-strategies`
 - :doc:`field-to-cell-parameter-transfer`
 - :doc:`xt3d-on-irregular-disv-meshes`
-- :doc:`../../getting_started/comparison-workflow`
+- :doc:`../../user_guide/concepts/comparison-workflow`
 
 Current Limitation
 ------------------
