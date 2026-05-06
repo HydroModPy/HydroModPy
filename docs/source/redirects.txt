@@ -1,3 +1,74 @@
-# sphinx-rediraffe redirect map.
+# sphinx-rediraffe redirect map for the documentation refactor.
 # Format: <old_path> <new_path>  (relative to docs/source, no extension)
-# Step 19 populates this file with the moves accumulated by Phase 1.
+# Phase 1 moves: scientific -> theory, getting_started orphans -> user_guide/concepts/,
+# user_guide/data flatten, boussinesq consolidation.
+# Source paths verified against git log for files that actually existed.
+
+getting_started/comparison-output-reading-order user_guide/concepts/comparison-output-reading-order
+getting_started/comparison-workflow user_guide/concepts/comparison-workflow
+getting_started/project-vs-run user_guide/concepts/project-vs-run
+getting_started/reading-results-pages user_guide/concepts/reading-results-pages
+getting_started/workflow-families user_guide/concepts/workflow-families
+getting_started/workspace-layout user_guide/concepts/workspace-layout
+scientific/calibration/calibration-methods theory/calibration/calibration-methods
+scientific/calibration/index theory/calibration/index
+scientific/calibration/inverse-problem-formulation theory/calibration/inverse-problem-formulation
+scientific/foundations/groundwater-flow-problem-definition theory/foundations/groundwater-flow-problem-definition
+scientific/foundations/index theory/foundations/index
+scientific/foundations/system-scope-and-assumptions theory/foundations/system-scope-and-assumptions
+scientific/hydrology/forcing-time-aggregation-and-first-clim theory/hydrology/forcing-time-aggregation-and-first-clim
+scientific/hydrology/hydrological-forcing-chain theory/hydrology/hydrological-forcing-chain
+scientific/hydrology/index theory/hydrology/index
+scientific/hydrology/recharge-and-surface-exchange-semantics theory/hydrology/recharge-and-surface-exchange-semantics
+scientific/hydrology/simulated-active-network theory/hydrology/simulated-active-network
+scientific/hydrology/stream-ocean-and-drainage-semantics theory/hydrology/stream-ocean-and-drainage-semantics
+scientific/hydrology/streams-and-seepage theory/hydrology/streams-and-seepage
+scientific/index theory/index
+scientific/mesh/index theory/mesh/index
+scientific/mesh/regular-vs-irregular-meshes theory/mesh/regular-vs-irregular-meshes
+scientific/solvers/boussinesq-mathematical-notes theory/boussinesq
+scientific/solvers/field-to-cell-parameter-transfer theory/solvers/field-to-cell-parameter-transfer
+scientific/solvers/flow/boussinesq-family theory/boussinesq
+scientific/solvers/flow/boussinesq/boussinesq-method theory/boussinesq
+scientific/solvers/flow/boussinesq/equation-and-unknowns theory/boussinesq
+scientific/solvers/flow/boussinesq/formulation-comparison theory/boussinesq
+scientific/solvers/flow/boussinesq/index theory/boussinesq
+scientific/solvers/flow/boussinesq/lower-obstacle-drying theory/boussinesq
+scientific/solvers/flow/boussinesq/possibility-map theory/boussinesq
+scientific/solvers/flow/boussinesq/solver-engines theory/boussinesq
+scientific/solvers/flow/boussinesq/surface-interaction theory/boussinesq
+scientific/solvers/flow/index theory/solvers/flow/index
+scientific/solvers/flow/modflow-family theory/solvers/flow/modflow-family
+scientific/solvers/flow/modflow/common-concepts theory/solvers/flow/modflow/common-concepts
+scientific/solvers/flow/modflow/common/index theory/solvers/flow/modflow/common/index
+scientific/solvers/flow/modflow/comparison-and-method-choice theory/solvers/flow/modflow/comparison-and-method-choice
+scientific/solvers/flow/modflow/cross-cutting/index theory/solvers/flow/modflow/cross-cutting/index
+scientific/solvers/flow/modflow/index theory/solvers/flow/modflow/index
+scientific/solvers/flow/modflow/modflow6 theory/solvers/flow/modflow/modflow6
+scientific/solvers/flow/modflow/modflow6-version/index theory/solvers/flow/modflow/modflow6-version/index
+scientific/solvers/flow/modflow/modflownwt theory/solvers/flow/modflow/modflownwt
+scientific/solvers/flow/modflow/modflownwt-version/index theory/solvers/flow/modflow/modflownwt-version/index
+scientific/solvers/flow/modflow/transport-coupling theory/solvers/flow/modflow/transport-coupling
+scientific/solvers/flow/modflow/worked-cases theory/solvers/flow/modflow/worked-cases
+scientific/solvers/flow/shared-flow-numerics theory/solvers/flow/shared-flow-numerics
+scientific/solvers/index theory/solvers/index
+scientific/solvers/mesh-and-discretization-strategies theory/solvers/mesh-and-discretization-strategies
+scientific/solvers/mesh-quality-and-acceptance-criteria theory/solvers/mesh-quality-and-acceptance-criteria
+scientific/solvers/meshes-and-numerical-methods theory/solvers/meshes-and-numerical-methods
+scientific/solvers/modflow-family-methods theory/solvers/modflow-family-methods
+scientific/solvers/modflow-governing-equation-and-cvfd-formulation theory/solvers/modflow-governing-equation-and-cvfd-formulation
+scientific/solvers/modflow-package-semantics-and-boundary-conditions theory/solvers/modflow-package-semantics-and-boundary-conditions
+scientific/solvers/modflow6-vs-modflownwt-scientific-comparison theory/solvers/modflow6-vs-modflownwt-scientific-comparison
+scientific/solvers/solver-capability-matrix theory/solvers/solver-capability-matrix
+scientific/solvers/vertical-representation-and-storage-assumptions theory/solvers/vertical-representation-and-storage-assumptions
+scientific/solvers/worked-modflow-case-dupuit-fixed-head-1d theory/solvers/worked-modflow-case-dupuit-fixed-head-1d
+scientific/solvers/worked-modflow-case-linearized-unconfined-recharge-periodic-1d theory/solvers/worked-modflow-case-linearized-unconfined-recharge-periodic-1d
+scientific/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt theory/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt
+scientific/solvers/xt3d-on-irregular-disv-meshes theory/solvers/xt3d-on-irregular-disv-meshes
+scientific/streams_and_seepage/conceptual-model theory/streams_and_seepage/conceptual-model
+scientific/streams_and_seepage/index theory/streams_and_seepage/index
+scientific/streams_and_seepage/nancon-k-sweep-results theory/streams_and_seepage/nancon-k-sweep-results
+scientific/streams_and_seepage/network-metrics-and-extreme-k-sweep theory/streams_and_seepage/network-metrics-and-extreme-k-sweep
+scientific/streams_and_seepage/status-and-limitations theory/streams_and_seepage/status-and-limitations
+scientific/streams_and_seepage/worked-examples theory/streams_and_seepage/worked-examples
+user_guide/data/families/index user_guide/data/index
