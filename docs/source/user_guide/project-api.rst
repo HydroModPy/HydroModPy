@@ -106,4 +106,4 @@ Use TOML plus ``hmp run`` for reproducible research, teaching material, and CI.
 Use ``Project`` when a notebook, calibration method, custom analysis loop, or
 application needs to orchestrate the same steps directly.
 
-For autosummary references, see :doc:`../api/hydromodpy-project-results`.
+For autosummary references, see :doc:`../api/index`.

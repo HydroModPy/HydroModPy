@@ -1,0 +1,64 @@
+{
+  "cases": [
+    {
+      "slug": "s3_10km2_outlet_1_rivers_only",
+      "title": "10 km2 Strahler-3 outlet 1, rivers only",
+      "figure": "docs/readthedocs/source/_static/theory/mesh/regular_irregular_cases/s3_10km2_outlet_1_rivers_only_regular_vs_irregular.png",
+      "bundle": "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_rivers_only_buffer30/bundle",
+      "irregular_cells": 574,
+      "regular_cells": 572,
+      "regular_dx_m": 296.33541418525806,
+      "regular_cell_count_error": -2,
+      "river_edges": 90,
+      "geology_change_edges_from_cells": 763
+    },
+    {
+      "slug": "headwater_100km2_outlet_27_rivers_only",
+      "title": "100 km2 headwater outlet 27, rivers only",
+      "figure": "docs/readthedocs/source/_static/theory/mesh/regular_irregular_cases/headwater_100km2_outlet_27_rivers_only_regular_vs_irregular.png",
+      "bundle": "examples/projects/07_mesh_gallery/100km2/mesh_100km2_outlet_27_rivers_only_buffer30/bundle",
+      "irregular_cells": 4312,
+      "regular_cells": 4284,
+      "regular_dx_m": 300.7166185861326,
+      "regular_cell_count_error": -28,
+      "river_edges": 717,
+      "geology_change_edges_from_cells": 5730
+    },
+    {
+      "slug": "s3_10km2_outlet_1",
+      "title": "10 km2 Strahler-3 outlet 1",
+      "figure": "docs/readthedocs/source/_static/theory/mesh/regular_irregular_cases/s3_10km2_outlet_1_regular_vs_irregular.png",
+      "bundle": "examples/projects/07_mesh_gallery/10km2/mesh_s3_10km2_outlet_1_geology_rivers_buffer30/bundle",
+      "irregular_cells": 547,
+      "regular_cells": 550,
+      "regular_dx_m": 303.13105799945265,
+      "regular_cell_count_error": 3,
+      "river_edges": 65,
+      "geology_change_edges_from_cells": 747
+    },
+    {
+      "slug": "headwater_100km2_outlet_27_floor200",
+      "title": "100 km2 headwater outlet 27, floor 200 m",
+      "figure": "docs/readthedocs/source/_static/theory/mesh/regular_irregular_cases/headwater_100km2_outlet_27_floor200_regular_vs_irregular.png",
+      "bundle": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200/bundle",
+      "irregular_cells": 3560,
+      "regular_cells": 3534,
+      "regular_dx_m": 330.95717924586864,
+      "regular_cell_count_error": -26,
+      "river_edges": 458,
+      "geology_change_edges_from_cells": 4861
+    },
+    {
+      "slug": "headwater_100km2_outlet_27_default",
+      "title": "100 km2 headwater outlet 27, default",
+      "figure": "docs/readthedocs/source/_static/theory/mesh/regular_irregular_cases/headwater_100km2_outlet_27_default_regular_vs_irregular.png",
+      "bundle": "examples/projects/07_mesh_gallery/100km2/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30/bundle",
+      "irregular_cells": 3922,
+      "regular_cells": 3944,
+      "regular_dx_m": 291.9708959460707,
+      "regular_cell_count_error": 22,
+      "river_edges": 631,
+      "geology_change_edges_from_cells": 5233
+    }
+  ]
+}

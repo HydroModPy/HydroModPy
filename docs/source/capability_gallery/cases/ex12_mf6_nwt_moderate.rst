@@ -11,7 +11,7 @@ MF6 Triangular vs NWT Structured on Moderate Forcing
 This case compares a MODFLOW 6 run on the committed triangular support against a MODFLOW-NWT run on the historical 60x60 structured grid. It keeps the same moderate annual forcing as the shared-grid comparison but now mixes support families, so the page documents the combined effect of solver choice and spatial discretization.
 
 .. seealso::
-   Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. figure:: /_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png
    :alt: Simulation comparison summary for MF6 Triangular vs NWT Structured on Moderate Forcing
@@ -50,7 +50,7 @@ How To Read It
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.
 
 Reproduce

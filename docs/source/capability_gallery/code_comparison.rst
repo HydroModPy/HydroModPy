@@ -9,7 +9,7 @@ Code Comparison
 These pages compare code families on the same controlled synthetic setups. They focus on flux partitioning, storage response, and boundary-condition behaviour when the goal is cross-code diagnosis rather than validation against an analytical reference.
 
 .. seealso::
-   Read :doc:`How to read gallery, comparison, and validation pages </getting_started/reading-results-pages>` if you want a guided entry point before opening the case pages below.
+   Read :doc:`How to read gallery, comparison, and validation pages <../user_guide/concepts/reading-results-pages>` if you want a guided entry point before opening the case pages below.
 
 Current Coverage
 ----------------

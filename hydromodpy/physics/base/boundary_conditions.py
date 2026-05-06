@@ -1,6 +1,6 @@
 """
 Prototype Module: Generic Boundary-Condition Model
-=================================================
+===================================================
 
 Contains the shared `BoundaryCondition` Pydantic model used by process modules
 that need typed boundary-condition payloads.

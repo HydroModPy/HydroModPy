@@ -5,7 +5,7 @@ Use this page when you know what you want to learn, but not which HydroModPy
 entry point to open first.
 
 If you already know the CLI keyword you are looking for and want the full map
-of ``workflow = "..."`` families, use :doc:`workflow-families`.
+of ``workflow = "..."`` families, use :doc:`../user_guide/concepts/workflow-families`.
 
 .. important::
 
@@ -33,11 +33,11 @@ Match your goal to a first page
      - You see how geographic setup, meshing, and flow fit together.
      - ``hmp run examples/projects/06_vire_selune/run_vire_mf6_irregular.toml``
    * - Compare two numerical methods on the same support
-     - :doc:`comparison-workflow`
+     - :doc:`../user_guide/concepts/comparison-workflow`
      - You want a dedicated run workflow that generates child simulations, metrics, and difference figures.
      - ``hmp run examples/projects/09_comparison_workflow/compare_dupuit_mf6_bouss.toml``
    * - Check numerical credibility against a reference
-     - :doc:`reading-results-pages`
+     - :doc:`../user_guide/concepts/reading-results-pages`
      - Validation pages explain analytical targets, solver coverage, and tolerance-based metrics.
      - ``python -m validation_cases.run_cases --solver modflow6 --regime both --no-show``
    * - Browse the full static inventory first
@@ -52,7 +52,7 @@ For most first-time contributors or users working from repository examples:
 
 1. Start with :doc:`data-overview-walkthrough`.
 2. Continue with :doc:`simulation-walkthrough`.
-3. Use :doc:`reading-results-pages` once you begin comparing methods or reading
+3. Use :doc:`../user_guide/concepts/reading-results-pages` once you begin comparing methods or reading
    validation metrics.
 
 Why not start with validation?

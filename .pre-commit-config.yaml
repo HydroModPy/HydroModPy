@@ -36,3 +36,11 @@ repos:
     rev: v8.21.2
     hooks:
       - id: gitleaks
+
+  # RST linting. Advisory: warns on style issues but does not block by default.
+  - repo: https://github.com/PyCQA/doc8
+    rev: v1.1.2
+    hooks:
+      - id: doc8
+        args: [--max-line-length=100, --ignore=D004]
+        files: ^docs/source/.*\.rst$

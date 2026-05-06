@@ -189,4 +189,4 @@ Next Pages
 - :doc:`../../architecture/index`
 - :doc:`simulation`
 - :doc:`comparison`
-- :doc:`../../getting_started/workspace-layout`
+- :doc:`../concepts/workspace-layout`

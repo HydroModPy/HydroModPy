@@ -14,7 +14,7 @@ Use this tab when you want:
 - guided entry points for reading the codebase package by package.
 
 For equations, modelling assumptions, and method documentation, see
-:doc:`../scientific/index`.
+:doc:`../theory/index`.
 
 Package layout
 --------------
@@ -83,7 +83,11 @@ must not import from them.
    spatial_support/index
    field/index
    mesh/index
+   mesh_pivot
+   gmsh_meshing
    calibration/index
    process/index
    solver/index
+   boussinesq_solver
+   modflow_contracts
    simulation/index

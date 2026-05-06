@@ -11,13 +11,13 @@ Start here when the question is:
 User path
 ---------
 
-1. Read :doc:`../getting_started/comparison-workflow` to understand the
+1. Read :doc:`concepts/comparison-workflow` to understand the
    shared-case workflow and run one comparison.
-2. Read :doc:`../getting_started/comparison-output-reading-order` before
+2. Read :doc:`concepts/comparison-output-reading-order` before
    opening generated metrics, audits, and figures.
 3. Open :doc:`../capability_gallery/simulation_comparison` for curated comparison
    cases.
-4. Use :doc:`../scientific/solvers/modflow6-vs-modflownwt-scientific-comparison`
+4. Use :doc:`../theory/solvers/modflow6-vs-modflownwt-scientific-comparison`
    for method-level interpretation.
 
 Common questions
@@ -30,13 +30,13 @@ Common questions
    * - Question
      - Best entry point
    * - How do I run a comparison?
-     - :doc:`../getting_started/comparison-workflow`
+     - :doc:`concepts/comparison-workflow`
    * - Which output should I read first?
-     - :doc:`../getting_started/comparison-output-reading-order`
+     - :doc:`concepts/comparison-output-reading-order`
    * - Where are stable comparison examples?
      - :doc:`../capability_gallery/simulation_comparison`
    * - How do I distinguish gallery, comparison, and validation pages?
-     - :doc:`../getting_started/reading-results-pages`
+     - :doc:`concepts/reading-results-pages`
    * - Where is the comparison implementation documented?
      - :doc:`../architecture/simulation/index`
 
@@ -44,6 +44,6 @@ Related sections
 ----------------
 
 - :doc:`solver-choice` for backend and numerical-option trade-offs.
-- :doc:`../scientific/solvers/solver-capability-matrix` for a compact solver
+- :doc:`../theory/solvers/solver-capability-matrix` for a compact solver
   capability overview.
-- :doc:`../api-reference` for the generated API reference.
+- :doc:`../api/index` for the generated API reference.

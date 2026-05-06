@@ -268,5 +268,5 @@ Next Pages
 
 - :doc:`../../getting_started/data-overview-walkthrough`
 - :doc:`../../capability_gallery/geographic`
-- :doc:`../../getting_started/workspace-layout`
+- :doc:`../concepts/workspace-layout`
 - :doc:`../../architecture/spatial_support/index`

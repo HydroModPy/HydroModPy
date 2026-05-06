@@ -2,7 +2,10 @@
 #
 
 # You can set these variables from the command line.
-SPHINXOPTS    =
+# -j auto parallelises reading + writing across all CPU cores. Mandatory:
+# the recursive autosummary over hydromodpy generates ~900 pages, single-threaded
+# writing takes several minutes. Override with `make html SPHINXOPTS=` to disable.
+SPHINXOPTS    ?= -j auto
 SPHINXBUILD   ?= python -m sphinx
 SPHINXPROJ    = HydroModPy
 SOURCEDIR     = source
@@ -47,6 +50,20 @@ html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
+
+html-strict:
+	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	@echo
+	@echo "Strict build finished (warnings treated as errors)."
+
+linkcheck:
+	$(SPHINXBUILD) -b linkcheck $(ALLSPHINXOPTS) $(BUILDDIR)/linkcheck
+
+lint:
+	@echo "Running sphinx-lint on $(SOURCEDIR)..."
+	@python -m sphinxlint --enable all --max-line-length 100 $(SOURCEDIR) || true
+	@echo "Running doc8 on $(SOURCEDIR)..."
+	@python -m doc8 --max-line-length 100 $(SOURCEDIR) || true
 
 livehtml:
 	sphinx-autobuild -b html --open-browser $(ALLSPHINXOPTS) $(BUILDDIR)/html

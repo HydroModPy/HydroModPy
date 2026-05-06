@@ -12,7 +12,7 @@ Use it when you want:
 - the current mesh contract supported by each flow backend.
 
 Scientific derivations and mathematical solver notes live under
-:doc:`../../scientific/solvers/index`.
+:doc:`../../theory/solvers/index`.
 
 .. tab-set::
 
@@ -39,4 +39,3 @@ Scientific derivations and mathematical solver notes live under
    boussinesq-uml-diagrams
    modflow6-architecture-notes
    modflownwt-architecture-notes
-   boussinesq-mathematical-notes

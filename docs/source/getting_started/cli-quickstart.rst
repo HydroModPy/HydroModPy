@@ -45,7 +45,7 @@ The command creates the canonical layout:
    |-- projects/             # one folder per project lives here
    `-- simulations/          # finalized Zarr archives and Parquet tables
 
-See :doc:`workspace-layout` for the resolution rules and the role of
+See :doc:`../user_guide/concepts/workspace-layout` for the resolution rules and the role of
 each folder.
 
 2. Create a project
@@ -61,7 +61,7 @@ variants.
 
 The command writes ``projects/my_basin/project.toml`` (shared settings)
 and ``projects/my_basin/run_demo.toml`` (executable run that inherits
-from ``project.toml``). See :doc:`project-vs-run` for the inheritance
+from ``project.toml``). See :doc:`../user_guide/concepts/project-vs-run` for the inheritance
 rules.
 
 3. Generate a configuration template
@@ -221,10 +221,10 @@ Less common but documented for reference:
 Where to look next
 ------------------
 
-- :doc:`workspace-layout` documents the resolution order between an
+- :doc:`../user_guide/concepts/workspace-layout` documents the resolution order between an
   explicit workspace path, the ``HYDROMODPY_WORKSPACE`` environment
   variable, and the default ``~/hydromodpy/`` location.
-- :doc:`project-vs-run` explains the TOML inheritance contract between
+- :doc:`../user_guide/concepts/project-vs-run` explains the TOML inheritance contract between
   ``project.toml`` and the ``run_*.toml`` variants.
 - :doc:`../seven-modes` lists the seven supported user APIs (CLI,
   TOML, Python, notebook).

@@ -5,6 +5,7 @@ Flow Initial Condition Models
 Typed initial-condition structures for the flow process.
 
 This module defines:
+
 - `FlowInitialCondition`: one validated payload describing how head values are
   initialized (`top`, `top_offset`, `bottom`, or `custom`).
 - `FlowInitialConditions`: the runtime container currently exposing the `h`

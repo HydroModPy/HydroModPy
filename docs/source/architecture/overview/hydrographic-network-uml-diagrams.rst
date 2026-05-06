@@ -174,4 +174,4 @@ Related reading
 
 - :doc:`mental-model-and-design-choices`
 - :doc:`code-reading-guide`
-- :doc:`../../getting_started/comparison-workflow`
+- :doc:`../../user_guide/concepts/comparison-workflow`

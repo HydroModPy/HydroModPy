@@ -1,12 +1,14 @@
 """Domain case runner from a single HydroModPy TOML configuration.
 
 This module exposes:
+
 - ``run_domain_case_from_toml`` to build ``Workspace``, geographic context, and ``Domain``.
 - ``plot_domain_summary`` to export a quick validation PNG (top, vertical scalar maps,
   catchment zones, and optional geology classes).
 - a CLI entrypoint (``main``) for local runs and smoke checks.
 
-Run with:
+Run with::
+
     python -m hydromodpy.spatial.domain.cases.run_domain_case
 """
 

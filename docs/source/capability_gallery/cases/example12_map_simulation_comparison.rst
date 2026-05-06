@@ -11,7 +11,7 @@ Shared-Mesh Solver Comparison on Naizin
 This case reuses two committed run folders for the same Naizin catchment mesh. It compares full water-table elevation and water-table depth maps at the last saved time step, plus head chronicle comparisons at three contrasted probe locations, then renders parity plots and compact error bars.
 
 .. seealso::
-   Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. figure:: /_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison.png
    :alt: Simulation comparison figure for the shared Naizin mesh
@@ -55,7 +55,7 @@ How To Read It
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - If you need to understand the reference MODFLOW 6 run itself, go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>`.
 
 Reproduce
