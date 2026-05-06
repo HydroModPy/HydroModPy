@@ -1,7 +1,7 @@
 # Plan de refonte de la documentation
 
-Date : 2026-05-05 (révisé 2026-05-06 après livraison Phases 0+1+2)
-Statut : Phase 0 + Phase 1 (sauf étape 21) + Phase 2 livrées sur `dev-docs`. Phase 3 conditionnelle (analytics + retours).
+Date : 2026-05-05 (révisé 2026-05-06 après livraison Phases 0+1+2+3)
+Statut : Phases 0, 1, 2 livrées intégralement. Phase 3 livrée à 6/8 ; étapes 40 (Algolia) et 43 (GIFs workflow) bloquées sur prérequis externes (API key Algolia, captures animées hors RTD).
 Périmètre : dossier `docs/` de HydroModPy
 
 Ce document consolide l'audit, les décisions et l'architecture cible pour la
@@ -20,26 +20,26 @@ Build sphinx local clean : 3 warnings baseline (incrémental) / 8 sur fresh
 build (5 issues codebase pré-existantes). Voir
 `dev_notes/diagnostics/doc_health.md` pour le détail.
 
-## Comment lancer la suite
+## Reste à faire
 
-### Phase 3 conditionnelle (étapes 38 à 45)
+Deux étapes Phase 3 sont en attente de prérequis externes qui ne dépendent pas
+de la session Claude Code :
 
-À ne lancer que si les déclencheurs sont là :
+| Étape | Statut | Prérequis | Action côté Bastien |
+|---|---|---|---|
+| 40 — Algolia DocSearch | ⏸ bloqué | API key DocSearch reçue | Attendre la réponse (2 à 4 semaines après dépôt). Quand acceptation reçue, lancer une session Claude Code sur `dev-docs` avec : « exécute Phase 3 étape 40 du plan, API key Algolia = `<key>` ». |
+| 43 — Workflow GIFs | ⏸ bloqué | Captures animées produites | Enregistrer 3 GIF/MP4 (calibration convergence, mesh refinement, CLI setup) hors RTD, déposer sous `docs/source/_static/motion/`, puis lancer une session Claude Code : « exécute Phase 3 étape 43 du plan, GIFs prêts sous `_static/motion/` ». |
 
-| Étape | Déclencheur attendu |
-|---|---|
-| 38 — WebP gallery | Mesure analytics signale bande passante saturée |
-| 39 — image-comparison slider | Cas concret en attente côté mesh / solver pages |
-| 40 — Algolia DocSearch | Candidature acceptée côté Algolia |
-| 41 — GoatCounter + "Was this helpful?" | Décision d'activer collecte d'usage |
-| 42 — difficulty + time badges | Tutoriels migrés disponibles |
-| 43 — workflow GIFs | Captures réalisées hors RTD |
-| 44 — Stoplight schema explorer (couche 3) | Couches 1/2/4 jugées insuffisantes par retours |
-| 45 — vtk-js mesh viewer | Mention seulement, ne pas implémenter |
+Activations restantes côté ops (pas de code à écrire) :
 
-Quand un déclencheur tombe, ouvrir une session Claude Code sur `dev-docs` et
-lancer : "exécute Phase 3 étape <N> du plan, build sphinx -j auto, commit
-seul, pas de subagents".
+- Variable d'environnement `HMP_DOCS_GOATCOUNTER_URL` pointant vers le projet
+  GoatCounter (à déclarer dans `.readthedocs.yaml` ou la session shell de
+  build) pour activer collecte analytics + widget feedback (étape 41 livrée).
+- Push éventuel de la branche `dev-docs` vers `origin/dev-docs` (l'auteur garde
+  la main, par défaut on ne pousse pas depuis Claude Code).
+
+Aucune autre tâche planifiée n'est ouverte. Toute évolution future demande un
+nouveau ADR daté sous `dev_notes/decisions/`.
 
 ### Workflow standard d'une étape
 
