@@ -39,7 +39,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.name">
         <code class="hmp-field-name">name</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.name = ...</code>
+        <code class="hmp-field-toml">name = ...</code>
       </div>
 
    :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L204>`__
@@ -55,7 +55,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.run_id">
         <code class="hmp-field-name">run_id</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.run_id = ...</code>
+        <code class="hmp-field-toml">run_id = ...</code>
       </div>
 
    :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L251>`__
@@ -71,7 +71,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.on_collision">
         <code class="hmp-field-name">on_collision</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.on_collision = ...</code>
+        <code class="hmp-field-toml">on_collision = ...</code>
       </div>
 
    :bdg-primary:`Literal['replace', 'fail', 'version']` :bdg-secondary:`default = "replace"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L259>`__
@@ -87,7 +87,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.description">
         <code class="hmp-field-name">description</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.description = ...</code>
+        <code class="hmp-field-toml">description = ...</code>
       </div>
 
    :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L253>`__
@@ -103,7 +103,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.scientific_objective">
         <code class="hmp-field-name">scientific_objective</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.scientific_objective = ...</code>
+        <code class="hmp-field-toml">scientific_objective = ...</code>
       </div>
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L275>`__
@@ -119,7 +119,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.contact_email">
         <code class="hmp-field-name">contact_email</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.contact_email = ...</code>
+        <code class="hmp-field-toml">contact_email = ...</code>
       </div>
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L279>`__
@@ -135,7 +135,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.doi">
         <code class="hmp-field-name">doi</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.doi = ...</code>
+        <code class="hmp-field-toml">doi = ...</code>
       </div>
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L283>`__
@@ -151,7 +151,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.study_area_name">
         <code class="hmp-field-name">study_area_name</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.study_area_name = ...</code>
+        <code class="hmp-field-toml">study_area_name = ...</code>
       </div>
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L287>`__
@@ -167,7 +167,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.outlet_x">
         <code class="hmp-field-name">outlet_x</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.outlet_x = ...</code>
+        <code class="hmp-field-toml">outlet_x = ...</code>
       </div>
 
    :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L291>`__
@@ -183,7 +183,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.outlet_y">
         <code class="hmp-field-name">outlet_y</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.outlet_y = ...</code>
+        <code class="hmp-field-toml">outlet_y = ...</code>
       </div>
 
    :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L295>`__
@@ -220,7 +220,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.time.start_datetime">
               <code class="hmp-field-name">start_datetime</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.time.start_datetime = ...</code>
+              <code class="hmp-field-toml">start_datetime = ...</code>
             </div>
 
          :bdg-primary:`datetime.datetime | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L53>`__
@@ -236,7 +236,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.time.end_datetime">
               <code class="hmp-field-name">end_datetime</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.time.end_datetime = ...</code>
+              <code class="hmp-field-toml">end_datetime = ...</code>
             </div>
 
          :bdg-primary:`datetime.datetime | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L60>`__
@@ -252,7 +252,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.time.step_value">
               <code class="hmp-field-name">step_value</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.time.step_value = ...</code>
+              <code class="hmp-field-toml">step_value = ...</code>
             </div>
 
          :bdg-primary:`int | float | str` :bdg-secondary:`default = "1 month"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L67>`__
@@ -268,7 +268,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.time.step_unit">
               <code class="hmp-field-name">step_unit</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.time.step_unit = ...</code>
+              <code class="hmp-field-toml">step_unit = ...</code>
             </div>
 
          :bdg-primary:`Optional[Literal['hour', 'day', 'month', 'year']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L76>`__
@@ -284,7 +284,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.time.substeps_per_period">
               <code class="hmp-field-name">substeps_per_period</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.time.substeps_per_period = ...</code>
+              <code class="hmp-field-toml">substeps_per_period = ...</code>
             </div>
 
          :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L83>`__
@@ -300,7 +300,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.time.coverage_policy">
               <code class="hmp-field-name">coverage_policy</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.time.coverage_policy = ...</code>
+              <code class="hmp-field-toml">coverage_policy = ...</code>
             </div>
 
          :bdg-primary:`Literal['error', 'warn', 'ignore']` :bdg-secondary:`default = "error"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L92>`__
@@ -339,7 +339,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.process.id">
               <code class="hmp-field-name">id</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.process.id = ...</code>
+              <code class="hmp-field-toml">id = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L152>`__
@@ -355,7 +355,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.process.type">
               <code class="hmp-field-name">type</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.process.type = ...</code>
+              <code class="hmp-field-toml">type = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L158>`__
@@ -371,7 +371,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.process.solvers">
               <code class="hmp-field-name">solvers</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.process.solvers = ...</code>
+              <code class="hmp-field-toml">solvers = ...</code>
             </div>
 
          :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L161>`__
@@ -431,7 +431,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.persistence.save_catalog">
                     <code class="hmp-field-name">save_catalog</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.persistence.save_catalog = ...</code>
+                    <code class="hmp-field-toml">save_catalog = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L31>`__
@@ -447,7 +447,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.persistence.save_zarr">
                     <code class="hmp-field-name">save_zarr</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.persistence.save_zarr = ...</code>
+                    <code class="hmp-field-toml">save_zarr = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L36>`__
@@ -463,7 +463,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.persistence.save_parquet">
                     <code class="hmp-field-name">save_parquet</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.persistence.save_parquet = ...</code>
+                    <code class="hmp-field-toml">save_parquet = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L41>`__
@@ -479,7 +479,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.persistence.save_lock">
                     <code class="hmp-field-name">save_lock</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.persistence.save_lock = ...</code>
+                    <code class="hmp-field-toml">save_lock = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L46>`__
@@ -495,7 +495,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.persistence.compression">
                     <code class="hmp-field-name">compression</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.persistence.compression = ...</code>
+                    <code class="hmp-field-toml">compression = ...</code>
                   </div>
 
                :bdg-primary:`Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L51>`__
@@ -511,7 +511,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.persistence.compression_level">
                     <code class="hmp-field-name">compression_level</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.persistence.compression_level = ...</code>
+                    <code class="hmp-field-toml">compression_level = ...</code>
                   </div>
 
                :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L56>`__
@@ -529,7 +529,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.results.keep_solver_files">
               <code class="hmp-field-name">keep_solver_files</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.results.keep_solver_files = ...</code>
+              <code class="hmp-field-toml">keep_solver_files = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L149>`__
@@ -545,7 +545,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="simulation.results.solver_scratch">
               <code class="hmp-field-name">solver_scratch</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">simulation.results.solver_scratch = ...</code>
+              <code class="hmp-field-toml">solver_scratch = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-secondary:`default = ".solver_scratch"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L153>`__
@@ -582,7 +582,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.derived.watertable_elevation">
                     <code class="hmp-field-name">watertable_elevation</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.derived.watertable_elevation = ...</code>
+                    <code class="hmp-field-toml">watertable_elevation = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L19>`__
@@ -598,7 +598,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.derived.watertable_depth">
                     <code class="hmp-field-name">watertable_depth</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.derived.watertable_depth = ...</code>
+                    <code class="hmp-field-toml">watertable_depth = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L23>`__
@@ -614,7 +614,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.derived.seepage_areas">
                     <code class="hmp-field-name">seepage_areas</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.derived.seepage_areas = ...</code>
+                    <code class="hmp-field-toml">seepage_areas = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L27>`__
@@ -630,7 +630,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.derived.groundwater_flux">
                     <code class="hmp-field-name">groundwater_flux</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.derived.groundwater_flux = ...</code>
+                    <code class="hmp-field-toml">groundwater_flux = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L31>`__
@@ -646,7 +646,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.derived.accumulation_flux">
                     <code class="hmp-field-name">accumulation_flux</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.derived.accumulation_flux = ...</code>
+                    <code class="hmp-field-toml">accumulation_flux = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L35>`__
@@ -662,7 +662,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.derived.outflow_drain">
                     <code class="hmp-field-name">outflow_drain</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.derived.outflow_drain = ...</code>
+                    <code class="hmp-field-toml">outflow_drain = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L39>`__
@@ -678,7 +678,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.derived.concentration_seepage">
                     <code class="hmp-field-name">concentration_seepage</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.derived.concentration_seepage = ...</code>
+                    <code class="hmp-field-toml">concentration_seepage = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L43>`__
@@ -694,7 +694,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.derived.mass_seepage">
                     <code class="hmp-field-name">mass_seepage</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.derived.mass_seepage = ...</code>
+                    <code class="hmp-field-toml">mass_seepage = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L47>`__
@@ -710,7 +710,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.derived.mass_accumulated">
                     <code class="hmp-field-name">mass_accumulated</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.derived.mass_accumulated = ...</code>
+                    <code class="hmp-field-toml">mass_accumulated = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L51>`__
@@ -749,7 +749,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.budget.spatial_fields">
                     <code class="hmp-field-name">spatial_fields</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.budget.spatial_fields = ...</code>
+                    <code class="hmp-field-toml">spatial_fields = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L126>`__
@@ -788,7 +788,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.export.netcdf">
                     <code class="hmp-field-name">netcdf</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.export.netcdf = ...</code>
+                    <code class="hmp-field-toml">netcdf = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L94>`__
@@ -804,7 +804,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.export.csv_timeseries">
                     <code class="hmp-field-name">csv_timeseries</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.export.csv_timeseries = ...</code>
+                    <code class="hmp-field-toml">csv_timeseries = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L97>`__
@@ -820,7 +820,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.export.vtu">
                     <code class="hmp-field-name">vtu</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.export.vtu = ...</code>
+                    <code class="hmp-field-toml">vtu = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L100>`__
@@ -836,7 +836,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.export.geotiff">
                     <code class="hmp-field-name">geotiff</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.export.geotiff = ...</code>
+                    <code class="hmp-field-toml">geotiff = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L103>`__
@@ -852,7 +852,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.export.shapefile">
                     <code class="hmp-field-name">shapefile</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.export.shapefile = ...</code>
+                    <code class="hmp-field-toml">shapefile = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L104>`__
@@ -868,7 +868,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="simulation.results.export.output_dir">
                     <code class="hmp-field-name">output_dir</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation.results.export.output_dir = ...</code>
+                    <code class="hmp-field-toml">output_dir = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L107>`__
@@ -905,7 +905,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.head">
                           <code class="hmp-field-name">head</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">simulation.results.export.variables.head = ...</code>
+                          <code class="hmp-field-toml">head = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L62>`__
@@ -921,7 +921,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.concentration">
                           <code class="hmp-field-name">concentration</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">simulation.results.export.variables.concentration = ...</code>
+                          <code class="hmp-field-toml">concentration = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L63>`__
@@ -937,7 +937,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.budget">
                           <code class="hmp-field-name">budget</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">simulation.results.export.variables.budget = ...</code>
+                          <code class="hmp-field-toml">budget = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L66>`__
@@ -953,7 +953,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.pathlines">
                           <code class="hmp-field-name">pathlines</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">simulation.results.export.variables.pathlines = ...</code>
+                          <code class="hmp-field-toml">pathlines = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L69>`__
@@ -969,7 +969,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="simulation.results.export.variables.derived">
                           <code class="hmp-field-name">derived</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">simulation.results.export.variables.derived = ...</code>
+                          <code class="hmp-field-toml">derived = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L72>`__
@@ -991,7 +991,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="simulation.rng_seed">
         <code class="hmp-field-name">rng_seed</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">simulation.rng_seed = ...</code>
+        <code class="hmp-field-toml">rng_seed = ...</code>
       </div>
 
    :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L323>`__

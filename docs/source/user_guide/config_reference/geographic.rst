@@ -47,7 +47,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.source_mode">
         <code class="hmp-field-name">source_mode</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.source_mode = ...</code>
+        <code class="hmp-field-toml">source_mode = ...</code>
       </div>
 
    :bdg-primary:`Literal['standard', 'synthetic']` :bdg-secondary:`default = "standard"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L157>`__
@@ -63,7 +63,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.catch_def">
         <code class="hmp-field-name">catch_def</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.catch_def = ...</code>
+        <code class="hmp-field-toml">catch_def = ...</code>
       </div>
 
    :bdg-primary:`Optional[Literal['dem', 'txt', 'from_outlet_coord', 'from_polyg_shp']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L165>`__
@@ -79,7 +79,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.dem_init_path">
         <code class="hmp-field-name">dem_init_path</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.dem_init_path = ...</code>
+        <code class="hmp-field-toml">dem_init_path = ...</code>
       </div>
 
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L181>`__
@@ -95,7 +95,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.cell_size">
         <code class="hmp-field-name">cell_size</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.cell_size = ...</code>
+        <code class="hmp-field-toml">cell_size = ...</code>
       </div>
 
    :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L194>`__
@@ -111,7 +111,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.x_outlet">
         <code class="hmp-field-name">x_outlet</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.x_outlet = ...</code>
+        <code class="hmp-field-toml">x_outlet = ...</code>
       </div>
 
    :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L203>`__
@@ -127,7 +127,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.y_outlet">
         <code class="hmp-field-name">y_outlet</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.y_outlet = ...</code>
+        <code class="hmp-field-toml">y_outlet = ...</code>
       </div>
 
    :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L211>`__
@@ -143,7 +143,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.snap_dist">
         <code class="hmp-field-name">snap_dist</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.snap_dist = ...</code>
+        <code class="hmp-field-toml">snap_dist = ...</code>
       </div>
 
    :bdg-primary:`float | str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L219>`__
@@ -159,7 +159,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.buff_area">
         <code class="hmp-field-name">buff_area</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.buff_area = ...</code>
+        <code class="hmp-field-toml">buff_area = ...</code>
       </div>
 
    :bdg-primary:`str | float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L231>`__
@@ -175,7 +175,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.polyg_shp_path">
         <code class="hmp-field-name">polyg_shp_path</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.polyg_shp_path = ...</code>
+        <code class="hmp-field-toml">polyg_shp_path = ...</code>
       </div>
 
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L244>`__
@@ -191,7 +191,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.crs_project">
         <code class="hmp-field-name">crs_project</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.crs_project = ...</code>
+        <code class="hmp-field-toml">crs_project = ...</code>
       </div>
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L253>`__
@@ -207,7 +207,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.dem_correc_type">
         <code class="hmp-field-name">dem_correc_type</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.dem_correc_type = ...</code>
+        <code class="hmp-field-toml">dem_correc_type = ...</code>
       </div>
 
    :bdg-primary:`Literal['breach', 'fill']` :bdg-secondary:`default = "breach"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L257>`__
@@ -223,7 +223,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.bottom_path">
         <code class="hmp-field-name">bottom_path</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.bottom_path = ...</code>
+        <code class="hmp-field-toml">bottom_path = ...</code>
       </div>
 
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L261>`__
@@ -239,7 +239,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.reg_fold">
         <code class="hmp-field-name">reg_fold</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.reg_fold = ...</code>
+        <code class="hmp-field-toml">reg_fold = ...</code>
       </div>
 
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L269>`__
@@ -276,7 +276,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.synthetic.case_id">
               <code class="hmp-field-name">case_id</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.synthetic.case_id = ...</code>
+              <code class="hmp-field-toml">case_id = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-secondary:`default = "flat20"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L208>`__
@@ -313,7 +313,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.grid.length_x">
                     <code class="hmp-field-name">length_x</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.grid.length_x = ...</code>
+                    <code class="hmp-field-toml">length_x = ...</code>
                   </div>
 
                :bdg-primary:`float` :bdg-secondary:`default = 100.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L22>`__
@@ -329,7 +329,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.grid.length_y">
                     <code class="hmp-field-name">length_y</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.grid.length_y = ...</code>
+                    <code class="hmp-field-toml">length_y = ...</code>
                   </div>
 
                :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L26>`__
@@ -345,7 +345,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.grid.nx">
                     <code class="hmp-field-name">nx</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.grid.nx = ...</code>
+                    <code class="hmp-field-toml">nx = ...</code>
                   </div>
 
                :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L30>`__
@@ -361,7 +361,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.grid.ny">
                     <code class="hmp-field-name">ny</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.grid.ny = ...</code>
+                    <code class="hmp-field-toml">ny = ...</code>
                   </div>
 
                :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L35>`__
@@ -377,7 +377,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.grid.xmin">
                     <code class="hmp-field-name">xmin</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.grid.xmin = ...</code>
+                    <code class="hmp-field-toml">xmin = ...</code>
                   </div>
 
                :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L40>`__
@@ -393,7 +393,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.grid.ymin">
                     <code class="hmp-field-name">ymin</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.grid.ymin = ...</code>
+                    <code class="hmp-field-toml">ymin = ...</code>
                   </div>
 
                :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L44>`__
@@ -409,7 +409,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.grid.crs">
                     <code class="hmp-field-name">crs</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.grid.crs = ...</code>
+                    <code class="hmp-field-toml">crs = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L48>`__
@@ -425,7 +425,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.grid.nodata">
                     <code class="hmp-field-name">nodata</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.grid.nodata = ...</code>
+                    <code class="hmp-field-toml">nodata = ...</code>
                   </div>
 
                :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L52>`__
@@ -464,7 +464,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.kind">
                     <code class="hmp-field-name">kind</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.topography.kind = ...</code>
+                    <code class="hmp-field-toml">kind = ...</code>
                   </div>
 
                :bdg-primary:`Literal['flat', 'linear', 'radial_island']` :bdg-secondary:`default = "flat"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L118>`__
@@ -480,7 +480,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.base_elevation">
                     <code class="hmp-field-name">base_elevation</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.topography.base_elevation = ...</code>
+                    <code class="hmp-field-toml">base_elevation = ...</code>
                   </div>
 
                :bdg-primary:`float` :bdg-secondary:`default = 20.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L128>`__
@@ -496,7 +496,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.right_to_left_amplitude">
                     <code class="hmp-field-name">right_to_left_amplitude</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.topography.right_to_left_amplitude = ...</code>
+                    <code class="hmp-field-toml">right_to_left_amplitude = ...</code>
                   </div>
 
                :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L137>`__
@@ -512,7 +512,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.island_radius">
                     <code class="hmp-field-name">island_radius</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.topography.island_radius = ...</code>
+                    <code class="hmp-field-toml">island_radius = ...</code>
                   </div>
 
                :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L145>`__
@@ -528,7 +528,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.crest_elevation">
                     <code class="hmp-field-name">crest_elevation</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.topography.crest_elevation = ...</code>
+                    <code class="hmp-field-toml">crest_elevation = ...</code>
                   </div>
 
                :bdg-primary:`float` :bdg-secondary:`default = 10.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L152>`__
@@ -544,7 +544,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.center_x">
                     <code class="hmp-field-name">center_x</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.topography.center_x = ...</code>
+                    <code class="hmp-field-toml">center_x = ...</code>
                   </div>
 
                :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L159>`__
@@ -560,7 +560,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.center_y">
                     <code class="hmp-field-name">center_y</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">geographic.synthetic.topography.center_y = ...</code>
+                    <code class="hmp-field-toml">center_y = ...</code>
                   </div>
 
                :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L165>`__
@@ -601,7 +601,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.river_network.enabled">
               <code class="hmp-field-name">enabled</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.river_network.enabled = ...</code>
+              <code class="hmp-field-toml">enabled = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L27>`__
@@ -617,7 +617,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.river_network.threshold_mode">
               <code class="hmp-field-name">threshold_mode</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.river_network.threshold_mode = ...</code>
+              <code class="hmp-field-toml">threshold_mode = ...</code>
             </div>
 
          :bdg-primary:`Literal['area_km2', 'cells']` :bdg-secondary:`default = "area_km2"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L34>`__
@@ -633,7 +633,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.river_network.threshold_area_km2">
               <code class="hmp-field-name">threshold_area_km2</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.river_network.threshold_area_km2 = ...</code>
+              <code class="hmp-field-toml">threshold_area_km2 = ...</code>
             </div>
 
          :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L42>`__
@@ -649,7 +649,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.river_network.threshold_cells">
               <code class="hmp-field-name">threshold_cells</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.river_network.threshold_cells = ...</code>
+              <code class="hmp-field-toml">threshold_cells = ...</code>
             </div>
 
          :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L52>`__
@@ -665,7 +665,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.river_network.prune_short_streams">
               <code class="hmp-field-name">prune_short_streams</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.river_network.prune_short_streams = ...</code>
+              <code class="hmp-field-toml">prune_short_streams = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L60>`__
@@ -681,7 +681,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.river_network.min_stream_length_m">
               <code class="hmp-field-name">min_stream_length_m</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.river_network.min_stream_length_m = ...</code>
+              <code class="hmp-field-toml">min_stream_length_m = ...</code>
             </div>
 
          :bdg-primary:`float | str` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L64>`__
@@ -697,7 +697,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.river_network.compute_strahler_order">
               <code class="hmp-field-name">compute_strahler_order</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.river_network.compute_strahler_order = ...</code>
+              <code class="hmp-field-toml">compute_strahler_order = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L71>`__
@@ -713,7 +713,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.river_network.compute_stream_links">
               <code class="hmp-field-name">compute_stream_links</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.river_network.compute_stream_links = ...</code>
+              <code class="hmp-field-toml">compute_stream_links = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L75>`__
@@ -729,7 +729,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="geographic.river_network.all_vertices">
               <code class="hmp-field-name">all_vertices</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">geographic.river_network.all_vertices = ...</code>
+              <code class="hmp-field-toml">all_vertices = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L79>`__
@@ -747,7 +747,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.reuse_existing_outputs">
         <code class="hmp-field-name">reuse_existing_outputs</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.reuse_existing_outputs = ...</code>
+        <code class="hmp-field-toml">reuse_existing_outputs = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L287>`__
@@ -763,7 +763,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="geographic.write_intermediates">
         <code class="hmp-field-name">write_intermediates</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">geographic.write_intermediates = ...</code>
+        <code class="hmp-field-toml">write_intermediates = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L297>`__

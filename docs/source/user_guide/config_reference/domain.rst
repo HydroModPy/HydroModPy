@@ -41,7 +41,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="domain.zone_ids">
         <code class="hmp-field-name">zone_ids</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">domain.zone_ids = ...</code>
+        <code class="hmp-field-toml">zone_ids = ...</code>
       </div>
 
    :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L25>`__
@@ -78,7 +78,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.provider">
               <code class="hmp-field-name">provider</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.provider = ...</code>
+              <code class="hmp-field-toml">provider = ...</code>
             </div>
 
          :bdg-primary:`Literal['generated_bands']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L23>`__
@@ -92,7 +92,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.axis">
               <code class="hmp-field-name">axis</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.axis = ...</code>
+              <code class="hmp-field-toml">axis = ...</code>
             </div>
 
          :bdg-primary:`Literal['x', 'y']` :bdg-secondary:`default = "x"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L24>`__
@@ -106,7 +106,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.coordinate_mode">
               <code class="hmp-field-name">coordinate_mode</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.coordinate_mode = ...</code>
+              <code class="hmp-field-toml">coordinate_mode = ...</code>
             </div>
 
          :bdg-primary:`Literal['relative', 'absolute']` :bdg-secondary:`default = "relative"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L25>`__
@@ -120,7 +120,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.breaks">
               <code class="hmp-field-name">breaks</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.breaks = ...</code>
+              <code class="hmp-field-toml">breaks = ...</code>
             </div>
 
          :bdg-primary:`list[float | str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L26>`__
@@ -136,7 +136,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.labels">
               <code class="hmp-field-name">labels</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.labels = ...</code>
+              <code class="hmp-field-toml">labels = ...</code>
             </div>
 
          :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L34>`__
@@ -152,7 +152,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.default_cell_samples_per_axis">
               <code class="hmp-field-name">default_cell_samples_per_axis</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.default_cell_samples_per_axis = ...</code>
+              <code class="hmp-field-toml">default_cell_samples_per_axis = ...</code>
             </div>
 
          :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L38>`__
@@ -175,7 +175,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.provider">
               <code class="hmp-field-name">provider</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.provider = ...</code>
+              <code class="hmp-field-toml">provider = ...</code>
             </div>
 
          :bdg-primary:`Literal['generated_rings']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L105>`__
@@ -189,7 +189,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.coordinate_mode">
               <code class="hmp-field-name">coordinate_mode</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.coordinate_mode = ...</code>
+              <code class="hmp-field-toml">coordinate_mode = ...</code>
             </div>
 
          :bdg-primary:`Literal['relative', 'absolute']` :bdg-secondary:`default = "relative"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L106>`__
@@ -203,7 +203,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.radii">
               <code class="hmp-field-name">radii</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.radii = ...</code>
+              <code class="hmp-field-toml">radii = ...</code>
             </div>
 
          :bdg-primary:`list[float | str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L107>`__
@@ -219,7 +219,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.labels">
               <code class="hmp-field-name">labels</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.labels = ...</code>
+              <code class="hmp-field-toml">labels = ...</code>
             </div>
 
          :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L116>`__
@@ -235,7 +235,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.center_x">
               <code class="hmp-field-name">center_x</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.center_x = ...</code>
+              <code class="hmp-field-toml">center_x = ...</code>
             </div>
 
          :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L120>`__
@@ -251,7 +251,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.center_y">
               <code class="hmp-field-name">center_y</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.center_y = ...</code>
+              <code class="hmp-field-toml">center_y = ...</code>
             </div>
 
          :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L127>`__
@@ -267,7 +267,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.default_cell_samples_per_axis">
               <code class="hmp-field-name">default_cell_samples_per_axis</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.default_cell_samples_per_axis = ...</code>
+              <code class="hmp-field-toml">default_cell_samples_per_axis = ...</code>
             </div>
 
          :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L134>`__
@@ -290,7 +290,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.provider">
               <code class="hmp-field-name">provider</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.provider = ...</code>
+              <code class="hmp-field-toml">provider = ...</code>
             </div>
 
          :bdg-primary:`Literal['catchment_zones']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L214>`__
@@ -304,7 +304,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.source_zone_id">
               <code class="hmp-field-name">source_zone_id</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.source_zone_id = ...</code>
+              <code class="hmp-field-toml">source_zone_id = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-secondary:`default = "catchment"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L215>`__
@@ -320,7 +320,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.default_cell_samples_per_axis">
               <code class="hmp-field-name">default_cell_samples_per_axis</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.default_cell_samples_per_axis = ...</code>
+              <code class="hmp-field-toml">default_cell_samples_per_axis = ...</code>
             </div>
 
          :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L219>`__
@@ -343,7 +343,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.supports.&lt;id&gt;.provider">
               <code class="hmp-field-name">provider</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.supports.&lt;id&gt;.provider = ...</code>
+              <code class="hmp-field-toml">provider = ...</code>
             </div>
 
          :bdg-primary:`Literal['geology']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L237>`__
@@ -382,7 +382,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.depth_model.constant_thickness.thickness">
               <code class="hmp-field-name">thickness</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.depth_model.constant_thickness.thickness = ...</code>
+              <code class="hmp-field-toml">thickness = ...</code>
             </div>
 
          :bdg-primary:`float` :bdg-secondary:`default = 50.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/depth_model_config.py#L28>`__
@@ -405,7 +405,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="domain.depth_model.flat_substratum.substratum_elevation">
               <code class="hmp-field-name">substratum_elevation</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">domain.depth_model.flat_substratum.substratum_elevation = ...</code>
+              <code class="hmp-field-toml">substratum_elevation = ...</code>
             </div>
 
          :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/depth_model_config.py#L61>`__

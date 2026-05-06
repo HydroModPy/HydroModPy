@@ -39,7 +39,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.constraints_mode">
         <code class="hmp-field-name">constraints_mode</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.constraints_mode = ...</code>
+        <code class="hmp-field-toml">constraints_mode = ...</code>
       </div>
 
    :bdg-primary:`Literal['geology_only', 'rivers_only', 'geology_rivers']` :bdg-secondary:`default = "geology_rivers"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L45>`__
@@ -55,7 +55,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.output_mesh">
         <code class="hmp-field-name">output_mesh</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.output_mesh = ...</code>
+        <code class="hmp-field-toml">output_mesh = ...</code>
       </div>
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L57>`__
@@ -71,7 +71,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.output_summary_json">
         <code class="hmp-field-name">output_summary_json</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.output_summary_json = ...</code>
+        <code class="hmp-field-toml">output_summary_json = ...</code>
       </div>
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L66>`__
@@ -87,7 +87,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.output_figure">
         <code class="hmp-field-name">output_figure</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.output_figure = ...</code>
+        <code class="hmp-field-toml">output_figure = ...</code>
       </div>
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L74>`__
@@ -103,7 +103,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.output_figure_regional">
         <code class="hmp-field-name">output_figure_regional</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.output_figure_regional = ...</code>
+        <code class="hmp-field-toml">output_figure_regional = ...</code>
       </div>
 
    :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L82>`__
@@ -119,7 +119,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.figures_enabled">
         <code class="hmp-field-name">figures_enabled</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.figures_enabled = ...</code>
+        <code class="hmp-field-toml">figures_enabled = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L90>`__
@@ -135,7 +135,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.export_exchange_bundle">
         <code class="hmp-field-name">export_exchange_bundle</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.export_exchange_bundle = ...</code>
+        <code class="hmp-field-toml">export_exchange_bundle = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L97>`__
@@ -151,7 +151,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.figure_dpi">
         <code class="hmp-field-name">figure_dpi</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.figure_dpi = ...</code>
+        <code class="hmp-field-toml">figure_dpi = ...</code>
       </div>
 
    :bdg-primary:`int` :bdg-secondary:`default = 300` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L105>`__
@@ -167,7 +167,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.figure_regional_dpi">
         <code class="hmp-field-name">figure_regional_dpi</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.figure_regional_dpi = ...</code>
+        <code class="hmp-field-toml">figure_regional_dpi = ...</code>
       </div>
 
    :bdg-primary:`int` :bdg-secondary:`default = 220` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L113>`__
@@ -183,7 +183,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.output_layout">
         <code class="hmp-field-name">output_layout</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.output_layout = ...</code>
+        <code class="hmp-field-toml">output_layout = ...</code>
       </div>
 
    :bdg-primary:`str` :bdg-secondary:`default = "standard"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L121>`__
@@ -199,7 +199,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.show_plot">
         <code class="hmp-field-name">show_plot</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.show_plot = ...</code>
+        <code class="hmp-field-toml">show_plot = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L130>`__
@@ -215,7 +215,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.geographic_outputs_mode">
         <code class="hmp-field-name">geographic_outputs_mode</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">mesh_catchment.geographic_outputs_mode = ...</code>
+        <code class="hmp-field-toml">geographic_outputs_mode = ...</code>
       </div>
 
    :bdg-primary:`str` :bdg-secondary:`default = "keep"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L137>`__
@@ -252,7 +252,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.rivers.source">
               <code class="hmp-field-name">source</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.rivers.source = ...</code>
+              <code class="hmp-field-toml">source = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-secondary:`default = "domain_geographic"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/rivers.py#L19>`__
@@ -268,7 +268,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.rivers.path">
               <code class="hmp-field-name">path</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.rivers.path = ...</code>
+              <code class="hmp-field-toml">path = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/rivers.py#L27>`__
@@ -284,7 +284,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.rivers.clip_to_domain">
               <code class="hmp-field-name">clip_to_domain</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.rivers.clip_to_domain = ...</code>
+              <code class="hmp-field-toml">clip_to_domain = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/rivers.py#L35>`__
@@ -300,7 +300,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.rivers.min_segment_length">
               <code class="hmp-field-name">min_segment_length</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.rivers.min_segment_length = ...</code>
+              <code class="hmp-field-toml">min_segment_length = ...</code>
             </div>
 
          :bdg-primary:`Any` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/rivers.py#L43>`__
@@ -316,7 +316,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.rivers.snap_tolerance">
               <code class="hmp-field-name">snap_tolerance</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.rivers.snap_tolerance = ...</code>
+              <code class="hmp-field-toml">snap_tolerance = ...</code>
             </div>
 
          :bdg-primary:`Any` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/rivers.py#L52>`__
@@ -371,7 +371,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.enabled">
               <code class="hmp-field-name">enabled</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.watershed_boundary.enabled = ...</code>
+              <code class="hmp-field-toml">enabled = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L129>`__
@@ -387,7 +387,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.boundary_refinement_distance">
               <code class="hmp-field-name">boundary_refinement_distance</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.watershed_boundary.boundary_refinement_distance = ...</code>
+              <code class="hmp-field-toml">boundary_refinement_distance = ...</code>
             </div>
 
          :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L136>`__
@@ -424,7 +424,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.smoothing.enabled">
                     <code class="hmp-field-name">enabled</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.smoothing.enabled = ...</code>
+                    <code class="hmp-field-toml">enabled = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L19>`__
@@ -440,7 +440,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.smoothing.distance">
                     <code class="hmp-field-name">distance</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.smoothing.distance = ...</code>
+                    <code class="hmp-field-toml">distance = ...</code>
                   </div>
 
                :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L25>`__
@@ -456,7 +456,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.smoothing.river_buffer_distance">
                     <code class="hmp-field-name">river_buffer_distance</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.smoothing.river_buffer_distance = ...</code>
+                    <code class="hmp-field-toml">river_buffer_distance = ...</code>
                   </div>
 
                :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L34>`__
@@ -472,7 +472,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.smoothing.outer_bias_distance">
                     <code class="hmp-field-name">outer_bias_distance</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.smoothing.outer_bias_distance = ...</code>
+                    <code class="hmp-field-toml">outer_bias_distance = ...</code>
                   </div>
 
                :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L42>`__
@@ -511,7 +511,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.outside_coarsening.enabled">
                     <code class="hmp-field-name">enabled</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.outside_coarsening.enabled = ...</code>
+                    <code class="hmp-field-toml">enabled = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L57>`__
@@ -527,7 +527,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.outside_coarsening.size_factor">
                     <code class="hmp-field-name">size_factor</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.outside_coarsening.size_factor = ...</code>
+                    <code class="hmp-field-toml">size_factor = ...</code>
                   </div>
 
                :bdg-primary:`float` :bdg-secondary:`default = 2.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L64>`__
@@ -543,7 +543,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.outside_coarsening.transition_distance">
                     <code class="hmp-field-name">transition_distance</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.outside_coarsening.transition_distance = ...</code>
+                    <code class="hmp-field-toml">transition_distance = ...</code>
                   </div>
 
                :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L72>`__
@@ -559,7 +559,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.outside_coarsening.grid_resolution">
                     <code class="hmp-field-name">grid_resolution</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.outside_coarsening.grid_resolution = ...</code>
+                    <code class="hmp-field-toml">grid_resolution = ...</code>
                   </div>
 
                :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L80>`__
@@ -598,7 +598,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.geology_conformity.mode">
                     <code class="hmp-field-name">mode</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.geology_conformity.mode = ...</code>
+                    <code class="hmp-field-toml">mode = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "full_domain"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L95>`__
@@ -614,7 +614,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.watershed_boundary.geology_conformity.buffer_distance">
                     <code class="hmp-field-name">buffer_distance</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.watershed_boundary.geology_conformity.buffer_distance = ...</code>
+                    <code class="hmp-field-toml">buffer_distance = ...</code>
                   </div>
 
                :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/watershed.py#L104>`__
@@ -676,7 +676,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.conductivity.values_source">
                     <code class="hmp-field-name">values_source</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.conductivity.values_source = ...</code>
+                    <code class="hmp-field-toml">values_source = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "inline"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L140>`__
@@ -708,7 +708,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.conductivity.values_csv_file">
                     <code class="hmp-field-name">values_csv_file</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.conductivity.values_csv_file = ...</code>
+                    <code class="hmp-field-toml">values_csv_file = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L140>`__
@@ -724,7 +724,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.conductivity.csv_key_column">
                     <code class="hmp-field-name">csv_key_column</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.conductivity.csv_key_column = ...</code>
+                    <code class="hmp-field-toml">csv_key_column = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "zone_key"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L140>`__
@@ -740,7 +740,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.conductivity.csv_value_column">
                     <code class="hmp-field-name">csv_value_column</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.conductivity.csv_value_column = ...</code>
+                    <code class="hmp-field-toml">csv_value_column = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L140>`__
@@ -756,7 +756,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.conductivity.default_value">
                     <code class="hmp-field-name">default_value</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.conductivity.default_value = ...</code>
+                    <code class="hmp-field-toml">default_value = ...</code>
                   </div>
 
                :bdg-primary:`object | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L140>`__
@@ -772,7 +772,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.conductivity.unit">
                     <code class="hmp-field-name">unit</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.conductivity.unit = ...</code>
+                    <code class="hmp-field-toml">unit = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "m/s"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L143>`__
@@ -811,7 +811,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.storage_coefficient.values_source">
                     <code class="hmp-field-name">values_source</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.storage_coefficient.values_source = ...</code>
+                    <code class="hmp-field-toml">values_source = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "inline"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L153>`__
@@ -843,7 +843,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.storage_coefficient.values_csv_file">
                     <code class="hmp-field-name">values_csv_file</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.storage_coefficient.values_csv_file = ...</code>
+                    <code class="hmp-field-toml">values_csv_file = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L153>`__
@@ -859,7 +859,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.storage_coefficient.csv_key_column">
                     <code class="hmp-field-name">csv_key_column</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.storage_coefficient.csv_key_column = ...</code>
+                    <code class="hmp-field-toml">csv_key_column = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "zone_key"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L153>`__
@@ -875,7 +875,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.storage_coefficient.csv_value_column">
                     <code class="hmp-field-name">csv_value_column</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.storage_coefficient.csv_value_column = ...</code>
+                    <code class="hmp-field-toml">csv_value_column = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L153>`__
@@ -891,7 +891,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.storage_coefficient.default_value">
                     <code class="hmp-field-name">default_value</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.hydraulic_properties.storage_coefficient.default_value = ...</code>
+                    <code class="hmp-field-toml">default_value = ...</code>
                   </div>
 
                :bdg-primary:`object | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L153>`__
@@ -934,7 +934,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.bbox.bbox">
               <code class="hmp-field-name">bbox</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.domain.bbox.bbox = ...</code>
+              <code class="hmp-field-toml">bbox = ...</code>
             </div>
 
          :bdg-primary:`list[float]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L30>`__
@@ -955,7 +955,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.polygon.coordinates">
               <code class="hmp-field-name">coordinates</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.domain.polygon.coordinates = ...</code>
+              <code class="hmp-field-toml">coordinates = ...</code>
             </div>
 
          :bdg-primary:`list[list[float]]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L60>`__
@@ -976,7 +976,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.path">
               <code class="hmp-field-name">path</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.domain.vector.path = ...</code>
+              <code class="hmp-field-toml">path = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L87>`__
@@ -990,7 +990,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.id_field">
               <code class="hmp-field-name">id_field</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.domain.vector.id_field = ...</code>
+              <code class="hmp-field-toml">id_field = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L88>`__
@@ -1006,7 +1006,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.selected_id">
               <code class="hmp-field-name">selected_id</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.domain.vector.selected_id = ...</code>
+              <code class="hmp-field-toml">selected_id = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L92>`__
@@ -1066,7 +1066,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.algorithm">
               <code class="hmp-field-name">algorithm</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.algorithm = ...</code>
+              <code class="hmp-field-toml">algorithm = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-secondary:`default = "delaunay"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L320>`__
@@ -1082,7 +1082,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.global_size">
               <code class="hmp-field-name">global_size</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.global_size = ...</code>
+              <code class="hmp-field-toml">global_size = ...</code>
             </div>
 
          :bdg-primary:`float` :bdg-secondary:`default = 250.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L327>`__
@@ -1098,7 +1098,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.min_size">
               <code class="hmp-field-name">min_size</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.min_size = ...</code>
+              <code class="hmp-field-toml">min_size = ...</code>
             </div>
 
          :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L334>`__
@@ -1114,7 +1114,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.max_size">
               <code class="hmp-field-name">max_size</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.max_size = ...</code>
+              <code class="hmp-field-toml">max_size = ...</code>
             </div>
 
          :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L341>`__
@@ -1130,7 +1130,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.simplify_tolerance">
               <code class="hmp-field-name">simplify_tolerance</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.simplify_tolerance = ...</code>
+              <code class="hmp-field-toml">simplify_tolerance = ...</code>
             </div>
 
          :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L348>`__
@@ -1146,7 +1146,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.heal_tolerance">
               <code class="hmp-field-name">heal_tolerance</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.heal_tolerance = ...</code>
+              <code class="hmp-field-toml">heal_tolerance = ...</code>
             </div>
 
          :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L355>`__
@@ -1162,7 +1162,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.linear_constraint_snap_tolerance">
               <code class="hmp-field-name">linear_constraint_snap_tolerance</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.linear_constraint_snap_tolerance = ...</code>
+              <code class="hmp-field-toml">linear_constraint_snap_tolerance = ...</code>
             </div>
 
          :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L362>`__
@@ -1178,7 +1178,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.min_polygon_area">
               <code class="hmp-field-name">min_polygon_area</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.min_polygon_area = ...</code>
+              <code class="hmp-field-toml">min_polygon_area = ...</code>
             </div>
 
          :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L369>`__
@@ -1194,7 +1194,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refine_interfaces">
               <code class="hmp-field-name">refine_interfaces</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.refine_interfaces = ...</code>
+              <code class="hmp-field-toml">refine_interfaces = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L376>`__
@@ -1210,7 +1210,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.interface_size">
               <code class="hmp-field-name">interface_size</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.interface_size = ...</code>
+              <code class="hmp-field-toml">interface_size = ...</code>
             </div>
 
          :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L383>`__
@@ -1226,7 +1226,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.interface_distance">
               <code class="hmp-field-name">interface_distance</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.interface_distance = ...</code>
+              <code class="hmp-field-toml">interface_distance = ...</code>
             </div>
 
          :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L390>`__
@@ -1242,7 +1242,7 @@ Fields
             <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.interface_sampling">
               <code class="hmp-field-name">interface_sampling</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">mesh_catchment.zone_meshing.interface_sampling = ...</code>
+              <code class="hmp-field-toml">interface_sampling = ...</code>
             </div>
 
          :bdg-primary:`int` :bdg-secondary:`default = 64` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L397>`__
@@ -1279,7 +1279,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.enabled">
                     <code class="hmp-field-name">enabled</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.enabled = ...</code>
+                    <code class="hmp-field-toml">enabled = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L230>`__
@@ -1295,7 +1295,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.mode">
                     <code class="hmp-field-name">mode</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.mode = ...</code>
+                    <code class="hmp-field-toml">mode = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "family_priority_local_budget"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L234>`__
@@ -1332,7 +1332,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.hotspot.radius">
                           <code class="hmp-field-name">radius</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.hotspot.radius = ...</code>
+                          <code class="hmp-field-toml">radius = ...</code>
                         </div>
 
                      :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L118>`__
@@ -1348,7 +1348,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.hotspot.max_curve_count">
                           <code class="hmp-field-name">max_curve_count</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.hotspot.max_curve_count = ...</code>
+                          <code class="hmp-field-toml">max_curve_count = ...</code>
                         </div>
 
                      :bdg-primary:`int` :bdg-secondary:`default = 180` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L122>`__
@@ -1364,7 +1364,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.hotspot.max_family_count">
                           <code class="hmp-field-name">max_family_count</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.hotspot.max_family_count = ...</code>
+                          <code class="hmp-field-toml">max_family_count = ...</code>
                         </div>
 
                      :bdg-primary:`int` :bdg-secondary:`default = 2` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L126>`__
@@ -1380,7 +1380,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.hotspot.min_gap">
                           <code class="hmp-field-name">min_gap</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.hotspot.min_gap = ...</code>
+                          <code class="hmp-field-toml">min_gap = ...</code>
                         </div>
 
                      :bdg-primary:`float` :bdg-secondary:`default = 80.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L130>`__
@@ -1396,7 +1396,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.hotspot.max_node_degree">
                           <code class="hmp-field-name">max_node_degree</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.hotspot.max_node_degree = ...</code>
+                          <code class="hmp-field-toml">max_node_degree = ...</code>
                         </div>
 
                      :bdg-primary:`int` :bdg-secondary:`default = 4` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L134>`__
@@ -1412,7 +1412,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.hotspot.short_segment_length">
                           <code class="hmp-field-name">short_segment_length</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.hotspot.short_segment_length = ...</code>
+                          <code class="hmp-field-toml">short_segment_length = ...</code>
                         </div>
 
                      :bdg-primary:`float` :bdg-secondary:`default = 120.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L138>`__
@@ -1428,7 +1428,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.hotspot.max_short_segment_count">
                           <code class="hmp-field-name">max_short_segment_count</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.hotspot.max_short_segment_count = ...</code>
+                          <code class="hmp-field-toml">max_short_segment_count = ...</code>
                         </div>
 
                      :bdg-primary:`int` :bdg-secondary:`default = 12` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L142>`__
@@ -1467,7 +1467,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.grid.cell_size">
                           <code class="hmp-field-name">cell_size</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.grid.cell_size = ...</code>
+                          <code class="hmp-field-toml">cell_size = ...</code>
                         </div>
 
                      :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L179>`__
@@ -1483,7 +1483,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.grid.neighborhood_rings">
                           <code class="hmp-field-name">neighborhood_rings</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.grid.neighborhood_rings = ...</code>
+                          <code class="hmp-field-toml">neighborhood_rings = ...</code>
                         </div>
 
                      :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L183>`__
@@ -1499,7 +1499,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.grid.enable_exact_gap_check">
                           <code class="hmp-field-name">enable_exact_gap_check</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.grid.enable_exact_gap_check = ...</code>
+                          <code class="hmp-field-toml">enable_exact_gap_check = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L187>`__
@@ -1515,7 +1515,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.grid.max_exact_gap_candidates">
                           <code class="hmp-field-name">max_exact_gap_candidates</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.grid.max_exact_gap_candidates = ...</code>
+                          <code class="hmp-field-toml">max_exact_gap_candidates = ...</code>
                         </div>
 
                      :bdg-primary:`int` :bdg-secondary:`default = 256` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L191>`__
@@ -1554,7 +1554,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.enabled">
                           <code class="hmp-field-name">enabled</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.enabled = ...</code>
+                          <code class="hmp-field-toml">enabled = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L35>`__
@@ -1570,7 +1570,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.priority">
                           <code class="hmp-field-name">priority</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.priority = ...</code>
+                          <code class="hmp-field-toml">priority = ...</code>
                         </div>
 
                      :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L39>`__
@@ -1586,7 +1586,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_size">
                           <code class="hmp-field-name">interface_size</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_size = ...</code>
+                          <code class="hmp-field-toml">interface_size = ...</code>
                         </div>
 
                      :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L43>`__
@@ -1602,7 +1602,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_distance">
                           <code class="hmp-field-name">interface_distance</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_distance = ...</code>
+                          <code class="hmp-field-toml">interface_distance = ...</code>
                         </div>
 
                      :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L47>`__
@@ -1618,7 +1618,7 @@ Fields
                         <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_sampling">
                           <code class="hmp-field-name">interface_sampling</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_sampling = ...</code>
+                          <code class="hmp-field-toml">interface_sampling = ...</code>
                         </div>
 
                      :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L51>`__

@@ -69,7 +69,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="workspace.project_root">
         <code class="hmp-field-name">project_root</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">workspace.project_root = ...</code>
+        <code class="hmp-field-toml">project_root = ...</code>
       </div>
 
    :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L72>`__
@@ -85,7 +85,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="workspace.root">
         <code class="hmp-field-name">root</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">workspace.root = ...</code>
+        <code class="hmp-field-toml">root = ...</code>
       </div>
 
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L76>`__
@@ -101,7 +101,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="workspace.catalog_path">
         <code class="hmp-field-name">catalog_path</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">workspace.catalog_path = ...</code>
+        <code class="hmp-field-toml">catalog_path = ...</code>
       </div>
 
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L84>`__
@@ -117,7 +117,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="workspace.data_dir">
         <code class="hmp-field-name">data_dir</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">workspace.data_dir = ...</code>
+        <code class="hmp-field-toml">data_dir = ...</code>
       </div>
 
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L92>`__
@@ -133,7 +133,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="workspace.simulations_dir">
         <code class="hmp-field-name">simulations_dir</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">workspace.simulations_dir = ...</code>
+        <code class="hmp-field-toml">simulations_dir = ...</code>
       </div>
 
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L97>`__
@@ -149,7 +149,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="workspace.output_root">
         <code class="hmp-field-name">output_root</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">workspace.output_root = ...</code>
+        <code class="hmp-field-toml">output_root = ...</code>
       </div>
 
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L105>`__

@@ -44,7 +44,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="persistence.save_catalog">
         <code class="hmp-field-name">save_catalog</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">persistence.save_catalog = ...</code>
+        <code class="hmp-field-toml">save_catalog = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L31>`__
@@ -60,7 +60,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="persistence.save_zarr">
         <code class="hmp-field-name">save_zarr</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">persistence.save_zarr = ...</code>
+        <code class="hmp-field-toml">save_zarr = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L36>`__
@@ -76,7 +76,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="persistence.save_parquet">
         <code class="hmp-field-name">save_parquet</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">persistence.save_parquet = ...</code>
+        <code class="hmp-field-toml">save_parquet = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L41>`__
@@ -92,7 +92,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="persistence.save_lock">
         <code class="hmp-field-name">save_lock</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">persistence.save_lock = ...</code>
+        <code class="hmp-field-toml">save_lock = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L46>`__
@@ -108,7 +108,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="persistence.compression">
         <code class="hmp-field-name">compression</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">persistence.compression = ...</code>
+        <code class="hmp-field-toml">compression = ...</code>
       </div>
 
    :bdg-primary:`Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L51>`__
@@ -124,7 +124,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="persistence.compression_level">
         <code class="hmp-field-name">compression_level</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">persistence.compression_level = ...</code>
+        <code class="hmp-field-toml">compression_level = ...</code>
       </div>
 
    :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L56>`__

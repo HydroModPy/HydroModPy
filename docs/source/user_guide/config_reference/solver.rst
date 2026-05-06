@@ -39,7 +39,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="solver.solver_engine">
         <code class="hmp-field-name">solver_engine</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">solver.solver_engine = ...</code>
+        <code class="hmp-field-toml">solver_engine = ...</code>
       </div>
 
    :bdg-primary:`str` :bdg-secondary:`default = "modflownwt"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L19>`__

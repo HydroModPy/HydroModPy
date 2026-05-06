@@ -427,13 +427,17 @@ def _toml_path(*parts: str) -> str:
     return ".".join(part for part in parts if part)
 
 
-def _toml_usage(field: FieldInfo, full_path: str) -> str:
-    """Return how ``full_path`` is meant to appear in a TOML file.
+def _toml_usage(field: FieldInfo, full_path: str, field_name: str) -> str:
+    """Return how ``field_name`` is meant to appear in a TOML file.
+
+    Scalars use the short form ``key = ...`` because the parent table header
+    (``[parent.path]``) is rendered just above the field block. Containers
+    keep the full path because they are themselves table headers.
 
     - ``[[full_path]]`` for ``list[BaseModel]``
     - ``[full_path.<id>]`` for ``dict[str, ...]``
     - ``[full_path]`` for ``BaseModel``
-    - ``full_path = ...`` for scalars
+    - ``field_name = ...`` for scalars
     """
     annotation = field.annotation
     inner_models = _get_inner_basemodels(annotation)
@@ -444,7 +448,7 @@ def _toml_usage(field: FieldInfo, full_path: str) -> str:
         return f"[{full_path}.<id>]"
     if inner_models:
         return f"[{full_path}]"
-    return f"{full_path} = ..."
+    return f"{field_name} = ..."
 
 
 def _render_field_block(
@@ -480,7 +484,7 @@ def _render_field_block(
     else:
         type_badge = f":bdg-primary:`{type_str}`"
 
-    toml_usage = _toml_usage(field, full_path)
+    toml_usage = _toml_usage(field, full_path, field_name)
     inner = indent + "   "
     lines: list[str] = [
         f"{indent}.. container:: hmp-field hmp-field-level-{level_class}",
