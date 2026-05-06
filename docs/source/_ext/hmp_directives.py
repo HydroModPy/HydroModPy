@@ -1,6 +1,6 @@
 """Custom Sphinx directives and roles for HydroModPy documentation.
 
-Four directives:
+Five directives:
 
 - ``.. config-field:: <dotted.path>`` renders the matching Pydantic
   ``Field`` metadata as an admonition (default, description, type).
@@ -11,6 +11,8 @@ Four directives:
 - ``.. gallery-figure:: <png_path>`` emits a ``<picture>`` block with a
   WebP source and a PNG fallback for the gallery figures (HTML builder
   only). Other builders fall back to the plain PNG ``figure``.
+- ``.. image-comparison::`` renders a draggable before/after slider over
+  two images (HTML builder only). Falls back to two stacked figures.
 
 Three API stability roles:
 
@@ -341,6 +343,89 @@ class GalleryFigureDirective(SphinxDirective):
         return [html_node, fallback_only]
 
 
+class ImageComparisonDirective(SphinxDirective):
+    """Render a draggable before/after image-comparison slider."""
+
+    required_arguments = 0
+    optional_arguments = 0
+    final_argument_whitespace = False
+    has_content = False
+    option_spec = {
+        "before": directives.unchanged_required,
+        "after": directives.unchanged_required,
+        "before-label": directives.unchanged,
+        "after-label": directives.unchanged,
+        "before-alt": directives.unchanged,
+        "after-alt": directives.unchanged,
+        "caption": directives.unchanged,
+    }
+
+    def run(self) -> list[nodes.Node]:
+        before = self.options.get("before", "").strip()
+        after = self.options.get("after", "").strip()
+        if not before or not after:
+            warning = self.state.document.reporter.warning(
+                "image-comparison: options :before: and :after: are required",
+                line=self.lineno,
+            )
+            return [warning]
+
+        before_label = self.options.get("before-label", "")
+        after_label = self.options.get("after-label", "")
+        before_alt = self.options.get("before-alt", before_label or "Before")
+        after_alt = self.options.get("after-alt", after_label or "After")
+        caption = self.options.get("caption", "")
+
+        before_html = (
+            f'<picture class="hmp-before"><source srcset="{_escape_attr(_webp_path_for(before))}" type="image/webp">'
+            f'<img src="{_escape_attr(before)}" alt="{_escape_attr(before_alt)}" loading="lazy"></picture>'
+        )
+        after_html = (
+            f'<picture class="hmp-after"><source srcset="{_escape_attr(_webp_path_for(after))}" type="image/webp">'
+            f'<img src="{_escape_attr(after)}" alt="{_escape_attr(after_alt)}" loading="lazy"></picture>'
+        )
+        labels_html = ""
+        if before_label:
+            labels_html += (
+                f'<span class="hmp-image-compare-label hmp-image-compare-label-before">'
+                f"{_escape_text(before_label)}</span>"
+            )
+        if after_label:
+            labels_html += (
+                f'<span class="hmp-image-compare-label hmp-image-compare-label-after">'
+                f"{_escape_text(after_label)}</span>"
+            )
+        figcaption = f"<figcaption>{_escape_text(caption)}</figcaption>" if caption else ""
+        html = (
+            '<figure class="hmp-image-compare-figure">'
+            '<div class="hmp-image-compare">'
+            f"{before_html}{after_html}{labels_html}"
+            "</div>"
+            f"{figcaption}"
+            "</figure>"
+        )
+        html_node = nodes.raw("", html, format="html")
+
+        fallback = nodes.container(classes=["hmp-image-compare-fallback"])
+        for path, alt, label in (
+            (before, before_alt, before_label),
+            (after, after_alt, after_label),
+        ):
+            sub_figure = nodes.figure()
+            image = nodes.image(uri=path, alt=alt)
+            image["width"] = "100%"
+            sub_figure += image
+            if label:
+                sub_figure += nodes.caption("", label)
+            fallback += sub_figure
+        if caption:
+            fallback += nodes.paragraph("", caption)
+        fallback_only = addnodes.only(expr="not html")
+        fallback_only += fallback
+
+        return [html_node, fallback_only]
+
+
 def _stability_role(label: str, css_class: str):
     def role(name, rawtext, text, lineno, inliner, options=None, content=None):
         node = nodes.inline(
@@ -358,7 +443,8 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("validation-case-summary", ValidationCaseSummaryDirective)
     app.add_directive("solver-comparison", SolverComparisonDirective)
     app.add_directive("gallery-figure", GalleryFigureDirective)
+    app.add_directive("image-comparison", ImageComparisonDirective)
     app.add_role("stable", _stability_role("Stable", "api-stable"))
     app.add_role("experimental", _stability_role("Experimental", "api-experimental"))
     app.add_role("deprecated", _stability_role("Deprecated", "api-deprecated"))
-    return {"version": "0.3.0", "parallel_read_safe": True, "parallel_write_safe": True}
+    return {"version": "0.4.0", "parallel_read_safe": True, "parallel_write_safe": True}
