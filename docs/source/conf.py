@@ -15,6 +15,7 @@ import os
 import shutil
 import sys
 import types
+import warnings
 from importlib.util import find_spec
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -22,6 +23,24 @@ from unittest.mock import MagicMock
 from docutils import nodes
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.util.docutils import SphinxDirective
+
+# Silence noisy infrastructure warnings that the build cannot fix:
+# - docutils still calls the deprecated optparse frontend on Python 3.13;
+# - the Python multiprocessing fork warning fires on every parallel worker
+#   when ``-j auto`` is used.
+# These do not represent doc-side issues. Filtering them keeps the terminal
+# readable so the genuine sphinx warnings remain visible.
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="optparse")
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message="This process .* is multi-threaded, use of fork.* may lead to deadlocks",
+)
+warnings.filterwarnings("ignore", message="The frontend.Option class will be removed")
+warnings.filterwarnings(
+    "ignore",
+    message="The frontend.OptionParser class will be replaced",
+)
 
 package_path = Path(__file__).resolve().parents[3]
 os.environ["PYTHONPATH"] = ":".join((str(package_path), os.environ.get("PYTHONPATH", "")))
@@ -32,7 +51,6 @@ _DOC_REQUIRED_EXTENSIONS = [
     "sphinx_design",
     "sphinx_copybutton",
     "sphinx_togglebutton",
-    "sphinx_tabs",
     "sphinx_polyversion",
     "sphinxcontrib.autodoc_pydantic",
     "sphinx_codeautolink",
@@ -257,7 +275,6 @@ extensions = [
     "sphinx_design",
     "sphinx_copybutton",
     "sphinx_togglebutton",
-    "sphinx_tabs.tabs",
     "sphinxcontrib.autodoc_pydantic",
     "sphinx_codeautolink",
     "sphinxcontrib.mermaid",
@@ -292,6 +309,12 @@ bibtex_reference_style = "author_year"
 
 codeautolink_concat_default = True
 codeautolink_global_preface = "import hydromodpy"
+
+# Codeautolink cannot match doctests that contain a Traceback block
+# (e.g. ``physical_bounds.validate_physical_value`` shows a ValueError
+# example). The HTML still renders correctly, only the in-block name
+# linking is skipped, so the warning is purely informative.
+suppress_warnings = ["codeautolink.match_block"]
 
 typehints_fully_qualified = False
 always_document_param_types = True

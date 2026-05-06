@@ -38,7 +38,6 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
         "sphinx-gallery",
         "sphinx-copybutton",
         "sphinx-design",
-        "sphinx-tabs",
         "sphinx-togglebutton",
         "sphinx-polyversion",
         "sphinxcontrib-plantuml",

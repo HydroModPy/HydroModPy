@@ -1,5 +1,9 @@
 # Minimal makefile for Sphinx documentation
 #
+# Use bash with pipefail so that piping sphinx-build output through grep does
+# not mask a non-zero exit code from sphinx itself.
+SHELL := /usr/bin/env bash
+.SHELLFLAGS := -e -o pipefail -c
 
 # You can set these variables from the command line.
 # -j auto parallelises reading + writing across all CPU cores. Mandatory:
@@ -10,6 +14,23 @@ SPHINXBUILD   ?= python -m sphinx
 SPHINXPROJ    = HydroModPy
 SOURCEDIR     = source
 BUILDDIR      = build
+
+# Strip noisy infrastructure warnings that the build cannot fix from the
+# console output:
+#   - ``DeprecationWarning: The frontend.Option(Parser) class will be...``
+#     (docutils still uses optparse on Python 3.13);
+#   - ``DeprecationWarning: This process is multi-threaded, use of fork()``
+#     (multiprocessing under ``-j auto``).
+# These do not represent doc-side issues. The genuine sphinx warnings, the
+# build summary, and the autodoc/autosummary failures stay visible. Override
+# with ``HMP_DOCS_QUIET=0 make html`` to see the raw stream.
+HMP_DOCS_QUIET ?= 1
+NOISY_PATTERNS := -e "frontend\.Option" -e "frontend\.OptionParser" -e "popen_fork" -e "is multi-threaded, use of fork" -e "self.pid = os.fork" -e "option = self.option_class"
+ifeq ($(HMP_DOCS_QUIET),1)
+SPHINX_FILTER := 2>&1 | grep -v $(NOISY_PATTERNS) || true
+else
+SPHINX_FILTER :=
+endif
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
@@ -49,12 +70,12 @@ clean:
 	-rm -rf $(BUILDDIR)/*
 
 html:
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 html-strict:
-	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
 	@echo
 	@echo "Strict build finished (warnings treated as errors)."
 
@@ -65,7 +86,7 @@ lint:
 	@python -m doc8 --max-line-length 100 $(SOURCEDIR) || true
 
 livehtml:
-	sphinx-autobuild -b html --open-browser $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	sphinx-autobuild -b html --open-browser $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
 
 polyversion:
 	cd .. && python -m sphinx_polyversion poly.py
