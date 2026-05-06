@@ -268,7 +268,9 @@ class RegionalLabClusterRuleConfig(HydroModelBase):
         default=100,
         description="Application order (lower runs first) when several rules match.",
     )
-    selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
+    selection: Annotated[RegionalLabSelectionConfig, Profile.USER] = Field(
+        description="Site filters (ids, regions, families, tags) restricting which sites the rule applies to.",
+    )
     field_equals: Annotated[tuple[tuple[str, str], ...], Profile.USER] = Field(
         default=(),
         description="Column equality constraints applied on top of selection (key=value).",
@@ -316,7 +318,9 @@ class RegionalLabRecipeConfig(HydroModelBase):
         default=True,
         description="If False, the recipe is parsed but skipped during dispatch.",
     )
-    selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
+    selection: Annotated[RegionalLabSelectionConfig, Profile.USER] = Field(
+        description="Site filters restricting which sites this recipe expands over.",
+    )
     required_fields: Annotated[tuple[str, ...], Profile.USER] = Field(
         default=(),
         description="Catalog columns that must be present per site for this recipe.",
@@ -370,13 +374,19 @@ class RegionalLabConfig(HydroModelBase):
         default=None,
         description="Python interpreter used for child subprocesses. None means current.",
     )
-    catalog: Annotated[RegionalLabCatalogConfig, Profile.USER]
-    selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
+    catalog: Annotated[RegionalLabCatalogConfig, Profile.USER] = Field(
+        description="Site catalog source declaring the columns and filters used to enumerate runs.",
+    )
+    selection: Annotated[RegionalLabSelectionConfig, Profile.USER] = Field(
+        description="Top-level site selection filters applied before cluster rules and recipes.",
+    )
     cluster_rules: Annotated[tuple[RegionalLabClusterRuleConfig, ...], Profile.USER] = Field(
         default=(),
         description="Optional cluster enrichment rules applied on top of the catalog.",
     )
-    recipes: Annotated[tuple[RegionalLabRecipeConfig, ...], Profile.USER]
+    recipes: Annotated[tuple[RegionalLabRecipeConfig, ...], Profile.USER] = Field(
+        description="Per-recipe expansion plans declaring which child launchers run on which sites.",
+    )
 
     @classmethod
     def from_toml(

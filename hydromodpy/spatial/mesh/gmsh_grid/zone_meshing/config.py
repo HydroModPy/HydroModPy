@@ -32,11 +32,26 @@ class ZoneMeshingRefinementFamilySettings(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: Annotated[bool, Profile.USER] = True
-    priority: Annotated[int, Profile.USER] = 0
-    interface_size: Annotated[float | None, Profile.DEV] = None
-    interface_distance: Annotated[float | None, Profile.DEV] = None
-    interface_sampling: Annotated[int | None, Profile.DEV] = None
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="If False, this family is parsed but skipped during refinement.",
+    )
+    priority: Annotated[int, Profile.USER] = Field(
+        default=0,
+        description="Application order between families. Higher values win when budgets compete.",
+    )
+    interface_size: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        description="Override target cell size at the family interface, in projected metres.",
+    )
+    interface_distance: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        description="Override influence distance from the family interface, in projected metres.",
+    )
+    interface_sampling: Annotated[int | None, Profile.DEV] = Field(
+        default=None,
+        description="Override the number of sampled points along the family interface (>=2).",
+    )
 
     @field_validator("priority")
     @classmethod
@@ -100,13 +115,34 @@ class ZoneMeshingRefinementHotspotSettings(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    radius: Annotated[float | None, Profile.DEV] = None
-    max_curve_count: Annotated[int, Profile.DEV] = 180
-    max_family_count: Annotated[int, Profile.DEV] = 2
-    min_gap: Annotated[float, Profile.DEV] = 80.0
-    max_node_degree: Annotated[int, Profile.DEV] = 4
-    short_segment_length: Annotated[float, Profile.DEV] = 120.0
-    max_short_segment_count: Annotated[int, Profile.DEV] = 12
+    radius: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        description="Hotspot detection radius in projected metres. None lets the mesher derive a default.",
+    )
+    max_curve_count: Annotated[int, Profile.DEV] = Field(
+        default=180,
+        description="Maximum number of constraint curves admitted in one hotspot before triggering local refinement.",
+    )
+    max_family_count: Annotated[int, Profile.DEV] = Field(
+        default=2,
+        description="Maximum number of distinct constraint families coexisting in one hotspot.",
+    )
+    min_gap: Annotated[float, Profile.DEV] = Field(
+        default=80.0,
+        description="Minimum acceptable gap between non-conformal curves in projected metres.",
+    )
+    max_node_degree: Annotated[int, Profile.DEV] = Field(
+        default=4,
+        description="Maximum tolerated topological degree at a hotspot junction node.",
+    )
+    short_segment_length: Annotated[float, Profile.DEV] = Field(
+        default=120.0,
+        description="Length threshold below which a constraint segment is counted as short, in projected metres.",
+    )
+    max_short_segment_count: Annotated[int, Profile.DEV] = Field(
+        default=12,
+        description="Maximum tolerated number of short segments inside one hotspot.",
+    )
 
     @field_validator("radius", "min_gap", "short_segment_length")
     @classmethod
@@ -140,10 +176,22 @@ class ZoneMeshingRefinementGridSettings(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    cell_size: Annotated[float | None, Profile.USER] = None
-    neighborhood_rings: Annotated[int, Profile.DEV] = 1
-    enable_exact_gap_check: Annotated[bool, Profile.DEV] = True
-    max_exact_gap_candidates: Annotated[int, Profile.DEV] = 256
+    cell_size: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="Target cell size in projected metres. None lets the mesher derive a default from constraints.",
+    )
+    neighborhood_rings: Annotated[int, Profile.DEV] = Field(
+        default=1,
+        description="Number of cell rings inspected around each hotspot when projecting refinement budget.",
+    )
+    enable_exact_gap_check: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description="If True, run the exact pairwise gap check between candidate hotspot curves.",
+    )
+    max_exact_gap_candidates: Annotated[int, Profile.DEV] = Field(
+        default=256,
+        description="Cap on the number of curves submitted to the exact gap check before falling back to a heuristic.",
+    )
 
     @field_validator("cell_size")
     @classmethod
@@ -179,7 +227,10 @@ class ZoneMeshingRefinementPolicy(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: Annotated[bool, Profile.USER] = False
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="If True, the local refinement policy runs on top of the global zone meshing.",
+    )
     mode: Annotated[str, Profile.USER] = Field(
         default="family_priority_local_budget",
         description=(
