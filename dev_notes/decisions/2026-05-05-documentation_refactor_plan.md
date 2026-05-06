@@ -137,7 +137,12 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
 
 #### Phase 2 — Enrichissement (~9-11 jours)
 
-23. `[docs] - add visual identity, CITATION.cff and how-to-cite page`
+**Statut : en cours sur `dev-docs`.**
+
+23. `[docs] - add visual identity, CITATION.cff and how-to-cite page` ✓ (commit `072b06e00`)
+    - CITATION.cff à la racine (19 auteurs, preferred-citation HESS in-preparation)
+    - `docs/source/how_to_cite.rst` BibTeX/RIS/plain text avec copy-button
+    - `docs/source/developer/style_guide.rst` palette, typographie, figures
 24. `[docs] - add solver capability matrix, workflow flowchart and geographic application map`
 25. `[docs] - install tier-2 sphinx extensions (favicon, sitemap, last-updated-by-git, opengraph)`
 26. `[docs] - add custom config-field, validation-case-summary and solver-comparison directives`
