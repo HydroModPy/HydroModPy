@@ -25,7 +25,7 @@ BUILDDIR      = build
 # build summary, and the autodoc/autosummary failures stay visible. Override
 # with ``HMP_DOCS_QUIET=0 make html`` to see the raw stream.
 HMP_DOCS_QUIET ?= 1
-NOISY_PATTERNS := -e "frontend\.Option" -e "frontend\.OptionParser" -e "popen_fork" -e "is multi-threaded, use of fork" -e "self.pid = os.fork" -e "option = self.option_class"
+NOISY_PATTERNS := -e "frontend\.Option" -e "frontend\.OptionParser" -e "popen_fork" -e "is multi-threaded, use of fork" -e "self.pid = os.fork" -e "option = self.option_class" -e "(WARNING/2)" -e "(ERROR/3)" -e "myst v3"
 ifeq ($(HMP_DOCS_QUIET),1)
 SPHINX_FILTER := 2>&1 | grep -v $(NOISY_PATTERNS) || true
 else
