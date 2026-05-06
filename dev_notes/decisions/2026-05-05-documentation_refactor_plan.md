@@ -186,7 +186,11 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - `docs/source/user_guide/troubleshooting.rst` avec 14 messages couverts (config parsing, binaires solveurs, data/storage, calibration, build doc)
     - Format dropdown sphinx-design avec sections Cause/Fix
     - Lien "comment signaler une nouvelle erreur" pointe vers GitHub issues
-32. `[docs] - add migration guides and api stability roles`
+32. `[docs] - add migration guides and api stability roles` ✓ (commit `186fbcf81`)
+    - Roles `:stable:` `:experimental:` `:deprecated:` ajoutés à `_ext/hmp_directives.py` (badges colorés inline)
+    - CSS palette `#15803d` (vert), `#d97706` (orange), `#b91c1c` (rouge) dans `_static/custom.css`
+    - `docs/source/migration/index.rst` + `migration/v0_to_v1.rst` (mapping Watershed/master_config -> Project/HydroModPyConfig avec exemples avant/après)
+    - Légende stability + section "où aller ensuite"
 33. `[docs] - add cookbook with 10 TOML-first recipes`
 34. `[docs] - add unified notation page and remove tools comparisons (skip per decision)`
 35. `[docs] - add usage bibliography (papers using HydroModPy with seed entries)`
