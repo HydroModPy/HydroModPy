@@ -1,11 +1,87 @@
 # Plan de refonte de la documentation
 
-Date : 2026-05-05 (révisé après session chat du 2026-05-05)
-Statut : Phase 0 exécutée le 2026-05-05, prête pour Phase 1
+Date : 2026-05-05 (révisé 2026-05-06 après livraison Phases 0+1+2)
+Statut : Phase 0 + Phase 1 (sauf étape 21) + Phase 2 livrées sur `dev-docs`. Phase 3 conditionnelle (analytics + retours).
 Périmètre : dossier `docs/` de HydroModPy
 
 Ce document consolide l'audit, les décisions et l'architecture cible pour la
 documentation de HydroModPy. Il sert de guide de référence pour la refonte.
+
+## Statut global au 2026-05-06
+
+| Phase | Étapes | Statut | Branche | Commits |
+|---|---|---|---|---|
+| Phase 0 — Quick wins | 1 à 10 | ✓ livrée 2026-05-05 | `dev-docs` | `07f2f3b30` → `a0799bf69` |
+| Phase 1 — Refonte structurelle | 11 à 22 | ✓ 11/12 livrée (étape 21 reportée) | `dev-docs` | `b5144869b` → `b21909b5e` |
+| Phase 2 — Enrichissement | 23 à 37 | ✓ livrée 2026-05-06 | `dev-docs` | `072b06e00` → `2f7697342` |
+| Phase 3 — Optionnel/conditionnel | 38 à 45 | ⏸ non démarrée (gated sur retours) | — | — |
+| Étape 21 reportée | 21 | ⏸ migration sphinx-multiversion → sphinx-polyversion | — | — |
+
+Build sphinx local clean : 3 warnings baseline (incrémental) / 8 sur fresh
+build (5 issues codebase pré-existantes). Voir
+`dev_notes/diagnostics/doc_health.md` pour le détail.
+
+## Comment lancer la suite
+
+### Option A : reprise de l'étape 21 reportée (sphinx-polyversion)
+
+```
+mamba activate hmp_refact
+# Préparer le contexte avant migration :
+#   - lire docs/source/conf.py blocs sphinx_multiversion
+#   - lire .readthedocs.yaml
+# Migration en isolation, swap CLI + config + RTD non trivial.
+# Cible : remplacer sphinx_multiversion par sphinx-polyversion sur master + dev + dev-docs
+# Vérification : python -m sphinx -j auto -b html docs/source docs/build/html
+git checkout dev-docs
+# (instruire la session Claude Code en démarrant : "reprise étape 21 du plan")
+```
+
+### Option B : Phase 3 conditionnelle (étapes 38 à 45)
+
+À ne lancer que si les déclencheurs sont là :
+
+| Étape | Déclencheur attendu |
+|---|---|
+| 38 — WebP gallery | Mesure analytics signale bande passante saturée |
+| 39 — image-comparison slider | Cas concret en attente côté mesh / solver pages |
+| 40 — Algolia DocSearch | Candidature acceptée côté Algolia |
+| 41 — GoatCounter + "Was this helpful?" | Décision d'activer collecte d'usage |
+| 42 — difficulty + time badges | Tutoriels migrés disponibles |
+| 43 — workflow GIFs | Captures réalisées hors RTD |
+| 44 — Stoplight schema explorer (couche 3) | Couches 1/2/4 jugées insuffisantes par retours |
+| 45 — vtk-js mesh viewer | Mention seulement, ne pas implémenter |
+
+Quand un déclencheur tombe, ouvrir une session Claude Code sur `dev-docs` et
+lancer : "exécute Phase 3 étape <N> du plan, build sphinx -j auto, commit
+seul, pas de subagents".
+
+### Workflow standard d'une étape
+
+1. `mamba activate hmp_refact` (env Python 3.13 + extensions tier-1+tier-2)
+2. Modifier sources sous `docs/source/` ou `tools/doc_config/`
+3. Si édit Pydantic config : `python -m tools.doc_config` pour regénérer
+   les pages `user_guide/config_reference/*.rst`
+4. Build : `python -m sphinx -j auto -b html docs/source docs/build/html`
+   (ou `make -C docs html` si `make` est installé)
+5. Vérifier : 0 nouveau warning hors baseline
+6. `git add` explicite par fichier, pas de `git add -A`
+7. Commit : `[docs] - <imperative>` sans body, sans co-author
+8. Mettre à jour le numéro d'étape dans la section 0.2 du plan
+9. Commit du plan : `[docs] - mark phase X step Y as completed in refactor plan`
+
+### Fichiers de référence à connaître
+
+| Fichier | Rôle |
+|---|---|
+| `dev_notes/decisions/2026-05-05-documentation_refactor_plan.md` | Ce document, source de vérité |
+| `dev_notes/diagnostics/doc_health.md` | Tableau de bord build / warnings / coverage |
+| `docs/source/conf.py` | Config sphinx, extensions, intersphinx, OG, sitemap, favicon |
+| `docs/source/_ext/hmp_directives.py` | Directives custom + roles stability |
+| `tools/doc_config/` | Pipeline génération pages config_reference (couches 1/2/4) |
+| `tools/doc_gallery/` | Pipeline gallery existant, ne pas modifier sans précaution |
+| `CITATION.cff` | Métadonnées citation à la racine du repo |
+| `.readthedocs.yaml` | Config RTD (à toucher pour étape 21) |
 
 ---
 
