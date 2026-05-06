@@ -14,7 +14,7 @@ documentation de HydroModPy. Il sert de guide de référence pour la refonte.
 | Phase 0 — Quick wins | 1 à 10 | ✓ livrée 2026-05-05 | `dev-docs` | `07f2f3b30` → `a0799bf69` |
 | Phase 1 — Refonte structurelle | 11 à 22 | ✓ 12/12 livrée (étape 21 incluse) | `dev-docs` | `b5144869b` → `c8e8057dd` |
 | Phase 2 — Enrichissement | 23 à 37 | ✓ livrée 2026-05-06 | `dev-docs` | `072b06e00` → `2f7697342` |
-| Phase 3 — Optionnel/conditionnel | 38 à 45 | ⏸ non démarrée (gated sur retours) | — | — |
+| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (étape 38 livrée) | `dev-docs` | `137131b96` → … |
 
 Build sphinx local clean : 3 warnings baseline (incrémental) / 8 sur fresh
 build (5 issues codebase pré-existantes). Voir
@@ -289,7 +289,15 @@ les étapes 23 à 37.
 
 À reprendre seulement si analytics GoatCounter, retours utilisateurs ou besoins identifiés le justifient.
 
-38. `[docs] - convert gallery PNG to WebP with picture fallback`
+38. `[docs] - convert gallery PNG to WebP with picture fallback` ✓ (commit `137131b96`)
+    - Module `tools/doc_gallery/png_to_webp.py` : encode adaptatif (qualité 85 → descend par paliers de 5 jusqu'à 950 KB max, plancher 30) idempotent (skip si webp ≥ mtime png)
+    - CLI `python -m tools.doc_gallery --convert-webp` (options `--webp-quality`, `--webp-force`)
+    - 263 sibling `.webp` générés sous `docs/source/_static/capability_gallery/` (~51 MB total, aucun fichier > 950 KB pour respecter le hook `check-added-large-files`)
+    - Directive Sphinx `gallery-figure` dans `docs/source/_ext/hmp_directives.py` : émet `<figure><picture><source srcset="*.webp" type="image/webp"><img src="*.png" alt loading="lazy"></picture><figcaption>…</figcaption></figure>` en HTML, fallback `image` PNG via `addnodes.only(expr="not html")`
+    - `update_gallery._append_figure` : émet `gallery-figure` pour les .png, `figure` pour les autres extensions (svg)
+    - 384 `.. figure::` migrés vers `.. gallery-figure::` sur 118 fichiers RST (gallery + theory + user_guide + getting_started)
+    - `.pre-commit-config.yaml` : doc8 `--max-line-length=120` (au lieu de 100) et exclusion étendue à `capability_gallery/` pour absorber les chemins gallery longs ; `make lint` reste à 100 advisory
+    - Build sphinx local clean (3 warnings baseline incrémental) ; `--check-drift` PNG OK
 39. `[docs] - add image comparison slider for mesh structured vs unstructured pages`
 40. `[docs] - integrate algolia docsearch (after acceptance)`
 41. `[docs] - add goatcounter analytics and was-this-helpful widget`
