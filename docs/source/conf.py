@@ -33,7 +33,7 @@ _DOC_REQUIRED_EXTENSIONS = [
     "sphinx_copybutton",
     "sphinx_togglebutton",
     "sphinx_tabs",
-    "sphinx_multiversion",
+    "sphinx_polyversion",
     "sphinxcontrib.autodoc_pydantic",
     "sphinx_codeautolink",
     "sphinxcontrib.mermaid",
@@ -112,6 +112,14 @@ sys.path.insert(0, str(package_path))
 sys.path.insert(0, str(package_path / "hydromodpy"))
 sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 _ensure_required_doc_extensions()
+
+# sphinx-polyversion exposes per-revision metadata via POLYVERSION_DATA when
+# building under `python -m sphinx_polyversion poly.py`. The plain Sphinx CLI
+# and Read the Docs builds skip this block and run as a single-version build.
+if os.environ.get("POLYVERSION_DATA"):
+    from sphinx_polyversion import load as _polyversion_load
+
+    _polyversion_load(globals())
 
 _DOC_OPTIONAL_IMPORTS = [
     "pint",
@@ -250,7 +258,6 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_togglebutton",
     "sphinx_tabs.tabs",
-    "sphinx_multiversion",
     "sphinxcontrib.autodoc_pydantic",
     "sphinx_codeautolink",
     "sphinxcontrib.mermaid",

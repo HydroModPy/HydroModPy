@@ -101,7 +101,7 @@ docs = [
     "sphinx-copybutton",
     "sphinx-togglebutton",
     "sphinx-tabs",
-    "sphinx-multiversion",
+    "sphinx-polyversion>=1.0",
     "sphinxcontrib-plantuml",
     "autodoc-pydantic>=2.0",
     "sphinx-codeautolink",

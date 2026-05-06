@@ -24,6 +24,8 @@ help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  html       to make standalone HTML files"
 	@echo "  livehtml   to serve HTML with sphinx-autobuild and reload on save"
+	@echo "  polyversion       to build a merged multi-version site (master + dev + tags)"
+	@echo "  polyversion-local to build only the current working tree under docs/build/html"
 	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"
 	@echo "  pickle     to make pickle files"
@@ -67,6 +69,14 @@ lint:
 
 livehtml:
 	sphinx-autobuild -b html --open-browser $(ALLSPHINXOPTS) $(BUILDDIR)/html
+
+polyversion:
+	cd .. && python -m sphinx_polyversion poly.py
+	@echo "Multi-version site at docs/build/html/<branch-or-tag>/index.html"
+
+polyversion-local:
+	cd .. && python -m sphinx_polyversion poly.py -l --sequential
+	@echo "Local mock build at docs/build/html/<current-branch>/index.html"
 
 dirhtml:
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
@@ -174,7 +184,7 @@ doctest:
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
 
-.PHONY: help Makefile clean html livehtml dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
+.PHONY: help Makefile clean html html-strict lint livehtml polyversion polyversion-local dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
