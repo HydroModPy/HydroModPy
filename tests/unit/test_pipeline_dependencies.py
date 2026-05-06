@@ -44,7 +44,7 @@ class TestEarliestAffectedStep:
     def test_flow_param_matches_flow_prefix_at_step_06(self) -> None:
         steps = _toy_pipeline()
         idx = earliest_affected_step(
-            {"flow.param.K.field_homogeneous.value"},
+            {"flow.param.K.field.value"},
             steps,
         )
         assert idx == 6  # prepare_solver
@@ -63,7 +63,7 @@ class TestEarliestAffectedStep:
         steps = _toy_pipeline()
         idx = earliest_affected_step(
             {
-                "flow.param.K.field_homogeneous.value",  # hits step 6
+                "flow.param.K.field.value",  # hits step 6
                 "geographic.buff_area",  # hits step 2
             },
             steps,
@@ -115,7 +115,7 @@ class TestStandardStepsAreAnnotated:
         """Integration check against the real standard pipeline."""
         steps = standard_steps()
         idx: ClassVar[int] = earliest_affected_step(
-            {"flow.param.K.field_homogeneous.value"},
+            {"flow.param.K.field.value"},
             steps,
         )
         # prepare_solver is step index 6 in the canonical sequence

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
@@ -15,6 +15,7 @@ from hydromodpy.analysis.comparison.config import (
     _load_comparison_anchors,
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 
 
 def _clean_text(value: object) -> str:
@@ -43,16 +44,16 @@ class ComparisonExecutionConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    backend: Literal["subprocess_hmp_run"] = "subprocess_hmp_run"
-    max_parallel_runs: int = Field(
+    backend: Annotated[Literal["subprocess_hmp_run"], Profile.DEV] = "subprocess_hmp_run"
+    max_parallel_runs: Annotated[int, Profile.DEV] = Field(
         default=1,
         ge=1,
         description="Number of child simulations executed in parallel. Forced to 1 in V1.",
     )
-    keep_generated_configs: bool = True
-    run_simulations: bool = True
-    python_executable: str | None = None
-    timeout_seconds: float | None = Field(
+    keep_generated_configs: Annotated[bool, Profile.DEV] = True
+    run_simulations: Annotated[bool, Profile.DEV] = True
+    python_executable: Annotated[str | None, Profile.DEV] = None
+    timeout_seconds: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         gt=0,
         description="Optional per-child timeout in seconds. None disables the timeout.",
@@ -75,8 +76,8 @@ class ComparisonAuditConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Literal["strict_same_case"] = "strict_same_case"
-    on_mismatch: Literal["fail", "warn", "ignore"] = "fail"
+    mode: Annotated[Literal["strict_same_case"], Profile.DEV] = "strict_same_case"
+    on_mismatch: Annotated[Literal["fail", "warn", "ignore"], Profile.DEV] = "fail"
 
 
 class ComparisonSimulationConfig(HydroModelBase):
@@ -84,22 +85,25 @@ class ComparisonSimulationConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str
-    label: str | None = None
-    enabled: bool = True
-    solver: str | None = None
-    simulation_config: str | None = None
-    run_folder: str | None = None
-    mesh_label: str | None = None
-    mesh_mode: Literal[
-        "mesh_catchment",
-        "mesh_input",
-        "sgrid",
-        "structured",
-        "unstructured",
-        "unknown",
+    id: Annotated[str, Profile.USER]
+    label: Annotated[str | None, Profile.USER] = None
+    enabled: Annotated[bool, Profile.USER] = True
+    solver: Annotated[str | None, Profile.EXPERT] = None
+    simulation_config: Annotated[str | None, Profile.EXPERT] = None
+    run_folder: Annotated[str | None, Profile.EXPERT] = None
+    mesh_label: Annotated[str | None, Profile.USER] = None
+    mesh_mode: Annotated[
+        Literal[
+            "mesh_catchment",
+            "mesh_input",
+            "sgrid",
+            "structured",
+            "unstructured",
+            "unknown",
+        ],
+        Profile.DEV,
     ] = "unknown"
-    overlay: dict[str, Any] = Field(
+    overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,
         description="Free-form TOML overlay merged into the base simulation config when this child runs.",
     )
@@ -145,26 +149,26 @@ class ComparisonSection(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    comparison_id: str | None = None
-    base_simulation_config: str | None = None
-    anchors_file: str | None = None
-    output_root: str | None = None
-    reference_simulation: str | None = None
-    continue_on_error: bool = False
-    execution: ComparisonExecutionConfig = Field(
+    comparison_id: Annotated[str | None, Profile.USER] = None
+    base_simulation_config: Annotated[str | None, Profile.EXPERT] = None
+    anchors_file: Annotated[str | None, Profile.EXPERT] = None
+    output_root: Annotated[str | None, Profile.EXPERT] = None
+    reference_simulation: Annotated[str | None, Profile.EXPERT] = None
+    continue_on_error: Annotated[bool, Profile.DEV] = False
+    execution: Annotated[ComparisonExecutionConfig, Profile.DEV] = Field(
         default_factory=ComparisonExecutionConfig,
         description="Execution settings for the comparison child runs.",
     )
-    audit: ComparisonAuditConfig = Field(
+    audit: Annotated[ComparisonAuditConfig, Profile.DEV] = Field(
         default_factory=ComparisonAuditConfig,
         description="Post-run audit policy applied to each child simulation.",
     )
-    fine_raster: ComparisonFineRaster | None = None
-    simulation: list[ComparisonSimulationConfig] = Field(
+    fine_raster: Annotated[ComparisonFineRaster | None, Profile.EXPERT] = None
+    simulation: Annotated[list[ComparisonSimulationConfig], Profile.USER] = Field(
         default_factory=list,
         description="Generated child simulations to run in the comparison. At least one entry required.",
     )
-    observable: list[ComparisonObservable] = Field(
+    observable: Annotated[list[ComparisonObservable], Profile.USER] = Field(
         default_factory=list,
         description="Observables to compare across the declared simulations. At least one entry required.",
     )
@@ -235,16 +239,16 @@ class SimulationComparisonConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    config_path: Path
-    base_dir: Path
-    comparison_root: Path
-    base_simulation_config_path: Path | None = None
-    anchors_path: Path | None = None
-    anchors: dict[str, tuple[float, float]] = Field(
+    config_path: Annotated[Path, Profile.EXPERT]
+    base_dir: Annotated[Path, Profile.EXPERT]
+    comparison_root: Annotated[Path, Profile.EXPERT]
+    base_simulation_config_path: Annotated[Path | None, Profile.EXPERT] = None
+    anchors_path: Annotated[Path | None, Profile.EXPERT] = None
+    anchors: Annotated[dict[str, tuple[float, float]], Profile.EXPERT] = Field(
         default_factory=dict,
         description="Anchor points loaded from anchors_file, keyed by anchor id, as (x, y) pairs.",
     )
-    comparison: ComparisonSection
+    comparison: Annotated[ComparisonSection, Profile.USER]
 
     @classmethod
     def from_toml(

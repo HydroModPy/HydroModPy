@@ -17,7 +17,7 @@ from hydromodpy.core.config_kit.profile import Profile
 if TYPE_CHECKING:
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.comparison.config import ComparisonSection
+    from hydromodpy.analysis.comparison.experiment_config import ComparisonSection
 
 
 class AnalysisConfig(HydroModelBase):
@@ -51,7 +51,7 @@ class AnalysisConfig(HydroModelBase):
         default=None,
         description=(
             "Optional simulation-comparison block loaded from [analysis.comparison]. "
-            "Parsed standalone via ComparisonConfig under the section name [comparison]."
+            "Parsed standalone via SimulationComparisonConfig under the section name [comparison]."
         ),
     )
 

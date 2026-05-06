@@ -66,8 +66,6 @@ param_list = ["K"]
 [flow.param.K.field]
 id = "K"
 kind = "heterogeneous"
-
-[flow.param.K.field_heterogeneous]
 values_source = "inline"
 values = { inner_ring = "8e-6 m/s", middle_ring = "4e-6 m/s", outer_ring = "1e-5 m/s" }
 field_spatial_id = "k_rings"
@@ -99,6 +97,3 @@ nlay = 1
 
 [display]
 enabled = false
-
-
-

@@ -46,8 +46,6 @@ param_list = ["K", "Ss", "Sy"]
 
 [flow.param.K.field]
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "5e-5 m/s"
 
 [flow.param.K.field_vertical_profile]
@@ -57,14 +55,10 @@ min_factor = 2e-4
 
 [flow.param.Ss.field]
 kind = "homogeneous"
-
-[flow.param.Ss.field_homogeneous]
 value = "1e-10 m-1"
 
 [flow.param.Sy.field]
 kind = "homogeneous"
-
-[flow.param.Sy.field_homogeneous]
 value = "0.02 -"
 
 [flow.param.Sy.field_vertical_profile]
@@ -90,22 +84,22 @@ y = 6784182.776
 units = "m3/day"
 
 [flow.sinks_sources.wells.W1.forcing]
-mode = "csv"
 date_column = "date"
 date_format = "%Y-%m-%d"
 value_column = "W1_m3_day"
 aggregate = "mean"
+kind = "csv"
 
 [flow.sinks_sources.wells.W2]
 location_mode = "relative_xy"
 units = "m3/day"
 
 [flow.sinks_sources.wells.W2.forcing]
-mode = "csv"
 date_column = "date"
 date_format = "%Y-%m-%d"
 value_column = "W2_m3_day"
 aggregate = "mean"
+kind = "csv"
 
 [flow.sinks_sources.recharge]
 first_clim = "mean"

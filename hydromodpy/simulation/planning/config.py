@@ -172,13 +172,16 @@ class SimulationProcessConfig(HydroModelBase):
         cleaned = value.strip().lower()
         if not cleaned:
             raise ValueError("Process type cannot be empty.")
+        return cleaned
+
+    def model_post_init(self, context: object) -> None:
+        super().model_post_init(context)
         registered = get_solver_registry_provider().known_process_types()
-        if cleaned not in registered:
+        if self.type not in registered:
             raise ValueError(
-                f"Unknown process type '{cleaned}'. "
+                f"Unknown process type '{self.type}'. "
                 f"Registered types: {', '.join(sorted(registered))}."
             )
-        return cleaned
 
     @field_validator("solvers")
     @classmethod

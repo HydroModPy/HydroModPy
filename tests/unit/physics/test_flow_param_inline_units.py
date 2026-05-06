@@ -12,9 +12,9 @@ def test_flow_param_accepts_inline_units_with_mixed_families() -> None:
     cfg = FlowConfig(
         param_list=["K", "Ss", "Sy"],
         param={
-            "K": {"id": "K", "kind": "homogeneous", "value": "8.64 m/day"},
-            "Ss": {"id": "Ss", "kind": "homogeneous", "value": "1e-6 cm-1"},
-            "Sy": {"id": "Sy", "kind": "homogeneous", "value": "0.2 -"},
+            "K": {"field": {"id": "K", "kind": "homogeneous", "value": "8.64 m/day"}},
+            "Ss": {"field": {"id": "Ss", "kind": "homogeneous", "value": "1e-6 cm-1"}},
+            "Sy": {"field": {"id": "Sy", "kind": "homogeneous", "value": "0.2 -"}},
         },
     )
 
@@ -30,10 +30,12 @@ def test_flow_param_rejects_inline_unit_conflicting_with_field_unit() -> None:
             param_list=["K"],
             param={
                 "K": {
-                    "id": "K",
-                    "kind": "homogeneous",
-                    "unit": "m/day",
-                    "value": "1.0 m/s",
+                    "field": {
+                        "id": "K",
+                        "kind": "homogeneous",
+                        "unit": "m/day",
+                        "value": "1.0 m/s",
+                    },
                 }
             },
         )

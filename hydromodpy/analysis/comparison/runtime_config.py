@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.analysis.comparison.config import (
-    ComparisonConfig,
     ComparisonSimulation,
+    RuntimeComparisonConfig,
 )
 from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
@@ -131,7 +131,7 @@ def _build_solver_process_overlay(
 
 def materialize_simulation_config(
     *,
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     simulation: ComparisonSimulation,
 ) -> Path | None:
     """Return the config path used by one comparison simulation, generating it if needed."""

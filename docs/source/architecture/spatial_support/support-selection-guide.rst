@@ -142,7 +142,7 @@ Heterogeneous parameter referencing a support:
 
 .. code-block:: toml
 
-   [flow.k.field_heterogeneous]
+   [flow.k.field]
    field_spatial_id = "k_x"
    values = { left = 1.0e-4, middle = 5.0e-5, right = 1.0e-5 }
 

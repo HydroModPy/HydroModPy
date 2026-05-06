@@ -280,7 +280,7 @@ Common Numerical Setup
      - Parameterization mode used for `K`.
      - homogeneous
      - ``validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflownwt.toml``
-   * - ``flow.param.K.field_homogeneous.value``
+   * - ``flow.param.K.field.value``
      - Homogeneous `K` value used by the benchmark.
      - 1e-4 m/s
      - ``validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflownwt.toml``

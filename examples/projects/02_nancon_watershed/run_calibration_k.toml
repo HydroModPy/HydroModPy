@@ -51,10 +51,10 @@ solvers = ["modflownwt"]
 [domain.depth_model]
 thickness = 30.0
 
-[flow.param.Sy.field_homogeneous]
+[flow.param.Sy.field]
 value = 0.05
 
-[flow.param.Ss.field_homogeneous]
+[flow.param.Ss.field]
 value = 1e-5
 
 
@@ -97,5 +97,5 @@ bounds = [1e-6, 1e-3]
 transform = "log"
 prior = "log_uniform"
 # Dotted path written at each iteration.
-path = "flow.param.K.field_homogeneous.value"
+path = "flow.param.K.field.value"
 units = "m/s"

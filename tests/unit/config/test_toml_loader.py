@@ -186,8 +186,8 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
     assert payload["simulation"]["time"]["step_value"] == "10 day"
     assert payload["modflow6"]["tgrid"]["firstpersteady"] is False
     assert payload["flow"]["ic"]["type"] == "top"
-    assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == "1e-5 m/s"
-    assert payload["flow"]["param"]["Sy"]["field_homogeneous"]["value"] == "0.12 -"
+    assert payload["flow"]["param"]["K"]["field"]["value"] == "1e-5 m/s"
+    assert payload["flow"]["param"]["Sy"]["field"]["value"] == "0.12 -"
     assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"
     assert "postprocess" not in payload
     assert payload["analysis"]["capability_gallery"]["enabled"] is True
@@ -298,8 +298,6 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
                 "",
                 "[flow.param.K.field]",
                 'kind = "homogeneous"',
-                "",
-                "[flow.param.K.field_homogeneous]",
                 'value = "1.0e-4 m/s"',
                 "",
                 "[calibration]",
@@ -308,7 +306,7 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
                 "",
                 "[calibration.parameters.K]",
                 "bounds = [1.0e-6, 1.0e-3]",
-                'target = "flow.param.K.field_homogeneous.value"',
+                'target = "flow.param.K.field.value"',
             ]
         ),
         encoding="utf-8",
@@ -378,8 +376,7 @@ def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> 
             "flow": {
                 "param": {
                     "K": {
-                        "field": {"kind": "homogeneous"},
-                        "field_homogeneous": {"value": "1.0e-4 m/s"},
+                        "field": {"kind": "homogeneous", "value": "1.0e-4 m/s"},
                     }
                 }
             },

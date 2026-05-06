@@ -618,7 +618,7 @@
         "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_common.toml"
       },
       {
-        "field": "flow.param.K.field_homogeneous.value",
+        "field": "flow.param.K.field.value",
         "meaning": "Homogeneous `K` value used by the benchmark.",
         "value": "1e-4 m/s",
         "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_common.toml"

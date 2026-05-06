@@ -16,9 +16,9 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from hydromodpy.analysis.comparison.config import (
-    ComparisonConfig,
     ComparisonObservable,
     ComparisonSimulation,
+    RuntimeComparisonConfig,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import (
@@ -497,7 +497,7 @@ def _build_solver_process_overlay(
 
 def materialize_simulation_config(
     *,
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     simulation: ComparisonSimulation,
 ) -> Path | None:
     """Return the config path used by one comparison simulation, generating it if needed."""

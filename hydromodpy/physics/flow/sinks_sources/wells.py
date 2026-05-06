@@ -19,6 +19,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import FlowRate
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
+from hydromodpy.physics.base.forcing import FlowTimeAggregate, FlowTimeFillMethod
 
 if TYPE_CHECKING:
     from hydromodpy.core.grid_reference import GridReference
@@ -29,7 +30,7 @@ class FlowWellForcingConstantConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Annotated[Literal["constant"], Profile.USER] = Field(
+    kind: Annotated[Literal["constant"], Profile.USER] = Field(
         default="constant",
         description="Discriminator tag for the constant well-forcing variant.",
     )
@@ -48,7 +49,7 @@ class FlowWellForcingCsvConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Annotated[Literal["csv"], Profile.USER] = Field(
+    kind: Annotated[Literal["csv"], Profile.USER] = Field(
         default="csv",
         description="Discriminator tag for the CSV-backed well-forcing variant.",
     )
@@ -66,11 +67,11 @@ class FlowWellForcingCsvConfig(HydroModelBase):
     value_column: Annotated[str, Profile.DEV] = Field(
         default="value", description="CSV column containing well rates."
     )
-    fill_method: Annotated[Literal["ffill", "bfill"], Profile.DEV] = Field(
+    fill_method: Annotated[FlowTimeFillMethod, Profile.DEV] = Field(
         default="ffill",
         description="Gap-filling policy used when a stress period has no direct sample.",
     )
-    aggregate: Annotated[Literal["mean", "last"], Profile.DEV] = Field(
+    aggregate: Annotated[FlowTimeAggregate, Profile.DEV] = Field(
         default="mean",
         description="Stress-period aggregation method.",
     )
@@ -91,11 +92,11 @@ class FlowWellForcingCsvConfig(HydroModelBase):
 FlowWellForcingConfig = Annotated[
     FlowWellForcingConstantConfig | FlowWellForcingCsvConfig,
     Field(
-        discriminator="mode",
+        discriminator="kind",
         description="Discriminated union of well-forcing payloads (constant or csv).",
     ),
 ]
-"""Discriminated union of well-forcing payloads (mode = "constant" | "csv")."""
+"""Discriminated union of well-forcing payloads."""
 
 
 class FlowWellConfig(HydroModelBase):
@@ -164,6 +165,19 @@ class FlowWellConfig(HydroModelBase):
     description: Annotated[str, Profile.USER] = Field(
         default="", description="Optional well description."
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _default_location_payload(cls, value):
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        if payload.get("cell") is not None and payload.get("location_mode") is None:
+            payload["location_mode"] = "cell"
+        location_mode = str(payload.get("location_mode", "")).strip().lower()
+        if payload.get("cell") is None and location_mode in {"absolute_xy", "relative_xy"}:
+            payload.setdefault("layer", 0)
+        return payload
 
     @field_validator("cell", mode="before")
     @classmethod
@@ -283,8 +297,6 @@ class FlowWellConfig(HydroModelBase):
     def _validate_location_payload(self):
         """Enforce one unambiguous location grammar for each well."""
         if self.cell is not None:
-            if self.location_mode is None:
-                object.__setattr__(self, "location_mode", "cell")
             if self.location_mode != "cell":
                 raise ValueError("well.cell cannot be combined with a non-'cell' location_mode")
             if any(
@@ -305,7 +317,7 @@ class FlowWellConfig(HydroModelBase):
                 raise ValueError("well.location_mode='cell' requires cell=[lay,row,col]")
 
             if self.layer is None:
-                object.__setattr__(self, "layer", 0)
+                self.layer = 0
 
             if self.location_mode == "absolute_xy":
                 if self.x is None or self.y is None:
@@ -342,12 +354,10 @@ class FlowWellConfig(HydroModelBase):
                         raise ValueError("well.units conflicts with well.forcing.units")
             else:
                 normalized_forcing_units = normalize_m3_per_s_unit(parent_units)
-            object.__setattr__(
-                self,
-                "forcing",
-                self.forcing.model_copy(update={"units": normalized_forcing_units}),
-            )
-            object.__setattr__(self, "units", "m3/s")
+            if forcing_units != normalized_forcing_units:
+                self.forcing = self.forcing.model_copy(update={"units": normalized_forcing_units})
+            if self.units != "m3/s":
+                self.units = "m3/s"
 
         return self
 

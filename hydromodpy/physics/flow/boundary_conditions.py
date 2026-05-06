@@ -39,6 +39,7 @@ from hydromodpy.core.units import (
     check_unit_compatible,
     parse_to_canonical_magnitude,
 )
+from hydromodpy.physics.base.forcing import FlowTimeAggregate, FlowTimeFillMethod
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",
@@ -85,6 +86,8 @@ _BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
     "m": ("m", "length"),
     "m2/s": ("m**2/s", "hydraulic-conductance"),
 }
+
+BoundaryKind: TypeAlias = Literal["dirichlet", "cauchy", "robin"]
 
 
 def _extract_explicit_boundary_units(payload: Mapping[str, object]) -> str | None:
@@ -196,11 +199,11 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
         default="value",
         description="CSV column containing boundary head values.",
     )
-    fill_method: Annotated[Literal["ffill", "bfill"], Profile.DEV] = Field(
+    fill_method: Annotated[FlowTimeFillMethod, Profile.DEV] = Field(
         default="ffill",
         description="Gap-filling policy used when a stress period has no direct sample.",
     )
-    aggregate: Annotated[Literal["mean", "last"], Profile.DEV] = Field(
+    aggregate: Annotated[FlowTimeAggregate, Profile.DEV] = Field(
         default="mean",
         description="Stress-period aggregation method.",
     )
@@ -251,11 +254,11 @@ class FlowBoundaryForcingConfig(HydroModelBase):
         default="value",
         description="CSV column containing boundary head values.",
     )
-    fill_method: Annotated[Literal["ffill", "bfill"], Profile.DEV] = Field(
+    fill_method: Annotated[FlowTimeFillMethod, Profile.DEV] = Field(
         default="ffill",
         description="Gap-filling policy used when a stress period has no direct sample.",
     )
-    aggregate: Annotated[Literal["mean", "last"], Profile.DEV] = Field(
+    aggregate: Annotated[FlowTimeAggregate, Profile.DEV] = Field(
         default="mean",
         description="Stress-period aggregation method.",
     )
@@ -309,7 +312,7 @@ class FlowBoundaryConditionConfig(HydroModelBase):
         "", description="Boundary-condition description."
     )
     units: Annotated[str, Profile.DEV] = Field("", description="Boundary-condition units.")
-    type: Annotated[Literal["dirichlet", "cauchy", "robin"], Profile.USER] = Field(
+    type: Annotated[BoundaryKind, Profile.USER] = Field(
         "dirichlet",
         description="Boundary-condition type.",
     )

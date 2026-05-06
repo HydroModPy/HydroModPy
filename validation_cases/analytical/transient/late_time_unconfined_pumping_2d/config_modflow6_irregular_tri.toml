@@ -25,8 +25,8 @@ units = "m3/day"
 description = "Central pumping well on irregular triangular mesh"
 
 [flow.sinks_sources.wells.P1.forcing]
-mode = "constant"
 value = -1000.0
+kind = "constant"
 
 [mesh_input]
 mesh_path = "../../../shared/mesh_bundles/late_time_unconfined_pumping_irregular_tri_refined_center/mesh_2d.msh"

@@ -160,15 +160,18 @@ class ResolvedFieldParam(HydroModelBase):
         if self.kind == "homogeneous":
             if self.value is None:
                 raise ValueError("Homogeneous field requires 'value'")
-            object.__setattr__(self, "values", None)
-            object.__setattr__(self, "field_spatial_id", None)
+            if self.values is not None:
+                self.values = None
+            if self.field_spatial_id is not None:
+                self.field_spatial_id = None
             return self
 
         if self.values is None:
             raise ValueError("Heterogeneous field requires 'values'")
         if self.field_spatial_id is None:
             raise ValueError("Heterogeneous field requires 'field_spatial_id'")
-        object.__setattr__(self, "value", None)
+        if self.value is not None:
+            self.value = None
         return self
 
 

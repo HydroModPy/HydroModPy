@@ -1,16 +1,9 @@
-"""Pydantic schemas for field-parameter TOML sections.
-
-Models cover the four sub-sections of `field_param_config.toml`:
-- `[field]` base section,
-- `[field_homogeneous]`,
-- `[field_heterogeneous]`,
-- `[field_vertical_profile]`.
-"""
+"""Pydantic schemas for field-parameter TOML sections."""
 
 from __future__ import annotations
 
 import math
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import (
     ConfigDict,
@@ -67,14 +60,43 @@ class FieldBaseSection(HydroModelBase):
 
 
 class FieldHomogeneousSection(HydroModelBase):
-    """Schema for `[field_homogeneous]`."""
+    """Schema for homogeneous `[field]` payloads."""
 
     model_config = ConfigDict(extra="forbid")
 
+    id: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
+    )
+    kind: Annotated[Literal["homogeneous"], Profile.USER] = Field(
+        default="homogeneous",
+        description="Field type selector.",
+    )
+    unit: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
+        ),
+    )
     value: Annotated[object | None, Profile.USER] = Field(
         default=None,
         description="Scalar surface value used when kind='homogeneous'.",
     )
+
+    @field_validator("id")
+    @classmethod
+    def _validate_id(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            raise ValueError("field.id cannot be empty")
+        return text
+
+    @field_validator("unit")
+    @classmethod
+    def _validate_unit(cls, value):
+        return normalize_unit_token(value)
 
     @field_validator("value")
     @classmethod
@@ -82,22 +104,36 @@ class FieldHomogeneousSection(HydroModelBase):
         if value is None:
             return None
         if isinstance(value, bool):
-            raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
+            raise TypeError("field.value must be numeric or '<number> <unit>'")
         if isinstance(value, (int, float)):
             return float(value)
         if isinstance(value, str):
             token = value.strip()
             if token == "":
-                raise ValueError("field_homogeneous.value cannot be empty")
+                raise ValueError("field.value cannot be empty")
             return token
-        raise TypeError("field_homogeneous.value must be numeric or '<number> <unit>'")
+        raise TypeError("field.value must be numeric or '<number> <unit>'")
 
 
 class FieldHeterogeneousSection(HydroModelBase):
-    """Schema for `[field_heterogeneous]`."""
+    """Schema for heterogeneous `[field]` payloads."""
 
     model_config = ConfigDict(extra="forbid")
 
+    id: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
+    )
+    kind: Annotated[Literal["heterogeneous"], Profile.USER] = Field(
+        default="heterogeneous",
+        description="Field type selector.",
+    )
+    unit: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
+        ),
+    )
     values_source: Annotated[HeterogeneousValueSource, Profile.USER] = Field(
         default="inline",
         description=(
@@ -135,6 +171,21 @@ class FieldHeterogeneousSection(HydroModelBase):
         ),
     )
 
+    @field_validator("id")
+    @classmethod
+    def _validate_id(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            raise ValueError("field.id cannot be empty")
+        return text
+
+    @field_validator("unit")
+    @classmethod
+    def _validate_unit(cls, value):
+        return normalize_unit_token(value)
+
     @field_validator("values", mode="before")
     @classmethod
     def _validate_values(cls, value):
@@ -144,25 +195,21 @@ class FieldHeterogeneousSection(HydroModelBase):
         for key, raw_value in dict(value).items():
             key_text = str(key)
             if isinstance(raw_value, bool):
-                raise TypeError(
-                    f"field_heterogeneous.values['{key_text}'] must be numeric or '<number> <unit>'"
-                )
+                raise TypeError(f"field.values['{key_text}'] must be numeric or '<number> <unit>'")
             if isinstance(raw_value, (int, float)):
                 values[key_text] = float(raw_value)
                 continue
             if isinstance(raw_value, str):
                 token = raw_value.strip()
                 if token == "":
-                    raise ValueError(f"field_heterogeneous.values['{key_text}'] cannot be empty")
+                    raise ValueError(f"field.values['{key_text}'] cannot be empty")
                 values[key_text] = token
                 continue
-            raise TypeError(
-                f"field_heterogeneous.values['{key_text}'] must be numeric or '<number> <unit>'"
-            )
+            raise TypeError(f"field.values['{key_text}'] must be numeric or '<number> <unit>'")
         if len(values) == 0:
-            raise ValueError("field_heterogeneous.values cannot be empty")
+            raise ValueError("field.values cannot be empty")
         if any(str(key).strip() == "" for key in values):
-            raise ValueError("field_heterogeneous.values cannot contain empty keys")
+            raise ValueError("field.values cannot contain empty keys")
         return values
 
     @field_validator("values_csv_file")
@@ -172,7 +219,7 @@ class FieldHeterogeneousSection(HydroModelBase):
             return None
         text = str(value).strip()
         if text == "":
-            raise ValueError("field_heterogeneous.values_csv_file cannot be empty when provided")
+            raise ValueError("field.values_csv_file cannot be empty when provided")
         return text
 
     @field_validator("csv_key_column", "csv_value_column")
@@ -190,7 +237,7 @@ class FieldHeterogeneousSection(HydroModelBase):
             return None
         text = str(value).strip()
         if not text:
-            raise ValueError("field_heterogeneous.field_spatial_id cannot be empty")
+            raise ValueError("field.field_spatial_id cannot be empty")
         return text
 
     @model_validator(mode="after")
@@ -209,27 +256,26 @@ class FieldHeterogeneousSection(HydroModelBase):
 
         if self.values_source == "inline":
             if self.values is None:
-                raise ValueError(
-                    "field_heterogeneous.values is required when values_source='inline'"
-                )
+                raise ValueError("field.values is required when values_source='inline'")
             if self.field_spatial_id is None:
-                raise ValueError(
-                    "field_heterogeneous.field_spatial_id is required for heterogeneous mapping"
-                )
+                raise ValueError("field.field_spatial_id is required for heterogeneous mapping")
             return self
 
         if self.values_source == "csv":
             if self.values_csv_file is None:
-                raise ValueError(
-                    "field_heterogeneous.values_csv_file is required when values_source='csv'"
-                )
+                raise ValueError("field.values_csv_file is required when values_source='csv'")
             if self.field_spatial_id is None:
-                raise ValueError(
-                    "field_heterogeneous.field_spatial_id is required for heterogeneous mapping"
-                )
+                raise ValueError("field.field_spatial_id is required for heterogeneous mapping")
             return self
 
         return self
+
+
+FieldSection: TypeAlias = Annotated[
+    FieldHomogeneousSection | FieldHeterogeneousSection,
+    Field(discriminator="kind"),
+]
+"""Discriminated field payload."""
 
 
 class FieldVerticalProfileSection(HydroModelBase):

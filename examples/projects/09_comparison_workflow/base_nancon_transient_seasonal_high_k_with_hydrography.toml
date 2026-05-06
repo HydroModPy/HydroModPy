@@ -8,5 +8,5 @@ workflow = "simulation"
 name = "nancon_transient_seasonal_high_k_hydrography_shared_case"
 description = "Nancon transient seasonal benchmark with observed hydrography and higher K."
 
-[flow.param.K.field_homogeneous]
+[flow.param.K.field]
 value = "5e-4 m/s"

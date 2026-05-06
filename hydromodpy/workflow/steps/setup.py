@@ -147,18 +147,15 @@ def _heterogeneous_support_id(param_cfg: object) -> str | None:
         if kind != "heterogeneous":
             return None
         support_id = param_cfg.get("field_spatial_id")
-        if support_id is None:
-            hetero_cfg = param_cfg.get("field_heterogeneous")
-            if isinstance(hetero_cfg, dict):
-                support_id = hetero_cfg.get("field_spatial_id")
+        if support_id is None and isinstance(param_cfg.get("field"), dict):
+            support_id = param_cfg["field"].get("field_spatial_id")
         return str(support_id or "").strip()
 
     field_cfg = getattr(param_cfg, "field", None)
     kind = str(getattr(field_cfg, "kind", "") or "").strip().lower()
     if kind != "heterogeneous":
         return None
-    hetero_cfg = getattr(param_cfg, "field_heterogeneous", None)
-    support_id = getattr(hetero_cfg, "field_spatial_id", "")
+    support_id = getattr(field_cfg, "field_spatial_id", "")
     return str(support_id or "").strip()
 
 

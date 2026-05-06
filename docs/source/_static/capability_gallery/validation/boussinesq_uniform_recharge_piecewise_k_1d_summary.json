@@ -648,31 +648,31 @@
         "source": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.K.field_heterogeneous.values_source",
+        "field": "flow.param.K.field.values_source",
         "meaning": "Value source used for the heterogeneous `K` field.",
         "value": "inline",
         "source": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.K.field_heterogeneous.values.west_zone",
+        "field": "flow.param.K.field.values.west_zone",
         "meaning": "Heterogeneous `K` value applied on support zone `west_zone`.",
         "value": "2e-4 m/s",
         "source": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.K.field_heterogeneous.values.middle_zone",
+        "field": "flow.param.K.field.values.middle_zone",
         "meaning": "Heterogeneous `K` value applied on support zone `middle_zone`.",
         "value": "5e-5 m/s",
         "source": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.K.field_heterogeneous.values.east_zone",
+        "field": "flow.param.K.field.values.east_zone",
         "meaning": "Heterogeneous `K` value applied on support zone `east_zone`.",
         "value": "1e-4 m/s",
         "source": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.K.field_heterogeneous.field_spatial_id",
+        "field": "flow.param.K.field.field_spatial_id",
         "meaning": "Support identifier used to distribute the heterogeneous `K` field.",
         "value": "k_bands",
         "source": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml"

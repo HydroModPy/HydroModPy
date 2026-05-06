@@ -1,7 +1,7 @@
 """Compute which pipeline step is the earliest affected by a set of overrides.
 
 When a calibration overrides a field deep in the config (e.g.
-``flow.param.K.field_homogeneous.value``), only the steps whose
+``flow.param.K.field.value``), only the steps whose
 ``config_sections`` consume that part of the tree need to re-run. The
 earlier (setup) steps give the same result for every trial and can be
 executed once, then shared across the ask/tell loop.
@@ -27,8 +27,8 @@ def _matches(path: str, section: str) -> bool:
     """Return True if ``path`` is ``section`` or a descendant of it.
 
     A path matches a section when the section is a dotted-prefix of the
-    path. Both ``"flow"`` matches ``"flow.param.K.field_homogeneous.value"`` and
-    ``"flow.param.K"`` matches ``"flow.param.K.field_homogeneous.value"``. The empty
+    path. Both ``"flow"`` matches ``"flow.param.K.field.value"`` and
+    ``"flow.param.K"`` matches ``"flow.param.K.field.value"``. The empty
     section never matches.
     """
     if not section:
@@ -48,7 +48,7 @@ def earliest_affected_step(
     ----------
     override_paths
         Dotted config paths that the calibration will mutate on each
-        trial (e.g. ``{"flow.param.K.field_homogeneous.value"}``).
+        trial (e.g. ``{"flow.param.K.field.value"}``).
     steps
         Ordered pipeline steps, each with a ``config_sections`` class
         variable declaring the TOML subtrees it consumes.

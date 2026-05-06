@@ -52,13 +52,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "5e-5 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
@@ -92,13 +92,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "1e-4 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
@@ -132,13 +132,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "2e-4 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
@@ -172,13 +172,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "5e-4 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]

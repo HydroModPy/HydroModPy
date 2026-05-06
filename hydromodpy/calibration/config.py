@@ -23,7 +23,7 @@ Enriched TOML (twin-benchmark style)::
 
     [calibration.parameters.K_aquifer]
     bounds = [1e-6, 1e-3]
-    target = "flow.param.K.field_homogeneous.value"
+    target = "flow.param.K.field.value"
     mode = "replace"
 
     [calibration.outputs.head_A]
@@ -346,16 +346,20 @@ class CalibrationConfig(HydroModelBase):
     @field_validator("method")
     @classmethod
     def _validate_method(cls, value: str) -> str:
-        """Validate optimizer names through the runtime registry."""
         method = str(value).strip()
+        if method == "":
+            raise ValueError("calibration.method cannot be empty")
+        return method
+
+    def model_post_init(self, context: object) -> None:
+        super().model_post_init(context)
         from hydromodpy.calibration.optimizer import available_optimizers
 
         available = available_optimizers()
-        if method not in available:
+        if self.method not in available:
             raise ValueError(
-                f"Unknown calibration method {method!r}. Available methods: {available}"
+                f"Unknown calibration method {self.method!r}. Available methods: {available}"
             )
-        return method
 
     @field_validator("candidates_root", mode="before")
     @classmethod

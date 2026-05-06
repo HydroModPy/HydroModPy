@@ -180,10 +180,10 @@ Paramètres figés
    [domain.depth_model]
    thickness = 30.0
 
-   [flow.param.Sy.field_homogeneous]
+   [flow.param.Sy.field]
    value = 0.05
 
-   [flow.param.Ss.field_homogeneous]
+   [flow.param.Ss.field]
    value = 1e-5
 
    [flow.sinks_sources.recharge]
@@ -268,7 +268,7 @@ Déclarations par paramètre
    bounds = [1e-6, 1e-3]
    transform = "log"
    prior = "log_uniform"
-   path = "flow.param.K.field_homogeneous.value"
+   path = "flow.param.K.field.value"
    units = "m/s"
 
 Exhaustive option reference for each ``[calibration.parameters.<name>]``
@@ -310,24 +310,24 @@ Example recipes for common parameter shapes:
    [calibration.parameters.K]
    bounds = [1e-6, 1e-3]
    transform = "log"
-   path = "flow.param.K.field_homogeneous.value"
+   path = "flow.param.K.field.value"
 
    # Zoned K: one block per zone, each with its own `path`
    [calibration.parameters.K_granite]
    bounds = [1e-6, 1e-3]
    transform = "log"
-   path = "flow.param.K.field_heterogeneous.values.zone_granite"
+   path = "flow.param.K.field.values.zone_granite"
 
    [calibration.parameters.K_schiste]
    bounds = [1e-6, 1e-3]
    transform = "log"
-   path = "flow.param.K.field_heterogeneous.values.zone_schiste"
+   path = "flow.param.K.field.values.zone_schiste"
 
    # Specific yield (no log: already O(1))
    [calibration.parameters.Sy]
    bounds = [0.02, 0.30]
    transform = "identity"
-   path = "flow.param.Sy.field_homogeneous.value"
+   path = "flow.param.Sy.field.value"
 
    # Drain conductance
    [calibration.parameters.drain_cond]
@@ -367,7 +367,7 @@ Invalidation automatique d'étapes
 
 Every pipeline step declares which TOML subtrees it reads via a
 ``config_sections`` class variable. When a calibration mutates
-``flow.param.K.field_homogeneous.value``, only the steps that consume ``flow.*`` (and their
+``flow.param.K.field.value``, only the steps that consume ``flow.*`` (and their
 downstream siblings) need to re-run. The earlier steps produce the
 same result on every trial and are executed exactly once inside
 ``prepare_trials``.
@@ -422,22 +422,22 @@ Si je calibre X, qu'est-ce qui est rejoué ?
      - Steps shared (run once)
      - Steps re-run per trial
      - Rough speedup
-   * - ``flow.param.K.field_homogeneous.value``
+   * - ``flow.param.K.field.value``
      - 6
      - 00-05
      - 06-08
      - ~3×
-   * - ``flow.param.K.field_homogeneous.value``
+   * - ``flow.param.K.field.value``
      - 6
      - 00-05
      - 06-08
      - ~3×
-   * - ``flow.param.Sy.field_homogeneous.value``
+   * - ``flow.param.Sy.field.value``
      - 6
      - 00-05
      - 06-08
      - ~3×
-   * - ``flow.param.K.field_heterogeneous.values.zone_granite``
+   * - ``flow.param.K.field.values.zone_granite``
      - 6
      - 00-05
      - 06-08
@@ -464,10 +464,10 @@ Si je calibre X, qu'est-ce qui est rejoué ?
      - ~1.3×
 
 **Matching rule: dotted longest-prefix.** Given an override path like
-``flow.param.K.field_homogeneous.value``, the selector walks each step's
+``flow.param.K.field.value``, the selector walks each step's
 ``config_sections`` and accepts a match when the section is a
 dotted-prefix of the path. ``flow`` matches, ``flow.param.K`` matches,
-``flow.param.K.field_homogeneous.value`` matches, but ``flow_runtime`` does not. The lowest
+``flow.param.K.field.value`` matches, but ``flow_runtime`` does not. The lowest
 index among matching steps wins; everything downstream of it is forced
 to re-run even if its own sections did not match (step 08 Extract, for
 instance, has empty ``config_sections``, yet it re-runs because it
@@ -853,7 +853,7 @@ directly for custom orchestration:
 
    trial_ctx = prepare_trials(
        "run_calibration_k.toml",
-       override_paths={"K": "flow.param.K.field_homogeneous.value"},
+       override_paths={"K": "flow.param.K.field.value"},
    )
    result = run_trial_light(
        trial_ctx, {"K": 1e-4},
@@ -863,7 +863,7 @@ directly for custom orchestration:
        sim_id = promote_trial(
            "run_calibration_k.toml",
            {"K": 1e-4},
-           paths={"K": "flow.param.K.field_homogeneous.value"},
+           paths={"K": "flow.param.K.field.value"},
            name="manual_k_1e-4",
        )
 

@@ -60,8 +60,6 @@ param_list = ["K"]
 [flow.param.K.field]
 id = "K"
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "5e-6 m/s"
 
 [flow.ic]
@@ -91,6 +89,3 @@ nlay = 1
 
 [display]
 enabled = false
-
-
-

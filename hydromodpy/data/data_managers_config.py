@@ -205,6 +205,19 @@ class DataManagersConfig(HydroModelBase):
             )
         return text
 
+    @model_validator(mode="before")
+    @classmethod
+    def _default_active_geology(cls, value):
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        raw_types = payload.get("types", [])
+        if isinstance(raw_types, list) and "geology" in {
+            str(item).strip().lower() for item in raw_types
+        }:
+            payload.setdefault("geology", {})
+        return payload
+
     @model_validator(mode="after")
     def _validate_declared_sections(self) -> DataManagersConfig:
         # Post-validation coherence:
@@ -215,7 +228,7 @@ class DataManagersConfig(HydroModelBase):
         for type_name in self.types:
             if type_name == "geology":
                 if self.geology is None:
-                    object.__setattr__(self, "geology", GeologyConfig())
+                    raise ValueError("data.geology must be a mapping when geology is active")
                 continue
             section_value = getattr(self, type_name, None)
             if section_value is None:

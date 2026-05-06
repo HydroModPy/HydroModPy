@@ -22,7 +22,7 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.analysis import config as analysis_module
     from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.comparison.config import ComparisonSection
+    from hydromodpy.analysis.comparison.experiment_config import ComparisonSection
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.config import hydromodpy_config as cfg_module
     from hydromodpy.data.data_managers_config import DataManagersConfig

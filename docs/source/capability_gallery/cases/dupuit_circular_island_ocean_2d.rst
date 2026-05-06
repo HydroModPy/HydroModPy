@@ -361,7 +361,7 @@ Common Numerical Setup
      - Parameterization mode used for `K`.
      - homogeneous
      - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
-   * - ``flow.param.K.field_homogeneous.value``
+   * - ``flow.param.K.field.value``
      - Homogeneous `K` value used by the benchmark.
      - 5e-6 m/s
      - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``

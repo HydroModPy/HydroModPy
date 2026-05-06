@@ -99,11 +99,11 @@ Three zones along the x axis with distinct conductivities.
 
    [flow.param.K]
    field.kind = "heterogeneous"
-   field_heterogeneous.values_source = "inline"
-   field_heterogeneous.values.west_zone = "2e-4 m/s"
-   field_heterogeneous.values.middle_zone = "5e-5 m/s"
-   field_heterogeneous.values.east_zone = "1e-4 m/s"
-   field_heterogeneous.field_spatial_id = "k_bands"
+   field.values_source = "inline"
+   field.values.west_zone = "2e-4 m/s"
+   field.values.middle_zone = "5e-5 m/s"
+   field.values.east_zone = "1e-4 m/s"
+   field.field_spatial_id = "k_bands"
 
 .. code-block:: bash
 

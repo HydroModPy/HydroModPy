@@ -48,7 +48,7 @@ id = "flow_main"
 type = "flow"
 solvers = ["modflownwt"]
 
-[flow.param.K.field_homogeneous]
+[flow.param.K.field]
 value = 1e-4
 """
 
@@ -123,7 +123,7 @@ def fake_pipeline(monkeypatch, tmp_path):
             value: float = 1e-4
 
         class _Field(BaseModel):
-            field_homogeneous: _Leaf = _Leaf()
+            field: _Leaf = _Leaf()
 
         class _Param(BaseModel):
             K: _Field = _Field()
@@ -176,7 +176,7 @@ def quadratic_metric():
     import math
 
     def metric_fn(ctx, *, objective, variable):
-        k = ctx.cfg.flow.param.K.field_homogeneous.value
+        k = ctx.cfg.flow.param.K.field.value
         cost = (math.log10(k) - math.log10(1e-4)) ** 2
         return cost, {"nse@outlet": cost}
 
@@ -211,7 +211,7 @@ def _baseline_cfg() -> CalibrationConfig:
                     "bounds": [1e-6, 1e-3],
                     "transform": "log",
                     "prior": "log_uniform",
-                    "path": "flow.param.K.field_homogeneous.value",
+                    "path": "flow.param.K.field.value",
                 }
             },
         }
@@ -272,7 +272,7 @@ class TestRunCalibrationProgrammatic:
                     "flow": {
                         "param": {
                             "K": {
-                                "field_homogeneous": {
+                                "field": {
                                     "value": 1e-4,
                                 }
                             }
@@ -370,7 +370,7 @@ variable = "discharge"
 
 [calibration.parameters.K]
 bounds = [1e-6, 1e-3]
-path = "flow.param.K.field_homogeneous.value"
+path = "flow.param.K.field.value"
 """
         )
 
@@ -412,7 +412,7 @@ class TestProjectCalibratePythonModeDispatch:
                 parameters={
                     "K": {
                         "bounds": [1e-6, 1e-3],
-                        "path": "flow.param.K.field_homogeneous.value",
+                        "path": "flow.param.K.field.value",
                     }
                 },
                 method="grid",
@@ -458,7 +458,7 @@ class TestProjectCalibratePythonModeDispatch:
                 parameters={
                     "K": {
                         "bounds": [1e-6, 1e-3],
-                        "path": "flow.param.K.field_homogeneous.value",
+                        "path": "flow.param.K.field.value",
                     }
                 },
                 method="grid",

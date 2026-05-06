@@ -38,10 +38,10 @@ class TestCalibParameterDeclExtensions:
         decl = CalibParameterDecl.model_validate(
             {
                 "path": "flow.properties.k_aquifer",
-                "target": "flow.param.K.field_homogeneous.value",
+                "target": "flow.param.K.field.value",
             }
         )
-        assert decl.resolve_target() == "flow.param.K.field_homogeneous.value"
+        assert decl.resolve_target() == "flow.param.K.field.value"
 
     def test_path_used_when_target_absent(self):
         decl = CalibParameterDecl.model_validate({"path": "flow.properties.k_aquifer"})
@@ -321,12 +321,12 @@ class TestEnrichedTomlRoundTrip:
         [calibration.parameters.K_aquifer]
         bounds = [1e-6, 1e-3]
         transform = "log"
-        target = "flow.param.K.field_homogeneous.value"
+        target = "flow.param.K.field.value"
         mode   = "replace"
 
         [calibration.parameters.K_mult]
         bounds = [0.1, 10.0]
-        target = "flow.param.K.field_homogeneous.value"
+        target = "flow.param.K.field.value"
         mode   = "scale"
 
         [calibration.outputs.head_A]
@@ -361,7 +361,7 @@ class TestEnrichedTomlRoundTrip:
         assert cfg.persist_iteration_detail == "full"
         assert cfg.materialize_candidates is True
         assert cfg.parameters["K_aquifer"].mode == "replace"
-        assert cfg.parameters["K_aquifer"].target == "flow.param.K.field_homogeneous.value"
+        assert cfg.parameters["K_aquifer"].target == "flow.param.K.field.value"
         assert cfg.parameters["K_mult"].mode == "scale"
         assert cfg.outputs["head_A"].x.to("m").magnitude == 100.0
         assert cfg.outputs["outlet"].boundary_id == "outlet_drain"

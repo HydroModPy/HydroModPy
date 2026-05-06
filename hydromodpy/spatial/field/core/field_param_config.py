@@ -1,16 +1,4 @@
-"""Pydantic schemas and helpers for field parameter TOML payloads.
-
-This module is the thin façade that binds the dedicated sub-modules:
-- `_field_param_units` - unit aliases and normalization,
-- `_field_param_sections` - per-section schemas,
-- `_field_param_resolved` - resolved schema and validator,
-- `_field_param_resolution` - TOML/CSV resolution pipeline.
-
-It validates the TOML structure used by `field_param_config.toml`:
-- base section: `[field]` (id, kind),
-- optional mode sections: `[field_homogeneous]`, `[field_heterogeneous]`,
-- optional vertical section: `[field_vertical_profile]`.
-"""
+"""Pydantic schemas and helpers for field parameter TOML payloads."""
 
 from __future__ import annotations
 
@@ -39,6 +27,7 @@ from hydromodpy.spatial.field.core._field_param_sections import (
     FieldHeterogeneousSection,
     FieldHomogeneousSection,
     FieldKind,
+    FieldSection,
     FieldVerticalProfileSection,
     HeterogeneousValueSource,
     VerticalProfileInterpolation,
@@ -54,6 +43,7 @@ __all__ = (
     "FieldHomogeneousSection",
     "FieldKind",
     "FieldParamConfig",
+    "FieldSection",
     "FieldVerticalProfileSection",
     "HeterogeneousValueSource",
     "ResolvedFieldParam",
@@ -70,17 +60,9 @@ __all__ = (
 class FieldParamConfig(HydroModelBase):
     """Top-level schema for field-parameter TOML files."""
 
-    field: Annotated[FieldBaseSection | None, Profile.USER] = Field(
-        default=None,
-        description="Base section `[field]` with parameter id and kind.",
-    )
-    field_homogeneous: Annotated[FieldHomogeneousSection | None, Profile.USER] = Field(
-        default=None,
-        description="Homogeneous parameters section `[field_homogeneous]`.",
-    )
-    field_heterogeneous: Annotated[FieldHeterogeneousSection | None, Profile.USER] = Field(
-        default=None,
-        description="Heterogeneous parameters section `[field_heterogeneous]`.",
+    field: Annotated[FieldSection, Profile.USER] = Field(
+        ...,
+        description="Discriminated parameter section `[field]`.",
     )
     field_vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.USER] = Field(
         default=None,
@@ -90,10 +72,11 @@ class FieldParamConfig(HydroModelBase):
     @model_validator(mode="before")
     @classmethod
     def _reject_field_common(cls, data):
-        if isinstance(data, Mapping) and "field_common" in data:
-            raise ValueError(
-                "`[field_common]` is no longer supported. Move shared keys to `[field]`."
-            )
+        if not isinstance(data, Mapping):
+            return data
+        for key in ("field_common", "field_homogeneous", "field_heterogeneous"):
+            if key in data:
+                raise ValueError(f"`[{key}]` is no longer supported. Move keys to `[field]`.")
         return data
 
     @model_validator(mode="after")
@@ -107,12 +90,14 @@ class FieldParamConfig(HydroModelBase):
             validate_physical_value,
         )
 
-        base = self.field
-        homo = self.field_homogeneous
-        if base is None or base.id is None or homo is None or homo.value is None:
+        if (
+            not isinstance(self.field, FieldHomogeneousSection)
+            or self.field.id is None
+            or self.field.value is None
+        ):
             return self
-        if isinstance(homo.value, (int, float)) and not isinstance(homo.value, bool):
-            validate_physical_value(param_id=base.id, value=float(homo.value))
+        if isinstance(self.field.value, (int, float)) and not isinstance(self.field.value, bool):
+            validate_physical_value(param_id=self.field.id, value=float(self.field.value))
         return self
 
 

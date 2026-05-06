@@ -48,10 +48,10 @@ solvers = ["modflownwt"]
 [domain.depth_model]
 thickness = 30.0
 
-[flow.param.K.field_homogeneous]
+[flow.param.K.field]
 value = 5e-5
 
-[flow.param.Ss.field_homogeneous]
+[flow.param.Ss.field]
 value = 1e-5
 
 
@@ -77,11 +77,11 @@ save_runs = "all"
 
 [sweep.parameters.Sy]
 values = [0.001, 0.05, 0.30]
-path = "flow.param.Sy.field_homogeneous.value"
+path = "flow.param.Sy.field.value"
 units = "-"
 
 # Example of a 2D sweep (cartesian product, 3x2 = 6 runs) - commented:
 # [sweep.parameters.K]
 # values = [1e-5, 5e-5]
-# path = "flow.param.K.field_homogeneous.value"
+# path = "flow.param.K.field.value"
 # units = "m/s"

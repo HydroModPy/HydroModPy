@@ -6972,16 +6972,16 @@ def _build_simulation_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     )
     _add_parameter_row(
         selected_rows,
-        field="[flow.param.K.field_homogeneous] value",
+        field="[flow.param.K.field] value",
         meaning="Homogeneous hydraulic conductivity used by the flow model in this tutorial run.",
-        value=_lookup_path(payload, "flow", "param", "K", "field_homogeneous", "value"),
+        value=_lookup_path(payload, "flow", "param", "K", "field", "value"),
         source=run_config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[flow.param.Sy.field_homogeneous] value",
+        field="[flow.param.Sy.field] value",
         meaning="Specific yield used to control the free-surface response of the aquifer.",
-        value=_lookup_path(payload, "flow", "param", "Sy", "field_homogeneous", "value"),
+        value=_lookup_path(payload, "flow", "param", "Sy", "field", "value"),
         source=run_config_path or "",
     )
 
@@ -7433,24 +7433,24 @@ def _build_property_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
         )
         _add_parameter_row(
             config_rows,
-            field="[field_heterogeneous] values_source",
+            field="[field] values_source",
             meaning="How heterogeneous values are supplied to the field parameter.",
-            value=_lookup_path(field_param_cfg, "field_heterogeneous", "values_source"),
+            value=_lookup_path(field_param_cfg, "field", "values_source"),
             source=field_param_path,
         )
-        heterogeneous_values = _lookup_path(field_param_cfg, "field_heterogeneous", "values")
+        heterogeneous_values = _lookup_path(field_param_cfg, "field", "values")
         if not _is_empty_parameter_value(heterogeneous_values):
             _add_parameter_row(
                 config_rows,
-                field="[field_heterogeneous] values",
+                field="[field] values",
                 meaning="Inline heterogeneous values used to map zones or materials to property values.",
                 value=heterogeneous_values,
                 source=field_param_path,
             )
-        csv_file = _lookup_path(field_param_cfg, "field_heterogeneous", "values_csv_file")
+        csv_file = _lookup_path(field_param_cfg, "field", "values_csv_file")
         _add_parameter_row(
             config_rows,
-            field="[field_heterogeneous] values_csv_file",
+            field="[field] values_csv_file",
             meaning="CSV file used to map zone keys to property values when the case is CSV-driven.",
             value=Path(str(csv_file)).name if csv_file else "",
             source=str(csv_file or ""),

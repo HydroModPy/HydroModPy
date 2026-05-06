@@ -12,10 +12,7 @@ from collections.abc import Callable
 
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig
-from hydromodpy.spatial.field.core.field_param_config import (
-    FieldBaseSection,
-    FieldHomogeneousSection,
-)
+from hydromodpy.spatial.field.core.field_param_config import FieldHomogeneousSection
 
 _FLOW_PARAM_EXAMPLES: tuple[tuple[str, str, str], ...] = (
     ("K", "homogeneous", "m/s"),
@@ -31,25 +28,16 @@ class DynamicFlowExamples:
         out: list[str] = []
         out.append("")
         out.append("# " + "-" * 70)
-        out.append("# Flow field parameters - one [flow.param.<id>.field] + one")
-        out.append("# [flow.param.<id>.field_homogeneous] per id declared in")
+        out.append("# Flow field parameters - one [flow.param.<id>.field] per id declared in")
         out.append("# [flow].param_list. Example block below for K, Sy, Ss.")
         out.append("# " + "-" * 70)
         for pid, kind, unit in _FLOW_PARAM_EXAMPLES:
             out.extend(
                 section_renderer(
                     f"flow.param.{pid}.field",
-                    FieldBaseSection,
-                    threshold,
-                    values={"id": pid, "kind": kind, "unit": unit},
-                    _depth=0,
-                )
-            )
-            out.extend(
-                section_renderer(
-                    f"flow.param.{pid}.field_homogeneous",
                     FieldHomogeneousSection,
                     threshold,
+                    values={"id": pid, "kind": kind, "unit": unit},
                     _depth=0,
                 )
             )

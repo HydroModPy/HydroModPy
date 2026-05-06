@@ -31,11 +31,13 @@ root = "{tmp_path.as_posix()}"
 [simulation]
 run_id = "base_run"
 
-[flow.param.K]
-field_homogeneous = {{ value = 1.0e-4 }}
+[flow.param.K.field]
+kind = "homogeneous"
+value = 1.0e-4
 
-[flow.param.Sy]
-field_homogeneous = {{ value = 0.1 }}
+[flow.param.Sy.field]
+kind = "homogeneous"
+value = 0.1
 """
     path = tmp_path / "base_simulation.toml"
     path.write_text(content, encoding="utf-8")
@@ -50,7 +52,7 @@ def space_replace() -> ParameterSpace:
                 name="K",
                 lower=1e-6,
                 upper=1e-3,
-                target="flow.param.K.field_homogeneous.value",
+                target="flow.param.K.field.value",
                 mode="replace",
             )
         ]
@@ -65,7 +67,7 @@ def space_scale() -> ParameterSpace:
                 name="K_mult",
                 lower=0.1,
                 upper=10.0,
-                target="flow.param.K.field_homogeneous.value",
+                target="flow.param.K.field.value",
                 mode="scale",
             )
         ]
@@ -89,7 +91,7 @@ class TestMaterializeCandidateReplace:
         with open(overlay_path, "rb") as f:
             payload = tomllib.load(f)
         assert payload["base_config"] == str(base_config_path.resolve())
-        assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == pytest.approx(5.0e-4)
+        assert payload["flow"]["param"]["K"]["field"]["value"] == pytest.approx(5.0e-4)
 
     def test_iteration_index_produces_iter_folder(
         self, base_config_path: Path, space_replace: ParameterSpace, tmp_path: Path
@@ -118,14 +120,14 @@ class TestMaterializeCandidateScale:
         with open(overlay_path, "rb") as f:
             payload = tomllib.load(f)
         # base value was 1e-4, scale 3.0 → 3e-4
-        assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == pytest.approx(3.0e-4)
+        assert payload["flow"]["param"]["K"]["field"]["value"] == pytest.approx(3.0e-4)
 
     def test_scale_reads_base_config_inheritance(self, space_scale: ParameterSpace, tmp_path: Path):
         parent = tmp_path / "parent.toml"
         parent.write_text(
             """\
 [flow.param.K]
-field_homogeneous = { value = 1.0e-4 }
+field = { kind = "homogeneous", value = 1.0e-4 }
 """,
             encoding="utf-8",
         )
@@ -142,7 +144,7 @@ field_homogeneous = { value = 1.0e-4 }
         with open(overlay_path, "rb") as f:
             payload = tomllib.load(f)
         assert payload["base_config"] == str(child.resolve())
-        assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == pytest.approx(4.0e-4)
+        assert payload["flow"]["param"]["K"]["field"]["value"] == pytest.approx(4.0e-4)
 
 
 class TestMaterializeCandidateErrors:
@@ -261,7 +263,7 @@ class TestMaterializeCandidateHydroModPyConfig:
         assert overlay_path.is_file()
         with open(overlay_path, "rb") as f:
             payload = tomllib.load(f)
-        assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == pytest.approx(7.5e-5)
+        assert payload["flow"]["param"]["K"]["field"]["value"] == pytest.approx(7.5e-5)
         # The rendered TOML must remain a flat valid document.
         assert isinstance(payload["workspace"], dict)
 
@@ -286,7 +288,7 @@ class TestOverlayReloadableViaHydroModPyConfig:
         # base_config inheritance pointer is preserved.
         assert payload["base_config"] == str(base_config_path.resolve())
         # The injected K value matches the candidate value.
-        assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == pytest.approx(4.2e-4)
+        assert payload["flow"]["param"]["K"]["field"]["value"] == pytest.approx(4.2e-4)
 
     def test_overlay_loads_through_from_toml(
         self,
@@ -314,8 +316,6 @@ param_list = ["K"]
 
 [flow.param.K.field]
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "1.0e-4 m/s"
 """,
             encoding="utf-8",
@@ -327,7 +327,7 @@ value = "1.0e-4 m/s"
                     name="K",
                     lower=1e-6,
                     upper=1e-3,
-                    target="flow.param.K.field_homogeneous.value",
+                    target="flow.param.K.field.value",
                     mode="replace",
                 )
             ]
@@ -346,10 +346,7 @@ value = "1.0e-4 m/s"
         # The validated payload exposes the homogeneous value either as an
         # attribute on a typed sub-config or as a flat dict; both must
         # carry the candidate magnitude.
-        if hasattr(k_param, "field_homogeneous"):
-            value = k_param.field_homogeneous.value
-        else:
-            value = k_param["value"]
+        value = k_param.field.value
         magnitude = float(value.magnitude) if hasattr(value, "magnitude") else float(value)
         assert magnitude == pytest.approx(4.2e-4)
 
@@ -378,7 +375,7 @@ class TestMaterializeHookFromCli:
                     name="K",
                     lower=1e-6,
                     upper=1e-3,
-                    target="flow.param.K.field_homogeneous.value",
+                    target="flow.param.K.field.value",
                     mode="replace",
                 )
             ]
@@ -409,4 +406,4 @@ class TestMaterializeHookFromCli:
         assert result.metadata["materialized_overlay"] == str(overlay_path)
         with open(overlay_path, "rb") as f:
             payload = tomllib.load(f)
-        assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == pytest.approx(2.5e-4)
+        assert payload["flow"]["param"]["K"]["field"]["value"] == pytest.approx(2.5e-4)

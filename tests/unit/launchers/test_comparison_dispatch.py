@@ -17,12 +17,12 @@ def _write_toml(path: Path, content: str) -> Path:
 
 def test_neutral_comparison_config_exports_only_canonical_names() -> None:
     from hydromodpy.analysis.comparison.config import (
-        ComparisonConfig,
         ComparisonObservable,
         ComparisonSimulation,
+        RuntimeComparisonConfig,
     )
 
-    assert ComparisonConfig.__name__ == "ComparisonConfig"
+    assert RuntimeComparisonConfig.__name__ == "RuntimeComparisonConfig"
     assert ComparisonObservable.__name__ == "ComparisonObservable"
     assert ComparisonSimulation.__name__ == "ComparisonSimulation"
 

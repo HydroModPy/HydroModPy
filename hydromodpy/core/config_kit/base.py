@@ -14,10 +14,11 @@ field on the same model (catches refactor drift).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 
 
@@ -42,6 +43,22 @@ class HydroModelBase(BaseModel):
         arbitrary_types_allowed=True,
         ser_json_inf_nan="strings",
     )
+
+    @classmethod
+    def __get_pydantic_json_schema__(
+        cls,
+        core_schema: Any,
+        handler: Any,
+    ) -> dict[str, Any]:
+        schema = super().__get_pydantic_json_schema__(core_schema, handler)
+        schema = handler.resolve_ref_schema(schema)
+        properties = schema.get("properties")
+        if isinstance(properties, dict):
+            for field_name, field_info in cls.model_fields.items():
+                field_schema = properties.get(field_name)
+                if isinstance(field_schema, dict):
+                    field_schema["x-hmp-profile"] = extract_profile(field_info).name.lower()
+        return schema
 
     @model_validator(mode="after")
     def _check_visible_when_targets(self) -> HydroModelBase:

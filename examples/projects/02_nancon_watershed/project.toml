@@ -231,33 +231,20 @@ units = "m"
 id = "K"
 kind = "homogeneous"
 unit = "m/s"
-
-[flow.param.K.field_homogeneous]
-# Baseline. Run TOMLs (or `project.run(K=...)`) override this value.
 value = 5e-5
 
-
-# Sy (specific yield).
 [flow.param.Sy.field]
 id = "Sy"
 kind = "homogeneous"
 unit = "-"
-
-[flow.param.Sy.field_homogeneous]
 value = 0.05
 
-
-# Ss (specific storage).
 [flow.param.Ss.field]
 id = "Ss"
 kind = "homogeneous"
 unit = "m-1"
-
-[flow.param.Ss.field_homogeneous]
 value = 1e-5
 
-
-# Drainage boundary condition (Cauchy on the top face).
 [flow.bc.cauchy.drainage]
 id = "drainage"
 type = "cauchy"

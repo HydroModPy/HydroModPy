@@ -225,14 +225,10 @@ param_list = ["K", "Sy"]
 
 [flow.param.K.field]
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "1.0e-4 m/s"
 
 [flow.param.Sy.field]
 kind = "homogeneous"
-
-[flow.param.Sy.field_homogeneous]
 value = "0.12 -"
 """
 

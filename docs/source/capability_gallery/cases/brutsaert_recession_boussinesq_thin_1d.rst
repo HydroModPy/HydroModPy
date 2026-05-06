@@ -280,7 +280,7 @@ Common Numerical Setup
      - Parameterization mode used for `K`.
      - homogeneous
      - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml``
-   * - ``flow.param.K.field_homogeneous.value``
+   * - ``flow.param.K.field.value``
      - Homogeneous `K` value used by the benchmark.
      - 1e-4 m/s
      - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml``
@@ -288,7 +288,7 @@ Common Numerical Setup
      - Parameterization mode used for `Ss`.
      - homogeneous
      - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml``
-   * - ``flow.param.Ss.field_homogeneous.value``
+   * - ``flow.param.Ss.field.value``
      - Homogeneous `Ss` value used by the benchmark.
      - 1e-10 m-1
      - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml``
@@ -296,7 +296,7 @@ Common Numerical Setup
      - Parameterization mode used for `Sy`.
      - homogeneous
      - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml``
-   * - ``flow.param.Sy.field_homogeneous.value``
+   * - ``flow.param.Sy.field.value``
      - Homogeneous `Sy` value used by the benchmark.
      - 0.10 -
      - ``validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml``

@@ -692,7 +692,7 @@
         "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.K.field_homogeneous.value",
+        "field": "flow.param.K.field.value",
         "meaning": "Homogeneous `K` value used by the benchmark.",
         "value": "1e-4 m/s",
         "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflownwt.toml"
@@ -704,7 +704,7 @@
         "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.Ss.field_homogeneous.value",
+        "field": "flow.param.Ss.field.value",
         "meaning": "Homogeneous `Ss` value used by the benchmark.",
         "value": "1e-10 m-1",
         "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflownwt.toml"
@@ -716,7 +716,7 @@
         "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.Sy.field_homogeneous.value",
+        "field": "flow.param.Sy.field.value",
         "meaning": "Homogeneous `Sy` value used by the benchmark.",
         "value": "0.10 -",
         "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflownwt.toml"

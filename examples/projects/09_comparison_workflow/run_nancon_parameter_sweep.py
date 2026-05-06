@@ -203,7 +203,7 @@ PARAMETER_CASES: dict[str, dict[str, Any]] = {
 
 
 def _set_param(payload: dict[str, Any], name: str, value: str) -> None:
-    payload["flow"]["param"][name]["field_homogeneous"]["value"] = value
+    payload["flow"]["param"][name]["field"]["value"] = value
 
 
 def _materialize_base_config(case_id: str, spec: dict[str, Any]) -> Path:

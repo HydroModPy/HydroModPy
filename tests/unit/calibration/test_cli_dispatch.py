@@ -35,7 +35,7 @@ variable = "head"
 [calibration.parameters.K_aquifer]
 bounds = [1e-6, 1e-3]
 transform = "log"
-target = "flow.param.K.field_homogeneous.value"
+target = "flow.param.K.field.value"
 mode = "replace"
 
 [calibration.outputs.head_A]
@@ -70,7 +70,7 @@ class TestDispatchCalibrationEnriched:
         cfg = CalibrationConfig.model_validate(data["calibration"])
         assert cfg.method == "grid"
         assert "K_aquifer" in cfg.parameters
-        assert cfg.parameters["K_aquifer"].target == "flow.param.K.field_homogeneous.value"
+        assert cfg.parameters["K_aquifer"].target == "flow.param.K.field.value"
         assert cfg.parameters["K_aquifer"].mode == "replace"
         assert "head_A" in cfg.outputs
         assert cfg.outputs["head_A"].observed_values == [42.1, 41.8, 41.5]

@@ -69,8 +69,6 @@ param_list = ["K"]
 [flow.param.K.field]
 id = "K"
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "1e-4 m/s"
 
 [flow.ic]
@@ -145,7 +143,7 @@ variable = "head"
 bounds = [1e-6, 1e-3]
 transform = "log"
 # Native flow parameters keep the TOML subsection path.
-path = "flow.param.K.field_homogeneous.value"
+path = "flow.param.K.field.value"
 units = "m/s"
 
 # Observable at the centre cell (x = L/2, y = W/2). The dict key 'head'

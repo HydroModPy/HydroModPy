@@ -377,23 +377,23 @@ Common Numerical Setup
      - Parameterization mode used for `K`.
      - heterogeneous
      - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.values_source``
+   * - ``flow.param.K.field.values_source``
      - Value source used for the heterogeneous `K` field.
      - inline
      - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.values.inner_ring``
+   * - ``flow.param.K.field.values.inner_ring``
      - Heterogeneous `K` value applied on support zone `inner_ring`.
      - 8e-6 m/s
      - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.values.middle_ring``
+   * - ``flow.param.K.field.values.middle_ring``
      - Heterogeneous `K` value applied on support zone `middle_ring`.
      - 4e-6 m/s
      - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.values.outer_ring``
+   * - ``flow.param.K.field.values.outer_ring``
      - Heterogeneous `K` value applied on support zone `outer_ring`.
      - 1e-5 m/s
      - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.field_spatial_id``
+   * - ``flow.param.K.field.field_spatial_id``
      - Support identifier used to distribute the heterogeneous `K` field.
      - k_rings
      - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml``

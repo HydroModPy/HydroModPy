@@ -63,7 +63,7 @@ no_display = true
 id = "low_k"
 axis = "hydraulic_conductivity"
 
-[testbed.variant.overlay.flow.param.K.field_homogeneous]
+[testbed.variant.overlay.flow.param.K.field]
 value = "5e-6 m/s"
 
 [[testbed.metric]]

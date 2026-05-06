@@ -73,7 +73,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
             key_parameters=(
                 "`[simulation.time] step_value`, `start_datetime`, and `end_datetime` define the time support of the run and the interpretation of the recharge chronology.",
                 "`[data.recharge.sources] values`, `freq`, and `runoff_ratio` control the synthetic forcing that drives the cumulative recharge/discharge figure.",
-                "`[flow.param.K.field_homogeneous]` and `[flow.param.Sy.field_homogeneous]` are the first groundwater parameters to modify when learning how heads and depths react.",
+                "`[flow.param.K.field]` and `[flow.param.Sy.field]` are the first groundwater parameters to modify when learning how heads and depths react.",
                 "`[mesh_catchment.zone_meshing] global_size`, `min_size`, and `max_size` in the shared base config change the mesh density and therefore the support overview.",
                 "`[mesh_catchment] constraints_mode` and the river/geology source sections decide which spatial structures are enforced in the runtime mesh.",
                 "`[capability_gallery] assets` only selects which figures are copied into the docs; it does not change the physics of the run.",
@@ -197,7 +197,7 @@ def build_simulation_specs() -> tuple[GalleryCaseSpec, ...]:
                 "`[mesh_input] mesh_path` and `bundle_dir` lock the support to the versioned 100 km2 outlet-2 mesh, which makes this page a support-reuse workflow rather than a meshing example.",
                 "`[simulation.time] start_datetime`, `end_datetime`, and `step_value` define the three-year monthly replay window shown in the cumulative curves.",
                 "`[[data.recharge.sources]] values`, `freq`, and `runoff_ratio` define the synthetic forcing chronology that drives the transient response.",
-                "`[flow.param.K.field_homogeneous]`, `[flow.param.Sy.field_homogeneous]`, and `[flow.param.Ss.field_homogeneous]` are the main parameters to perturb when comparing this reference run against the more complex scenario overlays.",
+                "`[flow.param.K.field]`, `[flow.param.Sy.field]`, and `[flow.param.Ss.field]` are the main parameters to perturb when comparing this reference run against the more complex scenario overlays.",
             ),
             how_to_read=(
                 "Open the support overview first to verify that the run reused the committed mesh bundle and sampled the structural surfaces as expected.",

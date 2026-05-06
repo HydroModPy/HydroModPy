@@ -519,7 +519,7 @@
         "source": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.K.field_homogeneous.value",
+        "field": "flow.param.K.field.value",
         "meaning": "Homogeneous `K` value used by the benchmark.",
         "value": "1e-4 m/s",
         "source": "validation_cases/analytical/steady/linearized_unconfined_hillslope_drainage_1d/config_modflownwt.toml"

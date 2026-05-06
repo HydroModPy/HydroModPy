@@ -61,7 +61,7 @@ def _write_flow_base(path: Path) -> None:
                 'kind = "homogeneous"',
                 'unit = "m/s"',
                 "",
-                "[flow.param.K.field_homogeneous]",
+                "[flow.param.K.field]",
                 'value = "1e-5 m/s"',
                 "",
                 "[display]",
@@ -143,7 +143,7 @@ def test_testbed_config_parses_flow_variants(tmp_path: Path) -> None:
                 'id = "low_k"',
                 'axis = "hydraulic_conductivity"',
                 "",
-                "[testbed.variant.overlay.flow.param.K.field_homogeneous]",
+                "[testbed.variant.overlay.flow.param.K.field]",
                 'value = "5e-6 m/s"',
                 "",
                 "[[testbed.metric]]",
@@ -161,7 +161,7 @@ def test_testbed_config_parses_flow_variants(tmp_path: Path) -> None:
     assert cfg.runner.type == "simulation"
     assert cfg.runner.no_display is True
     assert cfg.base_config_path == base_config.resolve()
-    assert cfg.variants[0].overlay["flow"]["param"]["K"]["field_homogeneous"]["value"] == "5e-6 m/s"
+    assert cfg.variants[0].overlay["flow"]["param"]["K"]["field"]["value"] == "5e-6 m/s"
 
 
 def test_flow_testbed_requires_separate_base_config(tmp_path: Path) -> None:
@@ -261,7 +261,7 @@ def test_testbed_launcher_materializes_flow_child_configs_without_executing(
                 "[testbed.variant.overlay.simulation]",
                 'name = "flow_low_k"',
                 "",
-                "[testbed.variant.overlay.flow.param.K.field_homogeneous]",
+                "[testbed.variant.overlay.flow.param.K.field]",
                 'value = "5e-6 m/s"',
             ]
         )
@@ -276,7 +276,7 @@ def test_testbed_launcher_materializes_flow_child_configs_without_executing(
     assert child_payload["workflow"] == "simulation"
     assert "testbed" not in child_payload
     assert child_payload["simulation"]["name"] == "flow_low_k"
-    assert child_payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == "5e-6 m/s"
+    assert child_payload["flow"]["param"]["K"]["field"]["value"] == "5e-6 m/s"
     assert summary["executed_count"] == 0
 
 
@@ -379,7 +379,7 @@ def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
                 "[testbed.variant.overlay.simulation]",
                 'name = "flow_low_k"',
                 "",
-                "[testbed.variant.overlay.flow.param.K.field_homogeneous]",
+                "[testbed.variant.overlay.flow.param.K.field]",
                 'value = "5e-6 m/s"',
                 "",
                 "[[testbed.variant]]",
@@ -389,7 +389,7 @@ def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
                 "[testbed.variant.overlay.simulation]",
                 'name = "flow_high_k"',
                 "",
-                "[testbed.variant.overlay.flow.param.K.field_homogeneous]",
+                "[testbed.variant.overlay.flow.param.K.field]",
                 'value = "2e-5 m/s"',
                 "",
                 "[[testbed.metric]]",
@@ -412,7 +412,7 @@ def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
             calls.append((child_config, no_display))
             payload = load_toml_with_base_config(child_config)
             run_name = payload["simulation"]["name"]
-            k_value = payload["flow"]["param"]["K"]["field_homogeneous"]["value"]
+            k_value = payload["flow"]["param"]["K"]["field"]["value"]
             return {
                 "name": run_name,
                 "sim_id": f"sim_{run_name}",

@@ -13,7 +13,7 @@
   "key_parameters": [
     "`[simulation.time] step_value`, `start_datetime`, and `end_datetime` define the time support of the run and the interpretation of the recharge chronology.",
     "`[data.recharge.sources] values`, `freq`, and `runoff_ratio` control the synthetic forcing that drives the cumulative recharge/discharge figure.",
-    "`[flow.param.K.field_homogeneous]` and `[flow.param.Sy.field_homogeneous]` are the first groundwater parameters to modify when learning how heads and depths react.",
+    "`[flow.param.K.field]` and `[flow.param.Sy.field]` are the first groundwater parameters to modify when learning how heads and depths react.",
     "`[mesh_catchment.zone_meshing] global_size`, `min_size`, and `max_size` in the shared base config change the mesh density and therefore the support overview.",
     "`[mesh_catchment] constraints_mode` and the river/geology source sections decide which spatial structures are enforced in the runtime mesh.",
     "`[capability_gallery] assets` only selects which figures are copied into the docs; it does not change the physics of the run."

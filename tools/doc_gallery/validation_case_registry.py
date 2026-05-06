@@ -862,15 +862,15 @@ def _meaning_for_config_field(field: str) -> str:
         parameter_name = tokens[2]
         if tokens[-1] == "kind":
             return f"Parameterization mode used for `{parameter_name}`."
-        if tokens[-1] == "value" and "field_homogeneous" in tokens:
+        if tokens[-1] == "value" and "field" in tokens:
             return f"Homogeneous `{parameter_name}` value used by the benchmark."
-        if tokens[-1] == "values_source" and "field_heterogeneous" in tokens:
+        if tokens[-1] == "values_source" and "field" in tokens:
             return f"Value source used for the heterogeneous `{parameter_name}` field."
-        if tokens[-1] == "field_spatial_id" and "field_heterogeneous" in tokens:
+        if tokens[-1] == "field_spatial_id" and "field" in tokens:
             return (
                 f"Support identifier used to distribute the heterogeneous `{parameter_name}` field."
             )
-        if "field_heterogeneous" in tokens and "values" in tokens:
+        if "field" in tokens and "values" in tokens:
             zone_name = tokens[-1]
             return f"Heterogeneous `{parameter_name}` value applied on support zone `{zone_name}`."
 

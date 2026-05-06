@@ -29,6 +29,17 @@ def test_export_schema_by_section_name():
     assert "flow_regime" in schema["properties"]
 
 
+def test_model_json_schema_exposes_profile_metadata():
+    from hydromodpy.config import HydroModPyConfig
+
+    schema = HydroModPyConfig.model_json_schema()
+    props = schema["properties"]
+
+    assert props["workflow"]["x-hmp-profile"] == "user"
+    assert props["analysis"]["x-hmp-profile"] == "dev"
+    assert props["modflow6"]["x-hmp-profile"] == "expert"
+
+
 def test_export_schema_unknown_section_raises():
     from hydromodpy.config.schema_export import export_schema
 

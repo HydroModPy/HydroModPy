@@ -102,7 +102,7 @@ variant to the simulation workflow:
    [testbed.variant.overlay.simulation]
    name = "flow_low_k"
 
-   [testbed.variant.overlay.flow.param.K.field_homogeneous]
+   [testbed.variant.overlay.flow.param.K.field]
    value = "5e-6 m/s"
 
    [[testbed.variant]]
@@ -112,7 +112,7 @@ variant to the simulation workflow:
    [testbed.variant.overlay.simulation]
    name = "flow_high_k"
 
-   [testbed.variant.overlay.flow.param.K.field_homogeneous]
+   [testbed.variant.overlay.flow.param.K.field]
    value = "2e-5 m/s"
 
    [[testbed.metric]]
