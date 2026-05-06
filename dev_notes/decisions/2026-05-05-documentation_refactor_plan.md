@@ -115,18 +115,25 @@ Commits autonomes, format `[tag] - message`, sans mention de phase :
 
 #### Phase 1 — Refonte structurelle (~10-12 jours)
 
-11. `[docs] - switch api ref to recursive autosummary`
-12. `[docs] - reorganise capability gallery into 5 categories with thumbnails and All cases page`
-13. `[docs] - add visual drift check for gallery PNG with update-baseline command`
-14. `[docs] - rename scientific to theory and consolidate boussinesq notes`
-15. `[docs] - add bibtex bibliography and convert prose citations`
-16. `[docs] - consolidate user guide leaves and absorb getting_started orphans`
-17. `[docs] - publish stable subset of developers/ as docs/source/developer/ and dispatch architecture pages`
-18. `[docs] - install tier-1 sphinx extensions (mermaid, bibtex, codeautolink, autodoc-typehints, issues, rediraffe)`
-19. `[docs] - add redirect map for refactored pages`
-20. `[docs] - audit and migrate diagrams (mermaid prioritaire, plantuml UML détaillés, suppression legacy)`
-21. `[docs] - migrate from sphinx-multiversion to sphinx-polyversion`
-22. `[docs] - enable doc linting and warnings-as-errors gate`
+**Statut : 11/12 commits livrés sur `dev-docs` (étape 21 reportée).**
+Build local clean, 8 warnings (3 substantifs : autosummary échoue à importer
+`hydromodpy.data.variables.{hydrometry,piezometry}.discovery` et
+`hydromodpy.workflow.pipelines.overview` faute de modules dépendants
+manquants côté codebase ; 5 `DeprecationWarning` infrastructure Python 3.13
+sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
+
+11. `[docs] - switch api ref to recursive autosummary` ✓ (commit `b5144869b`)
+12. `[docs] - reorganise capability gallery into 5 categories with thumbnails and All cases page` ✓
+13. `[docs] - add visual drift check for gallery PNG with update-baseline command` ✓
+14. `[docs] - rename scientific to theory and consolidate boussinesq notes` ✓
+15. `[docs] - add bibtex bibliography and convert prose citations` ✓
+16. `[docs] - consolidate user guide leaves and absorb getting_started orphans` ✓
+17. `[docs] - publish stable subset of developers/ as docs/source/developer/ and dispatch architecture pages` ✓
+18. `[docs] - install tier-1 sphinx extensions (mermaid, bibtex, codeautolink, autodoc-typehints, issues, rediraffe)` ✓
+19. `[docs] - add redirect map for refactored pages` ✓
+20. `[docs] - audit and migrate diagrams (mermaid prioritaire, plantuml UML détaillés, suppression legacy)` ✓
+21. `[docs] - migrate from sphinx-multiversion to sphinx-polyversion` — **reporté**, swap CLI + config + RTD non-trivial à instruire en isolation, pas un blocant pour la doc locale.
+22. `[docs] - enable doc linting and warnings-as-errors gate` ✓ (livré sous forme `lint` + `html-strict` opt-in pour ne pas casser `make html` tant que les 3 warnings codebase pré-existent)
 
 #### Phase 2 — Enrichissement (~9-11 jours)
 
