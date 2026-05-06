@@ -15,13 +15,14 @@ regression to fix before commit.
 | Build status | succeeds | succeeds | Run from repo root, `mamba activate hmp_refact` |
 | Wall time | < 6 min | ~3 min | Parallelism via `-j auto` is mandatory |
 | Pages emitted | grows monotonically | ~900 | Most pages are autosummary-generated |
-| Total warnings | 3 (baseline) | 3 | All three are autosummary import failures, see below |
-| Substantive warnings | 0 | 0 | New non-baseline warnings are a regression |
+| Warnings (incremental rebuild) | 3 (baseline) | 3 | Cached output suppresses docstring-parse warnings |
+| Warnings (fresh build, ``rm -rf docs/build``) | <= 8 (current ceiling) | 8 | The extra 5 are pre-existing codebase docstring issues |
+| Substantive warnings introduced by Phase 2 | 0 | 0 | New non-baseline warnings are a regression |
 
-### Baseline warnings (acceptable, not regressions)
+### Baseline warnings on every build (3, acceptable)
 
-These three warnings are tracked since Phase 1 step 18 and remain
-acceptable until the underlying modules are restored:
+Tracked since Phase 1 step 18 and remain acceptable until the
+underlying modules are restored:
 
 1. `[autosummary] failed to import hydromodpy.data.variables.hydrometry.discovery`
    — depends on `hydromodpy.data.variables.common` which is missing.
@@ -30,7 +31,27 @@ acceptable until the underlying modules are restored:
 3. `[autosummary] failed to import hydromodpy.workflow.pipelines.overview`
    — depends on `hydromodpy.workflow.pipelines.overview_config` which is missing.
 
-A non-baseline warning is a regression and must be fixed before commit.
+### Extra warnings on fresh builds only (5, pre-existing)
+
+These appear when ``docs/build`` is wiped and Sphinx parses every
+module docstring from scratch. They are codebase-level docstring or
+typing annotations issues, not regressions of the v1 documentation
+refactor:
+
+- Anonymous `Unexpected indentation` / `Block quote ends without a
+  blank line` lines (no file path reported) emitted by docutils
+  during autodoc parsing of Python docstrings.
+- `Cannot resolve forward reference in type annotations of
+  hydromodpy.spatial.field.core.field_spatial_weighted_discretization
+  .WeightedAverageFieldDiscretization: name 'BaseFieldMesh' is not
+  defined` from `sphinx-autodoc-typehints` ; needs the codebase to
+  rebuild forward refs.
+- `Could not match a code example to HTML, source: ...` from
+  `sphinx-codeautolink` on a `>>>` example block.
+
+A non-baseline warning introduced by Phase 2 is a regression and
+must be fixed before commit. The five extra warnings above predate
+Phase 2 ; the dashboard tracks them so they don't get lost.
 
 ## Doc linting
 
