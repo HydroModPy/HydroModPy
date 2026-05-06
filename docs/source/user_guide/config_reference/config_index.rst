@@ -2497,7 +2497,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-ic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L407>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L414>`__
    * - ``flow.ic.h``
      - ``FlowInitialCondition``
      - user
@@ -2755,7 +2755,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L414>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L421>`__
    * - ``flow.sinks_sources.wells``
      - ``dict[str, FlowWellConfig]``
      - user
@@ -3007,13 +3007,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-active-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L418>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L425>`__
    * - ``flow.active_bc``
      - ``list[str]``
      - user
      - -
      - `flow <flow.html#flow-active-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L426>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L433>`__
    * - ``flow.flow_regime``
      - ``Literal['steady', 'transient']``
      - user

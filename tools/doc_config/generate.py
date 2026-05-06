@@ -499,6 +499,7 @@ def _render_field_block(
         type_badge = f":bdg-primary:`{type_str}`"
 
     toml_usage = _toml_usage(field, full_path, field_name)
+    is_scalar = not toml_usage.startswith("[")
     inner = indent + "   "
     lines: list[str] = [
         f"{indent}.. container:: hmp-field hmp-field-level-{level_class}",
@@ -508,11 +509,20 @@ def _render_field_block(
         "",
         f'{inner}   <div class="hmp-field-header" data-toml-path="{html.escape(full_path, quote=True)}">',
         f'{inner}     <code class="hmp-field-name">{html.escape(field_name)}</code>',
-        f'{inner}     <span class="hmp-field-arrow">in TOML:</span>',
-        f'{inner}     <code class="hmp-field-toml">{html.escape(toml_usage)}</code>',
-        f"{inner}   </div>",
-        "",
     ]
+    if not is_scalar:
+        lines.extend(
+            [
+                f'{inner}     <span class="hmp-field-arrow">in TOML:</span>',
+                f'{inner}     <code class="hmp-field-toml">{html.escape(toml_usage)}</code>',
+            ]
+        )
+    lines.extend(
+        [
+            f"{inner}   </div>",
+            "",
+        ]
+    )
     badge_parts = [type_badge, badge, _profile_badge(profile)]
     stability_part = _stability_badge(stability)
     if stability_part is not None:
@@ -541,9 +551,9 @@ def _render_field_block(
             if discriminator is not None:
                 disc_name, disc_tags = discriminator
                 tag = disc_tags[inner_model]
-                title = f'``{disc_name} = "{tag}"``  ({inner_model.__name__})'
                 hidden_field = disc_name
                 nested_path = _toml_path(full_path, tag, dynamic_key)
+                title = f"``[{nested_path}]``  ({inner_model.__name__})"
                 child_namespace = anchor_namespace
             else:
                 title = f"Fields of ``{inner_model.__name__}``"

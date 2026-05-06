@@ -401,7 +401,14 @@ class FlowConfig(ProcessSpatialConfig):
             "**Allowed application_domain values:** ``top``, ``north side``, "
             "``south side``, ``east side``, ``west side``.\n"
             "\n"
-            "**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin."
+            "**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.\n"
+            "\n"
+            "**Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; "
+            "the distinction only matters for the Boussinesq solver, which uses "
+            "two different surface-interaction closures (``cauchy`` for the "
+            "linear formulation ``q = C(h - h_ref)``, ``robin`` for the "
+            "regularized partition / complementarity variants selected by "
+            "``flow.surface_interaction_model``)."
         ),
     )
     ic: Annotated[FlowInitialConditions, Profile.USER] = Field(

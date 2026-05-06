@@ -64,8 +64,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.config_path">
               <code class="hmp-field-name">config_path</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">config_path = ...</code>
             </div>
 
          :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L339>`__
@@ -80,8 +78,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.base_dir">
               <code class="hmp-field-name">base_dir</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">base_dir = ...</code>
             </div>
 
          :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L342>`__
@@ -96,8 +92,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.lab_id">
               <code class="hmp-field-name">lab_id</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">lab_id = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L345>`__
@@ -112,8 +106,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.output_root">
               <code class="hmp-field-name">output_root</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">output_root = ...</code>
             </div>
 
          :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L346>`__
@@ -128,8 +120,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.execute">
               <code class="hmp-field-name">execute</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">execute = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L349>`__
@@ -144,8 +134,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.continue_on_error">
               <code class="hmp-field-name">continue_on_error</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">continue_on_error = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L353>`__
@@ -160,8 +148,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.validate_config_paths">
               <code class="hmp-field-name">validate_config_paths</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">validate_config_paths = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L357>`__
@@ -176,8 +162,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.resume_from_report">
               <code class="hmp-field-name">resume_from_report</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">resume_from_report = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L361>`__
@@ -192,8 +176,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.skip_completed_cases">
               <code class="hmp-field-name">skip_completed_cases</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">skip_completed_cases = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L365>`__
@@ -208,8 +190,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.child_timeout_s">
               <code class="hmp-field-name">child_timeout_s</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">child_timeout_s = ...</code>
             </div>
 
          :bdg-primary:`int | None` :bdg-secondary:`default = 3600` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L369>`__
@@ -224,8 +204,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.batch.python_executable">
               <code class="hmp-field-name">python_executable</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">python_executable = ...</code>
             </div>
 
          :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L373>`__
@@ -261,8 +239,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.path">
                     <code class="hmp-field-name">path</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">path = ...</code>
                   </div>
 
                :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L128>`__
@@ -277,8 +253,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.format">
                     <code class="hmp-field-name">format</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">format = ...</code>
                   </div>
 
                :bdg-primary:`Literal['auto', 'csv', 'jsonl']` :bdg-secondary:`default = "auto"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L131>`__
@@ -293,8 +267,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.site_id_field">
                     <code class="hmp-field-name">site_id_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">site_id_field = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = "site_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L135>`__
@@ -309,8 +281,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.site_label_field">
                     <code class="hmp-field-name">site_label_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">site_label_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "site_label"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L139>`__
@@ -325,8 +295,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.cluster_id_field">
                     <code class="hmp-field-name">cluster_id_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">cluster_id_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L143>`__
@@ -341,8 +309,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.cluster_label_field">
                     <code class="hmp-field-name">cluster_label_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">cluster_label_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_label"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L147>`__
@@ -357,8 +323,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.cluster_family_field">
                     <code class="hmp-field-name">cluster_family_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">cluster_family_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_family"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L151>`__
@@ -373,8 +337,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.cluster_scale_field">
                     <code class="hmp-field-name">cluster_scale_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">cluster_scale_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_scale"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L155>`__
@@ -389,8 +351,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.region_field">
                     <code class="hmp-field-name">region_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">region_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "region_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L159>`__
@@ -405,8 +365,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.source_selection_field">
                     <code class="hmp-field-name">source_selection_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">source_selection_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "source_selection_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L163>`__
@@ -421,8 +379,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.status_field">
                     <code class="hmp-field-name">status_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">status_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "site_status"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L167>`__
@@ -437,8 +393,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.maturity_field">
                     <code class="hmp-field-name">maturity_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">maturity_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "maturity"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L171>`__
@@ -453,8 +407,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.x_field">
                     <code class="hmp-field-name">x_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">x_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "x"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L175>`__
@@ -469,8 +421,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.y_field">
                     <code class="hmp-field-name">y_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">y_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "y"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L179>`__
@@ -485,8 +435,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.area_km2_field">
                     <code class="hmp-field-name">area_km2_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">area_km2_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "area_km2"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L183>`__
@@ -501,8 +449,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.tags_field">
                     <code class="hmp-field-name">tags_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">tags_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "tags"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L187>`__
@@ -517,8 +463,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.enabled_field">
                     <code class="hmp-field-name">enabled_field</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">enabled_field = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = "enabled"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L191>`__
@@ -533,8 +477,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.required_fields">
                     <code class="hmp-field-name">required_fields</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">required_fields = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L195>`__
@@ -549,8 +491,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.path_fields">
                     <code class="hmp-field-name">path_fields</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">path_fields = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L199>`__
@@ -565,8 +505,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.tag_separator">
                     <code class="hmp-field-name">tag_separator</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">tag_separator = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-secondary:`default = ";"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L203>`__
@@ -604,8 +542,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.site_ids">
                     <code class="hmp-field-name">site_ids</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">site_ids = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L214>`__
@@ -620,8 +556,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.cluster_ids">
                     <code class="hmp-field-name">cluster_ids</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">cluster_ids = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L218>`__
@@ -636,8 +570,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.regions">
                     <code class="hmp-field-name">regions</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">regions = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L222>`__
@@ -652,8 +584,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.families">
                     <code class="hmp-field-name">families</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">families = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L226>`__
@@ -668,8 +598,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.scales">
                     <code class="hmp-field-name">scales</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">scales = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L230>`__
@@ -684,8 +612,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.statuses">
                     <code class="hmp-field-name">statuses</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">statuses = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L234>`__
@@ -700,8 +626,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.maturity_levels">
                     <code class="hmp-field-name">maturity_levels</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">maturity_levels = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L238>`__
@@ -716,8 +640,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.tags">
                     <code class="hmp-field-name">tags</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">tags = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L242>`__
@@ -732,8 +654,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.limit">
                     <code class="hmp-field-name">limit</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">limit = ...</code>
                   </div>
 
                :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L246>`__
@@ -748,8 +668,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.selection.include_disabled">
                     <code class="hmp-field-name">include_disabled</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">include_disabled = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L250>`__
@@ -787,8 +705,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.id">
                     <code class="hmp-field-name">id</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">id = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L261>`__
@@ -803,8 +719,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.label">
                     <code class="hmp-field-name">label</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">label = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L262>`__
@@ -819,8 +733,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.enabled">
                     <code class="hmp-field-name">enabled</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">enabled = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L263>`__
@@ -835,8 +747,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.priority">
                     <code class="hmp-field-name">priority</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">priority = ...</code>
                   </div>
 
                :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L267>`__
@@ -872,8 +782,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.site_ids">
                           <code class="hmp-field-name">site_ids</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">site_ids = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L214>`__
@@ -888,8 +796,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.cluster_ids">
                           <code class="hmp-field-name">cluster_ids</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">cluster_ids = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L218>`__
@@ -904,8 +810,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.regions">
                           <code class="hmp-field-name">regions</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">regions = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L222>`__
@@ -920,8 +824,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.families">
                           <code class="hmp-field-name">families</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">families = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L226>`__
@@ -936,8 +838,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.scales">
                           <code class="hmp-field-name">scales</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">scales = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L230>`__
@@ -952,8 +852,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.statuses">
                           <code class="hmp-field-name">statuses</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">statuses = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L234>`__
@@ -968,8 +866,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.maturity_levels">
                           <code class="hmp-field-name">maturity_levels</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">maturity_levels = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L238>`__
@@ -984,8 +880,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.tags">
                           <code class="hmp-field-name">tags</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">tags = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L242>`__
@@ -1000,8 +894,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.limit">
                           <code class="hmp-field-name">limit</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">limit = ...</code>
                         </div>
 
                      :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L246>`__
@@ -1016,8 +908,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.selection.include_disabled">
                           <code class="hmp-field-name">include_disabled</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">include_disabled = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L250>`__
@@ -1034,8 +924,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.field_equals">
                     <code class="hmp-field-name">field_equals</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">field_equals = ...</code>
                   </div>
 
                :bdg-primary:`tuple[tuple[str, str], ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L274>`__
@@ -1050,8 +938,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.set_cluster_id">
                     <code class="hmp-field-name">set_cluster_id</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">set_cluster_id = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L278>`__
@@ -1066,8 +952,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.set_cluster_label">
                     <code class="hmp-field-name">set_cluster_label</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">set_cluster_label = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L282>`__
@@ -1082,8 +966,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.set_cluster_family">
                     <code class="hmp-field-name">set_cluster_family</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">set_cluster_family = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L286>`__
@@ -1098,8 +980,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.set_cluster_scale">
                     <code class="hmp-field-name">set_cluster_scale</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">set_cluster_scale = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L290>`__
@@ -1114,8 +994,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.cluster_tags">
                     <code class="hmp-field-name">cluster_tags</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">cluster_tags = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L294>`__
@@ -1130,8 +1008,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.cluster_rules.override_existing_cluster">
                     <code class="hmp-field-name">override_existing_cluster</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">override_existing_cluster = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L298>`__
@@ -1169,8 +1045,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.id">
                     <code class="hmp-field-name">id</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">id = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L309>`__
@@ -1185,8 +1059,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.label">
                     <code class="hmp-field-name">label</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">label = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L310>`__
@@ -1201,8 +1073,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.launcher">
                     <code class="hmp-field-name">launcher</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">launcher = ...</code>
                   </div>
 
                :bdg-primary:`Literal['simulation', 'comparison']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L311>`__
@@ -1217,8 +1087,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.config_path_template">
                     <code class="hmp-field-name">config_path_template</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">config_path_template = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L314>`__
@@ -1233,8 +1101,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.enabled">
                     <code class="hmp-field-name">enabled</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">enabled = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L317>`__
@@ -1270,8 +1136,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.site_ids">
                           <code class="hmp-field-name">site_ids</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">site_ids = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L214>`__
@@ -1286,8 +1150,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.cluster_ids">
                           <code class="hmp-field-name">cluster_ids</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">cluster_ids = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L218>`__
@@ -1302,8 +1164,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.regions">
                           <code class="hmp-field-name">regions</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">regions = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L222>`__
@@ -1318,8 +1178,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.families">
                           <code class="hmp-field-name">families</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">families = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L226>`__
@@ -1334,8 +1192,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.scales">
                           <code class="hmp-field-name">scales</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">scales = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L230>`__
@@ -1350,8 +1206,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.statuses">
                           <code class="hmp-field-name">statuses</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">statuses = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L234>`__
@@ -1366,8 +1220,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.maturity_levels">
                           <code class="hmp-field-name">maturity_levels</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">maturity_levels = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L238>`__
@@ -1382,8 +1234,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.tags">
                           <code class="hmp-field-name">tags</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">tags = ...</code>
                         </div>
 
                      :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L242>`__
@@ -1398,8 +1248,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.limit">
                           <code class="hmp-field-name">limit</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">limit = ...</code>
                         </div>
 
                      :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L246>`__
@@ -1414,8 +1262,6 @@ Fields
 
                         <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.selection.include_disabled">
                           <code class="hmp-field-name">include_disabled</code>
-                          <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">include_disabled = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L250>`__
@@ -1432,8 +1278,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.required_fields">
                     <code class="hmp-field-name">required_fields</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">required_fields = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L324>`__
@@ -1448,8 +1292,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.batch.recipes.allowed_platforms">
                     <code class="hmp-field-name">allowed_platforms</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">allowed_platforms = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L328>`__
@@ -1489,8 +1331,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.capability_gallery.enabled">
               <code class="hmp-field-name">enabled</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">enabled = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/capability_gallery.py#L57>`__
@@ -1505,8 +1345,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.capability_gallery.output_dir">
               <code class="hmp-field-name">output_dir</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">output_dir = ...</code>
             </div>
 
          :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/capability_gallery.py#L61>`__
@@ -1521,8 +1359,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.capability_gallery.case_slug">
               <code class="hmp-field-name">case_slug</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">case_slug = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-secondary:`default = "launcher_simulation_flow_case"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/capability_gallery.py#L68>`__
@@ -1537,8 +1373,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.capability_gallery.assets">
               <code class="hmp-field-name">assets</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">assets = ...</code>
             </div>
 
          :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ('piezometric_map.png', 'seepage_map.png', 'hydrograph.png', 'water_budget.png', 'watershed_id_card.png')` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/capability_gallery.py#L72>`__
@@ -1576,8 +1410,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.comparison.comparison_id">
               <code class="hmp-field-name">comparison_id</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">comparison_id = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L203>`__
@@ -1590,8 +1422,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.comparison.base_simulation_config">
               <code class="hmp-field-name">base_simulation_config</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">base_simulation_config = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L204>`__
@@ -1604,8 +1434,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.comparison.anchors_file">
               <code class="hmp-field-name">anchors_file</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">anchors_file = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L205>`__
@@ -1618,8 +1446,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.comparison.output_root">
               <code class="hmp-field-name">output_root</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">output_root = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L206>`__
@@ -1632,8 +1458,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.comparison.run_simulations">
               <code class="hmp-field-name">run_simulations</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">run_simulations = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L207>`__
@@ -1646,8 +1470,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.comparison.continue_on_error">
               <code class="hmp-field-name">continue_on_error</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">continue_on_error = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L208>`__
@@ -1660,8 +1482,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="analysis.comparison.reference_simulation">
               <code class="hmp-field-name">reference_simulation</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">reference_simulation = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L209>`__
@@ -1693,8 +1513,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.fine_raster.enabled">
                     <code class="hmp-field-name">enabled</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">enabled = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L263>`__
@@ -1707,8 +1525,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.fine_raster.resolution">
                     <code class="hmp-field-name">resolution</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">resolution = ...</code>
                   </div>
 
                :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L264>`__
@@ -1721,8 +1537,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.fine_raster.extent_mode">
                     <code class="hmp-field-name">extent_mode</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">extent_mode = ...</code>
                   </div>
 
                :bdg-primary:`Literal['intersection', 'union', 'reference']` :bdg-secondary:`default = "intersection"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L265>`__
@@ -1735,8 +1549,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.fine_raster.interpolation">
                     <code class="hmp-field-name">interpolation</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">interpolation = ...</code>
                   </div>
 
                :bdg-primary:`Literal['linear', 'nearest']` :bdg-secondary:`default = "linear"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L266>`__
@@ -1749,8 +1561,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.fine_raster.write_geotiff">
                     <code class="hmp-field-name">write_geotiff</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">write_geotiff = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L267>`__
@@ -1786,8 +1596,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.id">
                     <code class="hmp-field-name">id</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">id = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L28>`__
@@ -1800,8 +1608,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.label">
                     <code class="hmp-field-name">label</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">label = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L29>`__
@@ -1814,8 +1620,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.enabled">
                     <code class="hmp-field-name">enabled</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">enabled = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L30>`__
@@ -1828,8 +1632,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.simulation_config">
                     <code class="hmp-field-name">simulation_config</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulation_config = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L31>`__
@@ -1842,8 +1644,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.run_folder">
                     <code class="hmp-field-name">run_folder</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">run_folder = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L32>`__
@@ -1856,8 +1656,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.solver">
                     <code class="hmp-field-name">solver</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">solver = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L33>`__
@@ -1870,8 +1668,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.mesh_label">
                     <code class="hmp-field-name">mesh_label</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_label = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L34>`__
@@ -1884,8 +1680,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.mesh_mode">
                     <code class="hmp-field-name">mesh_mode</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">mesh_mode = ...</code>
                   </div>
 
                :bdg-primary:`Literal['mesh_catchment', 'mesh_input', 'sgrid', 'structured', 'unstructured', 'unknown']` :bdg-secondary:`default = "unknown"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L35>`__
@@ -1937,8 +1731,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.name">
                     <code class="hmp-field-name">name</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">name = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L84>`__
@@ -1951,8 +1743,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.variable">
                     <code class="hmp-field-name">variable</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">variable = ...</code>
                   </div>
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L85>`__
@@ -1965,8 +1755,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.source">
                     <code class="hmp-field-name">source</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">source = ...</code>
                   </div>
 
                :bdg-primary:`Literal['disk']` :bdg-secondary:`default = "disk"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L86>`__
@@ -1979,8 +1767,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.simulations">
                     <code class="hmp-field-name">simulations</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">simulations = ...</code>
                   </div>
 
                :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L87>`__
@@ -1993,8 +1779,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.support">
                     <code class="hmp-field-name">support</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">support = ...</code>
                   </div>
 
                :bdg-primary:`Literal['point', 'outlet', 'boundary', 'cell_mask', 'map']` :bdg-secondary:`default = "point"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L88>`__
@@ -2007,8 +1791,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.anchor_id">
                     <code class="hmp-field-name">anchor_id</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">anchor_id = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L89>`__
@@ -2021,8 +1803,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.x">
                     <code class="hmp-field-name">x</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">x = ...</code>
                   </div>
 
                :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L90>`__
@@ -2035,8 +1815,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.y">
                     <code class="hmp-field-name">y</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">y = ...</code>
                   </div>
 
                :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L91>`__
@@ -2049,8 +1827,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.cell_index">
                     <code class="hmp-field-name">cell_index</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">cell_index = ...</code>
                   </div>
 
                :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L92>`__
@@ -2063,8 +1839,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.cell_indices">
                     <code class="hmp-field-name">cell_indices</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">cell_indices = ...</code>
                   </div>
 
                :bdg-primary:`list[int] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L93>`__
@@ -2077,8 +1851,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.boundary_id">
                     <code class="hmp-field-name">boundary_id</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">boundary_id = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L94>`__
@@ -2091,8 +1863,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.allow_domain_proxy">
                     <code class="hmp-field-name">allow_domain_proxy</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">allow_domain_proxy = ...</code>
                   </div>
 
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L95>`__
@@ -2105,8 +1875,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.time">
                     <code class="hmp-field-name">time</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">time = ...</code>
                   </div>
 
                :bdg-primary:`str | int | None` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L96>`__
@@ -2119,8 +1887,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.time_window">
                     <code class="hmp-field-name">time_window</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">time_window = ...</code>
                   </div>
 
                :bdg-primary:`tuple[str, str] | tuple[float, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L97>`__
@@ -2133,8 +1899,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.reducer">
                     <code class="hmp-field-name">reducer</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">reducer = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L98>`__
@@ -2147,8 +1911,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.time_reducer">
                     <code class="hmp-field-name">time_reducer</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">time_reducer = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L99>`__
@@ -2161,8 +1923,6 @@ Fields
 
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.observable.unit">
                     <code class="hmp-field-name">unit</code>
-                    <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">unit = ...</code>
                   </div>
 
                :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L100>`__

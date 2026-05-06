@@ -38,8 +38,6 @@ Fields
 
       <div class="hmp-field-header" data-toml-path="display.enabled">
         <code class="hmp-field-name">enabled</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">enabled = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L112>`__
@@ -54,8 +52,6 @@ Fields
 
       <div class="hmp-field-header" data-toml-path="display.backend">
         <code class="hmp-field-name">backend</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">backend = ...</code>
       </div>
 
    :bdg-primary:`Literal['agg', 'qt5agg', 'auto']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L116>`__
@@ -70,8 +66,6 @@ Fields
 
       <div class="hmp-field-header" data-toml-path="display.preset">
         <code class="hmp-field-name">preset</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">preset = ...</code>
       </div>
 
    :bdg-primary:`Literal['default', 'print', 'dark']` :bdg-secondary:`default = "default"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L123>`__
@@ -86,8 +80,6 @@ Fields
 
       <div class="hmp-field-header" data-toml-path="display.show">
         <code class="hmp-field-name">show</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">show = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L127>`__
@@ -102,8 +94,6 @@ Fields
 
       <div class="hmp-field-header" data-toml-path="display.save">
         <code class="hmp-field-name">save</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">save = ...</code>
       </div>
 
    :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L131>`__
@@ -118,8 +108,6 @@ Fields
 
       <div class="hmp-field-header" data-toml-path="display.output_dir">
         <code class="hmp-field-name">output_dir</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">output_dir = ...</code>
       </div>
 
    :bdg-primary:`Path` :bdg-secondary:`default = "figures"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L135>`__
@@ -134,8 +122,6 @@ Fields
 
       <div class="hmp-field-header" data-toml-path="display.dpi">
         <code class="hmp-field-name">dpi</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">dpi = ...</code>
       </div>
 
    :bdg-primary:`int` :bdg-secondary:`default = 150` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L139>`__
@@ -150,8 +136,6 @@ Fields
 
       <div class="hmp-field-header" data-toml-path="display.cmap">
         <code class="hmp-field-name">cmap</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">cmap = ...</code>
       </div>
 
    :bdg-primary:`str` :bdg-secondary:`default = "viridis"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L144>`__
@@ -166,8 +150,6 @@ Fields
 
       <div class="hmp-field-header" data-toml-path="display.figures">
         <code class="hmp-field-name">figures</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">figures = ...</code>
       </div>
 
    :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L148>`__
@@ -219,8 +201,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.enabled">
               <code class="hmp-field-name">enabled</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">enabled = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L21>`__
@@ -235,8 +215,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.cross_section">
               <code class="hmp-field-name">cross_section</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">cross_section = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L25>`__
@@ -251,8 +229,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.streamflow">
               <code class="hmp-field-name">streamflow</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">streamflow = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L29>`__
@@ -267,8 +243,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.piezometry">
               <code class="hmp-field-name">piezometry</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">piezometry = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L33>`__
@@ -283,8 +257,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.watertable_map">
               <code class="hmp-field-name">watertable_map</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">watertable_map = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L37>`__
@@ -299,8 +271,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.dem_map">
               <code class="hmp-field-name">dem_map</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">dem_map = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L41>`__
@@ -315,8 +285,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.budget">
               <code class="hmp-field-name">budget</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">budget = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L45>`__
@@ -331,8 +299,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.hydrography">
               <code class="hmp-field-name">hydrography</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">hydrography = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L49>`__
@@ -347,8 +313,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_state">
               <code class="hmp-field-name">boussinesq_state</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">boussinesq_state = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L53>`__
@@ -363,8 +327,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_diagnostics">
               <code class="hmp-field-name">boussinesq_diagnostics</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">boussinesq_diagnostics = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L57>`__
@@ -379,8 +341,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_mass_balance">
               <code class="hmp-field-name">boussinesq_mass_balance</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">boussinesq_mass_balance = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L61>`__
@@ -395,8 +355,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_probes">
               <code class="hmp-field-name">boussinesq_probes</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">boussinesq_probes = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L65>`__
@@ -411,8 +369,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.flow.boussinesq_edge_flux">
               <code class="hmp-field-name">boussinesq_edge_flux</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">boussinesq_edge_flux = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L69>`__
@@ -450,8 +406,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.particles.enabled">
               <code class="hmp-field-name">enabled</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">enabled = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L78>`__
@@ -466,8 +420,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.particles.pathlines">
               <code class="hmp-field-name">pathlines</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">pathlines = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L82>`__
@@ -505,8 +457,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.transport.enabled">
               <code class="hmp-field-name">enabled</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">enabled = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L91>`__
@@ -521,8 +471,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.transport.concentration">
               <code class="hmp-field-name">concentration</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">concentration = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L95>`__
@@ -537,8 +485,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.transport.gif">
               <code class="hmp-field-name">gif</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">gif = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L99>`__
@@ -553,8 +499,6 @@ Fields
 
             <div class="hmp-field-header" data-toml-path="display.transport.web_animation">
               <code class="hmp-field-name">web_animation</code>
-              <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">web_animation = ...</code>
             </div>
 
          :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L103>`__
