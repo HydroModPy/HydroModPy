@@ -6,9 +6,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DOC_SOURCE = ROOT / "docs" / "readthedocs" / "source"
+DOC_SOURCE = ROOT / "docs" / "source"
 CLI_REFERENCE = DOC_SOURCE / "user_guide" / "cli-reference.rst"
-API_REFERENCE = DOC_SOURCE / "api-reference.rst"
+API_REFERENCE = DOC_SOURCE / "api" / "index.rst"
 USER_GUIDE_INDEX = DOC_SOURCE / "user_guide" / "index.rst"
 
 COMMAND_PATTERN = re.compile(r"``hmp ([a-z0-9-]+)``")
@@ -25,11 +25,11 @@ BANNED_AUTHORED_PATTERNS = {
 }
 
 REQUIRED_API_PAGES = {
-    "api/hydromodpy-project-results",
-    "api/hydromodpy-data",
-    "api/hydromodpy-workflow-pipeline",
-    "api/hydromodpy-analysis-calibration",
-    "api/hydromodpy-schema",
+    "hydromodpy.run",
+    "hydromodpy.calibrate",
+    "hydromodpy.overview",
+    "hydromodpy.config",
+    "hydromodpy.analysis",
 }
 
 REQUIRED_USER_GUIDE_PAGES = {
