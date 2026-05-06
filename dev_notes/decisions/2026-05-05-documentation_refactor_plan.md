@@ -199,7 +199,10 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - `docs/source/theory/notation.rst` (5 sections : hydraulic state, parameters, geometry, time/calibration, conventions)
     - Mention explicite que la page de comparaison vs FloPy/ParFlow est skippée selon décision plan v1
     - Référence vers `solvers/solver-capability-matrix` comme alternative
-35. `[docs] - add usage bibliography (papers using HydroModPy with seed entries)`
+35. `[docs] - add usage bibliography (papers using HydroModPy with seed entries)` ✓ (commit `12038e903`)
+    - 5 nouvelles entrées bibtex dans `references.bib` (abherve2024headwater, abherve2025climate, floriancic2024knickpoint, lemesnil2024coastal, marti2024wetland)
+    - `docs/source/usage_bibliography.rst` avec :cite: role pour chaque entrée et résumé d'utilisation
+    - Lien depuis applications.rst et how_to_cite
 36. `[docs] - add doc health dashboard in dev_notes`
 37. `[docs] - revamp landing page with hero CTAs and citation block`
 
