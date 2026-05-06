@@ -14,7 +14,7 @@ documentation de HydroModPy. Il sert de guide de référence pour la refonte.
 | Phase 0 — Quick wins | 1 à 10 | ✓ livrée 2026-05-05 | `dev-docs` | `07f2f3b30` → `a0799bf69` |
 | Phase 1 — Refonte structurelle | 11 à 22 | ✓ 12/12 livrée (étape 21 incluse) | `dev-docs` | `b5144869b` → `c8e8057dd` |
 | Phase 2 — Enrichissement | 23 à 37 | ✓ livrée 2026-05-06 | `dev-docs` | `072b06e00` → `2f7697342` |
-| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (38, 39, 41 livrées ; 40 bloquée) | `dev-docs` | `137131b96` → `b94eff267` |
+| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (38, 39, 41, 42 livrées ; 40 bloquée) | `dev-docs` | `137131b96` → `2e520c963` |
 
 Build sphinx local clean : 3 warnings baseline (incrémental) / 8 sur fresh
 build (5 issues codebase pré-existantes). Voir
@@ -313,7 +313,12 @@ les étapes 23 à 37.
     - CSS dédié `_static/css/hmp-feedback.css` (variables PST pour s'aligner sur le thème pydata)
     - Build sphinx local clean (3 warnings baseline) ; build avec `HMP_DOCS_GOATCOUNTER_URL` set vérifié manuellement, le snippet est bien injecté
     - Pour activer GoatCounter : créer un projet sur goatcounter.com, exporter `HMP_DOCS_GOATCOUNTER_URL=https://<projet>.goatcounter.com/count` dans le shell ou dans `.readthedocs.yaml` (`build.commands`/`environment`)
-42. `[docs] - add difficulty and time badges`
+42. `[docs] - add difficulty and time badges` ✓ (commit `2e520c963`)
+    - Directive `page-badges` ajoutée dans `_ext/hmp_directives.py` : options `:difficulty:` (beginner|intermediate|advanced), `:time:` (texte libre, ex `5 min`, `1 h`), `:tags:` (liste séparée par virgules pour les tags ad hoc)
+    - CSS dédié `_static/css/hmp-page-badges.css` : palette stability-aligned (vert `#15803d` pour beginner, orange `#d97706` pour intermediate, rouge `#b91c1c` pour advanced ; pill style + icône horloge pour le time)
+    - 6 tutoriels enrichis sous `getting_started/` : `concepts_in_5_min` (beginner / 5 min), `cli-quickstart` (beginner / 10 min), `choose-your-first-workflow` (beginner / 5 min), `data-overview-walkthrough` (beginner / 30 min), `simulation-walkthrough` (intermediate / 1 h), `read-real-basin-run` (intermediate / 45 min)
+    - Cas gallery non taggés à ce stade (les specs `tools/doc_gallery/*` n'ont pas encore de champ `difficulty`/`time` ; à faire dans une itération séparée si besoin)
+    - Build sphinx local clean (3 warnings baseline)
 43. `[docs] - capture and embed key workflow GIFs (calibration convergence, mesh refinement, CLI setup)`
 44. `[docs] - add interactive schema explorer with stoplight viewer (couche 3 config)`
 45. `[docs] - mention vtk-js mesh viewer as future evolution in architecture page`
