@@ -182,7 +182,10 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - Tableau Fields désormais wrappé via textwrap pour respecter doc8 100 cols
     - doc8 exclut `config_reference/*` (slugs trop longs pour 100 cols, fichiers générés)
     - Direction inverse (gallery -> config) reportée car invasive sur tools/doc_gallery
-31. `[docs] - add troubleshooting page indexed by error message`
+31. `[docs] - add troubleshooting page indexed by error message` ✓ (commit `79ec11b25`)
+    - `docs/source/user_guide/troubleshooting.rst` avec 14 messages couverts (config parsing, binaires solveurs, data/storage, calibration, build doc)
+    - Format dropdown sphinx-design avec sections Cause/Fix
+    - Lien "comment signaler une nouvelle erreur" pointe vers GitHub issues
 32. `[docs] - add migration guides and api stability roles`
 33. `[docs] - add cookbook with 10 TOML-first recipes`
 34. `[docs] - add unified notation page and remove tools comparisons (skip per decision)`
