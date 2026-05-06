@@ -152,7 +152,12 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - Logos copiés vers `docs/source/_static/` pour résolution sphinx-favicon
     - sitemap.xml généré, balises og:* sur chaque page, footer "Last updated"
     - Aucun nouveau warning au build sphinx
-26. `[docs] - add custom config-field, validation-case-summary and solver-comparison directives`
+26. `[docs] - add custom config-field, validation-case-summary and solver-comparison directives` ✓ (commit `be394f075`)
+    - Module `docs/source/_ext/hmp_directives.py` (3 directives, ~280 LOC)
+    - `config-field` traverse `HydroModPyConfig.model_fields` par dotted path, rend admonition
+    - `validation-case-summary` lit `_static/capability_gallery/validation/<slug>_summary.json`
+    - `solver-comparison` matrice solveur x cas avec premier `metric_lines` par cellule
+    - Démo dans `theory/boussinesq.rst` (1 case summary + 1 solver-comparison sur 2 cas)
 27. `[config] - complete Field descriptions for analysis and mesh_catchment`
 28. `[docs] - add tools/doc_config pipeline for hierarchical config reference (couches 1, 2, 4 only)`
 29. `[docs] - add per-section erdantic ER diagrams`
