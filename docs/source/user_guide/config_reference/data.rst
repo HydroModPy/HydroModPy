@@ -45,15 +45,23 @@ Fields
    * - ``project_crs``
      - ``str | None``
      - ``None``
-     - EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
+     - EPSG code or WKT string of the project coordinate reference system. When set, all loaded
+       data is reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
    * - ``types``
      - ``list[str]``
      - ``factory``
-     - Ordered list of data-manager types explicitly requested in [data]. The launcher may append inferred types deduced from other sections (for example domain.zone_ids, flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography', 'hydrometry', 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation', 'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
+     - Ordered list of data-manager types explicitly requested in [data]. The launcher may
+       append inferred types deduced from other sections (for example domain.zone_ids,
+       flow.active_bc). Allowed values: 'dem', 'etp', 'geology', 'humidity', 'hydrography',
+       'hydrometry', 'intermittency', 'oceanic', 'piezometry', 'precipitation', 'radiation',
+       'recharge', 'runoff', 'soil_moisture', 'temperature', 'water_quality', 'wind'.
    * - ``inference_mode``
      - ``Literal['warn', 'strict']``
      - ``"warn"``
-     - Policy applied when the planner infers types not explicitly listed in data.types. 'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise when an inferred type has no explicit data.<type> section (except geology, which can use its default typed config).
+     - Policy applied when the planner infers types not explicitly listed in data.types.
+       'warn': keep inferred types and continue even if data.<type> is missing. 'strict': raise
+       when an inferred type has no explicit data.<type> section (except geology, which can use
+       its default typed config).
    * - ``dem``
      - ``hmp.data.variables.dem.config.DemConfig | None``
      - ``None``
@@ -122,3 +130,21 @@ Fields
      - ``hmp.data.variables.soil_moisture.config.SoilMoistureConfig | None``
      - ``None``
      - Soil moisture configuration (soil moisture index).
+
+Cases using this section
+------------------------
+
+Validation gallery cases that reference fields from this section:
+
+- :doc:`/capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d`
+- :doc:`/capability_gallery/cases/boussinesq_divide_fixed_head_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_uniform_recharge_1d`
+- :doc:`/capability_gallery/cases/boussinesq_uniform_recharge_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_boussinesq_thin_1d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_linearized_deep_1d`
+- :doc:`/capability_gallery/cases/dupuit_circular_island_ocean_2d`
+- :doc:`/capability_gallery/cases/dupuit_divide_river_1d`
+- :doc:`/capability_gallery/cases/dupuit_uniform_recharge_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_periodic_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_deep_1d`

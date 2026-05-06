@@ -44,3 +44,4 @@ repos:
       - id: doc8
         args: [--max-line-length=100, --ignore=D004]
         files: ^docs/source/.*\.rst$
+        exclude: ^docs/source/user_guide/config_reference/.*\.rst$

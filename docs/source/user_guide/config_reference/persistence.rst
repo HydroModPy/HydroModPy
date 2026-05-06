@@ -38,7 +38,8 @@ Fields
    * - ``save_catalog``
      - ``<class 'bool'>``
      - ``True``
-     - Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped.
+     - Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When
+       False, catalog writes are skipped.
    * - ``save_zarr``
      - ``<class 'bool'>``
      - ``True``
@@ -46,11 +47,13 @@ Fields
    * - ``save_parquet``
      - ``<class 'bool'>``
      - ``True``
-     - Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
+     - Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet
+       files.
    * - ``save_lock``
      - ``<class 'bool'>``
      - ``True``
-     - Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion.
+     - Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data
+       ingestion.
    * - ``compression``
      - ``Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']``
      - ``"zstd"``

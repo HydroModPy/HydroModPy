@@ -38,12 +38,15 @@ Fields
    * - ``batch``
      - ``hmp.analysis.batch.config.RegionalLabConfig | None``
      - ``None``
-     - Optional regional-lab batch settings loaded from [analysis.batch]. Parsed standalone via RegionalLabLauncher under the section name [regional_lab].
+     - Optional regional-lab batch settings loaded from [analysis.batch]. Parsed standalone via
+       RegionalLabLauncher under the section name [regional_lab].
    * - ``capability_gallery``
      - ``hmp.analysis.capability_gallery.CapabilityGalleryConfig | None``
      - ``None``
-     - Optional publication block copying selected run figures into a versionable capability-gallery source folder, loaded from [analysis.capability_gallery].
+     - Optional publication block copying selected run figures into a versionable capability-
+       gallery source folder, loaded from [analysis.capability_gallery].
    * - ``comparison``
      - ``hmp.analysis.comparison.config.ComparisonSection | None``
      - ``None``
-     - Optional simulation-comparison block loaded from [analysis.comparison]. Parsed standalone via ComparisonConfig under the section name [comparison].
+     - Optional simulation-comparison block loaded from [analysis.comparison]. Parsed
+       standalone via ComparisonConfig under the section name [comparison].

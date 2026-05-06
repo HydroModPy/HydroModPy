@@ -45,4 +45,33 @@ Fields
    * - ``tgrid``
      - ``hmp.solver.utils.temporal.tmesh_config.TMeshConfig | None``
      - ``None``
-     - Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.
+     - Optional temporal discretization payload as TMeshConfig. In launcher mode, stress
+       periods are driven by [simulation.time]; this section is mirrored for compatibility and
+       mainly keeps `firstpersteady`.
+
+Cases using this section
+------------------------
+
+Validation gallery cases that reference fields from this section:
+
+- :doc:`/capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d`
+- :doc:`/capability_gallery/cases/boussinesq_divide_fixed_head_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/boussinesq_fixed_head_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_constant_thickness_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_fixed_head_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_uniform_recharge_1d`
+- :doc:`/capability_gallery/cases/boussinesq_uniform_recharge_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_boussinesq_thin_1d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_linearized_deep_1d`
+- :doc:`/capability_gallery/cases/dupuit_circular_island_ocean_2d`
+- :doc:`/capability_gallery/cases/dupuit_divide_river_1d`
+- :doc:`/capability_gallery/cases/dupuit_fixed_head_1d`
+- :doc:`/capability_gallery/cases/dupuit_uniform_recharge_1d`
+- :doc:`/capability_gallery/cases/late_time_unconfined_pumping_2d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_boundary_piecewise_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_boundary_step_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_drainage_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_periodic_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_deep_1d`

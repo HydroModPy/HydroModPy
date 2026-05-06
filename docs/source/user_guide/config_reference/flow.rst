@@ -36,7 +36,8 @@ Fields
    * - ``param_list``
      - ``list[str]``
      - ``factory``
-     - Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).
+     - Ordered list of flow-parameter identifiers used to build runtime parameters (for example
+       ['K', 'Ss', 'Sy']).
    * - ``param``
      - ``dict[str, dict[str, object]]``
      - ``factory``
@@ -44,11 +45,19 @@ Fields
    * - ``ic``
      - ``<class 'hmp.physics.flow.initial_conditions.FlowInitialConditions'>``
      - ``factory``
-     - Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).
+     - Validated flow initial-condition structure parsed from [flow.ic]. Stored as
+       FlowInitialConditions(h=FlowInitialCondition).
    * - ``bc``
      - ``dict[str, object]``
      - ``factory``
-     - Mapping of flow boundary-condition payloads parsed from [flow.bc]. Supported sections are: [flow.bc.dirichlet.<id>] with <id> in ocean, stream, north_side, south_side, east_side, west_side; [flow.bc.cauchy.drainage]; [flow.bc.robin.drainage]; and generic [flow.bc.<custom_id>] payloads. Common required key: value (numeric or '<value> <unit>'). Dirichlet keys may omit application_domain when <id> implies it (for example west_side -> 'west side'). Drainage (cauchy/robin) requires application_domain explicitly. Supported application_domain values are: top, north side, south side, east side, west side. Default units: m for dirichlet, m2/s for cauchy/robin.
+     - Mapping of flow boundary-condition payloads parsed from [flow.bc]. Supported sections
+       are: [flow.bc.dirichlet.<id>] with <id> in ocean, stream, north_side, south_side,
+       east_side, west_side; [flow.bc.cauchy.drainage]; [flow.bc.robin.drainage]; and generic
+       [flow.bc.<custom_id>] payloads. Common required key: value (numeric or '<value>
+       <unit>'). Dirichlet keys may omit application_domain when <id> implies it (for example
+       west_side -> 'west side'). Drainage (cauchy/robin) requires application_domain
+       explicitly. Supported application_domain values are: top, north side, south side, east
+       side, west side. Default units: m for dirichlet, m2/s for cauchy/robin.
    * - ``sinks_sources``
      - ``<class 'hmp.physics.flow.sinks_sources.container.FlowSinksSourcesConfig'>``
      - ``factory``
@@ -56,11 +65,14 @@ Fields
    * - ``active_sinks_sources``
      - ``list[str]``
      - ``factory``
-     - Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.
+     - Explicitly activated sink/source names for this flow run. Allowed values: 'recharge',
+       'wells'. An empty list means no sink/source package is assembled by the solver.
    * - ``active_bc``
      - ``list[str]``
      - ``factory``
-     - Explicitly activated boundary-condition ids for this flow run. Allowed values: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
+     - Explicitly activated boundary-condition ids for this flow run. Allowed values: 'ocean',
+       'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty
+       list means no boundary-condition package is assembled by the solver.
    * - ``flow_regime``
      - ``Literal['steady', 'transient']``
      - ``"transient"``
@@ -68,20 +80,55 @@ Fields
    * - ``runtime_backend``
      - ``Literal['local', 'scipy', 'scipy_sparse', 'petsc']``
      - ``"local"``
-     - Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.
+     - Optional nonlinear runtime backend hint used by the Boussinesq solver implementation.
+       Other flow solvers may ignore this field.
    * - ``surface_interaction_model``
      - ``Literal['auto', 'regularized_partition', 'complementarity']``
      - ``"auto"``
-     - Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical backend-dependent default.
+     - Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses
+       the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed
+       PETSc q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical backend-dependent
+       default.
    * - ``runtime_max_iterations``
      - ``int | None``
      - ``None``
-     - Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend.
+     - Optional override for the nonlinear iteration budget used by the Boussinesq runtime
+       backend.
    * - ``runtime_tol_residual_inf``
      - ``float | None``
      - ``None``
-     - Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend.
+     - Optional override for the infinity-norm residual tolerance used by the Boussinesq
+       runtime backend.
    * - ``runtime_tol_state_update_inf``
      - ``float | None``
      - ``None``
-     - Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it.
+     - Optional override for the infinity-norm state-update tolerance used by Boussinesq
+       backends that track it.
+
+Cases using this section
+------------------------
+
+Validation gallery cases that reference fields from this section:
+
+- :doc:`/capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d`
+- :doc:`/capability_gallery/cases/boussinesq_divide_fixed_head_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/boussinesq_fixed_head_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/boussinesq_hillslope_interception_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_constant_thickness_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_fixed_head_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_uniform_recharge_1d`
+- :doc:`/capability_gallery/cases/boussinesq_uniform_recharge_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_boussinesq_thin_1d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_linearized_deep_1d`
+- :doc:`/capability_gallery/cases/dupuit_circular_island_ocean_2d`
+- :doc:`/capability_gallery/cases/dupuit_divide_river_1d`
+- :doc:`/capability_gallery/cases/dupuit_fixed_head_1d`
+- :doc:`/capability_gallery/cases/dupuit_uniform_recharge_1d`
+- :doc:`/capability_gallery/cases/late_time_unconfined_pumping_2d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_boundary_piecewise_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_boundary_step_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_drainage_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_periodic_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_deep_1d`

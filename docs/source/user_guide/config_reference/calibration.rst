@@ -57,7 +57,9 @@ Fields
    * - ``save_runs``
      - ``Literal['none', 'best_n', 'all']``
      - ``"none"``
-     - How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included).
+     - How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. -
+       'best_n': same + promote top N to full simulations after the loop. - 'all': every
+       iteration becomes a full simulation (Zarr included).
    * - ``save_best_n``
      - ``<class 'int'>``
      - ``10``
@@ -89,11 +91,13 @@ Fields
    * - ``objective_blocks``
      - ``list[hmp.calibration.config.CalibObjectiveBlockDecl]``
      - ``factory``
-     - Weighted blocks making up a composite objective. When empty, a single implicit block is built from 'objective' and 'variable'.
+     - Weighted blocks making up a composite objective. When empty, a single implicit block is
+       built from 'objective' and 'variable'.
    * - ``persist_iteration_detail``
      - ``Literal['none', 'summary', 'full']``
      - ``"summary"``
-     - 'none' skips component metrics; 'summary' keeps block totals; 'full' also stores per-block raw and normalized costs.
+     - 'none' skips component metrics; 'summary' keeps block totals; 'full' also stores per-
+       block raw and normalized costs.
    * - ``persist_model_distribution``
      - ``<class 'bool'>``
      - ``False``
@@ -105,7 +109,8 @@ Fields
    * - ``materialize_candidates``
      - ``<class 'bool'>``
      - ``False``
-     - Write a standalone override TOML for each candidate under 'candidates_root' so runs can be replayed later.
+     - Write a standalone override TOML for each candidate under 'candidates_root' so runs can
+       be replayed later.
    * - ``candidates_root``
      - ``pathlib._local.PurePosixPath | None``
      - ``None``
@@ -113,4 +118,5 @@ Fields
    * - ``persistence``
      - ``<class 'hmp.core.config_kit.persistence.PersistenceConfig'>``
      - ``factory``
-     - Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.
+     - Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for
+       calibration outputs.

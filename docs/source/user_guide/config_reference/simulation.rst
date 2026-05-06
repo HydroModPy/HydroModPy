@@ -37,11 +37,14 @@ Fields
    * - ``run_id``
      - ``<class 'str'>``
      - ``""``
-     - Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).
+     - Run identifier used as the output subfolder name under results_simulations/. When empty,
+       derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).
    * - ``on_collision``
      - ``Literal['replace', 'fail', 'version']``
      - ``"replace"``
-     - Behavior when registering a simulation whose ``name`` already exists in this project. ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
+     - Behavior when registering a simulation whose ``name`` already exists in this project.
+       ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail``
+       raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
    * - ``description``
      - ``<class 'str'>``
      - ``""``
@@ -73,16 +76,39 @@ Fields
    * - ``time``
      - ``hmp.simulation.planning.config.SimulationTimeConfig | None``
      - ``None``
-     - Optional canonical simulation window used to align solver temporal settings and validate forcing coverage. Required for launcher flow processes and for runtime features that explicitly consume simulation-window dates.
+     - Optional canonical simulation window used to align solver temporal settings and validate
+       forcing coverage. Required for launcher flow processes and for runtime features that
+       explicitly consume simulation-window dates.
    * - ``process``
      - ``list[hmp.simulation.planning.config.SimulationProcessConfig]``
      - ``factory``
-     - Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported.
+     - Ordered list of requested processes loaded from [[simulation.process]]. At most one
+       process per type is supported.
    * - ``results``
      - ``<class 'hmp.simulation.planning.results_config.ResultsConfig'>``
      - ``factory``
-     - Results storage and export configuration loaded from [simulation.results]. Controls SimulationCatalog, derived variables, and automated exports.
+     - Results storage and export configuration loaded from [simulation.results]. Controls
+       SimulationCatalog, derived variables, and automated exports.
    * - ``rng_seed``
      - ``int | None``
      - ``None``
-     - Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` so the run can be re-executed from the catalog snapshot.
+     - Master RNG seed for the simulation. When set, every stochastic consumer (mesh point
+       sampling, synthetic forcing, ...) derives its own deterministic sub-seed via
+       ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` so the
+       run can be re-executed from the catalog snapshot.
+
+Cases using this section
+------------------------
+
+Validation gallery cases that reference fields from this section:
+
+- :doc:`/capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_boussinesq_thin_1d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_linearized_deep_1d`
+- :doc:`/capability_gallery/cases/dupuit_circular_island_ocean_2d`
+- :doc:`/capability_gallery/cases/late_time_unconfined_pumping_2d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_boundary_piecewise_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_boundary_step_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_periodic_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_deep_1d`

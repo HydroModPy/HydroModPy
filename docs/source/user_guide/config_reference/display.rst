@@ -37,7 +37,8 @@ Fields
    * - ``backend``
      - ``Literal['agg', 'qt5agg', 'auto']``
      - ``"auto"``
-     - Matplotlib backend. 'auto' selects Agg in headless mode and a GUI backend when ``show`` is enabled.
+     - Matplotlib backend. 'auto' selects Agg in headless mode and a GUI backend when ``show``
+       is enabled.
    * - ``preset``
      - ``Literal['default', 'print', 'dark']``
      - ``"default"``
@@ -65,8 +66,12 @@ Fields
    * - ``figures``
      - ``list[str]``
      - ``factory``
-     - Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp display`). Empty list disables auto-rendering; figures can still be produced later with `hmp display <toml>`. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
+     - Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp
+       display`). Empty list disables auto-rendering; figures can still be produced later with
+       `hmp display <toml>`. Disable per-run via `hmp run --no-display` or for an entire Python
+       Project via `Project(..., no_display=True)`.
    * - ``overrides``
      - ``dict[str, dict]``
      - ``factory``
-     - Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
+     - Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap':
+       'cividis', 'vmin': 0}}``).

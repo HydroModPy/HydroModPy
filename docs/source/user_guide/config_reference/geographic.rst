@@ -41,15 +41,23 @@ Fields
    * - ``source_mode``
      - ``Literal['standard', 'synthetic']``
      - ``"standard"``
-     - Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow. 'synthetic' builds one analytical support from [geographic.synthetic].
+     - Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow.
+       'synthetic' builds one analytical support from [geographic.synthetic].
    * - ``catch_def``
      - ``Optional[Literal['dem', 'txt', 'from_outlet_coord', 'from_polyg_shp']]``
      - ``None``
-     - Catchment definition mode used when source_mode='standard'. 'dem' = model domain defined directly from a DEM raster (dem_init_path required). 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required). 'from_outlet_coord' = watershed from outlet coordinates (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required). 'from_polyg_shp' = watershed from a polygon shapefile (dem_init_path, polyg_shp_path, buff_area required).
+     - Catchment definition mode used when source_mode='standard'. 'dem' = model domain defined
+       directly from a DEM raster (dem_init_path required). 'txt' = model domain from an XYZ
+       text file (dem_init_path, cell_size required). 'from_outlet_coord' = watershed from
+       outlet coordinates (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required).
+       'from_polyg_shp' = watershed from a polygon shapefile (dem_init_path, polyg_shp_path,
+       buff_area required).
    * - ``dem_init_path``
      - ``pathlib._local.Path | None``
      - ``None``
-     - Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
+     - Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model
+       domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used
+       for flow analysis.
    * - ``cell_size``
      - ``float | None``
      - ``None``
@@ -57,19 +65,25 @@ Fields
    * - ``x_outlet``
      - ``float | None``
      - ``None``
-     - X coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.
+     - X coordinate of the watershed outlet in the projected CRS. Required for
+       'from_outlet_coord' mode.
    * - ``y_outlet``
      - ``float | None``
      - ``None``
-     - Y coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.
+     - Y coordinate of the watershed outlet in the projected CRS. Required for
+       'from_outlet_coord' mode.
    * - ``snap_dist``
      - ``float | str | None``
      - ``None``
-     - Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-friendly values (for example 50, '50 m', '0.05 km'). Required for 'from_outlet_coord' mode.
+     - Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-
+       friendly values (for example 50, '50 m', '0.05 km'). Required for 'from_outlet_coord'
+       mode.
    * - ``buff_area``
      - ``str | float | None``
      - ``None``
-     - Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km'). Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
+     - Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of
+       sqrt(area [km^2])). String values are interpreted as explicit distances (for example
+       '500 m', '2 km'). Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
    * - ``polyg_shp_path``
      - ``pathlib._local.Path | None``
      - ``None``
@@ -77,32 +91,69 @@ Fields
    * - ``crs_project``
      - ``str | None``
      - ``None``
-     - Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.
+     - Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the
+       input DEM.
    * - ``dem_correc_type``
      - ``Literal['breach', 'fill']``
      - ``"breach"``
-     - DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.
+     - DEM depression correction method. 'breach' (recommended) preserves natural flow paths.
+       'fill' raises sinks to their pour point.
    * - ``bottom_path``
      - ``pathlib._local.Path | None``
      - ``None``
-     - Path to a raster representing the aquifer bottom elevation. Must share the same grid as the model domain.
+     - Path to a raster representing the aquifer bottom elevation. Must share the same grid as
+       the model domain.
    * - ``reg_fold``
      - ``pathlib._local.Path | None``
      - ``None``
-     - Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of recomputed.
+     - Folder with pre-computed regional flow rasters. When set, rasters are loaded instead of
+       recomputed.
    * - ``synthetic``
      - ``<class 'hmp.spatial.geographic.synthetic.config.SyntheticGeographicConfig'>``
      - ``factory``
-     - Synthetic geographic support used when source_mode='synthetic'. This analytical mode bypasses watershed delineation from external DEM files.
+     - Synthetic geographic support used when source_mode='synthetic'. This analytical mode
+       bypasses watershed delineation from external DEM files.
    * - ``river_network``
      - ``<class 'hmp.spatial.geographic.geographic_config.RiverNetworkConfig'>``
      - ``factory``
-     - Optional DEM-derived river-network extraction settings. When disabled, no stream network is generated in geographic preprocessing.
+     - Optional DEM-derived river-network extraction settings. When disabled, no stream network
+       is generated in geographic preprocessing.
    * - ``reuse_existing_outputs``
      - ``<class 'bool'>``
      - ``False``
-     - If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.
+     - If true, reuse previously generated geographic artifacts when the cached fingerprint
+       matches the current DEM, outlet/polygon and geographic settings. This is useful for
+       profiling repeated simulation runs in the same workspace.
    * - ``write_intermediates``
      - ``<class 'bool'>``
      - ``False``
-     - Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), results_stable/ is removed after ingestion into the simulation Zarr store.
+     - Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When
+       false (default), results_stable/ is removed after ingestion into the simulation Zarr
+       store.
+
+Cases using this section
+------------------------
+
+Validation gallery cases that reference fields from this section:
+
+- :doc:`/capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d`
+- :doc:`/capability_gallery/cases/boussinesq_divide_fixed_head_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/boussinesq_fixed_head_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_constant_thickness_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_fixed_head_1d`
+- :doc:`/capability_gallery/cases/boussinesq_sloping_substratum_uniform_recharge_1d`
+- :doc:`/capability_gallery/cases/boussinesq_uniform_recharge_piecewise_k_1d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_boussinesq_thin_1d`
+- :doc:`/capability_gallery/cases/brutsaert_recession_linearized_deep_1d`
+- :doc:`/capability_gallery/cases/dupuit_circular_island_ocean_2d`
+- :doc:`/capability_gallery/cases/dupuit_divide_river_1d`
+- :doc:`/capability_gallery/cases/dupuit_fixed_head_1d`
+- :doc:`/capability_gallery/cases/dupuit_uniform_recharge_1d`
+- :doc:`/capability_gallery/cases/late_time_unconfined_pumping_2d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_boundary_piecewise_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_boundary_step_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_drainage_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_periodic_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_1d`
+- :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_deep_1d`

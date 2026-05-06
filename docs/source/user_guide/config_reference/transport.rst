@@ -53,11 +53,15 @@ Fields
    * - ``active_sinks_sources``
      - ``list[str]``
      - ``factory``
-     - Ordered list of sink/source identifiers that are explicitly activated for this process. An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig) validate the allowed values.
+     - Ordered list of sink/source identifiers that are explicitly activated for this process.
+       An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig)
+       validate the allowed values.
    * - ``active_bc``
      - ``list[str]``
      - ``factory``
-     - Ordered list of boundary-condition identifiers that are explicitly activated for this process. An empty list means no boundary-condition package is assembled. Concrete process configs (e.g. FlowConfig) validate the allowed values.
+     - Ordered list of boundary-condition identifiers that are explicitly activated for this
+       process. An empty list means no boundary-condition package is assembled. Concrete
+       process configs (e.g. FlowConfig) validate the allowed values.
    * - ``modpath``
      - ``<class 'hmp.physics.transport.transport_config.TransportModpathConfig'>``
      - ``factory``

@@ -67,11 +67,13 @@ Fields
    * - ``root``
      - ``pathlib._local.Path | None``
      - ``None``
-     - Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
+     - Explicit shared data workspace root. When set, derives data_dir unless it is overridden.
+       Result catalogs stay project-local by default.
    * - ``catalog_path``
      - ``pathlib._local.Path | None``
      - ``None``
-     - Explicit path to the project hydromodpy.duckdb. Defaults to <project_root>/hydromodpy.duckdb.
+     - Explicit path to the project hydromodpy.duckdb. Defaults to
+       <project_root>/hydromodpy.duckdb.
    * - ``data_dir``
      - ``pathlib._local.Path | None``
      - ``None``
@@ -83,4 +85,5 @@ Fields
    * - ``output_root``
      - ``pathlib._local.Path | None``
      - ``None``
-     - Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
+     - Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to
+       project_root when not set. Use this to redirect heavy outputs to a separate disk.
