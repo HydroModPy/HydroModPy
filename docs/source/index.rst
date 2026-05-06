@@ -1,7 +1,53 @@
 |br|
 
-Welcome to HydroModPy
-=====================
+HydroModPy
+==========
+
+.. raw:: html
+
+   <p class="lead">
+   Catchment-scale shallow groundwater modeling in Python. One TOML config drives
+   MODFLOW 6, MODFLOW-NWT, Boussinesq and GR4J on the same hydrology.
+   </p>
+
+.. image:: https://img.shields.io/badge/license-EPL--2.0-blue
+   :alt: License EPL-2.0
+.. image:: https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue
+   :alt: Python 3.11-3.13
+.. image:: https://img.shields.io/badge/version-1.0.0-success
+   :alt: Version 1.0.0
+.. image:: https://readthedocs.org/projects/hydromodpy/badge/?version=dev
+   :alt: Documentation status
+.. image:: https://img.shields.io/badge/DOI-pending--Zenodo-orange
+   :alt: DOI pending Zenodo
+
+.. grid:: 1 1 3 3
+   :gutter: 2 2 3 3
+   :class-container: hmp-landing-cta
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 sd-text-center sd-bg-primary sd-text-white
+      :link: getting_started/index
+      :link-type: doc
+
+      Get started
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 sd-text-center
+      :link: capability_gallery/index
+      :link-type: doc
+
+      View gallery
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 sd-text-center
+      :link: api/index
+      :link-type: doc
+
+      API reference
+
+What HydroModPy does
+--------------------
 
 HydroModPy was initiated in 2018 to streamline the deployment of hydrological
 models in catchments across the crystalline basement regions of Normandy and
@@ -13,25 +59,72 @@ The development of HydroModPy was driven by two primary objectives:
 
 #. First, it automates the extraction and discretization of watersheds from
    Digital Elevation Models (DEMs), while adding essential data available
-   (e.g. piezometry, hydrography, geology) from local data to national and global
-   databases. This ensures a standardized process for setting up and running
-   simulation batches across different watersheds with uniform input data.
-#. The second goal is to facilitate the visualization and comparison of results
-   from the various modeling programs included within the platform. In addition
-   to its scientific applications, HydroModPy also serves as a valuable
-   educational tool, enabling students and researchers to explore hydrogeological
-   modeling in a practical context.
+   (e.g. piezometry, hydrography, geology) from local data to national and
+   global databases. This ensures a standardized process for setting up and
+   running simulation batches across different watersheds with uniform input
+   data.
+#. The second goal is to facilitate the visualization and comparison of
+   results from the various modeling programs included within the platform. In
+   addition to its scientific applications, HydroModPy also serves as a
+   valuable educational tool, enabling students and researchers to explore
+   hydrogeological modeling in a practical context.
 
-.. dropdown:: Abstract for the congress IAH 2024
+.. dropdown:: Abstract for the IAH 2024 congress
 
-   The need for predictive models increases as the pressure of global change intensifies. Regional-scale modeling of shallow unconfined aquifers (10-100 m depth) remains challenging, especially in complex basement aquifers. Controlled both by topography and geology, groundwater flows are organized from hillslope to catchment scale. It is particularly the case in crystalline regions with low aquifer volumes and wet climates, resulting in significant subsurface-surface interactions with very few information available to constrain models.
+   The need for predictive models increases as the pressure of global change
+   intensifies. Regional-scale modeling of shallow unconfined aquifers
+   (10-100 m depth) remains challenging, especially in complex basement
+   aquifers. Controlled both by topography and geology, groundwater flows are
+   organized from hillslope to catchment scale. It is particularly the case in
+   crystalline regions with low aquifer volumes and wet climates, resulting
+   in significant subsurface-surface interactions with very few information
+   available to constrain models.
 
-   To address this, we present HydroModPy, an application developed in Python as a toolbox for automatic deployment of groundwater flow models. HydroModPy integrates geospatial processing (WhiteBoxTools) with groundwater flow and transport simulation tools (MODFLOW and MODPATH via FloPy). It is designed to call other groundwater flow solvers, facilitate multi-site deployment, integrate pre- and post-processing functions such as catchment extraction from a DEM and an advanced representation of head and flow results. Emphasis is placed on integrating aquifer geometry complexities and hydraulic properties heterogeneity (compartmentalization, exponential decay, implementation of a 3D geological model, etc.).
+   To address this, we present HydroModPy, an application developed in Python
+   as a toolbox for automatic deployment of groundwater flow models.
+   HydroModPy integrates geospatial processing (WhiteBoxTools) with
+   groundwater flow and transport simulation tools (MODFLOW and MODPATH via
+   FloPy). It is designed to call other groundwater flow solvers, facilitate
+   multi-site deployment, integrate pre- and post-processing functions such as
+   catchment extraction from a DEM and an advanced representation of head and
+   flow results.
 
-   HydroModPy's user-friendly Python interface allows for testing and exploring various aquifer models across different geomorphological contexts and recharge conditions. Ongoing improvements include methods for calibrating and estimating hydraulic properties using multiple datasets such as hydrographic network maps, streamflow, and piezometric level data. HydroModPy is developed as an open-source toolkit. It is currently being used in climate change effects on groundwater-dependent ecosystems and water resource management issues. Collaborative development should enhance the modeling capacity of near-surface aquifers, facilitate their extension to the regional scale for predictive purposes.
+What's new
+----------
 
-First visit
------------
+Recent changes from the public ``CHANGELOG.md``:
+
+- **v0.3.3** (2025-12-03) lightweight conda environment option, surface
+  routing consolidated under ``masstransfer``, leaner SIM2 memory use.
+- **v0.3.2** (2025-11-28) reworked SIM2 with coarse clip then reproject,
+  ``disk_clip`` accepts ``.shp``, ``.gpkg``, ``.geojson``.
+- **v0.3.1** (2025-11-14) installation guide reorganized, dual YAML options
+  for runtime versus editable installs, NumPy >= 2 baseline.
+
+How to cite HydroModPy
+----------------------
+
+If HydroModPy supports your work, please cite the software (BibTeX below)
+and the companion paper currently in preparation. Full BibTeX, RIS and
+plain-text variants live on the :doc:`how_to_cite` page; ``CITATION.cff`` at
+the repository root is what GitHub renders behind the "Cite this repository"
+button.
+
+.. code-block:: bibtex
+
+   @software{hydromodpy_software,
+     title  = {HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models},
+     author = {Gauvain, A. and Abherv\'e, R. and de Dreuzy, J.-R. and others},
+     year   = {2025},
+     url    = {https://github.com/HydroModPy/HydroModPy},
+     license = {EPL-2.0}
+   }
+
+Linked publications and a registry of catchments where HydroModPy has been
+deployed live on :doc:`usage_bibliography` and :doc:`applications`.
+
+Where to go next
+----------------
 
 .. important::
 
@@ -43,25 +136,14 @@ First visit
    4. :doc:`examples/index`
    5. :doc:`capability_gallery/index`
 
-Use :doc:`getting_started/index` when you want the shortest first-run path.
-Use :doc:`user_guide/index` when you need operational concepts such as usage
-modes, workflow families, workspace layout, comparison, calibration, meshes, or
-solver choice. Use :doc:`examples/index` when you already know that you want the full
-notebook and script inventory. Use :doc:`capability_gallery/index` when you
-want stable, curated result pages before running anything locally.
-
 If you are looking for technical documentation, code-reading guides, module
 diagrams, or UML pages, use :doc:`architecture/index`. If you are looking for
-equations, modelling assumptions, or method notes, use
-:doc:`theory/index`.
+equations, modelling assumptions, or method notes, use :doc:`theory/index`.
 
-If you are specifically looking for streams, seepage, observed hydrography, or
-simulation-derived active networks, use the map
-:doc:`theory/streams_and_seepage/index`. It points to the scientific
-semantics, the computed ``simulated_active`` views, comparison outputs,
-developer diagrams, and example figures from one place. For a concrete
-simulation result, open
-:doc:`theory/streams_and_seepage/nancon-k-sweep-results`.
+If you are specifically looking for streams, seepage, observed hydrography,
+or simulation-derived active networks, use the map
+:doc:`theory/streams_and_seepage/index`. For a concrete simulation result,
+open :doc:`theory/streams_and_seepage/nancon-k-sweep-results`.
 
 If you specifically want the quality ladder used in the repository, including
 the usual commands for unit, integration, regression, validation, PETSc, and
@@ -105,12 +187,12 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: examples/index
+      :link: user_guide/cookbook/index
       :link-type: doc
 
-      **Examples**
+      **Cookbook**
       ^^^
-      Coming soon: TOML-first walkthroughs and migrated example notebooks.
+      Ten short TOML-first recipes covering the most common HydroModPy tasks.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -134,16 +216,6 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: theory/streams_and_seepage/index
-      :link-type: doc
-
-      **Streams and seepage**
-      ^^^
-      One map for observed stream networks, seepage, drainage outflow,
-      simulated active networks, figures, metrics, and developer diagrams.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: architecture/index
       :link-type: doc
 
@@ -164,6 +236,16 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: migration/index
+      :link-type: doc
+
+      **Migration**
+      ^^^
+      Map every removed or renamed entry point from v0 to its 1.x
+      counterpart.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: contribute
       :link-type: doc
 
@@ -180,39 +262,6 @@ Install
 
 For detailed instructions see the :doc:`installation guide <install>`.
 If you plan to add new features, check the :doc:`contributor setup <contribute>`.
-
-Research use and citation
--------------------------
-
-.. raw:: html
-
-   <style>
-   /* allow line wrapping in code blocks (applies to this page only) */
-   .highlight pre,
-   pre.literal-block,
-   .code,
-   code {
-     white-space: pre-wrap !important;
-     word-wrap: break-word !important;
-     overflow-wrap: anywhere !important;
-   }
-   </style>
-
-If HydroModPy supports your work, please cite:
-
-.. code-block:: text
-
-   Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C., Marçais, J., Leray, S., Marti, E., Figueroa, R., Bresciani, E., Vautier, C., Boivin, B., Sallou, J., Bourcier, J., Combemale, B., Longuevergne, L., Aquilina, L., & de Dreuzy, J.-R. (2025). HydroModPy - a Python toolbox for deploying catchment-scale shallow groundwater models. Hydrology and Earth System Sciences. In preparation.
-
-Linked publications
--------------------
-
-- Abhervé, R., Roques, C., de Dreuzy, J.-R., Van Der Veen, T., Dumaine, L., Chatton, E., Brunner, P., Aquilina, L., & Servière, L. (2025). *Projected climate change impacts on groundwater-surface water connectivity in a compartmentalized mountain headwater bedrock aquifer*. Water Resources Research, 61(10). https://doi.org/10.1029/2025WR040083
-- Marti, E., Leray, S., & Roques, C. (2024). *Catchment landforms predict groundwater-dependent wetland sensitivity to recharge changes*. Hydrology and Earth System Sciences Discussions. https://doi.org/10.5194/HESS-2024-381
-- Floriancic, M. G., Abhervé, R., Bouchez, C., Martinez, J. J., & Roques, C. (2024). *Evidence of Groundwater Seepage and Mixing at the Vicinity of a Knickpoint in a Mountain Stream*. Geophysical Research Letters, 51. https://doi.org/10.1029/2024GL111325
-- Le Mesnil, M., Gauvain, A., Gresselin, F., Aquilina, L., & de Dreuzy, J. (2024). *Characterizing coastal aquifer heterogeneity from a single piezometer head chronicle*. Journal of Hydrology, 131859. https://doi.org/10.1016/j.jhydrol.2024.131859
-- Abhervé, R., Roques, C., de Dreuzy, J.-R., Datry, T., Brunner, P., Longuevergne, L., & Aquilina, L. (2024). *Improving calibration of groundwater flow models using headwater streamflow intermittence*. Hydrological Processes, 38(6). https://doi.org/10.1002/hyp.15167
-- Abhervé, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S., Aquilina, L., & de Dreuzy, J.-R. (2023). *Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties*. Hydrology and Earth System Sciences, 27(17), 3221-3239. https://doi.org/10.5194/hess-27-3221-2023
 
 Corresponding authors
 ---------------------

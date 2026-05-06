@@ -50,3 +50,20 @@
     max-width: 100%;
     height: auto;
 }
+
+/* Landing page lead paragraph. */
+p.lead {
+    font-size: 1.18em;
+    line-height: 1.5;
+    color: var(--pst-color-text-base);
+    margin-bottom: 1.5rem;
+}
+
+/* Landing CTAs. */
+.hmp-landing-cta .sd-card {
+    transition: transform 0.15s ease-in-out;
+}
+
+.hmp-landing-cta .sd-card:hover {
+    transform: translateY(-2px);
+}
