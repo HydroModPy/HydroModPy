@@ -30,7 +30,25 @@ replace them.
 Shared Scientific Core
 ----------------------
 
-.. uml:: diagrams/modflow_backend_choice_map.wsd
+.. mermaid::
+
+   flowchart LR
+     Flow["Common HydroModPy flow payload<br/>head unknown, K/Sy/Ss,<br/>boundaries, recharge, wells"]
+     NWT["MODFLOW-NWT<br/>structured DIS<br/>UPW + NWT Newton path<br/>legacy MODFLOW-2005 ecosystem"]
+     MF6["MODFLOW 6<br/>structured DIS or layered DISV<br/>NPF + IMS<br/>optional Newton path<br/>XT3D when justified"]
+     LegacyNeed["Structured benchmark /<br/>legacy continuity"]
+     ModernNeed["Irregular support /<br/>modern default /<br/>shared natural mesh"]
+     Report["Report explicitly:<br/>support equality<br/>DIS vs DISV<br/>XT3D on/off<br/>storage regime<br/>comparison intent"]
+
+     Flow --> NWT
+     Flow --> MF6
+     LegacyNeed --> NWT
+     ModernNeed --> MF6
+     NWT --> Report
+     MF6 --> Report
+
+The scientific core stays comparable, but the backend choice still changes the
+discretization contract, the internal flow package, and the nonlinear path.
 
 Within HydroModPy, both backends are used to solve the same high-level
 groundwater-flow problem:

@@ -36,7 +36,31 @@ same thing.
 Conceptual Diagram
 ------------------
 
-.. uml:: diagrams/mesh_support_strategy_map.wsd
+.. mermaid::
+
+   flowchart LR
+     Surf["Domain surfaces<br/>topography + substratum"]
+     Cst["Support constraints<br/>stream, ocean, zones,<br/>catchment outline"]
+     SGrid["Structured sgrid<br/>raster-aligned quads"]
+     CMesh["Catchment-conformal<br/>planar mesh<br/>triangles or polygons"]
+     Vert["Repeated vertical layering"]
+     SolverMesh["Layered SolverMesh<br/>cell centers, neighbors,<br/>layer ids, support labels"]
+     BqMesh["2D shallow-flow mesh<br/>natural planar support"]
+     NWT["MODFLOW-NWT<br/>DIS on structured grid"]
+     MF6["MODFLOW 6<br/>DISV on layered mesh<br/>XT3D when needed"]
+     BQ["Boussinesq backend<br/>finite-volume operators"]
+
+     Surf --> SGrid
+     Surf --> CMesh
+     Cst -- approximated by grid --> SGrid
+     Cst -- followed more explicitly --> CMesh
+     SGrid --> Vert
+     CMesh --> Vert
+     Vert --> SolverMesh
+     SGrid --> NWT
+     SolverMesh --> MF6
+     CMesh --> BqMesh
+     BqMesh --> BQ
 
 The figure above shows why HydroModPy keeps mesh choice visible. The same
 catchment description can feed several backend families, but the numerical

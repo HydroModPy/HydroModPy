@@ -23,4 +23,5 @@ TOML-first user documentation see :doc:`../user_guide/index`.
    calibration_guide
    simulation_comparison_workflow
    conda_pkg
+   diagrams
    glossary

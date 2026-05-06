@@ -26,7 +26,29 @@ For a deeper treatment of boundary-like surface exchanges, see
 Runtime Data-To-Flow Diagram
 ----------------------------
 
-.. uml:: diagrams/forcing_data_to_flow_path.wsd
+.. mermaid::
+
+   flowchart LR
+     Data["External datasets<br/>recharge, ETP, runoff,<br/>hydrography, oceanic"]
+     Load["Data managers<br/>LoadResult payloads"]
+     Binders["Structure binders<br/>bind recharge / ETP /<br/>boundary payloads"]
+     Bridge["forcing_bridge.resolve_forcing()<br/>spatial mode + time alignment<br/>unit normalization"]
+     FlowCfg["FlowRechargeConfig<br/>FlowEtpConfig<br/>boundary mappings"]
+     Flow["Flow runtime"]
+     Solvers["Solver adapters<br/>MODFLOW-NWT / MODFLOW 6 /<br/>Boussinesq"]
+     Eval["Calibration / comparison<br/>runoff remains observation-side<br/>and may be added to DRN/baseflow"]
+
+     Data --> Load
+     Load -- "recharge, ETP, stage-capable inputs" --> Binders
+     Binders -- "diffuse forcing path" --> Bridge
+     Bridge -- "mm/day to m/s, or stage in m" --> FlowCfg
+     FlowCfg --> Flow
+     Flow --> Solvers
+     Load -- runoff --> Eval
+     Flow -- "simulated heads, drainage, baseflow" --> Eval
+
+Diffuse forcing and boundary support share one Flow contract, but they are
+not the same physical category.
 
 This diagram highlights a central distinction in the current design:
 diffuse hydrological forcing is normalized into the ``Flow`` contract, while

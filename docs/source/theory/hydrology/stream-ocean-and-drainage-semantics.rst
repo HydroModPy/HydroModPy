@@ -22,7 +22,28 @@ They do not play the same scientific role.
 Conceptual Diagram
 ------------------
 
-.. uml:: diagrams/surface_exchange_semantics_context.wsd
+.. mermaid::
+
+   flowchart LR
+     Atmos["Atmosphere / climate"]
+     Land["Land surface and<br/>hydrological partition"]
+     Aq["Aquifer<br/>primary unknown: head h"]
+     River["River / stream stage"]
+     Ocean["Ocean stage"]
+     Obs["Outlet hydrometry /<br/>runoff observations"]
+
+     Atmos -- "precipitation, potential ET demand" --> Land
+     Land -- "recharge (water to aquifer)" --> Aq
+     Aq -- "ETP / net diffuse loss (when groundwater sink)" --> Land
+     Land -- "runoff (surface signal, not Flow forcing)" --> Obs
+     River -- "stage support (current public path)" --> Aq
+     Ocean -- "coastal stage support (current public path)" --> Aq
+     Aq -- "exchanged flux emerges from solve" --> River
+     Aq -- "exchanged flux emerges from solve" --> Ocean
+     Aq -- "drainage / groundwater release" --> Obs
+
+Drainage is a head-dependent outflow operator. It is distinct from recharge,
+runoff, and stream/ocean stage.
 
 Drainage result example
 -----------------------

@@ -18,11 +18,27 @@ vertical representation controls:
 Conceptual Cross-Section
 ------------------------
 
-.. uml:: diagrams/vertical_storage_cross_section.wsd
+.. mermaid::
+
+   flowchart TB
+     Top["Topography<br/>z_top(x, y)"]
+     L1["Layer 1<br/>same planar footprint<br/>head h solved in cell"]
+     L2["Layer 2 .. n-1<br/>same planar footprint<br/>properties may vary with depth"]
+     Ln["Bottom layer<br/>same planar footprint"]
+     Bot["Substratum<br/>z_bot(x, y)"]
+
+     Top -- "local thickness z_top - z_bot" --> L1
+     L1 -- "shared vertical proportions p_l" --> L2
+     L2 -- "repeated planar connectivity" --> Ln
+     Ln --> Bot
 
 This diagram is intentionally schematic. It summarizes the current contract:
 one planar support is repeated vertically, while storage and material
-properties are then assigned within that layered geometry.
+properties are then assigned within that layered geometry. The geometry
+contract uses one planar support reused at every layer with cell-by-cell top
+and bottom variation, geology is represented by layer-wise properties rather
+than independent internal interfaces, and the storage law stays separate from
+geometry (Sy for drainable storage, Ss for compressive storage).
 
 Common Vertical Construction In The MODFLOW Family Path
 -------------------------------------------------------
