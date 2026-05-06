@@ -224,6 +224,7 @@ Use these pages once you have generated or opened result pages:
    Usage modes <../seven-modes>
    Workflow families <workflows/index>
    Concepts <concepts/index>
+   Configuration reference <config_reference/index>
    mesh
    comparison
    calibration
