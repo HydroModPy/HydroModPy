@@ -1,15 +1,17 @@
 """Generate the configuration reference RST tree for HydroModPy.
 
-Outputs three layers under ``docs/source/user_guide/config_reference/``:
+Outputs four layers under ``docs/source/user_guide/config_reference/``:
 
 - ``index.rst`` (Couche 1): overview page with a grid card per top-level
   section.
 - ``<section>.rst`` (Couche 2): one page per top-level section listing
   its direct fields and their type, default, description.
+- ``schema_explorer.rst`` (Couche 3): interactive Stoplight Elements view
+  of the JSON Schema exported from ``HydroModPyConfig``. The schema JSON
+  is also written to ``docs/source/_static/hydromodpy-schema.json`` for
+  external tools.
 - ``complete_toml.rst`` (Couche 4): one page with the complete annotated
   TOML reference grouped by section, with collapsible dropdowns.
-
-Couche 3 (interactive Stoplight viewer) is skipped per the v1 plan.
 """
 
 from __future__ import annotations
@@ -28,6 +30,7 @@ REFERENCE_DIR = Path("docs/source/user_guide/config_reference")
 DIAGRAM_DIR = REFERENCE_DIR / "_diagrams"
 GALLERY_VALIDATION_DIR = Path("docs/source/_static/capability_gallery/validation")
 GALLERY_CASES_DIR = "capability_gallery/cases"
+SCHEMA_OUTPUT = Path("docs/source/_static/hydromodpy-schema.json")
 
 
 def _scan_section_to_cases() -> dict[str, list[tuple[str, str]]]:
@@ -239,6 +242,7 @@ def _render_couche1(top_fields: dict[str, FieldInfo]) -> str:
             "   :hidden:",
             "",
             "   complete_toml",
+            "   schema_explorer",
         ]
     )
     for name, field in top_fields.items():
@@ -281,6 +285,58 @@ def _render_couche4(top_fields: dict[str, FieldInfo]) -> str:
     return "\n".join(lines)
 
 
+def _render_couche3() -> str:
+    """Render the schema explorer page (couche 3)."""
+    lines = [
+        GENERATED_HEADER,
+        "Schema Explorer",
+        "===============",
+        "",
+        "This page renders the canonical JSON Schema of ``HydroModPyConfig`` with",
+        "the Stoplight Elements viewer. The same schema is downloadable as a",
+        "single artifact for use in editors, CI validators, or API tooling that",
+        "consumes JSON Schema directly.",
+        "",
+        "Download: :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`",
+        "",
+        ".. note::",
+        "   The viewer loads the Stoplight Elements bundle from the unpkg CDN at",
+        "   runtime. If the CDN is unreachable, the page still works as a typed",
+        "   download link plus the structured cards on :doc:`index`.",
+        "",
+        ".. raw:: html",
+        "",
+        '   <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements/styles.min.css">',
+        '   <script src="https://unpkg.com/@stoplight/elements/web-components.min.js"'
+        ' type="module"></script>',
+        '   <div class="hmp-schema-explorer">',
+        "     <elements-api",
+        '       apiDescriptionUrl="../../_static/hydromodpy-schema.json"',
+        '       router="hash"',
+        '       layout="sidebar"',
+        '       hideExport="true">',
+        "     </elements-api>",
+        "   </div>",
+        "",
+        "See Also",
+        "--------",
+        "",
+        "- :doc:`index` for the layered cards",
+        "- :doc:`complete_toml` for the annotated TOML reference",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def export_schema(output_path: Path | None = None) -> Path:
+    """Write the canonical JSON Schema to ``_static/hydromodpy-schema.json``."""
+    target = (output_path or SCHEMA_OUTPUT).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    schema = HydroModPyConfig.model_json_schema()
+    target.write_text(json.dumps(schema, indent=2, sort_keys=False) + "\n")
+    return target
+
+
 def generate_all(output_dir: Path | None = None) -> list[Path]:
     """Render every generated RST file. Returns the paths that were written."""
     out = (output_dir or REFERENCE_DIR).resolve()
@@ -292,6 +348,12 @@ def generate_all(output_dir: Path | None = None) -> list[Path]:
     index_path = out / "index.rst"
     index_path.write_text(_render_couche1(top_fields))
     written.append(index_path)
+
+    schema_path = export_schema()
+    written.append(schema_path)
+    explorer_path = out / "schema_explorer.rst"
+    explorer_path.write_text(_render_couche3())
+    written.append(explorer_path)
 
     complete_path = out / "complete_toml.rst"
     complete_path.write_text(_render_couche4(top_fields))

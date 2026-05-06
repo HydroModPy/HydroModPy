@@ -161,6 +161,7 @@ For the full annotated TOML reference, see :doc:`complete_toml`.
    :hidden:
 
    complete_toml
+   schema_explorer
    workspace
    geographic
    domain
