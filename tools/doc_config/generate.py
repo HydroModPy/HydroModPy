@@ -34,6 +34,7 @@ from pydantic.fields import FieldInfo
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
+from tools.doc_config.coverage import find_uncovered_dispatchers
 from tools.doc_config.dispatchers import DispatcherEntry, dispatchers_for_section
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -1189,6 +1190,8 @@ def generate_all(output_dir: Path | None = None) -> list[Path]:
     out.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
 
+    _report_uncovered_dispatchers()
+
     top_fields = HydroModPyConfig.model_fields
 
     index_path = out / "index.rst"
@@ -1287,6 +1290,31 @@ def _render_validate_page() -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+def _report_uncovered_dispatchers() -> None:
+    """Emit a clear warning when an opaque dict[...] field has no DispatcherEntry.
+
+    The check keeps doc rendering decoupled from domain models: instead of
+    polluting Pydantic classes with rendering metadata, we centralize the
+    pairing in ``dispatchers.py`` and verify here that every opaque payload
+    has a corresponding entry. See ``tools/doc_config/README.md`` for the
+    full rationale.
+    """
+    try:
+        uncovered = find_uncovered_dispatchers(HydroModPyConfig)
+    except Exception as exc:
+        print(f"[doc_config] coverage check skipped: {exc}")
+        return
+    if not uncovered:
+        return
+    print("[doc_config] WARNING: uncovered opaque TOML paths detected:")
+    for entry in uncovered:
+        print(f"  - {entry.toml_path}  ({entry.annotation})")
+    print(
+        "[doc_config] Add a DispatcherEntry for each path in "
+        "tools/doc_config/dispatchers.py to surface its sub-schema."
+    )
 
 
 __all__ = ["generate_all", "export_schema", "export_search_index"]
