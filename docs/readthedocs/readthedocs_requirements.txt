@@ -12,7 +12,7 @@ sphinx-multiversion==0.2.4
 sphinxcontrib-plantuml
 
 nbformat==5.10.4
-nbconvert==7.16.4
+nbconvert==7.17.1
 jupyter-client==8.6.2
 
 numpy>=2.4.4,<3
