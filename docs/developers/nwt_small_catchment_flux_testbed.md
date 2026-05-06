@@ -228,7 +228,7 @@ Signaux minimaux attendus :
 - `water_budget.png` montre une recharge entrante et une sortie par drainage,
 - `recharge_discharge_overlay.png` montre l'amplitude et le delai de reponse,
 - `hydrographic_network_overlay.png` compare le reseau genere au reseau
-  observe,
+  observe avec le contour du bassin simule,
 - les cartes d'identite montrent des domaines differents, ce qui confirme que
   l'exutoire a bien change le bassin.
 
