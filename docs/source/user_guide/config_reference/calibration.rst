@@ -20,6 +20,13 @@ It is the stable user-facing schema used by CLI calibration and
 When no explicit objective block is declared, HydroModPy can synthesize one
 from ``objective`` and ``variable`` if the matching output exists.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/calibration.svg
+   :alt: ER diagram for CalibrationConfig
+   :class: er-diagram
+
 Fields
 ------
 

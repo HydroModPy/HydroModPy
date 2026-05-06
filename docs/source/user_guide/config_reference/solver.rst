@@ -12,6 +12,13 @@ defined in ``hydromodpy.solver.base.solver_config``.
 
 Configuration block defining the active groundwater solver engine.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/solver.svg
+   :alt: ER diagram for SolverConfig
+   :class: er-diagram
+
 Fields
 ------
 

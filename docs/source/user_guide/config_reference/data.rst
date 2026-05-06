@@ -24,6 +24,13 @@ For each active type, the matching nested section can be validated dynamically:
 Use this model for validation only. Runtime activation order is represented
 by ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/data.svg
+   :alt: ER diagram for DataManagersConfig
+   :class: er-diagram
+
 Fields
 ------
 

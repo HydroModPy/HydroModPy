@@ -12,6 +12,13 @@ defined in ``hydromodpy.simulation.planning.config``.
 
 Minimal orchestration block declared under ``[simulation]``.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/simulation.svg
+   :alt: ER diagram for SimulationConfig
+   :class: er-diagram
+
 Fields
 ------
 

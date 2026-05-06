@@ -12,6 +12,13 @@ defined in ``hydromodpy.solver.modflow_nwt.nwt.nwt_config``.
 
 Expert-level MODFLOW configuration organized by concern.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/modflownwt.svg
+   :alt: ER diagram for ModflowConfig
+   :class: er-diagram
+
 Fields
 ------
 

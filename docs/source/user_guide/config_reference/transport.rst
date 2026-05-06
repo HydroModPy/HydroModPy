@@ -12,6 +12,13 @@ defined in ``hydromodpy.physics.transport.transport_config``.
 
 Transport-process configuration.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/transport.svg
+   :alt: ER diagram for TransportConfig
+   :class: er-diagram
+
 Fields
 ------
 

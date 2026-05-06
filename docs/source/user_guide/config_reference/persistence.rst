@@ -17,6 +17,13 @@ catalog, and vice versa. ``save_catalog`` is the master switch for the
 project DuckDB; when False, every write through
 :class:`SimulationCatalog` becomes a no-op.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/persistence.svg
+   :alt: ER diagram for PersistenceConfig
+   :class: er-diagram
+
 Fields
 ------
 

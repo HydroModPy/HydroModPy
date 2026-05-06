@@ -42,6 +42,13 @@ Fields under ``[workspace]``:
     Optional redirect for heavy outputs (``.solver_scratch/`` and
     per-run ``figures/``). Defaults to ``project_root``.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/workspace.svg
+   :alt: ER diagram for WorkspaceConfig
+   :class: er-diagram
+
 Fields
 ------
 

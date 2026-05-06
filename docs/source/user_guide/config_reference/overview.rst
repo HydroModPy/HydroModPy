@@ -12,6 +12,13 @@ defined in ``hydromodpy.display.overview.config``.
 
 Overview report settings (watershed identity card).
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/overview.svg
+   :alt: ER diagram for OverviewSection
+   :class: er-diagram
+
 Fields
 ------
 

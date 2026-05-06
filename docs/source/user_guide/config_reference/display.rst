@@ -12,6 +12,13 @@ defined in ``hydromodpy.display.config``.
 
 Display behaviour resolved from the ``[display]`` TOML section.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/display.svg
+   :alt: ER diagram for DisplayConfig
+   :class: er-diagram
+
 Fields
 ------
 

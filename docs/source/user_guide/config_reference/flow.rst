@@ -15,6 +15,13 @@ Flow-process configuration.
 Parameters are declared in `param_list` (ordered list of ids), and
 parameter payloads are stored in `param`.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/flow.svg
+   :alt: ER diagram for FlowConfig
+   :class: er-diagram
+
 Fields
 ------
 

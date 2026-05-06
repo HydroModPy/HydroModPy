@@ -20,6 +20,13 @@ direct DEM, XYZ text grid, outlet coordinate, or polygon shapefile.
 Synthetic mode builds an analytical support and bypasses external DEM
 delineation.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/geographic.svg
+   :alt: ER diagram for GeographicConfig
+   :class: er-diagram
+
 Fields
 ------
 

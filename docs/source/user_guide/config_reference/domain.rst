@@ -14,6 +14,13 @@ Domain configuration.
 
 Controls which zone providers are loaded in `Domain`.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/domain.svg
+   :alt: ER diagram for DomainConfig
+   :class: er-diagram
+
 Fields
 ------
 

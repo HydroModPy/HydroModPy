@@ -17,6 +17,13 @@ regional-lab launcher, ``[analysis.capability_gallery]`` selects
 figures for the versionable gallery, and ``[analysis.comparison]``
 drives the comparison launcher.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/analysis.svg
+   :alt: ER diagram for AnalysisConfig
+   :class: er-diagram
+
 Fields
 ------
 

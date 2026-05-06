@@ -12,6 +12,13 @@ defined in ``hydromodpy.solver.modflow6.modflow6_config``.
 
 Expert-level MODFLOW 6 configuration organized by concern.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/modflow6.svg
+   :alt: ER diagram for Modflow6Config
+   :class: er-diagram
+
 Fields
 ------
 

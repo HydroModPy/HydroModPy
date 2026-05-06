@@ -12,6 +12,13 @@ defined in ``hydromodpy.spatial.mesh.config.main``.
 
 Top-level launcher contract for one mono-catchment meshing run.
 
+Entity-relationship diagram
+---------------------------
+
+.. image:: _diagrams/mesh_catchment.svg
+   :alt: ER diagram for MeshCatchmentConfig
+   :class: er-diagram
+
 Fields
 ------
 
