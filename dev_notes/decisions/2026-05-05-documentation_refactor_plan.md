@@ -12,10 +12,9 @@ documentation de HydroModPy. Il sert de guide de référence pour la refonte.
 | Phase | Étapes | Statut | Branche | Commits |
 |---|---|---|---|---|
 | Phase 0 — Quick wins | 1 à 10 | ✓ livrée 2026-05-05 | `dev-docs` | `07f2f3b30` → `a0799bf69` |
-| Phase 1 — Refonte structurelle | 11 à 22 | ✓ 11/12 livrée (étape 21 reportée) | `dev-docs` | `b5144869b` → `b21909b5e` |
+| Phase 1 — Refonte structurelle | 11 à 22 | ✓ 12/12 livrée (étape 21 incluse) | `dev-docs` | `b5144869b` → `c8e8057dd` |
 | Phase 2 — Enrichissement | 23 à 37 | ✓ livrée 2026-05-06 | `dev-docs` | `072b06e00` → `2f7697342` |
 | Phase 3 — Optionnel/conditionnel | 38 à 45 | ⏸ non démarrée (gated sur retours) | — | — |
-| Étape 21 reportée | 21 | ⏸ migration sphinx-multiversion → sphinx-polyversion | — | — |
 
 Build sphinx local clean : 3 warnings baseline (incrémental) / 8 sur fresh
 build (5 issues codebase pré-existantes). Voir
@@ -23,21 +22,7 @@ build (5 issues codebase pré-existantes). Voir
 
 ## Comment lancer la suite
 
-### Option A : reprise de l'étape 21 reportée (sphinx-polyversion)
-
-```
-mamba activate hmp_refact
-# Préparer le contexte avant migration :
-#   - lire docs/source/conf.py blocs sphinx_multiversion
-#   - lire .readthedocs.yaml
-# Migration en isolation, swap CLI + config + RTD non trivial.
-# Cible : remplacer sphinx_multiversion par sphinx-polyversion sur master + dev + dev-docs
-# Vérification : python -m sphinx -j auto -b html docs/source docs/build/html
-git checkout dev-docs
-# (instruire la session Claude Code en démarrant : "reprise étape 21 du plan")
-```
-
-### Option B : Phase 3 conditionnelle (étapes 38 à 45)
+### Phase 3 conditionnelle (étapes 38 à 45)
 
 À ne lancer que si les déclencheurs sont là :
 
@@ -208,7 +193,14 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
 18. `[docs] - install tier-1 sphinx extensions (mermaid, bibtex, codeautolink, autodoc-typehints, issues, rediraffe)` ✓
 19. `[docs] - add redirect map for refactored pages` ✓
 20. `[docs] - audit and migrate diagrams (mermaid prioritaire, plantuml UML détaillés, suppression legacy)` ✓
-21. `[docs] - migrate from sphinx-multiversion to sphinx-polyversion` — **reporté**, swap CLI + config + RTD non-trivial à instruire en isolation, pas un blocant pour la doc locale.
+21. `[docs] - migrate from sphinx-multiversion to sphinx-polyversion` ✓ (commit `c8e8057dd`)
+    - `sphinx_multiversion` retiré des `extensions` et de `_DOC_REQUIRED_EXTENSIONS` dans `docs/source/conf.py` ; remplacé par `sphinx_polyversion` (chargé seulement quand `POLYVERSION_DATA` est fourni par le driver)
+    - `pyproject.toml [docs]` : `sphinx-multiversion` → `sphinx-polyversion>=1.0`
+    - `docs/readthedocs_requirements.txt` : `sphinx-multiversion==0.2.4` → `sphinx-polyversion>=1.0`
+    - `poly.py` ajouté à la racine : `DefaultDriver` + `Git` (branches `master|dev|dev-docs`, tags `v\d+\.\d+\.\d+`) + `SphinxBuilder` avec `-j auto -b html`
+    - `docs/Makefile` : nouvelles cibles `polyversion` (multi-version) et `polyversion-local` (working tree only)
+    - `tests/unit/test_docs_dependencies.py` et `install/verify_dev_env.py` mis à jour (le premier corrige aussi le chemin RTD requirements vers `docs/readthedocs_requirements.txt`)
+    - Build sphinx local `python -m sphinx -j auto -b html` reste à 3 warnings baseline ; `python -m sphinx_polyversion poly.py -l --sequential` produit le site dans `docs/build/html/dev-docs/`. RTD continue d'utiliser ses builds par branche, sans `build.commands` custom.
 22. `[docs] - enable doc linting and warnings-as-errors gate` ✓ (livré sous forme `lint` + `html-strict` opt-in pour ne pas casser `make html` tant que les 3 warnings codebase pré-existent)
 
 #### Phase 2 — Enrichissement (~9-11 jours)
