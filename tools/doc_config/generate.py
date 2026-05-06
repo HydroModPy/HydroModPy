@@ -57,6 +57,20 @@ GENERATED_HEADER = (
 MAX_NESTED_DEPTH = 3
 
 
+def _write_if_changed(path: Path, content: str) -> None:
+    """Write ``content`` to ``path`` only when it differs from the current file.
+
+    Prevents sphinx-autobuild rebuild loops triggered by the
+    ``builder-inited`` hook regenerating identical RST on every build.
+    """
+    try:
+        if path.read_text() == content:
+            return
+    except FileNotFoundError:
+        pass
+    path.write_text(content)
+
+
 # ---------------------------------------------------------------------------
 # Capability-gallery scan
 # ---------------------------------------------------------------------------
@@ -1087,7 +1101,7 @@ def export_schema(output_path: Path | None = None) -> Path:
     target = (output_path or SCHEMA_OUTPUT).resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
     schema = HydroModPyConfig.model_json_schema()
-    target.write_text(json.dumps(schema, indent=2, sort_keys=False) + "\n")
+    _write_if_changed(target, json.dumps(schema, indent=2, sort_keys=False) + "\n")
     return target
 
 
@@ -1121,7 +1135,7 @@ def export_search_index(top_fields: dict[str, FieldInfo], output_path: Path | No
             )
     target = (output_path or SEARCH_INDEX_OUTPUT).resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(entries, indent=2, sort_keys=False) + "\n")
+    _write_if_changed(target, json.dumps(entries, indent=2, sort_keys=False) + "\n")
     return target
 
 
@@ -1163,28 +1177,28 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
     top_fields = HydroModPyConfig.model_fields
 
     index_path = out / "index.rst"
-    index_path.write_text(_render_couche1(top_fields))
+    _write_if_changed(index_path, _render_couche1(top_fields))
     written.append(index_path)
 
     schema_path = export_schema()
     written.append(schema_path)
     explorer_path = out / "schema_explorer.rst"
-    explorer_path.write_text(_render_couche3())
+    _write_if_changed(explorer_path, _render_couche3())
     written.append(explorer_path)
 
     complete_path = out / "complete_toml.rst"
-    complete_path.write_text(_render_couche4(top_fields))
+    _write_if_changed(complete_path, _render_couche4(top_fields))
     written.append(complete_path)
 
     config_index_path = out / "config_index.rst"
-    config_index_path.write_text(_render_couche5(top_fields))
+    _write_if_changed(config_index_path, _render_couche5(top_fields))
     written.append(config_index_path)
 
     search_index_path = export_search_index(top_fields)
     written.append(search_index_path)
 
     validate_path = out / "validate.rst"
-    validate_path.write_text(_render_validate_page())
+    _write_if_changed(validate_path, _render_validate_page())
     written.append(validate_path)
 
     diagram_root = out / "_diagrams"
@@ -1202,7 +1216,9 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
             diagram_rel = f"_diagrams/{name}.svg"
             written.append(rendered)
         page_path = out / f"{name}.rst"
-        page_path.write_text(_render_couche2(name, model, diagram_rel, section_cases.get(name, [])))
+        _write_if_changed(
+            page_path, _render_couche2(name, model, diagram_rel, section_cases.get(name, []))
+        )
         written.append(page_path)
 
     return written
