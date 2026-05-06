@@ -176,7 +176,12 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - Pipeline `tools/doc_config` étendu pour appeler erdantic.create + draw par section
     - Diagrammes intégrés dans page section juste après docstring
     - erdantic ajouté à pyproject.toml [docs]
-30. `[docs] - cross-link config sections with gallery cases`
+30. `[docs] - cross-link config sections with gallery cases` ✓ (commit `ad24a9c40`)
+    - `_scan_section_to_cases()` lit les `*_summary.json` validation et extrait préfixe section depuis dotted paths (parameter_docs)
+    - Sections de pages config gagnent un bloc "Cases using this section" avec liens :doc: vers les pages cas
+    - Tableau Fields désormais wrappé via textwrap pour respecter doc8 100 cols
+    - doc8 exclut `config_reference/*` (slugs trop longs pour 100 cols, fichiers générés)
+    - Direction inverse (gallery -> config) reportée car invasive sur tools/doc_gallery
 31. `[docs] - add troubleshooting page indexed by error message`
 32. `[docs] - add migration guides and api stability roles`
 33. `[docs] - add cookbook with 10 TOML-first recipes`
