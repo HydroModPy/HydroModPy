@@ -158,7 +158,10 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - `validation-case-summary` lit `_static/capability_gallery/validation/<slug>_summary.json`
     - `solver-comparison` matrice solveur x cas avec premier `metric_lines` par cellule
     - Démo dans `theory/boussinesq.rst` (1 case summary + 1 solver-comparison sur 2 cas)
-27. `[config] - complete Field descriptions for analysis and mesh_catchment`
+27. `[config] - complete Field descriptions for analysis and mesh_catchment` ✓ (commit `320cfa635`)
+    - 5 champs requis sans description complétés dans `analysis/batch/config.py` (selection, catalog, recipes)
+    - 16 champs avec default literal (sans Field()) convertis en Field(default=..., description=...) dans `zone_meshing/config.py` (RefinementFamilySettings, HotspotSettings, GridSettings, RefinementPolicy.enabled)
+    - Ruff check/format passés, build sphinx clean (3 warnings baseline inchangés)
 28. `[docs] - add tools/doc_config pipeline for hierarchical config reference (couches 1, 2, 4 only)`
 29. `[docs] - add per-section erdantic ER diagrams`
 30. `[docs] - cross-link config sections with gallery cases`
