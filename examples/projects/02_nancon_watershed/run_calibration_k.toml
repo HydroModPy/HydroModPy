@@ -96,9 +96,6 @@ use_cache = true
 bounds = [1e-6, 1e-3]
 transform = "log"
 prior = "log_uniform"
-# Dotted path written at each iteration. Pydantic flattens the
-# [flow.param.K.field_homogeneous] subsection into a flat dict at
-# validation time, so the runtime key is `flow.param.K.value` (not
-# `flow.param.K.field_homogeneous.value` as on disk).
-path = "flow.param.K.value"
+# Dotted path written at each iteration.
+path = "flow.param.K.field_homogeneous.value"
 units = "m/s"

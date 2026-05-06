@@ -390,7 +390,7 @@ def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> 
     assert cfg.workspace.project_root == tmp_path.resolve()
     assert cfg.geographic.dem_init_path == dem_path.resolve()
     assert cfg.flow.param_list == ["K"]
-    assert cfg.flow.param["K"] == {
+    assert cfg.flow.param["K"].resolved_payload(param_id="K") == {
         "id": "K",
         "kind": "homogeneous",
         "value": "1.0e-4 m/s",

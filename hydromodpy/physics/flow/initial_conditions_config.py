@@ -49,6 +49,8 @@ def normalize_flow_initial_conditions(
     payload = dict(value)
     if len(payload) == 0:
         return None
+    if set(payload) == {"h"} and isinstance(payload["h"], Mapping):
+        return FlowInitialConditions.model_validate(payload)
 
     # Flow IC is intentionally kept flat in TOML (`[flow.ic]`), hence only
     # direct keys are accepted here.

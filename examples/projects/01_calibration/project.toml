@@ -144,10 +144,8 @@ variable = "head"
 [calibration.parameters.K_aquifer]
 bounds = [1e-6, 1e-3]
 transform = "log"
-# Pydantic flattens the [flow.param.K.field_homogeneous] subsection
-# into a flat dict at validation time, so the runtime injection key
-# is `flow.param.K.value` (not `...field_homogeneous.value`).
-path = "flow.param.K.value"
+# Native flow parameters keep the TOML subsection path.
+path = "flow.param.K.field_homogeneous.value"
 units = "m/s"
 
 # Observable at the centre cell (x = L/2, y = W/2). The dict key 'head'

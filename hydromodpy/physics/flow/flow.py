@@ -221,7 +221,7 @@ class Flow(ProcessSpatial):
         self.runtime_tol_state_update_inf = config.runtime_tol_state_update_inf
         # Parameters are resolved in the declared order from `flow.param_list`.
         self.set_parameters_from_config(
-            config.param,
+            self._runtime_parameter_payloads(config),
             parameter_ids=config.param_list,
             context_label="flow.param",
         )
@@ -239,6 +239,21 @@ class Flow(ProcessSpatial):
         # items absent from these lists are silently ignored downstream.
         self.active_sinks_sources = list(config.active_sinks_sources)
         self.active_bc = list(config.active_bc)
+
+    @staticmethod
+    def _runtime_parameter_payloads(config: FlowConfig) -> dict[str, object]:
+        """Resolve typed flow parameter sections for runtime ingestion."""
+        payloads: dict[str, object] = {}
+        for param_id, param_cfg in config.param.items():
+            resolved_payload = getattr(param_cfg, "resolved_payload", None)
+            if callable(resolved_payload):
+                payloads[param_id] = resolved_payload(
+                    param_id=param_id,
+                    section_label=f"flow.param.{param_id}",
+                )
+            else:
+                payloads[param_id] = param_cfg
+        return payloads
 
     def build_initial_conditions(
         self,
@@ -287,6 +302,9 @@ class Flow(ProcessSpatial):
             # Allow already-instantiated typed payloads.
             if isinstance(raw_payload, FlowBoundaryConditionConfig):
                 parsed[bc_id] = raw_payload
+                application_domain = raw_payload.application_domain
+                if isinstance(application_domain, str) and application_domain.strip():
+                    application_domains[bc_id] = application_domain.strip()
                 continue
             if isinstance(raw_payload, BoundaryCondition):
                 parsed[bc_id] = FlowBoundaryConditionConfig.model_validate(

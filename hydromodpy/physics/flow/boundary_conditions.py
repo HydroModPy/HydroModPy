@@ -24,15 +24,21 @@ Validation flow:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from numbers import Real
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units import Length, canonical_unit_short_form, check_unit_compatible
+from hydromodpy.core.units import (
+    Length,
+    canonical_unit_short_form,
+    check_unit_compatible,
+    parse_to_canonical_magnitude,
+)
 
 ALLOWED_BC_APPLICATION_DOMAINS = {
     "top",
@@ -73,6 +79,90 @@ SIDE_DIRICHLET_BC_IDS = {
     "west_side",
 }
 """Dirichlet ids eligible for launcher-managed transient forcing."""
+
+
+_BOUNDARY_UNIT_TARGETS: dict[str, tuple[str, str]] = {
+    "m": ("m", "length"),
+    "m2/s": ("m**2/s", "hydraulic-conductance"),
+}
+
+
+def _extract_explicit_boundary_units(payload: Mapping[str, object]) -> str | None:
+    """Resolve explicitly declared units from payload."""
+    if "units" in payload:
+        return str(payload["units"])
+    if "unit" in payload:
+        return str(payload["unit"])
+    return None
+
+
+def _coerce_boundary_value_and_units(
+    *,
+    payload: Mapping[str, object],
+    location_prefix: str,
+    default_units: str,
+) -> tuple[float, str]:
+    if "value" not in payload:
+        raise ValueError(f"{location_prefix}.value is required")
+    target = _BOUNDARY_UNIT_TARGETS.get(default_units)
+    if target is None:
+        raise ValueError(f"Unsupported boundary unit target: {default_units}")
+    canonical_unit, label = target
+    value_si = parse_to_canonical_magnitude(
+        payload["value"],
+        location=f"{location_prefix}.value",
+        canonical_unit=canonical_unit,
+        explicit_unit=_extract_explicit_boundary_units(payload),
+        length_label=label,
+    )
+    return value_si, default_units
+
+
+def _normalize_dirichlet_forcing_units(
+    *,
+    payload: Mapping[str, object],
+    location_prefix: str,
+) -> str:
+    explicit_units = _extract_explicit_boundary_units(payload)
+    forcing_payload = payload.get("forcing")
+    forcing_units: str | None = None
+    if isinstance(forcing_payload, Mapping):
+        raw_forcing_units = forcing_payload.get("units")
+        if raw_forcing_units is not None:
+            forcing_units = str(raw_forcing_units)
+    if explicit_units is None and forcing_units is None:
+        return "m"
+    try:
+        normalized_parent_units = (
+            canonical_unit_short_form(explicit_units, canonical_unit="m", label="length")
+            if explicit_units is not None
+            else None
+        )
+        normalized_forcing_units = (
+            canonical_unit_short_form(forcing_units, canonical_unit="m", label="length")
+            if forcing_units is not None
+            else None
+        )
+    except ValueError as exc:
+        raise ValueError(
+            f"{location_prefix}.units and {location_prefix}.forcing.units must be compatible "
+            "with meters (for example m, cm, mm, km)."
+        ) from exc
+    if (
+        normalized_parent_units is not None
+        and normalized_forcing_units is not None
+        and normalized_parent_units != normalized_forcing_units
+    ):
+        raise ValueError(f"{location_prefix}.units conflicts with {location_prefix}.forcing.units")
+    return normalized_forcing_units or normalized_parent_units or "m"
+
+
+def _extract_support_label(payload: Mapping[str, object]) -> str | None:
+    """Return one optional explicit support label."""
+    raw_value = payload.get("support_label")
+    if raw_value is None:
+        return None
+    return str(raw_value)
 
 
 class FlowBoundaryForcingConstantConfig(HydroModelBase):
@@ -359,3 +449,214 @@ class FlowBoundaryConditionConfig(HydroModelBase):
                 )
             object.__setattr__(self, "units", "m2/s")
         return self
+
+
+class DirichletBC(FlowBoundaryConditionConfig):
+    """Dirichlet flow boundary condition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Annotated[Literal["dirichlet"], Profile.USER] = Field(
+        default="dirichlet",
+        description="Boundary-condition type.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _canonicalize_payload(cls, data):
+        if not isinstance(data, Mapping):
+            raise TypeError("Dirichlet boundary payload must be a mapping")
+        payload = dict(data)
+        location_prefix = str(payload.pop("_location_prefix", "flow.bc"))
+
+        bc_id = str(payload.get("id", "")).strip()
+        if bc_id == "":
+            raise ValueError(f"{location_prefix}.id is required")
+        payload["id"] = bc_id
+
+        raw_type = str(payload.get("type", "dirichlet")).strip().lower()
+        if raw_type != "dirichlet":
+            raise ValueError(f"{location_prefix}.type must be 'dirichlet'")
+        payload["type"] = "dirichlet"
+
+        forcing_payload = payload.get("forcing")
+        if forcing_payload is not None:
+            if payload.get("value") is not None:
+                raise ValueError(
+                    f"{location_prefix}.value and {location_prefix}.forcing are mutually exclusive"
+                )
+            if not isinstance(forcing_payload, Mapping):
+                raise TypeError(f"{location_prefix}.forcing must be a mapping")
+            source_units = _normalize_dirichlet_forcing_units(
+                payload=payload,
+                location_prefix=location_prefix,
+            )
+            forcing = dict(forcing_payload)
+            forcing["units"] = source_units
+            payload["forcing"] = forcing
+            payload["value"] = None
+            payload["units"] = "m"
+        else:
+            value, units = _coerce_boundary_value_and_units(
+                payload=payload,
+                location_prefix=location_prefix,
+                default_units="m",
+            )
+            payload["value"] = value
+            payload["units"] = units
+
+        if "unit" in payload:
+            payload.pop("unit")
+
+        inferred_application_domain = DIRICHLET_BC_CANONICAL_DOMAINS.get(bc_id)
+        raw_application_domain = payload.get("application_domain")
+        if inferred_application_domain is not None:
+            if raw_application_domain is None:
+                payload["application_domain"] = inferred_application_domain
+            else:
+                if not isinstance(raw_application_domain, str):
+                    raise TypeError(f"{location_prefix}.application_domain must be a string")
+                application_domain = raw_application_domain.strip()
+                if application_domain == "":
+                    raise ValueError(f"{location_prefix}.application_domain cannot be empty")
+                if application_domain not in ALLOWED_BC_APPLICATION_DOMAINS:
+                    raise ValueError(
+                        f"{location_prefix}.application_domain contains an invalid value: "
+                        f"{application_domain}"
+                    )
+                if application_domain != inferred_application_domain:
+                    raise ValueError(
+                        f"{location_prefix}.application_domain='{application_domain}' "
+                        f"does not match inferred domain '{inferred_application_domain}' "
+                        f"for key '{bc_id}'"
+                    )
+                payload["application_domain"] = application_domain
+        elif raw_application_domain is not None:
+            if not isinstance(raw_application_domain, str):
+                raise TypeError(f"{location_prefix}.application_domain must be a string")
+            application_domain = raw_application_domain.strip()
+            if application_domain == "":
+                raise ValueError(f"{location_prefix}.application_domain cannot be empty")
+            if application_domain not in ALLOWED_BC_APPLICATION_DOMAINS:
+                raise ValueError(
+                    f"{location_prefix}.application_domain contains an invalid value: "
+                    f"{application_domain}"
+                )
+            payload["application_domain"] = application_domain
+
+        payload["data_value"] = bool(payload.get("data_value", False))
+        description = str(
+            payload.get(
+                "description",
+                f"Dirichlet boundary condition '{bc_id}' on "
+                f"{payload.get('application_domain', 'unspecified domain')}",
+            )
+        )
+        if payload["data_value"] and "(data_value=True)" not in description:
+            description = f"{description} (data_value=True)"
+        payload["description"] = description
+        payload["support_label"] = _extract_support_label(payload)
+        return payload
+
+
+class _DrainageBC(FlowBoundaryConditionConfig):
+    """Shared Cauchy/Robin boundary payload behavior."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    @classmethod
+    def _canonicalize_drainage_payload(cls, data, *, expected_type: str):
+        if not isinstance(data, Mapping):
+            raise TypeError(f"{expected_type.capitalize()} boundary payload must be a mapping")
+        payload = dict(data)
+        location_prefix = str(payload.pop("_location_prefix", "flow.bc"))
+
+        bc_id = str(payload.get("id", "drainage")).strip()
+        if bc_id == "":
+            raise ValueError(f"{location_prefix}.id cannot be empty")
+        payload["id"] = bc_id
+
+        raw_type = str(payload.get("type", expected_type)).strip().lower()
+        if raw_type != expected_type:
+            raise ValueError(f"{location_prefix}.type must be '{expected_type}'")
+        payload["type"] = expected_type
+
+        value, units = _coerce_boundary_value_and_units(
+            payload=payload,
+            location_prefix=location_prefix,
+            default_units="m2/s",
+        )
+        payload["value"] = value
+        payload["units"] = units
+        if "unit" in payload:
+            payload.pop("unit")
+
+        raw_application_domain = payload.get("application_domain")
+        if not isinstance(raw_application_domain, str):
+            raise TypeError(f"{location_prefix}.application_domain must be a string")
+        application_domain = raw_application_domain.strip()
+        if application_domain == "":
+            raise ValueError(f"{location_prefix}.application_domain cannot be empty")
+        if application_domain not in ALLOWED_BC_APPLICATION_DOMAINS:
+            raise ValueError(
+                f"{location_prefix}.application_domain contains an invalid value: "
+                f"{application_domain}"
+            )
+        payload["application_domain"] = application_domain
+        payload["description"] = str(
+            payload.get(
+                "description",
+                f"{expected_type.capitalize()} drainage boundary condition on {application_domain}",
+            )
+        )
+        payload["data_value"] = bool(payload.get("data_value", False))
+        payload["support_label"] = _extract_support_label(payload)
+        return payload
+
+
+class CauchyBC(_DrainageBC):
+    """Cauchy flow boundary condition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Annotated[Literal["cauchy"], Profile.USER] = Field(
+        default="cauchy",
+        description="Boundary-condition type.",
+    )
+    forcing: Annotated[None, Profile.DEV] = Field(
+        default=None,
+        exclude=True,
+        description="Cauchy boundaries do not support runtime head forcing.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _canonicalize_payload(cls, data):
+        return cls._canonicalize_drainage_payload(data, expected_type="cauchy")
+
+
+class RobinBC(_DrainageBC):
+    """Robin flow boundary condition."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Annotated[Literal["robin"], Profile.USER] = Field(
+        default="robin",
+        description="Boundary-condition type.",
+    )
+    forcing: Annotated[None, Profile.DEV] = Field(
+        default=None,
+        exclude=True,
+        description="Robin boundaries do not support runtime head forcing.",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _canonicalize_payload(cls, data):
+        return cls._canonicalize_drainage_payload(data, expected_type="robin")
+
+
+BCEntry: TypeAlias = Annotated[
+    DirichletBC | CauchyBC | RobinBC,
+    Field(discriminator="type"),
+]

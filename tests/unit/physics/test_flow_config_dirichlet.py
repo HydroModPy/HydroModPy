@@ -29,8 +29,8 @@ def test_dirichlet_side_key_infers_application_domain() -> None:
     )
 
     east_side = cfg.bc["east_side"]
-    assert east_side["id"] == "east_side"
-    assert east_side["application_domain"] == "east side"
+    assert east_side.id == "east_side"
+    assert east_side.application_domain == "east side"
 
 
 def test_dirichlet_legacy_boundary_alias_is_rejected() -> None:
@@ -113,8 +113,8 @@ def test_boundary_value_accepts_inline_unit() -> None:
     )
 
     drainage = cfg.bc["drainage"]
-    assert drainage["value"] == pytest.approx(1.0e-3 / 86400.0)
-    assert drainage["units"] == "m2/s"
+    assert drainage.value == pytest.approx(1.0e-3 / 86400.0)
+    assert drainage.units == "m2/s"
 
 
 def test_boundary_value_rejects_conflicting_units() -> None:
@@ -150,11 +150,12 @@ def test_dirichlet_side_forcing_constant_is_accepted_without_value() -> None:
     )
 
     west_side = cfg.bc["west_side"]
-    assert west_side["value"] is None
-    assert west_side["units"] == "m"
-    assert west_side["forcing"]["mode"] == "constant"
-    assert west_side["forcing"]["value"] == pytest.approx(99.0)
-    assert west_side["forcing"]["units"] == "m"
+    assert west_side.value is None
+    assert west_side.units == "m"
+    assert west_side.forcing is not None
+    assert west_side.forcing.mode == "constant"
+    assert west_side.forcing.value == pytest.approx(99.0)
+    assert west_side.forcing.units == "m"
 
 
 def test_dirichlet_value_is_converted_to_meters() -> None:
@@ -171,8 +172,8 @@ def test_dirichlet_value_is_converted_to_meters() -> None:
     )
 
     west_side = cfg.bc["west_side"]
-    assert west_side["value"] == pytest.approx(1.0)
-    assert west_side["units"] == "m"
+    assert west_side.value == pytest.approx(1.0)
+    assert west_side.units == "m"
 
 
 def test_dirichlet_side_forcing_preserves_normalized_source_unit() -> None:
@@ -193,9 +194,10 @@ def test_dirichlet_side_forcing_preserves_normalized_source_unit() -> None:
     )
 
     west_side = cfg.bc["west_side"]
-    assert west_side["value"] is None
-    assert west_side["units"] == "m"
-    assert west_side["forcing"]["units"] == "cm"
+    assert west_side.value is None
+    assert west_side.units == "m"
+    assert west_side.forcing is not None
+    assert west_side.forcing.units == "cm"
 
 
 def test_boundary_value_rejects_unknown_units() -> None:
@@ -234,7 +236,8 @@ def test_dirichlet_side_forcing_csv_resolves_relative_path(tmp_path: Path) -> No
     )
 
     east_side = cfg.bc["east_side"]
-    assert east_side["forcing"]["path_file"] == csv_path.resolve()
+    assert east_side.forcing is not None
+    assert east_side.forcing.path_file == csv_path.resolve()
 
 
 def test_dirichlet_side_forcing_rejects_value_plus_forcing() -> None:

@@ -52,15 +52,15 @@ def _cma_es_profile(*, seed: int = 17) -> CalibrationMethodProfile:
 
 _PIECEWISE_K_PARAMETER_TARGETS = {
     "K_west": TwinParameterTarget(
-        target="flow.param.K.values.west_zone",
+        target="flow.param.K.field_heterogeneous.values.west_zone",
         mode="replace",
     ),
     "K_middle": TwinParameterTarget(
-        target="flow.param.K.values.middle_zone",
+        target="flow.param.K.field_heterogeneous.values.middle_zone",
         mode="replace",
     ),
     "K_east": TwinParameterTarget(
-        target="flow.param.K.values.east_zone",
+        target="flow.param.K.field_heterogeneous.values.east_zone",
         mode="replace",
     ),
 }

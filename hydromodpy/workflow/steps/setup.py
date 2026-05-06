@@ -123,12 +123,9 @@ def collect_requested_support_ids(flow_cfg: object) -> tuple[str, ...]:
     requested: list[str] = []
     seen: set[str] = set()
     for param_cfg in raw_param_cfg.values():
-        if not isinstance(param_cfg, dict):
+        support_id = _heterogeneous_support_id(param_cfg)
+        if support_id is None:
             continue
-        kind = str(param_cfg.get("kind", "")).strip().lower()
-        if kind != "heterogeneous":
-            continue
-        support_id = str(param_cfg.get("field_spatial_id", "")).strip()
         if support_id == "":
             raise ConfigError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
         normalized = support_id.lower()
@@ -137,6 +134,32 @@ def collect_requested_support_ids(flow_cfg: object) -> tuple[str, ...]:
         seen.add(normalized)
         requested.append(support_id)
     return tuple(requested)
+
+
+def _heterogeneous_support_id(param_cfg: object) -> str | None:
+    """Return a heterogeneous flow parameter support id, if one is declared."""
+    if isinstance(param_cfg, dict):
+        kind = str(param_cfg.get("kind", "")).strip().lower()
+        if kind == "":
+            field_cfg = param_cfg.get("field")
+            if isinstance(field_cfg, dict):
+                kind = str(field_cfg.get("kind", "")).strip().lower()
+        if kind != "heterogeneous":
+            return None
+        support_id = param_cfg.get("field_spatial_id")
+        if support_id is None:
+            hetero_cfg = param_cfg.get("field_heterogeneous")
+            if isinstance(hetero_cfg, dict):
+                support_id = hetero_cfg.get("field_spatial_id")
+        return str(support_id or "").strip()
+
+    field_cfg = getattr(param_cfg, "field", None)
+    kind = str(getattr(field_cfg, "kind", "") or "").strip().lower()
+    if kind != "heterogeneous":
+        return None
+    hetero_cfg = getattr(param_cfg, "field_heterogeneous", None)
+    support_id = getattr(hetero_cfg, "field_spatial_id", "")
+    return str(support_id or "").strip()
 
 
 def support_provider_names(domain_supports: dict[str, object]) -> tuple[str, ...]:

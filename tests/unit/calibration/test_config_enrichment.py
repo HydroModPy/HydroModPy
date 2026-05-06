@@ -38,10 +38,10 @@ class TestCalibParameterDeclExtensions:
         decl = CalibParameterDecl.model_validate(
             {
                 "path": "flow.properties.k_aquifer",
-                "target": "flow.param.K.value",
+                "target": "flow.param.K.field_homogeneous.value",
             }
         )
-        assert decl.resolve_target() == "flow.param.K.value"
+        assert decl.resolve_target() == "flow.param.K.field_homogeneous.value"
 
     def test_path_used_when_target_absent(self):
         decl = CalibParameterDecl.model_validate({"path": "flow.properties.k_aquifer"})
