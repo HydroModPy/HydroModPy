@@ -469,8 +469,13 @@ html_css_files = [
     "uml-diagrams.css",
     "api-reference.css",
     "css/hmp-image-compare.css",
+    "css/hmp-feedback.css",
 ]
-html_js_files = ["uml-diagrams.js", "js/hmp-image-compare.js"]
+html_js_files = [
+    "uml-diagrams.js",
+    "js/hmp-image-compare.js",
+    "js/hmp-feedback.js",
+]
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True
 copybutton_only_copy_prompt_lines = False

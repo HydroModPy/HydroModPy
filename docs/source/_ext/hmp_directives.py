@@ -21,11 +21,20 @@ Three API stability roles:
   between minor versions.
 - ``:deprecated:`` (red badge): scheduled for removal; pair with the
   removal version in the badge text.
+
+Optional analytics:
+
+- Set ``HMP_DOCS_GOATCOUNTER_URL`` to the GoatCounter ``count`` endpoint
+  (for example ``https://hydromodpy.goatcounter.com/count``) to enable
+  page-view tracking and the "Was this page helpful?" widget. The widget
+  always renders, but only pushes events to GoatCounter when the script
+  has loaded.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +45,7 @@ from sphinx.application import Sphinx
 from sphinx.util.docutils import SphinxDirective
 
 _VALIDATION_GLOB = "_static/capability_gallery/validation"
+_GOATCOUNTER_ENV = "HMP_DOCS_GOATCOUNTER_URL"
 
 
 def _resolve_field(dotted_path: str) -> dict[str, Any] | None:
@@ -438,6 +448,19 @@ def _stability_role(label: str, css_class: str):
     return role
 
 
+def _register_goatcounter(app: Sphinx) -> None:
+    """Inject the GoatCounter snippet when the environment variable is set."""
+    url = os.environ.get(_GOATCOUNTER_ENV, "").strip()
+    if not url:
+        return
+    app.add_js_file(
+        "https://gc.zgo.at/count.js",
+        priority=900,
+        loading_method="async",
+        **{"data-goatcounter": url},
+    )
+
+
 def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("config-field", ConfigFieldDirective)
     app.add_directive("validation-case-summary", ValidationCaseSummaryDirective)
@@ -447,4 +470,5 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_role("stable", _stability_role("Stable", "api-stable"))
     app.add_role("experimental", _stability_role("Experimental", "api-experimental"))
     app.add_role("deprecated", _stability_role("Deprecated", "api-deprecated"))
-    return {"version": "0.4.0", "parallel_read_safe": True, "parallel_write_safe": True}
+    _register_goatcounter(app)
+    return {"version": "0.5.0", "parallel_read_safe": True, "parallel_write_safe": True}
