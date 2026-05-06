@@ -10,7 +10,7 @@ Irregular Mesh Conductivity Mapping
 
 This case reuses the synthetic square field but maps it onto an irregular triangular mesh alongside a structured baseline. The comparison highlights how the same property definition behaves on irregular supports.
 
-.. figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh.png
+.. gallery-figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_irregular_mesh.png
    :alt: Hydraulic conductivity mapped on structured and irregular triangular meshes
    :width: 100%
 

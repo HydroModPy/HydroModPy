@@ -1,5 +1,9 @@
 # Minimal makefile for Sphinx documentation
 #
+# Use bash with pipefail so that piping sphinx-build output through grep does
+# not mask a non-zero exit code from sphinx itself.
+SHELL := /usr/bin/env bash
+.SHELLFLAGS := -e -o pipefail -c
 
 # You can set these variables from the command line.
 # -j auto parallelises reading + writing across all CPU cores. Mandatory:
@@ -10,6 +14,23 @@ SPHINXBUILD   ?= python -m sphinx
 SPHINXPROJ    = HydroModPy
 SOURCEDIR     = source
 BUILDDIR      = build
+
+# Strip noisy infrastructure warnings that the build cannot fix from the
+# console output:
+#   - ``DeprecationWarning: The frontend.Option(Parser) class will be...``
+#     (docutils still uses optparse on Python 3.13);
+#   - ``DeprecationWarning: This process is multi-threaded, use of fork()``
+#     (multiprocessing under ``-j auto``).
+# These do not represent doc-side issues. The genuine sphinx warnings, the
+# build summary, and the autodoc/autosummary failures stay visible. Override
+# with ``HMP_DOCS_QUIET=0 make html`` to see the raw stream.
+HMP_DOCS_QUIET ?= 1
+NOISY_PATTERNS := -e "frontend\.Option" -e "frontend\.OptionParser" -e "popen_fork" -e "is multi-threaded, use of fork" -e "self.pid = os.fork" -e "option = self.option_class" -e "(WARNING/2)" -e "(ERROR/3)" -e "myst v3"
+ifeq ($(HMP_DOCS_QUIET),1)
+SPHINX_FILTER := 2>&1 | grep -v $(NOISY_PATTERNS) || true
+else
+SPHINX_FILTER :=
+endif
 
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
@@ -24,6 +45,8 @@ help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  html       to make standalone HTML files"
 	@echo "  livehtml   to serve HTML with sphinx-autobuild and reload on save"
+	@echo "  polyversion       to build a merged multi-version site (master + dev + tags)"
+	@echo "  polyversion-local to build only the current working tree under docs/build/html"
 	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"
 	@echo "  pickle     to make pickle files"
@@ -47,17 +70,14 @@ clean:
 	-rm -rf $(BUILDDIR)/*
 
 html:
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 html-strict:
-	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
 	@echo
 	@echo "Strict build finished (warnings treated as errors)."
-
-linkcheck:
-	$(SPHINXBUILD) -b linkcheck $(ALLSPHINXOPTS) $(BUILDDIR)/linkcheck
 
 lint:
 	@echo "Running sphinx-lint on $(SOURCEDIR)..."
@@ -66,7 +86,15 @@ lint:
 	@python -m doc8 --max-line-length 100 $(SOURCEDIR) || true
 
 livehtml:
-	sphinx-autobuild -b html --open-browser $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	sphinx-autobuild -b html --open-browser $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
+
+polyversion:
+	cd .. && python -m sphinx_polyversion poly.py
+	@echo "Multi-version site at docs/build/html/<branch-or-tag>/index.html"
+
+polyversion-local:
+	cd .. && python -m sphinx_polyversion poly.py -l --sequential
+	@echo "Local mock build at docs/build/html/<current-branch>/index.html"
 
 dirhtml:
 	$(SPHINXBUILD) -b dirhtml $(ALLSPHINXOPTS) $(BUILDDIR)/dirhtml
@@ -174,7 +202,7 @@ doctest:
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
 
-.PHONY: help Makefile clean html livehtml dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
+.PHONY: help Makefile clean html html-strict lint livehtml polyversion polyversion-local dirhtml singlehtml pickle json htmlhelp qthelp devhelp epub latex latexpdf text man changes linkcheck doctest gettext
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).

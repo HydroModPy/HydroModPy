@@ -10,7 +10,7 @@ Catchment Topography Context
 
 This case adds relief and slope context to the same geometry stack using the regional DEM. It stays mesh-free while providing visual context for elevation and terrain gradients.
 
-.. figure:: /_static/capability_gallery/geometry/geometry_topography_canut.png
+.. gallery-figure:: /_static/capability_gallery/geometry/geometry_topography_canut.png
    :alt: Catchment topography context map
    :width: 100%
 

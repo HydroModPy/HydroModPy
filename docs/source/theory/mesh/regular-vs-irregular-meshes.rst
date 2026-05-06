@@ -279,7 +279,7 @@ the same outlet and the same river target, but change the global size floor.
 
    .. grid-item-card:: Floor 200 m, target 200 m
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png
          :alt: Headwater 100 km2 outlet 27 mesh with floor 200 m and river target 200 m
          :width: 100%
 
@@ -287,7 +287,7 @@ the same outlet and the same river target, but change the global size floor.
 
    .. grid-item-card:: Floor 340 m, target 200 m
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_overview.png
          :alt: Headwater 100 km2 outlet 27 mesh with floor 340 m and river target 200 m
          :width: 100%
 

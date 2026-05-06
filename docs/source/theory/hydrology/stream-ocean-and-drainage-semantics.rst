@@ -52,14 +52,14 @@ On the Nancon reference run, ``drainage`` is not a prescribed stream network.
 It is a head-dependent release mechanism whose active cells are derived after
 the groundwater solve.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png
    :alt: Reference and generated hydrographic networks on the Nancon basin
    :width: 100%
 
    The reference and generated hydrographic networks provide structural context
    before reading simulated drainage.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
    :alt: Simulated active network compared with observed hydrography
    :width: 100%
 
@@ -229,12 +229,18 @@ Validation And Comparison Anchors
 
 Useful pages already exist to validate or inspect these semantics in context.
 
-- Stream-style imposed downstream stage: :doc:`Dupuit Divide-River 1D <../../capability_gallery/cases/dupuit_divide_river_1d>`
-- Ocean boundary on a radial island benchmark: :doc:`Dupuit Circular-Island Ocean 2D <../../capability_gallery/cases/dupuit_circular_island_ocean_2d>`
-- Ocean boundary with heterogeneous conductivity and Boussinesq comparison: :doc:`Boussinesq Circular-Island Piecewise-K 2D <../../capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d>`
-- Drainage boundary in a closed-form linearized setting: :doc:`Linearized Unconfined Drainage 1D <../../capability_gallery/cases/linearized_unconfined_drainage_1d>`
-- Drainage boundary on sloping topography: :doc:`Linearized Unconfined Hillslope Drainage 1D <../../capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d>`
-- Cross-code behaviour with recharge and emergent drainage: :doc:`Surface-Interaction Ramp Code Comparison <../../capability_gallery/cases/surface_interaction_ramp_code_comparison>`
+- Stream-style imposed downstream stage:
+  :doc:`Dupuit Divide-River 1D <../../capability_gallery/cases/dupuit_divide_river_1d>`
+- Ocean boundary on a radial island benchmark:
+  :doc:`Dupuit Circular-Island Ocean 2D <../../capability_gallery/cases/dupuit_circular_island_ocean_2d>`
+- Ocean boundary with heterogeneous conductivity and Boussinesq comparison:
+  :doc:`Boussinesq Circular-Island Piecewise-K 2D <../../capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d>`
+- Drainage boundary in a closed-form linearized setting:
+  :doc:`Linearized Unconfined Drainage 1D <../../capability_gallery/cases/linearized_unconfined_drainage_1d>`
+- Drainage boundary on sloping topography:
+  :doc:`Linearized Unconfined Hillslope Drainage 1D <../../capability_gallery/cases/linearized_unconfined_hillslope_drainage_1d>`
+- Cross-code behaviour with recharge and emergent drainage:
+  :doc:`Surface-Interaction Ramp Code Comparison <../../capability_gallery/cases/surface_interaction_ramp_code_comparison>`
 
 Current Source Anchors
 ----------------------

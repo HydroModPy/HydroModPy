@@ -15,6 +15,7 @@ import os
 import shutil
 import sys
 import types
+import warnings
 from importlib.util import find_spec
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -22,6 +23,24 @@ from unittest.mock import MagicMock
 from docutils import nodes
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.util.docutils import SphinxDirective
+
+# Silence noisy infrastructure warnings that the build cannot fix:
+# - docutils still calls the deprecated optparse frontend on Python 3.13;
+# - the Python multiprocessing fork warning fires on every parallel worker
+#   when ``-j auto`` is used.
+# These do not represent doc-side issues. Filtering them keeps the terminal
+# readable so the genuine sphinx warnings remain visible.
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="optparse")
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message="This process .* is multi-threaded, use of fork.* may lead to deadlocks",
+)
+warnings.filterwarnings("ignore", message="The frontend.Option class will be removed")
+warnings.filterwarnings(
+    "ignore",
+    message="The frontend.OptionParser class will be replaced",
+)
 
 package_path = Path(__file__).resolve().parents[3]
 os.environ["PYTHONPATH"] = ":".join((str(package_path), os.environ.get("PYTHONPATH", "")))
@@ -32,8 +51,7 @@ _DOC_REQUIRED_EXTENSIONS = [
     "sphinx_design",
     "sphinx_copybutton",
     "sphinx_togglebutton",
-    "sphinx_tabs",
-    "sphinx_multiversion",
+    "sphinx_polyversion",
     "sphinxcontrib.autodoc_pydantic",
     "sphinx_codeautolink",
     "sphinxcontrib.mermaid",
@@ -112,6 +130,14 @@ sys.path.insert(0, str(package_path))
 sys.path.insert(0, str(package_path / "hydromodpy"))
 sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 _ensure_required_doc_extensions()
+
+# sphinx-polyversion exposes per-revision metadata via POLYVERSION_DATA when
+# building under `python -m sphinx_polyversion poly.py`. The plain Sphinx CLI
+# and Read the Docs builds skip this block and run as a single-version build.
+if os.environ.get("POLYVERSION_DATA"):
+    from sphinx_polyversion import load as _polyversion_load
+
+    _polyversion_load(globals())
 
 _DOC_OPTIONAL_IMPORTS = [
     "pint",
@@ -249,8 +275,6 @@ extensions = [
     "sphinx_design",
     "sphinx_copybutton",
     "sphinx_togglebutton",
-    "sphinx_tabs.tabs",
-    "sphinx_multiversion",
     "sphinxcontrib.autodoc_pydantic",
     "sphinx_codeautolink",
     "sphinxcontrib.mermaid",
@@ -285,6 +309,12 @@ bibtex_reference_style = "author_year"
 
 codeautolink_concat_default = True
 codeautolink_global_preface = "import hydromodpy"
+
+# Codeautolink cannot match doctests that contain a Traceback block
+# (e.g. ``physical_bounds.validate_physical_value`` shows a ValueError
+# example). The HTML still renders correctly, only the in-block name
+# linking is skipped, so the warning is purely informative.
+suppress_warnings = ["codeautolink.match_block"]
 
 typehints_fully_qualified = False
 always_document_param_types = True
@@ -457,8 +487,19 @@ html_theme_options = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
-html_css_files = ["custom.css", "uml-diagrams.css", "api-reference.css"]
-html_js_files = ["uml-diagrams.js"]
+html_css_files = [
+    "custom.css",
+    "uml-diagrams.css",
+    "api-reference.css",
+    "css/hmp-image-compare.css",
+    "css/hmp-feedback.css",
+    "css/hmp-page-badges.css",
+]
+html_js_files = [
+    "uml-diagrams.js",
+    "js/hmp-image-compare.js",
+    "js/hmp-feedback.js",
+]
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True
 copybutton_only_copy_prompt_lines = False

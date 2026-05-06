@@ -10,13 +10,13 @@
 
 This case is the paired run used to explain the visible river-refinement difference on outlet 27. It keeps the same outlet, the same river input, the same geology interfaces, and the same river refinement target as the 340 m-floor case. The only intended change is that `min_size` is lowered here to 200 m, matching the requested river target, so the gallery can show the refinement that was previously clipped by the global floor.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png
    :alt: 100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m overview
    :width: 100%
 
    Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_regional.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_regional.png
    :alt: 100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m regional context
    :width: 100%
 

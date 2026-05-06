@@ -10,7 +10,7 @@ Resolution Sensitivity Across Scales
 
 This case compares how mesh cell areas distribute across the three committed scales. It provides a compact resolution ladder without generating new meshes.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_resolution_sensitivity_scale_ladder.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_resolution_sensitivity_scale_ladder.png
    :alt: Mesh resolution sensitivity across scales
    :width: 100%
 

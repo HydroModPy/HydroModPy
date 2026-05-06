@@ -22,8 +22,7 @@ DOC_MODULES = (
     "sphinx_design",
     "sphinx_copybutton",
     "sphinx_togglebutton",
-    "sphinx_tabs",
-    "sphinx_multiversion",
+    "sphinx_polyversion",
     "sphinxcontrib.autodoc_pydantic",
 )
 

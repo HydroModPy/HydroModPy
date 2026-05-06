@@ -17,7 +17,7 @@ Figure Reading Order
 - Read the objective landscape next: it shows where the evaluated candidates cluster, whether the objective is sharply constrained, and where the best retained solution sits relative to the truth.
 - Read the objective trace as the chronology of the search. It shows whether the method quickly stabilizes, improves gradually, or keeps wandering through flat regions.
 
-.. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__configuration.png
+.. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__configuration.png
    :alt: Calibration Twin: Dupuit Fixed-Head 1D configuration figure
    :width: 100%
 
@@ -27,13 +27,13 @@ Figure Reading Order
 
    .. tab-item:: grid_search
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_landscape.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective landscape for grid_search
          :width: 100%
 
          Objective landscape or pairwise projection for `grid_search` on Calibration Twin: Dupuit Fixed-Head 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__grid_search_trace.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective trace for grid_search
          :width: 100%
 
@@ -56,13 +56,13 @@ Figure Reading Order
 
    .. tab-item:: random_search
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_landscape.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective landscape for random_search
          :width: 100%
 
          Objective landscape or pairwise projection for `random_search` on Calibration Twin: Dupuit Fixed-Head 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__random_search_trace.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective trace for random_search
          :width: 100%
 
@@ -85,13 +85,13 @@ Figure Reading Order
 
    .. tab-item:: cma_es
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_landscape.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective landscape for cma_es
          :width: 100%
 
          Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Dupuit Fixed-Head 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__cma_es_trace.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective trace for cma_es
          :width: 100%
 
@@ -114,13 +114,13 @@ Figure Reading Order
 
    .. tab-item:: simplex
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_landscape.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective landscape for simplex
          :width: 100%
 
          Objective landscape or pairwise projection for `simplex` on Calibration Twin: Dupuit Fixed-Head 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__simplex_trace.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective trace for simplex
          :width: 100%
 
@@ -143,13 +143,13 @@ Figure Reading Order
 
    .. tab-item:: nelder_mead
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_landscape.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective landscape for nelder_mead
          :width: 100%
 
          Objective landscape or pairwise projection for `nelder_mead` on Calibration Twin: Dupuit Fixed-Head 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_modflow6__nelder_mead_trace.png
          :alt: Calibration Twin: Dupuit Fixed-Head 1D objective trace for nelder_mead
          :width: 100%
 

@@ -10,7 +10,7 @@ Constraint Balance Across Scales
 
 This case compares how linear constraints contribute to mesh structure across the 10, 100, and 1000 km2 bundles. It uses the committed bundle summaries to compute the breakdown without regenerating any mesh.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder.png
    :alt: Constraint balance across mesh scales
    :width: 100%
 

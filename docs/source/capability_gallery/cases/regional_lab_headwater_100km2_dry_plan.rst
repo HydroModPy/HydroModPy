@@ -13,7 +13,7 @@ This case documents the orchestration layer rather than one child run. It uses t
 .. seealso::
    Read :doc:`the Simulation walkthrough </getting_started/simulation-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png
+.. gallery-figure:: /_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png
    :alt: Regional lab dry-plan synthesis for the headwater 100 km2 example
    :width: 100%
 

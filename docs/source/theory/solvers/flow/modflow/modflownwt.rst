@@ -91,21 +91,21 @@ one reading sequence:
 4. hydrograph;
 5. water budget.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
    :alt: Piezometric map from the Nancon MODFLOW-NWT run
    :width: 100%
 
    The piezometric map is the first state figure for this legacy structured
    MODFLOW-NWT baseline.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
    :alt: Hydrograph from the Nancon MODFLOW-NWT run
    :width: 100%
 
    The hydrograph connects the structured-grid solve to observed discharge at
    basin scale.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
    :alt: Water budget from the Nancon MODFLOW-NWT run
    :width: 100%
 

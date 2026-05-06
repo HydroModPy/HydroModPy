@@ -54,7 +54,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW-NWT
 
-      .. figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png
+      .. gallery-figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflownwt.png
          :alt: Late-Time Unconfined Pumping 2D validation figure for MODFLOW-NWT
          :width: 100%
 
@@ -76,7 +76,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW 6
 
-      .. figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png
+      .. gallery-figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6.png
          :alt: Late-Time Unconfined Pumping 2D validation figure for MODFLOW 6
          :width: 100%
 
@@ -98,7 +98,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW 6 irregular triangles
 
-      .. figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png
+      .. gallery-figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__modflow6_irregular_tri.png
          :alt: Late-Time Unconfined Pumping 2D validation figure for MODFLOW 6 irregular triangles
          :width: 100%
 
@@ -120,7 +120,7 @@ Solver Coverage
 
    .. tab-item:: Boussinesq
 
-      .. figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png
+      .. gallery-figure:: /_static/capability_gallery/validation/late_time_unconfined_pumping_2d__boussinesq.png
          :alt: Late-Time Unconfined Pumping 2D validation figure for Boussinesq
          :width: 100%
 

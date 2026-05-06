@@ -10,13 +10,13 @@
 
 This family captures repeated conformal meshing runs on the 10 km2 Strahler-3 selection, keeping geology and rivers active while comparing multiple outlets under one stable gallery layout.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_overview.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_overview.png
    :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Geology + rivers, 30% buffer overview
    :width: 100%
 
    Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_regional.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_regional.png
    :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Geology + rivers, 30% buffer regional context
    :width: 100%
 

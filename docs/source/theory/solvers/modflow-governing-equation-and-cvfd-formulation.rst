@@ -145,7 +145,7 @@ From Equation To Published Results
 The equation and the cell balance above should always be connected back to
 actual model outputs. Two useful result anchors are:
 
-.. figure:: /_static/capability_gallery/validation/dupuit_fixed_head_1d__modflow6.png
+.. gallery-figure:: /_static/capability_gallery/validation/dupuit_fixed_head_1d__modflow6.png
    :alt: MODFLOW 6 Dupuit fixed-head validation result
    :width: 100%
 
@@ -153,7 +153,7 @@ actual model outputs. Two useful result anchors are:
    geometry, boundary heads, recharge, and analytical profile are controlled,
    so discrepancies are easier to interpret than on a real basin.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
    :alt: Piezometric map from the Nancon transient MODFLOW-NWT run
    :width: 100%
 

@@ -49,14 +49,14 @@ manifest containing feature counts, lengths, sizes, and SHA-256 hashes:
 
 The normal figure renderer then reads those files without touching the network.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
    :alt: Station inventory protected by cache and lockfile discipline
    :width: 100%
 
    A station inventory should remain stable between a documented run and a
    later frozen replay unless the provider refresh is intentional.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
    :alt: Discharge chronicle protected by cache and lockfile discipline
    :width: 100%
 

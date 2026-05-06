@@ -101,14 +101,14 @@ The shared problem definition is abstract, but the persisted outputs are not.
 On a basin run, the first two result families to inspect are usually the state
 field and the water budget.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
    :alt: Piezometric map from the Nancon transient MODFLOW-NWT run
    :width: 100%
 
    The piezometric map is a direct view of the primary unknown: hydraulic head
    on the discretized basin support.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
    :alt: Water budget from the Nancon transient MODFLOW-NWT run
    :width: 100%
 
@@ -347,12 +347,18 @@ Representative Validation Anchors
 The generic contract described on this page is not only conceptual. Several
 gallery pages already exercise its main families of forcing and exchange.
 
-- Side imposed heads plus steady recharge: :doc:`Dupuit Uniform Recharge 1D <../../capability_gallery/cases/dupuit_uniform_recharge_1d>`
-- Divide plus downstream river-stage interpretation: :doc:`Dupuit Divide-River 1D <../../capability_gallery/cases/dupuit_divide_river_1d>`
-- Transient recharge propagation: :doc:`Linearized Unconfined 1D Recharge Step <../../capability_gallery/cases/linearized_unconfined_recharge_step_1d>`
-- Drainage as head-dependent release: :doc:`Linearized Unconfined Drainage 1D <../../capability_gallery/cases/linearized_unconfined_drainage_1d>`
-- Ocean boundary in 2D: :doc:`Dupuit Circular-Island Ocean 2D <../../capability_gallery/cases/dupuit_circular_island_ocean_2d>`
-- Thickness-dependent Boussinesq and ocean support behaviour: :doc:`Boussinesq Circular-Island Piecewise-K 2D <../../capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d>`
+- Side imposed heads plus steady recharge:
+  :doc:`Dupuit Uniform Recharge 1D <../../capability_gallery/cases/dupuit_uniform_recharge_1d>`
+- Divide plus downstream river-stage interpretation:
+  :doc:`Dupuit Divide-River 1D <../../capability_gallery/cases/dupuit_divide_river_1d>`
+- Transient recharge propagation:
+  :doc:`Linearized Unconfined 1D Recharge Step <../../capability_gallery/cases/linearized_unconfined_recharge_step_1d>`
+- Drainage as head-dependent release:
+  :doc:`Linearized Unconfined Drainage 1D <../../capability_gallery/cases/linearized_unconfined_drainage_1d>`
+- Ocean boundary in 2D:
+  :doc:`Dupuit Circular-Island Ocean 2D <../../capability_gallery/cases/dupuit_circular_island_ocean_2d>`
+- Thickness-dependent Boussinesq and ocean support behaviour:
+  :doc:`Boussinesq Circular-Island Piecewise-K 2D <../../capability_gallery/cases/boussinesq_circular_island_piecewise_k_2d>`
 
 Why This Page Matters
 ---------------------

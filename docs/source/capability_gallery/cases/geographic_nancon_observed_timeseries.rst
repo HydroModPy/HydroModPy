@@ -17,7 +17,7 @@ This companion case focuses on the observed time-series side of `data-overview`.
 
    .. tab-item:: Discharge
 
-      .. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
+      .. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
          :alt: Nancon discharge time series
          :width: 100%
 
@@ -25,7 +25,7 @@ This companion case focuses on the observed time-series side of `data-overview`.
 
    .. tab-item:: Piezometry
 
-      .. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png
+      .. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png
          :alt: Nancon piezometry time series
          :width: 100%
 
@@ -33,7 +33,7 @@ This companion case focuses on the observed time-series side of `data-overview`.
 
    .. tab-item:: Intermittency
 
-      .. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png
+      .. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png
          :alt: Nancon intermittency time series
          :width: 100%
 
@@ -41,7 +41,7 @@ This companion case focuses on the observed time-series side of `data-overview`.
 
    .. tab-item:: Water Quality
 
-      .. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png
+      .. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png
          :alt: Nancon water quality time series
          :width: 100%
 

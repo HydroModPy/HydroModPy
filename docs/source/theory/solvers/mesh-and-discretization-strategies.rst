@@ -75,14 +75,14 @@ observed basin. They show the practical order in which discretization should
 be read: basin support first, hydrography and geology second, solver result
 only after that.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
    :alt: Nancon DEM and basin support
    :width: 100%
 
    Start with the terrain and basin support. This is the physical surface that
    later has to be sampled by a grid or mesh; it is not yet a solver result.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
    :alt: Nancon hydrography rendered on the basin support
    :width: 100%
 
@@ -91,7 +91,7 @@ only after that.
    the hydrographic geometry, while a catchment-conformal mesh can try to
    honour it more explicitly.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
    :alt: Nancon geology rendered on the basin support
    :width: 100%
 
@@ -99,7 +99,7 @@ only after that.
    with geological boundaries, the field-to-cell transfer becomes a
    parameterization choice rather than exact geometry preservation.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
    :alt: Piezometric map from the Nancon transient MODFLOW-NWT run
    :width: 100%
 
@@ -138,14 +138,14 @@ support itself is generated as a runtime catchment mesh. It is a useful
 contrast to Nancon because the mesh is the first-order object to inspect before
 reading the flow state.
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png
+.. gallery-figure:: /_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png
    :alt: Runtime Gmsh support overview for a MODFLOW 6 basin run
    :width: 100%
 
    Runtime support overview for a MODFLOW 6 basin run. This figure answers
    "what geometry did the solver consume?"
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
+.. gallery-figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
    :alt: MODFLOW 6 runtime mesh flow-state triptych
    :width: 100%
 

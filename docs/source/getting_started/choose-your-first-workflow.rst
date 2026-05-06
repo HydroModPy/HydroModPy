@@ -1,6 +1,10 @@
 Choose Your First Workflow
 ==========================
 
+.. page-badges::
+   :difficulty: beginner
+   :time: 5 min
+
 Use this page when you know what you want to learn, but not which HydroModPy
 entry point to open first.
 

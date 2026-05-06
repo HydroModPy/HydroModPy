@@ -135,6 +135,22 @@ At minimum, one comparison page should make the following visible:
 Otherwise, two runs may look like "MF6 versus Boussinesq" or "MF6 versus NWT"
 while actually differing in an undocumented numerical option that matters.
 
+Same Case, Structured Versus Irregular Triangles
+------------------------------------------------
+
+This slider walks the same Boussinesq circular-island validation case from a
+structured ``DIS`` MODFLOW 6 mesh (left) to its DISV irregular triangulation
+(right). Drag the handle to compare both supports.
+
+.. image-comparison::
+   :before: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6.png
+   :after: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6_irregular_tri.png
+   :before-label: Structured DIS
+   :after-label: Irregular DISV (XT3D)
+   :before-alt: Structured DIS rendering of the circular-island case
+   :after-alt: Irregular DISV rendering of the same case with XT3D enabled
+   :caption: One physical case, two MODFLOW 6 supports. The DISV view exposes the geometry that drives the XT3D auto-resolution logic.
+
 Current Evidence Anchors
 ------------------------
 

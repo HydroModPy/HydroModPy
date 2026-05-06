@@ -52,7 +52,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW-NWT
 
-      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflownwt.png
+      .. gallery-figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflownwt.png
          :alt: Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for MODFLOW-NWT
          :width: 100%
 
@@ -74,7 +74,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW 6
 
-      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6.png
+      .. gallery-figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6.png
          :alt: Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for MODFLOW 6
          :width: 100%
 
@@ -96,7 +96,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW 6 irregular triangles
 
-      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6_irregular_tri.png
+      .. gallery-figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__modflow6_irregular_tri.png
          :alt: Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for MODFLOW 6 irregular triangles
          :width: 100%
 
@@ -118,7 +118,7 @@ Solver Coverage
 
    .. tab-item:: Boussinesq
 
-      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__boussinesq.png
+      .. gallery-figure:: /_static/capability_gallery/validation/linearized_unconfined_recharge_step_deep_1d__boussinesq.png
          :alt: Linearized Unconfined 1D Recharge Step (Deep Aquifer) validation figure for Boussinesq
          :width: 100%
 

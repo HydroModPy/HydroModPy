@@ -10,13 +10,13 @@
 
 This case is reserved for a catchment mesh where geology is removed from the internal constraint set, but the watershed boundary, support extent, and outside de-refinement stay aligned with the standard gallery workflow.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_overview.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_overview.png
    :alt: 100 km2, headwater Mesh, Outlet 27, Rivers only, 30% buffer overview
    :width: 100%
 
    Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_regional.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_regional.png
    :alt: 100 km2, headwater Mesh, Outlet 27, Rivers only, 30% buffer regional context
    :width: 100%
 

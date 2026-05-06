@@ -40,7 +40,7 @@ Minimal example
 Visual check
 ------------
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png
    :alt: Nancon water-quality time series
    :width: 100%
 

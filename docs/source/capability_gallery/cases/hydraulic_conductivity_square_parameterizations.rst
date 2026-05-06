@@ -10,7 +10,7 @@ Square Field Parameterizations
 
 This case builds one compact two-zone square domain and maps the same conductivity field onto structured and triangular meshes. It also illustrates how inline units and depth-profile modes are normalized before the solver stage.
 
-.. figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png
+.. gallery-figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png
    :alt: Hydraulic conductivity parameterizations on square synthetic meshes
    :width: 100%
 

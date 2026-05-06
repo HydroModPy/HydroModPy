@@ -13,7 +13,7 @@ This case isolates one question: what HydroModPy actually displays when hydrogra
 .. seealso::
    Read :doc:`the Data Overview walkthrough </getting_started/data-overview-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png
    :alt: BD Topage hydrography overlay on topography
    :width: 100%
 

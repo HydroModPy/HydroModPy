@@ -30,31 +30,31 @@ How To Read These Summary Figures
 Summary Figures
 ---------------
 
-.. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_target_success_rates.png
+.. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_target_success_rates.png
    :alt: Calibration summary figure showing target success rates by method across cases
    :width: 100%
 
    Success rate by method across the selected calibration cases. Read this first to see which methods consistently reach their declared target within the configured evaluation budget.
 
-.. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_cost_vs_budget.png
+.. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_cost_vs_budget.png
    :alt: Calibration summary figure showing best objective cost versus evaluation budget
    :width: 100%
 
    Best objective cost reached by each method relative to the evaluation budget. Lower is better, so this figure compares solution quality at comparable search effort.
 
-.. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_time_vs_cost.png
+.. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_time_vs_cost.png
    :alt: Calibration summary figure showing calibration time versus best objective cost
    :width: 100%
 
    Calibration wall-clock time versus best objective cost. Use it to compare the trade-off between final fit quality and total time spent to obtain it.
 
-.. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_calibration_time_closure.png
+.. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_calibration_time_closure.png
    :alt: Calibration summary figure checking calibration time closure
    :width: 100%
 
    Closure check comparing total calibration time with the sum of candidate runtime and algorithm overhead. Large mismatches indicate timing-accounting issues rather than better calibration.
 
-.. figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_candidate_timing_breakdown.png
+.. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_candidate_timing_breakdown.png
    :alt: Calibration summary figure showing per-candidate timing breakdown
    :width: 100%
 

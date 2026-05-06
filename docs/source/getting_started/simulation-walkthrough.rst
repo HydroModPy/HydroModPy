@@ -1,6 +1,11 @@
 Simulation Walkthrough
 ======================
 
+.. page-badges::
+   :difficulty: intermediate
+   :time: 1 h
+   :tags: mesh, solver, mf6
+
 This is the recommended first end-to-end HydroModPy workflow. It keeps one
 compact case, but still exercises geographic setup, embedded Gmsh meshing,
 MODFLOW 6 flow, MODFLOW 6 transport, postprocessing, and curated gallery

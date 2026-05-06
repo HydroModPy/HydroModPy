@@ -10,7 +10,7 @@ Surface-Interaction Ramp Code Comparison
 
 This page compares MODFLOW and Boussinesq families on the same synthetic hillslope under a progressive recharge ramp, followed by dry recovery. The compact figure is restricted to comparable bulk diagnostics across codes: total outflow and storage change, shown at the reference conductivity and after an eightfold increase.
 
-.. figure:: /_static/capability_gallery/code_comparison/surface_interaction_ramp_configuration.png
+.. gallery-figure:: /_static/capability_gallery/code_comparison/surface_interaction_ramp_configuration.png
    :alt: Configuration schematic for the surface-interaction ramp benchmark
    :width: 100%
 
@@ -20,7 +20,7 @@ This page compares MODFLOW and Boussinesq families on the same synthetic hillslo
 
    .. tab-item:: Reference K
 
-      .. figure:: /_static/capability_gallery/code_comparison/ramp_reference_k.png
+      .. gallery-figure:: /_static/capability_gallery/code_comparison/ramp_reference_k.png
          :alt: Reference conductivity recharge-ramp code comparison
          :width: 100%
 
@@ -31,7 +31,7 @@ This page compares MODFLOW and Boussinesq families on the same synthetic hillslo
 
    .. tab-item:: High K
 
-      .. figure:: /_static/capability_gallery/code_comparison/ramp_high_k.png
+      .. gallery-figure:: /_static/capability_gallery/code_comparison/ramp_high_k.png
          :alt: High conductivity recharge-ramp code comparison
          :width: 100%
 

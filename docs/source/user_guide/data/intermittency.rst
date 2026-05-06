@@ -38,7 +38,7 @@ Minimal example
 Visual check
 ------------
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png
    :alt: Nancon intermittency time series
    :width: 100%
 

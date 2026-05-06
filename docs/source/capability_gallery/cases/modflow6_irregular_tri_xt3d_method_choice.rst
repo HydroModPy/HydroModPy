@@ -13,7 +13,7 @@ This note explains why HydroModPy now auto-enables XT3D on unstructured MODFLOW 
 .. seealso::
    Read :doc:`How to read gallery, comparison, and validation pages <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_tradeoff.png
+.. gallery-figure:: /_static/capability_gallery/validation/modflow6_irregular_tri_xt3d_method_choice_tradeoff.png
    :alt: RMSE and runtime comparison for MODFLOW 6 irregular triangles with and without XT3D
    :width: 100%
 

@@ -10,7 +10,7 @@ Catchment Geometry Indicators
 
 This case focuses on geometry metrics that do not require meshing: elevation distribution, slope statistics, and a hypsometric curve computed on the masked DEM.
 
-.. figure:: /_static/capability_gallery/geometry/geometry_indicators_canut.png
+.. gallery-figure:: /_static/capability_gallery/geometry/geometry_indicators_canut.png
    :alt: Geometry indicators based on DEM and catchment mask
    :width: 100%
 

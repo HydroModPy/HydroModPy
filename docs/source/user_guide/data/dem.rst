@@ -46,7 +46,7 @@ and non-empty elevation values over the basin.
 Visual check
 ------------
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
    :alt: Nancon DEM and watershed support
    :width: 100%
 

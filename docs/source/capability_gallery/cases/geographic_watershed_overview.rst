@@ -13,13 +13,13 @@ This pair of figures documents the pre-solver side of HydroModPy. It shows how o
 .. seealso::
    Read :doc:`the Data Overview walkthrough </getting_started/data-overview-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_watershed_dem.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_watershed_dem.png
    :alt: Watershed DEM overview
    :width: 100%
 
    DEM-oriented watershed overview copied from versioned example outputs.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_watershed_local.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_watershed_local.png
    :alt: Watershed local overview
    :width: 100%
 

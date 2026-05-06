@@ -52,7 +52,7 @@ two examples below are useful first anchors:
 
    .. tab-item:: MODFLOW 6 basin state
 
-      .. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
+      .. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
          :alt: MODFLOW 6 transient basin flow-state triptych
          :width: 100%
 
@@ -61,7 +61,7 @@ two examples below are useful first anchors:
 
    .. tab-item:: MODFLOW-NWT basin response
 
-      .. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+      .. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
          :alt: Nancon transient MODFLOW-NWT observed and simulated hydrograph
          :width: 100%
 

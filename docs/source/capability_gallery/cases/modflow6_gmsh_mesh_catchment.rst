@@ -13,19 +13,19 @@ This case keeps the standard process_simulation launcher while using mesh_catchm
 .. seealso::
    Read :doc:`the Simulation walkthrough </getting_started/simulation-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
+.. gallery-figure:: /_static/capability_gallery/simulation/modflow6_gmsh_flow_state_triptych.png
    :alt: Triptych showing topography, hydraulic head, and water-table depth on a Gmsh mesh
    :width: 100%
 
    Solver-agnostic flow-state synthesis: topography, hydraulic head, and water-table depth on the same triangular mesh.
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_recharge_discharge_cumulative.png
+.. gallery-figure:: /_static/capability_gallery/simulation/modflow6_gmsh_recharge_discharge_cumulative.png
    :alt: Cumulative recharge and discharge curves
    :width: 100%
 
    Cumulative recharge and discharge curves from the same launcher run.
 
-.. figure:: /_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png
+.. gallery-figure:: /_static/capability_gallery/simulation/modflow6_gmsh_support_overview.png
    :alt: Runtime Gmsh support overview used by MODFLOW 6
    :width: 100%
 

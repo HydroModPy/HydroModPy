@@ -43,7 +43,7 @@ Before reading the residual terms, it helps to keep two committed validation
 figures in mind. They are not decorative examples; they show what the
 mathematical terms below are meant to explain.
 
-.. figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
+.. gallery-figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
    :alt: Boussinesq hillslope recharge-step interception validation result
    :width: 100%
 
@@ -1432,7 +1432,7 @@ MODFLOW-family solvers and Boussinesq variants. It is still the best current
 visual reference for the transient case where the surface closure controls
 storage release, overflow, and total outflow.
 
-.. figure:: /_static/capability_gallery/code_comparison/ramp_reference_k.png
+.. gallery-figure:: /_static/capability_gallery/code_comparison/ramp_reference_k.png
    :alt: Recharge-ramp transient comparison across MODFLOW and Boussinesq variants
    :width: 100%
 

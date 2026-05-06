@@ -46,14 +46,14 @@ Mesh concepts are easier to read with concrete artifacts next to the text. The
 full case pages remain in :doc:`/capability_gallery/mesh`; the figures below
 are the minimum evidence to keep in mind while reading this section.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2.png
    :alt: Mesh quality diagnostics on a Naizin support
    :width: 100%
 
    Mesh quality diagnostics are not decorative. They are the checks that decide
    whether a discretization is acceptable before solver results are trusted.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_constraint_balance_scale_ladder.png
    :alt: Mesh constraint balance across catchment scales
    :width: 100%
 
@@ -135,3 +135,24 @@ Related Gallery Pages
 - :doc:`/capability_gallery/cases/mesh_quality_diagnostics_naizin_10km2`
 - :doc:`/capability_gallery/cases/mesh_constraint_balance_scale_ladder`
 - :doc:`/capability_gallery/cases/mesh_resolution_sensitivity_scale_ladder`
+
+Future Evolution
+----------------
+
+The current mesh evidence in the documentation is built from static figures
+generated alongside each gallery case. Browsing a real triangulation, an
+irregular DISV mesh, or a mesh-quality field today still requires opening the
+underlying mesh bundle in a desktop tool such as ParaView or Gmsh.
+
+A future iteration could embed an in-browser 3D mesh viewer based on
+`vtk-js <https://kitware.github.io/vtk-js/>`_ directly in the gallery and
+architecture pages. vtk-js can stream a small VTU/VTP serialized mesh into a
+WebGL canvas with picking, slicing, and field-by-cell coloring without any
+server-side rendering.
+
+This is a deliberate non-goal for the current refactor: the dependency surface
+(WebGL bundle, larger asset payloads, longer page-load budget) is out of scope
+until analytics confirm that the static figures are no longer enough. If a
+prototype lands later, it should remain opt-in (loaded only on the case pages
+that explicitly opt into the viewer) and ship a small, redacted mesh per case
+rather than the full bundle.
