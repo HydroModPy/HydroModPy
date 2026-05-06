@@ -51,10 +51,10 @@ runoff_ratio = 0.1
 [flow.ic]
 type = "top"
 
-[flow.param.K.field_homogeneous]
+[flow.param.K.field]
 value = "1e-5 m/s"
 
-[flow.param.Sy.field_homogeneous]
+[flow.param.Sy.field]
 value = "0.12 -"
 
 [mesh_catchment.hydraulic_properties.storage_coefficient]

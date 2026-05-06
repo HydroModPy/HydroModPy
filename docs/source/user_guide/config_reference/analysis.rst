@@ -1395,7 +1395,7 @@ Fields
 
    :bdg-primary:`ComparisonSection | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L50>`__
 
-      Optional simulation-comparison block loaded from [analysis.comparison]. Parsed standalone via ComparisonConfig under the section name [comparison].
+      Optional simulation-comparison block loaded from [analysis.comparison]. Parsed standalone via SimulationComparisonConfig under the section name [comparison].
 
    .. dropdown:: Fields of ``ComparisonSection``
       :icon: list-unordered
@@ -1412,10 +1412,10 @@ Fields
               <code class="hmp-field-name">comparison_id</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L203>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L152>`__
 
 
-      .. container:: hmp-field hmp-field-level-user
+      .. container:: hmp-field hmp-field-level-expert
          :name: analysis-comparison-base-simulation-config
 
          .. raw:: html
@@ -1424,10 +1424,10 @@ Fields
               <code class="hmp-field-name">base_simulation_config</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L204>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L153>`__
 
 
-      .. container:: hmp-field hmp-field-level-user
+      .. container:: hmp-field hmp-field-level-expert
          :name: analysis-comparison-anchors-file
 
          .. raw:: html
@@ -1436,10 +1436,10 @@ Fields
               <code class="hmp-field-name">anchors_file</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L205>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L154>`__
 
 
-      .. container:: hmp-field hmp-field-level-user
+      .. container:: hmp-field hmp-field-level-expert
          :name: analysis-comparison-output-root
 
          .. raw:: html
@@ -1448,34 +1448,10 @@ Fields
               <code class="hmp-field-name">output_root</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L206>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L155>`__
 
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: analysis-comparison-run-simulations
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="analysis.comparison.run_simulations">
-              <code class="hmp-field-name">run_simulations</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L207>`__
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: analysis-comparison-continue-on-error
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="analysis.comparison.continue_on_error">
-              <code class="hmp-field-name">continue_on_error</code>
-            </div>
-
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L208>`__
-
-
-      .. container:: hmp-field hmp-field-level-user
+      .. container:: hmp-field hmp-field-level-expert
          :name: analysis-comparison-reference-simulation
 
          .. raw:: html
@@ -1484,10 +1460,168 @@ Fields
               <code class="hmp-field-name">reference_simulation</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L209>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L156>`__
 
 
-      .. container:: hmp-field hmp-field-level-user
+      .. container:: hmp-field hmp-field-level-dev
+         :name: analysis-comparison-continue-on-error
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="analysis.comparison.continue_on_error">
+              <code class="hmp-field-name">continue_on_error</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L157>`__
+
+
+      .. container:: hmp-field hmp-field-level-dev
+         :name: analysis-comparison-execution
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="analysis.comparison.execution">
+              <code class="hmp-field-name">execution</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">[analysis.comparison.execution]</code>
+            </div>
+
+         :bdg-primary:`ComparisonExecutionConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L158>`__
+
+            Execution settings for the comparison child runs.
+
+         .. dropdown:: Fields of ``ComparisonExecutionConfig``
+            :icon: list-unordered
+            :animate: fade-in-slide-down
+
+            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: analysis-comparison-execution-backend
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.execution.backend">
+                    <code class="hmp-field-name">backend</code>
+                  </div>
+
+               :bdg-primary:`Literal['subprocess_hmp_run']` :bdg-secondary:`default = "subprocess_hmp_run"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L47>`__
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: analysis-comparison-execution-max-parallel-runs
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.execution.max_parallel_runs">
+                    <code class="hmp-field-name">max_parallel_runs</code>
+                  </div>
+
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L48>`__
+
+                  Number of child simulations executed in parallel. Forced to 1 in V1.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: analysis-comparison-execution-keep-generated-configs
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.execution.keep_generated_configs">
+                    <code class="hmp-field-name">keep_generated_configs</code>
+                  </div>
+
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L53>`__
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: analysis-comparison-execution-run-simulations
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.execution.run_simulations">
+                    <code class="hmp-field-name">run_simulations</code>
+                  </div>
+
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L54>`__
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: analysis-comparison-execution-python-executable
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.execution.python_executable">
+                    <code class="hmp-field-name">python_executable</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L55>`__
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: analysis-comparison-execution-timeout-seconds
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.execution.timeout_seconds">
+                    <code class="hmp-field-name">timeout_seconds</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L56>`__
+
+                  Optional per-child timeout in seconds. None disables the timeout.
+
+
+
+
+      .. container:: hmp-field hmp-field-level-dev
+         :name: analysis-comparison-audit
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="analysis.comparison.audit">
+              <code class="hmp-field-name">audit</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">[analysis.comparison.audit]</code>
+            </div>
+
+         :bdg-primary:`ComparisonAuditConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L162>`__
+
+            Post-run audit policy applied to each child simulation.
+
+         .. dropdown:: Fields of ``ComparisonAuditConfig``
+            :icon: list-unordered
+            :animate: fade-in-slide-down
+
+            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: analysis-comparison-audit-mode
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.audit.mode">
+                    <code class="hmp-field-name">mode</code>
+                  </div>
+
+               :bdg-primary:`Literal['strict_same_case']` :bdg-secondary:`default = "strict_same_case"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L79>`__
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: analysis-comparison-audit-on-mismatch
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.audit.on_mismatch">
+                    <code class="hmp-field-name">on_mismatch</code>
+                  </div>
+
+               :bdg-primary:`Literal['fail', 'warn', 'ignore']` :bdg-secondary:`default = "fail"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L80>`__
+
+
+
+
+      .. container:: hmp-field hmp-field-level-expert
          :name: analysis-comparison-fine-raster
 
          .. raw:: html
@@ -1498,7 +1632,7 @@ Fields
               <code class="hmp-field-toml">[analysis.comparison.fine_raster]</code>
             </div>
 
-         :bdg-primary:`ComparisonFineRaster | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L210>`__
+         :bdg-primary:`ComparisonFineRaster | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L166>`__
 
          .. dropdown:: Fields of ``ComparisonFineRaster``
             :icon: list-unordered
@@ -1506,7 +1640,7 @@ Fields
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-expert
                :name: analysis-comparison-fine-raster-enabled
 
                .. raw:: html
@@ -1515,10 +1649,10 @@ Fields
                     <code class="hmp-field-name">enabled</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L263>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L274>`__
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-expert
                :name: analysis-comparison-fine-raster-resolution
 
                .. raw:: html
@@ -1527,10 +1661,10 @@ Fields
                     <code class="hmp-field-name">resolution</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L264>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L275>`__
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-expert
                :name: analysis-comparison-fine-raster-extent-mode
 
                .. raw:: html
@@ -1539,10 +1673,10 @@ Fields
                     <code class="hmp-field-name">extent_mode</code>
                   </div>
 
-               :bdg-primary:`Literal['intersection', 'union', 'reference']` :bdg-secondary:`default = "intersection"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L265>`__
+               :bdg-primary:`Literal['intersection', 'union', 'reference']` :bdg-secondary:`default = "intersection"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L276>`__
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-expert
                :name: analysis-comparison-fine-raster-interpolation
 
                .. raw:: html
@@ -1551,10 +1685,10 @@ Fields
                     <code class="hmp-field-name">interpolation</code>
                   </div>
 
-               :bdg-primary:`Literal['linear', 'nearest']` :bdg-secondary:`default = "linear"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L266>`__
+               :bdg-primary:`Literal['linear', 'nearest']` :bdg-secondary:`default = "linear"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L279>`__
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-expert
                :name: analysis-comparison-fine-raster-write-geotiff
 
                .. raw:: html
@@ -1563,7 +1697,7 @@ Fields
                     <code class="hmp-field-name">write_geotiff</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L267>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L280>`__
 
 
 
@@ -1579,11 +1713,11 @@ Fields
               <code class="hmp-field-toml">[[analysis.comparison.simulation]]</code>
             </div>
 
-         :bdg-primary:`list[ComparisonSimulation]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L211>`__
+         :bdg-primary:`list[ComparisonSimulationConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L167>`__
 
-            Simulations to run or reuse in the comparison. At least one entry required.
+            Generated child simulations to run in the comparison. At least one entry required.
 
-         .. dropdown:: Fields of ``ComparisonSimulation``
+         .. dropdown:: Fields of ``ComparisonSimulationConfig``
             :icon: list-unordered
             :animate: fade-in-slide-down
 
@@ -1598,7 +1732,7 @@ Fields
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L28>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L88>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1610,7 +1744,7 @@ Fields
                     <code class="hmp-field-name">label</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L29>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L89>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1622,34 +1756,10 @@ Fields
                     <code class="hmp-field-name">enabled</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L30>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L90>`__
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: analysis-comparison-simulation-simulation-config
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.simulation_config">
-                    <code class="hmp-field-name">simulation_config</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L31>`__
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: analysis-comparison-simulation-run-folder
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.run_folder">
-                    <code class="hmp-field-name">run_folder</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L32>`__
-
-
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-expert
                :name: analysis-comparison-simulation-solver
 
                .. raw:: html
@@ -1658,7 +1768,31 @@ Fields
                     <code class="hmp-field-name">solver</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L33>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L91>`__
+
+
+            .. container:: hmp-field hmp-field-level-expert
+               :name: analysis-comparison-simulation-simulation-config
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.simulation_config">
+                    <code class="hmp-field-name">simulation_config</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L92>`__
+
+
+            .. container:: hmp-field hmp-field-level-expert
+               :name: analysis-comparison-simulation-run-folder
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.run_folder">
+                    <code class="hmp-field-name">run_folder</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L93>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1670,10 +1804,10 @@ Fields
                     <code class="hmp-field-name">mesh_label</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L34>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L94>`__
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: analysis-comparison-simulation-mesh-mode
 
                .. raw:: html
@@ -1682,10 +1816,10 @@ Fields
                     <code class="hmp-field-name">mesh_mode</code>
                   </div>
 
-               :bdg-primary:`Literal['mesh_catchment', 'mesh_input', 'sgrid', 'structured', 'unstructured', 'unknown']` :bdg-secondary:`default = "unknown"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L35>`__
+               :bdg-primary:`Literal['mesh_catchment', 'mesh_input', 'sgrid', 'structured', 'unstructured', 'unknown']` :bdg-secondary:`default = "unknown"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L95>`__
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-expert
                :name: analysis-comparison-simulation-overlay
 
                .. raw:: html
@@ -1696,7 +1830,7 @@ Fields
                     <code class="hmp-field-toml">[analysis.comparison.simulation.overlay.&lt;id&gt;]</code>
                   </div>
 
-               :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L43>`__
+               :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L106>`__
 
                   Free-form TOML overlay merged into the base simulation config when this child runs.
 
@@ -1714,7 +1848,7 @@ Fields
               <code class="hmp-field-toml">[[analysis.comparison.observable]]</code>
             </div>
 
-         :bdg-primary:`list[ComparisonObservable]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L215>`__
+         :bdg-primary:`list[ComparisonObservable]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L171>`__
 
             Observables to compare across the declared simulations. At least one entry required.
 
@@ -1733,7 +1867,7 @@ Fields
                     <code class="hmp-field-name">name</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L84>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L88>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1745,7 +1879,7 @@ Fields
                     <code class="hmp-field-name">variable</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L85>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L89>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1757,7 +1891,7 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['disk']` :bdg-secondary:`default = "disk"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L86>`__
+               :bdg-primary:`Literal['disk']` :bdg-secondary:`default = "disk"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L90>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1769,7 +1903,7 @@ Fields
                     <code class="hmp-field-name">simulations</code>
                   </div>
 
-               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L87>`__
+               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L91>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1781,7 +1915,7 @@ Fields
                     <code class="hmp-field-name">support</code>
                   </div>
 
-               :bdg-primary:`Literal['point', 'outlet', 'boundary', 'cell_mask', 'map']` :bdg-secondary:`default = "point"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L88>`__
+               :bdg-primary:`Literal['point', 'outlet', 'boundary', 'cell_mask', 'map']` :bdg-secondary:`default = "point"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L92>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1793,7 +1927,7 @@ Fields
                     <code class="hmp-field-name">anchor_id</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L89>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L95>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1805,7 +1939,7 @@ Fields
                     <code class="hmp-field-name">x</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L90>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L96>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1817,7 +1951,7 @@ Fields
                     <code class="hmp-field-name">y</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L91>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L97>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1829,7 +1963,7 @@ Fields
                     <code class="hmp-field-name">cell_index</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L92>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L98>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1841,7 +1975,7 @@ Fields
                     <code class="hmp-field-name">cell_indices</code>
                   </div>
 
-               :bdg-primary:`list[int] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L93>`__
+               :bdg-primary:`list[int] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L99>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1853,10 +1987,10 @@ Fields
                     <code class="hmp-field-name">boundary_id</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L94>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L100>`__
 
 
-            .. container:: hmp-field hmp-field-level-user
+            .. container:: hmp-field hmp-field-level-dev
                :name: analysis-comparison-observable-allow-domain-proxy
 
                .. raw:: html
@@ -1865,7 +1999,7 @@ Fields
                     <code class="hmp-field-name">allow_domain_proxy</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L95>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L101>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1877,7 +2011,7 @@ Fields
                     <code class="hmp-field-name">time</code>
                   </div>
 
-               :bdg-primary:`str | int | None` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L96>`__
+               :bdg-primary:`str | int | None` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L102>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1889,7 +2023,7 @@ Fields
                     <code class="hmp-field-name">time_window</code>
                   </div>
 
-               :bdg-primary:`tuple[str, str] | tuple[float, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L97>`__
+               :bdg-primary:`tuple[str, str] | tuple[float, float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L103>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1901,7 +2035,7 @@ Fields
                     <code class="hmp-field-name">reducer</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L98>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L104>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1913,7 +2047,7 @@ Fields
                     <code class="hmp-field-name">time_reducer</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L99>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L105>`__
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1925,7 +2059,7 @@ Fields
                     <code class="hmp-field-name">unit</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L100>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L106>`__
 
 
 
@@ -1972,13 +2106,6 @@ Starter TOML snippet
 
       [analysis.comparison]
       # comparison_id = ...  # default = None
-      # base_simulation_config = ...  # default = None
-      # anchors_file = ...  # default = None
-      # output_root = ...  # default = None
-      # run_simulations = true
-      # continue_on_error = false
-      # reference_simulation = ...  # default = None
-      # fine_raster = ...  # default = None
       # simulation = ...  # factory default
       # observable = ...  # factory default
 

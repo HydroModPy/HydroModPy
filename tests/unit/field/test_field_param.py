@@ -19,14 +19,12 @@ from hydromodpy.spatial.field.core.field_spatial_weighted_discretization import 
 
 
 def test_field_param_homogeneous_from_toml(tmp_path: Path):
-    path = tmp_path / "field_homogeneous.toml"
+    path = tmp_path / "field_payload.toml"
     path.write_text(
         textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 12.5
             """),
         encoding="utf-8",
@@ -302,8 +300,6 @@ def test_field_param_heterogeneous_requires_field_spatial_id(tmp_path: Path):
             [field]
             id = "K"
             kind = "heterogeneous"
-
-            [field_heterogeneous]
             values = { granite = 1.0, micaschists = 3.0 }
             """),
         encoding="utf-8",
@@ -318,8 +314,6 @@ def test_field_param_requires_identifier(tmp_path: Path):
         textwrap.dedent("""
             [field]
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 1.0
             """),
         encoding="utf-8",
@@ -335,8 +329,6 @@ def test_field_param_selects_kind_from_base_section(tmp_path: Path):
             [field]
             id = "Sy"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 0.21
             """),
         encoding="utf-8",
@@ -354,8 +346,6 @@ def test_field_param_from_toml_with_vertical_profile_exponential(tmp_path: Path)
             [field]
             id = "K"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 12.0
 
             [field_vertical_profile]
@@ -380,8 +370,6 @@ def test_field_param_from_toml_with_vertical_profile_exponential_characteristic_
             [field]
             id = "K"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 12.0
 
             [field_vertical_profile]
@@ -416,8 +404,6 @@ def test_field_param_heterogeneous_from_toml_with_csv_values(tmp_path: Path):
             [field]
             id = "K"
             kind = "heterogeneous"
-
-            [field_heterogeneous]
             values_source = "csv"
             values_csv_file = "geology_values.csv"
             csv_key_column = "zone_key"
@@ -454,8 +440,6 @@ def test_field_param_from_toml_with_csv_rejects_duplicate_key(tmp_path: Path):
             [field]
             id = "K"
             kind = "heterogeneous"
-
-            [field_heterogeneous]
             values_source = "csv"
             values_csv_file = "dup.csv"
             csv_key_column = "zone_key"

@@ -46,7 +46,7 @@ id = "flow_main"
 type = "flow"
 solvers = ["modflownwt"]
 
-[flow.param.K.field_homogeneous]
+[flow.param.K.field]
 value = 1e-4
 
 [calibration]
@@ -63,7 +63,7 @@ use_cache = true
 bounds = [1e-6, 1e-3]
 transform = "log"
 prior = "log_uniform"
-path = "flow.param.K.field_homogeneous.value"
+path = "flow.param.K.field.value"
 """
 
 
@@ -123,7 +123,7 @@ def fake_pipeline(monkeypatch, tmp_path):
             value: float = 1e-4
 
         class _Field(BaseModel):
-            field_homogeneous: _Leaf = _Leaf()
+            field: _Leaf = _Leaf()
 
         class _Param(BaseModel):
             K: _Field = _Field()
@@ -176,7 +176,7 @@ def quadratic_metric():
     import math
 
     def metric_fn(ctx, *, objective, variable):
-        k = ctx.cfg.flow.param.K.field_homogeneous.value
+        k = ctx.cfg.flow.param.K.field.value
         cost = (math.log10(k) - math.log10(1e-4)) ** 2
         return cost, {"nse@outlet": cost}
 
@@ -363,7 +363,7 @@ class TestObjectiveEscapeHatch:
         def my_metric(ctx, *, objective, variable):
             calls.append({"objective": objective, "variable": variable})
             # deterministic value based on K
-            k = ctx.cfg.flow.param.K.field_homogeneous.value
+            k = ctx.cfg.flow.param.K.field.value
             return float(abs(k - 1e-4)), {}
 
         # Register in a temporary module so importlib can find it.
@@ -403,18 +403,18 @@ class TestConfigOverridePaths:
                     "K": {
                         "bounds": [1e-6, 1e-3],
                         "transform": "log",
-                        "path": "flow.param.K.field_homogeneous.value",
+                        "path": "flow.param.K.field.value",
                     },
                     "Sy": {
                         "bounds": [0.01, 0.3],
-                        "path": "flow.param.Sy.field_homogeneous.value",
+                        "path": "flow.param.Sy.field.value",
                     },
                 },
             }
         )
         assert runner_module._override_paths(cfg) == {
-            "K": "flow.param.K.field_homogeneous.value",
-            "Sy": "flow.param.Sy.field_homogeneous.value",
+            "K": "flow.param.K.field.value",
+            "Sy": "flow.param.Sy.field.value",
         }
 
     def test_all_parameters_missing_path_raises(self):

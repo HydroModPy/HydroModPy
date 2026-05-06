@@ -57,8 +57,6 @@ runtime_max_iterations = 80
 id = "K"
 kind = "homogeneous"
 unit = "m/s"
-
-[flow.param.K.field_homogeneous]
 value = "1e-5 m/s"
 
 [flow.ic]

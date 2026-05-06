@@ -97,21 +97,19 @@ class VerticalGridConfig(HydroModelBase):
             raise ValueError("lay_proportions must sum to 1.0")
         return arr
 
-    @model_validator(mode="after")
-    def _validate_cross_fields(self):
-        if self.genmtd_lay in ("constant", "decay"):
-            object.__setattr__(self, "nlay", _require_positive_int(self.nlay, name="nlay"))
-        if self.genmtd_lay == "decay":
-            if self.lay_decay is None:
-                raise ValueError("lay_decay is required when genmtd_lay='decay'")
-            object.__setattr__(self, "lay_decay", float(self.lay_decay))
-            if self.lay_decay <= 1.0:
-                raise ValueError("lay_decay must be > 1.0 when genmtd_lay='decay'")
-
-        if self.genmtd_lay == "list":
-            if self.lay_proportions is None:
-                raise ValueError("lay_proportions is required when genmtd_lay='list'")
-            if self.nlay is not None:
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_payload(cls, value):
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        genmtd_lay = str(payload.get("genmtd_lay", "constant")).strip().lower()
+        if genmtd_lay in {"constant", "decay"} and payload.get("nlay") is not None:
+            payload["nlay"] = _require_positive_int(payload.get("nlay"), name="nlay")
+        if genmtd_lay == "decay" and payload.get("lay_decay") is not None:
+            payload["lay_decay"] = float(payload["lay_decay"])
+        if genmtd_lay == "list":
+            if "nlay" in payload and payload.get("nlay") is not None:
                 warnings.warn(
                     "nlay must not be provided when genmtd_lay='list' "
                     "(it is derived from lay_proportions). "
@@ -119,7 +117,22 @@ class VerticalGridConfig(HydroModelBase):
                     UserWarning,
                     stacklevel=2,
                 )
-            object.__setattr__(self, "nlay", None)
+            payload["nlay"] = None
+        return payload
+
+    @model_validator(mode="after")
+    def _validate_cross_fields(self):
+        if self.genmtd_lay in ("constant", "decay"):
+            _require_positive_int(self.nlay, name="nlay")
+        if self.genmtd_lay == "decay":
+            if self.lay_decay is None:
+                raise ValueError("lay_decay is required when genmtd_lay='decay'")
+            if self.lay_decay <= 1.0:
+                raise ValueError("lay_decay must be > 1.0 when genmtd_lay='decay'")
+
+        if self.genmtd_lay == "list":
+            if self.lay_proportions is None:
+                raise ValueError("lay_proportions is required when genmtd_lay='list'")
         return self
 
     @classmethod
@@ -155,11 +168,25 @@ class PlanarGridConfig(HydroModelBase):
         description="Resampling rule applied when planar mode is 'resample_to_shape'.",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_payload(cls, value):
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        mode = str(payload.get("mode", "keep_native")).strip().lower()
+        if mode == "resample_to_shape":
+            if payload.get("nx") is not None:
+                payload["nx"] = _require_positive_int(payload.get("nx"), name="nx")
+            if payload.get("ny") is not None:
+                payload["ny"] = _require_positive_int(payload.get("ny"), name="ny")
+        return payload
+
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.mode == "resample_to_shape":
-            object.__setattr__(self, "nx", _require_positive_int(self.nx, name="nx"))
-            object.__setattr__(self, "ny", _require_positive_int(self.ny, name="ny"))
+            _require_positive_int(self.nx, name="nx")
+            _require_positive_int(self.ny, name="ny")
         elif self.nx is not None or self.ny is not None:
             raise ValueError("nx and ny must be omitted when planar.mode='keep_native'")
         return self

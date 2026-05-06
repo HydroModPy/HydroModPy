@@ -14,7 +14,7 @@
     "`[mesh_input] mesh_path` and `bundle_dir` lock the support to the versioned 100 km2 outlet-2 mesh, which makes this page a support-reuse workflow rather than a meshing example.",
     "`[simulation.time] start_datetime`, `end_datetime`, and `step_value` define the three-year monthly replay window shown in the cumulative curves.",
     "`[[data.recharge.sources]] values`, `freq`, and `runoff_ratio` define the synthetic forcing chronology that drives the transient response.",
-    "`[flow.param.K.field_homogeneous]`, `[flow.param.Sy.field_homogeneous]`, and `[flow.param.Ss.field_homogeneous]` are the main parameters to perturb when comparing this reference run against the more complex scenario overlays."
+    "`[flow.param.K.field]`, `[flow.param.Sy.field]`, and `[flow.param.Ss.field]` are the main parameters to perturb when comparing this reference run against the more complex scenario overlays."
   ],
   "how_to_read": [
     "Open the support overview first to verify that the run reused the committed mesh bundle and sampled the structural surfaces as expected.",

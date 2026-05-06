@@ -43,10 +43,8 @@ from hydromodpy.physics.flow.sinks_sources_config import (
     normalize_flow_sinks_sources,
 )
 from hydromodpy.spatial.field.core.field_param_config import (
-    FieldBaseSection,
-    FieldHeterogeneousSection,
-    FieldHomogeneousSection,
     FieldParamConfig,
+    FieldSection,
     FieldVerticalProfileSection,
     resolve_field_param_config_payload,
 )
@@ -108,17 +106,9 @@ class FlowParam(FieldParamConfig):
 
     model_config = ConfigDict(extra="forbid")
 
-    field: Annotated[FieldBaseSection, Profile.USER] = Field(
+    field: Annotated[FieldSection, Profile.USER] = Field(
         ...,
-        description="Base section `[field]` with parameter id and kind.",
-    )
-    field_homogeneous: Annotated[FieldHomogeneousSection | None, Profile.USER] = Field(
-        default=None,
-        description="Homogeneous parameters section `[field_homogeneous]`.",
-    )
-    field_heterogeneous: Annotated[FieldHeterogeneousSection | None, Profile.USER] = Field(
-        default=None,
-        description="Heterogeneous parameters section `[field_heterogeneous]`.",
+        description="Discriminated parameter section `[field]`.",
     )
     field_vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.USER] = Field(
         default=None,
@@ -128,38 +118,6 @@ class FlowParam(FieldParamConfig):
     _base_dir: Path | None = PrivateAttr(default=None)
     _section_label: str = PrivateAttr(default="flow.param")
 
-    @model_validator(mode="before")
-    @classmethod
-    def _canonicalize_payload(cls, data):
-        if isinstance(data, FlowParam):
-            return data
-        if not isinstance(data, Mapping):
-            raise ValueError("flow.param.<id> must be a mapping payload")
-
-        payload = dict(data)
-        raw_param_id = payload.pop("_param_id", None)
-        param_id = str(raw_param_id).strip() if raw_param_id is not None else None
-        section_label = str(payload.pop("_section_label", "flow.param"))
-
-        if "field_common" in payload:
-            raise ValueError(
-                "`[field_common]` is no longer supported. Move shared keys to `[field]`."
-            )
-
-        if cls._has_field_sections(payload):
-            canonical = cls._canonicalize_sectioned_payload(
-                payload,
-                param_id=param_id,
-                section_label=section_label,
-            )
-        else:
-            canonical = cls._canonicalize_compact_payload(
-                payload,
-                param_id=param_id,
-                section_label=section_label,
-            )
-        return canonical
-
     def model_post_init(self, context: Any) -> None:
         super().model_post_init(context)
         if isinstance(context, Mapping):
@@ -167,109 +125,6 @@ class FlowParam(FieldParamConfig):
             if isinstance(raw_base_dir, Path):
                 self._base_dir = raw_base_dir
         self._section_label = self._section_label_from_field()
-
-    @classmethod
-    def _has_field_sections(cls, payload: Mapping[str, object]) -> bool:
-        return any(
-            key in payload
-            for key in (
-                "field",
-                "field_homogeneous",
-                "field_heterogeneous",
-                "field_vertical_profile",
-            )
-        )
-
-    @classmethod
-    def _canonicalize_sectioned_payload(
-        cls,
-        payload: Mapping[str, object],
-        *,
-        param_id: str | None,
-        section_label: str,
-    ) -> dict[str, object]:
-        field_payload = payload.get("field")
-        if not isinstance(field_payload, Mapping):
-            raise KeyError(f"{section_label} requires section [{section_label}.field]")
-        field = dict(field_payload)
-        cls._apply_param_id(field, param_id=param_id, section_label=section_label)
-
-        canonical: dict[str, object] = {"field": field}
-        for key in ("field_homogeneous", "field_heterogeneous", "field_vertical_profile"):
-            value = payload.get(key)
-            if value is None:
-                continue
-            if not isinstance(value, Mapping):
-                raise ValueError(f"{section_label}.{key} must be a mapping")
-            canonical[key] = dict(value)
-        return canonical
-
-    @classmethod
-    def _canonicalize_compact_payload(
-        cls,
-        payload: Mapping[str, object],
-        *,
-        param_id: str | None,
-        section_label: str,
-    ) -> dict[str, object]:
-        field: dict[str, object] = {}
-        for key in ("id", "kind", "unit"):
-            if key in payload:
-                field[key] = payload[key]
-        cls._apply_param_id(field, param_id=param_id, section_label=section_label)
-
-        kind = str(field.get("kind", "")).strip().lower()
-        if kind == "":
-            raise KeyError(f"{section_label}.field.kind is required")
-
-        canonical: dict[str, object] = {"field": field}
-        if kind == "homogeneous":
-            if "value" not in payload:
-                raise KeyError(f"{section_label}.field_homogeneous.value is required")
-            canonical["field_homogeneous"] = {"value": payload["value"]}
-        elif kind == "heterogeneous":
-            heterogeneous: dict[str, object] = {}
-            for key in (
-                "values_source",
-                "values",
-                "values_csv_file",
-                "csv_key_column",
-                "csv_value_column",
-                "field_spatial_id",
-            ):
-                if key in payload:
-                    heterogeneous[key] = payload[key]
-            canonical["field_heterogeneous"] = heterogeneous
-        else:
-            raise ValueError(f"{section_label}.field.kind must be 'homogeneous' or 'heterogeneous'")
-
-        vertical_profile = payload.get("vertical_profile", payload.get("field_vertical_profile"))
-        if vertical_profile is not None:
-            if not isinstance(vertical_profile, Mapping):
-                raise ValueError(f"{section_label}.field_vertical_profile must be a mapping")
-            canonical["field_vertical_profile"] = dict(vertical_profile)
-        return canonical
-
-    @classmethod
-    def _apply_param_id(
-        cls,
-        field: dict[str, object],
-        *,
-        param_id: str | None,
-        section_label: str,
-    ) -> None:
-        field_id = str(field.get("id", "")).strip()
-        if param_id is None or param_id == "":
-            if field_id == "":
-                raise KeyError(f"{section_label}.field.id is required")
-            return
-        if field_id == "":
-            field["id"] = param_id
-            return
-        if field_id != param_id:
-            raise ValueError(
-                f"{section_label}.field.id must match section key '{param_id}', got '{field_id}'"
-            )
 
     def _section_label_from_field(self) -> str:
         field_id = self.field.id
@@ -506,8 +361,21 @@ class FlowConfig(ProcessSpatialConfig):
             if not isinstance(raw_payload, Mapping):
                 raise ValueError(f"flow.param['{param_id}'] must be a mapping payload")
             payload = dict(raw_payload)
-            payload["_param_id"] = param_id
-            payload["_section_label"] = f"flow.param.{param_id}"
+            field_payload = payload.get("field")
+            if not isinstance(field_payload, Mapping):
+                raise KeyError(
+                    f"flow.param.{param_id} requires section [flow.param.{param_id}.field]"
+                )
+            field = dict(field_payload)
+            field_id = str(field.get("id", "")).strip()
+            if field_id == "":
+                field["id"] = param_id
+            elif field_id != param_id:
+                raise ValueError(
+                    f"flow.param.{param_id}.field.id must match section key '{param_id}', "
+                    f"got '{field_id}'"
+                )
+            payload["field"] = field
             out[param_id] = payload
         return out
 
@@ -706,8 +574,7 @@ class FlowConfig(ProcessSpatialConfig):
     def _homogeneous_param_entry(cls, param_id: str, value: float) -> dict:
         unit = cls._DEFAULT_PARAM_UNITS.get(param_id, "-")
         return {
-            "field": {"id": param_id, "kind": "homogeneous", "unit": unit},
-            "field_homogeneous": {"value": float(value)},
+            "field": {"id": param_id, "kind": "homogeneous", "unit": unit, "value": float(value)}
         }
 
     @classmethod

@@ -79,8 +79,6 @@ def _write_demo_tomls(tmp_path: Path) -> tuple[Path, Path]:
             [field]
             id = "K"
             kind = "heterogeneous"
-
-            [field_heterogeneous]
             values_source = "csv"
             values_csv_file = "{(subset_dir / "geology_K_dummy_demo.csv").as_posix()}"
             csv_key_column = "zone_key"

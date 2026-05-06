@@ -1,8 +1,4 @@
-"""Resolve field-parameter TOML payloads into canonical mappings.
-
-Encapsulates mode selection (`homogeneous`/`heterogeneous`), optional
-vertical profile extraction, and optional CSV value loading.
-"""
+"""Resolve field-parameter TOML payloads into canonical mappings."""
 
 from __future__ import annotations
 
@@ -107,10 +103,6 @@ def resolve_field_param_config_payload(
 
     kind_raw = merged.get("kind")
     kind_key = str(kind_raw).strip().lower() if kind_raw is not None else None
-    if kind_key in ("homogeneous", "heterogeneous"):
-        specific_section = validated.get(f"field_{kind_key}")
-        if isinstance(specific_section, Mapping):
-            merged.update(dict(specific_section))
 
     vertical_section = validated.get("field_vertical_profile", validated.get("vertical_profile"))
     if isinstance(vertical_section, Mapping):

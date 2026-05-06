@@ -107,11 +107,11 @@ Configuration Values
      - Unit declared for the property values before internal normalization.
      - m/s
      - ``hydromodpy/spatial/field/cases/square/field_param_config.toml``
-   * - ``[field_heterogeneous] values_source``
+   * - ``[field] values_source``
      - How heterogeneous values are supplied to the field parameter.
      - inline
      - ``hydromodpy/spatial/field/cases/square/field_param_config.toml``
-   * - ``[field_heterogeneous] values``
+   * - ``[field] values``
      - Inline heterogeneous values used to map zones or materials to property values.
      - granite=10, micaschists=2
      - ``hydromodpy/spatial/field/cases/square/field_param_config.toml``

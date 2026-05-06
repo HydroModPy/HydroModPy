@@ -103,11 +103,11 @@ Configuration Values
      - Homogeneous or heterogeneous assignment mode used by the field parameter.
      - heterogeneous
      - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
-   * - ``[field_heterogeneous] values_source``
+   * - ``[field] values_source``
      - How heterogeneous values are supplied to the field parameter.
      - csv
      - ``hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml``
-   * - ``[field_heterogeneous] values_csv_file``
+   * - ``[field] values_csv_file``
      - CSV file used to map zone keys to property values when the case is CSV-driven.
      - geology_K_dummy_demo.csv
      - ``../../../../../examples/data/geology/geology_K_dummy_demo.csv``

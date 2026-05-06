@@ -15,17 +15,15 @@ adapters consume without knowing which variable it came from.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 import pandas as pd
 
 from hydromodpy.physics.contracts import LoadResultProto, get_field_aggregator
+from hydromodpy.physics.forcing.types import InterpolationMethod, SpatialMode
 
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
-
-SpatialMode = Literal["auto", "homogeneous", "heterogeneous"]
-InterpolationMethod = Literal["nearest", "linear", "idw"]
 
 # ── Result container ──────────────────────────────────────────
 

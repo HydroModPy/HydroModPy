@@ -50,8 +50,6 @@ param_list = ["K"]
 [flow.param.K.field]
 id = "K"
 kind = "heterogeneous"
-
-[flow.param.K.field_heterogeneous]
 values_source = "inline"
 values = { west_zone = "2e-4 m/s", middle_zone = "5e-5 m/s", east_zone = "1e-4 m/s" }
 field_spatial_id = "k_bands"
@@ -91,6 +89,3 @@ nlay = 1
 
 [display]
 enabled = false
-
-
-

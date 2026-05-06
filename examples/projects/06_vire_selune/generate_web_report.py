@@ -329,7 +329,7 @@ def _case_payload(case: CatchmentCase) -> dict:
     recharge_mm_year = recharge_mm_day * 365.25
 
     k_cfg = base_cfg["flow"]["param"]["K"]
-    k_csv_rel = Path(k_cfg["field_heterogeneous"]["values_csv_file"])
+    k_csv_rel = Path(k_cfg["field"]["values_csv_file"])
     k_reference = _load_k_reference((ROOT / k_csv_rel).resolve())
 
     run_id = nwt_cfg["simulation"]["run_id"]
@@ -361,8 +361,8 @@ def _case_payload(case: CatchmentCase) -> dict:
         "k_table_max": k_reference["k_max"],
         "k_dataset_note": k_reference["dataset_note"],
         "k_source_doc": k_reference["source_doc"],
-        "ss_value": base_cfg["flow"]["param"]["Ss"]["field_homogeneous"]["value"],
-        "sy_value": base_cfg["flow"]["param"]["Sy"]["field_homogeneous"]["value"],
+        "ss_value": base_cfg["flow"]["param"]["Ss"]["field"]["value"],
+        "sy_value": base_cfg["flow"]["param"]["Sy"]["field"]["value"],
         "thickness": base_cfg["domain"]["depth_model"]["thickness"],
         "nlay_nwt": nwt_cfg["modflownwt"]["sgrid"]["vertical"]["nlay"],
         "nlay_irregular": irr_cfg["modflow6"]["sgrid"]["vertical"]["nlay"],

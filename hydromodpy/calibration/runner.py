@@ -100,7 +100,7 @@ def _override_paths(cfg: CalibrationConfig) -> dict[str, str]:
     if not out:
         raise ValueError(
             "Calibration parameters must declare a 'path' or 'target' (e.g. "
-            "'flow.param.K.field_homogeneous.value') so values can be injected into the "
+            "'flow.param.K.field.value') so values can be injected into the "
             "simulation config."
         )
     return out

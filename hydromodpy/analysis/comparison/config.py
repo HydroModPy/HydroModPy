@@ -155,6 +155,26 @@ class ComparisonObservable(HydroModelBase):
             cleaned.append(text)
         return cleaned
 
+    @model_validator(mode="before")
+    @classmethod
+    def _default_reducer(cls, value: object) -> object:
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        if _clean_optional_text(payload.get("reducer")) is not None:
+            return payload
+        support = str(payload.get("support", "point")).strip()
+        if support == "point":
+            payload["reducer"] = "nearest_cell"
+        elif support == "outlet":
+            variable_key = str(payload.get("variable", "")).strip().lower()
+            payload["reducer"] = "max" if "accumulation" in variable_key else "sum"
+        elif support in {"boundary", "cell_mask"}:
+            payload["reducer"] = "sum"
+        elif support == "map":
+            payload["reducer"] = "identity"
+        return payload
+
     @model_validator(mode="after")
     def _validate_support_specific_fields(self) -> ComparisonObservable:
         if self.time is not None and self.time_window is not None:
@@ -166,8 +186,6 @@ class ComparisonObservable(HydroModelBase):
                 raise ValueError(
                     "point observables require x/y coordinates, anchor_id, or cell_index"
                 )
-            if self.reducer is None:
-                object.__setattr__(self, "reducer", "nearest_cell")
         elif self.support == "outlet":
             has_coordinates = self.x is not None and self.y is not None
             has_anchor = self.anchor_id is not None
@@ -182,22 +200,9 @@ class ComparisonObservable(HydroModelBase):
                     "Set allow_domain_proxy=true only for exploratory whole-domain "
                     "reducer comparisons."
                 )
-            variable_key = self.variable.strip().lower()
-            if self.reducer is None:
-                object.__setattr__(
-                    self, "reducer", "max" if "accumulation" in variable_key else "sum"
-                )
         elif self.support == "boundary":
             if self.boundary_id is None and not self.cell_indices:
                 raise ValueError("boundary observables require boundary_id or cell_indices")
-            if self.reducer is None:
-                object.__setattr__(self, "reducer", "sum")
-        elif self.support == "cell_mask":
-            if self.reducer is None:
-                object.__setattr__(self, "reducer", "sum")
-        elif self.support == "map":
-            if self.reducer is None:
-                object.__setattr__(self, "reducer", "identity")
         return self
 
 

@@ -193,13 +193,13 @@
             "source": "hydromodpy/spatial/field/cases/square/field_param_config.toml"
           },
           {
-            "field": "[field_heterogeneous] values_source",
+            "field": "[field] values_source",
             "meaning": "How heterogeneous values are supplied to the field parameter.",
             "value": "inline",
             "source": "hydromodpy/spatial/field/cases/square/field_param_config.toml"
           },
           {
-            "field": "[field_heterogeneous] values",
+            "field": "[field] values",
             "meaning": "Inline heterogeneous values used to map zones or materials to property values.",
             "value": "granite=10, micaschists=2",
             "source": "hydromodpy/spatial/field/cases/square/field_param_config.toml"

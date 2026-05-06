@@ -28,8 +28,13 @@ class SolverConfig(HydroModelBase):
         cleaned = str(raw).strip().lower()
         if cleaned == "":
             raise ValueError("solver.solver_engine cannot be empty.")
-        registry.load_plugins()
-        if not registry.is_supported("flow", cleaned):
-            known = ", ".join(name for _, name in registry.pairs_for_process("flow"))
-            raise ValueError(f"Unknown flow solver '{cleaned}'. Registered flow solvers: {known}.")
         return cleaned
+
+    def model_post_init(self, context: object) -> None:
+        super().model_post_init(context)
+        registry.load_plugins()
+        if not registry.is_supported("flow", self.solver_engine):
+            known = ", ".join(name for _, name in registry.pairs_for_process("flow"))
+            raise ValueError(
+                f"Unknown flow solver '{self.solver_engine}'. Registered flow solvers: {known}."
+            )

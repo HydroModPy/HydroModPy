@@ -11,8 +11,6 @@ def test_flow_param_native_round_trip_all_sections() -> None:
                     "field": {
                         "kind": "heterogeneous",
                         "unit": "m/s",
-                    },
-                    "field_heterogeneous": {
                         "values": {
                             "sand": "1e-4 m/s",
                             "clay": "1e-7 m/s",
@@ -28,8 +26,6 @@ def test_flow_param_native_round_trip_all_sections() -> None:
                     "field": {
                         "kind": "homogeneous",
                         "unit": "-",
-                    },
-                    "field_homogeneous": {
                         "value": 0.2,
                     },
                 },
@@ -39,9 +35,9 @@ def test_flow_param_native_round_trip_all_sections() -> None:
 
     assert isinstance(cfg.param["K"], FlowParam)
     assert cfg.param["K"].field.id == "K"
-    assert cfg.param["K"].field_heterogeneous is not None
+    assert cfg.param["K"].field.kind == "heterogeneous"
     assert cfg.param["K"].field_vertical_profile is not None
-    assert cfg.param["Sy"].field_homogeneous is not None
+    assert cfg.param["Sy"].field.kind == "homogeneous"
 
     reloaded = FlowConfig.model_validate_json(cfg.model_dump_json())
 

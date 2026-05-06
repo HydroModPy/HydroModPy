@@ -285,23 +285,23 @@ Common Numerical Setup
      - Parameterization mode used for `K`.
      - heterogeneous
      - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.values_source``
+   * - ``flow.param.K.field.values_source``
      - Value source used for the heterogeneous `K` field.
      - inline
      - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.values.west_zone``
+   * - ``flow.param.K.field.values.west_zone``
      - Heterogeneous `K` value applied on support zone `west_zone`.
      - 2e-4 m/s
      - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.values.middle_zone``
+   * - ``flow.param.K.field.values.middle_zone``
      - Heterogeneous `K` value applied on support zone `middle_zone`.
      - 5e-5 m/s
      - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.values.east_zone``
+   * - ``flow.param.K.field.values.east_zone``
      - Heterogeneous `K` value applied on support zone `east_zone`.
      - 1e-4 m/s
      - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml``
-   * - ``flow.param.K.field_heterogeneous.field_spatial_id``
+   * - ``flow.param.K.field.field_spatial_id``
      - Support identifier used to distribute the heterogeneous `K` field.
      - k_bands
      - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml``

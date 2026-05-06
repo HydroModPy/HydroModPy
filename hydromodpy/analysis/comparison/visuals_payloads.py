@@ -416,13 +416,12 @@ def _flow_param_summary_lines(config_payload: Mapping[str, Any]) -> tuple[str, .
         if not isinstance(payload, Mapping):
             continue
         value = ""
-        section = payload.get("field_homogeneous")
-        if isinstance(section, Mapping):
-            value = str(section.get("value", ""))
+        field = payload.get("field")
+        if isinstance(field, Mapping):
+            value = str(field.get("value", ""))
         elif "value" in payload:
             value = str(payload.get("value", ""))
         unit = ""
-        field = payload.get("field")
         if isinstance(field, Mapping):
             unit = str(field.get("unit", ""))
         if value:

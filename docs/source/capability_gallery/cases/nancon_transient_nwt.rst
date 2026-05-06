@@ -112,11 +112,11 @@ Selected Parameters
      - Nominal time step used to discretize the simulation period.
      - 1 month
      - ``examples/projects/02_nancon_watershed/run_transient_nwt.toml``
-   * - ``[flow.param.K.field_homogeneous] value``
+   * - ``[flow.param.K.field] value``
      - Homogeneous hydraulic conductivity used by the flow model in this tutorial run.
      - 5e-05
      - ``examples/projects/02_nancon_watershed/run_transient_nwt.toml``
-   * - ``[flow.param.Sy.field_homogeneous] value``
+   * - ``[flow.param.Sy.field] value``
      - Specific yield used to control the free-surface response of the aquifer.
      - 0.05
      - ``examples/projects/02_nancon_watershed/run_transient_nwt.toml``

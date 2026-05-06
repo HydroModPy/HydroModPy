@@ -125,7 +125,7 @@ def _da_mh_gp_profile(*, seed: int = 7) -> CalibrationMethodProfile:
 
 _STEADY_DUPUIT_PARAMETER_TARGETS = {
     "K_global": TwinParameterTarget(
-        target="flow.param.K.field_homogeneous.value",
+        target="flow.param.K.field.value",
         mode="replace",
     ),
 }

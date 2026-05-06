@@ -345,7 +345,7 @@ Sub-models are linked back to their per-section page.
       # batch = ...  # default = None
       # Optional publication block copying selected run figures into a versionable capability-gallery source folder, loaded from [analysis.capability_gallery].
       # capability_gallery = ...  # default = None
-      # Optional simulation-comparison block loaded from [analysis.comparison]. Parsed standalone via ComparisonConfig under the section name [comparison].
+      # Optional simulation-comparison block loaded from [analysis.comparison]. Parsed standalone via SimulationComparisonConfig under the section name [comparison].
       # comparison = ...  # default = None
 
 .. dropdown:: ``[overview]`` (OverviewSection)

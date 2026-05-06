@@ -55,6 +55,11 @@ def _coerce_field_param(parameter_id: str, raw_parameter: object) -> object:
         return raw_parameter
 
     payload = dict(raw_parameter)
+    field_payload = payload.get("field")
+    if isinstance(field_payload, Mapping):
+        payload = dict(field_payload)
+        if "field_vertical_profile" in raw_parameter and "vertical_profile" not in payload:
+            payload["vertical_profile"] = raw_parameter["field_vertical_profile"]
     payload.setdefault("id", parameter_id)
     if "kind" not in payload and "mode" not in payload:
         return raw_parameter

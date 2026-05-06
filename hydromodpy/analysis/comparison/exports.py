@@ -1457,10 +1457,9 @@ def _homogeneous_sy_from_config(config_path: Path | None) -> float | None:
         return None
 
     candidates: list[Any] = []
-    for section_name in ("field_homogeneous", "homogeneous"):
-        section = sy_payload.get(section_name)
-        if isinstance(section, Mapping) and "value" in section:
-            candidates.append(section.get("value"))
+    field = sy_payload.get("field")
+    if isinstance(field, Mapping) and "value" in field:
+        candidates.append(field.get("value"))
     if "value" in sy_payload:
         candidates.append(sy_payload.get("value"))
 

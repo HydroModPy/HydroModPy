@@ -345,7 +345,7 @@ def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
                 "W1": FlowWellConfig(
                     cell=(0, 0, 0),
                     units="m3/day",
-                    forcing={"mode": "constant", "value": -86400.0},
+                    forcing={"kind": "constant", "value": -86400.0},
                 )
             }
         },
@@ -857,7 +857,7 @@ def test_modflow6_flow_adapter_builds_wells_from_forcing_payload() -> None:
                 "W1": FlowWellConfig(
                     cell=(0, 0, 0),
                     units="m3/day",
-                    forcing={"mode": "constant", "value": -86400.0},
+                    forcing={"kind": "constant", "value": -86400.0},
                 )
             }
         },

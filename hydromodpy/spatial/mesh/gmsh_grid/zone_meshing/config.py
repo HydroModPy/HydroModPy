@@ -463,18 +463,12 @@ class ZoneMeshingSettings(HydroModelBase):
 
         if self.refine_interfaces:
             if self.interface_size is None:
-                object.__setattr__(
-                    self,
-                    "interface_size",
-                    min(
-                        self.min_size if self.min_size is not None else self.global_size * 0.5,
-                        self.global_size,
-                    ),
+                self.interface_size = min(
+                    self.min_size if self.min_size is not None else self.global_size * 0.5,
+                    self.global_size,
                 )
             if self.interface_distance is None:
-                object.__setattr__(
-                    self, "interface_distance", max(self.global_size * 3.0, self.interface_size)
-                )
+                self.interface_distance = max(self.global_size * 3.0, self.interface_size)
             if self.interface_size <= 0.0:
                 raise ValueError("interface_size must be > 0 when refine_interfaces=true")
             if self.interface_size > self.global_size:

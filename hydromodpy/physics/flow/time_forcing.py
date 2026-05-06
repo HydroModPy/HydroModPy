@@ -87,8 +87,8 @@ def resolve_period_values_from_forcing(
     if nper <= 0:
         return []
 
-    mode = getattr(forcing, "mode", None)
-    if mode == "constant":
+    kind = getattr(forcing, "kind", getattr(forcing, "mode", None))
+    if kind == "constant":
         constant_value = forcing.value
         magnitude = getattr(constant_value, "magnitude", constant_value)
         return [float(magnitude)] * int(nper)
@@ -96,7 +96,7 @@ def resolve_period_values_from_forcing(
     if simulation_window is None:
         raise ValueError(f"{label}: simulation.time is required to resolve non-constant forcing.")
 
-    if mode == "csv":
+    if kind == "csv":
         series = load_forcing_csv_series(
             path_file=forcing.path_file,
             sep=forcing.sep,
@@ -123,4 +123,4 @@ def resolve_period_values_from_forcing(
             )
         return values
 
-    raise ValueError(f"{label}: unsupported forcing mode '{mode}'.")
+    raise ValueError(f"{label}: unsupported forcing kind '{kind}'.")

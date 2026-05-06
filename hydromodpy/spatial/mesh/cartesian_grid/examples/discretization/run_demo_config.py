@@ -58,17 +58,17 @@ def _resolve_geology_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dic
 
 def _resolve_field_param_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     out = dict(payload)
-    heterogeneous = out.get("field_heterogeneous")
-    if not isinstance(heterogeneous, Mapping):
+    field = out.get("field")
+    if not isinstance(field, Mapping):
         return out
-    heterogeneous_data = dict(heterogeneous)
-    source = str(heterogeneous_data.get("values_source", "inline")).strip().lower()
-    if source == "csv" and heterogeneous_data.get("values_csv_file") is not None:
-        heterogeneous_data["values_csv_file"] = resolve_path(
-            heterogeneous_data["values_csv_file"],
+    field_data = dict(field)
+    source = str(field_data.get("values_source", "inline")).strip().lower()
+    if source == "csv" and field_data.get("values_csv_file") is not None:
+        field_data["values_csv_file"] = resolve_path(
+            field_data["values_csv_file"],
             base_dir=base_dir,
         )
-    out["field_heterogeneous"] = heterogeneous_data
+    out["field"] = field_data
     return out
 
 
@@ -93,8 +93,7 @@ class SGridFieldParamDiscretizationConfig(HydroModelBase):
     field_param: dict[str, Any] = Field(
         description=(
             "Embedded field-parameter payload (same content as a full "
-            "`field_param_config.toml`: `field`, `field_homogeneous`, "
-            "`field_heterogeneous`, `field_vertical_profile`)."
+            "`field_param_config.toml`: `field`, `field_vertical_profile`)."
         )
     )
     sgrid: dict[str, Any] = Field(
@@ -147,15 +146,7 @@ class SGridFieldParamDiscretizationConfig(HydroModelBase):
         if not isinstance(value, Mapping):
             raise ValueError("field_param must be a mapping")
         payload = dict(value)
-        if any(
-            key in payload
-            for key in (
-                "field",
-                "field_homogeneous",
-                "field_heterogeneous",
-                "field_vertical_profile",
-            )
-        ):
+        if any(key in payload for key in ("field", "field_vertical_profile")):
             payload = resolve_field_param_config_payload(
                 payload,
                 base_dir=Path.cwd(),

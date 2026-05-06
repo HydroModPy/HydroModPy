@@ -5,7 +5,7 @@
 
 # Structure:
 # - [field]
-# - [field_homogeneous] or [field_heterogeneous]
+# - [field] or [field]
 # - [field_vertical_profile] (optional)
 #
 # Notes:
@@ -20,23 +20,10 @@ id = "K"
 kind = "heterogeneous"
 # Unit of parameter values. Typical examples: "m/s" (K), "-" (Sy), "m-1" (Ss).
 unit = "m/s"
-
-[field_homogeneous]
-# Scalar surface value used when kind='homogeneous'.
-value = 12.5
-
-[field_heterogeneous]
-# Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.
 values_source = "inline"
-# Inline key/value mapping used when values_source='inline'.
 values = { granite = 10.0, micaschists = 2.0 }
-# Path to CSV mapping file used when values_source='csv'. Relative paths are resolved from TOML directory.
-# values_csv_file = "my_values.csv"
-# CSV column name containing zone/material keys.
 csv_key_column = "zone_key"
-# CSV column name containing numeric parameter values.
 csv_value_column = "value"
-# Identifier of the spatial field used to map heterogeneous values.
 field_spatial_id = "field_square"
 
 [field_vertical_profile]

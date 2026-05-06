@@ -479,9 +479,9 @@ def _config_detail_table(base: dict[str, Any], config: dict[str, Any]) -> str:
         (
             "Parametres communs",
             (
-                f"K={flow.get('param', {}).get('K', {}).get('field_homogeneous', {}).get('value', '')}; "
-                f"Ss={flow.get('param', {}).get('Ss', {}).get('field_homogeneous', {}).get('value', '')}; "
-                f"Sy={flow.get('param', {}).get('Sy', {}).get('field_homogeneous', {}).get('value', '')}; "
+                f"K={flow.get('param', {}).get('K', {}).get('field', {}).get('value', '')}; "
+                f"Ss={flow.get('param', {}).get('Ss', {}).get('field', {}).get('value', '')}; "
+                f"Sy={flow.get('param', {}).get('Sy', {}).get('field', {}).get('value', '')}; "
                 f"drainage={flow.get('bc', {}).get('cauchy', {}).get('drainage', {}).get('value', '')}"
             ),
             "Ces valeurs sont imposees de facon identique pour MF6 et NWT.",
@@ -1257,15 +1257,15 @@ def _config_summary(base: dict[str, Any]) -> dict[str, Any]:
         "regime": flow.get("flow_regime", ""),
         "k": flow.get("param", {})
         .get("K", {})
-        .get("field_homogeneous", {})
+        .get("field", {})
         .get("value", ""),
         "sy": flow.get("param", {})
         .get("Sy", {})
-        .get("field_homogeneous", {})
+        .get("field", {})
         .get("value", ""),
         "ss": flow.get("param", {})
         .get("Ss", {})
-        .get("field_homogeneous", {})
+        .get("field", {})
         .get("value", ""),
         "drain": flow.get("bc", {})
         .get("cauchy", {})
@@ -2275,9 +2275,9 @@ def _diagnostic_overview_rows(
         {
             "item": "Parametres aquifere",
             "value": (
-                f"K={flow.get('param', {}).get('K', {}).get('field_homogeneous', {}).get('value', '')}; "
-                f"Sy={flow.get('param', {}).get('Sy', {}).get('field_homogeneous', {}).get('value', '')}; "
-                f"Ss={flow.get('param', {}).get('Ss', {}).get('field_homogeneous', {}).get('value', '')}; "
+                f"K={flow.get('param', {}).get('K', {}).get('field', {}).get('value', '')}; "
+                f"Sy={flow.get('param', {}).get('Sy', {}).get('field', {}).get('value', '')}; "
+                f"Ss={flow.get('param', {}).get('Ss', {}).get('field', {}).get('value', '')}; "
                 f"epaisseur={depth.get('thickness', '')}"
             ),
             "comment": "Valeurs communes aux trois Simulations.",
@@ -2360,9 +2360,9 @@ def _diagnostic_reminder_cards(base: dict[str, Any]) -> str:
             "Parametres",
             (
                 f"Epaisseur {depth.get('thickness', '')}; "
-                f"K={flow.get('param', {}).get('K', {}).get('field_homogeneous', {}).get('value', '')}; "
-                f"Sy={flow.get('param', {}).get('Sy', {}).get('field_homogeneous', {}).get('value', '')}; "
-                f"Ss={flow.get('param', {}).get('Ss', {}).get('field_homogeneous', {}).get('value', '')}; "
+                f"K={flow.get('param', {}).get('K', {}).get('field', {}).get('value', '')}; "
+                f"Sy={flow.get('param', {}).get('Sy', {}).get('field', {}).get('value', '')}; "
+                f"Ss={flow.get('param', {}).get('Ss', {}).get('field', {}).get('value', '')}; "
                 f"drainage Cauchy={flow.get('bc', {}).get('cauchy', {}).get('drainage', {}).get('value', '')}; "
                 f"IC={flow.get('ic', {}).get('type', '')} {flow.get('ic', {}).get('value', '')}."
             ),
@@ -2593,17 +2593,17 @@ def _diagnostic_simulation_svg(
 def _diagnostic_parameter_svg(base: dict[str, Any]) -> str:
     flow = base.get("flow", {})
     depth = base.get("domain", {}).get("depth_model", {})
-    k = flow.get("param", {}).get("K", {}).get("field_homogeneous", {}).get("value", "")
+    k = flow.get("param", {}).get("K", {}).get("field", {}).get("value", "")
     sy = (
         flow.get("param", {})
         .get("Sy", {})
-        .get("field_homogeneous", {})
+        .get("field", {})
         .get("value", "")
     )
     ss = (
         flow.get("param", {})
         .get("Ss", {})
-        .get("field_homogeneous", {})
+        .get("field", {})
         .get("value", "")
     )
     drain = flow.get("bc", {}).get("cauchy", {}).get("drainage", {}).get("value", "")

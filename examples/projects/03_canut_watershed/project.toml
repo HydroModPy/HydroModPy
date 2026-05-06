@@ -266,8 +266,6 @@ active_bc = ["drainage"]
 id = "K"
 kind = "homogeneous"
 unit = "m/d"
-
-[flow.param.K.field_homogeneous]
 value = 1.728
 
 [flow.param.K.field_vertical_profile]
@@ -278,8 +276,6 @@ characteristic_depth = "20.0 m"
 id = "Sy"
 kind = "homogeneous"
 unit = "-"
-
-[flow.param.Sy.field_homogeneous]
 value = 0.01
 
 [flow.param.Sy.field_vertical_profile]
@@ -290,8 +286,6 @@ characteristic_depth = "20.0 m"
 id = "Ss"
 kind = "homogeneous"
 unit = "m-1"
-
-[flow.param.Ss.field_homogeneous]
 value = 1e-05
 
 [flow.param.Ss.field_vertical_profile]

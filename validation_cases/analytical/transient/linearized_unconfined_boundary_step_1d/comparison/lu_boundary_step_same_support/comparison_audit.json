@@ -212,27 +212,21 @@
             "K": {
               "field": {
                 "id": "K",
-                "kind": "homogeneous"
-              },
-              "field_homogeneous": {
+                "kind": "homogeneous",
                 "value": "1e-4 m/s"
               }
             },
             "Ss": {
               "field": {
                 "id": "Ss",
-                "kind": "homogeneous"
-              },
-              "field_homogeneous": {
+                "kind": "homogeneous",
                 "value": "1e-10 m-1"
               }
             },
             "Sy": {
               "field": {
                 "id": "Sy",
-                "kind": "homogeneous"
-              },
-              "field_homogeneous": {
+                "kind": "homogeneous",
                 "value": "0.10 -"
               }
             }
@@ -264,7 +258,7 @@
           "domain": "{\"depth_model\":{\"thickness\":\"20.0 m\",\"type\":\"constant_thickness\"}}",
           "flow.flow_regime": "\"transient\"",
           "flow.active_bc": "[\"west_side\",\"east_side\"]",
-          "flow.param": "{\"K\":{\"field\":{\"id\":\"K\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"1e-4 m/s\"}},\"Ss\":{\"field\":{\"id\":\"Ss\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"1e-10 m-1\"}},\"Sy\":{\"field\":{\"id\":\"Sy\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"0.10 -\"}}}",
+          "flow.param": "{\"K\":{\"field\":{\"id\":\"K\",\"kind\":\"homogeneous\",\"value\":\"1e-4 m/s\"}},\"Ss\":{\"field\":{\"id\":\"Ss\",\"kind\":\"homogeneous\",\"value\":\"1e-10 m-1\"}},\"Sy\":{\"field\":{\"id\":\"Sy\",\"kind\":\"homogeneous\",\"value\":\"0.10 -\"}}}",
           "flow.ic": "{\"type\":\"custom\",\"value\":\"10.0 m\"}",
           "flow.bc": "{\"dirichlet\":{\"east_side\":{\"type\":\"dirichlet\",\"value\":\"10.0 m\"},\"west_side\":{\"forcing\":{\"aggregate\":\"last\",\"mode\":\"csv\",\"path_file\":\"C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv\"},\"type\":\"dirichlet\"}}}"
         }
@@ -458,27 +452,21 @@
             "K": {
               "field": {
                 "id": "K",
-                "kind": "homogeneous"
-              },
-              "field_homogeneous": {
+                "kind": "homogeneous",
                 "value": "1e-4 m/s"
               }
             },
             "Ss": {
               "field": {
                 "id": "Ss",
-                "kind": "homogeneous"
-              },
-              "field_homogeneous": {
+                "kind": "homogeneous",
                 "value": "1e-10 m-1"
               }
             },
             "Sy": {
               "field": {
                 "id": "Sy",
-                "kind": "homogeneous"
-              },
-              "field_homogeneous": {
+                "kind": "homogeneous",
                 "value": "0.10 -"
               }
             }
@@ -510,7 +498,7 @@
           "domain": "{\"depth_model\":{\"thickness\":\"20.0 m\",\"type\":\"constant_thickness\"}}",
           "flow.flow_regime": "\"transient\"",
           "flow.active_bc": "[\"west_side\",\"east_side\"]",
-          "flow.param": "{\"K\":{\"field\":{\"id\":\"K\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"1e-4 m/s\"}},\"Ss\":{\"field\":{\"id\":\"Ss\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"1e-10 m-1\"}},\"Sy\":{\"field\":{\"id\":\"Sy\",\"kind\":\"homogeneous\"},\"field_homogeneous\":{\"value\":\"0.10 -\"}}}",
+          "flow.param": "{\"K\":{\"field\":{\"id\":\"K\",\"kind\":\"homogeneous\",\"value\":\"1e-4 m/s\"}},\"Ss\":{\"field\":{\"id\":\"Ss\",\"kind\":\"homogeneous\",\"value\":\"1e-10 m-1\"}},\"Sy\":{\"field\":{\"id\":\"Sy\",\"kind\":\"homogeneous\",\"value\":\"0.10 -\"}}}",
           "flow.ic": "{\"type\":\"custom\",\"value\":\"10.0 m\"}",
           "flow.bc": "{\"dirichlet\":{\"east_side\":{\"type\":\"dirichlet\",\"value\":\"10.0 m\"},\"west_side\":{\"forcing\":{\"aggregate\":\"last\",\"mode\":\"csv\",\"path_file\":\"C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/west_head_step.csv\"},\"type\":\"dirichlet\"}}}"
         }

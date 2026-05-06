@@ -301,7 +301,7 @@ Common Numerical Setup
      - Parameterization mode used for `K`.
      - homogeneous
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
-   * - ``flow.param.K.field_homogeneous.value``
+   * - ``flow.param.K.field.value``
      - Homogeneous `K` value used by the benchmark.
      - 1e-4 m/s
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
@@ -309,7 +309,7 @@ Common Numerical Setup
      - Parameterization mode used for `Ss`.
      - homogeneous
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
-   * - ``flow.param.Ss.field_homogeneous.value``
+   * - ``flow.param.Ss.field.value``
      - Homogeneous `Ss` value used by the benchmark.
      - 1e-5 m-1
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
@@ -317,7 +317,7 @@ Common Numerical Setup
      - Parameterization mode used for `Sy`.
      - homogeneous
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
-   * - ``flow.param.Sy.field_homogeneous.value``
+   * - ``flow.param.Sy.field.value``
      - Homogeneous `Sy` value used by the benchmark.
      - 0.15 -
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
@@ -353,7 +353,7 @@ Common Numerical Setup
      - Short description of pumping well `P1`.
      - Central pumping well
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
-   * - ``flow.sinks_sources.wells.P1.forcing.mode``
+   * - ``flow.sinks_sources.wells.P1.forcing.kind``
      - Forcing mode used by pumping well `P1`.
      - constant
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``

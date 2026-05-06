@@ -128,18 +128,12 @@ def field_param_from_toml(toml_path: str | Path, section: str = "field") -> Fiel
         values = { granite = 10.0, micaschists = 3.5 }
         field_spatial_id = "field_square"
 
-    Base + mode-specific sections (recommended):
+    Field with vertical profile:
         [field]
         id = "K"
-        kind = "heterogeneous"
+        kind = "homogeneous"
         unit = "m/s"
-
-        [field_homogeneous]
         value = 12.5
-
-        [field_heterogeneous]
-        values = { granite = 10.0, micaschists = 2.0 }
-        field_spatial_id = "field_square"
 
         [field_vertical_profile]
         mode = "exponential"
@@ -149,8 +143,6 @@ def field_param_from_toml(toml_path: str | Path, section: str = "field") -> Fiel
         [field]
         id = "K"
         kind = "heterogeneous"
-
-        [field_heterogeneous]
         values_source = "csv"
         values_csv_file = "geology_property_values.csv"
         csv_key_column = "zone_key"
@@ -188,9 +180,9 @@ def field_param_from_toml(toml_path: str | Path, section: str = "field") -> Fiel
     merged.update(dict(section_cfg))
 
     leaf = section_key.rsplit(".", 1)[-1].strip().lower()
-    if leaf in ("field_homogeneous", "homogeneous"):
+    if leaf == "homogeneous":
         merged["kind"] = "homogeneous"
-    elif leaf in ("field_heterogeneous", "heterogeneous"):
+    elif leaf == "heterogeneous":
         merged["kind"] = "heterogeneous"
 
     kind_raw = merged.get("kind")

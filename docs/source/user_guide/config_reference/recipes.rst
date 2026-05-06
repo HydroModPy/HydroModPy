@@ -61,7 +61,7 @@ data, no figures by default. Great as a smoke test.
    id = "K"
    kind = "homogeneous"
 
-   [flow.param.K.field_homogeneous]
+   [flow.param.K.field]
    value = "1e-4 m/s"
 
    [flow.bc.dirichlet.west_side]
@@ -146,7 +146,7 @@ either direct cell indices or projected coordinates.
    description = "Production well, north of the outlet"
 
 Set ``flux`` to a list to drive a per-stress-period schedule, or use
-``forcing.mode = "csv"`` to read a chronicle file.
+``forcing.kind = "csv"`` to read a chronicle file.
 
 See :doc:`flow`.
 
@@ -242,7 +242,7 @@ parameters at runtime.
    max_iterations = 50
 
    [[calibration.parameters]]
-   path = "flow.param.K.field_homogeneous.value"
+   path = "flow.param.K.field.value"
    prior = "log_uniform"
    bounds = ["1e-6 m/s", "1e-2 m/s"]
 

@@ -382,7 +382,7 @@ def test_simulation_comparison_allows_flow_parameter_sweep_overlay(
                 'id = "k_mid"',
                 'solver = "modflow6"',
                 "",
-                "[comparison.simulation.overlay.flow.param.K.field_homogeneous]",
+                "[comparison.simulation.overlay.flow.param.K.field]",
                 'value = "2e-4 m/s"',
                 "",
                 "[[comparison.observable]]",
@@ -400,7 +400,7 @@ def test_simulation_comparison_allows_flow_parameter_sweep_overlay(
     children = materialize_child_configs(cfg)
     raw = load_toml_with_base_config(children[0].config_path)
 
-    assert raw["flow"]["param"]["K"]["field_homogeneous"]["value"] == "2e-4 m/s"
+    assert raw["flow"]["param"]["K"]["field"]["value"] == "2e-4 m/s"
 
 
 def test_simulation_comparison_allows_flow_boundary_sweep_overlay(

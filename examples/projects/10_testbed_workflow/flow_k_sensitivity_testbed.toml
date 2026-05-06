@@ -24,7 +24,7 @@ name = "flow_low_k"
 run_id = "flow_low_k"
 on_collision = "replace"
 
-[testbed.variant.overlay.flow.param.K.field_homogeneous]
+[testbed.variant.overlay.flow.param.K.field]
 value = "5e-6 m/s"
 
 [[testbed.variant]]
@@ -39,7 +39,7 @@ name = "flow_reference_k"
 run_id = "flow_reference_k"
 on_collision = "replace"
 
-[testbed.variant.overlay.flow.param.K.field_homogeneous]
+[testbed.variant.overlay.flow.param.K.field]
 value = "1e-5 m/s"
 
 [[testbed.variant]]
@@ -54,7 +54,7 @@ name = "flow_high_k"
 run_id = "flow_high_k"
 on_collision = "replace"
 
-[testbed.variant.overlay.flow.param.K.field_homogeneous]
+[testbed.variant.overlay.flow.param.K.field]
 value = "2e-5 m/s"
 
 [[testbed.metric]]

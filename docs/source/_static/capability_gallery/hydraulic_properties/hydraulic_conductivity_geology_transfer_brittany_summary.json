@@ -166,13 +166,13 @@
             "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
           },
           {
-            "field": "[field_heterogeneous] values_source",
+            "field": "[field] values_source",
             "meaning": "How heterogeneous values are supplied to the field parameter.",
             "value": "csv",
             "source": "hydromodpy/data/variables/geology/cases/gallery_field_param_brittany.toml"
           },
           {
-            "field": "[field_heterogeneous] values_csv_file",
+            "field": "[field] values_csv_file",
             "meaning": "CSV file used to map zone keys to property values when the case is CSV-driven.",
             "value": "geology_K_dummy_demo.csv",
             "source": "../../../../../examples/data/geology/geology_K_dummy_demo.csv"

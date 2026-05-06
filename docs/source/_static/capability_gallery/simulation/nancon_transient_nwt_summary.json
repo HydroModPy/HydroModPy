@@ -14,7 +14,7 @@
     "`[simulation.time] start_datetime`, `end_datetime`, and `step_value` define the three-year monthly window used by the hydrograph and budget figures.",
     "`[flow] active_sinks_sources = [\"recharge\", \"etp\"]` keeps both diffuse recharge and explicit atmospheric extraction active in the same transient run.",
     "`[flow] active_bc = [\"drainage\"]` turns top-face seepage release into the main head-dependent outflow shown later in the budget and active-network diagnostics.",
-    "`[flow.param.K.field_homogeneous]`, `[flow.param.Sy.field_homogeneous]`, and `[flow.param.Ss.field_homogeneous]` are the first basin parameters to perturb when learning how the hydrograph and active-network overlap change.",
+    "`[flow.param.K.field]`, `[flow.param.Sy.field]`, and `[flow.param.Ss.field]` are the first basin parameters to perturb when learning how the hydrograph and active-network overlap change.",
     "`[capability_gallery] assets` publishes hydrographic-network and active-network figures that go beyond the default `project.toml` display list, without changing the underlying physics."
   ],
   "how_to_read": [
@@ -179,13 +179,13 @@
             "source": "examples/projects/02_nancon_watershed/run_transient_nwt.toml"
           },
           {
-            "field": "[flow.param.K.field_homogeneous] value",
+            "field": "[flow.param.K.field] value",
             "meaning": "Homogeneous hydraulic conductivity used by the flow model in this tutorial run.",
             "value": "5e-05",
             "source": "examples/projects/02_nancon_watershed/run_transient_nwt.toml"
           },
           {
-            "field": "[flow.param.Sy.field_homogeneous] value",
+            "field": "[flow.param.Sy.field] value",
             "meaning": "Specific yield used to control the free-surface response of the aquifer.",
             "value": "0.05",
             "source": "examples/projects/02_nancon_watershed/run_transient_nwt.toml"

@@ -538,8 +538,8 @@ if __name__ == "__main__":
     well1 = SinkSource(id="W1", value=-1e-4, description="Pumping well", units="m3/s")
     test.set_parameters_from_config(
         {
-            "K": {"id": "K", "kind": "homogeneous", "value": 1e-5, "unit": "m/s"},
-            "Sy": {"id": "Sy", "kind": "homogeneous", "value": 0.1, "unit": "-"},
+            "K": {"field": {"id": "K", "kind": "homogeneous", "value": 1e-5, "unit": "m/s"}},
+            "Sy": {"field": {"id": "Sy", "kind": "homogeneous", "value": 0.1, "unit": "-"}},
         },
         parameter_ids=["K", "Sy"],
         context_label="flow.param",

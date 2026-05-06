@@ -753,7 +753,7 @@
         "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
       },
       {
-        "field": "flow.param.K.field_homogeneous.value",
+        "field": "flow.param.K.field.value",
         "meaning": "Homogeneous `K` value used by the benchmark.",
         "value": "5e-6 m/s",
         "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml"
