@@ -194,7 +194,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="calibration.optimizer_kwargs">
         <code class="hmp-field-name">optimizer_kwargs</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[calibration.optimizer_kwargs.<id>]</code>
+        <code class="hmp-field-toml">[calibration.optimizer_kwargs.&lt;id&gt;]</code>
       </div>
 
    :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L300>`__
@@ -210,7 +210,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="calibration.parameters">
         <code class="hmp-field-name">parameters</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[calibration.parameters.<id>]</code>
+        <code class="hmp-field-toml">[calibration.parameters.&lt;id&gt;]</code>
       </div>
 
    :bdg-primary:`dict[str, CalibParameterDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L304>`__
@@ -228,10 +228,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.parameters.<id>.bounds">
+            <div class="hmp-field-header" data-toml-path="calibration.parameters.&lt;id&gt;.bounds">
               <code class="hmp-field-name">bounds</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.parameters.<id>.bounds = ...</code>
+              <code class="hmp-field-toml">calibration.parameters.&lt;id&gt;.bounds = ...</code>
             </div>
 
          :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L78>`__
@@ -244,10 +244,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.parameters.<id>.transform">
+            <div class="hmp-field-header" data-toml-path="calibration.parameters.&lt;id&gt;.transform">
               <code class="hmp-field-name">transform</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.parameters.<id>.transform = ...</code>
+              <code class="hmp-field-toml">calibration.parameters.&lt;id&gt;.transform = ...</code>
             </div>
 
          :bdg-primary:`Literal['identity', 'log', 'logit']` :bdg-secondary:`default = "identity"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L84>`__
@@ -260,10 +260,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.parameters.<id>.prior">
+            <div class="hmp-field-header" data-toml-path="calibration.parameters.&lt;id&gt;.prior">
               <code class="hmp-field-name">prior</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.parameters.<id>.prior = ...</code>
+              <code class="hmp-field-toml">calibration.parameters.&lt;id&gt;.prior = ...</code>
             </div>
 
          :bdg-primary:`Literal['uniform', 'log_uniform', 'normal']` :bdg-secondary:`default = "uniform"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L89>`__
@@ -276,10 +276,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.parameters.<id>.path">
+            <div class="hmp-field-header" data-toml-path="calibration.parameters.&lt;id&gt;.path">
               <code class="hmp-field-name">path</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.parameters.<id>.path = ...</code>
+              <code class="hmp-field-toml">calibration.parameters.&lt;id&gt;.path = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L93>`__
@@ -292,10 +292,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.parameters.<id>.target">
+            <div class="hmp-field-header" data-toml-path="calibration.parameters.&lt;id&gt;.target">
               <code class="hmp-field-name">target</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.parameters.<id>.target = ...</code>
+              <code class="hmp-field-toml">calibration.parameters.&lt;id&gt;.target = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L98>`__
@@ -308,10 +308,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.parameters.<id>.mode">
+            <div class="hmp-field-header" data-toml-path="calibration.parameters.&lt;id&gt;.mode">
               <code class="hmp-field-name">mode</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.parameters.<id>.mode = ...</code>
+              <code class="hmp-field-toml">calibration.parameters.&lt;id&gt;.mode = ...</code>
             </div>
 
          :bdg-primary:`Literal['replace', 'scale']` :bdg-secondary:`default = "replace"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L102>`__
@@ -324,10 +324,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.parameters.<id>.units">
+            <div class="hmp-field-header" data-toml-path="calibration.parameters.&lt;id&gt;.units">
               <code class="hmp-field-name">units</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.parameters.<id>.units = ...</code>
+              <code class="hmp-field-toml">calibration.parameters.&lt;id&gt;.units = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L107>`__
@@ -345,7 +345,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="calibration.outputs">
         <code class="hmp-field-name">outputs</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[calibration.outputs.<id>]</code>
+        <code class="hmp-field-toml">[calibration.outputs.&lt;id&gt;]</code>
       </div>
 
    :bdg-primary:`dict[str, CalibOutputDecl]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L308>`__
@@ -363,10 +363,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.variable">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.variable">
               <code class="hmp-field-name">variable</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.variable = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.variable = ...</code>
             </div>
 
          :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L129>`__
@@ -379,10 +379,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.support">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.support">
               <code class="hmp-field-name">support</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.support = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.support = ...</code>
             </div>
 
          :bdg-primary:`Literal['point', 'boundary', 'cell']` :bdg-secondary:`default = "point"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L132>`__
@@ -395,10 +395,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.geometry">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.geometry">
               <code class="hmp-field-name">geometry</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">[calibration.outputs.<id>.geometry.<id>]</code>
+              <code class="hmp-field-toml">[calibration.outputs.&lt;id&gt;.geometry.&lt;id&gt;]</code>
             </div>
 
          :bdg-primary:`dict[str, Any] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L137>`__
@@ -411,10 +411,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.x">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.x">
               <code class="hmp-field-name">x</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.x = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.x = ...</code>
             </div>
 
          :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L141>`__
@@ -427,10 +427,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.y">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.y">
               <code class="hmp-field-name">y</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.y = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.y = ...</code>
             </div>
 
          :bdg-primary:`Optional[Any]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L146>`__
@@ -443,10 +443,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.boundary_id">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.boundary_id">
               <code class="hmp-field-name">boundary_id</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.boundary_id = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.boundary_id = ...</code>
             </div>
 
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L151>`__
@@ -459,10 +459,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.cell_id">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.cell_id">
               <code class="hmp-field-name">cell_id</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.cell_id = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.cell_id = ...</code>
             </div>
 
          :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L155>`__
@@ -475,10 +475,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.row">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.row">
               <code class="hmp-field-name">row</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.row = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.row = ...</code>
             </div>
 
          :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L160>`__
@@ -491,10 +491,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.col">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.col">
               <code class="hmp-field-name">col</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.col = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.col = ...</code>
             </div>
 
          :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L165>`__
@@ -507,10 +507,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.layer">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.layer">
               <code class="hmp-field-name">layer</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.layer = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.layer = ...</code>
             </div>
 
          :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L170>`__
@@ -523,10 +523,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.time">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.time">
               <code class="hmp-field-name">time</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.time = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.time = ...</code>
             </div>
 
          :bdg-primary:`Union[Literal['all', 'last', 'first'], list[str]]` :bdg-secondary:`default = "all"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L175>`__
@@ -539,10 +539,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.reducer">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.reducer">
               <code class="hmp-field-name">reducer</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.reducer = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.reducer = ...</code>
             </div>
 
          :bdg-primary:`Literal['mean', 'sum', 'last', 'none']` :bdg-secondary:`default = "none"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L180>`__
@@ -555,10 +555,10 @@ Fields
 
          .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="calibration.outputs.<id>.observed_values">
+            <div class="hmp-field-header" data-toml-path="calibration.outputs.&lt;id&gt;.observed_values">
               <code class="hmp-field-name">observed_values</code>
               <span class="hmp-field-arrow">in TOML:</span>
-              <code class="hmp-field-toml">calibration.outputs.<id>.observed_values = ...</code>
+              <code class="hmp-field-toml">calibration.outputs.&lt;id&gt;.observed_values = ...</code>
             </div>
 
          :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L184>`__

@@ -334,7 +334,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="mesh_catchment.geology">
         <code class="hmp-field-name">geology</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[mesh_catchment.geology.<id>]</code>
+        <code class="hmp-field-toml">[mesh_catchment.geology.&lt;id&gt;]</code>
       </div>
 
    :bdg-primary:`dict[str, Any] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/main.py#L153>`__
@@ -692,7 +692,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.conductivity.values">
                     <code class="hmp-field-name">values</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">[mesh_catchment.hydraulic_properties.conductivity.values.<id>]</code>
+                    <code class="hmp-field-toml">[mesh_catchment.hydraulic_properties.conductivity.values.&lt;id&gt;]</code>
                   </div>
 
                :bdg-primary:`dict[str, object] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L140>`__
@@ -827,7 +827,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.hydraulic_properties.storage_coefficient.values">
                     <code class="hmp-field-name">values</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">[mesh_catchment.hydraulic_properties.storage_coefficient.values.<id>]</code>
+                    <code class="hmp-field-toml">[mesh_catchment.hydraulic_properties.storage_coefficient.values.&lt;id&gt;]</code>
                   </div>
 
                :bdg-primary:`dict[str, object] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/config/hydraulic.py#L153>`__
@@ -1533,7 +1533,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families">
                     <code class="hmp-field-name">families</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">[mesh_catchment.zone_meshing.refinement_policy.families.<id>]</code>
+                    <code class="hmp-field-toml">[mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;]</code>
                   </div>
 
                :bdg-primary:`dict[str, ZoneMeshingRefinementFamilySettings]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L249>`__
@@ -1551,10 +1551,10 @@ Fields
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.enabled">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.enabled">
                           <code class="hmp-field-name">enabled</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.enabled = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.enabled = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L35>`__
@@ -1567,10 +1567,10 @@ Fields
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.priority">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.priority">
                           <code class="hmp-field-name">priority</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.priority = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.priority = ...</code>
                         </div>
 
                      :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L39>`__
@@ -1583,10 +1583,10 @@ Fields
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_size">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_size">
                           <code class="hmp-field-name">interface_size</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_size = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_size = ...</code>
                         </div>
 
                      :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L43>`__
@@ -1599,10 +1599,10 @@ Fields
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_distance">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_distance">
                           <code class="hmp-field-name">interface_distance</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_distance = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_distance = ...</code>
                         </div>
 
                      :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L47>`__
@@ -1615,10 +1615,10 @@ Fields
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_sampling">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_sampling">
                           <code class="hmp-field-name">interface_sampling</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_sampling = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.&lt;id&gt;.interface_sampling = ...</code>
                         </div>
 
                      :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L51>`__

@@ -21,6 +21,7 @@ Outputs five layers under ``docs/source/user_guide/config_reference/``:
 
 from __future__ import annotations
 
+import html
 import inspect
 import json
 import re
@@ -486,10 +487,10 @@ def _render_field_block(
         "",
         f"{inner}.. raw:: html",
         "",
-        f'{inner}   <div class="hmp-field-header" data-toml-path="{full_path}">',
-        f'{inner}     <code class="hmp-field-name">{field_name}</code>',
+        f'{inner}   <div class="hmp-field-header" data-toml-path="{html.escape(full_path, quote=True)}">',
+        f'{inner}     <code class="hmp-field-name">{html.escape(field_name)}</code>',
         f'{inner}     <span class="hmp-field-arrow">in TOML:</span>',
-        f'{inner}     <code class="hmp-field-toml">{toml_usage}</code>',
+        f'{inner}     <code class="hmp-field-toml">{html.escape(toml_usage)}</code>',
         f"{inner}   </div>",
         "",
     ]
@@ -850,7 +851,7 @@ def _render_starter_snippet_dropdown(section_name: str, model: type[BaseModel]) 
         "",
     ]
     for snippet_line in _render_starter_snippet(section_name, model):
-        lines.append(f"      {snippet_line}")
+        lines.append(f"      {snippet_line}" if snippet_line else "")
     lines.append("")
     return lines
 

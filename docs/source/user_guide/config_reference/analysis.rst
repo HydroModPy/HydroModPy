@@ -1899,7 +1899,7 @@ Fields
                   <div class="hmp-field-header" data-toml-path="analysis.comparison.simulation.overlay">
                     <code class="hmp-field-name">overlay</code>
                     <span class="hmp-field-arrow">in TOML:</span>
-                    <code class="hmp-field-toml">[analysis.comparison.simulation.overlay.<id>]</code>
+                    <code class="hmp-field-toml">[analysis.comparison.simulation.overlay.&lt;id&gt;]</code>
                   </div>
 
                :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L43>`__

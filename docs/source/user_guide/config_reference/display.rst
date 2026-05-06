@@ -183,7 +183,7 @@ Fields
       <div class="hmp-field-header" data-toml-path="display.overrides">
         <code class="hmp-field-name">overrides</code>
         <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[display.overrides.<id>]</code>
+        <code class="hmp-field-toml">[display.overrides.&lt;id&gt;]</code>
       </div>
 
    :bdg-primary:`dict[str, dict]` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L158>`__
