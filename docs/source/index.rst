@@ -239,6 +239,7 @@ For any question or collaboration request, contact:
    API Reference <api/index>
    How to cite <how_to_cite>
    Applications <applications>
+   Migration <migration/index>
    contribute
 
 .. # HTML helpers

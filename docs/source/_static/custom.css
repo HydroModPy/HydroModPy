@@ -18,3 +18,35 @@
     max-width: 100%;
     overflow-x: auto;
 }
+
+/* API stability badges, set by the :stable: / :experimental: / :deprecated:
+   roles defined in docs/source/_ext/hmp_directives.py. */
+.api-stability {
+    display: inline-block;
+    padding: 0.05em 0.55em;
+    margin: 0 0.25em;
+    border-radius: 0.5em;
+    font-size: 0.8em;
+    font-weight: 600;
+    line-height: 1.4;
+    color: #ffffff;
+    vertical-align: middle;
+}
+
+.api-stable {
+    background-color: #15803d;
+}
+
+.api-experimental {
+    background-color: #d97706;
+}
+
+.api-deprecated {
+    background-color: #b91c1c;
+}
+
+/* Restrain ER diagrams to a sensible width without distorting them. */
+.er-diagram {
+    max-width: 100%;
+    height: auto;
+}
