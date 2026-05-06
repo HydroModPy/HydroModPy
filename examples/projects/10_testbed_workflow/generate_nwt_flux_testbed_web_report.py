@@ -540,6 +540,7 @@ def _render_hydrographic_network_overlay(case: SiteCase, output_path: Path) -> N
             reference.plot(ax=ax, color="#1f6f78", linewidth=2.0, alpha=0.90, zorder=2)
         if candidate is not None and not candidate.empty:
             candidate.plot(ax=ax, color="#c45a2a", linewidth=1.5, alpha=0.95, linestyle="--", zorder=3)
+        _plot_catchment_boundary(ax, run)
         if case.x_outlet is not None and case.y_outlet is not None:
             ax.scatter([case.x_outlet], [case.y_outlet], s=42, color="#17202a", edgecolor="white", zorder=4)
         ax.set_title(f"Reseau genere et observe - {case.label}")
@@ -551,6 +552,7 @@ def _render_hydrographic_network_overlay(case: SiteCase, output_path: Path) -> N
             handles=[
                 Line2D([0], [0], color="#1f6f78", lw=2.0, label="observe"),
                 Line2D([0], [0], color="#c45a2a", lw=1.5, ls="--", label="genere"),
+                Line2D([0], [0], color="#17202a", lw=1.6, label="bassin"),
             ],
             loc="best",
             frameon=True,
@@ -563,6 +565,66 @@ def _render_hydrographic_network_overlay(case: SiteCase, output_path: Path) -> N
     finally:
         if catalog is not None:
             catalog.close()
+
+
+def _plot_catchment_boundary(ax: Any, run: Any) -> bool:
+    try:
+        import numpy as np
+        from rasterio.features import shapes
+        from rasterio.transform import from_origin
+        from shapely.geometry import shape
+        from shapely.ops import unary_union
+
+        mask = np.asarray(run.catchment_mask, dtype=bool)
+        if mask.ndim != 2 or not mask.any():
+            return False
+        xmin, xmax, ymin, ymax = [float(value) for value in run.grid.extent]
+        cell = float(run.grid.cell_size)
+        transform = from_origin(xmin, ymax, cell, cell)
+        geometries = [
+            shape(geom)
+            for geom, value in shapes(mask.astype("uint8"), mask=mask, transform=transform)
+            if int(value) == 1
+        ]
+        if not geometries:
+            return False
+        merged = unary_union(geometries)
+        _plot_shapely_boundary(ax, merged, color="#17202a", linewidth=1.6, zorder=4)
+        return True
+    except Exception:
+        return _plot_catchment_boundary_contour(ax, run)
+
+
+def _plot_shapely_boundary(ax: Any, geom: Any, *, color: str, linewidth: float, zorder: int) -> None:
+    geom_type = getattr(geom, "geom_type", "")
+    if geom_type == "Polygon":
+        x, y = geom.exterior.xy
+        ax.plot(x, y, color=color, linewidth=linewidth, zorder=zorder)
+        for interior in geom.interiors:
+            ix, iy = interior.xy
+            ax.plot(ix, iy, color=color, linewidth=max(linewidth * 0.6, 0.6), zorder=zorder)
+        return
+    if hasattr(geom, "geoms"):
+        for part in geom.geoms:
+            _plot_shapely_boundary(ax, part, color=color, linewidth=linewidth, zorder=zorder)
+
+
+def _plot_catchment_boundary_contour(ax: Any, run: Any) -> bool:
+    try:
+        import numpy as np
+
+        mask = np.asarray(run.catchment_mask, dtype=float)
+        if mask.ndim != 2 or not np.isfinite(mask).any() or np.nanmax(mask) <= 0:
+            return False
+        xmin, xmax, ymin, ymax = [float(value) for value in run.grid.extent]
+        cell = float(run.grid.cell_size)
+        xs = np.linspace(xmin + 0.5 * cell, xmax - 0.5 * cell, mask.shape[1])
+        ys = np.linspace(ymax - 0.5 * cell, ymin + 0.5 * cell, mask.shape[0])
+        xx, yy = np.meshgrid(xs, ys)
+        ax.contour(xx, yy, mask, levels=[0.5], colors="#17202a", linewidths=1.6, zorder=4)
+        return True
+    except Exception:
+        return False
 
 
 def _render_head_timeseries_points(case: SiteCase, output_path: Path) -> None:
