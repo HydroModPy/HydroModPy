@@ -225,6 +225,7 @@ Use these pages once you have generated or opened result pages:
    Workflow families <workflows/index>
    Concepts <concepts/index>
    Configuration reference <config_reference/index>
+   Cookbook <cookbook/index>
    mesh
    comparison
    calibration
