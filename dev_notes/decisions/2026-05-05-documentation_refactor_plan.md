@@ -14,7 +14,7 @@ documentation de HydroModPy. Il sert de guide de référence pour la refonte.
 | Phase 0 — Quick wins | 1 à 10 | ✓ livrée 2026-05-05 | `dev-docs` | `07f2f3b30` → `a0799bf69` |
 | Phase 1 — Refonte structurelle | 11 à 22 | ✓ 12/12 livrée (étape 21 incluse) | `dev-docs` | `b5144869b` → `c8e8057dd` |
 | Phase 2 — Enrichissement | 23 à 37 | ✓ livrée 2026-05-06 | `dev-docs` | `072b06e00` → `2f7697342` |
-| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (38, 39, 41, 42 livrées ; 40 bloquée) | `dev-docs` | `137131b96` → `2e520c963` |
+| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (38, 39, 41, 42, 44 livrées ; 40, 43 bloquées) | `dev-docs` | `137131b96` → `5c694924d` |
 
 Build sphinx local clean : 3 warnings baseline (incrémental) / 8 sur fresh
 build (5 issues codebase pré-existantes). Voir
@@ -320,7 +320,13 @@ les étapes 23 à 37.
     - Cas gallery non taggés à ce stade (les specs `tools/doc_gallery/*` n'ont pas encore de champ `difficulty`/`time` ; à faire dans une itération séparée si besoin)
     - Build sphinx local clean (3 warnings baseline)
 43. `[docs] - capture and embed key workflow GIFs (calibration convergence, mesh refinement, CLI setup)` ⏸ bloqué — captures animées non encore produites. À reprendre quand `_static/motion/{calibration_convergence,mesh_refinement,cli_setup}.{mp4,gif}` sont disponibles. Plan d'intégration : ajouter une directive utilitaire `motion-figure` (`<video controls autoplay loop muted>` + fallback `<img src="*.gif">` quand l'agent n'autorise pas l'auto-play) sur les pages tutoriel concernées.
-44. `[docs] - add interactive schema explorer with stoplight viewer (couche 3 config)`
+44. `[docs] - add interactive schema explorer with stoplight viewer (couche 3 config)` ✓ (commit `5c694924d`)
+    - `tools/doc_config/generate.py` étendu : `export_schema()` écrit `docs/source/_static/hydromodpy-schema.json` (≈ 316 KB, 9905 lignes) à partir de `HydroModPyConfig.model_json_schema()` à chaque `python -m tools.doc_config`
+    - Page `docs/source/user_guide/config_reference/schema_explorer.rst` (couche 3) : viewer Stoplight Elements chargé depuis CDN unpkg via `<script type="module" src="https://unpkg.com/@stoplight/elements/web-components.min.js">` + CSS associée ; `<elements-api apiDescriptionUrl="../../_static/hydromodpy-schema.json" router="hash" layout="sidebar">`
+    - Lien `:download:` permanent vers le JSON pour les utilisateurs hors ligne ou pour outils CI
+    - `_static/css/hmp-page-badges.css` (renommée mentalement en "doc UX assets") : ajout d'une règle `.hmp-schema-explorer { min-height: 70vh; ... }` pour donner une hauteur stable avant chargement du bundle
+    - `index.rst` couche 1 : entrée `schema_explorer` ajoutée au toctree caché
+    - Build sphinx local clean (3 warnings baseline)
 45. `[docs] - mention vtk-js mesh viewer as future evolution in architecture page`
 
 ### 0.3 Plan de déplacement Phase 0 étape 8 (création `dev_notes/`)
