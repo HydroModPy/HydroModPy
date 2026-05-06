@@ -10,7 +10,7 @@ Depth-Dependent Conductivity
 
 This case focuses on vertical attenuation. It renders the same heterogeneous field at the surface and at depth, alongside profile curves that explain the depth scaling.
 
-.. figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence.png
+.. gallery-figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_depth_dependence.png
    :alt: Depth-dependent conductivity maps and profiles
    :width: 100%
 

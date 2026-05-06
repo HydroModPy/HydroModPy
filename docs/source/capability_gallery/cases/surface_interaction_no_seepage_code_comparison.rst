@@ -10,7 +10,7 @@ No-Seepage Surface-Interaction Comparison
 
 This page isolates the same synthetic hillslope after moving the surface well above the imposed east boundary head. The goal is to test whether the methods converge once seepage and surface overflow are intentionally removed from the physical picture.
 
-.. figure:: /_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png
+.. gallery-figure:: /_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png
    :alt: Configuration schematic for the no-seepage surface-interaction benchmark
    :width: 100%
 
@@ -20,7 +20,7 @@ This page isolates the same synthetic hillslope after moving the surface well ab
 
    .. tab-item:: Reference K
 
-      .. figure:: /_static/capability_gallery/code_comparison/no_seepage_reference_k.png
+      .. gallery-figure:: /_static/capability_gallery/code_comparison/no_seepage_reference_k.png
          :alt: No seepage code comparison on the four-solver benchmark
          :width: 100%
 
@@ -31,7 +31,7 @@ This page isolates the same synthetic hillslope after moving the surface well ab
 
    .. tab-item:: High K
 
-      .. figure:: /_static/capability_gallery/code_comparison/no_seepage_high_k.png
+      .. gallery-figure:: /_static/capability_gallery/code_comparison/no_seepage_high_k.png
          :alt: No seepage code comparison at high hydraulic conductivity
          :width: 100%
 

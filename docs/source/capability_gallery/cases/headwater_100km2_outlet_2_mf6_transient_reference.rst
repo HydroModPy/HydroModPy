@@ -13,31 +13,31 @@ This case reuses the committed 100 km2 outlet-2 triangular mesh instead of meshi
 .. seealso::
    Read :doc:`the Simulation walkthrough </getting_started/simulation-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
    :alt: Flow-state triptych for the committed 100 km2 outlet-2 mesh
    :width: 100%
 
    Topography, hydraulic head, and water-table depth on the committed 100 km2 outlet-2 support.
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png
    :alt: Cumulative recharge and discharge on the committed 100 km2 outlet-2 replay
    :width: 100%
 
    Three-year cumulative recharge and discharge curves for the committed-mesh MF6 replay.
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png
    :alt: Water-table elevation map for the committed 100 km2 outlet-2 replay
    :width: 100%
 
    Water-table elevation map from the reference transient replay.
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png
    :alt: Water-table depth map for the committed 100 km2 outlet-2 replay
    :width: 100%
 
    Water-table depth map from the reference transient replay.
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png
    :alt: Support overview for the committed 100 km2 outlet-2 replay
    :width: 100%
 

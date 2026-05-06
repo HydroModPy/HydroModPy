@@ -13,7 +13,7 @@ This case reuses the demonstrative annual forcing chosen to make temporal head c
 .. seealso::
    Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png
+.. gallery-figure:: /_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative.png
    :alt: Simulation comparison summary for MF6 Triangular vs NWT Structured on Demonstrative Forcing
    :width: 100%
 

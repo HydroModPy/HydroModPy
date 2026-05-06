@@ -37,13 +37,14 @@ repos:
     hooks:
       - id: gitleaks
 
-  # RST linting. The 120-char max accommodates auto-generated gallery paths
+  # RST linting. The 130-char max accommodates auto-generated gallery paths
   # (``.. gallery-figure:: /_static/capability_gallery/<long-slug>.png``) and
-  # ``:doc:`` references that span deep cross-link targets.
+  # ``:doc:`` references that span deep ``../../capability_gallery/cases/<slug>``
+  # cross-link targets.
   - repo: https://github.com/PyCQA/doc8
     rev: v1.1.2
     hooks:
       - id: doc8
-        args: [--max-line-length=120, --ignore=D004]
+        args: [--max-line-length=130, --ignore=D004]
         files: ^docs/source/.*\.rst$
         exclude: ^docs/source/(user_guide/config_reference|capability_gallery)/.*\.rst$

@@ -13,7 +13,7 @@ This case reuses two committed run folders for the same Naizin catchment mesh. I
 .. seealso::
    Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison.png
+.. gallery-figure:: /_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison.png
    :alt: Simulation comparison figure for the shared Naizin mesh
    :width: 100%
 

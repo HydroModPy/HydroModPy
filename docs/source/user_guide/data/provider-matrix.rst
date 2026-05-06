@@ -112,21 +112,21 @@ visual outcome. On the Nancon reference overview, public geographic layers,
 Hub'Eau-style observations, and SIM2-style forcing context appear on the same
 basin report.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
    :alt: Geology provider output on the Nancon basin
    :width: 100%
 
    Geographic providers should first produce inspectable spatial layers:
    terrain, geology, hydrography, and basin masks.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
    :alt: Observation station inventory on the Nancon basin
    :width: 100%
 
    Observation providers should produce both station inventories and
    time-series records, not only raw downloaded files.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
    :alt: Climatic forcing summary on the Nancon basin
    :width: 100%
 

@@ -10,7 +10,7 @@ Mesh Zoom Panels (10 km2)
 
 This case renders a full mesh overview and three deterministic zoom panels centered on dense river segments. It highlights local mesh structure without requiring new outputs.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_zoom_panels_naizin_10km2.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_zoom_panels_naizin_10km2.png
    :alt: Mesh zoom panels for the 10 km2 catchment
    :width: 100%
 

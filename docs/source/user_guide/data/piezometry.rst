@@ -39,7 +39,7 @@ Minimal example
 Visual check
 ------------
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png
    :alt: Nancon piezometry time series
    :width: 100%
 

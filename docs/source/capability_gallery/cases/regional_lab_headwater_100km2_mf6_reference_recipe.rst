@@ -13,7 +13,7 @@ This page narrows the committed `regional_lab` example to the `mf6_reference` re
 .. seealso::
    Read :doc:`the Simulation walkthrough </getting_started/simulation-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png
+.. gallery-figure:: /_static/capability_gallery/simulation/regional_lab_headwater_100km2_mf6_reference_recipe.png
    :alt: Regional lab dry-plan synthesis for Regional Lab MF6 Reference Recipe on Headwater 100 km2
    :width: 100%
 

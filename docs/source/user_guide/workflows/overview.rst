@@ -43,14 +43,14 @@ Reference examples:
 Representative Results
 ----------------------
 
-.. figure:: /_static/capability_gallery/geographic/geographic_watershed_dem.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_watershed_dem.png
    :alt: DEM-oriented overview result for the overview workflow
    :width: 100%
 
    A correct overview run should first produce a convincing DEM-oriented
    watershed framing.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_watershed_local.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_watershed_local.png
    :alt: Local watershed overview result for the overview workflow
    :width: 100%
 

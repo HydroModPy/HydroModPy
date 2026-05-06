@@ -1,6 +1,6 @@
 """Custom Sphinx directives and roles for HydroModPy documentation.
 
-Three directives:
+Four directives:
 
 - ``.. config-field:: <dotted.path>`` renders the matching Pydantic
   ``Field`` metadata as an admonition (default, description, type).
@@ -8,6 +8,9 @@ Three directives:
   validation gallery case and renders a fact card with metrics.
 - ``.. solver-comparison::`` renders a solver x case matrix listing the
   primary RMSE metric for each cell.
+- ``.. gallery-figure:: <png_path>`` emits a ``<picture>`` block with a
+  WebP source and a PNG fallback for the gallery figures (HTML builder
+  only). Other builders fall back to the plain PNG ``figure``.
 
 Three API stability roles:
 
@@ -26,6 +29,7 @@ from typing import Any
 
 from docutils import nodes
 from docutils.parsers.rst import directives
+from sphinx import addnodes
 from sphinx.application import Sphinx
 from sphinx.util.docutils import SphinxDirective
 
@@ -93,9 +97,7 @@ class ConfigFieldDirective(SphinxDirective):
 
         if info is None:
             para = nodes.paragraph()
-            para += nodes.Text(
-                "Field not resolvable. Check the dotted path against "
-            )
+            para += nodes.Text("Field not resolvable. Check the dotted path against ")
             para += nodes.literal(text="HydroModPyConfig.model_fields")
             para += nodes.Text(".")
             admon += para
@@ -207,9 +209,7 @@ class SolverComparisonDirective(SphinxDirective):
                 line=self.lineno,
             )
             return [warning]
-        solver_filter = {
-            s.strip() for s in self.options.get("solvers", "").split(",") if s.strip()
-        }
+        solver_filter = {s.strip() for s in self.options.get("solvers", "").split(",") if s.strip()}
 
         rows: list[dict[str, Any]] = []
         all_solvers: list[str] = []
@@ -270,6 +270,77 @@ def _entry(text: str) -> nodes.entry:
     return cell
 
 
+def _webp_path_for(png_path: str) -> str:
+    name = png_path.rsplit("/", 1)[-1]
+    if "." in name:
+        return png_path.rsplit(".", 1)[0] + ".webp"
+    return png_path + ".webp"
+
+
+def _escape_attr(value: str) -> str:
+    return (
+        (value or "")
+        .replace("&", "&amp;")
+        .replace('"', "&quot;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+    )
+
+
+def _escape_text(value: str) -> str:
+    return (value or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+class GalleryFigureDirective(SphinxDirective):
+    """Render a gallery figure as a ``<picture>`` block with a PNG fallback.
+
+    Emits raw HTML for the HTML builder (the only published target). Other
+    builders fall back to a standard ``image`` node pointing at the PNG.
+    """
+
+    required_arguments = 1
+    optional_arguments = 0
+    final_argument_whitespace = False
+    has_content = True
+    option_spec = {
+        "alt": directives.unchanged,
+        "width": directives.length_or_percentage_or_unitless,
+    }
+
+    def run(self) -> list[nodes.Node]:
+        png_path = self.arguments[0].strip()
+        webp_path = _webp_path_for(png_path)
+        alt = self.options.get("alt", "")
+        width = self.options.get("width", "100%")
+        caption = "\n".join(self.content).strip()
+
+        style_attr = f' style="width: {width};"' if width else ""
+        figcaption = f"<figcaption>{_escape_text(caption)}</figcaption>" if caption else ""
+        html = (
+            '<figure class="hmp-gallery-figure">'
+            "<picture>"
+            f'<source srcset="{_escape_attr(webp_path)}" type="image/webp">'
+            f'<img src="{_escape_attr(png_path)}" alt="{_escape_attr(alt)}"'
+            f'{style_attr} loading="lazy">'
+            "</picture>"
+            f"{figcaption}"
+            "</figure>"
+        )
+        html_node = nodes.raw("", html, format="html")
+
+        image_node = nodes.image(uri=png_path, alt=alt)
+        if width:
+            image_node["width"] = width
+        fallback = nodes.figure(classes=["hmp-gallery-figure-fallback"])
+        fallback += image_node
+        if caption:
+            fallback += nodes.caption("", caption)
+        fallback_only = addnodes.only(expr="not html")
+        fallback_only += fallback
+
+        return [html_node, fallback_only]
+
+
 def _stability_role(label: str, css_class: str):
     def role(name, rawtext, text, lineno, inliner, options=None, content=None):
         node = nodes.inline(
@@ -286,7 +357,8 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("config-field", ConfigFieldDirective)
     app.add_directive("validation-case-summary", ValidationCaseSummaryDirective)
     app.add_directive("solver-comparison", SolverComparisonDirective)
+    app.add_directive("gallery-figure", GalleryFigureDirective)
     app.add_role("stable", _stability_role("Stable", "api-stable"))
     app.add_role("experimental", _stability_role("Experimental", "api-experimental"))
     app.add_role("deprecated", _stability_role("Deprecated", "api-deprecated"))
-    return {"version": "0.2.0", "parallel_read_safe": True, "parallel_write_safe": True}
+    return {"version": "0.3.0", "parallel_read_safe": True, "parallel_write_safe": True}

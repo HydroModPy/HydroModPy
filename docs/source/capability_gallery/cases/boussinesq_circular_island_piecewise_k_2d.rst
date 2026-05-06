@@ -50,7 +50,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW-NWT
 
-      .. figure:: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflownwt.png
+      .. gallery-figure:: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflownwt.png
          :alt: Boussinesq Circular-Island Piecewise-K 2D validation figure for MODFLOW-NWT
          :width: 100%
 
@@ -73,7 +73,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW 6
 
-      .. figure:: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6.png
+      .. gallery-figure:: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6.png
          :alt: Boussinesq Circular-Island Piecewise-K 2D validation figure for MODFLOW 6
          :width: 100%
 
@@ -96,7 +96,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW 6 irregular triangles
 
-      .. figure:: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6_irregular_tri.png
+      .. gallery-figure:: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6_irregular_tri.png
          :alt: Boussinesq Circular-Island Piecewise-K 2D validation figure for MODFLOW 6 irregular triangles
          :width: 100%
 
@@ -119,7 +119,7 @@ Solver Coverage
 
    .. tab-item:: Boussinesq
 
-      .. figure:: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__boussinesq.png
+      .. gallery-figure:: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__boussinesq.png
          :alt: Boussinesq Circular-Island Piecewise-K 2D validation figure for Boussinesq
          :width: 100%
 

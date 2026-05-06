@@ -85,7 +85,7 @@ capability claims.
 
    .. tab-item:: MODFLOW 6 basin run
 
-      .. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
+      .. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
          :alt: MODFLOW 6 transient basin flow-state triptych
          :width: 100%
 
@@ -94,7 +94,7 @@ capability claims.
 
    .. tab-item:: MODFLOW-NWT basin run
 
-      .. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+      .. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
          :alt: Water budget from the Nancon transient MODFLOW-NWT run
          :width: 100%
 
@@ -104,7 +104,7 @@ capability claims.
 
    .. tab-item:: Boussinesq validation run
 
-      .. figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
+      .. gallery-figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
          :alt: Boussinesq hillslope recharge-step interception validation result
          :width: 100%
 

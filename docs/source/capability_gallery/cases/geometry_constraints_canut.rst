@@ -10,7 +10,7 @@ Catchment Geometry Constraints
 
 This case focuses on geometry only: a catchment mask, the clipped river network, geology units inside the boundary, and a regional DEM backdrop. It documents the inputs that drive meshing and solver setup before any discretization happens.
 
-.. figure:: /_static/capability_gallery/geometry/geometry_constraints_canut.png
+.. gallery-figure:: /_static/capability_gallery/geometry/geometry_constraints_canut.png
    :alt: Catchment geometry constraints map
    :width: 100%
 

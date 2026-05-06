@@ -60,7 +60,7 @@ response, and water-table diagnostics.
 Representative Results
 ----------------------
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_support_overview.png
    :alt: Support overview for a 100 km2 transient MODFLOW 6 simulation
    :width: 100%
 
@@ -70,7 +70,7 @@ Representative Results
    suspicious, because many numerical symptoms start as support-definition
    errors.
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png
    :alt: Flow-state triptych for a 100 km2 transient MODFLOW 6 simulation
    :width: 100%
 
@@ -79,7 +79,7 @@ Representative Results
    the user can read the simulated behaviour before moving to budgets or
    downstream analytics.
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_recharge_discharge_cumulative.png
    :alt: Cumulative recharge and discharge for a transient MODFLOW 6 simulation
    :width: 100%
 
@@ -87,7 +87,7 @@ Representative Results
    forcing chronology produces a plausible integrated hydraulic response. It
    is a compact mass-balance diagnostic, not only a pretty hydrograph.
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_elevation.png
    :alt: Water-table elevation map for a transient MODFLOW 6 simulation
    :width: 100%
 
@@ -95,7 +95,7 @@ Representative Results
    coordinates. Use it to check whether the simulated heads are consistent
    with terrain, outlet position, and expected flow direction.
 
-.. figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png
+.. gallery-figure:: /_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_watertable_depth.png
    :alt: Water-table depth map for a transient MODFLOW 6 simulation
    :width: 100%
 

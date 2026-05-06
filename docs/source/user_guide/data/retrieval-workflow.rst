@@ -75,14 +75,14 @@ What the stack produces
 On the Nancon reference basin, the same kind of declaration produces visible
 data diagnostics before any solver is executed.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
    :alt: Nancon DEM and watershed support produced by data overview
    :width: 100%
 
    DEM retrieval and watershed setup define the spatial support that later
    data families use for clipping, station discovery, and reporting.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
    :alt: Nancon hydrography overlay produced by data overview
    :width: 100%
 
@@ -98,7 +98,7 @@ data diagnostics before any solver is executed.
    replay compares BD Topage, OSM, and EU-Hydro after clipping them to the same
    bbox, which is the kind of check to do before selecting a hydrography source.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
    :alt: Nancon station inventory produced by data overview
    :width: 100%
 
@@ -215,14 +215,14 @@ Observation panels
 Once the data is loaded, the overview workflow can also render the observation
 chronicles that later serve comparison or calibration work.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
    :alt: Nancon observed discharge time series
    :width: 100%
 
    Hydrometry retrieval should be judged through both station discovery and
    the actual chronicle coverage over the requested period.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png
    :alt: Nancon observed piezometry time series
    :width: 100%
 

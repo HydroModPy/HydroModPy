@@ -57,7 +57,7 @@ page remains :doc:`../capability_gallery/cases/nancon_transient_nwt`; this
 page reuses only the figures needed to connect the result to the Python
 inventory.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png
    :alt: Reference and generated hydrographic networks on the Nancon basin
    :width: 100%
 
@@ -65,7 +65,7 @@ inventory.
    generated structural network and the observed reference network are close
    enough before interpreting simulated drainage.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
    :alt: Simulated active network compared with observed hydrography on Nancon
    :width: 100%
 
@@ -73,14 +73,14 @@ inventory.
    turns stored drainage fluxes into a spatial diagnostic that can be compared
    with observed hydrography.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
    :alt: Piezometric map for the Nancon transient NWT run
    :width: 100%
 
    The piezometric map is the first groundwater-state figure to inspect when a
    spatial diagnostic looks surprising.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
    :alt: Observed and simulated hydrograph for the Nancon transient NWT run
    :width: 100%
 
@@ -88,7 +88,7 @@ inventory.
    view of how the simulated outlet discharge compares with the observed
    chronicle.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
    :alt: Water budget for the Nancon transient NWT run
    :width: 100%
 

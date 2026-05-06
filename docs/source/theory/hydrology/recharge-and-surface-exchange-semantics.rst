@@ -63,14 +63,14 @@ where each quantity appears in a result. The Nancon run is the practical
 anchor; the analytical validation cases remain the precise mathematical
 anchors listed near the end of the page.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
    :alt: Climatic forcing context before a groundwater solve
    :width: 100%
 
    Climate and recharge-like quantities start as data-layer evidence. They are
    not yet groundwater states or boundary fluxes.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
    :alt: Water budget showing recharge, ET, storage, and drainage components
    :width: 100%
 
@@ -78,7 +78,7 @@ anchors listed near the end of the page.
    components. This is where imposed forcing and head-dependent exchange should
    be interpreted together.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
    :alt: Observed and simulated outlet hydrograph on Nancon
    :width: 100%
 
@@ -93,14 +93,14 @@ where each quantity appears in a result. The Nancon run is the practical
 anchor; the analytical validation cases remain the precise mathematical
 anchors listed near the end of the page.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
    :alt: Climatic forcing context before a groundwater solve
    :width: 100%
 
    Climate and recharge-like quantities start as data-layer evidence. They are
    not yet groundwater states or boundary fluxes.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
    :alt: Water budget showing recharge, ET, storage, and drainage components
    :width: 100%
 
@@ -108,7 +108,7 @@ anchors listed near the end of the page.
    components. This is where imposed forcing and head-dependent exchange should
    be interpreted together.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
    :alt: Observed and simulated outlet hydrograph on Nancon
    :width: 100%
 
@@ -461,11 +461,16 @@ Validation And Comparison Anchors
 
 Useful pages already exist to anchor the main meanings described here.
 
-- Steady uniform recharge: :doc:`Dupuit Uniform Recharge 1D <../../capability_gallery/cases/dupuit_uniform_recharge_1d>`
-- Transient recharge step: :doc:`Linearized Unconfined 1D Recharge Step <../../capability_gallery/cases/linearized_unconfined_recharge_step_1d>`
-- Periodic recharge forcing: :doc:`Linearized Unconfined 1D Periodic Recharge <../../capability_gallery/cases/linearized_unconfined_recharge_periodic_1d>`
-- Recharge plus emergent drainage across code families: :doc:`Surface-Interaction Ramp Code Comparison <../../capability_gallery/cases/surface_interaction_ramp_code_comparison>`
-- Stream, ocean, and drainage semantics in more detail: :doc:`stream-ocean-and-drainage-semantics`
+- Steady uniform recharge:
+  :doc:`Dupuit Uniform Recharge 1D <../../capability_gallery/cases/dupuit_uniform_recharge_1d>`
+- Transient recharge step:
+  :doc:`Linearized Unconfined 1D Recharge Step <../../capability_gallery/cases/linearized_unconfined_recharge_step_1d>`
+- Periodic recharge forcing:
+  :doc:`Linearized Unconfined 1D Periodic Recharge <../../capability_gallery/cases/linearized_unconfined_recharge_periodic_1d>`
+- Recharge plus emergent drainage across code families:
+  :doc:`Surface-Interaction Ramp Code Comparison <../../capability_gallery/cases/surface_interaction_ramp_code_comparison>`
+- Stream, ocean, and drainage semantics in more detail:
+  :doc:`stream-ocean-and-drainage-semantics`
 
 Why This Page Matters
 ---------------------

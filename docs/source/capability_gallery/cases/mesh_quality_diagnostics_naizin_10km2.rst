@@ -10,7 +10,7 @@ Mesh Quality Diagnostics (10 km2)
 
 This case computes basic triangle-shape diagnostics from the versioned bundle and renders compact maps plus histograms. It targets mesh-quality checks that can be shared in documentation without re-running a mesh generation pipeline.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_quality_diagnostics_naizin_10km2.png
    :alt: Mesh quality diagnostics for the 10 km2 catchment mesh
    :width: 100%
 

@@ -10,13 +10,13 @@
 
 This case keeps the same outlet, the same river input, the same geology interfaces, and the same river refinement target as the paired 200 m-floor run. The only intended change is the global `min_size`, kept here at 340 m, so the gallery can show why a river target of 200 m does not become visible when the global mesh floor remains higher than the requested local size.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_overview.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_overview.png
    :alt: 100 km2, headwater Mesh, Outlet 27, floor 340 m, river target 200 m overview
    :width: 100%
 
    Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_regional.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_regional.png
    :alt: 100 km2, headwater Mesh, Outlet 27, floor 340 m, river target 200 m regional context
    :width: 100%
 

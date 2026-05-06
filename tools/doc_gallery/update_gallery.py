@@ -372,6 +372,25 @@ def build_parser() -> argparse.ArgumentParser:
             "PNG tree under ``docs/source/_static/capability_gallery/``."
         ),
     )
+    parser.add_argument(
+        "--convert-webp",
+        action="store_true",
+        help=(
+            "Generate ``.webp`` siblings for every PNG under "
+            "``docs/source/_static/capability_gallery/`` (idempotent)."
+        ),
+    )
+    parser.add_argument(
+        "--webp-quality",
+        type=int,
+        default=85,
+        help="WebP encoder quality used by ``--convert-webp`` (0-100, default 85).",
+    )
+    parser.add_argument(
+        "--webp-force",
+        action="store_true",
+        help="Force re-encode even when the WebP is newer than the PNG.",
+    )
     return parser
 
 
@@ -6325,9 +6344,14 @@ def _append_figure(
     indent: str = "",
     width: str = "100%",
 ) -> None:
+    doc_path = str(image["doc_path"])
+    if doc_path.lower().endswith(".png"):
+        directive = "gallery-figure"
+    else:
+        directive = "figure"
     lines.extend(
         [
-            f"{indent}.. figure:: {image['doc_path']}",
+            f"{indent}.. {directive}:: {doc_path}",
             f"{indent}   :alt: {image['alt_text']}",
             f"{indent}   :width: {width}",
             "",
@@ -8141,6 +8165,15 @@ def main(argv: list[str] | None = None) -> int:
             f"Updated PNG baseline at {png_drift.BASELINE_PATH.relative_to(REPO_ROOT)} "
             f"({len(hashes)} files)."
         )
+        return 0
+
+    if args.convert_webp:
+        from . import png_to_webp
+
+        produced = png_to_webp.convert_gallery_pngs(
+            quality=args.webp_quality, force=args.webp_force
+        )
+        print(f"Wrote {len(produced)} WebP file(s).")
         return 0
 
     if args.check_drift:

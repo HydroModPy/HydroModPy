@@ -18,7 +18,7 @@ Figure Reading Order
 - Read the objective trace as the chronology of the search. It shows whether the method quickly stabilizes, improves gradually, or keeps wandering through flat regions.
 - Read the posterior figure as the full retained parameter distribution, not as a single answer. A wide or multi-modal posterior indicates residual ambiguity even when one candidate has the lowest cost.
 
-.. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__configuration.png
+.. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__configuration.png
    :alt: Calibration Twin: Recharge-Step K+Sy 1D configuration figure
    :width: 100%
 
@@ -28,13 +28,13 @@ Figure Reading Order
 
    .. tab-item:: random_search
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_landscape.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective landscape for random_search
          :width: 100%
 
          Objective landscape or pairwise projection for `random_search` on Calibration Twin: Recharge-Step K+Sy 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__random_search_trace.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective trace for random_search
          :width: 100%
 
@@ -57,13 +57,13 @@ Figure Reading Order
 
    .. tab-item:: cma_es
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_landscape.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective landscape for cma_es
          :width: 100%
 
          Objective landscape or pairwise projection for `cma_es` on Calibration Twin: Recharge-Step K+Sy 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__cma_es_trace.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective trace for cma_es
          :width: 100%
 
@@ -86,13 +86,13 @@ Figure Reading Order
 
    .. tab-item:: simplex
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_landscape.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective landscape for simplex
          :width: 100%
 
          Objective landscape or pairwise projection for `simplex` on Calibration Twin: Recharge-Step K+Sy 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__simplex_trace.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective trace for simplex
          :width: 100%
 
@@ -115,13 +115,13 @@ Figure Reading Order
 
    .. tab-item:: gp_mapping
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_landscape.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective landscape for gp_mapping
          :width: 100%
 
          Objective landscape or pairwise projection for `gp_mapping` on Calibration Twin: Recharge-Step K+Sy 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__gp_mapping_trace.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective trace for gp_mapping
          :width: 100%
 
@@ -144,19 +144,19 @@ Figure Reading Order
 
    .. tab-item:: da_mh_gp
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_landscape.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_landscape.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective landscape for da_mh_gp
          :width: 100%
 
          Objective landscape or pairwise projection for `da_mh_gp` on Calibration Twin: Recharge-Step K+Sy 1D. It shows where evaluated candidates concentrate relative to the truth and the best retained solution.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_posterior.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_posterior.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D posterior distribution for da_mh_gp
          :width: 100%
 
          Posterior or retained parameter distribution for `da_mh_gp` on Calibration Twin: Recharge-Step K+Sy 1D. It shows the full spread of plausible calibrated values, not only the single best fit.
 
-      .. figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_trace.png
+      .. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_linearized_recharge_step_modflow6__da_mh_gp_trace.png
          :alt: Calibration Twin: Recharge-Step K+Sy 1D objective trace for da_mh_gp
          :width: 100%
 

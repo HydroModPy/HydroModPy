@@ -50,7 +50,7 @@ network is suitable as a target for drainage or seepage diagnostics.
 Visual check
 ------------
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
    :alt: Nancon hydrography layer
    :width: 100%
 
@@ -60,7 +60,7 @@ Visual check
 Provider-specific overlay
 -------------------------
 
-.. figure:: /_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png
    :alt: BD Topage hydrography overlay
    :width: 100%
 
@@ -124,7 +124,7 @@ Operational checks
 Visual reference
 """"""""""""""""
 
-.. figure:: /_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png
    :alt: BD Topage hydrography overlay
    :width: 100%
 

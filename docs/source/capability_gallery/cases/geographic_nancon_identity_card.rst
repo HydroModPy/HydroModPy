@@ -13,13 +13,13 @@ This case reuses the broader Nancon `data-overview` output set as a stable ident
 .. seealso::
    Read :doc:`the Data Overview walkthrough </getting_started/data-overview-walkthrough>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
    :alt: Nancon DEM overview
    :width: 100%
 
    DEM-based overview for the Nancon watershed.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
    :alt: Nancon hydrography overview
    :width: 100%
 
@@ -29,7 +29,7 @@ This case reuses the broader Nancon `data-overview` output set as a stable ident
 
    .. tab-item:: Geology
 
-      .. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
+      .. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
          :alt: Nancon geology overview
          :width: 100%
 
@@ -37,13 +37,13 @@ This case reuses the broader Nancon `data-overview` output set as a stable ident
 
    .. tab-item:: Inventory And Stats
 
-      .. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
+      .. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
          :alt: Nancon station inventory
          :width: 100%
 
          Station inventory extracted by the Nancon data-overview workflow.
 
-      .. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_stats_card.png
+      .. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_stats_card.png
          :alt: Nancon observation stats card
          :width: 100%
 
@@ -51,7 +51,7 @@ This case reuses the broader Nancon `data-overview` output set as a stable ident
 
    .. tab-item:: Climate Summary
 
-      .. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
+      .. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
          :alt: Nancon climatic summary
          :width: 100%
 

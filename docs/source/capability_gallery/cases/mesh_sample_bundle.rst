@@ -10,7 +10,7 @@ Mesh Sample Bundle
 
 This sample bundle is a versioned catchment mesh illustration shipped with the repository. It is stable enough for documentation and exposes the main viewer concepts: cells, edges, rivers, geology interfaces, and topography rendering.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_sample_bundle_overview.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_sample_bundle_overview.png
    :alt: Mesh sample bundle overview with geology and topography panels
    :width: 100%
 

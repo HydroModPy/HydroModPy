@@ -81,6 +81,22 @@ HydroModPy therefore keeps both for different reasons:
 - access to a modern MF6 path for irregular runtime meshes and evolving
   package choices.
 
+Side By Side On The Same Case
+-----------------------------
+
+The slider below compares the rendered piezometric surfaces produced by both
+backends on a single validation case (Boussinesq circular island, piecewise
+hydraulic conductivity). Drag the handle to bring either rendering forward.
+
+.. image-comparison::
+   :before: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflow6.png
+   :after: /_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__modflownwt.png
+   :before-label: MODFLOW 6
+   :after-label: MODFLOW-NWT
+   :before-alt: MODFLOW 6 head field for the circular-island validation case
+   :after-alt: MODFLOW-NWT head field for the circular-island validation case
+   :caption: Same physical case, two backends. Use the slider to switch between the rendered head fields.
+
 High-Level Difference Map
 -------------------------
 
@@ -239,7 +255,7 @@ MODFLOW-family routes.
 
    .. tab-item:: MODFLOW-NWT
 
-      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png
+      .. gallery-figure:: /_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflownwt.png
          :alt: Linearized unconfined hillslope drainage rendered with MODFLOW-NWT
          :width: 100%
 
@@ -249,7 +265,7 @@ MODFLOW-family routes.
 
    .. tab-item:: MODFLOW 6
 
-      .. figure:: /_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png
+      .. gallery-figure:: /_static/capability_gallery/validation/linearized_unconfined_hillslope_drainage_1d__modflow6.png
          :alt: Linearized unconfined hillslope drainage rendered with MODFLOW 6
          :width: 100%
 

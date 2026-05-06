@@ -64,19 +64,19 @@ the documentation:
 This scientific page still keeps the focus on the package path and option
 rationale, not on repeating the gallery reading order.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
    :alt: Nancon basin DEM context
    :width: 100%
 
    DEM context for the Nancon watershed used by the public project.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
    :alt: Nancon hydrography context
    :width: 100%
 
    Hydrographic context on the same basin support.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_climatic_summary.png
    :alt: Nancon climatic summary
    :width: 100%
 
@@ -313,28 +313,28 @@ The stable gallery case publishes the most useful result figures for this run.
 They are repeated here because this page explains the package path that
 produced them.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
    :alt: Piezometric map for the Nancon transient NWT run
    :width: 100%
 
    The piezometric map is the direct spatial expression of the solved head
    field after the NWT package assembly has run.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
    :alt: Water budget for the Nancon transient NWT run
    :width: 100%
 
    The budget is where the ``RCH``, ``EVT``, storage, and ``DRN`` choices become
    visible as integrated flow components.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
    :alt: Observed and simulated hydrograph for the Nancon transient NWT run
    :width: 100%
 
    The hydrograph shows whether the package assembly produces a coherent
    outlet-scale response over the monthly transient window.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
    :alt: Simulated active network compared with observed hydrography on Nancon
    :width: 100%
 

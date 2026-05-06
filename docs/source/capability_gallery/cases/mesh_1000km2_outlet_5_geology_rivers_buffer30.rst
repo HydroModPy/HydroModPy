@@ -10,13 +10,13 @@
 
 This family captures repeated conformal meshing runs on the 1000 km2 selection so the gallery can compare several larger outlets under one stable geology-plus-rivers setup.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_5_geology_rivers_buffer30_overview.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_5_geology_rivers_buffer30_overview.png
    :alt: 1000 km2 Mesh, Outlet 5, Geology + rivers, 30% buffer overview
    :width: 100%
 
    Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-.. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_5_geology_rivers_buffer30_regional.png
+.. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_5_geology_rivers_buffer30_regional.png
    :alt: 1000 km2 Mesh, Outlet 5, Geology + rivers, 30% buffer regional context
    :width: 100%
 

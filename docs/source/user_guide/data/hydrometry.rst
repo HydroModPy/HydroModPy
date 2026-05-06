@@ -39,7 +39,7 @@ Minimal example
 Visual check
 ------------
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
    :alt: Nancon discharge time series
    :width: 100%
 

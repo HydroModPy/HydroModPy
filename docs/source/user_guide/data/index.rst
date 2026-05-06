@@ -83,14 +83,14 @@ reference. It is a no-solver workflow: the figures below are data and support
 diagnostics, not simulation results. For the complete case page, open
 :doc:`../../capability_gallery/cases/geographic_nancon_identity_card`.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
    :alt: Nancon DEM and watershed support
    :width: 100%
 
    Data retrieval first has to produce a credible basin support: DEM, watershed
    boundary, outlet context, and common CRS.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_station_inventory.png
    :alt: Nancon station inventory from data overview
    :width: 100%
 

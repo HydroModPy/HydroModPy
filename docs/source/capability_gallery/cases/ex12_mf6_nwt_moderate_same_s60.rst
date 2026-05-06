@@ -13,7 +13,7 @@ This case compares MODFLOW 6 and MODFLOW-NWT on the exact same 60x60 structured 
 .. seealso::
    Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png
+.. gallery-figure:: /_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60.png
    :alt: Simulation comparison summary for MF6 vs NWT on the Same 60x60 Grid
    :width: 100%
 

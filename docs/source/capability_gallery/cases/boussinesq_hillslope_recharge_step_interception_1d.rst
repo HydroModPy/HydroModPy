@@ -50,7 +50,7 @@ Solver Coverage
 - Default solver: Boussinesq
 - Available variants: Boussinesq
 
-.. figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
+.. gallery-figure:: /_static/capability_gallery/validation/boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png
    :alt: Boussinesq Hillslope Recharge-Step Interception 1D validation figure for Boussinesq
    :width: 100%
 

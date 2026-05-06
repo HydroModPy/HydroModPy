@@ -13,31 +13,31 @@ This case publishes one real Nancon watershed run from the standard `02_nancon_w
 .. seealso::
    Read :doc:`the real-basin reading guide </getting_started/read-real-basin-run>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png
    :alt: Hydrographic network comparison on the Nancon basin
    :width: 100%
 
    Reference versus generated hydrographic linework on the Nancon basin, used as the structural context before reading the simulated response.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_simulated_active_network_reference_overlay.png
    :alt: Simulated active network overlay against reference hydrography on Nancon
    :width: 100%
 
    Simulated active drainage cells overlaid with the observed reference hydrography, including cell-overlap metrics on the same map.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_piezometric_map.png
    :alt: Piezometric map for the Nancon transient NWT run
    :width: 100%
 
    Piezometric map from the same transient NWT run, used to read the main groundwater-state structure after the network diagnostics.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrograph.png
    :alt: Hydrograph for the Nancon transient NWT run
    :width: 100%
 
    Observed-versus-simulated hydrograph used to judge whether the basin-scale temporal response remains coherent over the transient window.
 
-.. figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
+.. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_water_budget.png
    :alt: Water budget for the Nancon transient NWT run
    :width: 100%
 

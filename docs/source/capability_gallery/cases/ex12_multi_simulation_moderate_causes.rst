@@ -13,7 +13,7 @@ This case keeps the same four simulations as the moderate suite but adds observa
 .. seealso::
    Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes.png
+.. gallery-figure:: /_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_causes.png
    :alt: Simulation comparison summary for Four-Simulation Moderate Suite with Surface-Excess Diagnostics
    :width: 100%
 

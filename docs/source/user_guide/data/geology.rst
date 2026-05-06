@@ -49,7 +49,7 @@ hydraulic-property tables.
 Visual check
 ------------
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
    :alt: Nancon geology layer with legend
    :width: 100%
 
@@ -70,7 +70,7 @@ Property transfer check
    documentation proof that geology can become a solver-facing parameter
    support instead of remaining a background map.
 
-.. figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png
+.. gallery-figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png
    :alt: Geology-driven hydraulic conductivity transfer
    :width: 100%
 

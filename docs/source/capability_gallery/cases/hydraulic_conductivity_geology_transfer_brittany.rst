@@ -10,7 +10,7 @@ Geology-Driven Conductivity Transfer
 
 This case reuses the Brittany geology subset shipped with the repository and the generic geology-to-field pipeline. A compact figure shows geology zones, the value table keyed by zone, and the mapped conductivity field.
 
-.. figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png
+.. gallery-figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_transfer_brittany.png
    :alt: Geology-driven conductivity transfer on the Brittany subset
    :width: 100%
 

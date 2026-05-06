@@ -41,7 +41,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW-NWT
 
-      .. figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflownwt.png
+      .. gallery-figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflownwt.png
          :alt: Brutsaert Recession Validation: Thin Nonlinear Aquifer validation figure for MODFLOW-NWT
          :width: 100%
 
@@ -64,7 +64,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW 6
 
-      .. figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflow6.png
+      .. gallery-figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflow6.png
          :alt: Brutsaert Recession Validation: Thin Nonlinear Aquifer validation figure for MODFLOW 6
          :width: 100%
 
@@ -87,7 +87,7 @@ Solver Coverage
 
    .. tab-item:: MODFLOW 6 irregular triangles
 
-      .. figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflow6_irregular_tri.png
+      .. gallery-figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__modflow6_irregular_tri.png
          :alt: Brutsaert Recession Validation: Thin Nonlinear Aquifer validation figure for MODFLOW 6 irregular triangles
          :width: 100%
 
@@ -110,7 +110,7 @@ Solver Coverage
 
    .. tab-item:: Boussinesq
 
-      .. figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__boussinesq.png
+      .. gallery-figure:: /_static/capability_gallery/validation/brutsaert_recession_boussinesq_thin_1d__boussinesq.png
          :alt: Brutsaert Recession Validation: Thin Nonlinear Aquifer validation figure for Boussinesq
          :width: 100%
 

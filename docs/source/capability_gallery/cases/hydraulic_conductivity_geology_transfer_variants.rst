@@ -14,7 +14,7 @@ This case groups several geology-driven conductivity maps, mixing the structured
 
    .. tab-item:: Structured Brittany
 
-      .. figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_variant_brittany.png
+      .. gallery-figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_variant_brittany.png
          :alt: Structured geology transfer in Brittany
          :width: 100%
 
@@ -22,7 +22,7 @@ This case groups several geology-driven conductivity maps, mixing the structured
 
    .. tab-item:: Triangular 10 km2
 
-      .. figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_variant_10km2.png
+      .. gallery-figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_variant_10km2.png
          :alt: Triangular geology transfer on 10 km2 catchment
          :width: 100%
 
@@ -30,7 +30,7 @@ This case groups several geology-driven conductivity maps, mixing the structured
 
    .. tab-item:: Triangular 100 km2
 
-      .. figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_variant_100km2.png
+      .. gallery-figure:: /_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_geology_variant_100km2.png
          :alt: Triangular geology transfer on 100 km2 catchment
          :width: 100%
 

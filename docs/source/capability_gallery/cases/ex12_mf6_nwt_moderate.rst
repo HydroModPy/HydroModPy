@@ -13,7 +13,7 @@ This case compares a MODFLOW 6 run on the committed triangular support against a
 .. seealso::
    Read :doc:`the gallery and validation reading guide <../../user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
-.. figure:: /_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png
+.. gallery-figure:: /_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate.png
    :alt: Simulation comparison summary for MF6 Triangular vs NWT Structured on Moderate Forcing
    :width: 100%
 

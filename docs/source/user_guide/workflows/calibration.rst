@@ -51,7 +51,7 @@ Reference examples:
 Representative Results
 ----------------------
 
-.. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__configuration.png
+.. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__configuration.png
    :alt: Calibration configuration figure
    :width: 100%
 
@@ -59,14 +59,14 @@ Representative Results
    parameters, outputs, objective blocks, methods, and noise assumptions all
    stay visible in one panel.
 
-.. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png
+.. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_landscape.png
    :alt: Calibration objective landscape for a distribution-valued method
    :width: 100%
 
    The objective landscape or pairwise projection shows where the evaluated
    candidates concentrate relative to the truth and the selected solution.
 
-.. figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png
+.. gallery-figure:: /_static/capability_gallery/calibration/calibration_twin_dupuit_fixed_head_posterior_modflow6__da_mh_gp_posterior.png
    :alt: Calibration posterior distribution for a distribution-valued method
    :width: 100%
 

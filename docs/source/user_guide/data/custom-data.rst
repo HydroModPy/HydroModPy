@@ -57,7 +57,7 @@ the DEM manager:
 The expected output is the same kind of basin-support panel as for public
 providers: a readable DEM, a coherent watershed boundary, and no CRS surprise.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_dem.png
    :alt: Basin DEM panel used as the visual contract for custom DEM data
    :width: 100%
 
@@ -91,7 +91,7 @@ legend. The important check is that the geology code used by ``code_field`` is
 still interpretable after loading, clipping, reprojection, and optional joining
 with the hydraulic-property table.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_geology.png
    :alt: Geology panel with legend used as the visual contract for custom geology data
    :width: 100%
 
@@ -113,7 +113,7 @@ Custom hydrography can point to a local river-network vector:
 For local hydrography, the visual contract is the same as for BD Topage or OSM:
 the loaded river layer must make sense on the basin support.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_identity_card_map_hydrography.png
    :alt: Hydrography panel used as the visual contract for custom river data
    :width: 100%
 
@@ -188,7 +188,7 @@ instead of reshaping source files:
 The overview panels should then show both the selected stations and the
 chronicles that were actually ingested.
 
-.. figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
+.. gallery-figure:: /_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png
    :alt: Discharge chronicle panel used as the visual contract for custom hydrometry
    :width: 100%
 

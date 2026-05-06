@@ -57,13 +57,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 1
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_overview.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_regional.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -84,13 +84,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 2
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_2_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_2_geology_rivers_buffer30_overview.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 2, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_2_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_2_geology_rivers_buffer30_regional.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 2, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -111,13 +111,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 3
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_3_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_3_geology_rivers_buffer30_overview.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 3, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_3_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_3_geology_rivers_buffer30_regional.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 3, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -138,13 +138,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 4
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_4_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_4_geology_rivers_buffer30_overview.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 4, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_4_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_4_geology_rivers_buffer30_regional.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 4, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -165,13 +165,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 5
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_5_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_5_geology_rivers_buffer30_overview.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 5, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_5_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_5_geology_rivers_buffer30_regional.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 5, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -197,13 +197,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 27
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_overview.png
          :alt: 100 km2, headwater Mesh, Outlet 27, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_regional.png
          :alt: 100 km2, headwater Mesh, Outlet 27, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -224,13 +224,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 1
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30_overview.png
          :alt: 100 km2, headwater Mesh, Outlet 1, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_1_geology_rivers_buffer30_regional.png
          :alt: 100 km2, headwater Mesh, Outlet 1, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -251,13 +251,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 2
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30_overview.png
          :alt: 100 km2, headwater Mesh, Outlet 2, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_2_geology_rivers_buffer30_regional.png
          :alt: 100 km2, headwater Mesh, Outlet 2, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -278,13 +278,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 3
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30_overview.png
          :alt: 100 km2, headwater Mesh, Outlet 3, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_3_geology_rivers_buffer30_regional.png
          :alt: 100 km2, headwater Mesh, Outlet 3, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -305,13 +305,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 4
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30_overview.png
          :alt: 100 km2, headwater Mesh, Outlet 4, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_4_geology_rivers_buffer30_regional.png
          :alt: 100 km2, headwater Mesh, Outlet 4, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -337,13 +337,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 2
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_2_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_2_geology_rivers_buffer30_overview.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 2, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_2_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_2_geology_rivers_buffer30_regional.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 2, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -364,13 +364,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 20
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_20_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_20_geology_rivers_buffer30_overview.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 20, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_20_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_20_geology_rivers_buffer30_regional.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 20, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -391,13 +391,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 25
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_25_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_25_geology_rivers_buffer30_overview.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 25, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_25_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_25_geology_rivers_buffer30_regional.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 25, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -418,13 +418,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 26
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_26_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_26_geology_rivers_buffer30_overview.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 26, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_26_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_26_geology_rivers_buffer30_regional.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 26, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -445,13 +445,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 31
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_31_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_31_geology_rivers_buffer30_overview.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 31, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_31_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_100km2_outlet_31_geology_rivers_buffer30_regional.png
          :alt: 100 km2, Strahler 3 Mesh, Outlet 31, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -477,13 +477,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 2
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_overview.png
          :alt: 1000 km2 Mesh, Outlet 2, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_regional.png
          :alt: 1000 km2 Mesh, Outlet 2, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -504,13 +504,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 3
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_overview.png
          :alt: 1000 km2 Mesh, Outlet 3, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_3_geology_rivers_buffer30_regional.png
          :alt: 1000 km2 Mesh, Outlet 3, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -531,13 +531,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 4
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_overview.png
          :alt: 1000 km2 Mesh, Outlet 4, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_4_geology_rivers_buffer30_regional.png
          :alt: 1000 km2 Mesh, Outlet 4, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -558,13 +558,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 5
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_5_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_5_geology_rivers_buffer30_overview.png
          :alt: 1000 km2 Mesh, Outlet 5, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_5_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_5_geology_rivers_buffer30_regional.png
          :alt: 1000 km2 Mesh, Outlet 5, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -585,13 +585,13 @@ Read this section horizontally: one tab equals one outlet, while the meshing pol
 
    .. tab-item:: Outlet 7
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_7_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_7_geology_rivers_buffer30_overview.png
          :alt: 1000 km2 Mesh, Outlet 7, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_7_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_1000km2_outlet_7_geology_rivers_buffer30_regional.png
          :alt: 1000 km2 Mesh, Outlet 7, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -623,13 +623,13 @@ Read this section horizontally: one tab equals one meshing variant applied to th
 
    .. tab-item:: Geology + rivers, 30% buffer
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_overview.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_geology_rivers_buffer30_regional.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -649,13 +649,13 @@ Read this section horizontally: one tab equals one meshing variant applied to th
 
    .. tab-item:: Rivers only, 30% buffer
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_rivers_only_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_rivers_only_buffer30_overview.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Rivers only, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_rivers_only_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_s3_10km2_outlet_1_rivers_only_buffer30_regional.png
          :alt: 10 km2, Strahler 3 Mesh, Outlet 1, Rivers only, 30% buffer regional context
          :width: 35%
 
@@ -680,13 +680,13 @@ Read this section horizontally: one tab equals one meshing variant applied to th
 
    .. tab-item:: Floor 200 m, target 200 m
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_overview.png
          :alt: 100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_regional.png
          :alt: 100 km2, headwater Mesh, Outlet 27, floor 200 m, river target 200 m regional context
          :width: 35%
 
@@ -706,13 +706,13 @@ Read this section horizontally: one tab equals one meshing variant applied to th
 
    .. tab-item:: Floor 340 m, target 200 m
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_overview.png
          :alt: 100 km2, headwater Mesh, Outlet 27, floor 340 m, river target 200 m overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_regional.png
          :alt: 100 km2, headwater Mesh, Outlet 27, floor 340 m, river target 200 m regional context
          :width: 35%
 
@@ -732,13 +732,13 @@ Read this section horizontally: one tab equals one meshing variant applied to th
 
    .. tab-item:: Geology + rivers, 30% buffer
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_overview.png
          :alt: 100 km2, headwater Mesh, Outlet 27, Geology + rivers, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_regional.png
          :alt: 100 km2, headwater Mesh, Outlet 27, Geology + rivers, 30% buffer regional context
          :width: 35%
 
@@ -758,13 +758,13 @@ Read this section horizontally: one tab equals one meshing variant applied to th
 
    .. tab-item:: Rivers only, 30% buffer
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_overview.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_overview.png
          :alt: 100 km2, headwater Mesh, Outlet 27, Rivers only, 30% buffer overview
          :width: 85%
 
          Original mesh figure copied from the imported meshing run and reused directly in the documentation.
 
-      .. figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_regional.png
+      .. gallery-figure:: /_static/capability_gallery/mesh/mesh_100km2_outlet_27_rivers_only_buffer30_regional.png
          :alt: 100 km2, headwater Mesh, Outlet 27, Rivers only, 30% buffer regional context
          :width: 35%
 
