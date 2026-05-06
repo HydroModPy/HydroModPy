@@ -203,7 +203,10 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - 5 nouvelles entrées bibtex dans `references.bib` (abherve2024headwater, abherve2025climate, floriancic2024knickpoint, lemesnil2024coastal, marti2024wetland)
     - `docs/source/usage_bibliography.rst` avec :cite: role pour chaque entrée et résumé d'utilisation
     - Lien depuis applications.rst et how_to_cite
-36. `[docs] - add doc health dashboard in dev_notes`
+36. `[docs] - add doc health dashboard in dev_notes` ✓ (commit `b70525e8d`)
+    - `dev_notes/diagnostics/doc_health.md` (interne, pas dans la doc publique)
+    - Tableaux : build health, baseline warnings, doc linting, coverage, stubs, cross-link checks
+    - Procédure refresh documentée (regen doc_config + build sphinx -j auto)
 37. `[docs] - revamp landing page with hero CTAs and citation block`
 
 #### Phase 3 — Optionnel et conditionnel (~6-8 jours)
