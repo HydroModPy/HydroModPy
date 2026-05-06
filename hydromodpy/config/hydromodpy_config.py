@@ -29,37 +29,31 @@ import os
 import re
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.fields import FieldInfo
 
 from hydromodpy.analysis.config import AnalysisConfig
+from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.workspace.config import WorkspaceConfig
-
-# This module is the application-level config root. It is allowed to assemble
-# sibling package configs, while the generic helpers remain in ``core.config``.
-# Imports listed here serve IDE/static-type-checker consumption only; the real
-# runtime imports happen in ``_rebuild_forward_refs``.
-if TYPE_CHECKING:
-    from hydromodpy.calibration.config import CalibrationConfig
-    from hydromodpy.data.data_managers_config import DataManagersConfig
-    from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.overview.config import OverviewSection
-    from hydromodpy.physics.flow.flow_config import FlowConfig
-    from hydromodpy.physics.transport.transport_config import TransportConfig
-    from hydromodpy.simulation.planning.config import SimulationConfig
-    from hydromodpy.solver.base.solver_config import SolverConfig
-    from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
-    from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
-    from hydromodpy.spatial.domain.domain_config import DomainConfig
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-    from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.data.data_managers_config import DataManagersConfig
+from hydromodpy.display.config import DisplayConfig
+from hydromodpy.display.overview.config import OverviewSection
+from hydromodpy.physics.flow.flow_config import FlowConfig
+from hydromodpy.physics.transport.transport_config import TransportConfig
+from hydromodpy.simulation.planning.config import SimulationConfig
+from hydromodpy.solver.base.solver_config import SolverConfig
+from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
+from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
+from hydromodpy.spatial.domain.domain_config import DomainConfig
+from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 
 def _derive_run_id_from_filename(toml_path: Path) -> str:
@@ -137,7 +131,7 @@ class HydroModPyConfig(HydroModelBase):
         description="Configuration block for geographic and watershed delineation parameters."
     )
     domain: Annotated[DomainConfig, Profile.USER] = Field(
-        default_factory=lambda: DomainConfig(),
+        default_factory=DomainConfig,
         description=(
             "Domain configuration defining domain depth plus the spatial-support "
             "mode used for heterogeneous parameter mapping "
@@ -145,7 +139,7 @@ class HydroModPyConfig(HydroModelBase):
         ),
     )
     data: Annotated[DataManagersConfig, Profile.USER] = Field(
-        default_factory=lambda: DataManagersConfig(),
+        default_factory=DataManagersConfig,
         description=(
             "Data-managers configuration. Use `data.types` to declare requested "
             "families (for example `geology`). The launcher can also infer extra "
@@ -154,7 +148,7 @@ class HydroModPyConfig(HydroModelBase):
         ),
     )
     flow: Annotated[FlowConfig, Profile.USER] = Field(
-        default_factory=lambda: FlowConfig(),
+        default_factory=FlowConfig,
         description=(
             "Flow process configuration with declared parameter ids in "
             "[flow].param_list and payloads validated from [flow.param.<id>] "
@@ -162,7 +156,7 @@ class HydroModPyConfig(HydroModelBase):
         ),
     )
     transport: Annotated[TransportConfig, Profile.USER] = Field(
-        default_factory=lambda: TransportConfig(),
+        default_factory=TransportConfig,
         description=(
             "Transport process configuration, with solver-specific parameter "
             "blocks under [transport.modpath.parameters], "
@@ -170,7 +164,7 @@ class HydroModPyConfig(HydroModelBase):
         ),
     )
     simulation: Annotated[SimulationConfig, Profile.USER] = Field(
-        default_factory=lambda: SimulationConfig(),
+        default_factory=SimulationConfig,
         description=(
             "Optional simulation orchestration block loaded from [simulation] "
             "and [[simulation.process]]. When absent, the launcher uses its "
@@ -178,13 +172,13 @@ class HydroModPyConfig(HydroModelBase):
         ),
     )
     solver: Annotated[SolverConfig, Profile.USER] = Field(
-        default_factory=lambda: SolverConfig(),
+        default_factory=SolverConfig,
         description=(
             "Global solver selection loaded from [solver], including the active solver_engine."
         ),
     )
     modflownwt: Annotated[ModflowConfig, Profile.USER] = Field(
-        default_factory=lambda: ModflowConfig(),
+        default_factory=ModflowConfig,
         description=(
             "Expert MODFLOW-NWT package configuration loaded from "
             "[modflownwt.runtime], [modflownwt.process_specific], "
@@ -192,7 +186,7 @@ class HydroModPyConfig(HydroModelBase):
         ),
     )
     modflow6: Annotated[Modflow6Config, Profile.USER] = Field(
-        default_factory=lambda: Modflow6Config(),
+        default_factory=Modflow6Config,
         description=(
             "Expert MODFLOW 6 package configuration loaded from "
             "[modflow6.runtime], [modflow6.process_specific], "
@@ -200,7 +194,7 @@ class HydroModPyConfig(HydroModelBase):
         ),
     )
     display: Annotated[DisplayConfig, Profile.USER] = Field(
-        default_factory=lambda: DisplayConfig(),
+        default_factory=DisplayConfig,
         description=("Optional display and export toggles loaded from the [display] section."),
     )
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
@@ -346,6 +340,8 @@ class HydroModPyConfig(HydroModelBase):
         base_dir: str | Path | None = None,
     ) -> HydroModPyConfig:
         """Load and validate configuration from a JSON payload."""
+        if base_dir is None:
+            return cls.model_validate_json(payload)
         raw = json.loads(payload)
         if not isinstance(raw, Mapping):
             raise ValueError("HydroModPyConfig JSON payload must be a mapping")
@@ -370,7 +366,7 @@ class HydroModPyConfig(HydroModelBase):
         base: Path,
     ) -> HydroModPyConfig:
         """Normalize one raw config payload and validate the root model."""
-        raw = _strip_empty_string_placeholders(copy.deepcopy(dict(payload)))
+        raw = copy.deepcopy(dict(payload))
         if "initializing" in raw:
             raise ValueError(
                 "Section [initializing] is no longer supported. Use [workspace] instead."
@@ -499,24 +495,6 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
         else:
             result[key] = val
     return result
-
-
-def _strip_empty_string_placeholders(data: dict[str, Any]) -> dict[str, Any]:
-    """Drop TOML-template empty-string placeholders from a nested payload."""
-    cleaned: dict[str, Any] = {}
-    for key, value in data.items():
-        if isinstance(value, dict):
-            cleaned[key] = _strip_empty_string_placeholders(value)
-        elif isinstance(value, list):
-            cleaned[key] = [
-                (_strip_empty_string_placeholders(item) if isinstance(item, dict) else item)
-                for item in value
-            ]
-        elif value == "":
-            continue
-        else:
-            cleaned[key] = value
-    return cleaned
 
 
 def _is_path_field(field_info: FieldInfo) -> bool:

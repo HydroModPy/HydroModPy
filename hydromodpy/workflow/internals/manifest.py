@@ -145,33 +145,19 @@ def _state_get(state: PipelineState, key: str) -> Any:
 def _state_config_payload(state: PipelineState) -> Any:
     raw_toml = _state_get(state, "raw_toml")
     if raw_toml:
-        return _jsonable(raw_toml)
+        return raw_toml
     config = _state_get(state, "config")
     if config is None:
         config = _state_get(state, "cfg")
     if isinstance(config, BaseModel):
-        return _jsonable(config.model_dump(mode="json", by_alias=True, exclude_none=True))
+        return config.model_dump(mode="json", exclude_none=True)
     if isinstance(config, Mapping):
-        return _jsonable(config)
+        return config
     return None
 
 
-def _jsonable(value: Any) -> Any:
-    if isinstance(value, BaseModel):
-        return _jsonable(value.model_dump(mode="json", by_alias=True, exclude_none=True))
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, Mapping):
-        return {str(key): _jsonable(sub) for key, sub in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_jsonable(sub) for sub in value]
-    if isinstance(value, (str, int, float, bool)) or value is None:
-        return value
-    return str(value)
-
-
 def _sha256_payload(payload: Any) -> str:
-    return hashlib.sha256(canonical_dumps(_jsonable(payload)).encode("utf-8")).hexdigest()
+    return hashlib.sha256(canonical_dumps(payload).encode("utf-8")).hexdigest()
 
 
 def _string_or_none(value: object) -> str | None:

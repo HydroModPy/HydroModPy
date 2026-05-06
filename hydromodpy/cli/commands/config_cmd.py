@@ -15,6 +15,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 
 NAME: str = "config"
@@ -167,17 +169,17 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
     except tomllib.TOMLDecodeError as exc:
         print(f"Invalid TOML syntax: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
+    except ValidationError as exc:
+        print(f"Config invalid: {path}", file=sys.stderr)
+        for err in exc.errors():
+            loc = ".".join(str(p) for p in err.get("loc", ()))
+            msg = err.get("msg", "")
+            print(f"  {loc}: {msg}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
     except ValueError as exc:
         print(f"Invalid base_config chain: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except Exception as exc:
-        if type(exc).__name__ == "ValidationError":
-            print(f"Config invalid: {path}", file=sys.stderr)
-            for err in exc.errors():  # type: ignore[attr-defined]
-                loc = ".".join(str(p) for p in err.get("loc", ()))
-                msg = err.get("msg", "")
-                print(f"  {loc}: {msg}", file=sys.stderr)
-            sys.exit(EXIT_CONFIG)
         print(f"Config check failed: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 

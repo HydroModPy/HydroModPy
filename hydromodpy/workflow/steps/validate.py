@@ -16,7 +16,6 @@ Outputs
 
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
 from typing import ClassVar
 
@@ -42,9 +41,7 @@ class ValidateStep:
             if config_path is None:
                 raise ConfigError("ValidateStep requires 'cfg' or 'config_path' in state.data")
             path = Path(config_path).expanduser().resolve()
-            with open(path, "rb") as fh:
-                raw = tomllib.load(fh)
-            cfg = HydroModPyConfig.model_validate(raw)
+            cfg = HydroModPyConfig.from_toml(path)
             config_path = path
         elif not isinstance(cfg, HydroModPyConfig):
             cfg = HydroModPyConfig.model_validate(cfg)
