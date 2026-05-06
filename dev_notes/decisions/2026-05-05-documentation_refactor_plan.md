@@ -319,7 +319,7 @@ les étapes 23 à 37.
     - 6 tutoriels enrichis sous `getting_started/` : `concepts_in_5_min` (beginner / 5 min), `cli-quickstart` (beginner / 10 min), `choose-your-first-workflow` (beginner / 5 min), `data-overview-walkthrough` (beginner / 30 min), `simulation-walkthrough` (intermediate / 1 h), `read-real-basin-run` (intermediate / 45 min)
     - Cas gallery non taggés à ce stade (les specs `tools/doc_gallery/*` n'ont pas encore de champ `difficulty`/`time` ; à faire dans une itération séparée si besoin)
     - Build sphinx local clean (3 warnings baseline)
-43. `[docs] - capture and embed key workflow GIFs (calibration convergence, mesh refinement, CLI setup)`
+43. `[docs] - capture and embed key workflow GIFs (calibration convergence, mesh refinement, CLI setup)` ⏸ bloqué — captures animées non encore produites. À reprendre quand `_static/motion/{calibration_convergence,mesh_refinement,cli_setup}.{mp4,gif}` sont disponibles. Plan d'intégration : ajouter une directive utilitaire `motion-figure` (`<video controls autoplay loop muted>` + fallback `<img src="*.gif">` quand l'agent n'autorise pas l'auto-play) sur les pages tutoriel concernées.
 44. `[docs] - add interactive schema explorer with stoplight viewer (couche 3 config)`
 45. `[docs] - mention vtk-js mesh viewer as future evolution in architecture page`
 
