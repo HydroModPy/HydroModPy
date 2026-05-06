@@ -9,6 +9,12 @@ comparison, and a possibility map.
 The Boussinesq route is not a MODFLOW wrapper. It is a HydroModPy-native
 finite-volume shallow-groundwater formulation on triangular runtime meshes.
 
+The shallow-groundwater equation solved here descends from the seminal works
+of :cite:`boussinesq1877` and :cite:`boussinesq1904`, which build on the
+Dupuit assumptions :cite:`dupuit1863`. A modern textbook treatment can be
+found in :cite:`brutsaert2005`. See :doc:`bibliography` for the full list of
+cited references.
+
 Current Scope
 -------------
 

@@ -30,3 +30,4 @@ documented elsewhere:
    calibration/index
    solvers/index
    boussinesq
+   bibliography

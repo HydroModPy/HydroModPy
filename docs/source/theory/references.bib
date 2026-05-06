@@ -1,21 +1,186 @@
 % HydroModPy theory bibliography.
 %
-% Step 15 of the documentation refactor will populate this file by extracting
-% prose citations from the theory section and replacing them with :cite:
-% directives. Until then this file only carries seed entries.
+% Entries cover: foundational hydrogeology (Boussinesq, Dupuit, Theis,
+% Hantush, Brutsaert), MODFLOW family documentation (Harbaugh, Niswonger,
+% Langevin), HydroModPy seepage-calibration paper (Abherve), and the
+% optimization libraries wrapped by the calibration backend (Bergstra,
+% Hansen, Nelder-Mead, Virtanen/SciPy, Pedregosa/scikit-learn,
+% Rasmussen-Williams, Christen-Fox).
+
+% --- Foundational hydrogeology ---
 
 @article{boussinesq1877,
-  author = {Boussinesq, J.},
-  title = {Essai sur la th\'eorie des eaux courantes},
+  author  = {Boussinesq, J.},
+  title   = {Essai sur la th\'eorie des eaux courantes},
   journal = {M\'emoires pr\'esent\'es par divers savants \`a l'Acad\'emie des Sciences},
-  year = {1877}
+  volume  = {23},
+  pages   = {1--680},
+  year    = {1877}
 }
 
 @article{boussinesq1904,
-  author = {Boussinesq, J.},
-  title = {Recherches th\'eoriques sur l'\'ecoulement des nappes d'eau infiltr\'ees dans le sol},
+  author  = {Boussinesq, J.},
+  title   = {Recherches th\'eoriques sur l'\'ecoulement des nappes d'eau infiltr\'ees dans le sol},
   journal = {Journal de Math\'ematiques Pures et Appliqu\'ees},
-  volume = {10},
-  pages = {5--78},
-  year = {1904}
+  volume  = {10},
+  pages   = {5--78},
+  year    = {1904}
+}
+
+@book{dupuit1863,
+  author    = {Dupuit, J.},
+  title     = {\'Etudes th\'eoriques et pratiques sur le mouvement des eaux dans les canaux d\'ecouverts et \`a travers les terrains perm\'eables},
+  publisher = {Dunod},
+  address   = {Paris},
+  edition   = {2nd},
+  year      = {1863}
+}
+
+@article{theis1935,
+  author  = {Theis, C. V.},
+  title   = {The relation between the lowering of the piezometric surface and the rate and duration of discharge of a well using groundwater storage},
+  journal = {Eos, Transactions American Geophysical Union},
+  volume  = {16},
+  number  = {2},
+  pages   = {519--524},
+  year    = {1935},
+  doi     = {10.1029/TR016i002p00519}
+}
+
+@article{hantush1960,
+  author  = {Hantush, M. S.},
+  title   = {Modification of the theory of leaky aquifers},
+  journal = {Journal of Geophysical Research},
+  volume  = {65},
+  number  = {11},
+  pages   = {3713--3725},
+  year    = {1960},
+  doi     = {10.1029/JZ065i011p03713}
+}
+
+@book{brutsaert2005,
+  author    = {Brutsaert, W.},
+  title     = {Hydrology: An Introduction},
+  publisher = {Cambridge University Press},
+  address   = {Cambridge},
+  year      = {2005},
+  doi       = {10.1017/CBO9780511808470}
+}
+
+% --- MODFLOW family documentation ---
+
+@techreport{harbaugh2005,
+  author      = {Harbaugh, A. W.},
+  title       = {{MODFLOW-2005}, the {U.S.} {Geological} {Survey} modular ground-water model: the ground-water flow process},
+  institution = {U.S. Geological Survey},
+  type        = {Techniques and Methods},
+  number      = {6-A16},
+  year        = {2005},
+  doi         = {10.3133/tm6A16}
+}
+
+@techreport{niswonger2011,
+  author      = {Niswonger, R. G. and Panday, S. and Ibaraki, M.},
+  title       = {{MODFLOW-NWT}, A {Newton} formulation for {MODFLOW}-2005},
+  institution = {U.S. Geological Survey},
+  type        = {Techniques and Methods},
+  number      = {6-A37},
+  year        = {2011},
+  doi         = {10.3133/tm6A37}
+}
+
+@techreport{langevin2017,
+  author      = {Langevin, C. D. and Hughes, J. D. and Banta, E. R. and Niswonger, R. G. and Panday, S. and Provost, A. M.},
+  title       = {Documentation for the {MODFLOW} 6 Groundwater Flow Model},
+  institution = {U.S. Geological Survey},
+  type        = {Techniques and Methods},
+  number      = {6-A55},
+  year        = {2017},
+  doi         = {10.3133/tm6A55}
+}
+
+% --- HydroModPy stream-network calibration ---
+
+@article{abherve2023,
+  author  = {Abherv\'e, R. and Roques, C. and Gauvain, A. and Longuevergne, L. and Louaisil, S. and Aquilina, L. and de Dreuzy, J.-R.},
+  title   = {Calibration of groundwater seepage against the spatial distribution of the stream network to assess catchment-scale hydraulic properties},
+  journal = {Hydrology and Earth System Sciences},
+  volume  = {27},
+  number  = {17},
+  pages   = {3221--3239},
+  year    = {2023},
+  doi     = {10.5194/hess-27-3221-2023}
+}
+
+% --- Optimization and machine-learning libraries used by the calibration backend ---
+
+@article{bergstra2012,
+  author  = {Bergstra, J. and Bengio, Y.},
+  title   = {Random Search for Hyper-Parameter Optimization},
+  journal = {Journal of Machine Learning Research},
+  volume  = {13},
+  pages   = {281--305},
+  year    = {2012},
+  url     = {https://www.jmlr.org/papers/v13/bergstra12a.html}
+}
+
+@misc{hansen2016,
+  author       = {Hansen, N.},
+  title        = {The {CMA} Evolution Strategy: A Tutorial},
+  year         = {2016},
+  eprint       = {1604.00772},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.LG},
+  url          = {https://arxiv.org/abs/1604.00772}
+}
+
+@article{neldermead1965,
+  author  = {Nelder, J. A. and Mead, R.},
+  title   = {A Simplex Method for Function Minimization},
+  journal = {The Computer Journal},
+  volume  = {7},
+  number  = {4},
+  pages   = {308--313},
+  year    = {1965},
+  doi     = {10.1093/comjnl/7.4.308}
+}
+
+@article{virtanen2020,
+  author  = {Virtanen, P. and Gommers, R. and Oliphant, T. E. and Haberland, M. and Reddy, T. and Cournapeau, D. and Burovski, E. and Peterson, P. and Weckesser, W. and Bright, J. and {van der Walt}, S. J. and Brett, M. and Wilson, J. and Millman, K. J. and Mayorov, N. and Nelson, A. R. J. and Jones, E. and Kern, R. and Larson, E. and Carey, C. J. and Polat, \.{I}. and Feng, Y. and Moore, E. W. and {VanderPlas}, J. and Laxalde, D. and Perktold, J. and Cimrman, R. and Henriksen, I. and Quintero, E. A. and Harris, C. R. and Archibald, A. M. and Ribeiro, A. H. and Pedregosa, F. and {van Mulbregt}, P.},
+  title   = {{SciPy} 1.0: fundamental algorithms for scientific computing in {Python}},
+  journal = {Nature Methods},
+  volume  = {17},
+  pages   = {261--272},
+  year    = {2020},
+  doi     = {10.1038/s41592-019-0686-2}
+}
+
+@article{pedregosa2011,
+  author  = {Pedregosa, F. and Varoquaux, G. and Gramfort, A. and Michel, V. and Thirion, B. and Grisel, O. and Blondel, M. and Prettenhofer, P. and Weiss, R. and Dubourg, V. and Vanderplas, J. and Passos, A. and Cournapeau, D. and Brucher, M. and Perrot, M. and Duchesnay, \'E.},
+  title   = {Scikit-learn: Machine Learning in {Python}},
+  journal = {Journal of Machine Learning Research},
+  volume  = {12},
+  pages   = {2825--2830},
+  year    = {2011},
+  url     = {https://www.jmlr.org/papers/v12/pedregosa11a.html}
+}
+
+@book{rasmussen2006,
+  author    = {Rasmussen, C. E. and Williams, C. K. I.},
+  title     = {Gaussian Processes for Machine Learning},
+  publisher = {MIT Press},
+  address   = {Cambridge, MA},
+  year      = {2006},
+  url       = {https://gaussianprocess.org/gpml/}
+}
+
+@article{christen2005,
+  author  = {Christen, J. A. and Fox, C.},
+  title   = {Markov Chain {Monte} {Carlo} Using an Approximation},
+  journal = {Journal of Computational and Graphical Statistics},
+  volume  = {14},
+  number  = {4},
+  pages   = {795--810},
+  year    = {2005},
+  doi     = {10.1198/106186005X76983}
 }

@@ -338,7 +338,7 @@ The overlap metric is cell-based: it rasterizes the observed ``reference``
 linework onto the model mesh and compares it with simulated active cells. The
 new distance export adds a second, planar diagnostic based on bidirectional
 cell-centroid distances. A future calibration metric should still add the
-bidirectional downslope criterion used by Abherve et al. (2023), where the
+bidirectional downslope criterion used by :cite:`abherve2023`, where the
 simulated seepage network is compared to the observed stream network through
 simulated-to-observed and observed-to-simulated flowpath distances.
 
@@ -357,9 +357,6 @@ Related Reading
 - :doc:`conceptual-model`
 - :doc:`../hydrology/simulated-active-network`
 - :doc:`../../getting_started/comparison-workflow`
-- Abherve, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S.,
-  Aquilina, L., and de Dreuzy, J.-R. (2023), `Calibration of groundwater
-  seepage against the spatial distribution of the stream network to assess
-  catchment-scale hydraulic properties
-  <https://doi.org/10.5194/hess-27-3221-2023>`_, Hydrol. Earth Syst. Sci.,
-  27, 3221-3239.
+- :cite:`abherve2023` for the bidirectional downslope-distance metric
+  between simulated seepage and observed stream networks; see also
+  :doc:`../bibliography`.

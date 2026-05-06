@@ -223,4 +223,14 @@ Interpretation Checklist
   is uncertainty analysis or identifiability assessment.
 - ``da_mh_gp`` should only be interpreted as a Bayesian posterior sampler when
   its RMSE likelihood and ``sigma_noise`` setting are scientifically coherent
-  for the data at hand.
+  for the data at hand. The delayed-acceptance MCMC scheme follows
+  :cite:`christen2005`.
+
+Further Reading
+---------------
+
+- :doc:`calibration-methods` for the per-method scientific and algorithmic
+  references.
+- :cite:`abherve2023` for a HydroModPy-related calibration of catchment
+  hydraulic properties against the spatial distribution of stream networks.
+- :doc:`../bibliography` for the full list of cited references.

@@ -372,35 +372,26 @@ Implementation Provenance And References
   ``hydromodpy.analysis.calibration.core.methods.random_search`` using NumPy's
   random generator. It is intentionally kept as a pragmatic Monte Carlo
   baseline. For the practical argument that random search is a strong baseline
-  for bounded search spaces, see `Bergstra and Bengio (2012)
-  <https://www.jmlr.org/papers/v13/bergstra12a.html>`_.
+  for bounded search spaces, see :cite:`bergstra2012`.
 - ``cma_es`` is implemented in
   ``hydromodpy.analysis.calibration.core.methods.cma_es`` and delegates the
   covariance-update logic to the `CMA-ES package <https://cma-es.github.io/>`_,
   while HydroModPy keeps bound normalization and result packaging consistent
-  with the other methods. Reference: `Hansen (2016)
-  <https://arxiv.org/abs/1604.00772>`_.
+  with the other methods. Reference: :cite:`hansen2016`.
 - ``simplex`` and ``nelder_mead`` are thin wrappers around SciPy optimizers:
   ``scipy.optimize.fmin`` and
   ``scipy.optimize.minimize(..., method="Nelder-Mead")``. References:
-  `Virtanen et al. (2020), SciPy 1.0
-  <https://www.nature.com/articles/s41592-019-0686-2>`_;
-  `Nelder and Mead (1965)
-  <https://doi.org/10.1093/comjnl/7.4.308>`_.
+  :cite:`virtanen2020`; :cite:`neldermead1965`.
 - ``gp_mapping`` is a HydroModPy-specific orchestration implemented in
   ``hydromodpy.analysis.calibration.core.methods.gp_mapping``. It uses
   ``sklearn.gaussian_process.GaussianProcessRegressor`` when available and
   otherwise falls back to an internal inverse-distance-weighted surrogate.
-  References: `Pedregosa et al. (2011), scikit-learn
-  <https://www.jmlr.org/papers/v12/pedregosa11a.html>`_;
-  `Rasmussen and Williams (2006), Gaussian Processes for Machine Learning
-  <https://gaussianprocess.org/gpml/>`_.
+  References: :cite:`pedregosa2011`; :cite:`rasmussen2006`.
 - ``da_mh_gp`` is reimplemented in HydroModPy in
   ``hydromodpy.analysis.calibration.core.methods.da_mh_gp`` as a
   delayed-acceptance random-walk Metropolis-Hastings workflow with an internal
   lightweight Gaussian-process surrogate. Its initial design uses
   ``scipy.stats.qmc.Sobol`` when SciPy is available. References:
-  `Christen and Fox (2005)
-  <https://www.tandfonline.com/doi/abs/10.1198/106186005X76983>`_;
+  :cite:`christen2005`;
   `SciPy QMC documentation
   <https://docs.scipy.org/doc/scipy/reference/stats.qmc.html>`_.

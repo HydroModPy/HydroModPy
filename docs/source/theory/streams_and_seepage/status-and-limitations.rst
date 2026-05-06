@@ -102,7 +102,7 @@ Full surface-water routing
 Calibration-grade stream-network metric
    Current active-network overlap metrics are cell-overlap diagnostics. They
    are useful, but they are not yet the full bidirectional downslope-distance
-   metric used by Abhervé et al. (2023).
+   metric used by :cite:`abherve2023`.
 
 K-only Nancon calibration protocol
    The committed Nancon sweep is a development and reading case. A clean

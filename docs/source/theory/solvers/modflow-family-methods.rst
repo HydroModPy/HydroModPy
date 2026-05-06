@@ -39,7 +39,9 @@ Backend Split
 MODFLOW-NWT
 ^^^^^^^^^^^
 
-The current scientific position of MODFLOW-NWT in HydroModPy is:
+The current scientific position of MODFLOW-NWT (:cite:`niswonger2011`,
+building on the structured ground-water-flow process documented in
+:cite:`harbaugh2005`) in HydroModPy is:
 
 - structured-grid path,
 - compatibility with the historical MT3DMS and MODPATH ecosystem,
@@ -48,7 +50,8 @@ The current scientific position of MODFLOW-NWT in HydroModPy is:
 MODFLOW 6
 ^^^^^^^^^
 
-The current scientific position of MODFLOW 6 in HydroModPy is:
+The current scientific position of MODFLOW 6 (:cite:`langevin2017`) in
+HydroModPy is:
 
 - modern flow backend,
 - support for both structured and runtime unstructured mesh paths,

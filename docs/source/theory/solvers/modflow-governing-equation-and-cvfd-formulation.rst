@@ -26,22 +26,21 @@ Primary Official Anchors
 The scientific material on this page should stay aligned with the following
 primary sources:
 
-- `USGS TM 6-A55, Documentation for the MODFLOW 6 Groundwater Flow Model <https://pubs.usgs.gov/publication/tm6A55>`_
-  :
+- USGS TM 6-A55, :cite:`langevin2017`,
+  `Documentation for the MODFLOW 6 Groundwater Flow Model <https://pubs.usgs.gov/publication/tm6A55>`_:
   governing equation, control-volume finite-difference formulation, storage,
   and stress-package concepts for MODFLOW 6.
-- `USGS TM 6-A56, Documentation for the XT3D Option in the Node Property Flow Package of MODFLOW 6 <https://pubs.usgs.gov/publication/tm6A56>`_
-  :
+- `USGS TM 6-A56, Documentation for the XT3D Option in the Node Property Flow Package of MODFLOW 6 <https://pubs.usgs.gov/publication/tm6A56>`_:
   extended conductance formulation and the reason XT3D matters on irregular
   grids.
-- `MODFLOW 6 Input Guide <https://modflow6.readthedocs.io/en/latest/mf6io.html>`_
-  :
+- `MODFLOW 6 Input Guide <https://modflow6.readthedocs.io/en/latest/mf6io.html>`_:
   package-level definitions for ``DIS``, ``DISV``, ``NPF``, ``STO``, ``CHD``,
   ``DRN``, ``WEL``, ``RCHA``, ``EVT``, ``IMS``, and ``OC``.
-- `Online Guide to MODFLOW-NWT <https://water.usgs.gov/ogw/modflow-nwt/MODFLOW-NWT-Guide/index.html>`_
-  :
+- USGS TM 6-A37, :cite:`niswonger2011`,
+  `Online Guide to MODFLOW-NWT <https://water.usgs.gov/ogw/modflow-nwt/MODFLOW-NWT-Guide/index.html>`_:
   the legacy Newton-based path still used by HydroModPy for the structured
-  MODFLOW-NWT branch.
+  MODFLOW-NWT branch, on top of the original MODFLOW-2005 ground-water flow
+  process :cite:`harbaugh2005`.
 
 HydroModPy documentation should build from these sources rather than replacing
 them.

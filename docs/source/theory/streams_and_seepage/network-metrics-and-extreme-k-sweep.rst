@@ -30,7 +30,7 @@ diagnostics.
    * - Family
      - What is compared?
      - Current implementation
-     - Relation to Abherve et al. (2023)
+     - Relation to :cite:`abherve2023`
    * - Vector linework overlap
      - ``reference`` vector network versus another vector network, usually
        ``generated``
@@ -66,7 +66,7 @@ them:
 - ``dist_dem_obs.tif`` and ``dist_dem_sim.tif``: downslope-distance rasters.
 - sampled point layers such as ``sim_pt.shp`` and ``obs_pt.shp``.
 
-To make it fully compatible with Abherve et al. (2023), HydroModPy should
+To make it fully compatible with :cite:`abherve2023`, HydroModPy should
 modernize that logic into a result view and CSV export that computes at least:
 
 - :math:`D^{down}_{s\to o}`: average simulated-to-observed downslope
@@ -386,7 +386,7 @@ step if this diagnostic is promoted from visual development to calibration.
 The current planar metrics do contain an optimum-style distance ratio:
 ``planar_distance_ratio`` and ``planar_distance_log10_ratio``. The ratio is
 useful for inspecting whether the two directional distances cross as ``K``
-changes. It is not :math:`r_{optim}` from Abherve et al. (2023), because the
+changes. It is not :math:`r_{optim}` from :cite:`abherve2023`, because the
 paper computes :math:`D_{optim}` from downslope flowpath distances and then
 normalizes it by the DEM resolution.
 
@@ -414,9 +414,5 @@ Related Reading
 - :doc:`nancon-k-sweep-results`
 - :doc:`conceptual-model`
 - :doc:`../hydrology/simulated-active-network`
-- Abherve, R., Roques, C., Gauvain, A., Longuevergne, L., Louaisil, S.,
-  Aquilina, L., and de Dreuzy, J.-R. (2023), `Calibration of groundwater
-  seepage against the spatial distribution of the stream network to assess
-  catchment-scale hydraulic properties
-  <https://doi.org/10.5194/hess-27-3221-2023>`_, Hydrol. Earth Syst. Sci.,
-  27, 3221-3239.
+- :cite:`abherve2023` for the published bidirectional downslope-distance
+  criterion; see also :doc:`../bibliography`.
