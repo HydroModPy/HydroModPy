@@ -1,7 +1,7 @@
-"""Watershed identity-card multi-panel figure.
+"""Watershed identity-card figure.
 
-Combines a topography map, outlet marker, a hydrograph preview and
-a metadata table into a single compact summary figure.
+Combines a topography map, outlet marker and a metadata table into a single
+compact summary figure.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ import numpy as np
 
 from hydromodpy.display._map_axes import (
     overlay_watershed_contour,
-    style_date_axis,
     style_map_axes,
 )
 from hydromodpy.display.catalog import register
@@ -34,7 +33,7 @@ _DEM_RASTER_CANDIDATES = ("watershed_dem", "dem", "watershed_fill")
 
 @register
 class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
-    """Four-panel summary: topography, hydrograph, metadata table."""
+    """Compact summary: topography and metadata table."""
 
     spec = FigureSpec(
         name="watershed_id_card",
@@ -76,16 +75,13 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
             dpi=dpi,
             constrained_layout=True,
         )
-        # Give the map a bit more vertical room than the hydrograph, and the
-        # identity column is narrow since it only holds a compact table.
-        gs = GridSpec(2, 2, figure=fig, width_ratios=[3.0, 1.3], height_ratios=[2.2, 1.0])
+        # The identity column is narrow since it only holds a compact table.
+        gs = GridSpec(1, 2, figure=fig, width_ratios=[3.0, 1.3])
 
         ax_topo = fig.add_subplot(gs[0, 0])
-        ax_hydro = fig.add_subplot(gs[1, 0])
-        ax_meta = fig.add_subplot(gs[:, 1])
+        ax_meta = fig.add_subplot(gs[0, 1])
 
         self._draw_topography(ax_topo, sim)
-        self._draw_hydrograph(ax_hydro, sim)
         self._draw_metadata(ax_meta, sim)
 
         fig.suptitle(
@@ -183,33 +179,10 @@ class WatershedIdCardFigure(GeoFigureMixin, BaseFigure):
             zorder=10,
         )
 
-    def _draw_hydrograph(self, ax: Axes, sim: Run) -> None:
-        try:
-            ts = sim.timeseries("discharge", station="_catchment")
-        except Exception:
-            ax.text(
-                0.5,
-                0.5,
-                "no hydrograph",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-                color="gray",
-            )
-            ax.set_title("Outlet discharge")
-            return
-
-        ax.plot(ts.index, ts.values, color="steelblue", lw=1.2)
-        ax.set_ylabel("Q (m³/s)")
-        ax.set_xlabel("Date")
-        ax.grid(True, ls=":", lw=0.4)
-        style_date_axis(ax)
-        ax.set_title("Outlet discharge")
-
     def _draw_metadata(self, ax: Axes, sim: Run) -> None:
         ax.set_axis_off()
         sid = str(sim.sim_id or "")
-        sid_short = f"{sid[:8]}…" if len(sid) > 10 else sid
+        sid_short = f"{sid[:8]}..." if len(sid) > 10 else sid
         rows: list[tuple[str, str]] = [
             ("ID", sid_short),
             ("Name", str(sim.name or "-")),

@@ -119,7 +119,7 @@ Solver Coverage
       **Metrics**
       - Head-profile RMSE: 0.0136 m
       - Head-profile max abs error: 0.0316 m
-      - Cross-row head spread: 3.03e-11 m
+      - Cross-row head spread: 8.88e-16 m
 
       - Config file: ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml``
@@ -397,7 +397,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml``
 
 Acceptance Criteria
@@ -549,6 +549,8 @@ Source Pointers
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc.toml``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_partition.toml``
+- ``validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_ts_vi_obstacle.toml``
+- ``validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_vi_obstacle.toml``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml``
 - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml``

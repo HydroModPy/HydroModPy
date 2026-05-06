@@ -18,6 +18,7 @@ The section should also become the main place for:
 
    flow/index
    boussinesq-mathematical-notes
+   boussinesq-petsc-validation-results
    meshes-and-numerical-methods
    mesh-and-discretization-strategies
    field-to-cell-parameter-transfer

@@ -22,7 +22,7 @@
     "validate the transient onset of interception on a topographic slope,",
     "compare the **time of first inland interception** against a linearized approximation,",
     "compare the discrete interception trajectory `x_int(t)` on the early-moving front where the approximation remains informative.",
-    "Transient appearance of seepage/interception on a hillslope with the dense in-house Boussinesq runtime",
+    "Transient appearance of seepage/interception on a hillslope with the PETSc TS VI Boussinesq runtime",
     "Primary metrics: onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread."
   ],
   "reference_highlights": [
@@ -50,16 +50,16 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
     "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/README.md": "3683e82dcc2c95449a1a7242475ce9bfb640db3192bf838842e938c4dbca260f",
     "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/reference.py": "6e85e4127e27cd342cc6d4f7573544fae7592395247980dad0242250c07faab4",
-    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/comparison.py": "6d077dc4571d14ae5af60be1c188bb61e3763acae3a47a41cc3cbc383a9b8fb8",
-    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/plotting.py": "627900e8ca2413b16d67d951f09d8da91abb82a35aa589c124aac5f16c574112",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/comparison.py": "5824d933669062d44255dcb580377d0b16408a9c86d86ba9f0cfb7a78a1329fd",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/plotting.py": "54b0a5c47b6d6b3c56965285680063054a6c89f2ed6fd0f558fd94b26abb1c74",
     "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/run_case.py": "1d8de8606bf2e5409c80d6512cc0275c987027c7813616c34d84d5f1b056f8fc",
     "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/metadata.toml": "a91a0c2ed638a4be8fa87768911978bc13a825ff18d68d468726a528bdcd3085",
-    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/runtime_boussinesq.py": "9300e6b0faa61f3b01583e9edf673c4b5a5a76a2966e075cb1558e4846141a76",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/runtime_boussinesq.py": "e05bf94497207d2bacd23244a2c1fbc76a3aa1c7d33aa669f8decd26238bb5b3",
     "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml": "6ea8db405dff6f37cb5bf1247347ea08868bf795ebb2d59268bafb267c86d91d",
-    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/config_boussinesq.toml": "6f68bf8bb4da181014cdc8fc3d802958f0c056f4675490e309cfaa280b586156",
+    "validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/config_boussinesq.toml": "923fb498f929f50aa944d1304df6a403bcd09ffeafca0b5d43454aa9fceb1753",
     "validation_cases/analytical/transient/linearized_unconfined_1d.py": "b78a584f72b0268e0317f547067afa6fa4ae9edbc220f77148f71837024e9e60"
   },
   "docname": "cases/boussinesq_hillslope_recharge_step_interception_1d",
@@ -94,7 +94,7 @@
       "numerical_setup": "Sloping strip, east fixed head, recharge step from the first transient period",
       "analytical_target": "Linearized onset approximation for the moving interception front",
       "primary_metrics": "onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread",
-      "what_it_validates": "Transient appearance of seepage/interception on a hillslope with the dense in-house Boussinesq runtime"
+      "what_it_validates": "Transient appearance of seepage/interception on a hillslope with the PETSc TS VI Boussinesq runtime"
     },
     "process_family": "flow",
     "process_family_label": "Flow",
@@ -124,12 +124,12 @@
       "command": "python -m validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_interception_1d.run_case --no-show",
       "metric_lines": [
         "Analytical onset time: 60.0 d",
-        "Numerical onset time: 80.0 d",
-        "Onset-time error: 20.0 d",
-        "Interception-trajectory RMSE: 6.45 m",
+        "Numerical onset time: 70.0 d",
+        "Onset-time error: 10.0 d",
+        "Interception-trajectory RMSE: 5.00 m",
         "Interception-trajectory max abs error: 10.00 m",
         "Trajectory reversal: 0.00e+00 m",
-        "Cross-row head spread: 1.38e-08 m"
+        "Cross-row head spread: 8.88e-16 m"
       ],
       "image": {
         "filename": "boussinesq_hillslope_recharge_step_interception_1d__boussinesq.png",

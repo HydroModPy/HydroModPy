@@ -58,24 +58,24 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/README.md": "17010dbcf6660982ab1d8a8795ab8041425fdb5557bb05b5049ae74119976c8e",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/reference.py": "9f6d9de8c12d844e6352d012eb18a9fb433ec7058e279a6cbdada52c8c08063d",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/comparison.py": "51a6aca2c2240be52fdca716982972e49f9e9068fb7188433ad330d9ebd2742c",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/plotting.py": "73c521cc305dcff925cac381c66c810b6366c88e7c1efb294ce86d898f99c586",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/plotting.py": "06a2baf8c5d71af34fc1f5c5a4c8d84eaa0a1003edfe365a64c606f93a0e91dc",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/run_case.py": "131a32b69836807010ae64100c74206fab0ab561737f219f2b69185cbf025c2a",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml": "1ca437ed2ef0c4ffe754ebfa58e6052ddd6ae1a6fe8084e5eed568989a16e30e",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml": "629c46d4cca655d4b862c38bc07f5939ea8acc0d5b3a4fd607d248707879f4ee",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/runtime_boussinesq.py": "fa4636624d159aa5ebf7b64ccd7eeb11ff91e8576c5860678e86260738cf1afa",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/runtime_boussinesq.py": "ad50dbb8d373268e8165f748632b6310dce7e5818dd36ac3036b0ea6832be4c3",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml": "ae806c72740259173b05686ec566f91e0e0cfa8d7c08657861f6a424ccc2c20f",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6.toml": "07b1e50b270be0f38f9f4ae39ba7a354791cb73a4d711e6e8849a0695967a90b",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6_irregular_tri.toml": "297c034272b1d8162fbe62129b4d99a2b98e189d4dfa8df60ae9640fe162ac81",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml": "df9536f2eb09f8b02fbaccca5241aa56db2980f007d93df7a1e0e67bb92b364c",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml": "0d3b3ba045d0ec126be4676f214bd288b468701aa7a3f2e13a453d92acd27fd3",
     "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml": "acff5448ad55f03a214cd8bbab763e7a3cd13645b7e9cd6bf71f4592c6dd3c6d",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml": "9ea33a84182c92308cbe72ca4ca15e61f54a9781219372f7c130345eaca4399f",
-    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "eaec84b0490c01a7dcd9a2b838a277d4657197321a2a79e8f0855e346ef7c284",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "a6de8caacdd3701e729798a8bb45b68d84a48eef4b37e26997a29fccecea6a99"
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml": "0269d8ba444008d187b4834c683a90b8e13c3eb55a4729c66ac577a2d924b1c2",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "bb08f5ccc8da0911abe363bc4dd613b9e4f2a71959336bee04cfd6f7b05601c7",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "7c96c529c2148e704eb46d61753d67f480670124d6b5ac643de265ab952421d5"
   },
   "docname": "cases/boussinesq_sloping_substratum_fixed_head_1d",
   "images": [
@@ -380,7 +380,7 @@
       "metric_lines": [
         "Head-profile RMSE: 0.0516 m",
         "Head-profile max abs error: 0.1259 m",
-        "Cross-row head spread: 6.43e-12 m",
+        "Cross-row head spread: 1.78e-15 m",
         "Reference discharge per width: 1.942e-05 m2/s"
       ],
       "image": {
@@ -752,7 +752,7 @@
         {
           "field": "flow.runtime_backend",
           "meaning": "Runtime backend selected for the in-house solver.",
-          "value": "scipy_sparse",
+          "value": "petsc",
           "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml"
         }
       ]

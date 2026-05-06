@@ -11,10 +11,11 @@ from typing import Any
 
 import numpy as np
 
-
-VI_OBSTACLE_RUNTIME_SUMMARY_JSON = "vi_obstacle_runtime_summary.json"
-VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV = "vi_obstacle_period_diagnostics.csv"
-VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV = "vi_obstacle_substep_diagnostics.csv"
+from hydromodpy.core.solver_diagnostics import (
+    VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
+)
 
 VI_OBSTACLE_PERIOD_FIELDS = [
     "period_index",

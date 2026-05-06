@@ -18,6 +18,9 @@ from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.run
     _build_flow_config,
 )
 from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_s
+from validation_cases.shared.boussinesq_analytical_runtime import (
+    apply_analytical_boussinesq_runtime_defaults,
+)
 from validation_cases.shared.runtime import (
     ValidationRunResult,
     materialize_postprocess_fields_to_store,
@@ -213,7 +216,7 @@ def run_boussinesq_hillslope_interception_case(
     caller_file: str | Path,
     timeout: int = 1800,
 ) -> ValidationRunResult:
-    """Run the steady hillslope-interception benchmark on the dense local runtime."""
+    """Run the steady hillslope-interception benchmark on the PETSc VI runtime."""
     del timeout
 
     out_path = resolve_validation_results_dir(
@@ -228,24 +231,27 @@ def run_boussinesq_hillslope_interception_case(
 
     flow = Flow(
         _build_flow_config(
-            {
-                "flow_regime": "steady",
-                "ic": {"type": "custom", "value": INITIAL_HEAD_M},
-                "active_sinks_sources": ["recharge"],
-                "active_bc": ["east_side"],
-                "sinks_sources": {
-                    "recharge": {
-                        "values": mm_day_to_m_s(RECHARGE_MM_DAY),
-                        "first_clim": "mean",
-                        "units": "m/s",
+            apply_analytical_boussinesq_runtime_defaults(
+                {
+                    "flow_regime": "steady",
+                    "ic": {"type": "custom", "value": INITIAL_HEAD_M},
+                    "active_sinks_sources": ["recharge"],
+                    "active_bc": ["east_side"],
+                    "sinks_sources": {
+                        "recharge": {
+                            "values": mm_day_to_m_s(RECHARGE_MM_DAY),
+                            "first_clim": "mean",
+                            "units": "m/s",
+                        }
+                    },
+                    "bc": {
+                        "dirichlet": {
+                            "east_side": {"value": EAST_HEAD_M},
+                        }
                     }
                 },
-                "bc": {
-                    "dirichlet": {
-                        "east_side": {"value": EAST_HEAD_M},
-                    }
-                },
-            },
+                flow_regime="steady",
+            ),
             case_dir=Path(__file__).resolve().parent,
         )
     )

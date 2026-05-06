@@ -128,7 +128,7 @@ Solver Coverage
       **Metrics**
       - Head-profile RMSE: 0.0516 m
       - Head-profile max abs error: 0.1259 m
-      - Cross-row head spread: 6.43e-12 m
+      - Cross-row head spread: 1.78e-15 m
       - Reference discharge per width: 1.942e-05 m2/s
 
       - Config file: ``validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml``
@@ -427,7 +427,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml``
 
 Acceptance Criteria

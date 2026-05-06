@@ -101,11 +101,11 @@ Solver Coverage
          Boussinesq Circular-Island Piecewise-K 2D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Radial head-profile RMSE: 0.0502 m
-      - Radial head-profile max abs error: 0.1203 m
-      - Azimuthal spread: 0.1220 m
+      - Radial head-profile RMSE: 0.0719 m
+      - Radial head-profile max abs error: 0.1492 m
+      - Azimuthal spread: 0.1207 m
       - Ocean head max abs error: 0.00e+00 m
-      - Minimum land freeboard: 0.9350 m
+      - Minimum land freeboard: 0.9107 m
 
       - Config file: ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml``
       - Tolerances: ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml``
@@ -526,7 +526,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml``
 
 Acceptance Criteria

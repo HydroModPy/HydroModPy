@@ -21,8 +21,17 @@ REGIONAL_DEM_PATH = (ROOT / "../../data/dem/DEM_armorican_massif.tif").resolve()
 
 FIGURES = (
     ("site_regional_location", "Situation regionale", "Site courant dans le reseau regional."),
-    ("watershed_id_card", "Identite bassin", "Domaine, exutoire, debit simule."),
-    ("water_budget", "Bilan", "Entrees/sorties agregees sur le run."),
+    ("watershed_id_card", "Identite bassin", "Domaine, exutoire et metadonnees du run."),
+    (
+        "water_budget",
+        "Bilan solveur domaine complet",
+        "Budget MODFLOW agrege sur le domaine de calcul, tampon inclus.",
+    ),
+    (
+        "catchment_flux_balance_rates",
+        "Entrees vs sorties bassin",
+        "Bilan du bassin hors tampon en mm/j avec flux lateraux de contour.",
+    ),
     (
         "recharge_discharge_overlay",
         "Recharge vs decharge",
@@ -39,15 +48,21 @@ FIGURES = (
         "Reseau genere vs observe",
         "Comparaison du reseau extrait du domaine au reseau hydrographique de reference.",
     ),
+    (
+        "observed_network_seepage_overlay",
+        "Reseau observe vs suintement",
+        "Reseau observe et zones de drainage/suintement produites par le calcul.",
+    ),
 )
 
 INDEX_PREVIEW_FIGURES = (
     "site_regional_location",
     "watershed_id_card",
-    "water_budget",
+    "catchment_flux_balance_rates",
     "recharge_discharge_overlay",
     "head_timeseries_points",
     "hydrographic_network_overlay",
+    "observed_network_seepage_overlay",
 )
 
 INDEX_SCATTER_FIGURES = (
@@ -299,9 +314,13 @@ def _generate_diagnostic_figures(cases: list[SiteCase]) -> None:
             continue
         out_dir.mkdir(parents=True, exist_ok=True)
         _render_site_regional_location_map(case, cases, out_dir / "site_regional_location.png")
+        _render_watershed_id_card(case, out_dir / "watershed_id_card.png")
+        _render_water_budget(case, out_dir / "water_budget.png")
+        _render_catchment_flux_balance(case, out_dir)
         _render_recharge_discharge_overlay(case, out_dir / "recharge_discharge_overlay.png")
         _render_head_timeseries_points(case, out_dir / "head_timeseries_points.png")
         _render_hydrographic_network_overlay(case, out_dir / "hydrographic_network_overlay.png")
+        _render_observed_network_seepage_overlay(case, out_dir / "observed_network_seepage_overlay.png")
 
 
 def _site_short_label(case: SiteCase) -> str:
@@ -329,6 +348,323 @@ def _render_site_regional_location_map(case: SiteCase, cases: list[SiteCase], ou
         current_case=case,
         title=f"Situation regionale - {case.label}",
     )
+
+
+def _render_watershed_id_card(case: SiteCase, output_path: Path) -> None:
+    catalog, run = _open_run(case)
+    if run is None:
+        return
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        from hydromodpy.display.figures.watershed_id_card import WatershedIdCardFigure
+
+        fig = WatershedIdCardFigure().plot(run, save_path=output_path)
+        plt.close(fig)
+    except Exception:
+        return
+    finally:
+        if catalog is not None:
+            catalog.close()
+
+
+def _render_water_budget(case: SiteCase, output_path: Path) -> None:
+    catalog, run = _open_run(case)
+    if run is None:
+        return
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        from hydromodpy.display.figures.water_budget import WaterBudget
+
+        fig = WaterBudget().plot(run, save_path=output_path)
+        plt.close(fig)
+    except Exception:
+        return
+    finally:
+        if catalog is not None:
+            catalog.close()
+
+
+def _render_catchment_flux_balance(case: SiteCase, out_dir: Path) -> None:
+    catalog, run = _open_run(case)
+    if run is None:
+        return
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        balance = _catchment_flux_balance_dataframe(catalog, run)
+        if balance is None or balance.empty:
+            return
+        balance.to_csv(out_dir / "catchment_flux_balance.csv", index_label="time")
+        _render_catchment_flux_balance_rates_plot(
+            balance,
+            case=case,
+            output_path=out_dir / "catchment_flux_balance_rates.png",
+        )
+        plt.close("all")
+    except Exception:
+        return
+    finally:
+        if catalog is not None:
+            catalog.close()
+
+
+def _catchment_flux_balance_dataframe(catalog: Any, run: Any):
+    import numpy as np
+    import pandas as pd
+
+    sz = catalog.open_zarr(run.sim_id)
+    try:
+        budget = sz.root.get("budget")
+        if budget is None:
+            return None
+        required = ("recharge", "drains", "storage", "flow right face", "flow front face")
+        if any(name not in budget for name in required):
+            return None
+        centroids = _mesh_face_centroids(run.mesh)
+        shape = _structured_shape_from_centroids(centroids)
+        if shape is None:
+            return None
+        nrow, ncol = shape
+        n = int(run.n_timesteps or budget["recharge"].shape[0])
+        cell_mask = _model_catchment_mask(run, centroids=centroids, shape=shape)
+        if cell_mask is None or not np.any(cell_mask):
+            return None
+        area_m2 = _model_cell_area_m2(run, shape) * float(np.count_nonzero(cell_mask))
+        if not np.isfinite(area_m2) or area_m2 <= 0.0:
+            return None
+
+        def read(name: str) -> np.ndarray:
+            return _budget_array_2d(budget, name=name, n=n, shape=shape)
+
+        recharge_in, recharge_out = _positive_negative_inside(read("recharge"), cell_mask)
+        drains_in, drains_out = _positive_negative_inside(read("drains"), cell_mask)
+        storage_in, storage_out = _positive_negative_inside(read("storage"), cell_mask)
+        chd_in, chd_out = (
+            _positive_negative_inside(read("constant head"), cell_mask)
+            if "constant head" in budget
+            else (np.zeros(n), np.zeros(n))
+        )
+        lateral_in, lateral_out = _lateral_boundary_exchange(
+            right_face=read("flow right face"),
+            front_face=read("flow front face"),
+            cell_mask=cell_mask,
+        )
+
+        total_in = recharge_in + drains_in + storage_in + chd_in + lateral_in
+        total_out = recharge_out + drains_out + storage_out + chd_out + lateral_out
+        residual = total_in - total_out
+        time_index = _run_time_index(run, n)
+        factor_mm_d = 86400.0 * 1000.0 / area_m2
+        durations_s = _time_durations_seconds(time_index)
+        data = {
+            "area_m2": np.full(n, area_m2),
+            "recharge_in_m3_s": recharge_in,
+            "recharge_out_m3_s": recharge_out,
+            "drains_in_m3_s": drains_in,
+            "drains_out_m3_s": drains_out,
+            "storage_release_in_m3_s": storage_in,
+            "storage_fill_out_m3_s": storage_out,
+            "boundary_condition_in_m3_s": chd_in,
+            "boundary_condition_out_m3_s": chd_out,
+            "lateral_boundary_in_m3_s": lateral_in,
+            "lateral_boundary_out_m3_s": lateral_out,
+            "total_in_m3_s": total_in,
+            "total_out_m3_s": total_out,
+            "residual_m3_s": residual,
+        }
+        df = pd.DataFrame(data, index=time_index)
+        for column in [col for col in df.columns if col.endswith("_m3_s")]:
+            df[column.replace("_m3_s", "_mm_d")] = df[column] * factor_mm_d
+            df[column.replace("_m3_s", "_cum_mm")] = np.cumsum(
+                df[column].to_numpy(dtype=float) * durations_s * 1000.0 / area_m2
+            )
+        return df
+    finally:
+        sz.close()
+
+
+def _structured_shape_from_centroids(centroids: Any) -> tuple[int, int] | None:
+    import numpy as np
+
+    values = np.asarray(centroids, dtype=float)
+    if values.ndim != 2 or values.shape[1] < 2 or values.shape[0] == 0:
+        return None
+    xs = np.unique(np.round(values[:, 0], 6))
+    ys = np.unique(np.round(values[:, 1], 6))
+    if xs.size * ys.size != values.shape[0]:
+        return None
+    return int(ys.size), int(xs.size)
+
+
+def _model_cell_area_m2(run: Any, shape: tuple[int, int]) -> float:
+    try:
+        xmin, xmax, ymin, ymax = [float(value) for value in run.grid.extent]
+        nrow, ncol = shape
+        return abs((xmax - xmin) / float(ncol) * (ymax - ymin) / float(nrow))
+    except Exception:
+        try:
+            return float(run.grid.cell_size) ** 2
+        except Exception:
+            return 1.0
+
+
+def _budget_array_2d(group: Any, *, name: str, n: int, shape: tuple[int, int]):
+    import numpy as np
+
+    raw = np.asarray(group[name][:], dtype=float)
+    if raw.ndim == 3:
+        raw = raw.reshape(raw.shape[0], raw.shape[1], -1).sum(axis=1)
+    elif raw.ndim > 2:
+        raw = raw.reshape(raw.shape[0], -1)
+    elif raw.ndim == 1:
+        raw = raw.reshape(1, -1)
+    return raw[:n].reshape(n, shape[0], shape[1])
+
+
+def _clean_budget_values(values: Any):
+    import numpy as np
+
+    arr = np.asarray(values, dtype=float)
+    return np.where(np.isfinite(arr) & (arr > -9000.0), arr, 0.0)
+
+
+def _positive_negative_inside(values: Any, cell_mask: Any):
+    import numpy as np
+
+    arr = np.where(np.asarray(cell_mask, dtype=bool)[None, :, :], _clean_budget_values(values), 0.0)
+    return np.maximum(arr, 0.0).sum(axis=(1, 2)), np.maximum(-arr, 0.0).sum(axis=(1, 2))
+
+
+def _lateral_boundary_exchange(*, right_face: Any, front_face: Any, cell_mask: Any):
+    import numpy as np
+
+    mask = np.asarray(cell_mask, dtype=bool)
+    n = np.asarray(right_face).shape[0]
+    lateral_in = np.zeros(n, dtype=float)
+    lateral_out = np.zeros(n, dtype=float)
+
+    values = _clean_budget_values(right_face)[:, :, :-1]
+    left = mask[:, :-1][None, :, :]
+    right = mask[:, 1:][None, :, :]
+    left_in = left & ~right
+    right_in = ~left & right
+    lateral_in += (
+        np.where(left_in, np.maximum(-values, 0.0), 0.0)
+        + np.where(right_in, np.maximum(values, 0.0), 0.0)
+    ).sum(axis=(1, 2))
+    lateral_out += (
+        np.where(left_in, np.maximum(values, 0.0), 0.0)
+        + np.where(right_in, np.maximum(-values, 0.0), 0.0)
+    ).sum(axis=(1, 2))
+
+    values = _clean_budget_values(front_face)[:, :-1, :]
+    upper = mask[:-1, :][None, :, :]
+    lower = mask[1:, :][None, :, :]
+    upper_in = upper & ~lower
+    lower_in = ~upper & lower
+    lateral_in += (
+        np.where(upper_in, np.maximum(-values, 0.0), 0.0)
+        + np.where(lower_in, np.maximum(values, 0.0), 0.0)
+    ).sum(axis=(1, 2))
+    lateral_out += (
+        np.where(upper_in, np.maximum(values, 0.0), 0.0)
+        + np.where(lower_in, np.maximum(-values, 0.0), 0.0)
+    ).sum(axis=(1, 2))
+    return lateral_in, lateral_out
+
+
+def _model_catchment_mask(run: Any, *, centroids: Any, shape: tuple[int, int]):
+    try:
+        import numpy as np
+        from shapely.geometry import Point
+
+        geom = _catchment_geometry(run)
+        if geom is None:
+            return None
+        values = np.asarray(centroids, dtype=float)
+        inside = [bool(geom.covers(Point(float(x), float(y)))) for x, y in values[:, :2]]
+        return np.asarray(inside, dtype=bool).reshape(shape)
+    except Exception:
+        return None
+
+
+def _time_durations_seconds(index: Any):
+    import numpy as np
+    import pandas as pd
+
+    try:
+        dt_index = pd.DatetimeIndex(index)
+        if len(dt_index) >= 2:
+            deltas = np.diff(dt_index.view("int64") / 1e9)
+            last = float(np.nanmedian(deltas)) if deltas.size else 30.0 * 86400.0
+            return np.concatenate([deltas, [last]])[: len(dt_index)]
+    except Exception:
+        pass
+    return np.full(len(index), 30.0 * 86400.0, dtype=float)
+
+
+def _render_catchment_flux_balance_rates_plot(balance: Any, *, case: SiteCase, output_path: Path) -> None:
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(9.0, 4.9), dpi=150)
+    x = balance.index
+    inputs = (
+        ("recharge_in_mm_d", "recharge", "#2f8f46"),
+        ("lateral_boundary_in_mm_d", "lateral entrant", "#4f81bd"),
+        ("storage_release_in_mm_d", "destockage", "#8d6ab8"),
+        ("boundary_condition_in_mm_d", "limite entrante", "#7aa6a1"),
+    )
+    outputs = (
+        ("drains_out_mm_d", "drainage/suintement", "#c45a2a"),
+        ("lateral_boundary_out_mm_d", "lateral sortant", "#d69f35"),
+        ("storage_fill_out_mm_d", "stockage", "#7e6b5a"),
+        ("boundary_condition_out_mm_d", "limite sortante", "#9a9a9a"),
+    )
+    _signed_stack(ax, x, balance, inputs, sign=1.0)
+    _signed_stack(ax, x, balance, outputs, sign=-1.0)
+    residual = balance["residual_mm_d"].to_numpy(dtype=float)
+    ax.plot(x, residual, color="#17202a", lw=1.3, label="residu")
+    ax.axhline(0.0, color="#17202a", lw=0.8)
+    ax.set_title(f"Entrees et sorties bassin hors tampon - {case.label}")
+    ax.set_ylabel("Flux specifique (mm/j)")
+    ax.set_xlabel("Date")
+    ax.grid(True, ls=":", lw=0.45, color="#cfd8df")
+    max_abs = np.nanmax(np.abs(np.r_[residual, balance["total_in_mm_d"], balance["total_out_mm_d"]]))
+    if np.isfinite(max_abs) and max_abs > 0:
+        ax.set_ylim(-1.15 * max_abs, 1.15 * max_abs)
+    ax.legend(loc="upper right", fontsize=8, ncols=2)
+    fig.autofmt_xdate()
+    fig.tight_layout()
+    fig.savefig(output_path)
+    plt.close(fig)
+
+
+def _signed_stack(ax: Any, x: Any, frame: Any, columns: tuple[tuple[str, str, str], ...], *, sign: float) -> None:
+    import numpy as np
+
+    base = np.zeros(len(frame), dtype=float)
+    for column, label, color in columns:
+        if column not in frame:
+            continue
+        values = np.nan_to_num(frame[column].to_numpy(dtype=float), nan=0.0, posinf=0.0, neginf=0.0)
+        if not np.any(values > 0.0):
+            continue
+        lower = sign * base
+        upper = sign * (base + values)
+        ax.fill_between(x, lower, upper, color=color, alpha=0.72, linewidth=0, label=label)
+        base += values
 
 
 def _plot_dem_background(ax: Any, bounds: tuple[float, float, float, float]) -> None:
@@ -567,7 +903,106 @@ def _render_hydrographic_network_overlay(case: SiteCase, output_path: Path) -> N
             catalog.close()
 
 
+def _render_observed_network_seepage_overlay(case: SiteCase, output_path: Path) -> None:
+    catalog, run = _open_run(case)
+    if run is None:
+        return
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from matplotlib.lines import Line2D
+
+        comparison = run.hydrographic_network_comparison()
+        reference = getattr(comparison, "reference_gdf", None)
+        seepage_mask, seepage_label = _seepage_like_mask(run)
+        if (reference is None or reference.empty) and seepage_mask is None:
+            return
+        fig, ax = plt.subplots(figsize=(7.2, 6.2), dpi=150)
+        _plot_catchment_boundary(ax, run)
+        if seepage_mask is not None:
+            centroids = _mesh_face_centroids(run.mesh)
+            if centroids.shape[0] == seepage_mask.size:
+                points = centroids[seepage_mask]
+                if points.size:
+                    ax.scatter(
+                        points[:, 0],
+                        points[:, 1],
+                        s=8,
+                        marker="s",
+                        color="#d05a27",
+                        alpha=0.70,
+                        linewidth=0,
+                        zorder=2,
+                    )
+        if reference is not None and not reference.empty:
+            reference.plot(ax=ax, color="#1f6f78", linewidth=1.8, alpha=0.95, zorder=3)
+        if case.x_outlet is not None and case.y_outlet is not None:
+            ax.scatter([case.x_outlet], [case.y_outlet], s=42, color="#17202a", edgecolor="white", zorder=4)
+        ax.set_title(f"Reseau observe et zones de suintement - {case.label}")
+        ax.set_xlabel("X Lambert-93 (m)")
+        ax.set_ylabel("Y Lambert-93 (m)")
+        ax.set_aspect("equal", adjustable="box")
+        ax.grid(True, ls=":", lw=0.35, color="#d5dde3")
+        ax.legend(
+            handles=[
+                Line2D([0], [0], color="#1f6f78", lw=1.8, label="reseau observe"),
+                Line2D([0], [0], color="#d05a27", marker="s", markersize=6, lw=0, label=seepage_label),
+                Line2D([0], [0], color="#17202a", lw=1.6, label="bassin"),
+            ],
+            loc="best",
+            frameon=True,
+        )
+        fig.tight_layout()
+        fig.savefig(output_path)
+        plt.close(fig)
+    except Exception:
+        return
+    finally:
+        if catalog is not None:
+            catalog.close()
+
+
+def _seepage_like_mask(run: Any) -> tuple[Any | None, str]:
+    try:
+        import numpy as np
+
+        for field_name, label in (
+            ("seepage_areas", "suintement"),
+            ("seepage_area", "suintement"),
+        ):
+            try:
+                if run.has_field(field_name):
+                    values = np.asarray(run.field(field_name, timestep=-1), dtype=float).reshape(-1)
+                    return values > 0.5, label
+            except Exception:
+                pass
+        if run.has_field("outflow_drain"):
+            values = np.asarray(run.field("outflow_drain", timestep=-1), dtype=float).reshape(-1)
+            finite_positive = np.isfinite(values) & (values > 0.0)
+            return finite_positive, "drainage/suintement"
+        if run.has_field("watertable_depth"):
+            values = np.asarray(run.field("watertable_depth", timestep=-1), dtype=float).reshape(-1)
+            near_surface = np.isfinite(values) & (values <= 0.05)
+            return near_surface, "nappe proche surface"
+    except Exception:
+        return None, "suintement"
+    return None, "suintement"
+
+
 def _plot_catchment_boundary(ax: Any, run: Any) -> bool:
+    try:
+        geometry = _catchment_geometry(run)
+        if geometry is None:
+            return False
+        _plot_shapely_boundary(ax, geometry, color="#17202a", linewidth=1.6, zorder=4)
+        return True
+    except Exception:
+        return _plot_catchment_boundary_contour(ax, run)
+
+
+def _catchment_geometry(run: Any) -> Any | None:
     try:
         import numpy as np
         from rasterio.features import shapes
@@ -577,8 +1012,8 @@ def _plot_catchment_boundary(ax: Any, run: Any) -> bool:
 
         mask = np.asarray(run.catchment_mask, dtype=bool)
         if mask.ndim != 2 or not mask.any():
-            return False
-        xmin, xmax, ymin, ymax = [float(value) for value in run.grid.extent]
+            return None
+        xmin, _xmax, _ymin, ymax = [float(value) for value in run.grid.extent]
         cell = float(run.grid.cell_size)
         transform = from_origin(xmin, ymax, cell, cell)
         geometries = [
@@ -587,12 +1022,10 @@ def _plot_catchment_boundary(ax: Any, run: Any) -> bool:
             if int(value) == 1
         ]
         if not geometries:
-            return False
-        merged = unary_union(geometries)
-        _plot_shapely_boundary(ax, merged, color="#17202a", linewidth=1.6, zorder=4)
-        return True
+            return None
+        return unary_union(geometries)
     except Exception:
-        return _plot_catchment_boundary_contour(ax, run)
+        return None
 
 
 def _plot_shapely_boundary(ax: Any, geom: Any, *, color: str, linewidth: float, zorder: int) -> None:
@@ -1246,7 +1679,8 @@ def _preview_gallery(cases: list[SiteCase]) -> str:
 def _checklist_html() -> str:
     items = (
         "Le bassin et l'exutoire sont plausibles sur la carte d'identite.",
-        "Le bilan montre recharge entrante et drainage sortant.",
+        "Les entrees et sorties bassin se regardent en mm/j hors zone tampon.",
+        "Le bilan solveur est lu comme diagnostic du domaine complet, pas comme fermeture bassin.",
         "La figure recharge-decharge montre l'amplitude et le delai de reponse.",
         "Les charges ponctuelles evoluent differemment selon leur position.",
         "Le reseau genere reste coherent avec le reseau observe.",

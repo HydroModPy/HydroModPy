@@ -51,21 +51,21 @@
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/README.md": "6c62418d93999f5ec823ba354d312a4a54018280de05ce6533121ff082c50942",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/reference.py": "42459e3aff466ba41c66d4637df681c657e7d1d73e0e4cd07f2c7b8528db6693",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/comparison.py": "616c52247fd1219e1cc24ba99e2cebdbf48f243aaedf04d2e3d69bd1df750f4f",
-    "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/plotting.py": "2be985f336ef5356188c28726cb1ef0bf95f2021fb7c656f37941c673caddf80",
+    "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/plotting.py": "ddd49c40ada4965f68cf5ecdec000db1c8b5345b352525742f402819539b1721",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/run_case.py": "4e476affe53d91fa764eab9c2e4f5a1641ca72596b31a589aea7b7eab896e67b",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/metadata.toml": "89d92bbe01a8ef88d7784a991566b9e9811d952af9a9ba2003f6dd829051ace9",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflownwt.toml": "7952d972cfc0916f303bf6520716d29a88b18220c563e5f3deabe5533a6337aa",
-    "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/runtime_boussinesq.py": "b01ff21b2ba8ae2ef78ee346965d190ac6989a0840a40db05848a021bbf7e2f4",
+    "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/runtime_boussinesq.py": "53c1be0503c336793082713949962ded735af4f164b2c54dab92933169e31177",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances_boussinesq.toml": "beff87a9e3f43295a1cd5209ac5f13a4424dead7cf196f55fe06703bcaa22362",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/tolerances_modflow6.toml": "a51217636d13625a6d7694bf503b6a04df0f1ba085e8115d3e5deb11363889bf",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
     "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_modflow6_irregular_tri.toml": "d934aaecdc1f26f7a5d7f98a1da6a30950e5e208c46bc7c6744e2c0d281c4da8",
-    "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_boussinesq.toml": "c343d4093712f5df9d92d3c3de19d3dbf161cabb733536ef93ce693c44ab4278",
+    "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_boussinesq.toml": "6eb6e7f92d12b05ba28b50bf74b235878ce2c15b8de086cb3a5e7ad9c73c42ac",
     "validation_cases/analytical/steady/boussinesq_piecewise.py": "62c299fafedaa7556160b00275e6e9780a00baa0ebc1c5aaf206a27c035fb8db"
   },
   "docname": "cases/boussinesq_fixed_head_piecewise_k_1d",
@@ -797,7 +797,7 @@
         {
           "field": "flow.runtime_backend",
           "meaning": "Runtime backend selected for the in-house solver.",
-          "value": "scipy_sparse",
+          "value": "petsc",
           "source": "validation_cases/analytical/steady/boussinesq_fixed_head_piecewise_k_1d/config_boussinesq.toml"
         }
       ]

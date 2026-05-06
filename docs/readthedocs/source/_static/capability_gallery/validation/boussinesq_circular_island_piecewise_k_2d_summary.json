@@ -51,21 +51,21 @@
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/README.md": "ab7a524f0e5dbc66f199f1f5916b9fd6fea531bb0af202135fc94e7812ed96fb",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/reference.py": "9b485ee7c71c254e88126822612e4202a2a7c3d501ea1e0a6a329065175af9e4",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/comparison.py": "6d3d47fbaffa8eb7797a671e584c3ca6df8f831053e9270bd9f0aa7cd2f8d25f",
-    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/plotting.py": "bd6b97262db253e65c0394e509e867438a1cdda7bed474170ab9f1f8bd17171e",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/plotting.py": "bb6fad47839e0ff7fe27bb9efec4bb4f5ef9815a29c88216b9818d2e008e722e",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/run_case.py": "5b22e7a644f2fe2dad1d506bd7cc773d9b758f87223e246dc449ee7580172db6",
-    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml": "83053687a2e437a127a0163c4567b2921901349fa7e50f446a672de49d32f74f",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/metadata.toml": "dbe9b04ea09dec4ca5ea7c1c56dc035e01c04a74f689a0afad867b35847e10a1",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml": "2fa6c9134cff6a8483a0b2aa4ede1ba11adafa924cccc483e0735ab4ce5ff39e",
-    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/runtime_boussinesq.py": "da452c63cffa58b6e8232c30885c317d94e5f41f127b706b3d4fa1bb0c35909b",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/runtime_boussinesq.py": "f9e108265ef85e616ce59f5b5ba30bcf1a1dd003458ea1e4d0e00fee9cf599fc",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml": "16df9e9e9b818975ddb8fcae117e0241f7ebfea12848646b40fb462f59447d80",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_boussinesq.toml": "0960ebf6d650d466d1cbf89d848ae5a54f4bb60e255b1db1a043abf6677d8017",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances_modflow6.toml": "9e1cc4e24e265913e89c796855e3c77211dc23385ff669c875d8250369f73ffb",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6.toml": "861f5eef5f90f4482e1018d1d02c41c9bbc32452acb036a155ef57f531b4c1fc",
     "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflow6_irregular_tri.toml": "38474e497f18228f9ba5008666460f1b1d67b4260f4a7c732553052e448f5311",
-    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml": "c343d4093712f5df9d92d3c3de19d3dbf161cabb733536ef93ce693c44ab4278",
+    "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml": "6eb6e7f92d12b05ba28b50bf74b235878ce2c15b8de086cb3a5e7ad9c73c42ac",
     "validation_cases/analytical/steady/boussinesq_piecewise.py": "62c299fafedaa7556160b00275e6e9780a00baa0ebc1c5aaf206a27c035fb8db"
   },
   "docname": "cases/boussinesq_circular_island_piecewise_k_2d",
@@ -339,11 +339,11 @@
       "expected_output": "Expected shape: 61 x 61",
       "command": "python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Radial head-profile RMSE: 0.0502 m",
-        "Radial head-profile max abs error: 0.1203 m",
-        "Azimuthal spread: 0.1220 m",
+        "Radial head-profile RMSE: 0.0719 m",
+        "Radial head-profile max abs error: 0.1492 m",
+        "Azimuthal spread: 0.1207 m",
         "Ocean head max abs error: 0.00e+00 m",
-        "Minimum land freeboard: 0.9350 m"
+        "Minimum land freeboard: 0.9107 m"
       ],
       "image": {
         "filename": "boussinesq_circular_island_piecewise_k_2d__modflow6_irregular_tri.png",
@@ -977,7 +977,7 @@
         {
           "field": "flow.runtime_backend",
           "meaning": "Runtime backend selected for the in-house solver.",
-          "value": "scipy_sparse",
+          "value": "petsc",
           "source": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_boussinesq.toml"
         }
       ]

@@ -1,4 +1,4 @@
-"""Shared local ``flow/boussinesq`` runtimes for transient 1D validation strips."""
+"""Shared PETSc ``flow/boussinesq`` runtimes for transient 1D validation strips."""
 
 from __future__ import annotations
 
@@ -17,6 +17,9 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from validation_cases.shared.boussinesq_analytical_runtime import (
+    apply_analytical_boussinesq_runtime_defaults,
+)
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -42,15 +45,6 @@ def build_flow_config(
         else merge_case_flow_section(Path(case_dir), flow_section)
     )
     return FlowConfig.from_toml_section(merged_flow, base_dir=base_dir)
-
-
-def _solver_name_from_flow_section(flow_section: dict[str, object]) -> str:
-    """Return a stable validation solver label for one Boussinesq runtime."""
-    runtime_backend = str(flow_section.get("runtime_backend", "scipy_sparse") or "scipy_sparse")
-    surface_model = str(flow_section.get("surface_interaction_model", "") or "").strip().lower()
-    if runtime_backend.strip().lower() == "petsc" and surface_model == "ts_vi_obstacle":
-        return "petsc_ts_vi_obstacle"
-    return "boussinesq"
 
 
 def write_uniform_strip_bundle(
@@ -304,6 +298,7 @@ def run_boussinesq_transient_uniform_strip_case(
     flow_section: dict[str, Any],
     plan_name: str,
     plan_description: str,
+    public_solver_label: str = "boussinesq",
 ) -> ValidationRunResult:
     """Run one transient Boussinesq validation case on a small uniform strip mesh."""
     del timeout
@@ -327,11 +322,16 @@ def run_boussinesq_transient_uniform_strip_case(
     simulations_folder.mkdir(parents=True, exist_ok=True)
     period_lengths_seconds = tuple(float(dt_seconds) for _ in range(int(nper)))
 
+    effective_flow_section = apply_analytical_boussinesq_runtime_defaults(
+        flow_section,
+        flow_regime="transient",
+    )
+
     state = SimpleNamespace(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(build_flow_config(flow_section, case_dir=case_dir)),
+            flow=Flow(build_flow_config(effective_flow_section, case_dir=case_dir)),
             domain=None,
             time_grid=SimpleNamespace(
                 period_lengths_seconds=period_lengths_seconds,
@@ -370,7 +370,7 @@ def run_boussinesq_transient_uniform_strip_case(
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
-    solver_name = _solver_name_from_flow_section(flow_section)
+    solver_name = str(public_solver_label or "boussinesq")
     store, sim_id = materialize_postprocess_fields_to_store(
         out_path=out_path,
         postprocess_dir=postprocess_dir,
