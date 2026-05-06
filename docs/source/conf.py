@@ -110,6 +110,7 @@ if _vendor_graphviz_dot is not None:
 # Make the editable install (or cloned repo) importable without relying on src/
 sys.path.insert(0, str(package_path))
 sys.path.insert(0, str(package_path / "hydromodpy"))
+sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 _ensure_required_doc_extensions()
 
 _DOC_OPTIONAL_IMPORTS = [
@@ -261,6 +262,7 @@ extensions = [
     "sphinx_sitemap",
     "sphinx_last_updated_by_git",
     "sphinxext.opengraph",
+    "hmp_directives",
 ]
 
 intersphinx_mapping = {
