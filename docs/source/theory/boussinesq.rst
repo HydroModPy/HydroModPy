@@ -1700,6 +1700,17 @@ or:
 
    latexmk -pdf boussinesq_math_notes.tex
 
+Validation case at a glance
+---------------------------
+
+.. validation-case-summary:: boussinesq_fixed_head_piecewise_k_1d
+
+Solver comparison snapshot
+--------------------------
+
+.. solver-comparison::
+   :cases: boussinesq_fixed_head_piecewise_k_1d, boussinesq_hillslope_recharge_step_interception_1d
+
 Related Pages
 -------------
 

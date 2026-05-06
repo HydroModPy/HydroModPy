@@ -24,4 +24,5 @@ TOML-first user documentation see :doc:`../user_guide/index`.
    simulation_comparison_workflow
    conda_pkg
    diagrams
+   style_guide
    glossary

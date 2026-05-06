@@ -1,0 +1,105 @@
+cff-version: 1.2.0
+message: "If you use HydroModPy in your work, please cite it using the following metadata."
+title: "HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models"
+abstract: "HydroModPy is an open-source Python toolbox that automates the deployment of shallow groundwater models at catchment scale. It integrates geospatial processing, MODFLOW 6, MODFLOW-NWT, Boussinesq, and GR4J solvers, calibration, validation, and result visualization on Pydantic v2 configurations."
+type: software
+license: EPL-2.0
+repository-code: "https://github.com/HydroModPy/HydroModPy"
+url: "https://hydromodpy.readthedocs.io/en/dev/"
+keywords:
+  - hydrology
+  - hydrogeology
+  - groundwater
+  - modflow
+  - boussinesq
+  - watershed
+  - catchment
+  - python
+authors:
+  - family-names: Gauvain
+    given-names: Alexandre
+    email: alexandre.gauvain.ag@gmail.com
+  - family-names: Abhervé
+    given-names: Ronan
+    email: ronan.abherve@gmail.com
+  - family-names: Coche
+    given-names: Antoine
+  - family-names: Le Mesnil
+    given-names: Martin
+  - family-names: Roques
+    given-names: Clément
+  - family-names: Bouchez
+    given-names: Camille
+  - family-names: Marçais
+    given-names: Jean
+  - family-names: Leray
+    given-names: Sarah
+  - family-names: Marti
+    given-names: Eliana
+  - family-names: Figueroa
+    given-names: Rodrigo
+  - family-names: Bresciani
+    given-names: Etienne
+  - family-names: Vautier
+    given-names: Camille
+  - family-names: Boivin
+    given-names: Bastien
+    email: bastien.boivin@proton.me
+  - family-names: Sallou
+    given-names: June
+  - family-names: Bourcier
+    given-names: Johann
+  - family-names: Combemale
+    given-names: Benoit
+  - family-names: Longuevergne
+    given-names: Laurent
+  - family-names: Aquilina
+    given-names: Luc
+  - family-names: de Dreuzy
+    given-names: Jean-Raynald
+    email: jean-raynald.de-dreuzy@univ-rennes.fr
+preferred-citation:
+  type: article
+  status: in-preparation
+  title: "HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models"
+  year: 2025
+  journal: "Hydrology and Earth System Sciences"
+  authors:
+    - family-names: Gauvain
+      given-names: Alexandre
+    - family-names: Abhervé
+      given-names: Ronan
+    - family-names: Coche
+      given-names: Antoine
+    - family-names: Le Mesnil
+      given-names: Martin
+    - family-names: Roques
+      given-names: Clément
+    - family-names: Bouchez
+      given-names: Camille
+    - family-names: Marçais
+      given-names: Jean
+    - family-names: Leray
+      given-names: Sarah
+    - family-names: Marti
+      given-names: Eliana
+    - family-names: Figueroa
+      given-names: Rodrigo
+    - family-names: Bresciani
+      given-names: Etienne
+    - family-names: Vautier
+      given-names: Camille
+    - family-names: Boivin
+      given-names: Bastien
+    - family-names: Sallou
+      given-names: June
+    - family-names: Bourcier
+      given-names: Johann
+    - family-names: Combemale
+      given-names: Benoit
+    - family-names: Longuevergne
+      given-names: Laurent
+    - family-names: Aquilina
+      given-names: Luc
+    - family-names: de Dreuzy
+      given-names: Jean-Raynald

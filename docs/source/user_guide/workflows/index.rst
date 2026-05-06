@@ -57,6 +57,28 @@ interface.
        ``[[comparison.observable]]``
      - :doc:`comparison`
 
+Workflow flowchart
+------------------
+
+Click any node to jump to its detailed page.
+
+.. mermaid::
+
+   flowchart TD
+       config[hmp run config.toml] --> dispatch{workflow = ...}
+       dispatch -->|overview| ov[Overview]
+       dispatch -->|simulation| sim[Simulation]
+       dispatch -->|testbed| tb[Testbed]
+       dispatch -->|calibration| cal[Calibration]
+       dispatch -->|batch| bat[Batch]
+       dispatch -->|comparison| cmp[Comparison]
+       click ov "overview.html" "Open overview workflow"
+       click sim "simulation.html" "Open simulation workflow"
+       click tb "testbed.html" "Open testbed workflow"
+       click cal "calibration.html" "Open calibration workflow"
+       click bat "batch.html" "Open batch workflow"
+       click cmp "comparison.html" "Open comparison workflow"
+
 Dispatch Model
 --------------
 
