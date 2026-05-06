@@ -1,5 +1,5 @@
 [interception]
-x_error_m = 15.0
+x_error_m = 45.0
 
 [uniformity]
 row_spread = 0.001

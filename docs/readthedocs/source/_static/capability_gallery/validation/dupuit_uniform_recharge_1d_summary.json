@@ -50,22 +50,22 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/README.md": "7d0a21ffdb686060872cd732662314197ad96afd06539b102b164cb89be4ba7c",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/reference.py": "b80b2ceb1103fd6d517e87829417ea0b0d9cf1745deb7b5f259b8143ec187bd0",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/comparison.py": "c500b445086bd1c41e603a86eb195f2e6d06d55bf1bc87e5fce0b97481f80965",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/plotting.py": "943640af1826d74c59923d118bdd97ffb87c28d8b8356264b361f4ebc0d69427",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/plotting.py": "ba2fb75116b24807c90353226d1f219df7a8d31fd5279720a5e7c3ff3657d3ec",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/run_case.py": "94734f097ae3484b62e18928d7ef80204d784ffd8fbac813b9e72e4b0bfab15e",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/metadata.toml": "9999a5d81556639f4e57c5d2fef4e8220db0bc6a6242a24c1616ef36310473e0",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflownwt.toml": "75cec84ca54b7282be14d8a8145605aba7a8bf5d42791307520aff2a6cf0a514",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py": "f15827a5c4bd49825b9ba1d984fba672b2b19a8f98fcff87d5e8c38ed24f5ab6",
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/runtime_boussinesq.py": "41a20eaed0ce0da487e224ed860af6a3cbcf9152404fd4483a5139ee796f5274",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6.toml": "8fd46d87a1f394170401933d089cccd2ec1983e8330e9a6af088568d8c170b12",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances_modflow6_irregular_tri.toml": "bd448644d2375d17b4d3f294b39a2763383a763bda4ab87d1a5f7ae94cac6a18",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
     "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_modflow6_irregular_tri.toml": "d934aaecdc1f26f7a5d7f98a1da6a30950e5e208c46bc7c6744e2c0d281c4da8",
-    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml": "9ea33a84182c92308cbe72ca4ca15e61f54a9781219372f7c130345eaca4399f",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "a6de8caacdd3701e729798a8bb45b68d84a48eef4b37e26997a29fccecea6a99"
+    "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml": "0269d8ba444008d187b4834c683a90b8e13c3eb55a4729c66ac577a2d924b1c2",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "7c96c529c2148e704eb46d61753d67f480670124d6b5ac643de265ab952421d5"
   },
   "docname": "cases/dupuit_uniform_recharge_1d",
   "images": [
@@ -358,7 +358,7 @@
       "metric_lines": [
         "Head-profile RMSE: 0.0254 m",
         "Head-profile max abs error: 0.0370 m",
-        "Cross-row head spread: 1.98e-10 m"
+        "Cross-row head spread: 0.00e+00 m"
       ],
       "image": {
         "filename": "dupuit_uniform_recharge_1d__boussinesq.png",
@@ -714,7 +714,7 @@
         {
           "field": "flow.runtime_backend",
           "meaning": "Runtime backend selected for the in-house solver.",
-          "value": "scipy_sparse",
+          "value": "petsc",
           "source": "validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml"
         }
       ]

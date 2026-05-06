@@ -16,8 +16,8 @@ Case Setup
 - east boundary: fixed at `10.0 m`,
 - west boundary: CSV forcing jumping from the initial state to `10.10 m`,
 - initial condition: uniform `10.0 m`,
-- simulated observable: `watertable_elevation`. For `solver=boussinesq`, the validation uses one small balanced triangular strip projected back to a regular `40 x 3` comparison grid. The runtime itself is selected through the case `config_boussinesq.toml`, so the geometry stays fixed while the nonlinear backend can evolve independently (`local`, `scipy`, `scipy_sparse`).
-- Available solver variants: MODFLOW-NWT, MODFLOW 6, Boussinesq.
+- simulated observable: `watertable_elevation`. For `solver=boussinesq`, the validation uses one small balanced triangular strip projected back to a regular `40 x 3` comparison grid. The runtime itself is selected through the case `config_boussinesq.toml`, so the geometry stays fixed while the nonlinear backend can evolve independently. The analytical `boussinesq` variant now defaults to PETSc TS VI.
+- Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq.
 
 What It Shows
 -------------
@@ -43,7 +43,7 @@ Solver Coverage
 ---------------
 
 - Default solver: MODFLOW-NWT
-- Available variants: MODFLOW-NWT, MODFLOW 6, Boussinesq
+- Available variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq
 
 .. tab-set::
 
@@ -100,13 +100,13 @@ Solver Coverage
          Linearized Unconfined 1D Boundary Step rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0061 m
-      - Space-time max abs error: 0.0427 m
-      - Final-profile RMSE: 0.0002 m
-      - Cross-row head spread: 9.24e-04 m
+      - Space-time RMSE: 0.0013 m
+      - Space-time max abs error: 0.0116 m
+      - Final-profile RMSE: 0.0003 m
+      - Cross-row head spread: 0.00e+00 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
-      - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances.toml``
+      - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_modflow6_irregular_tri.toml``
       - Expected output: 40 periods, spatial shape 5 x 50
 
       .. code-block:: bash
@@ -122,10 +122,10 @@ Solver Coverage
          Linearized Unconfined 1D Boundary Step rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0018 m
-      - Space-time max abs error: 0.0144 m
+      - Space-time RMSE: 0.0008 m
+      - Space-time max abs error: 0.0055 m
       - Final-profile RMSE: 0.0003 m
-      - Cross-row head spread: 3.65e-09 m
+      - Cross-row head spread: 1.71e-10 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_boussinesq.toml``
@@ -408,6 +408,45 @@ Solver-Specific Overrides
            - false
            - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``modflow6.runtime.mf_verbose``
+           - Solver-specific override applied to MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.runtime.mf6_ims_complexity``
+           - Linear-solver complexity preset used by MODFLOW 6.
+           - COMPLEX
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.process_specific.vka``
+           - Vertical anisotropy ratio passed to MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.sgrid.vertical.nlay``
+           - Number of vertical layers used by MODFLOW 6.
+           - 1
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
+         * - ``modflow6.tgrid.firstpersteady``
+           - Whether the first time period is treated as steady by MODFLOW 6.
+           - false
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
+         * - ``mesh_input.mesh_path``
+           - Committed unstructured mesh file used by the irregular-mesh solver variant.
+           - ../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10/mesh_2d.msh
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
+         * - ``mesh_input.bundle_dir``
+           - Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.
+           - ../../../shared/mesh_bundles/linearized_unconfined_drainage_irregular_tri_100x10
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
+
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -420,7 +459,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_boussinesq.toml``
 
 Acceptance Criteria
@@ -445,6 +484,10 @@ Acceptance Criteria
    * - ``output.expected_spatial_shape``
      - Expected spatial shape for each stored time step.
      - [5, 50]
+     - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/metadata.toml``
+   * - ``output.expected_spatial_shape_by_solver.petsc_ts_vi_obstacle``
+     - Expected per-time-step spatial shape checked for `petsc_ts_vi_obstacle`.
+     - [3, 40]
      - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/metadata.toml``
 
 Acceptance Criteria by Solver
@@ -522,6 +565,41 @@ Acceptance Criteria by Solver
            - 0.0002
            - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_modflow6.toml``
 
+   .. tab-item:: MODFLOW 6 irregular triangles
+
+      .. list-table::
+         :header-rows: 1
+         :widths: 26 42 20 12
+
+         * - Field
+           - Meaning
+           - Value
+           - Source
+         * - ``expected_output``
+           - Expected output shape or time-space layout checked for this solver.
+           - Expected output: 40 periods, spatial shape 5 x 50
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/metadata.toml``
+         * - ``space_time.rmse``
+           - Maximum accepted root-mean-square error for space time.
+           - 0.01
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_modflow6_irregular_tri.toml``
+         * - ``space_time.max_abs_error``
+           - Maximum accepted absolute error for space time.
+           - 0.02
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_modflow6_irregular_tri.toml``
+         * - ``space_time.row_spread``
+           - Maximum accepted cross-row spread for space time.
+           - 0.005
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_modflow6_irregular_tri.toml``
+         * - ``final_profile.rmse``
+           - Maximum accepted root-mean-square error for final profile.
+           - 0.01
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_modflow6_irregular_tri.toml``
+         * - ``final_profile.max_abs_error``
+           - Maximum accepted absolute error for final profile.
+           - 0.02
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_modflow6_irregular_tri.toml``
+
    .. tab-item:: Boussinesq
 
       .. list-table::
@@ -572,7 +650,10 @@ Source Pointers
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_boussinesq.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_modflow6.toml``
+- ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_modflow6_irregular_tri.toml``
+- ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/tolerances_petsc_ts_vi_obstacle.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6.toml``
+- ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/config_boussinesq.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_1d.py``
 
@@ -581,5 +662,6 @@ Artifacts
 
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_step_1d__modflownwt.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_step_1d__modflow6.png``
+- ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_step_1d__modflow6_irregular_tri.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_step_1d__boussinesq.png``
 - ``docs/readthedocs/source/_static/capability_gallery/validation/linearized_unconfined_boundary_step_1d_summary.json`` stores the displayed metrics plus source hashes used by ``python -m tools.doc_gallery --check``.

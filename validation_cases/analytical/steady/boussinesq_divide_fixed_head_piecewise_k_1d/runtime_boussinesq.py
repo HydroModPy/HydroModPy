@@ -32,7 +32,8 @@ def run_boussinesq_divide_fixed_head_piecewise_k_case(
         initial_head_m=7.0,
         east_head_m=EAST_HEAD_M,
         recharge_rate_m_s=mm_day_to_m_s(RECHARGE_MM_DAY),
-        runtime_backend="scipy_sparse",
+        runtime_backend="petsc",
+        surface_interaction_model="vi_obstacle",
     )
 
 

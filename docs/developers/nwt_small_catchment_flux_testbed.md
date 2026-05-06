@@ -196,11 +196,14 @@ Lire les sorties dans cet ordre.
    ```text
    site_regional_location.png
    watershed_id_card.png
+   catchment_flux_balance_rates.png
+   catchment_flux_balance.csv
    water_budget.png
    recharge_discharge_overlay.png
    head_timeseries_points.png
    piezometric_map.png
    hydrographic_network_overlay.png
+   observed_network_seepage_overlay.png
    ```
 
 5. Pages HTML
@@ -225,10 +228,15 @@ Signaux minimaux attendus :
 - les sites selectionnes se terminent avec `status = ok`,
 - le bilan de masse reste petit dans `max_abs_balance_error_percent`,
 - `site_regional_location.png` situe clairement le site courant dans la region,
-- `water_budget.png` montre une recharge entrante et une sortie par drainage,
+- `catchment_flux_balance_rates.png` met les entrees au-dessus de zero et les
+  sorties en dessous, en `mm/j`, sur le bassin hors tampon,
+- `water_budget.png` est lu comme un diagnostic solveur sur le domaine complet,
+  tampon inclus,
 - `recharge_discharge_overlay.png` montre l'amplitude et le delai de reponse,
 - `hydrographic_network_overlay.png` compare le reseau genere au reseau
   observe avec le contour du bassin simule,
+- `observed_network_seepage_overlay.png` superpose le reseau observe et les
+  zones de drainage/suintement produites par le calcul,
 - les cartes d'identite montrent des domaines differents, ce qui confirme que
   l'exutoire a bien change le bassin.
 
@@ -307,7 +315,11 @@ Points a surveiller :
   hydrologique representatif,
 - les metriques testbed ne regardent aujourd'hui que le dernier pas de temps
   pour les statistiques de champs,
-- `water_budget.png` agrege le budget sur toute la simulation,
+- `catchment_flux_balance_*.png` utilise le masque bassin reprojete sur les
+  cellules du modele et ne garde les flux `flow right/front face` que lorsque
+  la face traverse le contour du bassin,
+- `water_budget.png` agrege le budget sur toute la simulation et sur tout le
+  domaine MODFLOW, pas seulement sur le bassin hors tampon,
 - il n'existe pas encore de figure single-run dediee a la carte continue
   `outflow_drain`.
 

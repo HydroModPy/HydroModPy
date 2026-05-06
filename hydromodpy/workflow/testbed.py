@@ -8,6 +8,7 @@ from hydromodpy.analysis.testbed.contracts import (
     TestbedRunnerProvider,
     register_testbed_runner_provider,
 )
+from hydromodpy.core.exceptions import PipelineError
 
 _default_provider_factory: Callable[[], TestbedRunnerProvider] | None = None
 
@@ -23,7 +24,7 @@ def set_default_testbed_runner_provider_factory(
 def register_default_testbed_runner_provider() -> None:
     """Register the injected default testbed provider."""
     if _default_provider_factory is None:
-        raise RuntimeError(
+        raise PipelineError(
             "Default testbed provider factory is not registered. Import "
             "'hydromodpy' or call hydromodpy.bootstrap() before executing "
             "testbed variants."

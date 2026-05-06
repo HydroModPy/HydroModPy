@@ -20,7 +20,18 @@ from hydromodpy.analysis.comparison.config import (
     ComparisonObservable,
     ComparisonSimulation,
 )
+from hydromodpy.analysis.comparison._solver_protocol import (
+    get_solver_registry_provider,
+)
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.solver_diagnostics import (
+    TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV,
+    VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
+)
 from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
@@ -30,17 +41,6 @@ from hydromodpy.physics.flow.history_contract import (
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
 )
-from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
-    VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
-    VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
-    VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
-)
-from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
-    TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
-    TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
-    TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV,
-)
-
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
@@ -157,30 +157,17 @@ def _finite_array_value(values: np.ndarray | None, index: int) -> float | None:
 def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...]:
     """Return candidate TOML section names for a structured flow solver.
 
-    Sections are pulled from the solver registry filtered by the
-    ``distributed`` category — the only backends that expose a structured
-    ``(nrow, ncol)`` shape via their TOML config. ``solver_name``, when
-    given, is tried first.
+    Sections are resolved through the bootstrap-registered solver-registry
+    provider so analysis stays decoupled from concrete solver modules.
+    ``solver_name``, when given, is tried first.
     """
-    from hydromodpy.solver.base.registry import (
-        get_extractor,
-        list_extractor_solvers,
-        pairs_for_process,
-    )
-
     sections: list[str] = []
     if solver_name:
         sections.append(str(solver_name).strip().lower())
 
-    flow_solvers = {name for _, name in pairs_for_process("flow")}
-    for name in list_extractor_solvers():
-        if name not in flow_solvers:
-            continue
-        try:
-            if getattr(get_extractor(name), "category", None) == "distributed":
-                sections.append(name)
-        except KeyError:
-            continue
+    provider = get_solver_registry_provider()
+    if provider is not None:
+        sections.extend(provider.distributed_flow_solver_sections())
 
     return tuple(dict.fromkeys(section for section in sections if section))
 

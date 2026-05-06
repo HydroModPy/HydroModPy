@@ -119,7 +119,7 @@ Solver Coverage
       **Metrics**
       - Head-profile RMSE: 0.0254 m
       - Head-profile max abs error: 0.0370 m
-      - Cross-row head spread: 1.98e-10 m
+      - Cross-row head spread: 0.00e+00 m
 
       - Config file: ``validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/steady/dupuit_uniform_recharge_1d/tolerances.toml``
@@ -409,7 +409,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/steady/dupuit_uniform_recharge_1d/config_boussinesq.toml``
 
 Acceptance Criteria

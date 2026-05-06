@@ -20,6 +20,9 @@ from hydromodpy.spatial.geographic.synthetic.topography import build_topography_
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (
     _build_flow_config,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import (
+    apply_analytical_boussinesq_runtime_defaults,
+)
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.gmsh_irregular_strip import write_gmsh22_triangle_mesh_from_bundle_csv
 from validation_cases.shared.runtime import (
@@ -367,7 +370,7 @@ def run_boussinesq_circular_island_piecewise_k_case(
     caller_file: str | Path,
     timeout: int = 1800,
 ) -> ValidationRunResult:
-    """Run the circular-island piecewise-K case through the local `flow/boussinesq` adapter."""
+    """Run the circular-island piecewise-K case through the PETSc VI backend."""
     del timeout
 
     reference_cfg = _load_reference_cfg()
@@ -399,29 +402,29 @@ def run_boussinesq_circular_island_piecewise_k_case(
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
                 _build_flow_config(
-                    {
-                        "flow_regime": "steady",
-                        # This medium-size island mesh still converges more
-                        # robustly on the dense local Newton path than on the
-                        # sparse validation backend.
-                        "runtime_backend": "local",
-                        "ic": {"type": "custom", "value": 1.0},
-                        "active_sinks_sources": ["recharge", "wells"],
-                        "active_bc": ["ocean"],
-                        "sinks_sources": {
-                            "recharge": {
-                                "values": recharge_rate_m_s,
-                                "first_clim": "mean",
-                                "units": "m/s",
+                    apply_analytical_boussinesq_runtime_defaults(
+                        {
+                            "flow_regime": "steady",
+                            "runtime_backend": "local",
+                            "ic": {"type": "custom", "value": 1.0},
+                            "active_sinks_sources": ["recharge", "wells"],
+                            "active_bc": ["ocean"],
+                            "sinks_sources": {
+                                "recharge": {
+                                    "values": recharge_rate_m_s,
+                                    "first_clim": "mean",
+                                    "units": "m/s",
+                                },
+                                "wells": wells_payload,
                             },
-                            "wells": wells_payload,
+                            "bc": {
+                                "dirichlet": {
+                                    "ocean": {"value": float(reference_cfg["sea_level_m"])},
+                                }
+                            },
                         },
-                        "bc": {
-                            "dirichlet": {
-                                "ocean": {"value": float(reference_cfg["sea_level_m"])},
-                            }
-                        },
-                    },
+                        flow_regime="steady",
+                    ),
                     case_dir=CASE_DIR,
                 )
             ),

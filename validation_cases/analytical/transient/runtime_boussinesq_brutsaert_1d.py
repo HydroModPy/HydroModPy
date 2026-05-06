@@ -1,4 +1,4 @@
-"""Shared local Boussinesq runtime for Brutsaert recession validation strips."""
+"""Shared PETSc Boussinesq runtime for Brutsaert recession validation strips."""
 
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
 )
 from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_grids,
+)
+from validation_cases.shared.boussinesq_analytical_runtime import (
+    apply_analytical_boussinesq_runtime_defaults,
 )
 from validation_cases.shared.boussinesq_uniform_strip import (
     build_flow_config,
@@ -106,12 +109,8 @@ def run_boussinesq_brutsaert_recession_case(
     dt_seconds: float,
     acceptable_steady_residual_inf: float = 1.0e-6,
 ) -> ValidationRunResult:
-    """Run one transient Brutsaert recession benchmark on the local Boussinesq backend."""
+    """Run one transient Brutsaert recession benchmark on the PETSc Boussinesq backend."""
     del timeout
-    # Keep small validation strips on the historical dense backend, but switch
-    # larger aligned strips to the sparse Newton path before the 256-cell limit.
-    runtime_backend = "scipy_sparse" if int(nx) * int(ny) > 256 else "local"
-
     out_path = resolve_validation_results_dir(
         test_file=caller_file,
         run_name=f"{case_id}_boussinesq",
@@ -133,25 +132,27 @@ def run_boussinesq_brutsaert_recession_case(
 
     steady_flow = Flow(
         build_flow_config(
-            {
-                "flow_regime": "steady",
-                "runtime_backend": runtime_backend,
-                "ic": {"type": "custom", "value": float(east_head_m)},
-                "active_sinks_sources": ["recharge"],
-                "active_bc": ["east_side"],
-                "sinks_sources": {
-                    "recharge": {
-                        "values": _mm_day_to_m_s(steady_recharge_mm_day),
-                        "first_clim": "mean",
-                        "units": "m/s",
+            apply_analytical_boussinesq_runtime_defaults(
+                {
+                    "flow_regime": "steady",
+                    "ic": {"type": "custom", "value": float(east_head_m)},
+                    "active_sinks_sources": ["recharge"],
+                    "active_bc": ["east_side"],
+                    "sinks_sources": {
+                        "recharge": {
+                            "values": _mm_day_to_m_s(steady_recharge_mm_day),
+                            "first_clim": "mean",
+                            "units": "m/s",
+                        }
+                    },
+                    "bc": {
+                        "dirichlet": {
+                            "east_side": {"value": float(east_head_m)},
+                        }
                     }
                 },
-                "bc": {
-                    "dirichlet": {
-                        "east_side": {"value": float(east_head_m)},
-                    }
-                },
-            },
+                flow_regime="steady",
+            ),
             case_dir=case_dir,
         )
     )
@@ -178,17 +179,19 @@ def run_boussinesq_brutsaert_recession_case(
 
     transient_flow = Flow(
         build_flow_config(
-            {
-                "flow_regime": "transient",
-                "runtime_backend": runtime_backend,
-                "ic": {"type": "custom", "value": float(east_head_m)},
-                "active_bc": ["east_side"],
-                "bc": {
-                    "dirichlet": {
-                        "east_side": {"value": float(east_head_m)},
-                    }
+            apply_analytical_boussinesq_runtime_defaults(
+                {
+                    "flow_regime": "transient",
+                    "ic": {"type": "custom", "value": float(east_head_m)},
+                    "active_bc": ["east_side"],
+                    "bc": {
+                        "dirichlet": {
+                            "east_side": {"value": float(east_head_m)},
+                        }
+                    },
                 },
-            },
+                flow_regime="transient",
+            ),
             case_dir=case_dir,
         )
     )
@@ -215,7 +218,7 @@ def run_boussinesq_brutsaert_recession_case(
     transient_success = bool(transient_model._run_transient_runtime())
     if not transient_success:
         raise RuntimeError(
-            "Brutsaert transient recession run failed on the local Boussinesq backend. "
+            "Brutsaert transient recession run failed on the PETSc Boussinesq backend. "
             f"workspace={transient_model.full_path}"
         )
     transient_model.has_numerical_solution = True
@@ -266,6 +269,14 @@ def run_boussinesq_brutsaert_recession_case(
         "initial_outlet_discharge_m3_s": float(initial_outlet_discharge_m3_s),
         "steady_residual_norm_inf": float(steady_residual),
         "acceptable_steady_residual_inf": float(acceptable_steady_residual_inf),
+        "steady_runtime_backend": str(steady_model.flow.config.runtime_backend),
+        "steady_surface_interaction_model": str(
+            steady_model.flow.config.surface_interaction_model
+        ),
+        "transient_runtime_backend": str(transient_model.flow.config.runtime_backend),
+        "transient_surface_interaction_model": str(
+            transient_model.flow.config.surface_interaction_model
+        ),
         "nx": int(nx),
         "ny": int(ny),
         "length_x_m": float(length_x_m),
@@ -274,7 +285,6 @@ def run_boussinesq_brutsaert_recession_case(
         "z_bottom_m": float(z_bottom_m),
         "east_head_m": float(east_head_m),
         "steady_recharge_mm_day": float(steady_recharge_mm_day),
-        "runtime_backend": runtime_backend,
     }
     (postprocess_dir / "brutsaert_context.json").write_text(
         json.dumps(context_payload, indent=2, ensure_ascii=True) + "\n",

@@ -34,16 +34,33 @@ are always allowed.
 | schema       | core, schema, config |
 | config       | core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow |
 | physics      | core, schema, physics |
-| data         | core, schema, data |
+| data         | core, schema, data, spatial |
 | spatial      | core, schema, spatial |
 | simulation   | core, schema, physics, spatial, data, simulation |
 | solver       | core, schema, physics, spatial, solver, simulation |
-| calibration  | core, schema, physics, data, spatial, solver, simulation, calibration |
-| results      | core, schema, config, results |
+| calibration  | core, schema, physics, data, spatial, solver, simulation, calibration, results |
+| results      | core, schema, config, results, spatial |
 | display      | core, schema, results, display |
-| analysis     | core, schema, data, results, analysis |
+| analysis     | core, schema, physics, data, results, display, analysis |
 | workflow     | core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow |
 | cli          | every layer |
+
+## Explicit Structural Choices
+
+The following cross-layer edges are allowed by design and should not be
+reported as segmentation problems:
+
+- `data -> spatial`: loaders may materialize spatial products when that keeps
+  the user-facing sequence `load -> materialize -> expose in loaded_data`
+  coherent.
+- `results -> spatial`: `Run` exposes practical helpers for persisted
+  hydrographic networks instead of forcing users through raw catalog tables.
+- `calibration -> results`: calibration records, promotes, and rereads
+  persisted simulation runs through the results catalog.
+- `analysis -> display`: analysis workflows may produce visual artifacts while
+  rendering implementation remains in `display`.
+- `analysis -> physics`: comparison exports reuse the shared transient history
+  contract (`t0..tN` snapshots and `dt1..dtN` periods) from `physics.flow`.
 
 ## Tolerated cross-edges
 
@@ -53,13 +70,6 @@ documented at the call site. Listed in `layer_matrix.yaml` under
 
 | src         | tgt     | rationale |
 |-------------|---------|-----------|
-| data        | spatial | geology field bridging |
-| calibration | results | catalog read at planning time |
-| simulation  | solver  | dispatch through solver registry |
-| results     | spatial | results stores spatial indices |
-| analysis    | physics | history contract |
-| analysis    | display | comparison exports reuse plot mesh loading |
-| analysis    | solver  | comparison runtime resolves solver families |
 | cli         | root    | CLI dispatch delegates to public Project facade |
 
 Tolerances tighten over time. Adding a new tolerance requires a

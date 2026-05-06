@@ -19,6 +19,7 @@ from validation_cases.shared import (
     max_std_along_axis,
     rmse,
 )
+from validation_cases.shared.boussinesq_plotting import with_boussinesq_method_line
 
 from .brutsaert_reference import (
     SECONDS_PER_DAY,
@@ -552,6 +553,7 @@ def plot_brutsaert_recession_comparison(
                 f"   final signed %={comparison.solver_budget_last_rate_discrepancy_percent:.2f}"
             )
         footer_lines.append(budget_line)
+    footer_lines = with_boussinesq_method_line(comparison.result, footer_lines)
 
     figure.suptitle(title, fontsize=13)
     figure.text(

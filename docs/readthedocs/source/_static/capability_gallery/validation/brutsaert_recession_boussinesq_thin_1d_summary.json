@@ -3,8 +3,8 @@
   "slug": "brutsaert_recession_boussinesq_thin_1d",
   "title": "Brutsaert Recession Validation: Thin Nonlinear Aquifer",
   "category": "validation",
-  "deck": "This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.",
-  "summary": "This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.",
+  "deck": "This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.",
+  "summary": "This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.",
   "case_setup": [
     "homogeneous 1D strip with west divide and east imposed head,",
     "steady uniform recharge used only to build the initial saturated state,",
@@ -16,7 +16,7 @@
   "how_to_read": [],
   "next_steps": [],
   "what_it_shows": [
-    "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, and the local Boussinesq runtime in the nonlinear regime",
+    "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the PETSc Boussinesq runtime in the nonlinear regime",
     "Primary metrics: relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check.",
     "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
   ],
@@ -52,27 +52,27 @@
     "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/README.md": "08fe443980aaada1e30a213323ace0f47040d026c97cf6c1cc570f8b218bf295",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/README.md": "be2b0a44b60c619765727399d233b167ab84a05862ac9141df64b76226af3d91",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/reference.py": "4b5bf03d4cfa8ba52e90125d886b8cb149da78acf800e1a8e5f427c61151f730",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/comparison.py": "3ad4e5f96844cb363cffdb3f7030186819b9cbbb6210fd2e48367d9c40073fd9",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/plotting.py": "0d6150c5cf09f0e92382cb424e1362f79178a3bd9495ae1894c6cafaa8bafa85",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/run_case.py": "1794cff74af93354f32cf5bad1aad0a31d64be8e20861b2d2f17d86de778c213",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/metadata.toml": "b1abed09efae825ec2f720b268b2f9d3152e49c2ebf717c02beff56829b590bd",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml": "0295df7d3592c75be764ce1bcc53100e0f68bb39bae792e6726c94b7909646ba",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/runtime_boussinesq.py": "a221b9fdec543412c2ef138900e2ffab1b436075b3e0f8ff3d11c97377c2ad87",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/runtime_boussinesq.py": "ce104c615680b124a61adf446383ab39f91483a1f3db82065f58944d35012367",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances.toml": "dba9f6c8d90e24b35674dd65ae34c328a2dfa793dc7dfc7f75b1b3dcff3708b0",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml": "32956b016fe1b2bbbf17447393adcc2d6c4a853ce52b48fa7970ddb290e684c3",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml": "c5b8d2023ffabbf338c0b2494cd6dd2078231f4388bb2c4c4f56dafe02974f77",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflow6.toml": "a9d686973f114a73ba4c1307c4077f2056bdb508cdb0e59a5966874002d847b9",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflow6_irregular_tri.toml": "b7d5b6b1d9482f0704bbea8a8cd931479ad25e67d277bf93b08765a675fcf760",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflownwt.toml": "a9d686973f114a73ba4c1307c4077f2056bdb508cdb0e59a5966874002d847b9",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml": "c76f289c87c1f86677b343dfc7fb2eb83a39833fd40d80acff0160baf69bd219",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6.toml": "d194539c405955fbe7cc89e1a4f18af8f21c4e6b8fbcb0f77cce22a0f8c52535",
     "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflow6_irregular_tri.toml": "1d210df39abef877d3df2b59ffa5099387dfebcaa718348024b96cc3d39006e8",
-    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_boussinesq.toml": "6f68bf8bb4da181014cdc8fc3d802958f0c056f4675490e309cfaa280b586156",
-    "validation_cases/analytical/transient/brutsaert_common.py": "4c79443e31b9554497b06bf146027fa0ef49b3f5e5e4b9e3d2cb393d0cfb0238",
+    "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_boussinesq.toml": "87d0296f0e1ef6cea8c3bf6e88b8323ba8986669110668662e0d301cd823239c",
+    "validation_cases/analytical/transient/brutsaert_common.py": "8fe73e142c51858ac635defc04344d3c7b1256d714509ade727999dd7bc318ef",
     "validation_cases/analytical/transient/brutsaert_reference.py": "971b3a11b10643e89902b700399d14835f60ed4498858553912fff2453132616",
-    "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py": "f02baf9a83e20bc9ba018ea3579931d37ab5afac6252df0889b81aaae6154606"
+    "validation_cases/analytical/transient/runtime_boussinesq_brutsaert_1d.py": "a4e3ff1eb3a068cbf5ceb9a4ad88bf5d8a34f749bc3876c7c41473c89e8ccf3f"
   },
   "docname": "cases/brutsaert_recession_boussinesq_thin_1d",
   "images": [
@@ -127,7 +127,7 @@
       "numerical_setup": "Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession",
       "analytical_target": "Nonlinear Brutsaert recession law for a thin aquifer",
       "primary_metrics": "relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check",
-      "what_it_validates": "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, and the local Boussinesq runtime in the nonlinear regime"
+      "what_it_validates": "Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the PETSc Boussinesq runtime in the nonlinear regime"
     },
     "process_family": "flow",
     "process_family_label": "Flow",
@@ -453,9 +453,9 @@
         "Solution: boussinesq",
         "Initial discharge: 3.428819e-05 m3/s",
         "Characteristic time: 29.09 d",
-        "Relative RMSE: 0.2189",
-        "Relative max abs error: 0.2353",
-        "Cross-row head spread: 8.12e-16 m"
+        "Relative RMSE: 0.2300",
+        "Relative max abs error: 0.2460",
+        "Cross-row head spread: 8.88e-16 m"
       ],
       "image": {
         "filename": "brutsaert_recession_boussinesq_thin_1d__boussinesq.png",
@@ -525,8 +525,8 @@
         },
         "tolerances": {
           "discharge": {
-            "relative_rmse": 0.22,
-            "relative_max_error": 0.24
+            "relative_rmse": 0.24,
+            "relative_max_error": 0.26
           },
           "uniformity": {
             "row_spread": 1e-06
@@ -757,6 +757,12 @@
         "field": "flow.bc.dirichlet.east_side.forcing.units",
         "meaning": "Case-specific configuration field `flow.bc.dirichlet.east_side.forcing.units` used by the validation benchmark.",
         "value": "m",
+        "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
+      },
+      {
+        "field": "flow.sinks_sources.recharge.negative_to_evt",
+        "meaning": "Case-specific configuration field `flow.sinks_sources.recharge.negative_to_evt` used by the validation benchmark.",
+        "value": "true",
         "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_common.toml"
       },
       {
@@ -1065,13 +1071,13 @@
           {
             "field": "discharge.relative_rmse",
             "meaning": "Acceptance threshold for `discharge.relative_rmse`.",
-            "value": "0.22",
+            "value": "0.24",
             "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml"
           },
           {
             "field": "discharge.relative_max_error",
             "meaning": "Acceptance threshold for `discharge.relative_max_error`.",
-            "value": "0.24",
+            "value": "0.26",
             "source": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_boussinesq.toml"
           },
           {

@@ -32,7 +32,7 @@ def build_validation_profile_x_values(
     """Return the x support that matches one validation backend output.
 
     Launcher-backed MODFLOW profiles are sampled on the full strip support,
-    whereas the local Boussinesq strip runtime is exported on structured bins
+    whereas the PETSc Boussinesq strip runtime is exported on structured bins
     built from triangle centroids and therefore aligns with cell centers.
     """
     normalized_solver = "" if solver_name is None else str(solver_name).strip().lower()

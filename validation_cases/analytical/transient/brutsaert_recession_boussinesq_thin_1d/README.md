@@ -1,7 +1,7 @@
 # Brutsaert Recession Validation: Thin Nonlinear Aquifer
 
 This transient validation case checks that the available `modflownwt`,
-`modflow6`, and local `boussinesq` backends reproduce the nonlinear
+`modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear
 Brutsaert recession law on a thin aquifer.
 
 Numerical setup:

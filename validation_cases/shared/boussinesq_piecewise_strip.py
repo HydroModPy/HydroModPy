@@ -10,6 +10,9 @@ from pathlib import Path
 
 import numpy as np
 
+from validation_cases.shared.boussinesq_analytical_runtime import (
+    apply_analytical_boussinesq_runtime_defaults,
+)
 from validation_cases.shared.runtime import (
     REPO_ROOT,
     ValidationRunResult,
@@ -472,7 +475,9 @@ def write_piecewise_strip_launcher_config(
     west_head_m: float | None = None,
     east_head_m: float | None = None,
     recharge_rate_m_s: float | None = None,
-    runtime_backend: str = "scipy_sparse",
+    runtime_backend: str = "petsc",
+    surface_interaction_model: str | None = None,
+    apply_runtime_defaults: bool = True,
 ) -> Path:
     """Write one minimal self-contained launcher config for the strip bundle."""
     active_bc: list[str] = []
@@ -483,6 +488,17 @@ def write_piecewise_strip_launcher_config(
     active_sinks_sources: list[str] = []
     if recharge_rate_m_s is not None:
         active_sinks_sources.append("recharge")
+
+    runtime_flow = {
+        "flow_regime": "steady",
+        "runtime_backend": runtime_backend,
+        "surface_interaction_model": surface_interaction_model or "auto",
+    }
+    if apply_runtime_defaults:
+        runtime_flow = apply_analytical_boussinesq_runtime_defaults(
+            runtime_flow,
+            flow_regime="steady",
+        )
 
     lines = [
         'workflow = "simulation"',
@@ -531,7 +547,8 @@ def write_piecewise_strip_launcher_config(
         "",
         "[flow]",
         'flow_regime = "steady"',
-        f"runtime_backend = {json.dumps(str(runtime_backend))}",
+        f"runtime_backend = {json.dumps(str(runtime_flow['runtime_backend']))}",
+        f"surface_interaction_model = {json.dumps(str(runtime_flow['surface_interaction_model']))}",
         f"active_sinks_sources = [{', '.join(json.dumps(item) for item in active_sinks_sources)}]",
         f"active_bc = [{', '.join(json.dumps(item) for item in active_bc)}]",
         "",
@@ -595,7 +612,9 @@ def run_piecewise_strip_boussinesq_launcher_case(
     west_head_m: float | None = None,
     east_head_m: float | None = None,
     recharge_rate_m_s: float | None = None,
-    runtime_backend: str = "scipy_sparse",
+    runtime_backend: str = "petsc",
+    surface_interaction_model: str | None = None,
+    apply_runtime_defaults: bool = True,
 ) -> ValidationRunResult:
     """Run one steady Boussinesq piecewise-strip case through ``hmp run``."""
     out_path = resolve_validation_results_dir(
@@ -615,6 +634,8 @@ def run_piecewise_strip_boussinesq_launcher_case(
         east_head_m=None if east_head_m is None else float(east_head_m),
         recharge_rate_m_s=(None if recharge_rate_m_s is None else float(recharge_rate_m_s)),
         runtime_backend=runtime_backend,
+        surface_interaction_model=surface_interaction_model,
+        apply_runtime_defaults=apply_runtime_defaults,
     )
 
     import subprocess as _sp

@@ -189,7 +189,7 @@ def run_boussinesq_hillslope_interception_comparison(
     timeout: int = 1800,
     solver: str | None = None,
 ) -> BoussinesqHillslopeInterceptionComparison:
-    """Run the local Boussinesq hillslope case and return the comparison payload."""
+    """Run the PETSc VI Boussinesq hillslope case and return the comparison payload."""
     normalized_solver = None if solver is None else str(solver).strip().lower()
     if normalized_solver not in {None, "boussinesq"}:
         raise ValueError("This validation case supports only solver='boussinesq'.")

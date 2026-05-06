@@ -17,16 +17,16 @@ Current Coverage
 - Process families populated today: Flow (24).
 - Benchmark families: Core 1D Dupuit Baselines (3), Steady 1D Boussinesq with Heterogeneous Conductivity (3), Steady 1D Boussinesq with Topography or Sloping Substratum (6), Steady 2D Radial or Island Cases (2), Transient 1D Boundary or Recharge Forcing (5), Transient 1D Recession or Interception Dynamics (3), Transient 2D Radial Response (1), XT3D Choice For Irregular MF6 Meshes (1).
 - Reference styles: Analytical Exact (10), Analytical Series (11), Diagnostic Comparison (1), Semi-Analytical / Diagnostic (2).
-- Solver variants discovered: MODFLOW-NWT (21), MODFLOW 6 (21), MODFLOW 6 irregular triangles (11), Boussinesq (21).
+- Solver variants discovered: MODFLOW-NWT (21), MODFLOW 6 (21), MODFLOW 6 irregular triangles (21), Boussinesq (21).
 
 Latest Batch Reports
 --------------------
 
 - MODFLOW-NWT: 21/21 cases passed on 2026-05-02T17:32:36.764494+00:00 (848.5 s), report ``validation_cases/reports/latest/modflownwt_both.json``.
 - MODFLOW 6: 21/21 cases passed on 2026-05-02T17:43:05.264506+00:00 (627.5 s), report ``validation_cases/reports/latest/modflow6_both.json``.
-- MODFLOW 6 irregular triangles: 11/11 cases passed on 2026-05-02T17:53:35.365133+00:00 (627.9 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_both.json``.
+- MODFLOW 6 irregular triangles: 21/21 cases passed on 2026-05-03T16:18:34.893535+00:00 (522.2 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_both.json``.
 - MODFLOW 6 irregular triangles: 11/11 cases passed on 2026-05-02T00:31:05.408573+00:00 (168.9 s), report ``validation_cases/reports/latest/modflow6_irregular_tri_steady.json``.
-- Boussinesq: 21/21 cases passed on 2026-05-02T18:09:32.157662+00:00 (947.9 s), report ``validation_cases/reports/latest/boussinesq_both.json``.
+- Boussinesq: 21/21 cases passed on 2026-05-06T07:41:24.118686+00:00 (659.8 s), report ``validation_cases/reports/latest/boussinesq_both.json``.
 
 Grouped Benchmarks
 ------------------
@@ -122,7 +122,7 @@ Steady 1D Boussinesq with Topography or Sloping Substratum
 
       **Boussinesq Hillslope Interception 1D**
       ^^^
-      Steady synthetic groundwater-flow case used to validate the dense local `flow/boussinesq` runtime on a sloping hillslope where the water table reaches the land surface near the outlet.
+      Steady synthetic groundwater-flow case used to validate the PETSc VI obstacle `flow/boussinesq` runtime on a sloping hillslope where the water table reaches the land surface near the outlet.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -289,7 +289,7 @@ Transient 1D Recession or Interception Dynamics
 
       **Brutsaert Recession Validation: Thin Nonlinear Aquifer**
       ^^^
-      This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.
+      This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -298,7 +298,7 @@ Transient 1D Recession or Interception Dynamics
 
       **Brutsaert Recession Validation: Deep Linearized Aquifer**
       ^^^
-      This transient validation case checks that the available `modflownwt`, `modflow6`, and local `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.
+      This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.
 
 Transient 2D Radial Response
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

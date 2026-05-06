@@ -73,16 +73,14 @@ def run_linearized_unconfined_recharge_step_comparison(
     """Run the launcher case and return the full comparison payload."""
     normalized_solver = None if solver is None else str(solver).strip().lower()
     if normalized_solver in {"boussinesq", "petsc_ts_vi_obstacle"}:
-        runtime_backend = "scipy_sparse"
-        surface_interaction_model = None
-        if normalized_solver == "petsc_ts_vi_obstacle":
-            runtime_backend = "petsc"
-            surface_interaction_model = "ts_vi_obstacle"
+        runtime_backend = "petsc"
+        surface_interaction_model = "ts_vi_obstacle"
         result = run_boussinesq_linearized_unconfined_recharge_step_case(
             caller_file=caller_file,
             timeout=timeout,
             runtime_backend=runtime_backend,
             surface_interaction_model=surface_interaction_model,
+            public_solver_label=str(normalized_solver),
         )
     else:
         result = run_launcher_validation_case(

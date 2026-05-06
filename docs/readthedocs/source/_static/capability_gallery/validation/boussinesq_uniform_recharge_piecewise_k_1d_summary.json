@@ -52,22 +52,22 @@
     "validation_cases/analytical/steady/boussinesq_piecewise.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/README.md": "8fc5e548bfc1e304f15543ab9b86b9099d4aa587ce34d8175c63fdccb8592b89",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/reference.py": "e671f5aee01c247373e2eb7cc34dfe0ffdb6ec9271b05b82b83779ee06add064",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/comparison.py": "6e4d81be7a784d78907c021d6b5f4755349437784b3c4456338f870ec93d6205",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/plotting.py": "80aa87d4efcc9504d1121be36f8e23406ca75c6abefe0ecc6d740fad40e6389a",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/plotting.py": "eb8c4ee9fbc85c5eceb1f1db3550010f5b2518032fbe4dccd1d5387833f4236c",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/run_case.py": "3d49029e8ac97cd6c5a8694d60d7cad4c915b88080b9ed5855002d3f571d7f0b",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/metadata.toml": "4dbc8da5b1646572498576dcf95ad85be0aa14c851a725d5adff2d67b389dd0d",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml": "f6773aa5ee4827853e669f538e0456d6ec5b6c4143fe838afd854ad0ba390c2b",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/runtime_boussinesq.py": "5fe6004311626827a977cd2a12f7978a5c6a65bc83459c4f2823e2fb5db2e45a",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/runtime_boussinesq.py": "94ee2d4dd7b25b91ca047840ec4a9facccae1dfdf79db7b42599fda0cc738bf9",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_boussinesq.toml": "9acc07f43d889ae5ea1e48fc0197a97adfe58a9d06986589b944ed0b7dae9d1e",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6.toml": "d30bd227e5007b4679f5ba915f6bcfcfca354c2adcbdb16e1f9b43e814491700",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/tolerances_modflow6_irregular_tri.toml": "465dc9005305c8b7eb648589d51d797d64d030521322a4a0f11720765dd5d5e0",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6.toml": "e668647e68535e36fad07cfad44315d3cdf951c3667fbd299c05faadb166252d",
     "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflow6_irregular_tri.toml": "d934aaecdc1f26f7a5d7f98a1da6a30950e5e208c46bc7c6744e2c0d281c4da8",
-    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml": "c343d4093712f5df9d92d3c3de19d3dbf161cabb733536ef93ce693c44ab4278",
+    "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml": "6eb6e7f92d12b05ba28b50bf74b235878ce2c15b8de086cb3a5e7ad9c73c42ac",
     "validation_cases/analytical/steady/boussinesq_piecewise.py": "62c299fafedaa7556160b00275e6e9780a00baa0ebc1c5aaf206a27c035fb8db"
   },
   "docname": "cases/boussinesq_uniform_recharge_piecewise_k_1d",
@@ -833,7 +833,7 @@
         {
           "field": "flow.runtime_backend",
           "meaning": "Runtime backend selected for the in-house solver.",
-          "value": "scipy_sparse",
+          "value": "petsc",
           "source": "validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_boussinesq.toml"
         }
       ]

@@ -22,10 +22,11 @@ def run_boussinesq_dupuit_fixed_head_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
-    runtime_backend: str = "scipy_sparse",
-    surface_interaction_model: str | None = None,
+    runtime_backend: str = "petsc",
+    surface_interaction_model: str | None = "vi_obstacle",
+    public_solver_label: str = "boussinesq",
 ) -> object:
-    """Run the steady Dupuit fixed-head case through the local Boussinesq backend."""
+    """Run the steady Dupuit fixed-head case through the PETSc Boussinesq backend."""
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))
     aquifer_thickness_m = float(reference_cfg["aquifer_thickness_m"])
@@ -88,15 +89,7 @@ def run_boussinesq_dupuit_fixed_head_case(
         dt_seconds=1.0e8 if use_ts_vi else None,
         export_initial_state=False if use_ts_vi else None,
     )
-    solver_name = "boussinesq"
-    if str(runtime_backend).strip().lower() == "petsc":
-        if surface_model == "regularized_partition":
-            solver_name = "petsc_partition"
-        elif surface_model == "ts_vi_obstacle":
-            solver_name = "petsc_ts_vi_obstacle"
-        else:
-            solver_name = "petsc"
-    return replace(result, solver_name=solver_name)
+    return replace(result, solver_name=str(public_solver_label or "boussinesq"))
 
 
 __all__ = ["run_boussinesq_dupuit_fixed_head_case"]

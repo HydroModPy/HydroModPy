@@ -17,6 +17,7 @@ from validation_cases.shared import (
     max_abs_error,
     rmse,
 )
+from validation_cases.shared.boussinesq_plotting import with_boussinesq_method_line
 
 SECONDS_PER_DAY = 86400.0
 
@@ -463,6 +464,7 @@ def plot_transient_head_1d_comparison(
             "monitor positions="
             + ", ".join(f"{float(position):.0f} m" for position in plot_cfg["monitor_positions_m"])
         )
+    footer_lines = with_boussinesq_method_line(comparison.result, footer_lines)
 
     fig.suptitle(title, fontsize=13)
     fig.text(
@@ -692,6 +694,7 @@ def plot_transient_radial_drawdown_comparison(
     max_abs_tol = float(space_time_tol.get("max_abs_error", 0.0))
     if max_abs_tol > 0.0:
         footer_lines.append(f"configured max-abs tolerance={max_abs_tol:.4f} m")
+    footer_lines = with_boussinesq_method_line(comparison.result, footer_lines)
 
     figure.suptitle(title, fontsize=13)
     figure.text(

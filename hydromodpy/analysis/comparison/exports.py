@@ -15,20 +15,18 @@ import numpy as np
 
 from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-from hydromodpy.core.units.scalar import parse_scalar_and_unit
-from hydromodpy.core.units.volumetric_flow import factor_to_m3_per_s
-from hydromodpy.physics.flow.history_contract import build_transient_time_axes
-from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
+from hydromodpy.core.solver_diagnostics import (
+    TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV,
     VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
     VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
     VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
 )
-from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
-    TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
-    TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
-    TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV,
-)
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.core.units.scalar import parse_scalar_and_unit
+from hydromodpy.core.units.volumetric_flow import factor_to_m3_per_s
+from hydromodpy.physics.flow.history_contract import build_transient_time_axes
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog

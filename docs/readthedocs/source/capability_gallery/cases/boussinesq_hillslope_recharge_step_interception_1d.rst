@@ -26,7 +26,7 @@ What It Shows
 - validate the transient onset of interception on a topographic slope,
 - compare the **time of first inland interception** against a linearized approximation,
 - compare the discrete interception trajectory `x_int(t)` on the early-moving front where the approximation remains informative.
-- Transient appearance of seepage/interception on a hillslope with the dense in-house Boussinesq runtime
+- Transient appearance of seepage/interception on a hillslope with the PETSc TS VI Boussinesq runtime
 - Primary metrics: onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread.
 
 Analytical Reference
@@ -56,12 +56,12 @@ Solver Coverage
 
 **Metrics**
 - Analytical onset time: 60.0 d
-- Numerical onset time: 80.0 d
-- Onset-time error: 20.0 d
-- Interception-trajectory RMSE: 6.45 m
+- Numerical onset time: 70.0 d
+- Onset-time error: 10.0 d
+- Interception-trajectory RMSE: 5.00 m
 - Interception-trajectory max abs error: 10.00 m
 - Trajectory reversal: 0.00e+00 m
-- Cross-row head spread: 1.38e-08 m
+- Cross-row head spread: 8.88e-16 m
 
 - Config file: ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/config_boussinesq.toml``
 - Tolerances: ``validation_cases/analytical/transient/boussinesq_hillslope_recharge_step_interception_1d/tolerances.toml``

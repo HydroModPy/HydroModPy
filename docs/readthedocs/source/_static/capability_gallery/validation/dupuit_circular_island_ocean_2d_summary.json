@@ -51,21 +51,21 @@
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/README.md": "5ecf68854b0e6bf81bee4fa40ce9267df07915134ca546c7d4ca6016719e155a",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/reference.py": "8e83ad8adb0fc205f37638be55aea3c71e510e823186b2ae50a289f2a5539560",
-    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/comparison.py": "886f8ee27055ddc7b4a99630ff620d5682a52902b79031fd4dce1285808eb13f",
-    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/plotting.py": "da4cec8893f58743138c63e4f25ad76ebe86afb17ac3bcb7519a765019adc290",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/comparison.py": "48b31e9376d20dc80bbb61f2afd8dc857de610637b88aa4f6bf58b334dfa4a7f",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/plotting.py": "75edbe358efb7f81ff6800ab5ebf6cb6ce765d3f9cc391e63108f90b8cca3a03",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/run_case.py": "6a2560b3cf52d4bc0beb590f4a1540388ee2445e5cfd7dfff9f53062968f1053",
-    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml": "a1f271b20481dc163787226cde45631153b73154f137a3e5c28d6f162c27717b",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/metadata.toml": "5a8be5d6014efa2020451776e3909cd38244098e0f8aacd870eb2018cbde5631",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml": "e6a77e8be5dd78244b40953d1091a90d7ca11e16d8a75cbc39a12fa8dda960bc",
-    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/runtime_boussinesq.py": "2291e9c746136125631b3e37749d10fd408aff69cc53fbaee964acc159dde551",
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/runtime_boussinesq.py": "c56697610e8cf5f991dcfbe21cd2bfe793f30475cea43a53e881e1c2b0b1da17",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml": "94cc94a82656a15c08760bf188dea51333e0c45ac1254d1d40632a28ceb9a58d",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_boussinesq.toml": "0e704808cd6e8b5e2bee229fd9c55a879eab7bb99bb08607cf7e01a28d811978",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances_modflow6.toml": "0a50298d4b44378dac58011267654dd0327125401f8c95899dda3d4a6ed7dac3",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6.toml": "861f5eef5f90f4482e1018d1d02c41c9bbc32452acb036a155ef57f531b4c1fc",
     "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml": "72aa8ccbfa7ed2382c5a429aec8b7baae29cbd5bc9897e672a08f7ffdd90796b",
-    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml": "c343d4093712f5df9d92d3c3de19d3dbf161cabb733536ef93ce693c44ab4278"
+    "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml": "6eb6e7f92d12b05ba28b50bf74b235878ce2c15b8de086cb3a5e7ad9c73c42ac"
   },
   "docname": "cases/dupuit_circular_island_ocean_2d",
   "images": [
@@ -322,11 +322,11 @@
       "expected_output": "Expected shape: 61 x 61",
       "command": "python -m validation_cases.analytical.steady.dupuit_circular_island_ocean_2d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Radial head-profile RMSE: 0.0758 m",
-        "Radial head-profile max abs error: 0.1377 m",
-        "Azimuthal spread: 0.1879 m",
+        "Radial head-profile RMSE: 0.1256 m",
+        "Radial head-profile max abs error: 0.1959 m",
+        "Azimuthal spread: 0.1837 m",
         "Ocean head max abs error: 0.00e+00 m",
-        "Minimum land freeboard: 0.8318 m"
+        "Minimum land freeboard: 0.6655 m"
       ],
       "image": {
         "filename": "dupuit_circular_island_ocean_2d__modflow6_irregular_tri.png",
@@ -890,7 +890,7 @@
         {
           "field": "flow.runtime_backend",
           "meaning": "Runtime backend selected for the in-house solver.",
-          "value": "scipy_sparse",
+          "value": "petsc",
           "source": "validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml"
         }
       ]

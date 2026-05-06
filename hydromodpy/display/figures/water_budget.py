@@ -1,4 +1,4 @@
-"""Bar chart of the simulated water budget components."""
+"""Bar chart of the simulated solver budget components."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 @register
 class WaterBudget(BaseFigure):
-    """Per-component IN/OUT bar chart aggregated over the run."""
+    """Per-component IN/OUT bar chart aggregated over the full model domain."""
 
     spec = FigureSpec(
         name="water_budget",
@@ -37,8 +37,23 @@ class WaterBudget(BaseFigure):
             return ax
         agg = df.groupby("component")[["flux_in", "flux_out"]].sum()
         agg.plot.bar(ax=ax, color=["#3b8686", "#cf3a3a"])
-        ax.set_title(f"Water budget - {sim.name or sim.sim_id}")
-        ax.set_ylabel("Flux (m³/d)")
+        unit = _budget_unit_label(df)
+        ax.set_title(f"Solver budget by component - {sim.name or sim.sim_id}")
+        ax.set_ylabel(
+            f"Sum of stored timestep rates ({unit})"
+            if unit
+            else "Sum of stored timestep rates"
+        )
         ax.set_xlabel("")
         ax.tick_params(axis="x", rotation=30)
         return ax
+
+
+def _budget_unit_label(df) -> str:
+    if "unit" not in df:
+        return ""
+    try:
+        units = [str(value) for value in df["unit"].dropna().unique() if str(value).strip()]
+    except Exception:
+        return ""
+    return units[0] if len(units) == 1 else "mixed units"

@@ -56,23 +56,23 @@
     "validation_cases/analytical/transient/common.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/README.md": "55a843fb5b17193e6835cd1d3174b0fb02f9eaea87c06dcfbc03099dad7f7004",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/reference.py": "524653744a680e8e5b00d7beb3cb6f46ad0bb6e522f2a13e41dd9eb98a7b3309",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/comparison.py": "f67531328a2a9bf597f51af387ed28c9a4231481ed47ea069862988bf27b087c",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/plotting.py": "2e050cc2359df2ea58152cdcca8ef10d45aebcf5c1667b838f6123712bf500fd",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/run_case.py": "6fe6385c997dfd57ceac4aeff504a7156b7934c73878a2a8f1888eb74497b92a",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml": "3f7d617acc0eae183acf41dea15a559eb413619ff88af89e4f0cd112d8c316a8",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/metadata.toml": "fb7d8aed8bc51bcd8fd18c377b3d7b0f821ebe16f68e16d48e39c8dfb121745b",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml": "8f63d8ebf052fc177fd82c6cbe843023c0b4083a5d8d7cb9cfd32691d89e3c09",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/runtime_boussinesq.py": "674b0463f9c70cd67c400593abf27ed0b5329298a4769f59aaa4111dc1fa0fb8",
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/runtime_boussinesq.py": "3e892899402512a57e4cc4108002f26da4ec284312b04eec3aacb5c42af90004",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml": "b7276cbee88d869e8858d0e5b18cd98bcb6a76e195f9be8363e1c622d14c89db",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_boussinesq.toml": "97213f43c2236d26f6477e1bb8b1c023c6460def5191886f9f74341333497680",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6.toml": "1cea8b825d8b0b900e8b4766c8bb4b53b508e47a578609577b1d1aa95ec41175",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances_modflow6_irregular_tri.toml": "847949abb4bcdaa11d37c2ff984315067bbd51ff859d0b438848d4f08050c6a5",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6.toml": "c2c4343a64f46d1f7e049897084e9202c440b1f0069156f2799072b925918758",
     "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflow6_irregular_tri.toml": "b911b8f4f9a5504e4aa6a27c58b6bfded706b3e590903b985360c21932b6763e",
-    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml": "c343d4093712f5df9d92d3c3de19d3dbf161cabb733536ef93ce693c44ab4278",
-    "validation_cases/analytical/transient/common.py": "c73f809dd5d4e39f9a000a92ccebdf09a08c89e99cafb4c26ad2867b99d24e5f"
+    "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml": "0337c7eab8ae2017448f98c14dd25e8452bd9444f53d8b537ef31ed5d5485485",
+    "validation_cases/analytical/transient/common.py": "b9352159617d65998b7a80bbcf6e03b450761803b184272d436148d5993ff129"
   },
   "docname": "cases/late_time_unconfined_pumping_2d",
   "images": [
@@ -426,9 +426,9 @@
       "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
       "command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver boussinesq",
       "metric_lines": [
-        "Space-time RMSE: 0.0640 m",
-        "Space-time max abs error: 0.0989 m",
-        "Final-time RMSE: 0.0705 m",
+        "Space-time RMSE: 0.0645 m",
+        "Space-time max abs error: 0.0973 m",
+        "Final-time RMSE: 0.0706 m",
         "Azimuthal spread: 1.36e-01 m"
       ],
       "image": {
@@ -919,7 +919,7 @@
         {
           "field": "flow.runtime_backend",
           "meaning": "Runtime backend selected for the in-house solver.",
-          "value": "scipy_sparse",
+          "value": "petsc",
           "source": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml"
         }
       ]

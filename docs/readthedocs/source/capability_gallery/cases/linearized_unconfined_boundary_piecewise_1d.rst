@@ -99,13 +99,13 @@ Solver Coverage
          Linearized Unconfined Boundary Piecewise 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0298 m
-      - Space-time max abs error: 0.1155 m
-      - Final-profile RMSE: 0.0063 m
-      - Cross-row head spread: 2.32e-03 m
+      - Space-time RMSE: 0.0055 m
+      - Space-time max abs error: 0.0323 m
+      - Final-profile RMSE: 0.0023 m
+      - Cross-row head spread: 0.00e+00 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6_irregular_tri.toml``
-      - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml``
+      - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml``
       - Expected output: 24 periods, spatial shape 5 x 50
 
       .. code-block:: bash
@@ -121,10 +121,10 @@ Solver Coverage
          Linearized Unconfined Boundary Piecewise 1D rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0059 m
-      - Space-time max abs error: 0.0340 m
-      - Final-profile RMSE: 0.0024 m
-      - Cross-row head spread: 3.22e-08 m
+      - Space-time RMSE: 0.0014 m
+      - Space-time max abs error: 0.0082 m
+      - Final-profile RMSE: 0.0004 m
+      - Cross-row head spread: 1.12e-15 m
 
       - Config file: ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml``
       - Tolerances: ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml``
@@ -458,7 +458,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml``
 
 Acceptance Criteria
@@ -577,23 +577,23 @@ Acceptance Criteria by Solver
          * - ``space_time.rmse``
            - Maximum accepted root-mean-square error for space time.
            - 0.05
-           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml``
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml``
          * - ``space_time.max_abs_error``
            - Maximum accepted absolute error for space time.
            - 0.12
-           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml``
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml``
          * - ``space_time.row_spread``
            - Maximum accepted cross-row spread for space time.
-           - 2e-05
-           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml``
+           - 0.012
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml``
          * - ``final_profile.rmse``
            - Maximum accepted root-mean-square error for final profile.
            - 0.05
-           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml``
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml``
          * - ``final_profile.max_abs_error``
            - Maximum accepted absolute error for final profile.
            - 0.1
-           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml``
+           - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml``
 
    .. tab-item:: Boussinesq
 
@@ -644,6 +644,7 @@ Source Pointers
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/runtime_boussinesq.py``
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml``
+- ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6_irregular_tri.toml``
 - ``validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml``

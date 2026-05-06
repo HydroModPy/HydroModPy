@@ -15,8 +15,8 @@ Numerical setup:
 For `solver=boussinesq`, the validation uses one small balanced triangular strip
 projected back to a regular `40 x 3` comparison grid. The runtime itself is
 selected through the case `config_boussinesq.toml`, so the geometry stays fixed
-while the nonlinear backend can evolve independently (`local`, `scipy`,
-`scipy_sparse`).
+while the nonlinear backend can evolve independently. The analytical
+`boussinesq` variant now defaults to PETSc TS VI.
 
 Run manually:
 

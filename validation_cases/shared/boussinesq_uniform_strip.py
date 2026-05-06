@@ -1,4 +1,4 @@
-"""Shared local ``flow/boussinesq`` runtimes for homogeneous 1D strip cases."""
+"""Shared PETSc ``flow/boussinesq`` runtimes for homogeneous 1D strip cases."""
 
 from __future__ import annotations
 
@@ -19,6 +19,9 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from validation_cases.shared.boussinesq_analytical_runtime import (
+    apply_analytical_boussinesq_runtime_defaults,
+)
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -438,11 +441,16 @@ def run_boussinesq_uniform_strip_case(
             window=None,
         )
 
+    effective_flow_section = apply_analytical_boussinesq_runtime_defaults(
+        flow_section,
+        flow_regime=normalized_regime,
+    )
+
     state = SimpleNamespace(
         setup=SimpleNamespace(
             mesh_bundle=None,
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
-            flow=Flow(build_flow_config(flow_section, case_dir=case_dir)),
+            flow=Flow(build_flow_config(effective_flow_section, case_dir=case_dir)),
             domain=None,
             time_grid=time_grid,
             workspace=SimpleNamespace(

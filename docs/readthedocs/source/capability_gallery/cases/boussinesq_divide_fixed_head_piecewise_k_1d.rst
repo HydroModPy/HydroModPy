@@ -446,7 +446,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/steady/boussinesq_divide_fixed_head_piecewise_k_1d/config_boussinesq.toml``
 
 Acceptance Criteria

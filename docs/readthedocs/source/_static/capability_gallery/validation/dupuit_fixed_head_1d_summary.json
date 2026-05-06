@@ -45,6 +45,8 @@
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_partition.toml",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_ts_vi_obstacle.toml",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_vi_obstacle.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml",
@@ -52,24 +54,26 @@
     "validation_cases/shared/boussinesq_uniform_strip.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "1965de83b961f1ab4e38d8194d51342e1286d0c2e1b779188903b84e3fc26f1c",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/README.md": "ac8ddefa6152df306d16c3b0c0db5c570abe13000c489264a9bc90496b39cc82",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/README.md": "b5dc2312a25c64f9da4424018acf83f3081d3be5d320abba20a0e4bd14ad69f0",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/reference.py": "0aec87d1d4402276421726b97f08b90e08c7981a2839b167f35db87bb4fa7d81",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py": "b128ed88857bd396c536a0f27fe12141a4f36fd5559627902ec40f3b8b5ce21a",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py": "d55a102f64cbf07b34d662e451dcf640596c7c057a3729b4a6cd5b510fdacc5c",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/comparison.py": "6e01fb26afb407e54f1e878f1fcda97496d7ec43ab43d9010637ccbba8f06f93",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/plotting.py": "5a5485e0276c8fa28484267d9e2572c7b76610362849f6efeed48e938e6c2bac",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/run_case.py": "44bc17e7f2d2f498455c05b52d358bc570de3ff8da28db3cb83f1279661fd83c",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/metadata.toml": "6e473474e0d602e1995f9f89218aa7b7190ae38a039b898b6a6ce7ea9445ba7a",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml": "fd8bd20ec0c3a7c53b7b0f259a00195c6e0639e57ff71703ec202de66aede93d",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py": "e3a06d3be7c98b2efaeee95364e50aad08694ae50eb6255907040c06a49cab35",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/runtime_boussinesq.py": "d49c486da3f3e15dc42ac0fd9df4749c51a0231330109ae3f10a6c71ebeec437",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances.toml": "23004e207bd274d4586d771374539e51526dbb3ccd6bdc67c5fcd2621b17e85b",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_modflow6.toml": "440a7cf2517593fc12dc2f78620f8768719f8afa045f045ba86a44406671a5a1",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc.toml": "53df3340b8bf3a30f21d3c46f1ae56b046104e161d5161acbb27962b37c59713",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_partition.toml": "53df3340b8bf3a30f21d3c46f1ae56b046104e161d5161acbb27962b37c59713",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_ts_vi_obstacle.toml": "a5cf7e99d56641043d3a522937dae684f3e3573c44a571765095473710ed69a8",
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/tolerances_petsc_vi_obstacle.toml": "a5cf7e99d56641043d3a522937dae684f3e3573c44a571765095473710ed69a8",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflownwt.toml": "df9536f2eb09f8b02fbaccca5241aa56db2980f007d93df7a1e0e67bb92b364c",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6.toml": "0d3b3ba045d0ec126be4676f214bd288b468701aa7a3f2e13a453d92acd27fd3",
     "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_modflow6_irregular_tri.toml": "acff5448ad55f03a214cd8bbab763e7a3cd13645b7e9cd6bf71f4592c6dd3c6d",
-    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml": "9ea33a84182c92308cbe72ca4ca15e61f54a9781219372f7c130345eaca4399f",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "a6de8caacdd3701e729798a8bb45b68d84a48eef4b37e26997a29fccecea6a99"
+    "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml": "0269d8ba444008d187b4834c683a90b8e13c3eb55a4729c66ac577a2d924b1c2",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "7c96c529c2148e704eb46d61753d67f480670124d6b5ac643de265ab952421d5"
   },
   "docname": "cases/dupuit_fixed_head_1d",
   "images": [
@@ -359,7 +363,7 @@
       "metric_lines": [
         "Head-profile RMSE: 0.0136 m",
         "Head-profile max abs error: 0.0316 m",
-        "Cross-row head spread: 3.03e-11 m"
+        "Cross-row head spread: 8.88e-16 m"
       ],
       "image": {
         "filename": "dupuit_fixed_head_1d__boussinesq.png",
@@ -696,7 +700,7 @@
         {
           "field": "flow.runtime_backend",
           "meaning": "Runtime backend selected for the in-house solver.",
-          "value": "scipy_sparse",
+          "value": "petsc",
           "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_boussinesq.toml"
         }
       ]

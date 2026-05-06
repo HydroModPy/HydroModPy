@@ -16,7 +16,7 @@ from validation_cases.analytical.steady.boussinesq_hillslope_interception_1d.com
 @pytest.mark.steady
 @pytest.mark.fast
 def test_boussinesq_hillslope_interception_1d_matches_reference_position() -> None:
-    """Run the local Boussinesq case and compare emergence position and dry-zone heads."""
+    """Run the PETSc VI Boussinesq case and compare emergence position."""
     assert_required_executables(
         require_modflow=False,
         require_modflow6=False,

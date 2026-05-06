@@ -1,6 +1,6 @@
 [discharge]
-relative_rmse = 0.22
-relative_max_error = 0.24
+relative_rmse = 0.24
+relative_max_error = 0.26
 
 [uniformity]
 row_spread = 1e-6

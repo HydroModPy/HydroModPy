@@ -44,6 +44,7 @@
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/runtime_boussinesq.py",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6_irregular_tri.toml",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml",
@@ -51,21 +52,22 @@
     "validation_cases/analytical/transient/linearized_unconfined_1d.py"
   ],
   "source_hashes": {
-    "validation_cases/README.md": "6954bbc12c427d8f32dc4ec659fa99518dc972708789e988cd3b39b37b82dfe5",
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/README.md": "a262b8fa7de56bbe60b46f96413a7511ee18525f08dc56fe1edce4b2ea544847",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/reference.py": "2b8e665043995b57a4738db7ae375b7417f932b5f452222d4d5b296b8cd640a6",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/comparison.py": "0721f97555a7dd0e27a2f1038cf0cf536d7e35d00bc1aed4e35c4332ae57a73d",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/plotting.py": "cfd78df58385fb6f6b15c2a8173ea2b8eb9633044dd9067b7fa68638cffe5a74",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/run_case.py": "98442cbf4e1f7d408fa2ac75efdf288d5a9393239cc073b74ef1b74829afa37a",
-    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml": "f9cf27452ed621801e3349ce503955a3a42455221ad184d22cf182395ce46bed",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/metadata.toml": "9d2c55e8815ca109bfe356b4187c9f031e4dde63cac3d6ec12d493f4881b2cfb",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflownwt.toml": "9511c57a60ad29ed8dbafc4b56e9f989a2f768dc31c4bb1eef8c3d9d0d6cb650",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/runtime_boussinesq.py": "ebf1aa1eba6172560acc4bb1a250dc94887b66283bbcec5c50303db0990633f1",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml": "9a32031a5ccddf261be3d4ca4da561f746b88d5fb78d98778e3b21394001d969",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6.toml": "d88f55dc831bf403d40a439cb60184bf2ae5ce4281ec586afac36094fd879423",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml": "ede3462f4c69077730755534174a9648be712dee899a6f303eda2184d7e7b1a7",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6.toml": "e39bd40d3d962745dc1d30349d41115a95f59f27f6bf2f907395e15a689fb526",
     "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6_irregular_tri.toml": "8062b040eff4bf04532aef5c25a6755b9e39dc18afc588603b5ff36a93920605",
-    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml": "9ea33a84182c92308cbe72ca4ca15e61f54a9781219372f7c130345eaca4399f",
-    "validation_cases/shared/boussinesq_uniform_strip.py": "a6de8caacdd3701e729798a8bb45b68d84a48eef4b37e26997a29fccecea6a99",
+    "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml": "a0e391b922fd52d94638a5e9b8328c28534bb8262b5bd23fbb562271a9bff1f4",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "7c96c529c2148e704eb46d61753d67f480670124d6b5ac643de265ab952421d5",
     "validation_cases/analytical/transient/linearized_unconfined_1d.py": "b78a584f72b0268e0317f547067afa6fa4ae9edbc220f77148f71837024e9e60"
   },
   "docname": "cases/linearized_unconfined_boundary_piecewise_1d",
@@ -105,7 +107,7 @@
         "display_name": "MODFLOW 6 irregular triangles",
         "config_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6_irregular_tri.toml",
         "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
-        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+        "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml"
       },
       "boussinesq": {
         "display_name": "Boussinesq",
@@ -385,14 +387,14 @@
       "solver_display_name": "MODFLOW 6 irregular triangles",
       "is_default": false,
       "config_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_modflow6_irregular_tri.toml",
-      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml",
+      "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml",
       "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
       "command": "python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show --solver modflow6_irregular_tri",
       "metric_lines": [
-        "Space-time RMSE: 0.0298 m",
-        "Space-time max abs error: 0.1155 m",
-        "Final-profile RMSE: 0.0063 m",
-        "Cross-row head spread: 2.32e-03 m"
+        "Space-time RMSE: 0.0055 m",
+        "Space-time max abs error: 0.0323 m",
+        "Final-profile RMSE: 0.0023 m",
+        "Cross-row head spread: 0.00e+00 m"
       ],
       "image": {
         "filename": "linearized_unconfined_boundary_piecewise_1d__modflow6_irregular_tri.png",
@@ -488,7 +490,7 @@
           "space_time": {
             "rmse": 0.05,
             "max_abs_error": 0.12,
-            "row_spread": 2e-05
+            "row_spread": 0.012
           },
           "final_profile": {
             "rmse": 0.05,
@@ -507,10 +509,10 @@
       "expected_output": "Expected output: 24 periods, spatial shape 5 x 50",
       "command": "python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show --solver boussinesq",
       "metric_lines": [
-        "Space-time RMSE: 0.0059 m",
-        "Space-time max abs error: 0.0340 m",
-        "Final-profile RMSE: 0.0024 m",
-        "Cross-row head spread: 3.22e-08 m"
+        "Space-time RMSE: 0.0014 m",
+        "Space-time max abs error: 0.0082 m",
+        "Final-profile RMSE: 0.0004 m",
+        "Cross-row head spread: 1.12e-15 m"
       ],
       "image": {
         "filename": "linearized_unconfined_boundary_piecewise_1d__boussinesq.png",
@@ -981,7 +983,7 @@
         {
           "field": "flow.runtime_backend",
           "meaning": "Runtime backend selected for the in-house solver.",
-          "value": "scipy_sparse",
+          "value": "petsc",
           "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/config_boussinesq.toml"
         }
       ]
@@ -1095,31 +1097,31 @@
             "field": "space_time.rmse",
             "meaning": "Maximum accepted root-mean-square error for space time.",
             "value": "0.05",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml"
           },
           {
             "field": "space_time.max_abs_error",
             "meaning": "Maximum accepted absolute error for space time.",
             "value": "0.12",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml"
           },
           {
             "field": "space_time.row_spread",
             "meaning": "Maximum accepted cross-row spread for space time.",
-            "value": "2e-05",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+            "value": "0.012",
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml"
           },
           {
             "field": "final_profile.rmse",
             "meaning": "Maximum accepted root-mean-square error for final profile.",
             "value": "0.05",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml"
           },
           {
             "field": "final_profile.max_abs_error",
             "meaning": "Maximum accepted absolute error for final profile.",
             "value": "0.1",
-            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances.toml"
+            "source": "validation_cases/analytical/transient/linearized_unconfined_boundary_piecewise_1d/tolerances_modflow6_irregular_tri.toml"
           }
         ],
         "boussinesq": [

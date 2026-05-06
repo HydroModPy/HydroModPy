@@ -6,6 +6,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
+from validation_cases.shared.boussinesq_plotting import with_boussinesq_method_line
+
 from .comparison import BoussinesqSlopingSubstratumUniformRechargeComparison
 
 
@@ -149,10 +151,14 @@ def plot_boussinesq_sloping_substratum_uniform_recharge_comparison(
         f"max abs error={comparison.max_error:.4f} m   "
         f"cross-row spread={comparison.row_spread:.2e} m"
     )
+    footer_lines = with_boussinesq_method_line(
+        comparison.result,
+        (params_line, flux_line, metrics_line),
+    )
     fig.text(
         0.5,
         0.01,
-        f"{params_line}\n{flux_line}\n{metrics_line}",
+        "\n".join(footer_lines),
         ha="center",
         va="bottom",
         fontsize=9,

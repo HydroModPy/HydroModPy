@@ -1,10 +1,12 @@
 """Shared pytest configuration for the HydroModPy test suite."""
 
 import os
+import platform
 import random
 import shutil
 import tempfile
 import uuid
+from importlib.util import find_spec
 from pathlib import Path
 
 import numpy as np
@@ -200,6 +202,13 @@ def pytest_collection_modifyitems(config, items):
                     item.add_marker(pytest.mark.timeout(_LAYER_TIMEOUTS_SECONDS[layer]))
                 break
 
+        if "validation" in parts and "analytical" in parts:
+            callspec = getattr(item, "callspec", None)
+            if callspec is not None and callspec.params.get("solver") == "boussinesq":
+                item.add_marker(pytest.mark.petsc)
+            elif callspec is None and "boussinesq" in item.nodeid.lower():
+                item.add_marker(pytest.mark.petsc)
+
         # 2) Regression tier default markers (fast vs extensive).
         is_regression_file = "regression" in parts
         is_regression_test = "regression" in item.keywords
@@ -214,6 +223,10 @@ def pytest_collection_modifyitems(config, items):
 
 def pytest_runtest_setup(item):
     """Keep pytest's shared temp roots available even after test-side cleanup."""
+    if "petsc" in item.keywords:
+        if platform.system().strip().lower() != "linux" or find_spec("petsc4py") is None:
+            pytest.skip("Boussinesq PETSc runtime is Linux-only and requires petsc4py.")
+
     _ensure_test_scratch_dirs()
     tmp_path_factory = getattr(item.session.config, "_tmp_path_factory", None)
     if tmp_path_factory is None:

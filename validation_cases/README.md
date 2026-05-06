@@ -161,10 +161,10 @@ comparison goal.
 
 | Path | Type | Regime | Reference | Purpose |
 | --- | --- | --- | --- | --- |
-| `analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d` | launcher-backed | steady | Boussinesq, sloping substratum, constant thickness | 1D sloping-bottom benchmark with exact constant-thickness head profile across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime. |
-| `analytical/steady/boussinesq_sloping_substratum_fixed_head_1d` | launcher-backed | steady | Boussinesq, sloping substratum, fixed heads | 1D sloping-bottom benchmark with an exact no-recharge fixed-head profile across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime. |
-| `analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d` | launcher-backed | steady | Boussinesq, sloping substratum, uniform recharge | 1D sloping-bottom benchmark with a recharge-driven semi-analytical profile across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime. |
-| `analytical/steady/boussinesq_hillslope_interception_1d` | launcher-backed | steady | Boussinesq hillslope interception | 1D sloping-topography benchmark for emergence position and dry-zone profile on the dense in-house runtime. |
+| `analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d` | launcher-backed | steady | Boussinesq, sloping substratum, constant thickness | 1D sloping-bottom benchmark with exact constant-thickness head profile across MODFLOW-NWT, MODFLOW 6, and the PETSc Boussinesq runtime. |
+| `analytical/steady/boussinesq_sloping_substratum_fixed_head_1d` | launcher-backed | steady | Boussinesq, sloping substratum, fixed heads | 1D sloping-bottom benchmark with an exact no-recharge fixed-head profile across MODFLOW-NWT, MODFLOW 6, and the PETSc Boussinesq runtime. |
+| `analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d` | launcher-backed | steady | Boussinesq, sloping substratum, uniform recharge | 1D sloping-bottom benchmark with a recharge-driven semi-analytical profile across MODFLOW-NWT, MODFLOW 6, and the PETSc Boussinesq runtime. |
+| `analytical/steady/boussinesq_hillslope_interception_1d` | launcher-backed | steady | Boussinesq hillslope interception | 1D sloping-topography benchmark for emergence position and dry-zone profile on the PETSc VI runtime. |
 | `analytical/steady/linearized_unconfined_drainage_1d` | launcher-backed | steady | linearized unconfined drainage | 1D equilibrium benchmark for the top-drainage boundary condition. |
 | `analytical/steady/linearized_unconfined_hillslope_drainage_1d` | launcher-backed | steady | linearized unconfined hillslope drainage | 1D sloping-topography proxy benchmark for distributed drainage above land surface. |
 
@@ -197,9 +197,9 @@ comparison goal.
 
 | Path | Type | Regime | Reference | Purpose |
 | --- | --- | --- | --- | --- |
-| `analytical/transient/boussinesq_hillslope_recharge_step_interception_1d` | launcher-backed | transient | linearized hillslope interception onset | 1D sloping-topography benchmark for transient interception onset on the dense in-house Boussinesq runtime. |
-| `analytical/transient/brutsaert_recession_linearized_deep_1d` | launcher-backed | transient | Brutsaert linearized recession | 1D outlet-discharge benchmark for deep-aquifer recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend. |
-| `analytical/transient/brutsaert_recession_boussinesq_thin_1d` | launcher-backed | transient | Brutsaert nonlinear recession | 1D outlet-discharge benchmark for thin-aquifer nonlinear recession across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq backend. |
+| `analytical/transient/boussinesq_hillslope_recharge_step_interception_1d` | launcher-backed | transient | linearized hillslope interception onset | 1D sloping-topography benchmark for transient interception onset on the PETSc TS VI Boussinesq runtime. |
+| `analytical/transient/brutsaert_recession_linearized_deep_1d` | launcher-backed | transient | Brutsaert linearized recession | 1D outlet-discharge benchmark for deep-aquifer recession across MODFLOW-NWT, MODFLOW 6, and the PETSc Boussinesq backend. |
+| `analytical/transient/brutsaert_recession_boussinesq_thin_1d` | launcher-backed | transient | Brutsaert nonlinear recession | 1D outlet-discharge benchmark for thin-aquifer nonlinear recession across MODFLOW-NWT, MODFLOW 6, and the PETSc Boussinesq backend. |
 
 #### Transient 2D Radial Response
 
@@ -278,9 +278,9 @@ Some recurring conventions apply across several cases:
 
 | Case | Numerical setup | Analytical target | Primary metrics | What the case validates |
 | --- | --- | --- | --- | --- |
-| `boussinesq_hillslope_recharge_step_interception_1d` | Sloping strip, east fixed head, recharge step from the first transient period | Linearized onset approximation for the moving interception front | onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread | Transient appearance of seepage/interception on a hillslope with the dense in-house Boussinesq runtime |
-| `brutsaert_recession_linearized_deep_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Exponential Brutsaert recession law for a deep aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the near-linear regime |
-| `brutsaert_recession_boussinesq_thin_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Nonlinear Brutsaert recession law for a thin aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the local Boussinesq runtime in the nonlinear regime |
+| `boussinesq_hillslope_recharge_step_interception_1d` | Sloping strip, east fixed head, recharge step from the first transient period | Linearized onset approximation for the moving interception front | onset-time error, interception-trajectory RMSE, interception-trajectory max abs error, cross-row spread | Transient appearance of seepage/interception on a hillslope with the PETSc TS VI Boussinesq runtime |
+| `brutsaert_recession_linearized_deep_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Exponential Brutsaert recession law for a deep aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the PETSc Boussinesq runtime in the near-linear regime |
+| `brutsaert_recession_boussinesq_thin_1d` | Homogeneous strip, west divide, east fixed head, steady recharge pre-run followed by recession | Nonlinear Brutsaert recession law for a thin aquifer | relative discharge RMSE, relative discharge max abs error, cross-row spread, positive-increment check | Integrated-discharge recession behavior across MODFLOW-NWT, MODFLOW 6, and the PETSc Boussinesq runtime in the nonlinear regime |
 
 #### Transient 2D Radial Response
 

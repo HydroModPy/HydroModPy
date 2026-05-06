@@ -1,4 +1,4 @@
-"""Local ``flow/boussinesq`` runtime for the boundary-step transient validation case."""
+"""PETSc ``flow/boussinesq`` runtime for the boundary-step transient validation case."""
 
 from __future__ import annotations
 
@@ -21,10 +21,11 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
-    runtime_backend: str = "scipy_sparse",
-    surface_interaction_model: str | None = None,
+    runtime_backend: str = "petsc",
+    surface_interaction_model: str | None = "ts_vi_obstacle",
+    public_solver_label: str = "boussinesq",
 ) -> object:
-    """Run the boundary-step case through the local transient Boussinesq backend."""
+    """Run the boundary-step case through the PETSc TS VI Boussinesq backend."""
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))
     output_cfg = dict(metadata.get("output", {}))
@@ -78,6 +79,7 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
         flow_section=flow_section,
         plan_name="Boussinesq boundary-step validation",
         plan_description="Transient west-boundary head step on a 1D strip",
+        public_solver_label=public_solver_label,
     )
 
 

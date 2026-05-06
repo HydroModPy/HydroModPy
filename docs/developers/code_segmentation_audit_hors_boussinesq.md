@@ -1,31 +1,43 @@
 # Audit segmentation hors Boussinesq
 
-Date: 2026-05-05.
+Date: 2026-05-06.
 
 Ce document reprend l'audit de segmentation du code en excluant les
 implementations internes a `hydromodpy/solver/boussinesq/`, mais en gardant les
 effets de bord que ces travaux produisent dans les couches hors Boussinesq.
 
-Commandes utilisees:
+Commandes utilisees pour le rafraichissement:
 
 ```powershell
 git status --short
-python -m pytest tests/unit/architecture/test_layer_matrix.py tests/unit/config/test_config_location.py -q
-python -m pytest tests/unit/config/test_no_legacy_config_imports.py -q
+python -m pytest tests/unit/architecture/test_layer_matrix.py -q
+python -m pytest tests/unit/config/test_config_location.py tests/unit/config/test_no_legacy_config_imports.py -q
+python -m tools.audit.build_graph hydromodpy meta_review_output
+rg -n "hydromodpy\.master_config|from hydromodpy\.master_config|import hydromodpy\.master_config" -S .
 ```
 
-Resultat des gates cibles:
+Resultat des gates cibles du 2026-05-06:
 
-- `test_layer_matrix.py` + `test_config_location.py`: `11 passed`.
-- `test_no_legacy_config_imports.py`: `2 passed`.
+- `test_layer_matrix.py`: `4 passed`.
+- `test_config_location.py` + `test_no_legacy_config_imports.py`: `9 passed`.
+- graphe d'import: `2914` arretes scannees.
+- la recherche `master_config` ne trouve plus que la documentation d'audit et
+  les tests qui verifient l'absence de l'ancien package.
 
 ## Verdict court
 
-La segmentation active tient pour les gates unitaires cibles, mais elle reste
-dans un etat de transition. Les fronts a traiter en premier ne sont pas dans le
-solveur Boussinesq lui-meme: ce sont les references publiques obsoletees, les
-diagnostics solveur qui remontent dans `analysis`, et les options PETSc VI
-exposees dans le contrat generique `flow`.
+La segmentation active tient pour le gate d'architecture. Il ne reste qu'une
+tolerance dans `layer_matrix.yaml`: `cli -> <root>`, liee a la facade publique.
+Les arretes `data -> spatial`, `results -> spatial`, `calibration -> results`,
+`analysis -> display` et `analysis -> physics` sont maintenant des choix de
+developpement explicites, pas des problemes a faire remonter comme dettes de
+segmentation.
+
+Les fronts restants sont surtout semantiques, pas des violations de matrice:
+les options PETSc VI encore exposees dans le contrat generique `flow`, le
+contrat de diagnostics solveur encore exprime comme noms de fichiers fixes,
+quelques modules d'analyse/resultats tres volumineux, et les nombreux
+`cases/`/`examples/` embarques dans les packages applicatifs.
 
 Le bon decoupage a conserver est:
 
@@ -78,56 +90,44 @@ Le bon decoupage a conserver est:
 
 ## Findings prioritaires
 
-### P0 - References `master_config` encore presentes hors code teste
+### Clos - References `master_config`
 
-Le package `hydromodpy.master_config` est supprime, et les tests le confirment.
-Il reste pourtant des references hors perimetre du test
-`test_no_legacy_config_imports.py`:
+Etat du 2026-05-06: le package `hydromodpy.master_config` est supprime, et les
+references utilisateur stale ont ete nettoyees. La recherche large:
 
-```text
-pyproject.toml
-CONTRIBUTING.md
-examples/projects/02_nancon_watershed/run_full_python.py
-examples/projects/02_nancon_watershed/run_cellular.py
+```powershell
+rg -n "hydromodpy\.master_config|from hydromodpy\.master_config|import hydromodpy\.master_config" -S .
 ```
 
-Risque: packaging, coverage, lint et exemples utilisateur peuvent pointer vers
-un module retire alors que les gates unitaires passent.
+ne retourne plus que:
 
-Action recommandee:
+- ce document, qui conserve l'historique de migration;
+- les tests de configuration qui verifient explicitement que l'ancien package
+  n'est plus importable ou reference dans le code actif.
 
-- remplacer les imports d'exemples par `from hydromodpy.config import
-  HydroModPyConfig`;
-- retirer `hydromodpy.master_config` de la configuration coverage;
-- retirer l'ignore Ruff du fichier supprime;
-- mettre a jour la matrice dans `CONTRIBUTING.md`;
-- etendre le test anti-import legacy a `examples/**/*.py`, `pyproject.toml` et
-  les documents de dev non archives.
+Cette finding n'est donc plus un chantier de segmentation ouvert.
 
-### P1 - `analysis/comparison` importe des details Boussinesq
+### P1 - `analysis/comparison` ne doit pas importer le solveur
 
-`analysis/comparison/runtime.py` et `analysis/comparison/exports.py` importent
-directement des constantes depuis:
+Etat du 2026-05-06: la tolerance `analysis -> solver` a ete supprimee. Les noms
+d'artefacts diagnostics VI/TS VI vivent maintenant dans
+`hydromodpy.core.solver_diagnostics`, et `analysis/comparison/runtime.py`
+utilise le provider `_solver_protocol` pour les sections de solveurs
+distribues.
+
+Avant cette coupe, `analysis/comparison/runtime.py` et
+`analysis/comparison/exports.py` importaient directement des constantes depuis:
 
 ```text
 hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics
 hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics
 ```
 
-La tolerance `analysis -> solver` permet au gate de passer, mais ce n'est pas
-une frontiere stable. La comparaison doit consommer des artefacts persistes et
-des manifests, pas connaitre les modules de runtime d'un solveur precis.
+Direction restante:
 
-Action recommandee:
-
-- court terme: garder la tolerance tant que le diagnostic PETSc VI est en
-  stabilisation;
-- ensuite: faire produire par chaque run un bloc neutre du type
-  `solver_diagnostics = [{kind, label, files, summary}]`;
-- faire copier et reporter ces artefacts par `analysis/comparison` sans import
-  du solveur;
-- ne garder dans `analysis` que des noms de `kind`, pas des chemins de modules
-  Boussinesq.
+- garder `analysis` sur des artefacts persistes et des contrats neutres;
+- a terme, remplacer les noms fixes par un manifest par run du type
+  `solver_diagnostics = [{kind, label, files, summary}]`.
 
 ### P1 - Options PETSc VI exposees dans `FlowConfig`
 
@@ -197,27 +197,285 @@ Action recommandee:
 - nettoyer les caches hors Git quand l'environnement le permet;
 - garder la regle `__init__.py` dans le scanner, elle evite les faux packages.
 
-## Arretes tolerees a surveiller
+## Snapshot de segmentation - 2026-05-06
 
-Arretes non conformes encore documentees par `layer_matrix.yaml`:
+### Gate de matrice
+
+Le gate `tests/unit/architecture/test_layer_matrix.py` passe avec `4 passed`.
+La matrice ne contient plus qu'une tolerance:
 
 ```text
-analysis -> display   comparison exports reuse plot mesh loading
-analysis -> physics   history contract
-analysis -> solver    comparison runtime resolves solver families
-calibration -> results catalog read at planning time
-data -> spatial       geology field bridging
-results -> spatial    results stores spatial indices
+cli -> root    1 import    CLI dispatch delegates to public Project facade
 ```
 
-Priorite de resorption:
+Import exact:
 
-1. `analysis -> solver`, car elle encode des details Boussinesq dans la couche
-   de comparaison.
-2. `data -> spatial`, si la geologie continue a grossir comme pont entre
-   managers de donnees et champs spatiaux.
-3. `results -> spatial`, si les roles geographiques continuent a s'etendre dans
-   l'API `Run` au lieu de passer par un contrat neutre.
+```text
+hydromodpy/cli/commands/run.py:128 -> hydromodpy.workflow_dispatch
+```
+
+Lecture: cette arrete garde `hmp run` branche sur l'adaptateur public de
+dispatch. Elle peut rester documentee tant que le package `cli` reste la surface
+utilisateur et que l'adaptateur concret reste hors du package `workflow`.
+
+### Arretes maintenant assumees
+
+Ces arretes sont autorisees dans la matrice et ne doivent plus remonter comme
+problemes de segmentation:
+
+```text
+data -> spatial          7 imports
+results -> spatial       4 imports
+calibration -> results   3 imports
+analysis -> display      1 import
+analysis -> physics      2 imports
+```
+
+`data -> spatial` est assume parce que la couche `data` materialise certains
+produits spatiaux pendant la sequence metier `charger -> materialiser ->
+exposer dans loaded_data`. Trois imports appartiennent au chemin actif
+(`data/loader.py`, `data/variables/hydrography/manager.py`) et quatre a un cas
+embarque `data/variables/geology/cases/`.
+
+`results -> spatial` est assume pour conserver l'API utilisateur de `Run` sur
+les reseaux hydrographiques persistants:
+
+```python
+run.hydrographic_network("reference")
+run.hydrographic_network_comparison(...)
+```
+
+`calibration -> results` est assume parce que la calibration pilote, trace,
+promeut et relit des simulations persistees via le catalogue de resultats.
+
+`analysis -> display` est assume parce que les workflows d'analyse peuvent
+produire des artefacts visuels, tandis que l'implementation du rendu reste dans
+`display`.
+
+`analysis -> physics` est assume pour le contrat d'historique temporel:
+
+```text
+hydromodpy/analysis/comparison/exports.py:29
+hydromodpy/analysis/comparison/runtime.py:39
+```
+
+Ces imports pointent vers `hydromodpy.physics.flow.history_contract`. Le contrat
+decrit l'alignement `t0..tN` pour les snapshots et `dt1..dtN` pour les periodes.
+Ce n'est ni un import de solveur, ni une dependance a une implementation
+physique concrete; c'est le contrat metier commun qui evite de reconstruire
+localement la regle temporelle dans `analysis`.
+
+### Arretes resorbees
+
+Le graphe courant confirme les coupes suivantes:
+
+```text
+analysis -> solver       0 import
+results -> analysis      0 import
+workflow -> root         0 import
+calibration -> root      0 import
+```
+
+Lecture: les chantiers precedents ont bien ramene les dependances publiques
+vers des adaptateurs racine (`workflow_dispatch.py`, `calibration_dispatch.py`)
+ou vers des contrats neutres (`core.solver_diagnostics`).
+
+### Coutures sensibles restantes
+
+Ces points ne violent pas la matrice, mais restent les zones a surveiller dans
+les prochains travaux:
+
+1. `physics.flow.FlowConfig` porte encore des options PETSc VI tres proches du
+   backend Boussinesq. C'est la principale dette semantique restante hors
+   solveur Boussinesq interne.
+2. `core.solver_diagnostics` supprime l'import `analysis -> solver`, mais garde
+   des noms d'artefacts fixes. L'etape plus propre sera un manifest ecrit par
+   chaque run et lu par `analysis`.
+3. `calibration.metrics` importe encore `hydromodpy.solver.base.registry` pour
+   resoudre l'adaptateur actif. C'est autorise par la matrice, mais un provider
+   injecte comme pour la promotion de trial serait plus homogene si ce code
+   grossit.
+4. Les modules `analysis/comparison/runtime.py` et `exports.py` restent tres
+   volumineux. Ce n'est pas une violation de couche, mais le prochain ajout
+   important devrait etre l'occasion d'extraire par responsabilite.
+5. Les nombreux `cases/` et `examples/` sous `hydromodpy/` brouillent le signal
+   production dans les audits. Ils doivent rester clairement consideres comme
+   entrypoints de demonstration.
+
+## Plan d'action - etape 1: geler l'etat cible
+
+Avant de supprimer une nouvelle tolerance, il faut figer l'etat de depart. Le
+but n'est pas de refaire tout l'audit: il s'agit de produire une photographie
+reproductible des dependances restantes, puis de choisir une seule arrete a
+resorber.
+
+Commandes de cadrage:
+
+```powershell
+python -m tools.audit.build_graph hydromodpy meta_review_output
+python -m pytest tests/unit/architecture/test_layer_matrix.py -q
+rg -n "analysis -> solver|data -> spatial|results -> spatial|calibration -> results" docs tests hydromodpy
+```
+
+Snapshot du 2026-05-06:
+
+- graphe d'import: 2914 arretes scannees;
+- test de matrice: `4 passed`;
+- tolerances retirees: `simulation -> solver`, `analysis -> solver`, puis
+  `analysis -> physics`;
+- choix assumes: `data -> spatial`, `results -> spatial`,
+  `calibration -> results`, `analysis -> display`, `analysis -> physics`;
+- tolerance restante: `cli -> root`.
+
+Livrables attendus:
+
+- la liste exacte des tolerances encore presentes dans
+  `tests/unit/architecture/layer_matrix.yaml`;
+- le graphe d'import courant produit par `tools.audit.build_graph`;
+- une decision explicite pour chaque arrete: supprimer maintenant, garder
+  temporairement, ou documenter comme dependance structurelle assumee;
+- un seul objectif de coupe pour l'etape suivante.
+
+Decision par arrete:
+
+- `results -> spatial`: garder comme choix de developpement; l'API utilisateur
+  de `Run` reste prioritaire.
+- `calibration -> results`: garder comme choix de developpement; la calibration
+  orchestre des simulations persistees.
+- `analysis -> display`: garder comme choix de developpement; les analyses
+  peuvent produire des figures en deleguant le rendu a `display`.
+- `analysis -> physics`: garder comme choix de developpement; l'analyse reutilise
+  le contrat metier d'historique temporel `t0..tN` / `dt1..dtN`.
+- `cli -> root`: garder comme facade utilisateur assumee.
+
+Decision actuelle: `analysis -> solver` est coupe. `data -> spatial`,
+`results -> spatial`, `calibration -> results`, `analysis -> display` et
+`analysis -> physics` deviennent des choix de developpement assumes. Le prochain
+travail eventuel ne doit plus rouvrir ces arretes; il doit plutot porter sur la
+tolerance `cli -> root` ou sur les coutures semantiques listees dans le snapshot
+approfondi.
+
+Critere de sortie:
+
+- la photographie de depart est a jour;
+- les tests d'architecture passent encore;
+- la prochaine coupe a un perimetre unique et nomme.
+
+## Plan d'action - etape 2: couper `analysis -> solver` - realise
+
+Objectif realise: supprimer les 5 imports `analysis -> solver` observes le
+2026-05-06, sans changer le comportement des exports de comparaison.
+
+Imports a supprimer:
+
+```text
+hydromodpy/analysis/comparison/exports.py:22
+hydromodpy/analysis/comparison/exports.py:27
+hydromodpy/analysis/comparison/runtime.py:33
+hydromodpy/analysis/comparison/runtime.py:38
+hydromodpy/analysis/comparison/runtime.py:165
+```
+
+Ils correspondent a deux problemes differents.
+
+### 2A - Remplacer le lookup direct du registre solveur
+
+`analysis/comparison/runtime.py` importe encore `hydromodpy.solver.base.registry`
+dans `_candidate_solver_sections(...)`. Le meme besoin est deja traite plus
+proprement dans `analysis/comparison/runtime_mesh.py`, via
+`analysis.comparison._solver_protocol` et le provider enregistre par
+`_bootstrap.py`.
+
+Action:
+
+- remplacer la copie locale de `_candidate_solver_sections(...)` dans
+  `runtime.py` par le provider deja utilise par `runtime_mesh.py`;
+- garder la resolution des sections solveur derriere
+  `get_solver_registry_provider()`;
+- verifier que `analysis` n'importe plus `solver.base.registry`.
+
+Critere de sortie 2A:
+
+- `rg -n "hydromodpy\\.solver\\.base\\.registry" hydromodpy/analysis` ne
+  retourne rien;
+- les tests de comparaison qui resolvent une forme structuree continuent de
+  passer.
+
+Etat: fait.
+
+### 2B - Sortir les noms d'artefacts diagnostics du solveur
+
+`exports.py` et `runtime.py` importent les noms de fichiers:
+
+```text
+vi_obstacle_runtime_summary.json
+vi_obstacle_period_diagnostics.csv
+vi_obstacle_substep_diagnostics.csv
+ts_vi_obstacle_runtime_summary.json
+ts_vi_obstacle_period_diagnostics.csv
+ts_vi_obstacle_step_diagnostics.csv
+```
+
+Ces noms sont aujourd'hui definis dans les modules runtime Boussinesq, puis
+relus par `analysis/comparison`. Cela force la couche de comparaison a connaitre
+le package du solveur.
+
+Action minimale recommandee:
+
+- contrat neutre cree dans `hydromodpy/core/solver_diagnostics.py` avec les
+  noms d'artefacts et, si utile, un petit descripteur par famille de diagnostic;
+- faire importer ce contrat par le solveur Boussinesq et par
+  `analysis/comparison`;
+- laisser les fonctions de construction/ecriture detaillees dans le solveur;
+- ne pas deplacer la logique scientifique des diagnostics, seulement le contrat
+  de nommage des artefacts persistables.
+
+Alternative plus ambitieuse, a garder pour plus tard:
+
+- faire ecrire un manifest `solver_diagnostics_manifest.json` par chaque run;
+- faire lire ce manifest par `analysis` au lieu de connaitre des noms de
+  fichiers fixes.
+
+Critere de sortie 2B:
+
+- `rg -n "hydromodpy\\.solver" hydromodpy/analysis/comparison` ne retourne plus
+  d'import solveur;
+- les exports VI obstacle et TS VI obstacle retrouvent les memes fichiers
+  qu'avant;
+- les tests solveur continuent de verifier le contenu des diagnostics, pas la
+  couche `analysis`.
+
+Etat: fait pour les noms d'artefacts. Le manifest par run reste une evolution
+ulterieure.
+
+### 2C - Durcir la matrice
+
+Une fois 2A et 2B terminees:
+
+- retirer la tolerance `{src: analysis, tgt: solver}` de
+  `tests/unit/architecture/layer_matrix.yaml`;
+- retirer la ligne correspondante de `docs/developers/architecture.md`;
+- relancer le graphe d'import.
+
+Etat: fait; `analysis -> solver` vaut 0.
+
+Commandes de validation:
+
+```powershell
+python -m pytest tests/unit/architecture/test_layer_matrix.py -q
+python -m pytest tests/unit/launchers/test_comparison_launcher.py -k "diagnostics or obstacle" -q
+python -m pytest tests/unit/launchers/test_simulation_comparison_launcher.py -q
+python -m pytest tests/unit/solver/test_petsc_vi_obstacle.py tests/unit/solver/test_petsc_ts_vi_obstacle.py -q
+python -m tools.audit.build_graph hydromodpy meta_review_output
+```
+
+Definition de fini:
+
+- `analysis -> solver` vaut 0 dans le graphe d'import;
+- la tolerance est supprimee de la matrice;
+- aucun export de comparaison ne perd les diagnostics Boussinesq existants;
+- aucune autre arrete (`data -> spatial`, `results -> spatial`, etc.) n'est
+  modifiee dans ce chantier.
 
 ## Extension hors chantiers en cours
 
@@ -226,9 +484,9 @@ Cette section exclut les chantiers deja listes plus haut: relocalisation
 fichiers internes au solveur Boussinesq. Elle regarde les coutures qui
 resteront apres fermeture de ces travaux.
 
-### E1 - `data` fabrique encore des objets `spatial`
+### E1 - `data` materialise certains objets `spatial` par choix
 
-Deux points concrets portent la tolerance `data -> spatial`:
+Ces points ne sont plus classes comme probleme de segmentation:
 
 ```text
 hydromodpy/data/loader.py:316
@@ -240,24 +498,13 @@ Le premier construit un `GeologyField` depuis un `FieldRecord`. Le second
 importe les noms canoniques du reseau hydrographique depuis `spatial`, puis
 instancie le backend Whitebox de delineation dans le manager hydrographie.
 
-Lecture: ce n'est pas un bug immediat. C'est le residu d'un modele ou les
-managers de donnees font aussi une partie de la preparation spatiale. Le risque
-apparaitra si de nouvelles variables suivent le meme chemin: chaque manager
-deviendra a la fois fetch/cache, reprojection, rasterisation et construction de
-support runtime.
+Lecture: la succession metier reste plus lisible si le chargement des donnees
+peut materialiser directement certains produits spatiaux attendus dans
+`loaded_data`. Cette decision evite d'eparpiller la logique `charger ->
+materialiser -> exposer` dans plusieurs couches. Les imports actuels sont donc
+un choix explicite, pas une dette a resorber.
 
-Direction propre:
-
-- laisser `data` produire des `LoadResult`, `FieldRecord`, fichiers et
-  metadonnees;
-- mettre les noms de fichiers/roles hydrographiques dans un contrat neutre
-  (`core.contracts` ou `data.contracts`) si `data` doit les connaitre;
-- deplacer la materialisation `FieldRecord -> GeologyField` et les appels
-  `spatial.delineation` dans une etape `workflow` ou un binder `spatial`;
-- garder les imports actuels tant que la surface geologie/hydrographie n'est
-  pas en chantier, mais ne pas les dupliquer ailleurs.
-
-### E2 - `results.Run` contient encore du vocabulaire geospatial
+### E2 - `results.Run` expose volontairement une API hydrographique pratique
 
 `Run` est deja redevenu plus propre avec le retrait de `Run.rerun()`. Le calcul
 `simulated_active_network_distance_metrics()` a aussi ete replace dans
@@ -273,16 +520,18 @@ hydromodpy/results/run.py:630
 
 Ces methodes servent les roles de reseau hydrographique.
 
-Lecture: les methodes de lecture de features geographiques sont acceptables sur
-`Run`, car elles exposent du contenu persiste. La dette restante est plus fine:
-`results` connait encore le vocabulaire canonique defini dans `spatial`.
+Lecture: ce choix est assume. Les methodes de lecture et de comparaison de
+features geographiques sont utiles sur `Run`, car elles exposent directement du
+contenu persiste avec une API utilisateur simple:
 
-Direction propre:
+```python
+run.hydrographic_network("reference")
+run.hydrographic_network_comparison(...)
+```
 
-- garder sur `Run` les lectures simples: `geographic(...)`, `field(...)`,
-  `timeseries(...)`, `budget(...)`;
-- extraire le vocabulaire des roles hydrographiques dans un contrat neutre si
-  `results` et `spatial` doivent continuer a le partager.
+On privilegie ici l'ergonomie de lecture des resultats plutot qu'une frontiere
+plus stricte ou `Run` ne connaitrait que des noms de tables bruts. Cette arrete
+ne doit plus remonter comme probleme de segmentation.
 
 ### E3 - `workflow` ne depend plus directement de la facade `Project`
 
@@ -329,14 +578,14 @@ facade publique.
 ### E5 - Les `cases/` et `examples/` embarques brouillent le signal production
 
 Hors Boussinesq, l'arbre contient beaucoup de scripts de demonstration dans les
-packages applicatifs:
+packages applicatifs. Snapshot du 2026-05-06:
 
 ```text
-hydromodpy/spatial/mesh/gmsh_grid/cases      31 fichiers Python, 7343 lignes
-hydromodpy/spatial/mesh/cartesian_grid/examples 10 fichiers Python, 2364 lignes
-hydromodpy/calibration/cases                  3 fichiers Python, 1828 lignes
-hydromodpy/spatial/field/cases                6 fichiers Python, 1139 lignes
-hydromodpy/spatial/domain/cases               4 fichiers Python, 1061 lignes
+hydromodpy/spatial/mesh/gmsh_grid/cases          31 fichiers Python, 6479 lignes
+hydromodpy/spatial/mesh/cartesian_grid/examples  10 fichiers Python, 2024 lignes
+hydromodpy/calibration/cases                      3 fichiers Python, 1592 lignes
+hydromodpy/spatial/field/cases                    6 fichiers Python, 972 lignes
+hydromodpy/spatial/domain/cases                   4 fichiers Python, 928 lignes
 ```
 
 Lecture: ces scripts sont utiles pour docs, galeries et caracterisation, mais
@@ -355,18 +604,18 @@ Direction propre:
 
 ### E6 - Les gros modules a surveiller ne sont pas tous des problemes de couche
 
-Top modules hors Boussinesq par taille observee:
+Top modules hors Boussinesq par taille observee le 2026-05-06:
 
 ```text
-hydromodpy/analysis/comparison/runtime.py      2725 lignes
-hydromodpy/analysis/comparison/exports.py      2584 lignes
-hydromodpy/cli/commands/manage.py              1350 lignes
-hydromodpy/solver/modflow6/modflow6.py         1316 lignes
-hydromodpy/results/catalog/writes.py           1137 lignes
-hydromodpy/results/run.py                      1017 lignes
-hydromodpy/data/registry/catalog_duckdb.py      995 lignes
-hydromodpy/physics/flow/flow_config.py          941 lignes
-hydromodpy/workflow/steps/prepare_solver.py     830 lignes
+hydromodpy/analysis/comparison/runtime.py       2432 lignes
+hydromodpy/analysis/comparison/exports.py       2404 lignes
+hydromodpy/cli/commands/manage.py               1247 lignes
+hydromodpy/solver/modflow6/modflow6.py          1200 lignes
+hydromodpy/results/catalog/writes.py            1069 lignes
+hydromodpy/analysis/comparison/visuals_render_series.py 918 lignes
+hydromodpy/data/registry/catalog_duckdb.py       895 lignes
+hydromodpy/results/run.py                        880 lignes
+hydromodpy/physics/flow/flow_config.py           871 lignes
 ```
 
 Lecture: la taille seule n'est pas une violation. Elle indique seulement ou les
@@ -387,12 +636,13 @@ Priorites hors chantiers actifs:
 
 ### E7 - Le decoupage MODFLOW commun est globalement sain
 
-`solver/modflow_common/` reste petit par rapport aux backends:
+`solver/modflow_common/` reste petit par rapport aux backends. Snapshot du
+2026-05-06:
 
 ```text
-solver/modflow_common: 1961 lignes
-solver/modflow6:       6145 lignes
-solver/modflow_nwt:    6157 lignes
+solver/modflow_common: 1605 lignes
+solver/modflow6:       5426 lignes
+solver/modflow_nwt:    5262 lignes
 ```
 
 Lecture: c'est coherent avec `nwt_sunset_plan.md`. La bonne strategie reste de
@@ -411,12 +661,14 @@ Direction propre:
 Pour les travaux hors Boussinesq, ne pas ouvrir de refactor large maintenant.
 Le chemin le plus robuste est:
 
-1. fermer les references stale `master_config`;
-2. stabiliser les diagnostics PETSc VI, puis les convertir en artefacts
-   solver-agnostiques;
-3. renamespacer les options runtime Boussinesq hors du contrat `FlowConfig`;
-4. garder NWT local et sans nouvelle mutualisation lourde, conforme au plan de
+1. garder les choix de developpement explicites dans la matrice et ne plus les
+   retraiter comme dettes;
+2. renamespacer les options runtime Boussinesq hors du contrat `FlowConfig`;
+3. convertir les diagnostics solveur fixes en manifest persiste par run;
+4. surveiller `calibration.metrics -> solver.registry` si la calibration RAM
+   continue a grossir;
+5. garder NWT local et sans nouvelle mutualisation lourde, conforme au plan de
    retrait NWT;
-5. formaliser le testbed multi-sites seulement si le cas NWT est rejoue sur un
+6. formaliser le testbed multi-sites seulement si le cas NWT est rejoue sur un
    vrai catalogue.
 
