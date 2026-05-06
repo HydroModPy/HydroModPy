@@ -227,6 +227,7 @@ Réponse attendue 2 à 4 semaines. Quand acceptation reçue, intégration en Pha
 
 - Modèle : Opus 4.7 (1M context). Nécessaire pour tenir le contexte multi-fichiers cohérent.
 - Build local : `make livehtml` après l'étape 10 de Phase 0. Pas de cycle RTD pour l'itération.
+- **Parallélisme = `-j auto` sur sphinx, PAS subagents Claude.** Toute invocation `python -m sphinx` doit passer `-j auto`. `make html` et `make livehtml` héritent du défaut `SPHINXOPTS ?= -j auto`. Lancer des subagents en parallèle pour fragmenter une étape de refactor n'est pas le sens voulu : exécuter les étapes séquentiellement sur la session principale et veiller à ce que chaque build sphinx utilise tous les cœurs.
 - Ordre d'exécution : Phase 0 séquentielle (10 commits), puis Phase 1 (12 commits), puis Phase 2 et 3 selon priorité.
 - Validation entre commits : `mamba activate hmp_refact && make html` doit passer sans warning nouveau.
 - En cas de doute sur une décision, **cette section 0 prime sur le reste du document**.
