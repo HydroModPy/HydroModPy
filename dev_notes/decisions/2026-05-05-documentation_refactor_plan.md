@@ -162,7 +162,14 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - 5 champs requis sans description complétés dans `analysis/batch/config.py` (selection, catalog, recipes)
     - 16 champs avec default literal (sans Field()) convertis en Field(default=..., description=...) dans `zone_meshing/config.py` (RefinementFamilySettings, HotspotSettings, GridSettings, RefinementPolicy.enabled)
     - Ruff check/format passés, build sphinx clean (3 warnings baseline inchangés)
-28. `[docs] - add tools/doc_config pipeline for hierarchical config reference (couches 1, 2, 4 only)`
+28. `[docs] - add tools/doc_config pipeline for hierarchical config reference (couches 1, 2, 4 only)` ✓ (commit `df74675ea`)
+    - Pipeline `tools/doc_config/` avec `python -m tools.doc_config`
+    - Génère 18 fichiers RST sous `docs/source/user_guide/config_reference/`
+    - Couche 1 = `index.rst` grid card par section avec lien
+    - Couche 2 = page par section (workspace, geographic, ..., calibration) avec table Fields (type, default, description)
+    - Couche 4 = `complete_toml.rst` dropdowns par section avec snippet TOML annoté
+    - Couche 3 (Stoplight viewer interactif) explicitement skippée selon plan v1
+    - doc8 propre, build sphinx clean
 29. `[docs] - add per-section erdantic ER diagrams`
 30. `[docs] - cross-link config sections with gallery cases`
 31. `[docs] - add troubleshooting page indexed by error message`
