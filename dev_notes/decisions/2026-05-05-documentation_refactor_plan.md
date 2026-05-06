@@ -170,7 +170,12 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - Couche 4 = `complete_toml.rst` dropdowns par section avec snippet TOML annoté
     - Couche 3 (Stoplight viewer interactif) explicitement skippée selon plan v1
     - doc8 propre, build sphinx clean
-29. `[docs] - add per-section erdantic ER diagrams`
+29. `[docs] - add per-section erdantic ER diagrams` ✓ (commit `da3bd25c6`)
+    - 16 SVG ER diagrams générés sous `docs/source/user_guide/config_reference/_diagrams/`
+    - erdantic + pygraphviz installés via mamba (gcc absent du système, pip échoue)
+    - Pipeline `tools/doc_config` étendu pour appeler erdantic.create + draw par section
+    - Diagrammes intégrés dans page section juste après docstring
+    - erdantic ajouté à pyproject.toml [docs]
 30. `[docs] - cross-link config sections with gallery cases`
 31. `[docs] - add troubleshooting page indexed by error message`
 32. `[docs] - add migration guides and api stability roles`
