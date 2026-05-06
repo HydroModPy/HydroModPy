@@ -2104,7 +2104,7 @@
         },
         "bc": {
           "additionalProperties": true,
-          "description": "Mapping of flow boundary-condition payloads parsed from [flow.bc]. Supported sections are: [flow.bc.dirichlet.<id>] with <id> in ocean, stream, north_side, south_side, east_side, west_side; [flow.bc.cauchy.drainage]; [flow.bc.robin.drainage]; and generic [flow.bc.<custom_id>] payloads. Common required key: value (numeric or '<value> <unit>'). Dirichlet keys may omit application_domain when <id> implies it (for example west_side -> 'west side'). Drainage (cauchy/robin) requires application_domain explicitly. Supported application_domain values are: top, north side, south side, east side, west side. Default units: m for dirichlet, m2/s for cauchy/robin.",
+          "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- ``[flow.bc.cauchy.drainage]``\n- ``[flow.bc.robin.drainage]``\n- ``[flow.bc.<custom_id>]`` for generic payloads\n\n**Common keys**\n\n- ``value`` (required): numeric or ``'<value> <unit>'``\n- ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.",
           "title": "Bc",
           "type": "object"
         },

@@ -5,44 +5,303 @@
 [overview] OverviewSection
 ==========================
 
+.. contents:: On this page
+   :local:
+   :depth: 2
+
 TOML section: ``[overview]``
 
-Pydantic model: ``OverviewSection``
-defined in ``hydromodpy.display.overview.config``.
+Pydantic model: ``OverviewSection`` defined in ``hydromodpy.display.overview.config``.
+
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L40>`__
 
 Overview report settings (watershed identity card).
 
-Entity-relationship diagram
----------------------------
+.. raw:: html
 
-.. image:: _diagrams/overview.svg
-   :alt: ER diagram for OverviewSection
-   :class: er-diagram
+   <div class="hmp-level-toggle" data-section="overview">
+     <span class="hmp-level-toggle-label">Show fields:</span>
+     <button type="button" data-level="user" class="hmp-level-btn is-active">User</button>
+     <button type="button" data-level="dev" class="hmp-level-btn">User + Dev</button>
+     <button type="button" data-level="expert" class="hmp-level-btn">All</button>
+   </div>
 
 Fields
 ------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 22 26 14 38
+.. rst-class:: hmp-config-fields
 
-   * - Field
-     - Type
-     - Default
-     - Description
-   * - ``name``
-     - ``<class 'str'>``
-     - ``""``
-     - Watershed name.
-   * - ``date_start``
-     - ``str | None``
-     - ``None``
-     - Global start date (YYYY-MM-DD).
-   * - ``date_end``
-     - ``str | None``
-     - ``None``
-     - Global end date (YYYY-MM-DD).
-   * - ``panels``
-     - ``<class 'hmp.display.overview.config.OverviewPanelsConfig'>``
-     - ``factory``
-     - Panel toggles.
+.. container:: hmp-field hmp-field-level-user
+   :name: overview-name
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="overview.name">
+        <code class="hmp-field-name">name</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">overview.name = ...</code>
+      </div>
+
+   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L45>`__
+
+      Watershed name.
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: overview-date-start
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="overview.date_start">
+        <code class="hmp-field-name">date_start</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">overview.date_start = ...</code>
+      </div>
+
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L46>`__
+
+      Global start date (YYYY-MM-DD).
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: overview-date-end
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="overview.date_end">
+        <code class="hmp-field-name">date_end</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">overview.date_end = ...</code>
+      </div>
+
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L49>`__
+
+      Global end date (YYYY-MM-DD).
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: overview-panels
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="overview.panels">
+        <code class="hmp-field-name">panels</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">[overview.panels]</code>
+      </div>
+
+   :bdg-primary:`OverviewPanelsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L52>`__
+
+      Panel toggles.
+
+   .. dropdown:: Fields of ``OverviewPanelsConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-map-dem
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.map_dem">
+              <code class="hmp-field-name">map_dem</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.map_dem = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L18>`__
+
+            DEM elevation map.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-map-geology
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.map_geology">
+              <code class="hmp-field-name">map_geology</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.map_geology = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L19>`__
+
+            Geology lithology map.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-map-hydrography
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.map_hydrography">
+              <code class="hmp-field-name">map_hydrography</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.map_hydrography = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L20>`__
+
+            River network map.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-stats-card
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.stats_card">
+              <code class="hmp-field-name">stats_card</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.stats_card = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L21>`__
+
+            Watershed metrics card.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-timeseries-discharge
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.timeseries_discharge">
+              <code class="hmp-field-name">timeseries_discharge</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.timeseries_discharge = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L22>`__
+
+            Observed discharge.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-timeseries-piezometry
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.timeseries_piezometry">
+              <code class="hmp-field-name">timeseries_piezometry</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.timeseries_piezometry = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L25>`__
+
+            Observed piezometry.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-climatic-summary
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.climatic_summary">
+              <code class="hmp-field-name">climatic_summary</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.climatic_summary = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L28>`__
+
+            P/ETP monthly bars.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-timeseries-intermittency
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.timeseries_intermittency">
+              <code class="hmp-field-name">timeseries_intermittency</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.timeseries_intermittency = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L29>`__
+
+            ONDE intermittency.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-timeseries-water-quality
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.timeseries_water_quality">
+              <code class="hmp-field-name">timeseries_water_quality</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.timeseries_water_quality = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L32>`__
+
+            Water-quality series.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: overview-panels-station-inventory
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="overview.panels.station_inventory">
+              <code class="hmp-field-name">station_inventory</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">overview.panels.station_inventory = ...</code>
+            </div>
+
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L35>`__
+
+            Station inventory table.
+
+
+
+
+Starter TOML snippet
+--------------------
+
+.. dropdown:: Click to expand a copy-pasteable ``[overview]`` TOML skeleton
+   :icon: code
+   :animate: fade-in-slide-down
+
+   Copy this block into your ``project.toml`` and uncomment the lines
+   you want to set. Sub-tables (``[parent.subfield]``) appear in the
+   order Pydantic expects them.
+
+   .. code-block:: toml
+
+      [overview]
+      # name = ""
+      # date_start = ...  # default = None
+      # date_end = ...  # default = None
+
+      [overview.panels]
+      # map_dem = true
+      # map_geology = true
+      # map_hydrography = true
+      # stats_card = true
+      # timeseries_discharge = true
+      # timeseries_piezometry = true
+      # climatic_summary = true
+      # timeseries_intermittency = true
+      # timeseries_water_quality = true
+      # station_inventory = true
+
+Entity-relationship diagram
+---------------------------
+
+.. container:: hmp-er-wrapper
+
+   .. image:: _diagrams/overview.svg
+      :alt: ER diagram for OverviewSection
+      :class: er-diagram hmp-zoomable
+      :target: _diagrams/overview.svg
+
+   .. container:: hmp-er-hint
+
+      Click to zoom and pan. Press *Esc* or click outside to close.

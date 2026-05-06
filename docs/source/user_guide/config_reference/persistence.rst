@@ -5,10 +5,15 @@
 [persistence] PersistenceConfig
 ===============================
 
+.. contents:: On this page
+   :local:
+   :depth: 2
+
 TOML section: ``[persistence]``
 
-Pydantic model: ``PersistenceConfig``
-defined in ``hydromodpy.core.config_kit.persistence``.
+Pydantic model: ``PersistenceConfig`` defined in ``hydromodpy.core.config_kit.persistence``.
+
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L20>`__
 
 Orthogonal switch governing every persistence sink.
 
@@ -17,48 +22,145 @@ catalog, and vice versa. ``save_catalog`` is the master switch for the
 project DuckDB; when False, every write through
 :class:`SimulationCatalog` becomes a no-op.
 
-Entity-relationship diagram
----------------------------
+.. raw:: html
 
-.. image:: _diagrams/persistence.svg
-   :alt: ER diagram for PersistenceConfig
-   :class: er-diagram
+   <div class="hmp-level-toggle" data-section="persistence">
+     <span class="hmp-level-toggle-label">Show fields:</span>
+     <button type="button" data-level="user" class="hmp-level-btn is-active">User</button>
+     <button type="button" data-level="dev" class="hmp-level-btn">User + Dev</button>
+     <button type="button" data-level="expert" class="hmp-level-btn">All</button>
+   </div>
 
 Fields
 ------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 22 26 14 38
+.. rst-class:: hmp-config-fields
 
-   * - Field
-     - Type
-     - Default
-     - Description
-   * - ``save_catalog``
-     - ``<class 'bool'>``
-     - ``True``
-     - Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When
-       False, catalog writes are skipped.
-   * - ``save_zarr``
-     - ``<class 'bool'>``
-     - ``True``
-     - Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.
-   * - ``save_parquet``
-     - ``<class 'bool'>``
-     - ``True``
-     - Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet
-       files.
-   * - ``save_lock``
-     - ``<class 'bool'>``
-     - ``True``
-     - Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data
-       ingestion.
-   * - ``compression``
-     - ``Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']``
-     - ``"zstd"``
-     - Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
-   * - ``compression_level``
-     - ``<class 'int'>``
-     - ``3``
-     - Compression level (codec-dependent). Ignored when compression='none'.
+.. container:: hmp-field hmp-field-level-user
+   :name: persistence-save-catalog
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="persistence.save_catalog">
+        <code class="hmp-field-name">save_catalog</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">persistence.save_catalog = ...</code>
+      </div>
+
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L31>`__
+
+      Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped.
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: persistence-save-zarr
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="persistence.save_zarr">
+        <code class="hmp-field-name">save_zarr</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">persistence.save_zarr = ...</code>
+      </div>
+
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L36>`__
+
+      Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: persistence-save-parquet
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="persistence.save_parquet">
+        <code class="hmp-field-name">save_parquet</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">persistence.save_parquet = ...</code>
+      </div>
+
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L41>`__
+
+      Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: persistence-save-lock
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="persistence.save_lock">
+        <code class="hmp-field-name">save_lock</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">persistence.save_lock = ...</code>
+      </div>
+
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L46>`__
+
+      Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: persistence-compression
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="persistence.compression">
+        <code class="hmp-field-name">compression</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">persistence.compression = ...</code>
+      </div>
+
+   :bdg-primary:`Literal['none', 'zstd', 'lz4', 'gzip', 'snappy']` :bdg-secondary:`default = "zstd"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L51>`__
+
+      Codec used for Zarr field arrays and Parquet tables. 'none' disables compression.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: persistence-compression-level
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="persistence.compression_level">
+        <code class="hmp-field-name">compression_level</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">persistence.compression_level = ...</code>
+      </div>
+
+   :bdg-primary:`int` :bdg-secondary:`default = 3` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L56>`__
+
+      Compression level (codec-dependent). Ignored when compression='none'.
+
+
+Starter TOML snippet
+--------------------
+
+.. dropdown:: Click to expand a copy-pasteable ``[persistence]`` TOML skeleton
+   :icon: code
+   :animate: fade-in-slide-down
+
+   Copy this block into your ``project.toml`` and uncomment the lines
+   you want to set. Sub-tables (``[parent.subfield]``) appear in the
+   order Pydantic expects them.
+
+   .. code-block:: toml
+
+      [persistence]
+      # save_catalog = true
+      # save_zarr = true
+      # save_parquet = true
+      # save_lock = true
+
+Entity-relationship diagram
+---------------------------
+
+.. container:: hmp-er-wrapper
+
+   .. image:: _diagrams/persistence.svg
+      :alt: ER diagram for PersistenceConfig
+      :class: er-diagram hmp-zoomable
+      :target: _diagrams/persistence.svg
+
+   .. container:: hmp-er-hint
+
+      Click to zoom and pan. Press *Esc* or click outside to close.

@@ -5,48 +5,436 @@
 [domain] DomainConfig
 =====================
 
+.. contents:: On this page
+   :local:
+   :depth: 2
+
 TOML section: ``[domain]``
 
-Pydantic model: ``DomainConfig``
-defined in ``hydromodpy.spatial.domain.domain_config``.
+Pydantic model: ``DomainConfig`` defined in ``hydromodpy.spatial.domain.domain_config``.
+
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L16>`__
 
 Domain configuration.
 
 Controls which zone providers are loaded in `Domain`.
 
-Entity-relationship diagram
----------------------------
+.. raw:: html
 
-.. image:: _diagrams/domain.svg
-   :alt: ER diagram for DomainConfig
-   :class: er-diagram
+   <div class="hmp-level-toggle" data-section="domain">
+     <span class="hmp-level-toggle-label">Show fields:</span>
+     <button type="button" data-level="user" class="hmp-level-btn is-active">User</button>
+     <button type="button" data-level="dev" class="hmp-level-btn">User + Dev</button>
+     <button type="button" data-level="expert" class="hmp-level-btn">All</button>
+   </div>
 
 Fields
 ------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 22 26 14 38
+.. rst-class:: hmp-config-fields
 
-   * - Field
-     - Type
-     - Default
-     - Description
-   * - ``zone_ids``
-     - ``list[str]``
-     - ``factory``
-     - Ordered list of zone identifiers loaded in the domain registry. Keep this list for
-       actual runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-
-       support declarations live under domain.supports.
-   * - ``supports``
-     - ``dict[str, Annotated[hmp.spatial.domain.spatial_support_config.GeneratedBandsSupportConfig | hmp.spatial.domain.spatial_support_config.GeneratedRingsSupportConfig | hmp.spatial.domain.spatial_support_config.CatchmentZonesSupportConfig | hmp.spatial.domain.spatial_support_config.GeologySupportConfig, FieldInfo(annotation=NoneType, required=True, description='Discriminated union of spatial-support providers selected by provider tag.', discriminator='provider')]]``
-     - ``factory``
-     - Named spatial supports available to heterogeneous parameters. Each key is a support
-       identifier referenced by field_spatial_id.
-   * - ``depth_model``
-     - ``hmp.spatial.domain.depth_model_config.ConstantThicknessDepthModel | hmp.spatial.domain.depth_model_config.FlatSubstratumDepthModel``
-     - ``factory``
-     - Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
+.. container:: hmp-field hmp-field-level-user
+   :name: domain-zone-ids
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="domain.zone_ids">
+        <code class="hmp-field-name">zone_ids</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">domain.zone_ids = ...</code>
+      </div>
+
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L25>`__
+
+      Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support declarations live under domain.supports.
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: domain-supports
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="domain.supports">
+        <code class="hmp-field-name">supports</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">[domain.supports.<id>]</code>
+      </div>
+
+   :bdg-primary:`dict[str, GeneratedBandsSupportConfig | GeneratedRingsSupportConfig | CatchmentZonesSupportConfig | GeologySupportConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L34>`__
+
+      Named spatial supports available to heterogeneous parameters. Each key is a support identifier referenced by field_spatial_id.
+
+   .. dropdown:: Fields of ``GeneratedBandsSupportConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: generatedbandssupportconfig-domain-supports-provider
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.provider">
+              <code class="hmp-field-name">provider</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.provider = ...</code>
+            </div>
+
+         :bdg-primary:`Literal['generated_bands']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L23>`__
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: generatedbandssupportconfig-domain-supports-axis
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.axis">
+              <code class="hmp-field-name">axis</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.axis = ...</code>
+            </div>
+
+         :bdg-primary:`Literal['x', 'y']` :bdg-secondary:`default = "x"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L24>`__
+
+
+      .. container:: hmp-field hmp-field-level-dev
+         :name: generatedbandssupportconfig-domain-supports-coordinate-mode
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.coordinate_mode">
+              <code class="hmp-field-name">coordinate_mode</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.coordinate_mode = ...</code>
+            </div>
+
+         :bdg-primary:`Literal['relative', 'absolute']` :bdg-secondary:`default = "relative"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L25>`__
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: generatedbandssupportconfig-domain-supports-breaks
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.breaks">
+              <code class="hmp-field-name">breaks</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.breaks = ...</code>
+            </div>
+
+         :bdg-primary:`list[float | str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L26>`__
+
+            Ordered break coordinates delimiting consecutive bands. With coordinate_mode='relative', values are fractions in ]0,1[. With coordinate_mode='absolute', values are converted to metres.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: generatedbandssupportconfig-domain-supports-labels
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.labels">
+              <code class="hmp-field-name">labels</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.labels = ...</code>
+            </div>
+
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L34>`__
+
+            Ordered band labels. Length must be len(breaks)+1.
+
+
+      .. container:: hmp-field hmp-field-level-dev
+         :name: generatedbandssupportconfig-domain-supports-default-cell-samples-per-axis
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.default_cell_samples_per_axis">
+              <code class="hmp-field-name">default_cell_samples_per_axis</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.default_cell_samples_per_axis = ...</code>
+            </div>
+
+         :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L38>`__
+
+            Sub-sampling resolution per cell axis used when rasterizing band masks.
+
+
+
+   .. dropdown:: Fields of ``GeneratedRingsSupportConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: generatedringssupportconfig-domain-supports-provider
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.provider">
+              <code class="hmp-field-name">provider</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.provider = ...</code>
+            </div>
+
+         :bdg-primary:`Literal['generated_rings']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L105>`__
+
+
+      .. container:: hmp-field hmp-field-level-dev
+         :name: generatedringssupportconfig-domain-supports-coordinate-mode
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.coordinate_mode">
+              <code class="hmp-field-name">coordinate_mode</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.coordinate_mode = ...</code>
+            </div>
+
+         :bdg-primary:`Literal['relative', 'absolute']` :bdg-secondary:`default = "relative"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L106>`__
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: generatedringssupportconfig-domain-supports-radii
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.radii">
+              <code class="hmp-field-name">radii</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.radii = ...</code>
+            </div>
+
+         :bdg-primary:`list[float | str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L107>`__
+
+            Ordered ring radii delimiting consecutive concentric zones. With coordinate_mode='relative', values are fractions in ]0,1[ of the largest inscribed circle around the chosen center. With coordinate_mode='absolute', values are converted to metres.
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: generatedringssupportconfig-domain-supports-labels
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.labels">
+              <code class="hmp-field-name">labels</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.labels = ...</code>
+            </div>
+
+         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L116>`__
+
+            Ordered ring labels. Length must be len(radii)+1.
+
+
+      .. container:: hmp-field hmp-field-level-dev
+         :name: generatedringssupportconfig-domain-supports-center-x
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.center_x">
+              <code class="hmp-field-name">center_x</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.center_x = ...</code>
+            </div>
+
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L120>`__
+
+            Optional x coordinate of the ring center in projected metres. Defaults to the domain midpoint.
+
+
+      .. container:: hmp-field hmp-field-level-dev
+         :name: generatedringssupportconfig-domain-supports-center-y
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.center_y">
+              <code class="hmp-field-name">center_y</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.center_y = ...</code>
+            </div>
+
+         :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L127>`__
+
+            Optional y coordinate of the ring center in projected metres. Defaults to the domain midpoint.
+
+
+      .. container:: hmp-field hmp-field-level-dev
+         :name: generatedringssupportconfig-domain-supports-default-cell-samples-per-axis
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.default_cell_samples_per_axis">
+              <code class="hmp-field-name">default_cell_samples_per_axis</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.default_cell_samples_per_axis = ...</code>
+            </div>
+
+         :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L134>`__
+
+            Sub-sampling resolution per cell axis used when rasterizing ring masks.
+
+
+
+   .. dropdown:: Fields of ``CatchmentZonesSupportConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: catchmentzonessupportconfig-domain-supports-provider
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.provider">
+              <code class="hmp-field-name">provider</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.provider = ...</code>
+            </div>
+
+         :bdg-primary:`Literal['catchment_zones']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L214>`__
+
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: catchmentzonessupportconfig-domain-supports-source-zone-id
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.source_zone_id">
+              <code class="hmp-field-name">source_zone_id</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.source_zone_id = ...</code>
+            </div>
+
+         :bdg-primary:`str` :bdg-secondary:`default = "catchment"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L215>`__
+
+            Domain zone id providing the source catchment zonation.
+
+
+      .. container:: hmp-field hmp-field-level-dev
+         :name: catchmentzonessupportconfig-domain-supports-default-cell-samples-per-axis
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.default_cell_samples_per_axis">
+              <code class="hmp-field-name">default_cell_samples_per_axis</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.default_cell_samples_per_axis = ...</code>
+            </div>
+
+         :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L219>`__
+
+            Sub-sampling resolution per cell axis used when rasterizing zone masks.
+
+
+
+   .. dropdown:: Fields of ``GeologySupportConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: geologysupportconfig-domain-supports-provider
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.supports.provider">
+              <code class="hmp-field-name">provider</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.supports.provider = ...</code>
+            </div>
+
+         :bdg-primary:`Literal['geology']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/spatial_support_config.py#L237>`__
+
+
+
+
+.. container:: hmp-field hmp-field-level-user
+   :name: domain-depth-model
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="domain.depth_model">
+        <code class="hmp-field-name">depth_model</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">[domain.depth_model]</code>
+      </div>
+
+   :bdg-primary:`type = "constant_thickness" | "flat_substratum"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L41>`__
+
+      Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
+
+      Set ``type`` in your TOML to choose one of the schemas below.
+
+   .. dropdown:: ``type = "constant_thickness"``  (ConstantThicknessDepthModel)
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: domain-depth-model-constant-thickness-thickness
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.depth_model.constant_thickness.thickness">
+              <code class="hmp-field-name">thickness</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.depth_model.constant_thickness.thickness = ...</code>
+            </div>
+
+         :bdg-primary:`float` :bdg-secondary:`default = 50.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/depth_model_config.py#L28>`__
+
+            Constant aquifer thickness (m) applied below topography.
+
+
+
+   .. dropdown:: ``type = "flat_substratum"``  (FlatSubstratumDepthModel)
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: domain-depth-model-flat-substratum-substratum-elevation
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="domain.depth_model.flat_substratum.substratum_elevation">
+              <code class="hmp-field-name">substratum_elevation</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">domain.depth_model.flat_substratum.substratum_elevation = ...</code>
+            </div>
+
+         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/depth_model_config.py#L61>`__
+
+            Flat substratum elevation (m) applied over the full domain.
+
+
+
+
+Starter TOML snippet
+--------------------
+
+.. dropdown:: Click to expand a copy-pasteable ``[domain]`` TOML skeleton
+   :icon: code
+   :animate: fade-in-slide-down
+
+   Copy this block into your ``project.toml`` and uncomment the lines
+   you want to set. Sub-tables (``[parent.subfield]``) appear in the
+   order Pydantic expects them.
+
+   .. code-block:: toml
+
+      [domain]
+      # zone_ids = ...  # uses factory default
+      # [domain.supports.<id>]   # see Dynamic sub-tables below
+
+      [domain.depth_model]
+      # type = "constant_thickness"
+      # thickness = 50.0
 
 Cases using this section
 ------------------------
@@ -74,3 +462,17 @@ Validation gallery cases that reference fields from this section:
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_periodic_1d`
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_1d`
 - :doc:`/capability_gallery/cases/linearized_unconfined_recharge_step_deep_1d`
+
+Entity-relationship diagram
+---------------------------
+
+.. container:: hmp-er-wrapper
+
+   .. image:: _diagrams/domain.svg
+      :alt: ER diagram for DomainConfig
+      :class: er-diagram hmp-zoomable
+      :target: _diagrams/domain.svg
+
+   .. container:: hmp-er-hint
+
+      Click to zoom and pan. Press *Esc* or click outside to close.

@@ -35,3 +35,4 @@ See Also
 
 - :doc:`index` for the layered cards
 - :doc:`complete_toml` for the annotated TOML reference
+- :doc:`config_index` for the flat global index
