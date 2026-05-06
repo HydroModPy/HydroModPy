@@ -40,6 +40,41 @@ def test_method_catalog_resolves_complementarity_only_for_petsc() -> None:
         )
 
 
+def test_method_catalog_resolves_vi_obstacle_only_for_petsc() -> None:
+    method = resolve_method_spec(
+        runtime_backend_name="petsc",
+        surface_interaction_model="vi_obstacle",
+    )
+
+    assert method.id == "head_only_vi_obstacle"
+    assert method.unknown_layout == "head_only"
+    assert method.surface_closure == "vi_obstacle"
+
+    with pytest.raises(NotImplementedError):
+        resolve_method_spec(
+            runtime_backend_name="scipy_sparse",
+            surface_interaction_model="vi_obstacle",
+        )
+
+
+def test_method_catalog_resolves_ts_vi_obstacle_only_for_petsc() -> None:
+    method = resolve_method_spec(
+        runtime_backend_name="petsc",
+        surface_interaction_model="ts_vi_obstacle",
+    )
+
+    assert method.id == "head_only_ts_vi_obstacle"
+    assert method.unknown_layout == "head_only"
+    assert method.surface_closure == "ts_vi_obstacle"
+    assert method.time_scheme_for_regime("transient").id == "backward_euler"
+
+    with pytest.raises(NotImplementedError):
+        resolve_method_spec(
+            runtime_backend_name="scipy_sparse",
+            surface_interaction_model="ts_vi_obstacle",
+        )
+
+
 def test_surface_interaction_auto_remains_backend_dependent() -> None:
     assert (
         resolve_surface_interaction_model_token(
@@ -66,11 +101,23 @@ def test_engine_catalog_routes_petsc_variants_by_method() -> None:
         runtime_backend_name="petsc",
         method_id="mixed_complementarity",
     )
+    vi_engine = resolve_engine_spec(
+        runtime_backend_name="petsc",
+        method_id="head_only_vi_obstacle",
+    )
+    ts_vi_engine = resolve_engine_spec(
+        runtime_backend_name="petsc",
+        method_id="head_only_ts_vi_obstacle",
+    )
 
     assert partition_engine.id == "petsc_partition_snes"
     assert partition_engine.jacobian_strategy == "semianalytic_sparse"
     assert mixed_engine.id == "petsc_mixed_complementarity_snes"
     assert mixed_engine.jacobian_strategy == "semianalytic_sparse_block"
+    assert vi_engine.id == "petsc_vi_obstacle_snes"
+    assert vi_engine.jacobian_strategy == "semianalytic_sparse_base"
+    assert ts_vi_engine.id == "petsc_ts_vi_obstacle"
+    assert ts_vi_engine.jacobian_strategy == "semianalytic_sparse_ifunction_ijacobian"
 
 
 def test_runtime_selection_exposes_method_and_engine_axes() -> None:

@@ -22,6 +22,8 @@ from hydromodpy.analysis.comparison.exports import (
     write_simulated_active_network_metrics_export,
     write_simulated_active_network_overlap_metrics_export,
     write_simulated_active_network_reference_figure_export,
+    write_ts_vi_obstacle_runtime_diagnostics_export,
+    write_vi_obstacle_runtime_diagnostics_export,
 )
 from hydromodpy.analysis.comparison.metric_diff import (
     DETAIL_METRIC_FIELDS,
@@ -153,6 +155,18 @@ def write_comparison_output_bundle(
         simulation_summaries=summaries,
     )
     data_artifacts.extend(obstacle_artifacts)
+    vi_diagnostic_artifacts, _vi_diagnostic_rows = write_vi_obstacle_runtime_diagnostics_export(
+        comparison_root=comparison_root,
+        simulation_summaries=summaries,
+    )
+    data_artifacts.extend(vi_diagnostic_artifacts)
+    ts_vi_diagnostic_artifacts, _ts_vi_diagnostic_rows = (
+        write_ts_vi_obstacle_runtime_diagnostics_export(
+            comparison_root=comparison_root,
+            simulation_summaries=summaries,
+        )
+    )
+    data_artifacts.extend(ts_vi_diagnostic_artifacts)
     execution_artifacts, execution_rows = write_execution_summary_csv(
         comparison_root=comparison_root,
         simulation_summaries=summaries,

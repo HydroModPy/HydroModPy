@@ -31,9 +31,15 @@ def run_boussinesq_dupuit_fixed_head_case(
     aquifer_thickness_m = float(reference_cfg["aquifer_thickness_m"])
     west_head_m = float(reference_cfg["west_head"])
     east_head_m = float(reference_cfg["east_head"])
+    surface_model = (
+        None
+        if surface_interaction_model is None
+        else str(surface_interaction_model).strip().lower()
+    )
+    use_ts_vi = str(runtime_backend).strip().lower() == "petsc" and surface_model == "ts_vi_obstacle"
 
     flow_section = {
-        "flow_regime": "steady",
+        "flow_regime": "transient" if use_ts_vi else "steady",
         "runtime_backend": str(runtime_backend),
         "ic": {"type": "custom", "value": 0.5 * (west_head_m + east_head_m)},
         "active_sinks_sources": [],
@@ -47,6 +53,15 @@ def run_boussinesq_dupuit_fixed_head_case(
     }
     if surface_interaction_model is not None:
         flow_section["surface_interaction_model"] = str(surface_interaction_model)
+    if use_ts_vi:
+        flow_section.update(
+            {
+                "ts_vi_steps_per_period": 4,
+                "ts_vi_adapt": False,
+                "ts_vi_type": "beuler",
+                "ts_vi_snes_type": "vinewtonrsls",
+            }
+        )
 
     result = run_boussinesq_uniform_strip_case(
         case_dir=CASE_DIR,
@@ -63,16 +78,24 @@ def run_boussinesq_dupuit_fixed_head_case(
         storage_coefficient=0.1,
         flow_section=flow_section,
         plan_name="Boussinesq Dupuit fixed-head validation",
-        plan_description="Steady 1D strip with fixed west/east heads",
-        flow_regime="steady",
+        plan_description=(
+            "Pseudo-transient TS VI 1D strip converging to fixed west/east heads"
+            if use_ts_vi
+            else "Steady 1D strip with fixed west/east heads"
+        ),
+        flow_regime="transient" if use_ts_vi else "steady",
+        nper=1 if use_ts_vi else None,
+        dt_seconds=1.0e8 if use_ts_vi else None,
+        export_initial_state=False if use_ts_vi else None,
     )
     solver_name = "boussinesq"
     if str(runtime_backend).strip().lower() == "petsc":
-        solver_name = (
-            "petsc_partition"
-            if str(surface_interaction_model or "").strip().lower() == "regularized_partition"
-            else "petsc"
-        )
+        if surface_model == "regularized_partition":
+            solver_name = "petsc_partition"
+        elif surface_model == "ts_vi_obstacle":
+            solver_name = "petsc_ts_vi_obstacle"
+        else:
+            solver_name = "petsc"
     return replace(result, solver_name=solver_name)
 
 

@@ -60,10 +60,7 @@ documented at the call site. Listed in `layer_matrix.yaml` under
 | analysis    | physics | history contract |
 | analysis    | display | comparison exports reuse plot mesh loading |
 | analysis    | solver  | comparison runtime resolves solver families |
-| calibration | root    | trial promotion launches public Project facade |
 | cli         | root    | CLI dispatch delegates to public Project facade |
-| results     | analysis | `Run` exposes stream-network diagnostics |
-| workflow    | root    | sweep helper accepts Project facade instances |
 
 Tolerances tighten over time. Adding a new tolerance requires a
 documented rationale and a migration target.

@@ -1,39 +1,37 @@
-"""Workflow-backed runner provider for method testbeds."""
+"""Testbed runner provider compatibility hooks."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from pathlib import Path
-from typing import Any
+from collections.abc import Callable
 
 from hydromodpy.analysis.testbed.contracts import (
     TestbedRunnerProvider,
     register_testbed_runner_provider,
 )
 
+_default_provider_factory: Callable[[], TestbedRunnerProvider] | None = None
 
-class WorkflowTestbedRunnerProvider(TestbedRunnerProvider):
-    """Concrete testbed runner provider backed by workflow launchers."""
 
-    def run_mesh_catchment(self, config_path: Path) -> Mapping[str, Any]:
-        """Run one mesh-catchment child configuration."""
-        from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
-
-        return dict(MeshCatchmentLauncher(config_path).run())
-
-    def run_simulation(self, config_path: Path, *, no_display: bool) -> Mapping[str, Any]:
-        """Run one simulation child configuration."""
-        from hydromodpy.workflow.dispatch import run_simulation
-
-        return dict(run_simulation(config_path, no_display=no_display))
+def set_default_testbed_runner_provider_factory(
+    factory: Callable[[], TestbedRunnerProvider],
+) -> None:
+    """Inject the default provider factory from the root bootstrap layer."""
+    global _default_provider_factory
+    _default_provider_factory = factory
 
 
 def register_default_testbed_runner_provider() -> None:
-    """Register the workflow-backed testbed runner provider."""
-    register_testbed_runner_provider(WorkflowTestbedRunnerProvider())
+    """Register the injected default testbed provider."""
+    if _default_provider_factory is None:
+        raise RuntimeError(
+            "Default testbed provider factory is not registered. Import "
+            "'hydromodpy' or call hydromodpy.bootstrap() before executing "
+            "testbed variants."
+        )
+    register_testbed_runner_provider(_default_provider_factory())
 
 
 __all__ = [
-    "WorkflowTestbedRunnerProvider",
     "register_default_testbed_runner_provider",
+    "set_default_testbed_runner_provider_factory",
 ]

@@ -907,11 +907,9 @@ class Run:
         **kwargs,
     ) -> dict[str, float | int | str | None]:
         """Lazy planar distance metrics against one persisted vector network role."""
-        from hydromodpy.analysis.stream_networks import (
-            simulated_active_network_distance_metrics,
-        )
+        from hydromodpy.results import views
 
-        return simulated_active_network_distance_metrics(self, **kwargs)
+        return views.simulated_active_network_distance_metrics(self, **kwargs)
 
     def catchment_mean(self, variable: str, **kwargs) -> pd.Series:
         """Lazy arithmetic mean of a cell variable over active cells."""

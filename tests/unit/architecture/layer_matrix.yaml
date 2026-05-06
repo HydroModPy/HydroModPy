@@ -29,12 +29,9 @@ tolerances:
   - {src: simulation,  tgt: solver,   reason: "simulation queries solver registry"}
   - {src: results,     tgt: spatial,  reason: "results stores spatial indices"}
   - {src: analysis,    tgt: physics,  reason: "history contract"}
-  - {src: calibration, tgt: "<root>", reason: "trial promotion launches public Project facade"}
   - {src: cli,         tgt: "<root>", reason: "CLI dispatch delegates to public Project facade"}
-  - {src: workflow,    tgt: "<root>", reason: "sweep helper accepts Project facade instances"}
   - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
   - {src: analysis,    tgt: solver,   reason: "comparison runtime resolves solver families"}
-  - {src: results,     tgt: analysis, reason: "Run exposes stream-network diagnostics"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a

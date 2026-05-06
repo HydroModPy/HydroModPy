@@ -41,7 +41,9 @@ def _top_level_packages() -> set[str]:
     return {
         path.name
         for path in PKG_ROOT.iterdir()
-        if path.is_dir() and not path.name.startswith("__") and path.name != "__pycache__"
+        if path.is_dir()
+        and (path / "__init__.py").is_file()
+        and not path.name.startswith("__")
     }
 
 

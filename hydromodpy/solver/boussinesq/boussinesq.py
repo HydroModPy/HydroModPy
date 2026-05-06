@@ -54,6 +54,12 @@ from hydromodpy.solver.boussinesq.runtime_selection import (
     BoussinesqRuntimeBackend,
     resolve_runtime_backend,
 )
+from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
+    write_vi_obstacle_diagnostic_files,
+)
+from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
+    write_ts_vi_obstacle_diagnostic_files,
+)
 from hydromodpy.solver.boussinesq.runtime_summary import (
     record_surface_threshold_summary,
 )
@@ -205,6 +211,8 @@ class Boussinesq(Solver):
             json.dumps(summary_payload, indent=2, ensure_ascii=True) + "\n",
             encoding="utf-8",
         )
+        write_vi_obstacle_diagnostic_files(self.full_path, summary_payload)
+        write_ts_vi_obstacle_diagnostic_files(self.full_path, summary_payload)
         self.solve_stage = "post_processed"
 
     @staticmethod
@@ -294,11 +302,38 @@ class Boussinesq(Solver):
         tol_state_update_inf = float(
             getattr(self.flow, "runtime_tol_state_update_inf", 1.0e-9) or 1.0e-9
         )
+        vi_substeps_per_period = int(getattr(self.flow, "vi_substeps_per_period", 1) or 1)
+        vi_substep_on_failure = bool(getattr(self.flow, "vi_substep_on_failure", False))
+        vi_max_adaptive_substeps = int(
+            getattr(self.flow, "vi_max_adaptive_substeps", vi_substeps_per_period)
+            or vi_substeps_per_period
+        )
+        ts_vi_steps_per_period = int(getattr(self.flow, "ts_vi_steps_per_period", 4) or 4)
+        ts_vi_adapt = bool(getattr(self.flow, "ts_vi_adapt", False))
+        ts_vi_dt_min_fraction = float(
+            getattr(self.flow, "ts_vi_dt_min_fraction", 1.0 / 64.0) or (1.0 / 64.0)
+        )
+        ts_vi_dt_max_fraction = float(
+            getattr(self.flow, "ts_vi_dt_max_fraction", 1.0 / 4.0) or (1.0 / 4.0)
+        )
+        ts_vi_type = str(getattr(self.flow, "ts_vi_type", "beuler") or "beuler")
+        ts_vi_snes_type = str(
+            getattr(self.flow, "ts_vi_snes_type", "vinewtonrsls") or "vinewtonrsls"
+        )
         return NonlinearRuntimeOptions(
             regularization_radius=float(self.saturation_excess_regularization_radius),
             max_iterations=int(max_iterations),
             tol_residual_inf=tol_residual_inf,
             tol_state_update_inf=tol_state_update_inf,
+            vi_substeps_per_period=vi_substeps_per_period,
+            vi_substep_on_failure=vi_substep_on_failure,
+            vi_max_adaptive_substeps=vi_max_adaptive_substeps,
+            ts_vi_steps_per_period=ts_vi_steps_per_period,
+            ts_vi_adapt=ts_vi_adapt,
+            ts_vi_dt_min_fraction=ts_vi_dt_min_fraction,
+            ts_vi_dt_max_fraction=ts_vi_dt_max_fraction,
+            ts_vi_type=ts_vi_type,
+            ts_vi_snes_type=ts_vi_snes_type,
         )
 
     def _resolve_solver_contract(self) -> BoussinesqSolverContract:

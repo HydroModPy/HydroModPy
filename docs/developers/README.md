@@ -31,6 +31,8 @@ au code, mainteneurs, intégrateurs frontaux. Pour l'usage utilisateur voir
   schémas DuckDB et Zarr.
 - [simulation_comparison_workflow.md](simulation_comparison_workflow.md) :
   surcouche externe de comparaison de simulations, TOML, audit, sorties.
+- [code_segmentation_audit_hors_boussinesq.md](code_segmentation_audit_hors_boussinesq.md) :
+  audit de segmentation hors Boussinesq et chantiers deja engages.
 
 ## Solveurs
 
@@ -40,6 +42,8 @@ au code, mainteneurs, intégrateurs frontaux. Pour l'usage utilisateur voir
   comparaison numérique avec Marcais 2017.
 - [boussinesq_petsc_headwater_100km2_diagnostic.md](boussinesq_petsc_headwater_100km2_diagnostic.md) :
   cas de diagnostic sur bassin amont.
+- [boussinesq_petsc_complementarity_nancon_diagnostic.md](boussinesq_petsc_complementarity_nancon_diagnostic.md) :
+  diagnostic Nancon de la fermeture PETSc par complementarite.
 - [boussinesq_linux_ci.md](boussinesq_linux_ci.md) : intégration continue
   Linux pour Boussinesq.
 - [modflow_contracts.md](modflow_contracts.md) : contrats de

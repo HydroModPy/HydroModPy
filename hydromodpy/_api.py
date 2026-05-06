@@ -103,7 +103,8 @@ def run(config: Any, **kwargs: Any) -> Any:
         Object-oriented form for repeated runs from one project.
     """
     if isinstance(config, (str, Path)):
-        from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
+        from hydromodpy.workflow.dispatch import resolve_workflow
+        from hydromodpy.workflow_dispatch import dispatch_workflow
 
         config_path = Path(config).expanduser().resolve()
         workflow = resolve_workflow(
@@ -176,7 +177,8 @@ def overview(config: Any, **kwargs: Any) -> Any:
     Any
         Overview workflow summary.
     """
-    from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
+    from hydromodpy.workflow.dispatch import resolve_workflow
+    from hydromodpy.workflow_dispatch import dispatch_workflow
 
     config_path = Path(config).expanduser().resolve()
     workflow = resolve_workflow(
@@ -202,7 +204,8 @@ def batch(config: Any, **kwargs: Any) -> Any:
     Any
         Batch workflow summary.
     """
-    from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
+    from hydromodpy.workflow.dispatch import resolve_workflow
+    from hydromodpy.workflow_dispatch import dispatch_workflow
 
     config_path = Path(config).expanduser().resolve()
     workflow = resolve_workflow(

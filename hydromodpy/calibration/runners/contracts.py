@@ -20,6 +20,7 @@ and registered from ``hydromodpy._bootstrap``.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -84,7 +85,25 @@ class TrialPipelineProvider(Protocol):
         """Bind freshly loaded data objects to runtime structures on ``ctx``."""
 
 
+@runtime_checkable
+class TrialPromotionProvider(Protocol):
+    """Bundle that promotes a calibration candidate to a persisted run."""
+
+    def promote_trial(
+        self,
+        cfg_path: str | Path,
+        values: Mapping[str, float],
+        *,
+        paths: Mapping[str, str] | None = None,
+        name: str | None = None,
+        tags: Sequence[str] = (),
+        session_id: str | None = None,
+    ) -> str:
+        """Run a full simulation with calibration values baked in."""
+
+
 _provider: TrialPipelineProvider | None = None
+_promotion_provider: TrialPromotionProvider | None = None
 
 
 def register_trial_pipeline_provider(provider: TrialPipelineProvider) -> None:
@@ -104,10 +123,30 @@ def get_trial_pipeline_provider() -> TrialPipelineProvider:
     return _provider
 
 
+def register_trial_promotion_provider(provider: TrialPromotionProvider) -> None:
+    """Register the provider used by legacy trial promotion helpers."""
+    global _promotion_provider
+    _promotion_provider = provider
+
+
+def get_trial_promotion_provider() -> TrialPromotionProvider:
+    """Return the registered promotion provider, or raise if none is wired."""
+    if _promotion_provider is None:
+        raise RuntimeError(
+            "TrialPromotionProvider is not registered. "
+            "Import 'hydromodpy' (or call hydromodpy.bootstrap()) before "
+            "promoting calibration trials."
+        )
+    return _promotion_provider
+
+
 __all__ = [
     "TrialPipelineProvider",
     "TrialPipelineRunner",
+    "TrialPromotionProvider",
     "TrialStep",
     "get_trial_pipeline_provider",
+    "get_trial_promotion_provider",
     "register_trial_pipeline_provider",
+    "register_trial_promotion_provider",
 ]

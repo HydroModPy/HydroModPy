@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import shutil
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,6 +19,16 @@ from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
 from hydromodpy.core.units.volumetric_flow import factor_to_m3_per_s
 from hydromodpy.physics.flow.history_contract import build_transient_time_axes
+from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
+    VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
+)
+from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
+    TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
@@ -172,6 +183,12 @@ def _as_float(value: Any) -> float | None:
     if not math.isfinite(parsed):
         return None
     return parsed
+
+
+def _slug_token(value: Any) -> str:
+    token = str(value).strip().lower()
+    cleaned = "".join(ch if ch.isalnum() else "_" for ch in token)
+    return "_".join(part for part in cleaned.split("_") if part) or "simulation"
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
@@ -2141,6 +2158,184 @@ def write_boussinesq_obstacle_diagnostics_export(
     return artifacts, rows
 
 
+def _vi_obstacle_diagnostic_paths(summary: Mapping[str, Any]) -> dict[str, Path]:
+    """Return persisted VI obstacle diagnostics for one simulation summary."""
+    raw = summary.get("vi_obstacle_diagnostics")
+    paths: dict[str, Path] = {}
+    if isinstance(raw, Mapping):
+        for key in ("runtime_summary", "period_diagnostics", "substep_diagnostics"):
+            value = raw.get(key)
+            if value not in (None, ""):
+                candidate = Path(str(value))
+                if candidate.exists():
+                    paths[key] = candidate
+    if paths:
+        return paths
+
+    run_folder_raw = summary.get("run_folder")
+    if run_folder_raw in (None, ""):
+        return {}
+    run_folder = Path(str(run_folder_raw))
+    for runtime_path in run_folder.glob(
+        f"exports/*/solver_diagnostics/{VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
+    ):
+        directory = runtime_path.parent
+        paths["runtime_summary"] = runtime_path
+        period_path = directory / VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV
+        substep_path = directory / VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV
+        if period_path.exists():
+            paths["period_diagnostics"] = period_path
+        if substep_path.exists():
+            paths["substep_diagnostics"] = substep_path
+        return paths
+    return {}
+
+
+def _load_vi_obstacle_runtime_summary(path: Path) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _ts_vi_obstacle_diagnostic_paths(summary: Mapping[str, Any]) -> dict[str, Path]:
+    """Return persisted TS VI obstacle diagnostics for one simulation summary."""
+    raw = summary.get("ts_vi_obstacle_diagnostics")
+    paths: dict[str, Path] = {}
+    if isinstance(raw, Mapping):
+        for key in ("runtime_summary", "period_diagnostics", "step_diagnostics"):
+            value = raw.get(key)
+            if value not in (None, ""):
+                candidate = Path(str(value))
+                if candidate.exists():
+                    paths[key] = candidate
+    if paths:
+        return paths
+
+    run_folder_raw = summary.get("run_folder")
+    if run_folder_raw in (None, ""):
+        return {}
+    run_folder = Path(str(run_folder_raw))
+    for runtime_path in run_folder.glob(
+        f"exports/*/solver_diagnostics/{TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
+    ):
+        directory = runtime_path.parent
+        paths["runtime_summary"] = runtime_path
+        period_path = directory / TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV
+        step_path = directory / TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV
+        if period_path.exists():
+            paths["period_diagnostics"] = period_path
+        if step_path.exists():
+            paths["step_diagnostics"] = step_path
+        return paths
+    return {}
+
+
+def write_vi_obstacle_runtime_diagnostics_export(
+    *,
+    comparison_root: Path,
+    simulation_summaries: Iterable[Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Copy persisted VI obstacle runtime diagnostics into the comparison root."""
+    artifacts: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
+    for summary in _completed_simulation_summaries(simulation_summaries):
+        paths = _vi_obstacle_diagnostic_paths(summary)
+        runtime_path = paths.get("runtime_summary")
+        if runtime_path is None:
+            continue
+        simulation_id = str(summary.get("id", "simulation") or "simulation")
+        slug = _slug_token(simulation_id)
+        runtime_payload = _load_vi_obstacle_runtime_summary(runtime_path)
+
+        copied: dict[str, str] = {}
+        for key, filename in (
+            ("runtime_summary", VI_OBSTACLE_RUNTIME_SUMMARY_JSON),
+            ("period_diagnostics", VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV),
+            ("substep_diagnostics", VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV),
+        ):
+            source = paths.get(key)
+            if source is None:
+                continue
+            destination = comparison_root / f"{slug}__{filename}"
+            shutil.copyfile(source, destination)
+            copied[key] = str(destination)
+            artifacts.append(
+                {
+                    "kind": f"vi_obstacle_{key}",
+                    "simulation_id": simulation_id,
+                    "path": str(destination),
+                    "source_path": str(source),
+                    "summary": runtime_payload if key == "runtime_summary" else {},
+                }
+            )
+        if copied:
+            rows.append(
+                {
+                    "simulation_id": simulation_id,
+                    "simulation_label": summary.get("label", simulation_id),
+                    "runtime_summary": copied.get("runtime_summary", ""),
+                    "period_diagnostics": copied.get("period_diagnostics", ""),
+                    "substep_diagnostics": copied.get("substep_diagnostics", ""),
+                    **runtime_payload,
+                }
+            )
+    return artifacts, rows
+
+
+def write_ts_vi_obstacle_runtime_diagnostics_export(
+    *,
+    comparison_root: Path,
+    simulation_summaries: Iterable[Mapping[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Copy persisted TS VI obstacle runtime diagnostics into the comparison root."""
+    artifacts: list[dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
+    for summary in _completed_simulation_summaries(simulation_summaries):
+        paths = _ts_vi_obstacle_diagnostic_paths(summary)
+        runtime_path = paths.get("runtime_summary")
+        if runtime_path is None:
+            continue
+        simulation_id = str(summary.get("id", "simulation") or "simulation")
+        slug = _slug_token(simulation_id)
+        runtime_payload = _load_vi_obstacle_runtime_summary(runtime_path)
+
+        copied: dict[str, str] = {}
+        for key, filename in (
+            ("runtime_summary", TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON),
+            ("period_diagnostics", TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV),
+            ("step_diagnostics", TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV),
+        ):
+            source = paths.get(key)
+            if source is None:
+                continue
+            destination = comparison_root / f"{slug}__{filename}"
+            shutil.copyfile(source, destination)
+            copied[key] = str(destination)
+            artifacts.append(
+                {
+                    "kind": f"ts_vi_obstacle_{key}",
+                    "simulation_id": simulation_id,
+                    "path": str(destination),
+                    "source_path": str(source),
+                    "summary": runtime_payload if key == "runtime_summary" else {},
+                }
+            )
+        if copied:
+            rows.append(
+                {
+                    "simulation_id": simulation_id,
+                    "simulation_label": summary.get("label", simulation_id),
+                    "runtime_summary": copied.get("runtime_summary", ""),
+                    "period_diagnostics": copied.get("period_diagnostics", ""),
+                    "step_diagnostics": copied.get("step_diagnostics", ""),
+                    **runtime_payload,
+                }
+            )
+    return artifacts, rows
+
+
 def write_budget_exports(
     *,
     comparison_root: Path,
@@ -2384,4 +2579,6 @@ __all__ = (
     "write_simulated_active_network_reference_figure_export",
     "write_simulated_active_network_metrics_export",
     "write_simulated_active_network_overlap_metrics_export",
+    "write_ts_vi_obstacle_runtime_diagnostics_export",
+    "write_vi_obstacle_runtime_diagnostics_export",
 )

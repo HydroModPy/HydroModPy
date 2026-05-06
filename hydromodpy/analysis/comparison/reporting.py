@@ -110,6 +110,15 @@ def build_comparison_report(
                 line += f" ({note})"
             lines.append(line)
 
+    vi_section = _vi_obstacle_diagnostics_section(data_files)
+    if vi_section:
+        lines.extend(["", "## Boussinesq PETSc VI obstacle diagnostics"])
+        lines.extend(vi_section)
+    ts_vi_section = _ts_vi_obstacle_diagnostics_section(data_files)
+    if ts_vi_section:
+        lines.extend(["", "## Boussinesq PETSc TS VI obstacle diagnostics"])
+        lines.extend(ts_vi_section)
+
     lines.extend(
         [
             "",
@@ -159,6 +168,96 @@ def build_comparison_report(
             )
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def _vi_obstacle_diagnostics_section(
+    data_files: Iterable[Mapping[str, Any]],
+) -> list[str]:
+    artifacts = [
+        artifact
+        for artifact in data_files
+        if str(artifact.get("kind", "")).startswith("vi_obstacle_")
+    ]
+    if not artifacts:
+        return []
+    runtime_artifacts = [
+        artifact
+        for artifact in artifacts
+        if str(artifact.get("kind", "")) == "vi_obstacle_runtime_summary"
+    ]
+    lines: list[str] = []
+    for artifact in runtime_artifacts:
+        summary = artifact.get("summary")
+        if not isinstance(summary, Mapping):
+            summary = {}
+        simulation_id = artifact.get("simulation_id", "")
+        lines.append(
+            f"- `{simulation_id}`:"
+            f" requested_substeps={_format_number(summary.get('vi_substeps_per_period'))}"
+            f", max_substeps_used={_format_number(summary.get('max_substeps_used'))}"
+            f", adaptive_used={_yes_no(summary.get('adaptive_substepping_used_any'))}"
+            f", all_periods_converged={_yes_no(summary.get('all_periods_converged'))}"
+            f", max_active_top={_format_number(summary.get('max_active_top_count'))}"
+            f", max_active_bottom={_format_number(summary.get('max_active_bottom_count'))}"
+            f", max_upper_violation={_format_number(summary.get('max_upper_violation'))}"
+            f", max_lower_violation={_format_number(summary.get('max_lower_violation'))}"
+        )
+    for artifact in artifacts:
+        path = str(artifact.get("path", ""))
+        if path:
+            lines.append(
+                f"- `{artifact.get('kind', '')}`"
+                f" for `{artifact.get('simulation_id', '')}`: `{path}`"
+            )
+    return lines
+
+
+def _ts_vi_obstacle_diagnostics_section(
+    data_files: Iterable[Mapping[str, Any]],
+) -> list[str]:
+    artifacts = [
+        artifact
+        for artifact in data_files
+        if str(artifact.get("kind", "")).startswith("ts_vi_obstacle_")
+    ]
+    if not artifacts:
+        return []
+    runtime_artifacts = [
+        artifact
+        for artifact in artifacts
+        if str(artifact.get("kind", "")) == "ts_vi_obstacle_runtime_summary"
+    ]
+    lines: list[str] = []
+    for artifact in runtime_artifacts:
+        summary = artifact.get("summary")
+        if not isinstance(summary, Mapping):
+            summary = {}
+        simulation_id = artifact.get("simulation_id", "")
+        lines.append(
+            f"- `{simulation_id}`:"
+            f" ts_steps_per_period={_format_number(summary.get('ts_vi_steps_per_period'))}"
+            f", total_ts_steps={_format_number(summary.get('total_ts_steps'))}"
+            f", adapt={_yes_no(summary.get('ts_vi_adapt'))}"
+            f", all_periods_converged={_yes_no(summary.get('all_periods_converged'))}"
+            f", max_active_top={_format_number(summary.get('max_active_top_count'))}"
+            f", max_active_bottom={_format_number(summary.get('max_active_bottom_count'))}"
+            f", max_upper_violation={_format_number(summary.get('max_upper_violation'))}"
+            f", max_lower_violation={_format_number(summary.get('max_lower_violation'))}"
+        )
+    for artifact in artifacts:
+        path = str(artifact.get("path", ""))
+        if path:
+            lines.append(
+                f"- `{artifact.get('kind', '')}`"
+                f" for `{artifact.get('simulation_id', '')}`: `{path}`"
+            )
+    return lines
+
+
+def _yes_no(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+    return "yes" if bool(value) else "no"
 
 
 __all__ = ("build_comparison_report",)

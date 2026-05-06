@@ -9,12 +9,22 @@ parallelization is a single-point change.
 from __future__ import annotations
 
 import itertools
-from typing import TYPE_CHECKING
+from typing import Protocol
 
 from hydromodpy.core.exceptions import ConfigError
 
-if TYPE_CHECKING:
-    from hydromodpy.project import Project
+
+class SweepRun(Protocol):
+    """Minimal run view needed by sweep orchestration."""
+
+    sim_id: str
+
+
+class SweepProject(Protocol):
+    """Minimal project protocol needed by sweep orchestration."""
+
+    def run(self, *, name: str | None = None, **overrides: float) -> SweepRun:
+        """Execute one simulation and return its run view."""
 
 
 def expand_parameters(
@@ -42,7 +52,7 @@ def expand_parameters(
 
 
 def run_sweep(
-    project: Project,
+    project: SweepProject,
     *,
     parameters: dict[str, list[float] | dict],
     strategy: str,

@@ -68,15 +68,23 @@ class FlowRuntimeConfig(HydroModelBase):
         description=("Nonlinear runtime backend used by Boussinesq-style solvers."),
     )
     surface_model: Annotated[
-        Literal["auto", "regularized_partition", "complementarity"], Profile.DEV
+        Literal[
+            "auto",
+            "regularized_partition",
+            "complementarity",
+            "vi_obstacle",
+            "ts_vi_obstacle",
+        ],
+        Profile.DEV,
     ] = Field(
         default="auto",
         description=(
             "Surface-interaction closure selector (Boussinesq). "
             "``regularized_partition`` uses the Marcais-style q_ex = G_r(theta) "
             "R(balance) law; ``complementarity`` uses the PETSc "
-            "q_ex-perp-(z_top-h) formulation; ``auto`` keeps the historical "
-            "backend-dependent default."
+            "q_ex-perp-(z_top-h) formulation; ``vi_obstacle`` uses the "
+            "experimental PETSc head-only VI obstacle formulation; ``auto`` "
+            "keeps the historical backend-dependent default."
         ),
     )
     max_iterations: Annotated[int | None, Profile.DEV] = Field(
@@ -90,6 +98,51 @@ class FlowRuntimeConfig(HydroModelBase):
     tol_state_update_inf: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description="Optional override for the inf-norm state-update tolerance.",
+    )
+    vi_substeps_per_period: Annotated[int, Profile.DEV] = Field(
+        default=1,
+        description=(
+            "Fixed number of Backward-Euler substeps per stress period for the "
+            "experimental PETSc VI obstacle runtime."
+        ),
+    )
+    vi_substep_on_failure: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description=(
+            "Retry failed PETSc VI obstacle periods with more substeps, up to "
+            "vi_max_adaptive_substeps."
+        ),
+    )
+    vi_max_adaptive_substeps: Annotated[int | None, Profile.DEV] = Field(
+        default=None,
+        description="Maximum substeps allowed when PETSc VI adaptive retry is enabled.",
+    )
+    ts_vi_steps_per_period: Annotated[int, Profile.DEV] = Field(
+        default=4,
+        description=(
+            "Fixed PETSc TS Backward-Euler steps per stress period for the "
+            "experimental TS VI obstacle runtime."
+        ),
+    )
+    ts_vi_adapt: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Enable experimental PETSc TS time-step adaptivity for TS VI obstacle.",
+    )
+    ts_vi_dt_min_fraction: Annotated[float, Profile.DEV] = Field(
+        default=1.0 / 64.0,
+        description="Minimum TS VI time-step as a fraction of the stress-period length.",
+    )
+    ts_vi_dt_max_fraction: Annotated[float, Profile.DEV] = Field(
+        default=1.0 / 4.0,
+        description="Maximum TS VI time-step as a fraction of the stress-period length.",
+    )
+    ts_vi_type: Annotated[str, Profile.DEV] = Field(
+        default="beuler",
+        description="PETSc TS type used by the experimental TS VI obstacle runtime.",
+    )
+    ts_vi_snes_type: Annotated[str, Profile.DEV] = Field(
+        default="vinewtonrsls",
+        description="PETSc SNES type used inside the experimental TS VI obstacle runtime.",
     )
 
 
@@ -125,7 +178,13 @@ class FlowConfig(ProcessSpatialConfig):
         )
     )
     surface_interaction_model: Annotated[
-        Literal["auto", "regularized_partition", "complementarity"],
+        Literal[
+            "auto",
+            "regularized_partition",
+            "complementarity",
+            "vi_obstacle",
+            "ts_vi_obstacle",
+        ],
         Profile.DEV,
     ] = Field(
         default="auto",
@@ -133,8 +192,9 @@ class FlowConfig(ProcessSpatialConfig):
             "Optional Boussinesq surface-interaction closure selector. "
             "'regularized_partition' uses the Marcais-style q_ex = G_r(theta) "
             "R(balance) law; 'complementarity' uses the mixed PETSc "
-            "q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical "
-            "backend-dependent default."
+            "q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the "
+            "experimental PETSc head-only VI obstacle formulation; 'auto' "
+            "keeps the historical backend-dependent default."
         ),
     )
     runtime_max_iterations: Annotated[int | None, Profile.DEV] = Field(
@@ -165,6 +225,55 @@ class FlowConfig(ProcessSpatialConfig):
             "Optional override for the infinity-norm state-update tolerance "
             "used by Boussinesq backends that track it."
         ),
+    )
+    vi_substeps_per_period: Annotated[int, Profile.DEV] = Field(
+        default=1,
+        description=(
+            "Fixed number of Backward-Euler substeps per stress period for the "
+            "experimental PETSc VI obstacle runtime. Rate-based forcing values "
+            "are kept unchanged on each substep."
+        ),
+    )
+    vi_substep_on_failure: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description=(
+            "When true, retry a failed PETSc VI obstacle stress period with "
+            "increasing substep counts."
+        ),
+    )
+    vi_max_adaptive_substeps: Annotated[int | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Maximum number of PETSc VI obstacle substeps allowed for adaptive "
+            "failure retries."
+        ),
+    )
+    ts_vi_steps_per_period: Annotated[int, Profile.DEV] = Field(
+        default=4,
+        description=(
+            "Fixed PETSc TS Backward-Euler steps per stress period for the "
+            "experimental TS VI obstacle runtime."
+        ),
+    )
+    ts_vi_adapt: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime.",
+    )
+    ts_vi_dt_min_fraction: Annotated[float, Profile.DEV] = Field(
+        default=1.0 / 64.0,
+        description="Minimum TS VI time-step as a fraction of the stress-period length.",
+    )
+    ts_vi_dt_max_fraction: Annotated[float, Profile.DEV] = Field(
+        default=1.0 / 4.0,
+        description="Maximum TS VI time-step as a fraction of the stress-period length.",
+    )
+    ts_vi_type: Annotated[str, Profile.DEV] = Field(
+        default="beuler",
+        description="PETSc TS type for the experimental TS VI obstacle runtime.",
+    )
+    ts_vi_snes_type: Annotated[str, Profile.DEV] = Field(
+        default="vinewtonrsls",
+        description="PETSc SNES type for the experimental TS VI obstacle runtime.",
     )
     param_list: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
@@ -317,10 +426,17 @@ class FlowConfig(ProcessSpatialConfig):
     def _validate_surface_interaction_model(cls, value):
         """Normalize the optional Boussinesq surface-interaction selector."""
         text = str(value or "auto").strip().lower() or "auto"
-        if text not in {"auto", "regularized_partition", "complementarity"}:
+        if text not in {
+            "auto",
+            "regularized_partition",
+            "complementarity",
+            "vi_obstacle",
+            "ts_vi_obstacle",
+        }:
             raise ValueError(
                 "flow.surface_interaction_model must be 'auto', "
-                "'regularized_partition', or 'complementarity'"
+                "'regularized_partition', 'complementarity', 'vi_obstacle', "
+                "or 'ts_vi_obstacle'"
             )
         return text
 
@@ -336,6 +452,88 @@ class FlowConfig(ProcessSpatialConfig):
         if not numeric.is_integer() or numeric <= 0:
             raise ValueError("flow.runtime_max_iterations must be a positive integer")
         return int(numeric)
+
+    @field_validator("vi_substeps_per_period", mode="before")
+    @classmethod
+    def _validate_vi_substeps_per_period(cls, value):
+        """Validate fixed PETSc VI substep count."""
+        if value is None or value == "":
+            return 1
+        if isinstance(value, bool):
+            raise ValueError("flow.vi_substeps_per_period must be a positive integer")
+        numeric = float(value)
+        if not numeric.is_integer() or numeric <= 0:
+            raise ValueError("flow.vi_substeps_per_period must be a positive integer")
+        return int(numeric)
+
+    @field_validator("vi_substep_on_failure", mode="before")
+    @classmethod
+    def _validate_vi_substep_on_failure(cls, value):
+        """Validate adaptive PETSc VI retry flag."""
+        if value is None or value == "":
+            return False
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().lower()
+        if text in {"true", "1", "yes", "on"}:
+            return True
+        if text in {"false", "0", "no", "off"}:
+            return False
+        raise ValueError("flow.vi_substep_on_failure must be a boolean")
+
+    @field_validator("vi_max_adaptive_substeps", mode="before")
+    @classmethod
+    def _validate_vi_max_adaptive_substeps(cls, value):
+        """Validate maximum PETSc VI adaptive substep count."""
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            raise ValueError("flow.vi_max_adaptive_substeps must be a positive integer")
+        numeric = float(value)
+        if not numeric.is_integer() or numeric <= 0:
+            raise ValueError("flow.vi_max_adaptive_substeps must be a positive integer")
+        return int(numeric)
+
+    @field_validator("ts_vi_steps_per_period", mode="before")
+    @classmethod
+    def _validate_ts_vi_steps_per_period(cls, value):
+        """Validate fixed PETSc TS VI step count."""
+        if value is None or value == "":
+            return 4
+        if isinstance(value, bool):
+            raise ValueError("flow.ts_vi_steps_per_period must be a positive integer")
+        numeric = float(value)
+        if not numeric.is_integer() or numeric <= 0:
+            raise ValueError("flow.ts_vi_steps_per_period must be a positive integer")
+        return int(numeric)
+
+    @field_validator("ts_vi_adapt", mode="before")
+    @classmethod
+    def _validate_ts_vi_adapt(cls, value):
+        """Validate PETSc TS VI adaptivity flag."""
+        if value is None or value == "":
+            return False
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().lower()
+        if text in {"true", "1", "yes", "on"}:
+            return True
+        if text in {"false", "0", "no", "off"}:
+            return False
+        raise ValueError("flow.ts_vi_adapt must be a boolean")
+
+    @field_validator("ts_vi_dt_min_fraction", "ts_vi_dt_max_fraction", mode="before")
+    @classmethod
+    def _validate_ts_vi_dt_fraction(cls, value, info):
+        """Validate PETSc TS VI time-step fraction limits."""
+        if value is None or value == "":
+            return 1.0 / 64.0 if info.field_name == "ts_vi_dt_min_fraction" else 1.0 / 4.0
+        if isinstance(value, bool):
+            raise ValueError(f"flow.{info.field_name} must be a positive number")
+        numeric = float(value)
+        if numeric <= 0.0:
+            raise ValueError(f"flow.{info.field_name} must be a positive number")
+        return numeric
 
     @field_validator("runtime_tol_residual_inf", "runtime_tol_state_update_inf", mode="before")
     @classmethod
@@ -453,6 +651,15 @@ class FlowConfig(ProcessSpatialConfig):
             max_iterations=self.runtime_max_iterations,
             tol_residual_inf=self.runtime_tol_residual_inf,
             tol_state_update_inf=self.runtime_tol_state_update_inf,
+            vi_substeps_per_period=self.vi_substeps_per_period,
+            vi_substep_on_failure=self.vi_substep_on_failure,
+            vi_max_adaptive_substeps=self.vi_max_adaptive_substeps,
+            ts_vi_steps_per_period=self.ts_vi_steps_per_period,
+            ts_vi_adapt=self.ts_vi_adapt,
+            ts_vi_dt_min_fraction=self.ts_vi_dt_min_fraction,
+            ts_vi_dt_max_fraction=self.ts_vi_dt_max_fraction,
+            ts_vi_type=self.ts_vi_type,
+            ts_vi_snes_type=self.ts_vi_snes_type,
         )
 
     _DEFAULT_PARAM_UNITS: ClassVar[dict[str, str]] = {
@@ -617,6 +824,15 @@ class FlowConfig(ProcessSpatialConfig):
         raw_runtime_max_iterations = flow_section.get("runtime_max_iterations")
         raw_runtime_tol_residual_inf = flow_section.get("runtime_tol_residual_inf")
         raw_runtime_tol_state_update_inf = flow_section.get("runtime_tol_state_update_inf")
+        raw_vi_substeps_per_period = flow_section.get("vi_substeps_per_period", 1)
+        raw_vi_substep_on_failure = flow_section.get("vi_substep_on_failure", False)
+        raw_vi_max_adaptive_substeps = flow_section.get("vi_max_adaptive_substeps")
+        raw_ts_vi_steps_per_period = flow_section.get("ts_vi_steps_per_period", 4)
+        raw_ts_vi_adapt = flow_section.get("ts_vi_adapt", False)
+        raw_ts_vi_dt_min_fraction = flow_section.get("ts_vi_dt_min_fraction", 1.0 / 64.0)
+        raw_ts_vi_dt_max_fraction = flow_section.get("ts_vi_dt_max_fraction", 1.0 / 4.0)
+        raw_ts_vi_type = flow_section.get("ts_vi_type", "beuler")
+        raw_ts_vi_snes_type = flow_section.get("ts_vi_snes_type", "vinewtonrsls")
         return cls(
             flow_regime=raw_flow_regime,
             runtime_backend=raw_runtime_backend,
@@ -624,6 +840,15 @@ class FlowConfig(ProcessSpatialConfig):
             runtime_max_iterations=raw_runtime_max_iterations,
             runtime_tol_residual_inf=raw_runtime_tol_residual_inf,
             runtime_tol_state_update_inf=raw_runtime_tol_state_update_inf,
+            vi_substeps_per_period=raw_vi_substeps_per_period,
+            vi_substep_on_failure=raw_vi_substep_on_failure,
+            vi_max_adaptive_substeps=raw_vi_max_adaptive_substeps,
+            ts_vi_steps_per_period=raw_ts_vi_steps_per_period,
+            ts_vi_adapt=raw_ts_vi_adapt,
+            ts_vi_dt_min_fraction=raw_ts_vi_dt_min_fraction,
+            ts_vi_dt_max_fraction=raw_ts_vi_dt_max_fraction,
+            ts_vi_type=raw_ts_vi_type,
+            ts_vi_snes_type=raw_ts_vi_snes_type,
             param_list=declared_param,
             param=parsed_param,
             ic=parsed_ic,

@@ -47,6 +47,16 @@ ALLOWED_FLOW_OVERLAY_KEYS = {
     "bc",
     "param",
     "runtime_backend",
+    "surface_interaction_model",
+    "vi_substeps_per_period",
+    "vi_substep_on_failure",
+    "vi_max_adaptive_substeps",
+    "ts_vi_steps_per_period",
+    "ts_vi_adapt",
+    "ts_vi_dt_min_fraction",
+    "ts_vi_dt_max_fraction",
+    "ts_vi_type",
+    "ts_vi_snes_type",
 }
 
 PATH_KEY_HINTS = ("path", "root", "dir", "folder", "file", "mask")

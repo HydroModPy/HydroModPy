@@ -39,7 +39,7 @@ The implementation is intentionally narrow:
    * - ``hydromodpy.analysis.testbed.runtime``
      - Load the base TOML, materialize generated child TOMLs, delegate child
        execution, extract metrics, and persist evidence files.
-   * - ``hydromodpy.workflow.dispatch``
+   * - ``hydromodpy.workflow_dispatch``
      - Expose ``run_testbed`` as the CLI adapter.
    * - Child runner packages
      - Keep ownership of mesh generation, simulation execution, solver

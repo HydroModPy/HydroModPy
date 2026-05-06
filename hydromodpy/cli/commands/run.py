@@ -121,11 +121,11 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 
     from hydromodpy.display.banner import print_hydromodpy
     from hydromodpy.workflow.dispatch import (
-        DISPATCH,
         WorkflowError,
         load_raw_toml,
         resolve_workflow,
     )
+    from hydromodpy.workflow_dispatch import DISPATCH
 
     print_hydromodpy()
     auto_scan_workspace(config_path)
@@ -233,7 +233,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
 def _infer_workflow_from_sections(raw_toml: dict) -> str:
     """Infer the workflow from the TOML sections present.
 
-    Mirrors the dispatch table in :mod:`hydromodpy.workflow.dispatch` - used
+    Mirrors the dispatch table in :mod:`hydromodpy.workflow_dispatch` - used
     only when ``--dry-run`` is set and the user has not declared
     ``workflow = "..."`` at the top level.
     """
