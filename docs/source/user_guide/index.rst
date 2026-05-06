@@ -237,3 +237,4 @@ Use these pages once you have generated or opened result pages:
    project-api
    solver-process-map
    solver-choice
+   troubleshooting
