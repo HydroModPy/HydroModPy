@@ -124,7 +124,11 @@ def _try_render_er_diagram(model: type, output_path: Path) -> Path | None:
     try:
         diagram = erdantic.create(model)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        diagram.draw(out=str(output_path))
+        svg_content = diagram._repr_svg_()
+        if not isinstance(svg_content, str) or not svg_content:
+            diagram.draw(out=str(output_path))
+        else:
+            _write_if_changed(output_path, svg_content)
         return output_path
     except Exception:
         return output_path if output_path.exists() else None
