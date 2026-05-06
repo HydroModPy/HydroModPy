@@ -191,7 +191,10 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - CSS palette `#15803d` (vert), `#d97706` (orange), `#b91c1c` (rouge) dans `_static/custom.css`
     - `docs/source/migration/index.rst` + `migration/v0_to_v1.rst` (mapping Watershed/master_config -> Project/HydroModPyConfig avec exemples avant/après)
     - Légende stability + section "où aller ensuite"
-33. `[docs] - add cookbook with 10 TOML-first recipes`
+33. `[docs] - add cookbook with 10 TOML-first recipes` ✓ (commit `0624fee5d`)
+    - `docs/source/user_guide/cookbook/index.rst` une page consolidée
+    - 10 recettes : saved project, DEM+outlet, polygon, K hétérogène, Boussinesq 1D synthétique, calibration grid, comparison MF6/Boussinesq, mesh seul, batch site catalogue, export NetCDF
+    - Chaque recette = TOML + `hmp run` CLI
 34. `[docs] - add unified notation page and remove tools comparisons (skip per decision)`
 35. `[docs] - add usage bibliography (papers using HydroModPy with seed entries)`
 36. `[docs] - add doc health dashboard in dev_notes`
