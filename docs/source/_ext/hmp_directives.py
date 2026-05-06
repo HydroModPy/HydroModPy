@@ -1,4 +1,4 @@
-"""Custom Sphinx directives for HydroModPy documentation.
+"""Custom Sphinx directives and roles for HydroModPy documentation.
 
 Three directives:
 
@@ -8,6 +8,14 @@ Three directives:
   validation gallery case and renders a fact card with metrics.
 - ``.. solver-comparison::`` renders a solver x case matrix listing the
   primary RMSE metric for each cell.
+
+Three API stability roles:
+
+- ``:stable:`` (green badge): public API covered by SemVer guarantees.
+- ``:experimental:`` (orange badge): public surface that may change
+  between minor versions.
+- ``:deprecated:`` (red badge): scheduled for removal; pair with the
+  removal version in the badge text.
 """
 
 from __future__ import annotations
@@ -262,8 +270,23 @@ def _entry(text: str) -> nodes.entry:
     return cell
 
 
+def _stability_role(label: str, css_class: str):
+    def role(name, rawtext, text, lineno, inliner, options=None, content=None):
+        node = nodes.inline(
+            rawtext,
+            f"{label}{(': ' + text) if text else ''}",
+            classes=["api-stability", css_class],
+        )
+        return [node], []
+
+    return role
+
+
 def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("config-field", ConfigFieldDirective)
     app.add_directive("validation-case-summary", ValidationCaseSummaryDirective)
     app.add_directive("solver-comparison", SolverComparisonDirective)
-    return {"version": "0.1.0", "parallel_read_safe": True, "parallel_write_safe": True}
+    app.add_role("stable", _stability_role("Stable", "api-stable"))
+    app.add_role("experimental", _stability_role("Experimental", "api-experimental"))
+    app.add_role("deprecated", _stability_role("Deprecated", "api-deprecated"))
+    return {"version": "0.2.0", "parallel_read_safe": True, "parallel_write_safe": True}
