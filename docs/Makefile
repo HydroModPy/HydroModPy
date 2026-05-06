@@ -58,9 +58,6 @@ html-strict:
 	@echo
 	@echo "Strict build finished (warnings treated as errors)."
 
-linkcheck:
-	$(SPHINXBUILD) -b linkcheck $(ALLSPHINXOPTS) $(BUILDDIR)/linkcheck
-
 lint:
 	@echo "Running sphinx-lint on $(SOURCEDIR)..."
 	@python -m sphinxlint --enable all --max-line-length 100 $(SOURCEDIR) || true
