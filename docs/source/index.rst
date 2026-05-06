@@ -21,30 +21,40 @@ HydroModPy
 .. image:: https://img.shields.io/badge/DOI-pending--Zenodo-orange
    :alt: DOI pending Zenodo
 
-.. grid:: 1 1 3 3
+.. grid:: 1 2 4 4
    :gutter: 2 2 3 3
    :class-container: hmp-landing-cta
 
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 sd-text-center sd-bg-primary sd-text-white
+   .. grid-item-card:: Get started
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 hmp-cta-card
       :link: getting_started/index
       :link-type: doc
 
-      Get started
+      Install HydroModPy and run a first project end to end.
 
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 sd-text-center
+   .. grid-item-card:: Configuration
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 hmp-cta-card
+      :link: user_guide/config_reference/index
+      :link-type: doc
+
+      Every TOML section validated by ``HydroModPyConfig``,
+      with fields, defaults and types.
+
+   .. grid-item-card:: Case studies
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 hmp-cta-card
       :link: capability_gallery/index
       :link-type: doc
 
-      View gallery
+      Validation figures, mesh illustrations and watershed
+      diagnostics.
 
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 sd-text-center
+   .. grid-item-card:: API reference
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 hmp-cta-card
       :link: api/index
       :link-type: doc
 
-      API reference
+      Auto-generated reference for every public class,
+      function and module.
 
 What HydroModPy does
 --------------------
@@ -187,6 +197,16 @@ Documentation map
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: user_guide/config_reference/index
+      :link-type: doc
+
+      **Configuration reference**
+      ^^^
+      All TOML sections validated by ``HydroModPyConfig``: fields, defaults,
+      types, plus the annotated complete TOML and the JSON Schema explorer.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: user_guide/cookbook/index
       :link-type: doc
 
@@ -280,6 +300,7 @@ For any question or collaboration request, contact:
    install
    Quickstart <getting_started/index>
    user_guide/index
+   Configuration <user_guide/config_reference/index>
    examples/index
    Case Studies <capability_gallery/index>
    Theory <theory/index>

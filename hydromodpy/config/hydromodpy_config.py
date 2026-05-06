@@ -246,6 +246,22 @@ class HydroModPyConfig(HydroModelBase):
         ),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _default_workspace_for_direct_validation(cls, data):
+        """Provide a minimal workspace for direct model_validate callers."""
+        if not isinstance(data, Mapping):
+            return data
+        payload = dict(data)
+        workspace = payload.get("workspace")
+        if workspace is None:
+            payload["workspace"] = {"project_root": "."}
+        elif isinstance(workspace, Mapping) and not workspace.get("project_root"):
+            workspace_payload = dict(workspace)
+            workspace_payload["project_root"] = "."
+            payload["workspace"] = workspace_payload
+        return payload
+
     @model_validator(mode="after")
     def _check_cross_section_coherence(self) -> HydroModPyConfig:
         """Cross-section coherence checks run after sub-configs validate.

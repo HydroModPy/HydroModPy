@@ -8,7 +8,26 @@ Configuration overview
 Card-based map of every TOML section validated by ``HydroModPyConfig``.
 Click a card to open the section detail page.
 
-For the full annotated TOML reference, see :doc:`complete_toml`.
+**Companion pages**
+
+- :doc:`config_index` -- flat global index, Ctrl+F friendly
+- :doc:`complete_toml` -- full annotated TOML reference
+- :doc:`schema_explorer` -- interactive JSON Schema viewer
+- :doc:`recipes` -- task-oriented cookbook
+- :doc:`validate` -- pre-flight your project.toml in the browser
+
+Quick search across every TOML path
+-----------------------------------
+
+.. raw:: html
+
+   <div class="hmp-config-search">
+     <input type="search" id="hmp-config-search-input" placeholder="Search any field, section, or TOML path..." autocomplete="off" />
+     <div id="hmp-config-search-results" class="hmp-config-search-results"></div>
+   </div>
+
+Sections
+--------
 
 .. grid:: 1 1 2 3
    :gutter: 2 2 3 3
@@ -160,8 +179,11 @@ For the full annotated TOML reference, see :doc:`complete_toml`.
 .. toctree::
    :hidden:
 
+   config_index
    complete_toml
    schema_explorer
+   recipes
+   validate
    workspace
    geographic
    domain

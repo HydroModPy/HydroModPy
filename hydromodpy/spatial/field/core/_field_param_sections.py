@@ -105,7 +105,7 @@ class FieldHeterogeneousSection(HydroModelBase):
             "Use 'inline' for TOML mapping or 'csv' for external table."
         ),
     )
-    values: Annotated[dict[str, object] | None, Profile.USER] = Field(
+    values: Annotated[dict[str, float | str] | None, Profile.USER] = Field(
         default=None,
         description=(
             "Inline key/value mapping used when values_source='inline'. "
@@ -135,12 +135,12 @@ class FieldHeterogeneousSection(HydroModelBase):
         ),
     )
 
-    @field_validator("values")
+    @field_validator("values", mode="before")
     @classmethod
     def _validate_values(cls, value):
         if value is None:
             return None
-        values: dict[str, object] = {}
+        values: dict[str, float | str] = {}
         for key, raw_value in dict(value).items():
             key_text = str(key)
             if isinstance(raw_value, bool):

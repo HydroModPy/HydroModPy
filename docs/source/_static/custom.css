@@ -60,10 +60,122 @@ p.lead {
 }
 
 /* Landing CTAs. */
-.hmp-landing-cta .sd-card {
-    transition: transform 0.15s ease-in-out;
+.hmp-landing-cta {
+    margin-top: 1.5rem;
+    margin-bottom: 2rem;
 }
 
-.hmp-landing-cta .sd-card:hover {
-    transform: translateY(-2px);
+.hmp-landing-cta .sd-card.hmp-cta-card {
+    border: 1px solid var(--pst-color-border);
+    background-color: var(--pst-color-surface);
+    transition: transform 0.15s ease-in-out, border-color 0.15s ease-in-out,
+        box-shadow 0.15s ease-in-out;
+}
+
+.hmp-landing-cta .sd-card.hmp-cta-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--pst-color-primary);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.hmp-landing-cta .sd-card.hmp-cta-card .sd-card-title {
+    color: var(--pst-color-primary);
+    font-weight: 600;
+    font-size: 1.15rem;
+    margin-bottom: 0.5rem;
+}
+
+.hmp-landing-cta .sd-card.hmp-cta-card .sd-card-body {
+    color: var(--pst-color-text-base);
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+/* Configuration reference: pretty definition lists for Pydantic fields. */
+dl.hmp-config-fields {
+    margin-top: 0.5rem;
+}
+
+dl.hmp-config-fields > dt {
+    font-family: var(--pst-font-family-monospace);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--pst-color-primary);
+    background-color: var(--pst-color-surface);
+    border-left: 3px solid var(--pst-color-primary);
+    padding: 0.35rem 0.75rem;
+    margin-top: 1.25rem;
+    margin-bottom: 0.4rem;
+    border-radius: 0 4px 4px 0;
+}
+
+dl.hmp-config-fields > dt code,
+dl.hmp-config-fields > dt .docutils.literal {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+}
+
+dl.hmp-config-fields > dd {
+    margin-left: 1rem;
+    padding: 0.25rem 0;
+}
+
+dl.hmp-config-fields > dd > p:first-child {
+    margin-bottom: 0.45rem;
+}
+
+dl.hmp-config-fields > dd .sd-badge {
+    margin-right: 0.25rem;
+    font-weight: 500;
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.5;
+    max-width: 100%;
+    vertical-align: middle;
+}
+
+dl.hmp-config-fields > dd > p:last-child {
+    color: var(--pst-color-text-base);
+    margin-bottom: 0;
+    line-height: 1.5;
+}
+
+/* Nested dropdowns inside config-field dd: keep sphinx-design card,
+   make the summary obviously clickable. */
+dl.hmp-config-fields details.sd-dropdown {
+    margin-top: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+dl.hmp-config-fields details.sd-dropdown > summary.sd-card-header {
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.4rem 0.75rem;
+    background-color: var(--pst-color-info-bg, var(--pst-color-surface));
+    color: var(--pst-color-text-base);
+    cursor: pointer;
+}
+
+dl.hmp-config-fields details.sd-dropdown[open] > summary.sd-card-header {
+    border-bottom: 1px solid var(--pst-color-border);
+}
+
+dl.hmp-config-fields-nested > dt {
+    font-size: 0.92rem;
+    border-left-width: 2px;
+    border-left-color: var(--pst-color-info);
+    padding: 0.25rem 0.6rem;
+    margin-top: 0.75rem;
+    margin-bottom: 0.3rem;
+    color: var(--pst-color-info);
+}
+
+dl.hmp-config-fields-nested > dd {
+    margin-left: 0.75rem;
 }

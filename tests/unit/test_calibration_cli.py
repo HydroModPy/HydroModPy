@@ -403,18 +403,18 @@ class TestConfigOverridePaths:
                     "K": {
                         "bounds": [1e-6, 1e-3],
                         "transform": "log",
-                        "path": "flow.param.K.value",
+                        "path": "flow.param.K.field_homogeneous.value",
                     },
                     "Sy": {
                         "bounds": [0.01, 0.3],
-                        "path": "flow.param.Sy.value",
+                        "path": "flow.param.Sy.field_homogeneous.value",
                     },
                 },
             }
         )
         assert runner_module._override_paths(cfg) == {
-            "K": "flow.param.K.value",
-            "Sy": "flow.param.Sy.value",
+            "K": "flow.param.K.field_homogeneous.value",
+            "Sy": "flow.param.Sy.field_homogeneous.value",
         }
 
     def test_all_parameters_missing_path_raises(self):

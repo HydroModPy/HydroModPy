@@ -494,11 +494,17 @@ html_css_files = [
     "css/hmp-image-compare.css",
     "css/hmp-feedback.css",
     "css/hmp-page-badges.css",
+    "css/hmp-zoom-image.css",
+    "css/hmp-config-reference.css",
 ]
 html_js_files = [
     "uml-diagrams.js",
     "js/hmp-image-compare.js",
     "js/hmp-feedback.js",
+    "js/hmp-zoom-image.js",
+    "js/hmp-config-reference.js",
+    "js/hmp-config-search.js",
+    "js/hmp-config-validate.js",
 ]
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True
@@ -586,10 +592,29 @@ smart_quotes = False
 html_use_smartypants = False
 
 
+def _regenerate_config_reference(app) -> None:
+    """Regenerate docs/source/user_guide/config_reference/ before each build."""
+    if os.environ.get("HMP_SKIP_CONFIG_REFERENCE_GEN") == "1":
+        return
+    try:
+        from tools.doc_config import generate_all
+    except Exception as exc:
+        app.warn(
+            "tools.doc_config import failed; skipping config-reference regeneration: "
+            f"{exc}"
+        )
+        return
+    try:
+        generate_all()
+    except Exception as exc:
+        app.warn(f"Config-reference regeneration failed: {exc}")
+
+
 def setup(app):
     if _PLANTUML_COMMAND is None:
         app.add_directive("uml", _MissingPlantUMLDirective, override=True)
         app.add_directive("plantuml", _MissingPlantUMLDirective, override=True)
+    app.connect("builder-inited", _regenerate_config_reference)
     return {
         "parallel_read_safe": True,
         "parallel_write_safe": True,

@@ -8,9 +8,9 @@ Public exports for the flow process layer:
 - typed payload models (IC, BC, sinks/sources).
 """
 
-from .boundary_conditions import FlowBoundaryConditionConfig
+from .boundary_conditions import CauchyBC, DirichletBC, FlowBoundaryConditionConfig, RobinBC
 from .flow import Flow
-from .flow_config import FlowConfig
+from .flow_config import FlowConfig, FlowParam
 from .initial_conditions import FlowInitialCondition, FlowInitialConditions
 from .physical_properties import FlowPhysicalProperties
 from .regime import FlowRegime, normalize_flow_regime
@@ -21,9 +21,13 @@ __all__ = [
     "FlowRegime",
     "FlowInitialCondition",
     "FlowInitialConditions",
+    "DirichletBC",
+    "CauchyBC",
+    "RobinBC",
     "FlowBoundaryConditionConfig",
     "FlowWellConfig",
     "FlowSinksSourcesConfig",
+    "FlowParam",
     "FlowConfig",
     "FlowPhysicalProperties",
     "normalize_flow_regime",

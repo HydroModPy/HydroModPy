@@ -47,7 +47,7 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Resolved scalar value for homogeneous kind.",
     )
-    values: Annotated[dict[str, object] | None, Profile.DEV] = Field(
+    values: Annotated[dict[str, float | str] | None, Profile.DEV] = Field(
         default=None,
         description="Resolved mapping for heterogeneous kind.",
     )
@@ -107,12 +107,12 @@ class ResolvedFieldParam(HydroModelBase):
             return token
         raise TypeError("value must be numeric or '<number> <unit>'")
 
-    @field_validator("values")
+    @field_validator("values", mode="before")
     @classmethod
     def _validate_values(cls, value):
         if value is None:
             return None
-        values: dict[str, object] = {}
+        values: dict[str, float | str] = {}
         for key, raw_value in dict(value).items():
             key_text = str(key)
             if isinstance(raw_value, bool):

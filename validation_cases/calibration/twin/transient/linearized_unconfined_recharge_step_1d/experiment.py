@@ -71,11 +71,11 @@ def _cma_es_profile(*, seed: int = 13) -> CalibrationMethodProfile:
 
 _TRANSIENT_PARAMETER_TARGETS = {
     "K_global": TwinParameterTarget(
-        target="flow.param.K.value",
+        target="flow.param.K.field_homogeneous.value",
         mode="replace",
     ),
     "Sy_global": TwinParameterTarget(
-        target="flow.param.Sy.value",
+        target="flow.param.Sy.field_homogeneous.value",
         mode="replace",
     ),
 }

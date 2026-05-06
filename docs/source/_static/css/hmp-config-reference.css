@@ -1,0 +1,373 @@
+/* ----------------------------------------------------------------------
+   Configuration reference: per-field anchors, profile filtering,
+   global config index styling.
+   ---------------------------------------------------------------------- */
+
+/* Field wrapper carries the toml path id and the profile level class. */
+.hmp-field {
+    scroll-margin-top: 4rem;
+    position: relative;
+    margin-bottom: 1.25rem;
+}
+
+/* Header line: <code>field_name</code>  in TOML:  <code>[parent.field]</code> */
+.hmp-field-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    margin-bottom: 0.4rem;
+}
+
+.hmp-field-name {
+    font-family: var(--pst-font-family-monospace);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--pst-color-primary);
+    background-color: var(--pst-color-surface);
+    border-left: 3px solid var(--pst-color-primary);
+    padding: 0.25rem 0.7rem;
+    border-radius: 0 4px 4px 0;
+}
+
+.hmp-field-arrow {
+    color: var(--pst-color-text-muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-style: normal;
+    user-select: none;
+}
+
+.hmp-field-toml {
+    font-family: var(--pst-font-family-monospace);
+    font-size: 0.92rem;
+    color: var(--pst-color-text-base);
+    background-color: rgba(0, 0, 0, 0.04);
+    border: 1px solid var(--pst-color-border);
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+    .hmp-field-toml {
+        background-color: rgba(255, 255, 255, 0.04);
+    }
+}
+
+.hmp-field:target,
+.hmp-field:focus-within {
+    background-color: var(--pst-color-info-bg, rgba(13, 110, 253, 0.06));
+    border-radius: 4px;
+    transition: background-color 0.4s ease-in-out;
+}
+
+/* Anchor copy: hovering a field reveals a permalink icon. */
+.hmp-field::before {
+    content: "";
+    position: absolute;
+    left: -1.4rem;
+    top: 1rem;
+    width: 1rem;
+    height: 1rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%236c757d'><path d='M6.354 5.5h4.792a1.5 1.5 0 0 1 0 3h-1.04a4.5 4.5 0 0 1-1.04 3H11.5a4.5 4.5 0 0 0 0-9H6.354a4.5 4.5 0 0 0-4.404 5.354A4.486 4.486 0 0 1 6.354 5.5z'/><path d='M9.646 10.5H4.854a1.5 1.5 0 0 1 0-3h1.04a4.5 4.5 0 0 1 1.04-3H4.5a4.5 4.5 0 0 0 0 9h5.146a4.5 4.5 0 0 0 4.404-5.354A4.486 4.486 0 0 1 9.646 10.5z'/></svg>");
+    background-repeat: no-repeat;
+    background-size: contain;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+}
+
+.hmp-field:hover::before {
+    opacity: 0.6;
+}
+
+/* Profile-driven visibility classes: applied on the parent body. */
+body.hmp-show-user .hmp-field-level-dev,
+body.hmp-show-user .hmp-field-level-expert {
+    display: none;
+}
+
+body.hmp-show-dev .hmp-field-level-expert {
+    display: none;
+}
+
+/* Per-section toggle bar above the Fields section. */
+.hmp-level-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    margin: 0.5rem 0 1rem 0;
+    background-color: var(--pst-color-surface);
+    border: 1px solid var(--pst-color-border);
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.hmp-level-toggle-label {
+    font-weight: 600;
+    color: var(--pst-color-text-base);
+    margin-right: 0.25rem;
+}
+
+.hmp-level-btn {
+    border: 1px solid var(--pst-color-border);
+    background-color: transparent;
+    color: var(--pst-color-text-base);
+    padding: 0.25rem 0.7rem;
+    border-radius: 0.35rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.12s ease-in-out;
+}
+
+.hmp-level-btn:hover {
+    border-color: var(--pst-color-primary);
+    color: var(--pst-color-primary);
+}
+
+.hmp-level-btn.is-active {
+    background-color: var(--pst-color-primary);
+    color: #ffffff;
+    border-color: var(--pst-color-primary);
+    cursor: default;
+}
+
+/* Configuration index list-table tweaks. */
+table.hmp-config-index {
+    font-size: 0.85rem;
+}
+
+table.hmp-config-index td {
+    vertical-align: middle;
+    padding: 0.35rem 0.6rem;
+}
+
+table.hmp-config-index td:first-child code,
+table.hmp-config-index td:first-child .docutils.literal {
+    font-weight: 600;
+    color: var(--pst-color-primary);
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+
+table.hmp-config-index td:nth-child(3),
+table.hmp-config-index td:nth-child(4) {
+    text-align: center;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+}
+
+/* TOML breadcrumb shown above the field list (built by hmp-config-reference.js). */
+.hmp-toml-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+    margin: 0.25rem 0 1rem 0;
+    font-family: var(--pst-font-family-monospace);
+    font-size: 0.85rem;
+    color: var(--pst-color-text-muted);
+}
+
+.hmp-toml-breadcrumb a {
+    color: var(--pst-color-primary);
+    text-decoration: none;
+}
+
+.hmp-toml-breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.hmp-toml-breadcrumb-sep {
+    color: var(--pst-color-text-muted);
+    user-select: none;
+}
+
+/* ----------------------------------------------------------------------
+   Quick search across every TOML path (config_reference/index.rst).
+   ---------------------------------------------------------------------- */
+
+.hmp-config-search {
+    margin: 0.5rem 0 1.5rem 0;
+}
+
+#hmp-config-search-input {
+    width: 100%;
+    padding: 0.6rem 0.9rem;
+    font-size: 1rem;
+    font-family: var(--pst-font-family-monospace);
+    border: 1px solid var(--pst-color-border);
+    border-radius: 0.5rem;
+    background-color: var(--pst-color-surface);
+    color: var(--pst-color-text-base);
+}
+
+#hmp-config-search-input:focus {
+    outline: none;
+    border-color: var(--pst-color-primary);
+    box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.15);
+}
+
+.hmp-config-search-results {
+    margin-top: 0.5rem;
+    max-height: 28rem;
+    overflow-y: auto;
+}
+
+.hmp-config-search-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.hmp-config-search-item {
+    border-bottom: 1px solid var(--pst-color-border);
+    padding: 0.5rem 0.4rem;
+}
+
+.hmp-config-search-item:last-child {
+    border-bottom: none;
+}
+
+.hmp-config-search-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: var(--pst-color-text-base);
+    flex-wrap: wrap;
+}
+
+.hmp-config-search-link:hover {
+    color: var(--pst-color-primary);
+}
+
+.hmp-config-search-path {
+    font-family: var(--pst-font-family-monospace);
+    font-weight: 600;
+    color: var(--pst-color-primary);
+    background: transparent;
+    padding: 0;
+}
+
+.hmp-config-search-path mark {
+    background-color: rgba(255, 213, 79, 0.45);
+    color: inherit;
+    padding: 0 0.1rem;
+    border-radius: 2px;
+}
+
+.hmp-config-search-type {
+    font-family: var(--pst-font-family-monospace);
+    font-size: 0.8rem;
+    color: var(--pst-color-text-muted);
+}
+
+.hmp-config-search-profile {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+    background-color: var(--pst-color-surface);
+    border: 1px solid var(--pst-color-border);
+}
+
+.hmp-config-search-profile-user {
+    color: #166534;
+    border-color: #86efac;
+    background-color: rgba(34, 197, 94, 0.1);
+}
+
+.hmp-config-search-profile-dev {
+    color: #92400e;
+    border-color: #fcd34d;
+    background-color: rgba(245, 158, 11, 0.1);
+}
+
+.hmp-config-search-profile-expert {
+    color: #991b1b;
+    border-color: #fca5a5;
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+.hmp-config-search-desc {
+    margin: 0.2rem 0 0 0;
+    color: var(--pst-color-text-muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.hmp-config-search-empty {
+    padding: 0.4rem 0.2rem;
+    font-style: italic;
+    color: var(--pst-color-text-muted);
+}
+
+/* ----------------------------------------------------------------------
+   In-browser TOML validation widget (validate.rst).
+   ---------------------------------------------------------------------- */
+
+.hmp-validate-widget {
+    margin: 1rem 0;
+}
+
+#hmp-validate-input {
+    width: 100%;
+    font-family: var(--pst-font-family-monospace);
+    font-size: 0.85rem;
+    padding: 0.6rem;
+    border: 1px solid var(--pst-color-border);
+    border-radius: 0.5rem;
+    background-color: var(--pst-color-surface);
+    color: var(--pst-color-text-base);
+    resize: vertical;
+}
+
+.hmp-validate-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+#hmp-validate-run,
+#hmp-validate-clear {
+    padding: 0.4rem 0.9rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--pst-color-border);
+    background-color: var(--pst-color-surface);
+    color: var(--pst-color-text-base);
+    font-weight: 500;
+    cursor: pointer;
+}
+
+#hmp-validate-run {
+    background-color: var(--pst-color-primary);
+    color: #ffffff;
+    border-color: var(--pst-color-primary);
+}
+
+#hmp-validate-run:hover,
+#hmp-validate-clear:hover {
+    filter: brightness(1.05);
+}
+
+.hmp-validate-output {
+    margin-top: 0.75rem;
+    padding: 0.6rem;
+    background-color: var(--pst-color-surface);
+    border: 1px solid var(--pst-color-border);
+    border-radius: 0.5rem;
+    min-height: 3rem;
+    font-family: var(--pst-font-family-monospace);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    color: var(--pst-color-text-base);
+}

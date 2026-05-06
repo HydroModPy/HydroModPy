@@ -109,7 +109,7 @@ Minimal Shape
    bounds = [1e-6, 1e-3]
    transform = "log"
    prior = "log_uniform"
-   path = "flow.param.K.value"
+   path = "flow.param.K.field_homogeneous.value"
    units = "m/s"
 
 Important Parameters
@@ -170,7 +170,7 @@ Parameter Declaration Example
    bounds = [1e-6, 1e-3]
    transform = "log"
    prior = "log_uniform"
-   path = "flow.param.K.value"
+   path = "flow.param.K.field_homogeneous.value"
    units = "m/s"
 
 Use ``transform = "log"`` for strictly positive parameters spanning several

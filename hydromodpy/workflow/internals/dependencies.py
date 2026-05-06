@@ -27,8 +27,8 @@ def _matches(path: str, section: str) -> bool:
     """Return True if ``path`` is ``section`` or a descendant of it.
 
     A path matches a section when the section is a dotted-prefix of the
-    path. Both ``"flow"`` matches ``"flow.param.K.value"`` and
-    ``"flow.param.K"`` matches ``"flow.param.K.value"``. The empty
+    path. Both ``"flow"`` matches ``"flow.param.K.field_homogeneous.value"`` and
+    ``"flow.param.K"`` matches ``"flow.param.K.field_homogeneous.value"``. The empty
     section never matches.
     """
     if not section:
