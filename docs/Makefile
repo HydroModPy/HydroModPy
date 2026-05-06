@@ -51,6 +51,20 @@ html:
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
+html-strict:
+	$(SPHINXBUILD) -b html -W --keep-going $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	@echo
+	@echo "Strict build finished (warnings treated as errors)."
+
+linkcheck:
+	$(SPHINXBUILD) -b linkcheck $(ALLSPHINXOPTS) $(BUILDDIR)/linkcheck
+
+lint:
+	@echo "Running sphinx-lint on $(SOURCEDIR)..."
+	@python -m sphinxlint --enable all --max-line-length 100 $(SOURCEDIR) || true
+	@echo "Running doc8 on $(SOURCEDIR)..."
+	@python -m doc8 --max-line-length 100 $(SOURCEDIR) || true
+
 livehtml:
 	sphinx-autobuild -b html --open-browser $(ALLSPHINXOPTS) $(BUILDDIR)/html
 

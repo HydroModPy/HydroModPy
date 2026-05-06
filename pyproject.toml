@@ -110,6 +110,8 @@ docs = [
     "sphinx-autodoc-typehints<3",
     "sphinx-issues<5",
     "sphinxext-rediraffe",
+    "sphinx-lint",
+    "doc8",
 ]
 ide = [
     "ipykernel",

@@ -16,6 +16,8 @@ sphinxcontrib-bibtex
 sphinx-autodoc-typehints<3
 sphinx-issues<5
 sphinxext-rediraffe
+sphinx-lint
+doc8
 
 nbformat==5.10.4
 nbconvert==7.16.4
