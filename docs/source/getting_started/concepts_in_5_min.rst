@@ -1,6 +1,10 @@
 Concepts in 5 minutes
 =====================
 
+.. page-badges::
+   :difficulty: beginner
+   :time: 5 min
+
 If you have never used HydroModPy before, read this page first. It introduces
 the five core concepts that the rest of the documentation assumes you have
 already met. No code, no configuration: just the mental model.

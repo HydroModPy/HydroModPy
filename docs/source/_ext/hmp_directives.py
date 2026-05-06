@@ -1,6 +1,6 @@
 """Custom Sphinx directives and roles for HydroModPy documentation.
 
-Five directives:
+Six directives:
 
 - ``.. config-field:: <dotted.path>`` renders the matching Pydantic
   ``Field`` metadata as an admonition (default, description, type).
@@ -13,6 +13,9 @@ Five directives:
   only). Other builders fall back to the plain PNG ``figure``.
 - ``.. image-comparison::`` renders a draggable before/after slider over
   two images (HTML builder only). Falls back to two stacked figures.
+- ``.. page-badges::`` renders compact metadata badges (difficulty,
+  estimated reading or hands-on time) at the top of a tutorial or
+  gallery case page.
 
 Three API stability roles:
 
@@ -436,6 +439,67 @@ class ImageComparisonDirective(SphinxDirective):
         return [html_node, fallback_only]
 
 
+_DIFFICULTY_LEVELS = {
+    "beginner": "Beginner",
+    "intermediate": "Intermediate",
+    "advanced": "Advanced",
+}
+
+
+class PageBadgesDirective(SphinxDirective):
+    """Render compact difficulty / time badges at the top of a page."""
+
+    required_arguments = 0
+    optional_arguments = 0
+    has_content = False
+    option_spec = {
+        "difficulty": directives.unchanged,
+        "time": directives.unchanged,
+        "tags": directives.unchanged,
+    }
+
+    def run(self) -> list[nodes.Node]:
+        difficulty = (self.options.get("difficulty") or "").strip().lower()
+        time_estimate = (self.options.get("time") or "").strip()
+        tags_raw = (self.options.get("tags") or "").strip()
+        tags = [tag.strip() for tag in tags_raw.split(",") if tag.strip()]
+
+        if difficulty and difficulty not in _DIFFICULTY_LEVELS:
+            warning = self.state.document.reporter.warning(
+                f"page-badges: unknown :difficulty: {difficulty!r}; "
+                f"expected one of {sorted(_DIFFICULTY_LEVELS)}",
+                line=self.lineno,
+            )
+            return [warning]
+
+        spans: list[str] = []
+        if difficulty:
+            label = _DIFFICULTY_LEVELS[difficulty]
+            spans.append(
+                f'<span class="hmp-page-badge hmp-page-badge-difficulty '
+                f'hmp-page-badge-difficulty-{difficulty}">{_escape_text(label)}</span>'
+            )
+        if time_estimate:
+            spans.append(
+                '<span class="hmp-page-badge hmp-page-badge-time">'
+                f"{_escape_text(time_estimate)}</span>"
+            )
+        for tag in tags:
+            spans.append(
+                f'<span class="hmp-page-badge hmp-page-badge-tag">{_escape_text(tag)}</span>'
+            )
+
+        if not spans:
+            warning = self.state.document.reporter.warning(
+                "page-badges: at least one of :difficulty:, :time:, :tags: must be set",
+                line=self.lineno,
+            )
+            return [warning]
+
+        html = '<div class="hmp-page-badges">' + "".join(spans) + "</div>"
+        return [nodes.raw("", html, format="html")]
+
+
 def _stability_role(label: str, css_class: str):
     def role(name, rawtext, text, lineno, inliner, options=None, content=None):
         node = nodes.inline(
@@ -467,8 +531,9 @@ def setup(app: Sphinx) -> dict[str, Any]:
     app.add_directive("solver-comparison", SolverComparisonDirective)
     app.add_directive("gallery-figure", GalleryFigureDirective)
     app.add_directive("image-comparison", ImageComparisonDirective)
+    app.add_directive("page-badges", PageBadgesDirective)
     app.add_role("stable", _stability_role("Stable", "api-stable"))
     app.add_role("experimental", _stability_role("Experimental", "api-experimental"))
     app.add_role("deprecated", _stability_role("Deprecated", "api-deprecated"))
     _register_goatcounter(app)
-    return {"version": "0.5.0", "parallel_read_safe": True, "parallel_write_safe": True}
+    return {"version": "0.6.0", "parallel_read_safe": True, "parallel_write_safe": True}

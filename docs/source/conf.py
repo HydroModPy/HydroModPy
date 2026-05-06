@@ -470,6 +470,7 @@ html_css_files = [
     "api-reference.css",
     "css/hmp-image-compare.css",
     "css/hmp-feedback.css",
+    "css/hmp-page-badges.css",
 ]
 html_js_files = [
     "uml-diagrams.js",

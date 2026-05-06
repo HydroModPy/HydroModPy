@@ -1,6 +1,11 @@
 Read One Real Basin Run
 =======================
 
+.. page-badges::
+   :difficulty: intermediate
+   :time: 45 min
+   :tags: results, postprocess
+
 The previous versions of this page mixed several gallery families.
 
 That was not a good teaching page if the real question is:

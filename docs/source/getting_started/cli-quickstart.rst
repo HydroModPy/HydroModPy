@@ -1,6 +1,10 @@
 CLI quickstart
 ==============
 
+.. page-badges::
+   :difficulty: beginner
+   :time: 10 min
+
 After ``pip install hydromodpy`` (see :doc:`../install`), two equivalent
 command-line entry points are exposed: ``hmp`` and ``hydromodpy``. They
 share the same subcommands. The pages below use ``hmp`` for brevity.

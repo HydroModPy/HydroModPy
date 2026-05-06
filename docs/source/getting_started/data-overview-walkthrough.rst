@@ -1,6 +1,11 @@
 Data Overview Walkthrough
 =========================
 
+.. page-badges::
+   :difficulty: beginner
+   :time: 30 min
+   :tags: data, hydrography
+
 This is the default first HydroModPy workflow if you want to understand how one
 basin is assembled before touching meshing or solving.
 

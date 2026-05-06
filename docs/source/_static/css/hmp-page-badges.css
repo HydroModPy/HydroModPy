@@ -1,0 +1,53 @@
+/* HydroModPy: difficulty / time / tag badges on tutorial and gallery pages. */
+.hmp-page-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.25rem 0 1.25rem 0;
+}
+
+.hmp-page-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.hmp-page-badge-difficulty {
+    color: #ffffff;
+}
+
+.hmp-page-badge-difficulty-beginner {
+    background: #15803d;
+}
+
+.hmp-page-badge-difficulty-intermediate {
+    background: #d97706;
+}
+
+.hmp-page-badge-difficulty-advanced {
+    background: #b91c1c;
+}
+
+.hmp-page-badge-time {
+    background: var(--pst-color-on-surface, #e5e7eb);
+    color: var(--pst-color-text-base, #111827);
+}
+
+.hmp-page-badge-time::before {
+    content: "⏱  ";
+    margin-right: 0.15rem;
+    font-size: 0.78rem;
+    opacity: 0.85;
+}
+
+.hmp-page-badge-tag {
+    background: var(--pst-color-surface, #f3f4f6);
+    color: var(--pst-color-text-muted, #4b5563);
+    border-color: var(--pst-color-border, #d1d5db);
+}
