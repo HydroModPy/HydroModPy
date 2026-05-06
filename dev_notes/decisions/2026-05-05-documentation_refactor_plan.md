@@ -195,7 +195,10 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - `docs/source/user_guide/cookbook/index.rst` une page consolidée
     - 10 recettes : saved project, DEM+outlet, polygon, K hétérogène, Boussinesq 1D synthétique, calibration grid, comparison MF6/Boussinesq, mesh seul, batch site catalogue, export NetCDF
     - Chaque recette = TOML + `hmp run` CLI
-34. `[docs] - add unified notation page and remove tools comparisons (skip per decision)`
+34. `[docs] - add unified notation page and remove tools comparisons (skip per decision)` ✓ (commit `ba08e7d5f`)
+    - `docs/source/theory/notation.rst` (5 sections : hydraulic state, parameters, geometry, time/calibration, conventions)
+    - Mention explicite que la page de comparaison vs FloPy/ParFlow est skippée selon décision plan v1
+    - Référence vers `solvers/solver-capability-matrix` comme alternative
 35. `[docs] - add usage bibliography (papers using HydroModPy with seed entries)`
 36. `[docs] - add doc health dashboard in dev_notes`
 37. `[docs] - revamp landing page with hero CTAs and citation block`
