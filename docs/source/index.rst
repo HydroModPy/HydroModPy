@@ -238,6 +238,7 @@ For any question or collaboration request, contact:
    Developer Notes <developer/index>
    API Reference <api/index>
    How to cite <how_to_cite>
+   Applications <applications>
    contribute
 
 .. # HTML helpers

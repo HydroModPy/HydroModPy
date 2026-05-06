@@ -13,6 +13,67 @@ The first selection axis is now the process type. Backend-family comparisons
 remain useful, but they should not hide the distinction between ``flow``,
 ``transport``, ``postprocess``, and ``display``.
 
+Axis-level capability snapshot
+------------------------------
+
+Compact matrix scanned in seconds. ``yes`` means a public path exists,
+``partial`` means the code surface exists but the docs or validation
+coverage is still incomplete, ``no`` means the feature is not exposed.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 14 9 13 11 13 8 8 8 16
+
+   * - Backend
+     - Steady
+     - Transient
+     - Unstructured mesh
+     - Transport
+     - Calibration
+     - 1D
+     - 2D
+     - 3D
+   * - ``modflownwt``
+     - yes
+     - yes
+     - no
+     - via MT3DMS
+     - yes
+     - yes
+     - yes
+     - yes
+   * - ``modflow6``
+     - yes
+     - yes
+     - yes (DISV)
+     - yes (GWT)
+     - yes
+     - yes
+     - yes
+     - yes
+   * - ``boussinesq``
+     - yes
+     - yes
+     - yes (triangular)
+     - no
+     - partial
+     - yes
+     - yes
+     - no
+   * - ``gr4j``
+     - yes
+     - yes
+     - n/a (lumped)
+     - no
+     - yes
+     - n/a
+     - n/a
+     - n/a
+
+The columns above are the recommended decision axes when scoping a new
+study. For richer context, read each backend row in
+:ref:`Process-Level Matrix <process-level-matrix>` below.
+
 Visual Anchors
 --------------
 
@@ -49,6 +110,8 @@ capability claims.
 
          The in-house Boussinesq backend is best read through controlled
          validation figures before broad production claims are made.
+
+.. _process-level-matrix:
 
 Process-Level Matrix
 --------------------
