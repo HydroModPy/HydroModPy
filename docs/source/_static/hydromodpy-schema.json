@@ -659,6 +659,98 @@
       "title": "CatchmentZonesSupportConfig",
       "type": "object"
     },
+    "CauchyBC": {
+      "additionalProperties": false,
+      "description": "Cauchy flow boundary condition.",
+      "properties": {
+        "id": {
+          "description": "Boundary-condition identifier.",
+          "title": "Id",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boundary-condition value, scalar or one value per stress period.",
+          "title": "Value"
+        },
+        "description": {
+          "default": "",
+          "description": "Boundary-condition description.",
+          "title": "Description",
+          "type": "string"
+        },
+        "units": {
+          "default": "",
+          "description": "Boundary-condition units.",
+          "title": "Units",
+          "type": "string"
+        },
+        "type": {
+          "const": "cauchy",
+          "default": "cauchy",
+          "description": "Boundary-condition type.",
+          "title": "Type",
+          "type": "string"
+        },
+        "data_value": {
+          "default": false,
+          "description": "If True, boundary-condition values are sourced from data.",
+          "title": "Data Value",
+          "type": "boolean"
+        },
+        "forcing": {
+          "default": null,
+          "description": "Cauchy boundaries do not support runtime head forcing.",
+          "title": "Forcing",
+          "type": "null"
+        },
+        "application_domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boundary-application domain. Supported values are: top, north side, south side, east side, west side.",
+          "title": "Application Domain"
+        },
+        "support_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional explicit runtime support label used by unstructured backends to select one target support independently from the canonical boundary id.",
+          "title": "Support Label"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "CauchyBC",
+      "type": "object"
+    },
     "ComparisonFineRaster": {
       "additionalProperties": false,
       "description": "Optional common regular-grid rasterization for map comparisons.",
@@ -1624,6 +1716,104 @@
       "title": "DerivedConfig",
       "type": "object"
     },
+    "DirichletBC": {
+      "additionalProperties": false,
+      "description": "Dirichlet flow boundary condition.",
+      "properties": {
+        "id": {
+          "description": "Boundary-condition identifier.",
+          "title": "Id",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boundary-condition value, scalar or one value per stress period.",
+          "title": "Value"
+        },
+        "description": {
+          "default": "",
+          "description": "Boundary-condition description.",
+          "title": "Description",
+          "type": "string"
+        },
+        "units": {
+          "default": "",
+          "description": "Boundary-condition units.",
+          "title": "Units",
+          "type": "string"
+        },
+        "type": {
+          "const": "dirichlet",
+          "default": "dirichlet",
+          "description": "Boundary-condition type.",
+          "title": "Type",
+          "type": "string"
+        },
+        "data_value": {
+          "default": false,
+          "description": "If True, boundary-condition values are sourced from data.",
+          "title": "Data Value",
+          "type": "boolean"
+        },
+        "forcing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FlowBoundaryForcingConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional runtime forcing declaration for lateral Dirichlet boundaries. Supported modes: 'constant' and 'csv'. The launcher resolves this payload to boundary.value using [simulation.time]."
+        },
+        "application_domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boundary-application domain. Supported values are: top, north side, south side, east side, west side.",
+          "title": "Application Domain"
+        },
+        "support_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional explicit runtime support label used by unstructured backends to select one target support independently from the canonical boundary id.",
+          "title": "Support Label"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "DirichletBC",
+      "type": "object"
+    },
     "DisplayConfig": {
       "additionalProperties": false,
       "description": "Display behaviour resolved from the ``[display]`` TOML section.",
@@ -1704,9 +1894,159 @@
           "description": "Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).",
           "title": "Overrides",
           "type": "object"
+        },
+        "flow": {
+          "$ref": "#/$defs/DisplayFlowConfig",
+          "description": "Flow figure switches."
+        },
+        "particles": {
+          "$ref": "#/$defs/DisplayParticlesConfig",
+          "description": "Particle figure switches."
+        },
+        "transport": {
+          "$ref": "#/$defs/DisplayTransportConfig",
+          "description": "Transport figure switches."
         }
       },
       "title": "DisplayConfig",
+      "type": "object"
+    },
+    "DisplayFlowConfig": {
+      "additionalProperties": false,
+      "description": "Display switches for flow figures.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Master switch for flow figures.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "cross_section": {
+          "default": true,
+          "description": "Render the flow cross-section plot.",
+          "title": "Cross Section",
+          "type": "boolean"
+        },
+        "streamflow": {
+          "default": true,
+          "description": "Render the streamflow comparison plot.",
+          "title": "Streamflow",
+          "type": "boolean"
+        },
+        "piezometry": {
+          "default": true,
+          "description": "Render the piezometry plot.",
+          "title": "Piezometry",
+          "type": "boolean"
+        },
+        "watertable_map": {
+          "default": true,
+          "description": "Render water-table maps.",
+          "title": "Watertable Map",
+          "type": "boolean"
+        },
+        "dem_map": {
+          "default": true,
+          "description": "Render a DEM overview map.",
+          "title": "Dem Map",
+          "type": "boolean"
+        },
+        "budget": {
+          "default": false,
+          "description": "Render groundwater budget figures.",
+          "title": "Budget",
+          "type": "boolean"
+        },
+        "hydrography": {
+          "default": true,
+          "description": "Render hydrography maps.",
+          "title": "Hydrography",
+          "type": "boolean"
+        },
+        "boussinesq_state": {
+          "default": true,
+          "description": "Render the Boussinesq state figure.",
+          "title": "Boussinesq State",
+          "type": "boolean"
+        },
+        "boussinesq_diagnostics": {
+          "default": true,
+          "description": "Render Boussinesq diagnostics.",
+          "title": "Boussinesq Diagnostics",
+          "type": "boolean"
+        },
+        "boussinesq_mass_balance": {
+          "default": true,
+          "description": "Render Boussinesq mass-balance diagnostics.",
+          "title": "Boussinesq Mass Balance",
+          "type": "boolean"
+        },
+        "boussinesq_probes": {
+          "default": true,
+          "description": "Render Boussinesq probe time series.",
+          "title": "Boussinesq Probes",
+          "type": "boolean"
+        },
+        "boussinesq_edge_flux": {
+          "default": true,
+          "description": "Render final Boussinesq edge fluxes.",
+          "title": "Boussinesq Edge Flux",
+          "type": "boolean"
+        }
+      },
+      "title": "DisplayFlowConfig",
+      "type": "object"
+    },
+    "DisplayParticlesConfig": {
+      "additionalProperties": false,
+      "description": "Display switches for particle figures.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Master switch for particle figures.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "pathlines": {
+          "default": false,
+          "description": "Render particle pathlines.",
+          "title": "Pathlines",
+          "type": "boolean"
+        }
+      },
+      "title": "DisplayParticlesConfig",
+      "type": "object"
+    },
+    "DisplayTransportConfig": {
+      "additionalProperties": false,
+      "description": "Display switches for transport figures.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "Master switch for transport figures.",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "concentration": {
+          "default": false,
+          "description": "Render concentration plots.",
+          "title": "Concentration",
+          "type": "boolean"
+        },
+        "gif": {
+          "default": false,
+          "description": "Export concentration GIF animation.",
+          "title": "Gif",
+          "type": "boolean"
+        },
+        "web_animation": {
+          "default": false,
+          "description": "Export browser-friendly concentration animation.",
+          "title": "Web Animation",
+          "type": "boolean"
+        }
+      },
+      "title": "DisplayTransportConfig",
       "type": "object"
     },
     "DomainConfig": {
@@ -2056,6 +2396,267 @@
       "title": "ExportVariablesConfig",
       "type": "object"
     },
+    "FieldBaseSection": {
+      "additionalProperties": false,
+      "description": "Schema for `[field]` base section.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameter identifier used in outputs and logs (for example 'K', 'Sy').",
+          "title": "Id"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "homogeneous",
+                "heterogeneous"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'.",
+          "title": "Kind"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss).",
+          "title": "Unit"
+        }
+      },
+      "title": "FieldBaseSection",
+      "type": "object"
+    },
+    "FieldHeterogeneousSection": {
+      "additionalProperties": false,
+      "description": "Schema for `[field_heterogeneous]`.",
+      "properties": {
+        "values_source": {
+          "default": "inline",
+          "description": "Source for heterogeneous values. Use 'inline' for TOML mapping or 'csv' for external table.",
+          "enum": [
+            "inline",
+            "csv"
+          ],
+          "title": "Values Source",
+          "type": "string"
+        },
+        "values": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Inline key/value mapping used when values_source='inline'. Keys are zone/material ids, values are numeric parameter values.",
+          "title": "Values"
+        },
+        "values_csv_file": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to CSV mapping file used when values_source='csv'. Relative paths are resolved from TOML directory.",
+          "title": "Values Csv File"
+        },
+        "csv_key_column": {
+          "default": "zone_key",
+          "description": "CSV column name containing zone/material keys.",
+          "title": "Csv Key Column",
+          "type": "string"
+        },
+        "csv_value_column": {
+          "default": "value",
+          "description": "CSV column name containing numeric parameter values.",
+          "title": "Csv Value Column",
+          "type": "string"
+        },
+        "field_spatial_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Identifier of the spatial field used to map heterogeneous values (must match geometry field id).",
+          "title": "Field Spatial Id"
+        }
+      },
+      "title": "FieldHeterogeneousSection",
+      "type": "object"
+    },
+    "FieldHomogeneousSection": {
+      "additionalProperties": false,
+      "description": "Schema for `[field_homogeneous]`.",
+      "properties": {
+        "value": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Scalar surface value used when kind='homogeneous'.",
+          "title": "Value"
+        }
+      },
+      "title": "FieldHomogeneousSection",
+      "type": "object"
+    },
+    "FieldVerticalProfileSection": {
+      "additionalProperties": false,
+      "description": "Schema for `[field_vertical_profile]`.",
+      "properties": {
+        "mode": {
+          "default": "none",
+          "description": "Depth dependency mode shared over the full domain. Allowed values: 'none', 'exponential', 'tabulated'.",
+          "enum": [
+            "none",
+            "exponential",
+            "tabulated"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "characteristic_depth": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "properties": {
+                    "magnitude": {
+                      "title": "Magnitude",
+                      "type": "string"
+                    },
+                    "units": {
+                      "title": "Units",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "magnitude"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "gt": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Characteristic depth for exponential mode. Vertical factor is exp(-depth/characteristic_depth).",
+          "title": "Characteristic Depth"
+        },
+        "min_factor": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional floor factor for exponential mode. If provided, factor is max(exp(-depth/characteristic_depth), min_factor).",
+          "title": "Min Factor"
+        },
+        "depths": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Depth nodes for tabulated mode (meters, first value must be 0).",
+          "title": "Depths"
+        },
+        "factors": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Multiplicative factors aligned with `depths` for tabulated mode (first value must be 1 at depth 0).",
+          "title": "Factors"
+        },
+        "interpolation": {
+          "default": "linear",
+          "description": "Interpolation strategy for tabulated mode. Allowed values: 'linear' or 'step'.",
+          "enum": [
+            "linear",
+            "step"
+          ],
+          "title": "Interpolation",
+          "type": "string"
+        }
+      },
+      "title": "FieldVerticalProfileSection",
+      "type": "object"
+    },
     "FlatSubstratumDepthModel": {
       "additionalProperties": false,
       "description": "Vertical model using one flat (constant-elevation) substratum.\n\nBottom elevation is constant over the whole domain:\n``bottom = substratum_elevation``.",
@@ -2077,6 +2678,117 @@
       "title": "FlatSubstratumDepthModel",
       "type": "object"
     },
+    "FlowBoundaryForcingConfig": {
+      "additionalProperties": false,
+      "description": "Launcher-facing boundary forcing declaration.",
+      "properties": {
+        "mode": {
+          "description": "Boundary forcing mode consumed by launcher runtime.",
+          "enum": [
+            "constant",
+            "csv"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Source units of forcing values before runtime conversion.",
+          "title": "Units"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Constant boundary head value used when mode='constant'.",
+          "title": "Value"
+        },
+        "path_file": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "CSV file path containing time-series boundary head values when mode='csv'.",
+          "title": "Path File"
+        },
+        "sep": {
+          "default": ",",
+          "description": "CSV column separator.",
+          "title": "Sep",
+          "type": "string"
+        },
+        "date_column": {
+          "default": "date",
+          "description": "CSV column containing timestamps.",
+          "title": "Date Column",
+          "type": "string"
+        },
+        "date_format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional datetime format passed to pandas.to_datetime.",
+          "title": "Date Format"
+        },
+        "value_column": {
+          "default": "value",
+          "description": "CSV column containing boundary head values.",
+          "title": "Value Column",
+          "type": "string"
+        },
+        "fill_method": {
+          "default": "ffill",
+          "description": "Gap-filling policy used when a stress period has no direct sample.",
+          "enum": [
+            "ffill",
+            "bfill"
+          ],
+          "title": "Fill Method",
+          "type": "string"
+        },
+        "aggregate": {
+          "default": "mean",
+          "description": "Stress-period aggregation method.",
+          "enum": [
+            "mean",
+            "last"
+          ],
+          "title": "Aggregate",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "FlowBoundaryForcingConfig",
+      "type": "object"
+    },
     "FlowConfig": {
       "additionalProperties": false,
       "description": "Flow-process configuration.\n\nParameters are declared in `param_list` (ordered list of ids), and\nparameter payloads are stored in `param`.",
@@ -2091,10 +2803,9 @@
         },
         "param": {
           "additionalProperties": {
-            "additionalProperties": true,
-            "type": "object"
+            "$ref": "#/$defs/FlowParam"
           },
-          "description": "Mapping of flow-parameter identifiers to resolved FieldParamConfig payloads.",
+          "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads.",
           "title": "Param",
           "type": "object"
         },
@@ -2103,7 +2814,27 @@
           "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition)."
         },
         "bc": {
-          "additionalProperties": true,
+          "additionalProperties": {
+            "discriminator": {
+              "mapping": {
+                "cauchy": "#/$defs/CauchyBC",
+                "dirichlet": "#/$defs/DirichletBC",
+                "robin": "#/$defs/RobinBC"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DirichletBC"
+              },
+              {
+                "$ref": "#/$defs/CauchyBC"
+              },
+              {
+                "$ref": "#/$defs/RobinBC"
+              }
+            ]
+          },
           "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- ``[flow.bc.cauchy.drainage]``\n- ``[flow.bc.robin.drainage]``\n- ``[flow.bc.<custom_id>]`` for generic payloads\n\n**Common keys**\n\n- ``value`` (required): numeric or ``'<value> <unit>'``\n- ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.",
           "title": "Bc",
           "type": "object"
@@ -2402,6 +3133,57 @@
         }
       },
       "title": "FlowInitialConditions",
+      "type": "object"
+    },
+    "FlowParam": {
+      "additionalProperties": false,
+      "description": "Flow parameter payload using native field-param sections.",
+      "properties": {
+        "field": {
+          "$ref": "#/$defs/FieldBaseSection",
+          "description": "Base section `[field]` with parameter id and kind."
+        },
+        "field_homogeneous": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldHomogeneousSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Homogeneous parameters section `[field_homogeneous]`."
+        },
+        "field_heterogeneous": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldHeterogeneousSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Heterogeneous parameters section `[field_heterogeneous]`."
+        },
+        "field_vertical_profile": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FieldVerticalProfileSection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional depth profile section `[field_vertical_profile]`."
+        }
+      },
+      "required": [
+        "field"
+      ],
+      "title": "FlowParam",
       "type": "object"
     },
     "FlowRechargeConfig": {
@@ -7445,6 +8227,98 @@
         }
       },
       "title": "RiverNetworkConfig",
+      "type": "object"
+    },
+    "RobinBC": {
+      "additionalProperties": false,
+      "description": "Robin flow boundary condition.",
+      "properties": {
+        "id": {
+          "description": "Boundary-condition identifier.",
+          "title": "Id",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boundary-condition value, scalar or one value per stress period.",
+          "title": "Value"
+        },
+        "description": {
+          "default": "",
+          "description": "Boundary-condition description.",
+          "title": "Description",
+          "type": "string"
+        },
+        "units": {
+          "default": "",
+          "description": "Boundary-condition units.",
+          "title": "Units",
+          "type": "string"
+        },
+        "type": {
+          "const": "robin",
+          "default": "robin",
+          "description": "Boundary-condition type.",
+          "title": "Type",
+          "type": "string"
+        },
+        "data_value": {
+          "default": false,
+          "description": "If True, boundary-condition values are sourced from data.",
+          "title": "Data Value",
+          "type": "boolean"
+        },
+        "forcing": {
+          "default": null,
+          "description": "Robin boundaries do not support runtime head forcing.",
+          "title": "Forcing",
+          "type": "null"
+        },
+        "application_domain": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Boundary-application domain. Supported values are: top, north side, south side, east side, west side.",
+          "title": "Application Domain"
+        },
+        "support_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional explicit runtime support label used by unstructured backends to select one target support independently from the canonical boundary id.",
+          "title": "Support Label"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "title": "RobinBC",
       "type": "object"
     },
     "RunoffConfig": {

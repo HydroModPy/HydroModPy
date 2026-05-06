@@ -1547,14 +1547,14 @@ Fields
                   .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: mesh-catchment-zone-meshing-refinement-policy-families-enabled
+                     :name: mesh-catchment-zone-meshing-refinement-policy-families-id-enabled
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.enabled">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.enabled">
                           <code class="hmp-field-name">enabled</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.enabled = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.enabled = ...</code>
                         </div>
 
                      :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L35>`__
@@ -1563,14 +1563,14 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-user
-                     :name: mesh-catchment-zone-meshing-refinement-policy-families-priority
+                     :name: mesh-catchment-zone-meshing-refinement-policy-families-id-priority
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.priority">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.priority">
                           <code class="hmp-field-name">priority</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.priority = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.priority = ...</code>
                         </div>
 
                      :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L39>`__
@@ -1579,14 +1579,14 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: mesh-catchment-zone-meshing-refinement-policy-families-interface-size
+                     :name: mesh-catchment-zone-meshing-refinement-policy-families-id-interface-size
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.interface_size">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_size">
                           <code class="hmp-field-name">interface_size</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.interface_size = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_size = ...</code>
                         </div>
 
                      :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L43>`__
@@ -1595,14 +1595,14 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: mesh-catchment-zone-meshing-refinement-policy-families-interface-distance
+                     :name: mesh-catchment-zone-meshing-refinement-policy-families-id-interface-distance
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.interface_distance">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_distance">
                           <code class="hmp-field-name">interface_distance</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.interface_distance = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_distance = ...</code>
                         </div>
 
                      :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L47>`__
@@ -1611,14 +1611,14 @@ Fields
 
 
                   .. container:: hmp-field hmp-field-level-dev
-                     :name: mesh-catchment-zone-meshing-refinement-policy-families-interface-sampling
+                     :name: mesh-catchment-zone-meshing-refinement-policy-families-id-interface-sampling
 
                      .. raw:: html
 
-                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.interface_sampling">
+                        <div class="hmp-field-header" data-toml-path="mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_sampling">
                           <code class="hmp-field-name">interface_sampling</code>
                           <span class="hmp-field-arrow">in TOML:</span>
-                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.interface_sampling = ...</code>
+                          <code class="hmp-field-toml">mesh_catchment.zone_meshing.refinement_policy.families.<id>.interface_sampling = ...</code>
                         </div>
 
                      :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/config.py#L51>`__
@@ -1653,7 +1653,7 @@ Starter TOML snippet
       # figure_regional_dpi = 220
       # output_layout = "standard"
       # show_plot = false
-      # [mesh_catchment.geology.<id>]   # see Dynamic sub-tables below
+      # [mesh_catchment.geology.<id>]
 
       [mesh_catchment.rivers]
       # source = "domain_geographic"

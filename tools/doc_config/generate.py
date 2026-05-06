@@ -34,8 +34,7 @@ from pydantic.fields import FieldInfo
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.profile import Profile
-from tools.doc_config.coverage import find_uncovered_dispatchers
-from tools.doc_config.dispatchers import DispatcherEntry, dispatchers_for_section
+from tools.doc_config.coverage import find_uncovered_opaque_fields
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REFERENCE_DIR = Path("docs/source/user_guide/config_reference")
@@ -465,6 +464,8 @@ def _render_field_block(
 
     inner_models = _get_inner_basemodels(field.annotation)
     discriminator = _find_discriminator(inner_models) if len(inner_models) > 1 else None
+    annotation_str = _format_annotation(field).lower()
+    dynamic_key = "<id>" if "dict[" in annotation_str else ""
 
     full_path = _toml_path(section_path, field_name)
     anchor = _anchor_id(anchor_namespace, full_path) if anchor_namespace else _anchor_id(full_path)
@@ -522,12 +523,12 @@ def _render_field_block(
                 tag = disc_tags[inner_model]
                 title = f'``{disc_name} = "{tag}"``  ({inner_model.__name__})'
                 hidden_field = disc_name
-                nested_path = _toml_path(full_path, tag)
+                nested_path = _toml_path(full_path, tag, dynamic_key)
                 child_namespace = anchor_namespace
             else:
                 title = f"Fields of ``{inner_model.__name__}``"
                 hidden_field = None
-                nested_path = full_path
+                nested_path = _toml_path(full_path, dynamic_key)
                 if len(inner_models) > 1:
                     sub_namespace = inner_model.__name__.lower()
                     child_namespace = (
@@ -547,6 +548,8 @@ def _render_field_block(
             )
             sub_indent = inner + "   "
             for sub_name, sub_field in inner_model.model_fields.items():
+                if getattr(sub_field, "exclude", False):
+                    continue
                 if hidden_field is not None and sub_name == hidden_field:
                     continue
                 lines.extend(
@@ -589,6 +592,8 @@ def _render_starter_snippet(section_name: str, model: type[BaseModel]) -> list[s
     nested_subtables: list[tuple[str, type[BaseModel]]] = []
 
     for field_name, field in model.model_fields.items():
+        if getattr(field, "exclude", False):
+            continue
         if _field_profile(field) is not Profile.USER:
             continue
         inner_models = _get_inner_basemodels(field.annotation)
@@ -597,7 +602,7 @@ def _render_starter_snippet(section_name: str, model: type[BaseModel]) -> list[s
             nested_subtables.append((f"[[{section_name}.{field_name}]]", inner_models[0]))
             continue
         if "dict[" in annotation_str:
-            lines.append(f"# [{section_name}.{field_name}.<id>]   # see Dynamic sub-tables below")
+            lines.append(f"# [{section_name}.{field_name}.<id>]")
             continue
         if inner_models:
             nested_subtables.append((f"[{section_name}.{field_name}]", inner_models[0]))
@@ -624,6 +629,8 @@ def _render_starter_snippet(section_name: str, model: type[BaseModel]) -> list[s
         lines.append("")
         lines.append(header)
         for sub_name, sub_field in sub_model.model_fields.items():
+            if getattr(sub_field, "exclude", False):
+                continue
             if _field_profile(sub_field) is not Profile.USER:
                 continue
             if sub_field.is_required():
@@ -772,6 +779,8 @@ def _render_couche2(
     )
     seen_models = {id(model)}
     for field_name, field in model.model_fields.items():
+        if getattr(field, "exclude", False):
+            continue
         lines.extend(
             _render_field_block(
                 field_name,
@@ -783,10 +792,6 @@ def _render_couche2(
                 seen=seen_models,
             )
         )
-
-    dispatcher_entries = dispatchers_for_section(section_name)
-    if dispatcher_entries:
-        lines.extend(_render_dispatcher_section(dispatcher_entries))
 
     lines.extend(_render_starter_snippet_dropdown(section_name, model))
 
@@ -847,60 +852,6 @@ def _render_starter_snippet_dropdown(section_name: str, model: type[BaseModel]) 
     for snippet_line in _render_starter_snippet(section_name, model):
         lines.append(f"      {snippet_line}")
     lines.append("")
-    return lines
-
-
-def _render_dispatcher_section(entries: list[DispatcherEntry]) -> list[str]:
-    """Render the "Dynamic sub-tables" appendix (dispatched payloads)."""
-    lines = [
-        "Dynamic sub-tables",
-        "------------------",
-        "",
-        "These sub-sections are validated by dedicated payload models. They",
-        "are stored under generic ``dict[...]`` containers in the parent",
-        "section, but their schema is fixed and documented below.",
-        "",
-    ]
-    for entry in entries:
-        title = f"``{entry.pattern}`` -> ``{entry.model.__name__}``"
-        lines.append(f".. dropdown:: {title}")
-        lines.append("   :icon: list-unordered")
-        lines.append("   :animate: fade-in-slide-down")
-        lines.append("")
-        if entry.description:
-            for paragraph in entry.description.split("\n\n"):
-                lines.append(f"   {paragraph.strip()}")
-                lines.append("")
-        if entry.ids:
-            ids_text = ", ".join(f"``{value}``" for value in entry.ids)
-            lines.append(f"   **Allowed ids:** {ids_text}")
-            lines.append("")
-        if entry.note:
-            lines.append("   .. note::")
-            lines.append(f"      {entry.note}")
-            lines.append("")
-        source_link = _class_source_link(entry.model)
-        if source_link:
-            lines.append(f"   `Source on GitHub <{source_link}>`__")
-            lines.append("")
-        lines.append("   .. rst-class:: hmp-config-fields hmp-config-fields-nested")
-        lines.append("")
-        seen_models = {id(entry.model)}
-        section_path_prefix = entry.pattern.strip("[]").replace("[[", "").replace("]]", "")
-        for sub_name, sub_field in entry.model.model_fields.items():
-            lines.extend(
-                _render_field_block(
-                    sub_name,
-                    sub_field,
-                    model=entry.model,
-                    section_path=section_path_prefix,
-                    depth=1,
-                    indent="   ",
-                    seen=seen_models,
-                    anchor_namespace="dispatch",
-                )
-            )
-        lines.append("")
     return lines
 
 
@@ -1001,6 +952,8 @@ def _render_couche4(top_fields: dict[str, FieldInfo]) -> str:
         lines.append("")
         lines.append(f"      [{name}]")
         for field_name, sub_field in model.model_fields.items():
+            if getattr(sub_field, "exclude", False):
+                continue
             description = (sub_field.description or "no description").replace("\n", " ").strip()
             lines.append(f"      # {description}")
             if sub_field.is_required():
@@ -1041,6 +994,8 @@ def _walk_field_paths(
         seen = {id(model)}
     out: list[tuple[str, str, str, str | None, str | None]] = []
     for field_name, field in model.model_fields.items():
+        if getattr(field, "exclude", False):
+            continue
         full_path = _toml_path(section_path, field_name)
         type_str = _format_annotation(field)
         profile = _field_profile(field).name.lower()
@@ -1050,14 +1005,16 @@ def _walk_field_paths(
         if depth < MAX_NESTED_DEPTH:
             inner_models = _get_inner_basemodels(field.annotation)
             discriminator = _find_discriminator(inner_models) if len(inner_models) > 1 else None
+            annotation_str = _format_annotation(field).lower()
+            dynamic_key = "<id>" if "dict[" in annotation_str else ""
             for inner in inner_models:
                 if id(inner) in seen:
                     continue
                 if discriminator is not None:
                     disc_name, disc_tags = discriminator
-                    nested_path = _toml_path(full_path, disc_tags[inner])
+                    nested_path = _toml_path(full_path, disc_tags[inner], dynamic_key)
                 else:
-                    nested_path = full_path
+                    nested_path = _toml_path(full_path, dynamic_key)
                 out.extend(
                     _walk_field_paths(
                         inner,
@@ -1190,7 +1147,7 @@ def generate_all(output_dir: Path | None = None) -> list[Path]:
     out.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
 
-    _report_uncovered_dispatchers()
+    _report_uncovered_opaque_fields()
 
     top_fields = HydroModPyConfig.model_fields
 
@@ -1292,17 +1249,10 @@ def _render_validate_page() -> str:
     return "\n".join(lines)
 
 
-def _report_uncovered_dispatchers() -> None:
-    """Emit a clear warning when an opaque dict[...] field has no DispatcherEntry.
-
-    The check keeps doc rendering decoupled from domain models: instead of
-    polluting Pydantic classes with rendering metadata, we centralize the
-    pairing in ``dispatchers.py`` and verify here that every opaque payload
-    has a corresponding entry. See ``tools/doc_config/README.md`` for the
-    full rationale.
-    """
+def _report_uncovered_opaque_fields() -> None:
+    """Emit a clear warning when an opaque dict[...] field remains in the schema."""
     try:
-        uncovered = find_uncovered_dispatchers(HydroModPyConfig)
+        uncovered = find_uncovered_opaque_fields(HydroModPyConfig)
     except Exception as exc:
         print(f"[doc_config] coverage check skipped: {exc}")
         return
@@ -1312,8 +1262,8 @@ def _report_uncovered_dispatchers() -> None:
     for entry in uncovered:
         print(f"  - {entry.toml_path}  ({entry.annotation})")
     print(
-        "[doc_config] Add a DispatcherEntry for each path in "
-        "tools/doc_config/dispatchers.py to surface its sub-schema."
+        "[doc_config] Replace each opaque payload with a typed BaseModel or add a "
+        "free-form mapping to INTENTIONALLY_OPAQUE_PATHS."
     )
 
 

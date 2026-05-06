@@ -151,7 +151,7 @@ Sub-models are linked back to their per-section page.
       [flow]
       # Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).
       # param_list = ...  # uses factory default
-      # Mapping of flow-parameter identifiers to resolved FieldParamConfig payloads.
+      # Mapping of flow-parameter identifiers to native FieldParamConfig payloads.
       # param = ...  # uses factory default
       # Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).
       # ic = ...  # uses factory default
@@ -184,16 +184,6 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [transport]
-      # Inherited generic parameter list (excluded from transport serialization).
-      # param_list = ...  # uses factory default
-      # Inherited generic parameter map (excluded from transport serialization).
-      # param = ...  # uses factory default
-      # Inherited initial-condition payload (excluded from transport serialization).
-      # ic = ...  # default = None
-      # Inherited boundary-condition map (excluded from transport serialization).
-      # bc = ...  # uses factory default
-      # Inherited sinks/sources map (excluded from transport serialization).
-      # sinks_sources = ...  # uses factory default
       # Ordered list of sink/source identifiers that are explicitly activated for this process. An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig) validate the allowed values.
       # active_sinks_sources = ...  # uses factory default
       # Ordered list of boundary-condition identifiers that are explicitly activated for this process. An empty list means no boundary-condition package is assembled. Concrete process configs (e.g. FlowConfig) validate the allowed values.
@@ -315,6 +305,12 @@ Sub-models are linked back to their per-section page.
       # figures = ...  # uses factory default
       # Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
       # overrides = ...  # uses factory default
+      # Flow figure switches.
+      # flow = ...  # uses factory default
+      # Particle figure switches.
+      # particles = ...  # uses factory default
+      # Transport figure switches.
+      # transport = ...  # uses factory default
 
 .. dropdown:: ``[persistence]`` (PersistenceConfig)
    :icon: gear

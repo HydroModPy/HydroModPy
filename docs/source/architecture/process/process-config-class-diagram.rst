@@ -19,7 +19,8 @@ Code map
   flow-specific validated config model.
 - ``hydromodpy/process/transport/transport_config.py``:
   transport-specific validated config model.
-- ``hydromodpy/process/flow/*_config.py``:
+- ``hydromodpy/physics/flow/boundary_conditions.py`` and
+  ``hydromodpy/physics/flow/sinks_sources/``:
   dedicated flow-side config payloads.
 
 Recommended reading path
@@ -29,7 +30,7 @@ Recommended reading path
 2. ``hydromodpy/process/flow/flow_config.py``
 3. ``hydromodpy/process/transport/transport_config.py``
 4. one specialized flow config file such as
-   ``hydromodpy/process/flow/boundary_conditions_config.py``
+   ``hydromodpy/physics/flow/boundary_conditions.py``
 
 Diagram source
 --------------

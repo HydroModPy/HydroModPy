@@ -1,26 +1,10 @@
 """Detect TOML paths whose payload schema is opaque to the doc generator.
 
-A *dispatcher candidate* is one Pydantic field whose annotation hides its
-real sub-schema behind a generic container, typically:
-
-- ``dict[str, object]``: the parent stores raw payloads validated at
-  runtime by a separate normalizer (``[flow.bc.<id>]``).
-- ``dict[str, dict[str, object]]``: same idea with a second-level dict
-  (``[flow.param.<id>]`` whose payloads use the field-param grammar).
-- ``list[<NonBaseModel>]``: a list of payloads where the element type is
-  not a ``BaseModel`` so the recursive renderer cannot drill in.
-
-For these cases the generator cannot derive the sub-table schema from
-``model_fields`` alone. The convention is to declare each one in
-:mod:`tools.doc_config.dispatchers` so the doc rendering picks up the
-dedicated payload model and emits a "Dynamic sub-tables" entry.
-
-This module compares the candidate set discovered by walking
-:class:`HydroModPyConfig` against the entries registered in
-:mod:`tools.doc_config.dispatchers` and reports any path that lacks
-coverage. The doc generator emits one warning per uncovered path during
-the Sphinx build, so a forgotten dispatcher fails loudly instead of
-silently producing an incomplete reference page.
+The config reference is derived from Pydantic ``model_fields`` only. A
+``dict[str, object]`` or ``dict[str, dict[str, object]]`` under
+``HydroModPyConfig`` therefore means the schema has hidden structure,
+unless the path is explicitly whitelisted as a free-form key/value
+mapping in :data:`INTENTIONALLY_OPAQUE_PATHS`.
 """
 
 from __future__ import annotations
@@ -32,11 +16,9 @@ from typing import Any
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from tools.doc_config.dispatchers import all_dispatchers
-
 
 @dataclass(frozen=True)
-class UncoveredDispatcher:
+class UncoveredOpaqueField:
     """One TOML path whose dynamic payload schema is undocumented."""
 
     toml_path: str
@@ -107,18 +89,8 @@ def _walk_opaque_fields(
     return out
 
 
-def _normalize_pattern(pattern: str) -> str:
-    """Strip TOML brackets and the ``<id>`` placeholder from a pattern."""
-    text = pattern.strip()
-    text = text.replace("[[", "").replace("]]", "")
-    text = text.strip("[]")
-    text = re.sub(r"\.<[^>]+>.*$", "", text)
-    text = re.sub(r"\s.*$", "", text)
-    return text
-
-
-def find_uncovered_dispatchers(root_model: type[BaseModel]) -> list[UncoveredDispatcher]:
-    """Return opaque TOML paths missing from ``dispatchers.py``.
+def find_uncovered_opaque_fields(root_model: type[BaseModel]) -> list[UncoveredOpaqueField]:
+    """Return opaque TOML paths that are not intentionally free-form.
 
     Two filters apply before the coverage check:
 
@@ -127,18 +99,13 @@ def find_uncovered_dispatchers(root_model: type[BaseModel]) -> list[UncoveredDis
     - paths registered in :data:`INTENTIONALLY_OPAQUE_PATHS` are
       whitelisted for free-form key/value mappings without a sub-model.
     """
-    covered_prefixes = {_normalize_pattern(entry.pattern) for entry in all_dispatchers()}
     candidates = _walk_opaque_fields(root_model, section_path="")
-    uncovered: list[UncoveredDispatcher] = []
+    uncovered: list[UncoveredOpaqueField] = []
     for full_path, annotation in candidates:
         if full_path in INTENTIONALLY_OPAQUE_PATHS:
             continue
-        if any(
-            full_path == prefix or full_path.startswith(prefix + ".") for prefix in covered_prefixes
-        ):
-            continue
-        uncovered.append(UncoveredDispatcher(toml_path=full_path, annotation=annotation))
+        uncovered.append(UncoveredOpaqueField(toml_path=full_path, annotation=annotation))
     return uncovered
 
 
-__all__ = ["UncoveredDispatcher", "find_uncovered_dispatchers"]
+__all__ = ["UncoveredOpaqueField", "find_uncovered_opaque_fields"]

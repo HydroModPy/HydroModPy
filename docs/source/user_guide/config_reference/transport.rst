@@ -32,86 +32,6 @@ Fields
 .. rst-class:: hmp-config-fields
 
 .. container:: hmp-field hmp-field-level-user
-   :name: transport-param-list
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="transport.param_list">
-        <code class="hmp-field-name">param_list</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">transport.param_list = ...</code>
-      </div>
-
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L139>`__
-
-      Inherited generic parameter list (excluded from transport serialization).
-
-
-.. container:: hmp-field hmp-field-level-user
-   :name: transport-param
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="transport.param">
-        <code class="hmp-field-name">param</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[transport.param.<id>]</code>
-      </div>
-
-   :bdg-primary:`dict[str, object]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L144>`__
-
-      Inherited generic parameter map (excluded from transport serialization).
-
-
-.. container:: hmp-field hmp-field-level-user
-   :name: transport-ic
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="transport.ic">
-        <code class="hmp-field-name">ic</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">transport.ic = ...</code>
-      </div>
-
-   :bdg-primary:`object | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L149>`__
-
-      Inherited initial-condition payload (excluded from transport serialization).
-
-
-.. container:: hmp-field hmp-field-level-user
-   :name: transport-bc
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="transport.bc">
-        <code class="hmp-field-name">bc</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[transport.bc.<id>]</code>
-      </div>
-
-   :bdg-primary:`dict[str, object]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L154>`__
-
-      Inherited boundary-condition map (excluded from transport serialization).
-
-
-.. container:: hmp-field hmp-field-level-user
-   :name: transport-sinks-sources
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="transport.sinks_sources">
-        <code class="hmp-field-name">sinks_sources</code>
-        <span class="hmp-field-arrow">in TOML:</span>
-        <code class="hmp-field-toml">[transport.sinks_sources.<id>]</code>
-      </div>
-
-   :bdg-primary:`dict[str, object]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L159>`__
-
-      Inherited sinks/sources map (excluded from transport serialization).
-
-
-.. container:: hmp-field hmp-field-level-user
    :name: transport-active-sinks-sources
 
    .. raw:: html
@@ -727,11 +647,6 @@ Starter TOML snippet
    .. code-block:: toml
 
       [transport]
-      # param_list = ...  # uses factory default
-      # [transport.param.<id>]   # see Dynamic sub-tables below
-      # ic = ...  # default = None
-      # [transport.bc.<id>]   # see Dynamic sub-tables below
-      # [transport.sinks_sources.<id>]   # see Dynamic sub-tables below
       # active_sinks_sources = ...  # uses factory default
       # active_bc = ...  # uses factory default
 

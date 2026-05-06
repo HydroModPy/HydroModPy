@@ -67,6 +67,8 @@ au code, mainteneurs, intégrateurs frontaux. Pour l'usage utilisateur voir
 
 - [frontend_hooks.md](frontend_hooks.md) : exposition JSON Schema pour
   Streamlit, Angular, React.
+- [architecture_config.md](architecture_config.md) : règle de typage
+  Pydantic natif pour les payloads TOML.
 
 ## Cas d'étude
 
