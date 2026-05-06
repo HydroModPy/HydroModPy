@@ -14,7 +14,7 @@ documentation de HydroModPy. Il sert de guide de référence pour la refonte.
 | Phase 0 — Quick wins | 1 à 10 | ✓ livrée 2026-05-05 | `dev-docs` | `07f2f3b30` → `a0799bf69` |
 | Phase 1 — Refonte structurelle | 11 à 22 | ✓ 12/12 livrée (étape 21 incluse) | `dev-docs` | `b5144869b` → `c8e8057dd` |
 | Phase 2 — Enrichissement | 23 à 37 | ✓ livrée 2026-05-06 | `dev-docs` | `072b06e00` → `2f7697342` |
-| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (38, 39, 41, 42, 44 livrées ; 40, 43 bloquées) | `dev-docs` | `137131b96` → `5c694924d` |
+| Phase 3 — Optionnel/conditionnel | 38 à 45 | ✓ 6/8 livrées (38, 39, 41, 42, 44, 45) ; 40 et 43 bloquées sur prérequis externes | `dev-docs` | `137131b96` → `1929bee18` |
 
 Build sphinx local clean : 3 warnings baseline (incrémental) / 8 sur fresh
 build (5 issues codebase pré-existantes). Voir
@@ -327,7 +327,12 @@ les étapes 23 à 37.
     - `_static/css/hmp-page-badges.css` (renommée mentalement en "doc UX assets") : ajout d'une règle `.hmp-schema-explorer { min-height: 70vh; ... }` pour donner une hauteur stable avant chargement du bundle
     - `index.rst` couche 1 : entrée `schema_explorer` ajoutée au toctree caché
     - Build sphinx local clean (3 warnings baseline)
-45. `[docs] - mention vtk-js mesh viewer as future evolution in architecture page`
+45. `[docs] - mention vtk-js mesh viewer as future evolution in architecture page` ✓ (commit `1929bee18`)
+    - Section "Future Evolution" ajoutée à la fin de `docs/source/theory/mesh/index.rst` (page d'entrée mesh la plus lue)
+    - Mention vtk-js comme évolution future possible (WebGL canvas, picking/slicing, mesh streaming) avec lien vers https://kitware.github.io/vtk-js/
+    - Décision explicite "non-goal pour la refonte actuelle" : justifie le coût (bundle WebGL, payload, time-to-interactive) et liste les prérequis pour reconsidérer (mesure analytics indiquant que les figures statiques ne suffisent plus)
+    - Aucune implémentation ; la page reste statique
+    - Build sphinx local clean (3 warnings baseline)
 
 ### 0.3 Plan de déplacement Phase 0 étape 8 (création `dev_notes/`)
 
