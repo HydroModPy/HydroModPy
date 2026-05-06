@@ -60,6 +60,9 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     )
     nonlinear_iterations: list[int] = []
     converged_by_period: list[bool] = []
+    runtime_period_diagnostics: list[dict[str, object]] = []
+    runtime_substep_diagnostics: list[dict[str, object]] = []
+    runtime_ts_step_diagnostics: list[dict[str, object]] = []
     last_residual_norm = 0.0
 
     for kper, dt_seconds in enumerate(period_lengths):
@@ -90,6 +93,26 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
         head_prev = np.asarray(step.head_m, dtype=float)
         last_residual_norm = float(step.residual_norm_inf)
         solver.runtime_summary["last_termination_reason"] = str(step.termination_reason)
+        if step.diagnostics:
+            period_diagnostics = dict(step.diagnostics)
+            period_diagnostics["period_index"] = int(kper)
+            runtime_period_diagnostics.append(period_diagnostics)
+            raw_substeps = step.diagnostics.get("vi_substep_details")
+            if isinstance(raw_substeps, list):
+                for item in raw_substeps:
+                    if isinstance(item, dict):
+                        substep_diagnostics = dict(item)
+                        substep_diagnostics["period_index"] = int(kper)
+                        runtime_substep_diagnostics.append(substep_diagnostics)
+            raw_ts_steps = step.diagnostics.get("ts_vi_step_details")
+            if isinstance(raw_ts_steps, list):
+                for item in raw_ts_steps:
+                    if isinstance(item, dict):
+                        ts_step_diagnostics = dict(item)
+                        ts_step_diagnostics["period_index"] = int(kper)
+                        runtime_ts_step_diagnostics.append(ts_step_diagnostics)
+            for key, value in step.diagnostics.items():
+                solver.runtime_summary[f"last_{key}"] = value
         history.append_step(
             mesh=solver.mesh,
             head_m=head_prev,
@@ -111,6 +134,16 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
             )
             solver.runtime_summary["last_residual_norm_inf"] = last_residual_norm
             solver.runtime_summary["n_periods"] = nper
+            if runtime_period_diagnostics:
+                solver.runtime_summary["runtime_period_diagnostics"] = runtime_period_diagnostics
+            if runtime_substep_diagnostics:
+                solver.runtime_summary["runtime_substep_diagnostics"] = (
+                    runtime_substep_diagnostics
+                )
+            if runtime_ts_step_diagnostics:
+                solver.runtime_summary["runtime_ts_step_diagnostics"] = (
+                    runtime_ts_step_diagnostics
+                )
             solver.runtime_summary.update(
                 build_transient_activity_flags(
                     recharge_series_m_s=recharge_series_m_s,
@@ -130,6 +163,12 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     )
     solver.runtime_summary["n_periods"] = nper
     solver.runtime_summary["last_residual_norm_inf"] = last_residual_norm
+    if runtime_period_diagnostics:
+        solver.runtime_summary["runtime_period_diagnostics"] = runtime_period_diagnostics
+    if runtime_substep_diagnostics:
+        solver.runtime_summary["runtime_substep_diagnostics"] = runtime_substep_diagnostics
+    if runtime_ts_step_diagnostics:
+        solver.runtime_summary["runtime_ts_step_diagnostics"] = runtime_ts_step_diagnostics
     solver.runtime_summary.update(
         build_transient_activity_flags(
             recharge_series_m_s=recharge_series_m_s,

@@ -13,7 +13,7 @@ import pytest
 
 from hydromodpy.cli import main
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
-from hydromodpy.workflow import dispatch as workflow_dispatch
+import hydromodpy.workflow_dispatch as workflow_dispatch
 
 
 def _write_toml(path: Path, content: str) -> Path:

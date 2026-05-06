@@ -18,9 +18,14 @@ runtime attributes after ``set_config(...)`` is called:
   ``scipy_sparse``, ``petsc``).
 - ``surface_interaction_model`` : optional Boussinesq closure selector for the
   groundwater/surface interaction (``auto``, ``regularized_partition``,
-  ``complementarity``).
+  ``complementarity``, ``vi_obstacle``, ``ts_vi_obstacle``).
 - ``runtime_max_iterations`` / ``runtime_tol_*`` : optional nonlinear runtime
   overrides forwarded to the Boussinesq backend.
+- ``vi_substeps_per_period`` / ``vi_substep_on_failure`` /
+  ``vi_max_adaptive_substeps`` : optional substepping controls for the
+  experimental PETSc VI obstacle Boussinesq runtime.
+- ``ts_vi_steps_per_period`` / ``ts_vi_adapt`` : optional PETSc TS controls
+  for the experimental TS VI obstacle Boussinesq runtime.
 - ``parameters`` : normalized hydraulic property dict (K, Sy, Ss, …),
   keyed by parameter id and containing ``FieldParam`` objects.
 - ``initial_conditions`` : one ``FlowInitialConditions`` instance grouping
@@ -134,6 +139,16 @@ class Flow(ProcessSpatial):
         Optional residual-tolerance override forwarded to Boussinesq.
     runtime_tol_state_update_inf : float | None
         Optional state-update-tolerance override forwarded to Boussinesq.
+    vi_substeps_per_period : int
+        Fixed substeps per stress period for PETSc VI obstacle.
+    vi_substep_on_failure : bool
+        Whether PETSc VI obstacle retries failed periods with more substeps.
+    vi_max_adaptive_substeps : int | None
+        Maximum PETSc VI obstacle adaptive substep count.
+    ts_vi_steps_per_period : int
+        Fixed PETSc TS steps per stress period for TS VI obstacle.
+    ts_vi_adapt : bool
+        Whether PETSc TS adaptivity is enabled for TS VI obstacle.
     config : FlowConfig
         Reference to the last validated config applied via ``set_config``.
     parameters : dict[str, FieldParam | object]
@@ -179,6 +194,15 @@ class Flow(ProcessSpatial):
         self.runtime_max_iterations: int | None
         self.runtime_tol_residual_inf: float | None
         self.runtime_tol_state_update_inf: float | None
+        self.vi_substeps_per_period: int
+        self.vi_substep_on_failure: bool
+        self.vi_max_adaptive_substeps: int | None
+        self.ts_vi_steps_per_period: int
+        self.ts_vi_adapt: bool
+        self.ts_vi_dt_min_fraction: float
+        self.ts_vi_dt_max_fraction: float
+        self.ts_vi_type: str
+        self.ts_vi_snes_type: str
         self.initial_conditions: FlowInitialConditions | None
         self.boundary_condition_application_domains: dict[str, str] = {}
         self.initial_condition_types: dict[str, str] = {}
@@ -219,6 +243,15 @@ class Flow(ProcessSpatial):
         self.runtime_max_iterations = config.runtime_max_iterations
         self.runtime_tol_residual_inf = config.runtime_tol_residual_inf
         self.runtime_tol_state_update_inf = config.runtime_tol_state_update_inf
+        self.vi_substeps_per_period = config.vi_substeps_per_period
+        self.vi_substep_on_failure = config.vi_substep_on_failure
+        self.vi_max_adaptive_substeps = config.vi_max_adaptive_substeps
+        self.ts_vi_steps_per_period = config.ts_vi_steps_per_period
+        self.ts_vi_adapt = config.ts_vi_adapt
+        self.ts_vi_dt_min_fraction = config.ts_vi_dt_min_fraction
+        self.ts_vi_dt_max_fraction = config.ts_vi_dt_max_fraction
+        self.ts_vi_type = config.ts_vi_type
+        self.ts_vi_snes_type = config.ts_vi_snes_type
         # Parameters are resolved in the declared order from `flow.param_list`.
         self.set_parameters_from_config(
             config.param,

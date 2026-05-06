@@ -6,7 +6,12 @@ from dataclasses import dataclass
 from typing import Literal
 
 UnknownLayoutName = Literal["head_only", "head_plus_qex_qdry"]
-SurfaceClosureName = Literal["regularized_partition", "complementarity"]
+SurfaceClosureName = Literal[
+    "regularized_partition",
+    "complementarity",
+    "vi_obstacle",
+    "ts_vi_obstacle",
+]
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,9 @@
+site_id,site_label,outlet_id,region_id,cluster_id,cluster_family,cluster_scale,enabled,x,y,x_outlet,y_outlet,area_km2,tags
+01,Site 01,01,armorican_massif,nwt_flux_demo,reference_network,small,true,131189.100,6833784.400,131189.100,6833784.400,,demo;flux;nwt;regional_stream_network;numbered_site
+02,Site 02,02,armorican_massif,nwt_flux_demo,reference_network,small,true,142435.200,6837977.100,142435.200,6837977.100,,demo;flux;nwt;regional_stream_network;numbered_site
+03,Site 03,03,armorican_massif,nwt_flux_demo,reference_network,small,true,153077.000,6832394.300,153077.000,6832394.300,,demo;flux;nwt;regional_stream_network;numbered_site
+04,Site 04,04,armorican_massif,nwt_flux_demo,reference_network,small,true,162427.700,6839998.400,162427.700,6839998.400,,demo;flux;nwt;regional_stream_network;numbered_site
+05,Site 05,05,armorican_massif,nwt_flux_demo,reference_network,medium,true,132962.900,6845656.100,132962.900,6845656.100,,demo;flux;nwt;regional_stream_network;numbered_site
+06,Site 06,06,armorican_massif,nwt_flux_demo,reference_network,medium,true,146274.500,6849349.000,146274.500,6849349.000,,demo;flux;nwt;regional_stream_network;numbered_site
+07,Site 07,07,armorican_massif,nwt_flux_demo,reference_network,medium,true,158140.700,6851240.500,158140.700,6851240.500,,demo;flux;nwt;regional_stream_network;numbered_site
+08,Site 08,08,armorican_massif,nwt_flux_demo,reference_network,medium,true,164915.000,6861154.300,164915.000,6861154.300,,demo;flux;nwt;regional_stream_network;numbered_site

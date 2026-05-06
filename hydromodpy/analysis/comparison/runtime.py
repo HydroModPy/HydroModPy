@@ -30,6 +30,16 @@ from hydromodpy.physics.flow.history_contract import (
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
 )
+from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
+    VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
+)
+from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
+    TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
@@ -762,6 +772,52 @@ def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     return {key: metrics.get(key) for key in keys if key in metrics}
 
 
+def discover_vi_obstacle_diagnostics(run_folder: Path) -> dict[str, str]:
+    """Return stable VI obstacle diagnostic files under one run folder."""
+    exported_runtime_paths = run_folder.glob(
+        f"exports/*/solver_diagnostics/{VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
+    )
+    candidates = [
+        run_folder,
+        *(path.parent for path in exported_runtime_paths),
+    ]
+    for directory in candidates:
+        runtime_path = directory / VI_OBSTACLE_RUNTIME_SUMMARY_JSON
+        period_path = directory / VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV
+        substep_path = directory / VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV
+        if runtime_path.exists():
+            payload = {"runtime_summary": str(runtime_path)}
+            if period_path.exists():
+                payload["period_diagnostics"] = str(period_path)
+            if substep_path.exists():
+                payload["substep_diagnostics"] = str(substep_path)
+            return payload
+    return {}
+
+
+def discover_ts_vi_obstacle_diagnostics(run_folder: Path) -> dict[str, str]:
+    """Return stable TS VI obstacle diagnostic files under one run folder."""
+    exported_runtime_paths = run_folder.glob(
+        f"exports/*/solver_diagnostics/{TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
+    )
+    candidates = [
+        run_folder,
+        *(path.parent for path in exported_runtime_paths),
+    ]
+    for directory in candidates:
+        runtime_path = directory / TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON
+        period_path = directory / TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV
+        step_path = directory / TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV
+        if runtime_path.exists():
+            payload = {"runtime_summary": str(runtime_path)}
+            if period_path.exists():
+                payload["period_diagnostics"] = str(period_path)
+            if step_path.exists():
+                payload["step_diagnostics"] = str(step_path)
+            return payload
+    return {}
+
+
 def read_simulation_run_metadata(run_folder: Path) -> dict[str, Any]:
     """Collect lightweight run metadata useful in comparison manifests."""
     metrics = read_json_file(run_folder / "_metrics.json")
@@ -792,6 +848,13 @@ def read_simulation_run_metadata(run_folder: Path) -> dict[str, Any]:
         for key in ("n_cells", "n_edges", "n_nodes"):
             if key in boussinesq_summary:
                 payload[key] = boussinesq_summary.get(key)
+
+    vi_diagnostics = discover_vi_obstacle_diagnostics(run_folder)
+    if vi_diagnostics:
+        payload["vi_obstacle_diagnostics"] = vi_diagnostics
+    ts_vi_diagnostics = discover_ts_vi_obstacle_diagnostics(run_folder)
+    if ts_vi_diagnostics:
+        payload["ts_vi_obstacle_diagnostics"] = ts_vi_diagnostics
 
     bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
         "bundle_dir"
@@ -2642,6 +2705,8 @@ __all__ = (
     "TimeSlice",
     "VariableSeries",
     "discover_result_store",
+    "discover_ts_vi_obstacle_diagnostics",
+    "discover_vi_obstacle_diagnostics",
     "extract_observable_rows",
     "load_variable_series",
     "materialize_simulation_config",

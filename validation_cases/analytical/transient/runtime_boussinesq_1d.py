@@ -44,6 +44,15 @@ def build_flow_config(
     return FlowConfig.from_toml_section(merged_flow, base_dir=base_dir)
 
 
+def _solver_name_from_flow_section(flow_section: dict[str, object]) -> str:
+    """Return a stable validation solver label for one Boussinesq runtime."""
+    runtime_backend = str(flow_section.get("runtime_backend", "scipy_sparse") or "scipy_sparse")
+    surface_model = str(flow_section.get("surface_interaction_model", "") or "").strip().lower()
+    if runtime_backend.strip().lower() == "petsc" and surface_model == "ts_vi_obstacle":
+        return "petsc_ts_vi_obstacle"
+    return "boussinesq"
+
+
 def write_uniform_strip_bundle(
     bundle_dir: Path,
     *,
@@ -361,15 +370,16 @@ def run_boussinesq_transient_uniform_strip_case(
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
+    solver_name = _solver_name_from_flow_section(flow_section)
     store, sim_id = materialize_postprocess_fields_to_store(
         out_path=out_path,
         postprocess_dir=postprocess_dir,
-        solver_name="boussinesq",
+        solver_name=solver_name,
         flow_regime="transient",
     )
     return ValidationRunResult(
         case_dir=case_dir,
-        solver_name="boussinesq",
+        solver_name=solver_name,
         out_path=out_path,
         model_ws=model_ws,
         postprocess_dir=postprocess_dir,

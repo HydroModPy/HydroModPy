@@ -8,6 +8,7 @@ file stays symmetrical with the MODFLOW adapters.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
@@ -21,6 +22,12 @@ from hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter import (
     resolve_bundle_solver_mesh,
     resolve_mesh_bundle,
     resolve_runtime_solver_mesh,
+)
+from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
+    write_vi_obstacle_diagnostic_files,
+)
+from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
+    write_ts_vi_obstacle_diagnostic_files,
 )
 
 
@@ -104,11 +111,33 @@ class BoussinesqFlowAdapter:
                 f"See {getattr(model, 'full_path', '<unknown>')} for diagnostics.",
                 run_id=ctx.run.id,
             )
+        self._persist_obstacle_diagnostics(ctx, model)
 
         return RunExecutionResult(
             primary_model=model,
             solver_output_dir=Path(model.full_path) if hasattr(model, "full_path") else None,
         )
+
+    @staticmethod
+    def _persist_obstacle_diagnostics(ctx: RunContext, model: Boussinesq) -> None:
+        """Copy VI runtime diagnostics to a stable workspace path before cleanup."""
+        workspace = getattr(ctx.state.setup, "workspace", None)
+        if workspace is None or not hasattr(model, "full_path"):
+            return
+        project_root = getattr(workspace, "project_root", None) or getattr(workspace, "root", None)
+        if project_root is None:
+            return
+        summary_path = Path(model.full_path) / "_boussinesq_summary.json"
+        if not summary_path.exists():
+            return
+        try:
+            summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return
+        run_id = str(getattr(ctx.state.setup, "run_id", "") or ctx.run.id)
+        diagnostics_dir = Path(project_root) / "exports" / run_id / "solver_diagnostics"
+        write_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
+        write_ts_vi_obstacle_diagnostic_files(diagnostics_dir, summary)
 
 
 __all__ = ["BoussinesqFlowAdapter"]

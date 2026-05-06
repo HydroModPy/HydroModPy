@@ -40,7 +40,11 @@ class Edge:
 
 
 def _top_level_packages(pkg_root: pathlib.Path) -> set[str]:
-    return {p.name for p in pkg_root.iterdir() if p.is_dir() and not p.name.startswith("__")}
+    return {
+        p.name
+        for p in pkg_root.iterdir()
+        if p.is_dir() and (p / "__init__.py").is_file() and not p.name.startswith("__")
+    }
 
 
 def package_of(path: pathlib.Path, pkg_root: pathlib.Path) -> str | None:

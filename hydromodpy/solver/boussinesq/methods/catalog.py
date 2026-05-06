@@ -13,6 +13,8 @@ from hydromodpy.solver.boussinesq.discretization import (
 )
 from hydromodpy.solver.boussinesq.formulations import (
     HEAD_ONLY_REGULARIZED_PARTITION,
+    HEAD_ONLY_TS_VI_OBSTACLE,
+    HEAD_ONLY_VI_OBSTACLE,
     MIXED_COMPLEMENTARITY,
     BoussinesqFormulationSpec,
 )
@@ -73,9 +75,37 @@ MIXED_COMPLEMENTARITY_METHOD = BoussinesqMethodSpec(
     ),
 )
 
+HEAD_ONLY_VI_OBSTACLE_METHOD = BoussinesqMethodSpec(
+    id="head_only_vi_obstacle",
+    formulation=HEAD_ONLY_VI_OBSTACLE,
+    space_scheme_id=FV_TRI_CELL_CENTERED.id,
+    supported_time_scheme_ids=(STEADY_BALANCE.id, BACKWARD_EULER.id),
+    supported_runtime_backends=frozenset({"petsc"}),
+    description=(
+        "Experimental PETSc SNESVI head-only obstacle formulation. The solve "
+        "bounds h directly between z_bottom and z_top and reconstructs "
+        "surface and bottom reactions after convergence."
+    ),
+)
+
+HEAD_ONLY_TS_VI_OBSTACLE_METHOD = BoussinesqMethodSpec(
+    id="head_only_ts_vi_obstacle",
+    formulation=HEAD_ONLY_TS_VI_OBSTACLE,
+    space_scheme_id=FV_TRI_CELL_CENTERED.id,
+    supported_time_scheme_ids=(BACKWARD_EULER.id,),
+    supported_runtime_backends=frozenset({"petsc"}),
+    description=(
+        "Experimental PETSc TS + SNESVI head-only obstacle formulation. PETSc "
+        "TS performs fixed Backward-Euler steps inside each HydroModPy stress "
+        "period, while h is bounded directly between z_bottom and z_top."
+    ),
+)
+
 _METHOD_BY_SURFACE_CLOSURE = {
     HEAD_ONLY_REGULARIZED_PARTITION_METHOD.surface_closure: HEAD_ONLY_REGULARIZED_PARTITION_METHOD,
     MIXED_COMPLEMENTARITY_METHOD.surface_closure: MIXED_COMPLEMENTARITY_METHOD,
+    HEAD_ONLY_VI_OBSTACLE_METHOD.surface_closure: HEAD_ONLY_VI_OBSTACLE_METHOD,
+    HEAD_ONLY_TS_VI_OBSTACLE_METHOD.surface_closure: HEAD_ONLY_TS_VI_OBSTACLE_METHOD,
 }
 
 
@@ -93,7 +123,7 @@ def resolve_surface_interaction_model_token(
     if requested not in _METHOD_BY_SURFACE_CLOSURE:
         raise ValueError(
             "Unsupported Boussinesq surface interaction model. Expected one of: "
-            "auto, regularized_partition, complementarity."
+            "auto, regularized_partition, complementarity, vi_obstacle, ts_vi_obstacle."
         )
     return requested
 
@@ -113,8 +143,8 @@ def resolve_method_spec(
     method = _METHOD_BY_SURFACE_CLOSURE[resolved_surface]
     if backend_name not in method.supported_runtime_backends:
         raise NotImplementedError(
-            "The Boussinesq complementarity surface-interaction model is currently "
-            f"implemented only for runtime_backend='petsc'. Got runtime_backend='{backend_name}'."
+            "The requested Boussinesq surface-interaction model is not implemented "
+            f"for runtime_backend='{backend_name}'."
         )
     return method
 
@@ -122,6 +152,8 @@ def resolve_method_spec(
 __all__ = [
     "BoussinesqMethodSpec",
     "HEAD_ONLY_REGULARIZED_PARTITION_METHOD",
+    "HEAD_ONLY_TS_VI_OBSTACLE_METHOD",
+    "HEAD_ONLY_VI_OBSTACLE_METHOD",
     "MIXED_COMPLEMENTARITY_METHOD",
     "resolve_method_spec",
     "resolve_surface_interaction_model_token",

@@ -41,11 +41,11 @@ from pydantic import BaseModel
 from hydromodpy.calibration.runners.contracts import (
     TrialStep,
     get_trial_pipeline_provider,
+    get_trial_promotion_provider,
 )
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.execution import ExecutionRegistry
-from hydromodpy.project import Project
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.run_state import WorkflowContext
@@ -543,7 +543,8 @@ def promote_trial(
 ) -> str:
     """Run the full simulation pipeline with calibration values baked in.
 
-    Opens a :class:`hydromodpy.Project`, deep-copies its config with
+    Delegates to the registered promotion provider, which deep-copies the
+    simulation config with
     ``values`` injected via their dotted ``paths``, runs the full plan,
     and returns the resulting ``sim_id``. Zarr + Parquet + catalog rows
     are written exactly like a normal ``hmp run``.
@@ -566,34 +567,15 @@ def promote_trial(
         Optional calibration session UUID; added as
         ``"calibration:<sid>"`` tag when supplied.
     """
-    cfg_path = Path(cfg_path).expanduser().resolve()
-    project = Project(cfg_path)
-    try:
-        if paths:
-            for pname, pvalue in values.items():
-                dotted = paths.get(pname)
-                if dotted:
-                    _set_by_path(project.cfg, dotted, pvalue)
-            run = project.run(name=name or "promoted")
-        else:
-            run = project.run(name=name or "promoted", **dict(values))
-        sim_id = run.sim_id
-
-        tag_list: list[str] = list(tags)
-        if session_id:
-            tag_list.append(f"calibration:{session_id}")
-        if tag_list:
-            store = getattr(project, "store", None) or getattr(project, "_store", None)
-            writer = getattr(store, "write_tags", None)
-            if callable(writer):
-                try:
-                    writer(sim_id, tag_list)
-                except Exception:
-                    logger.exception("Failed to attach tags %s to sim %s", tag_list, sim_id)
-    finally:
-        project.close()
-
-    return sim_id
+    provider = get_trial_promotion_provider()
+    return provider.promote_trial(
+        cfg_path,
+        values,
+        paths=paths,
+        name=name,
+        tags=tags,
+        session_id=session_id,
+    )
 
 
 def _attach_tags_to_simulation(ctx: WorkflowContext, sim_id: str, tags: Sequence[str]) -> None:

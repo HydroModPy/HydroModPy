@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import platform
+
 import pytest
 
 from tests.regression.golden_utils import assert_required_executables
@@ -9,6 +11,12 @@ from tests.validation.helpers import assert_metric_below
 from validation_cases.analytical.transient.linearized_unconfined_boundary_step_1d.comparison import (
     run_linearized_unconfined_boundary_step_comparison,
 )
+
+
+def _require_linux_petsc4py() -> None:
+    if platform.system().strip().lower() != "linux":
+        pytest.skip("Boussinesq PETSc runtime is Linux-only.")
+    pytest.importorskip("petsc4py")
 
 
 @pytest.mark.validation
@@ -41,6 +49,48 @@ def test_linearized_unconfined_boundary_step_1d_matches_reference_profiles(
     space_time_tol = dict(comparison.tolerances.get("space_time", {}))
     final_profile_tol = dict(comparison.tolerances.get("final_profile", {}))
 
+    assert_metric_below(
+        "Space-time RMSE",
+        comparison.space_time_rmse,
+        float(space_time_tol["rmse"]),
+        unit="m",
+    )
+    assert_metric_below(
+        "Space-time max abs error",
+        comparison.space_time_max_error,
+        float(space_time_tol["max_abs_error"]),
+        unit="m",
+    )
+    assert_metric_below(
+        "Final-profile RMSE",
+        comparison.final_profile_rmse,
+        float(final_profile_tol["rmse"]),
+        unit="m",
+    )
+    assert_metric_below(
+        "Cross-row head spread",
+        comparison.row_spread,
+        float(space_time_tol["row_spread"]),
+        unit="m",
+    )
+
+
+@pytest.mark.validation
+@pytest.mark.analytical
+@pytest.mark.transient
+@pytest.mark.petsc
+def test_linearized_unconfined_boundary_step_1d_petsc_ts_vi_obstacle_matches_reference_profiles() -> None:
+    """Run the analytical boundary-step case through PETSc TS VI obstacle."""
+    _require_linux_petsc4py()
+
+    comparison = run_linearized_unconfined_boundary_step_comparison(
+        caller_file=__file__,
+        solver="petsc_ts_vi_obstacle",
+    )
+    space_time_tol = dict(comparison.tolerances.get("space_time", {}))
+    final_profile_tol = dict(comparison.tolerances.get("final_profile", {}))
+
+    assert comparison.result.solver_name == "petsc_ts_vi_obstacle"
     assert_metric_below(
         "Space-time RMSE",
         comparison.space_time_rmse,

@@ -24,6 +24,7 @@ expected_spatial_shape = [5, 50]
 
 [output.expected_spatial_shape_by_solver]
 boussinesq = [3, 40]
+petsc_ts_vi_obstacle = [3, 40]
 
 [time]
 dt_seconds = 43200.0

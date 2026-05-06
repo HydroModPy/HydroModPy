@@ -60,3 +60,39 @@ def test_dupuit_fixed_head_petsc_variants_match_reference_profile(
         float(tolerances["row_spread_max"]),
         unit="m",
     )
+
+
+@pytest.mark.validation
+@pytest.mark.analytical
+@pytest.mark.transient
+@pytest.mark.fast
+@pytest.mark.petsc
+def test_dupuit_fixed_head_petsc_ts_vi_obstacle_reaches_reference_profile() -> None:
+    """Validate TS VI obstacle against the existing Dupuit fixed-head profile."""
+    _require_linux_petsc4py()
+
+    comparison = run_dupuit_fixed_head_comparison(
+        caller_file=__file__,
+        solver="petsc_ts_vi_obstacle",
+    )
+    tolerances = dict(comparison.tolerances)
+
+    assert comparison.solver == "petsc_ts_vi_obstacle"
+    assert_metric_below(
+        "Head-profile RMSE",
+        comparison.rms_error,
+        float(tolerances["rms_error_max"]),
+        unit="m",
+    )
+    assert_metric_below(
+        "Head-profile max abs error",
+        comparison.max_error,
+        float(tolerances["max_error_max"]),
+        unit="m",
+    )
+    assert_metric_below(
+        "Cross-row head spread",
+        comparison.row_spread,
+        float(tolerances["row_spread_max"]),
+        unit="m",
+    )

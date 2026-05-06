@@ -126,6 +126,13 @@ class SimulationComparisonLauncher:
             "comparison_figures_dir": str(comparison_root / "comparison_figures"),
             "comparison_figures": outputs.figure_artifacts,
             "comparison_data_artifacts": outputs.data_artifacts,
+            "boussinesq_vi_obstacle_diagnostics": self._vi_obstacle_artifact_index(
+                outputs.data_artifacts
+            ),
+            "boussinesq_ts_vi_obstacle_diagnostics": self._prefixed_artifact_index(
+                outputs.data_artifacts,
+                prefix="ts_vi_obstacle_",
+            ),
             "n_observable_rows": len(all_rows),
             "n_metric_rows": len(outputs.summary_metrics),
             "n_difference_rows": len(outputs.detail_metrics),
@@ -382,6 +389,37 @@ class SimulationComparisonLauncher:
             "",
         ]
         return "\n".join(lines) + report_text
+
+    @staticmethod
+    def _vi_obstacle_artifact_index(
+        artifacts: list[dict[str, Any]],
+    ) -> dict[str, dict[str, str]]:
+        """Group VI obstacle diagnostic artifacts by simulation id."""
+        return SimulationComparisonLauncher._prefixed_artifact_index(
+            artifacts,
+            prefix="vi_obstacle_",
+        )
+
+    @staticmethod
+    def _prefixed_artifact_index(
+        artifacts: list[dict[str, Any]],
+        *,
+        prefix: str,
+    ) -> dict[str, dict[str, str]]:
+        """Group diagnostic artifacts with a common kind prefix by simulation id."""
+        grouped: dict[str, dict[str, str]] = {}
+        for artifact in artifacts:
+            kind = str(artifact.get("kind", ""))
+            if not kind.startswith(prefix):
+                continue
+            simulation_id = str(artifact.get("simulation_id", ""))
+            if simulation_id == "":
+                continue
+            key = kind.removeprefix(prefix)
+            path = str(artifact.get("path", ""))
+            if path:
+                grouped.setdefault(simulation_id, {})[key] = path
+        return grouped
 
     @staticmethod
     def _cleanup_generated_configs(children: list[GeneratedChildConfig]) -> list[str]:

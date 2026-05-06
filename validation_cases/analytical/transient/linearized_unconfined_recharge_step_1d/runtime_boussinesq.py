@@ -22,6 +22,8 @@ def run_boussinesq_linearized_unconfined_recharge_step_case(
     *,
     caller_file: str | Path,
     timeout: int = 1800,
+    runtime_backend: str = "scipy_sparse",
+    surface_interaction_model: str | None = None,
 ) -> object:
     """Run the recharge-step case through the local transient Boussinesq backend."""
     metadata = load_case_metadata(CASE_DIR)
@@ -34,6 +36,38 @@ def run_boussinesq_linearized_unconfined_recharge_step_case(
     recharge_rate_m_s = mm_day_to_m_s(float(reference_cfg["recharge_mm_day"]))
     nper = int(output_cfg["expected_periods"])
     dt_seconds = float(time_cfg["dt_seconds"])
+
+    flow_section = {
+        "flow_regime": "transient",
+        "runtime_backend": str(runtime_backend),
+        "ic": {"type": "custom", "value": base_head_m},
+        "active_sinks_sources": ["recharge"],
+        "active_bc": ["west_side", "east_side"],
+        "sinks_sources": {
+            "recharge": {
+                "values": recharge_rate_m_s,
+                "first_clim": "mean",
+                "units": "m/s",
+            }
+        },
+        "bc": {
+            "dirichlet": {
+                "west_side": {"value": base_head_m},
+                "east_side": {"value": base_head_m},
+            }
+        },
+    }
+    if surface_interaction_model is not None:
+        flow_section["surface_interaction_model"] = str(surface_interaction_model)
+    if str(surface_interaction_model or "").strip().lower() == "ts_vi_obstacle":
+        flow_section.update(
+            {
+                "ts_vi_steps_per_period": 4,
+                "ts_vi_adapt": False,
+                "ts_vi_type": "beuler",
+                "ts_vi_snes_type": "vinewtonrsls",
+            }
+        )
 
     return run_boussinesq_transient_uniform_strip_case(
         case_dir=CASE_DIR,
@@ -50,25 +84,7 @@ def run_boussinesq_linearized_unconfined_recharge_step_case(
         z_bottom_m=base_head_m - reference_saturated_thickness_m,
         hydraulic_conductivity_m_s=float(reference_cfg["hydraulic_conductivity_m_per_s"]),
         storage_coefficient=float(reference_cfg["specific_yield"]),
-        flow_section={
-            "flow_regime": "transient",
-            "ic": {"type": "custom", "value": base_head_m},
-            "active_sinks_sources": ["recharge"],
-            "active_bc": ["west_side", "east_side"],
-            "sinks_sources": {
-                "recharge": {
-                    "values": recharge_rate_m_s,
-                    "first_clim": "mean",
-                    "units": "m/s",
-                }
-            },
-            "bc": {
-                "dirichlet": {
-                    "west_side": {"value": base_head_m},
-                    "east_side": {"value": base_head_m},
-                }
-            },
-        },
+        flow_section=flow_section,
         plan_name="Boussinesq recharge-step validation",
         plan_description="Transient uniform recharge step on a 1D strip",
     )

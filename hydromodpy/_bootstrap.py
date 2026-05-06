@@ -108,8 +108,13 @@ def _register_calibration_contracts() -> None:
     from hydromodpy.workflow.steps.calibration import (
         register_default_trial_pipeline_provider,
     )
+    from hydromodpy.calibration.runners.contracts import (
+        register_trial_promotion_provider,
+    )
+    from hydromodpy.calibration_dispatch import ProjectTrialPromotionProvider
 
     register_default_trial_pipeline_provider()
+    register_trial_promotion_provider(ProjectTrialPromotionProvider())
 
 
 def _register_analysis_contracts() -> None:
@@ -126,7 +131,11 @@ def _register_analysis_contracts() -> None:
     """
     from hydromodpy.analysis.comparison import _solver_protocol
     from hydromodpy.solver.base import registry as _registry
-    from hydromodpy.workflow.testbed import register_default_testbed_runner_provider
+    from hydromodpy.workflow_dispatch import ProjectTestbedRunnerProvider
+    from hydromodpy.workflow.testbed import (
+        register_default_testbed_runner_provider,
+        set_default_testbed_runner_provider_factory,
+    )
 
     class _RegistryProvider:
         def distributed_flow_solver_sections(self) -> tuple[str, ...]:
@@ -144,6 +153,7 @@ def _register_analysis_contracts() -> None:
             return tuple(sections)
 
     _solver_protocol.set_solver_registry_provider(_RegistryProvider())
+    set_default_testbed_runner_provider_factory(ProjectTestbedRunnerProvider)
     register_default_testbed_runner_provider()
 
 

@@ -64,6 +64,7 @@ Si la question est "comment un TOML devient un resultat ?", suivre cet
 ordre de lecture :
 
 - `hydromodpy/cli/commands/run.py`
+- `hydromodpy/workflow_dispatch.py`
 - `hydromodpy/workflow/dispatch.py`
 - `hydromodpy/project.py`
 - `hydromodpy/simulation/planning/`
@@ -178,7 +179,8 @@ Mode d'execution declare dans le TOML ou resolu par le CLI :
 
 Reference :
 - voir [CLI.md](CLI.md)
-- implementation dans `hydromodpy/workflow/dispatch.py`
+- resolution dans `hydromodpy/workflow/dispatch.py`
+- dispatch public dans `hydromodpy/workflow_dispatch.py`
 
 Important :
 - `workflow` designe le mode utilisateur

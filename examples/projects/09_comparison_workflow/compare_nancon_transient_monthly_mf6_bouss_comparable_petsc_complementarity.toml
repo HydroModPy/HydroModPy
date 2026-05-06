@@ -1,0 +1,208 @@
+workflow = "comparison"
+
+[comparison]
+comparison_id = "nancon_transient_monthly_mf6_bouss_comparable_petsc_complementarity"
+base_simulation_config = "base_nancon_transient_monthly_hydrography_mesh_input_bouss_comparable.toml"
+output_root = "outputs/nancon_transient_monthly_mf6_bouss_comparable_petsc_complementarity"
+reference_simulation = "mf6_ref"
+continue_on_error = false
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+timeout_seconds = 2400
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 250.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 DISV Nancon monthly reference, comparable setup"
+solver = "modflow6"
+mesh_label = "Nancon river-constrained triangular mesh"
+mesh_mode = "mesh_input"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_monthly_mf6_bouss_comparable/workspace_mf6"
+root = "outputs/nancon_transient_monthly_mf6_bouss_comparable/workspace_mf6"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[[comparison.simulation]]
+id = "bouss_candidate"
+label = "Boussinesq PETSc complementarity Nancon monthly candidate"
+solver = "boussinesq"
+mesh_label = "Nancon river-constrained triangular mesh"
+mesh_mode = "mesh_input"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_monthly_mf6_bouss_comparable_petsc_complementarity/workspace_bouss"
+root = "outputs/nancon_transient_monthly_mf6_bouss_comparable_petsc_complementarity/workspace_bouss"
+
+[comparison.simulation.overlay.flow]
+runtime_backend = "petsc"
+
+[[comparison.observable]]
+name = "head_map_after_first_month"
+variable = "watertable_elevation"
+support = "map"
+time = 0
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_wet_period"
+variable = "watertable_elevation"
+support = "map"
+time = 1
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_dry_period"
+variable = "watertable_elevation"
+support = "map"
+time = 6
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "seepage_map_wet_period"
+variable = "seepage_areas"
+support = "map"
+time = 1
+unit = "-"
+
+[[comparison.observable]]
+name = "seepage_map_dry_period"
+variable = "seepage_areas"
+support = "map"
+time = 6
+unit = "-"
+
+[[comparison.observable]]
+name = "seepage_map_last"
+variable = "seepage_areas"
+support = "map"
+time = "last"
+unit = "-"
+
+[[comparison.observable]]
+name = "outflow_drain_map_wet_period"
+variable = "outflow_drain"
+support = "map"
+time = 1
+unit = "m/day"
+
+[[comparison.observable]]
+name = "outflow_drain_map_dry_period"
+variable = "outflow_drain"
+support = "map"
+time = 6
+unit = "m/day"
+
+[[comparison.observable]]
+name = "outflow_drain_map_last"
+variable = "outflow_drain"
+support = "map"
+time = "last"
+unit = "m/day"
+
+[[comparison.observable]]
+name = "surface_excess_map_wet_period"
+variable = "surface_excess_rate"
+support = "map"
+time = 1
+unit = "m/day"
+simulations = ["bouss_candidate"]
+
+[[comparison.observable]]
+name = "surface_excess_map_dry_period"
+variable = "surface_excess_rate"
+support = "map"
+time = 6
+unit = "m/day"
+simulations = ["bouss_candidate"]
+
+[[comparison.observable]]
+name = "surface_excess_map_last"
+variable = "surface_excess_rate"
+support = "map"
+time = "last"
+unit = "m/day"
+simulations = ["bouss_candidate"]
+
+[[comparison.observable]]
+name = "surface_excess_flux_series"
+variable = "surface_excess_flux"
+support = "cell_mask"
+time = "all"
+reducer = "sum"
+unit = "m3/s"
+simulations = ["bouss_candidate"]
+
+[[comparison.observable]]
+name = "head_outlet_series"
+variable = "watertable_elevation"
+support = "point"
+x = 389273.126405933
+y = 6816556.61306809
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_mid_catchment_series"
+variable = "watertable_elevation"
+support = "point"
+x = 390941.369935479
+y = 6820865.93033605
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "head_eastern_plateau_series"
+variable = "watertable_elevation"
+support = "point"
+x = 396287.5136922192
+y = 6817290.185968083
+time = "all"
+unit = "m"
+
+[[comparison.observable]]
+name = "outlet_flux_series"
+variable = "outlet_flux"
+support = "outlet"
+x = 389273.126405933
+y = 6816556.61306809
+time = "all"
+unit = "m3/s"

@@ -247,11 +247,10 @@ computes useful summaries such as:
 - the ``simulated_active_network`` figure when the run has
   ``accumulation_flux`` and a plottable mesh
 
-The first two are result views in ``hydromodpy.results.views`` because they
-are direct reductions of persisted fields. The planar bidirectional distance
-metric is placed in ``hydromodpy.analysis.stream_networks`` because it is a
-comparison analysis that combines a computed active mask, mesh geometry, and a
-persisted hydrographic-network role.
+These are lazy result views implemented in ``hydromodpy.results.views``:
+they read persisted fields, mesh geometry, and hydrographic-network roles from
+the run without mutating the catalog. ``hydromodpy.analysis.stream_networks``
+keeps a compatibility import for callers that used the older analysis path.
 
 What is still missing is the canonical storage rule that decides which
 thresholded or aggregated active network should become the persisted
