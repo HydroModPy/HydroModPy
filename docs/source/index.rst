@@ -238,6 +238,7 @@ For any question or collaboration request, contact:
    Developer Notes <developer/index>
    API Reference <api/index>
    How to cite <how_to_cite>
+   Papers using HydroModPy <usage_bibliography>
    Applications <applications>
    Migration <migration/index>
    contribute
