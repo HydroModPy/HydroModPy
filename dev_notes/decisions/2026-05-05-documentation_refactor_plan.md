@@ -143,7 +143,10 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - CITATION.cff à la racine (19 auteurs, preferred-citation HESS in-preparation)
     - `docs/source/how_to_cite.rst` BibTeX/RIS/plain text avec copy-button
     - `docs/source/developer/style_guide.rst` palette, typographie, figures
-24. `[docs] - add solver capability matrix, workflow flowchart and geographic application map`
+24. `[docs] - add solver capability matrix, workflow flowchart and geographic application map` ✓ (commit `77e997d62`)
+    - Matrice axe par axe (steady, transient, unstructured, transport, calibration, 1D/2D/3D) ajoutée en tête de `theory/solvers/solver-capability-matrix.rst`
+    - Workflow flowchart mermaid cliquable (6 nœuds) sur `user_guide/workflows/index.rst`
+    - `docs/source/applications.rst` registre catchments + mermaid régional, version Leaflet interactive reportée Phase 3 step 41
 25. `[docs] - install tier-2 sphinx extensions (favicon, sitemap, last-updated-by-git, opengraph)`
 26. `[docs] - add custom config-field, validation-case-summary and solver-comparison directives`
 27. `[config] - complete Field descriptions for analysis and mesh_catchment`
