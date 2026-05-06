@@ -304,7 +304,7 @@ les étapes 23 à 37.
     - Directive `image-comparison` ajoutée dans `_ext/hmp_directives.py` : émet un `<figure><div class="hmp-image-compare"><picture class="hmp-before">…</picture><picture class="hmp-after">…</picture><figcaption>…</figcaption></div></figure>`, fallback `image` PNG empilé via `addnodes.only(expr="not html")`
     - Slider posé sur 2 pages : `theory/solvers/modflow6-vs-modflownwt-scientific-comparison.rst` (MODFLOW 6 vs MODFLOW-NWT sur le cas Boussinesq circular-island) et `theory/solvers/xt3d-on-irregular-disv-meshes.rst` (DIS structuré vs DISV irrégulier sur le même cas)
     - Build sphinx local clean (3 warnings baseline)
-40. `[docs] - integrate algolia docsearch (after acceptance)`
+40. `[docs] - integrate algolia docsearch (after acceptance)` ⏸ bloqué — Algolia API key non encore reçue. Voir section 0.5 « Action utilisateur en attente ». Reprendre dès que la candidature DocSearch est acceptée (URL d'application : https://docsearch.algolia.com/apply/, indiquer `https://hydromodpy.readthedocs.io/en/dev/`).
 41. `[docs] - add goatcounter analytics and was-this-helpful widget`
 42. `[docs] - add difficulty and time badges`
 43. `[docs] - capture and embed key workflow GIFs (calibration convergence, mesh refinement, CLI setup)`
