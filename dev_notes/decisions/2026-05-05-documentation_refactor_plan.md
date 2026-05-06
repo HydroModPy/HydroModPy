@@ -14,7 +14,7 @@ documentation de HydroModPy. Il sert de guide de référence pour la refonte.
 | Phase 0 — Quick wins | 1 à 10 | ✓ livrée 2026-05-05 | `dev-docs` | `07f2f3b30` → `a0799bf69` |
 | Phase 1 — Refonte structurelle | 11 à 22 | ✓ 12/12 livrée (étape 21 incluse) | `dev-docs` | `b5144869b` → `c8e8057dd` |
 | Phase 2 — Enrichissement | 23 à 37 | ✓ livrée 2026-05-06 | `dev-docs` | `072b06e00` → `2f7697342` |
-| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (étapes 38 et 39 livrées) | `dev-docs` | `137131b96` → `2bb828934` |
+| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (38, 39, 41 livrées ; 40 bloquée) | `dev-docs` | `137131b96` → `b94eff267` |
 
 Build sphinx local clean : 3 warnings baseline (incrémental) / 8 sur fresh
 build (5 issues codebase pré-existantes). Voir
@@ -305,7 +305,14 @@ les étapes 23 à 37.
     - Slider posé sur 2 pages : `theory/solvers/modflow6-vs-modflownwt-scientific-comparison.rst` (MODFLOW 6 vs MODFLOW-NWT sur le cas Boussinesq circular-island) et `theory/solvers/xt3d-on-irregular-disv-meshes.rst` (DIS structuré vs DISV irrégulier sur le même cas)
     - Build sphinx local clean (3 warnings baseline)
 40. `[docs] - integrate algolia docsearch (after acceptance)` ⏸ bloqué — Algolia API key non encore reçue. Voir section 0.5 « Action utilisateur en attente ». Reprendre dès que la candidature DocSearch est acceptée (URL d'application : https://docsearch.algolia.com/apply/, indiquer `https://hydromodpy.readthedocs.io/en/dev/`).
-41. `[docs] - add goatcounter analytics and was-this-helpful widget`
+41. `[docs] - add goatcounter analytics and was-this-helpful widget` ✓ (commit `b94eff267`)
+    - Hook `_register_goatcounter` dans `_ext/hmp_directives.py setup()` : injecte `<script async data-goatcounter="…" src="https://gc.zgo.at/count.js">` si la variable d'environnement `HMP_DOCS_GOATCOUNTER_URL` pointe vers un endpoint GoatCounter (`https://<projet>.goatcounter.com/count`)
+    - Sans la variable d'environnement, aucun script externe n'est chargé (RGPD-friendly par défaut)
+    - Widget feedback `_static/js/hmp-feedback.js` (~2 KB) ajouté à la fin de chaque article via `html_js_files` : 2 boutons "Yes/No" sous le titre "Was this page helpful?", désactivés après clic, message d'accusé adapté
+    - Si `window.goatcounter` est chargé, le clic émet un event `feedback/yes/<path>` ou `feedback/no/<path>` ; sinon le widget reste muet côté analytics
+    - CSS dédié `_static/css/hmp-feedback.css` (variables PST pour s'aligner sur le thème pydata)
+    - Build sphinx local clean (3 warnings baseline) ; build avec `HMP_DOCS_GOATCOUNTER_URL` set vérifié manuellement, le snippet est bien injecté
+    - Pour activer GoatCounter : créer un projet sur goatcounter.com, exporter `HMP_DOCS_GOATCOUNTER_URL=https://<projet>.goatcounter.com/count` dans le shell ou dans `.readthedocs.yaml` (`build.commands`/`environment`)
 42. `[docs] - add difficulty and time badges`
 43. `[docs] - capture and embed key workflow GIFs (calibration convergence, mesh refinement, CLI setup)`
 44. `[docs] - add interactive schema explorer with stoplight viewer (couche 3 config)`
