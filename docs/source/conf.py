@@ -41,6 +41,10 @@ _DOC_REQUIRED_EXTENSIONS = [
     "sphinx_autodoc_typehints",
     "sphinx_issues",
     "sphinxext.rediraffe",
+    "sphinx_favicon",
+    "sphinx_sitemap",
+    "sphinx_last_updated_by_git",
+    "sphinxext.opengraph",
 ]
 
 
@@ -253,6 +257,10 @@ extensions = [
     "sphinx_autodoc_typehints",
     "sphinx_issues",
     "sphinxext.rediraffe",
+    "sphinx_favicon",
+    "sphinx_sitemap",
+    "sphinx_last_updated_by_git",
+    "sphinxext.opengraph",
 ]
 
 intersphinx_mapping = {
@@ -284,6 +292,24 @@ issues_github_path = "HydroModPy/HydroModPy"
 
 rediraffe_redirects = "redirects.txt"
 rediraffe_branch = "master~1"
+
+# sphinx-favicon: declare logo variants used as favicon. Files live in
+# docs/source/_static/ and are copied via html_static_path.
+favicons = [
+    {"rel": "icon", "href": "logoHydroModPy.png", "type": "image/png"},
+    {"rel": "shortcut icon", "href": "logoHydroModPy.ico", "type": "image/x-icon"},
+]
+
+# sphinx-sitemap and sphinxext-opengraph: shared base URL for the public docs.
+html_baseurl = "https://hydromodpy.readthedocs.io/en/dev/"
+sitemap_url_scheme = "{link}"
+ogp_site_url = html_baseurl
+ogp_site_name = "HydroModPy"
+ogp_image = html_baseurl + "_static/logoHydroModPy_long.png"
+ogp_use_first_image = True
+
+# sphinx-last-updated-by-git: show the last commit date per page in the footer.
+git_last_updated_timezone = "Europe/Paris"
 _PLANTUML_COMMAND = _resolve_plantuml_command()
 if _PLANTUML_COMMAND is not None:
     extensions.append("sphinxcontrib.plantuml")
