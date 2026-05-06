@@ -49,6 +49,20 @@ _OPAQUE_DICT_VALUE = re.compile(
 )
 
 
+INTENTIONALLY_OPAQUE_PATHS: frozenset[str] = frozenset(
+    {
+        "mesh_catchment.hydraulic_properties.conductivity.values",
+        "mesh_catchment.hydraulic_properties.storage_coefficient.values",
+    }
+)
+"""TOML paths intentionally typed as ``dict[str, scalar]`` without a sub-model.
+
+Each entry is a free-form mapping from an external key (geology zone,
+station id, ...) to a scalar value. There is no payload schema to
+document, so the coverage check skips them.
+"""
+
+
 def _format_annotation(field: FieldInfo) -> str:
     annotation = field.annotation
     if isinstance(annotation, type):
@@ -73,6 +87,8 @@ def _walk_opaque_fields(
         seen = {id(model)}
     out: list[tuple[str, str]] = []
     for field_name, field in model.model_fields.items():
+        if getattr(field, "exclude", False):
+            continue
         full_path = f"{section_path}.{field_name}" if section_path else field_name
         if _looks_opaque(field):
             out.append((full_path, _format_annotation(field)))
@@ -102,11 +118,21 @@ def _normalize_pattern(pattern: str) -> str:
 
 
 def find_uncovered_dispatchers(root_model: type[BaseModel]) -> list[UncoveredDispatcher]:
-    """Return opaque TOML paths missing from ``dispatchers.py``."""
+    """Return opaque TOML paths missing from ``dispatchers.py``.
+
+    Two filters apply before the coverage check:
+
+    - fields marked ``exclude=True`` are ignored (they are not part of
+      the published schema, e.g. inherited generic containers);
+    - paths registered in :data:`INTENTIONALLY_OPAQUE_PATHS` are
+      whitelisted for free-form key/value mappings without a sub-model.
+    """
     covered_prefixes = {_normalize_pattern(entry.pattern) for entry in all_dispatchers()}
     candidates = _walk_opaque_fields(root_model, section_path="")
     uncovered: list[UncoveredDispatcher] = []
     for full_path, annotation in candidates:
+        if full_path in INTENTIONALLY_OPAQUE_PATHS:
+            continue
         if any(
             full_path == prefix or full_path.startswith(prefix + ".") for prefix in covered_prefixes
         ):

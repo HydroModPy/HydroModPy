@@ -104,6 +104,22 @@ tools/doc_config/dispatchers.py to surface its sub-schema.
 
 Fix it by editing `dispatchers.py` and rebuilding.
 
+### Two automatic exclusions
+
+Some opaque fields are not real dispatchers and would create false
+positives:
+
+- **`exclude=True` fields**: inherited generic containers that the
+  parent model marks `exclude=True` are not part of the published
+  schema. The check skips them automatically. Example: the
+  `param`/`bc`/`sinks_sources` fields inherited by `TransportConfig`
+  from `ProcessSpatialConfig`.
+- **Free-form key/value mappings**: some `dict[str, scalar]` fields
+  exist on purpose without a sub-model (geology zone -> conductivity
+  scalar, station id -> coordinate, ...). Such paths are listed
+  explicitly in `coverage.INTENTIONALLY_OPAQUE_PATHS`. Add an entry
+  there for any new free-form mapping you introduce.
+
 ## When you should edit which file
 
 | Change you made | File to edit |
