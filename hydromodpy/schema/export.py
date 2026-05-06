@@ -28,6 +28,7 @@ CLI::
 from __future__ import annotations
 
 import json
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -140,13 +141,19 @@ def _walk_fields(
 ) -> None:
     """Populate *out* with ``field_path -> validator_type`` entries."""
     try:
-        schema = model_cls.model_json_schema()
+        schema = _model_schema(model_cls)
     except Exception:
         return
     props = schema.get("properties", {})
     for field_name, field_schema in props.items():
         path = f"{section_name}.{field_name}"
         out[path] = _infer_validator_type(field_schema)
+
+
+@cache
+def _model_schema(model_cls: type) -> dict[str, Any]:
+    """Return a cached JSON Schema for one Pydantic model."""
+    return model_cls.model_json_schema()
 
 
 def build_field_validators() -> dict[str, str]:

@@ -137,7 +137,7 @@ def _load_base_payload(
     """
 
     if isinstance(base_config, BaseModel):
-        payload = base_config.model_dump(mode="json", by_alias=True, exclude_none=True)
+        payload = base_config.model_dump(mode="json", exclude_none=True)
         return payload, None
     base_path = Path(base_config).expanduser().resolve()
     if not base_path.is_file():

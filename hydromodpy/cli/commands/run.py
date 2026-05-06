@@ -12,6 +12,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
@@ -215,14 +217,12 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_USER_ABORT)
+    except ValidationError as exc:
+        print(f"Config invalid: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
     except FileNotFoundError as exc:
         print(f"Missing file: {exc}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
-    except Exception as exc:
-        if type(exc).__name__ == "ValidationError":
-            print(f"Config invalid: {exc}", file=sys.stderr)
-            sys.exit(EXIT_CONFIG)
-        raise
 
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
     if summary:

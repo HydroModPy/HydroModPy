@@ -34,6 +34,7 @@ CLI::
 from __future__ import annotations
 
 import json
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,7 @@ def _ensure_root_sections() -> dict[str, type]:
     return _root_sections()
 
 
+@cache
 def export_schema(
     model_cls: type | None = None,
     *,

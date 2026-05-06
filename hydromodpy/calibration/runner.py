@@ -85,8 +85,7 @@ def _load_toml_calibration(path: Path) -> tuple[CalibrationConfig, dict]:
 
 def _space_from_config(cfg: CalibrationConfig) -> ParameterSpace:
     declarations = {
-        name: decl.model_dump(exclude_none=True, by_alias=True)
-        for name, decl in cfg.parameters.items()
+        name: decl.model_dump(exclude_none=True) for name, decl in cfg.parameters.items()
     }
     return ParameterSpace.from_toml_mapping(declarations)
 
@@ -797,8 +796,7 @@ def run_calibration_programmatic(
         otherwise return its ``to_dict()`` payload.
     """
     declarations = {
-        name: decl.model_dump(exclude_none=True, by_alias=True)
-        for name, decl in cfg.parameters.items()
+        name: decl.model_dump(exclude_none=True) for name, decl in cfg.parameters.items()
     }
     space = ParameterSpace.from_toml_mapping(declarations)
     override_paths = _override_paths(cfg)
@@ -819,7 +817,7 @@ def run_calibration_programmatic(
         from hydromodpy.calibration.materialize import write_overlay_toml
 
         cfg_path = ws_root / ".hydromodpy" / "calibration_base.toml"
-        payload = project.cfg.model_dump(mode="json", by_alias=True, exclude_none=True)
+        payload = project.cfg.model_dump(mode="json", exclude_none=True)
         write_overlay_toml(cfg_path, payload)
     else:
         cfg_path = Path(src_path).expanduser().resolve()
