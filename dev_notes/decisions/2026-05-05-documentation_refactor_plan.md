@@ -14,7 +14,7 @@ documentation de HydroModPy. Il sert de guide de référence pour la refonte.
 | Phase 0 — Quick wins | 1 à 10 | ✓ livrée 2026-05-05 | `dev-docs` | `07f2f3b30` → `a0799bf69` |
 | Phase 1 — Refonte structurelle | 11 à 22 | ✓ 12/12 livrée (étape 21 incluse) | `dev-docs` | `b5144869b` → `c8e8057dd` |
 | Phase 2 — Enrichissement | 23 à 37 | ✓ livrée 2026-05-06 | `dev-docs` | `072b06e00` → `2f7697342` |
-| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (étape 38 livrée) | `dev-docs` | `137131b96` → … |
+| Phase 3 — Optionnel/conditionnel | 38 à 45 | 🚧 en cours (étapes 38 et 39 livrées) | `dev-docs` | `137131b96` → `2bb828934` |
 
 Build sphinx local clean : 3 warnings baseline (incrémental) / 8 sur fresh
 build (5 issues codebase pré-existantes). Voir
@@ -298,7 +298,12 @@ les étapes 23 à 37.
     - 384 `.. figure::` migrés vers `.. gallery-figure::` sur 118 fichiers RST (gallery + theory + user_guide + getting_started)
     - `.pre-commit-config.yaml` : doc8 `--max-line-length=120` (au lieu de 100) et exclusion étendue à `capability_gallery/` pour absorber les chemins gallery longs ; `make lint` reste à 100 advisory
     - Build sphinx local clean (3 warnings baseline incrémental) ; `--check-drift` PNG OK
-39. `[docs] - add image comparison slider for mesh structured vs unstructured pages`
+39. `[docs] - add image comparison slider for mesh structured vs unstructured pages` ✓ (commits `00735ae5b` + `2bb828934`)
+    - Commit `00735ae5b` rattrape la part étape 38 manquée par le pre-commit (RST + directive `gallery-figure` + pipeline `update_gallery._append_figure`) et étire `--max-line-length` doc8 à 130 pour accommoder les `:doc:` chemins `../../capability_gallery/cases/<long-slug>` (3 fichiers theory wrappés en deux lignes pour limiter le bruit)
+    - Commit `2bb828934` : composant slider léger sans dépendance externe (`docs/source/_static/js/hmp-image-compare.js` ~3 KB + `docs/source/_static/css/hmp-image-compare.css`) câblé via `html_js_files`/`html_css_files`
+    - Directive `image-comparison` ajoutée dans `_ext/hmp_directives.py` : émet un `<figure><div class="hmp-image-compare"><picture class="hmp-before">…</picture><picture class="hmp-after">…</picture><figcaption>…</figcaption></div></figure>`, fallback `image` PNG empilé via `addnodes.only(expr="not html")`
+    - Slider posé sur 2 pages : `theory/solvers/modflow6-vs-modflownwt-scientific-comparison.rst` (MODFLOW 6 vs MODFLOW-NWT sur le cas Boussinesq circular-island) et `theory/solvers/xt3d-on-irregular-disv-meshes.rst` (DIS structuré vs DISV irrégulier sur le même cas)
+    - Build sphinx local clean (3 warnings baseline)
 40. `[docs] - integrate algolia docsearch (after acceptance)`
 41. `[docs] - add goatcounter analytics and was-this-helpful widget`
 42. `[docs] - add difficulty and time badges`
