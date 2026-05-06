@@ -137,7 +137,10 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
 
 #### Phase 2 — Enrichissement (~9-11 jours)
 
-**Statut : en cours sur `dev-docs`.**
+**Statut : 15/15 commits livrés sur `dev-docs`.**
+Build local clean (3 warnings baseline inchangés). Tableau de progression
+détaillé maintenu sous chaque étape ; aucune régression introduite par
+les étapes 23 à 37.
 
 23. `[docs] - add visual identity, CITATION.cff and how-to-cite page` ✓ (commit `072b06e00`)
     - CITATION.cff à la racine (19 auteurs, preferred-citation HESS in-preparation)
@@ -207,7 +210,12 @@ sur `multiprocessing/popen_fork`). Aucun introduit par les étapes 12 à 22.
     - `dev_notes/diagnostics/doc_health.md` (interne, pas dans la doc publique)
     - Tableaux : build health, baseline warnings, doc linting, coverage, stubs, cross-link checks
     - Procédure refresh documentée (regen doc_config + build sphinx -j auto)
-37. `[docs] - revamp landing page with hero CTAs and citation block`
+37. `[docs] - revamp landing page with hero CTAs and citation block` ✓ (commit `2f7697342`)
+    - Refonte `index.rst` : pitch lead + 5 status badges (license/python/version/docs/DOI shields.io) + 3 CTAs (Get started, View gallery, API reference)
+    - Section "What's new" avec 3 derniers items du CHANGELOG (v0.3.3, v0.3.2, v0.3.1)
+    - Bloc citation BibTeX avec copy-button, lien vers how_to_cite et CITATION.cff
+    - Card grid étendu (10 cards : Installation, Quickstart, User guide, Cookbook, Case studies, Theory, Developer guide, API, Migration, Contributors)
+    - CSS pour `.lead` + hover sur landing CTAs
 
 #### Phase 3 — Optionnel et conditionnel (~6-8 jours)
 
