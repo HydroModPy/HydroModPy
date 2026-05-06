@@ -21,6 +21,7 @@ Outputs five layers under ``docs/source/user_guide/config_reference/``:
 
 from __future__ import annotations
 
+import contextlib
 import html
 import inspect
 import json
@@ -1144,6 +1145,11 @@ def _field_info_for_path(model: type[BaseModel], dotted: str) -> FieldInfo | Non
 
 def generate_all(output_dir: Path | None = None) -> list[Path]:
     """Render every generated RST file. Returns the paths that were written."""
+    with contextlib.chdir(REPO_ROOT):
+        return _generate_all_impl(output_dir)
+
+
+def _generate_all_impl(output_dir: Path | None) -> list[Path]:
     out = (output_dir or REFERENCE_DIR).resolve()
     out.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
