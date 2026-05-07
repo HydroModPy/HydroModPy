@@ -158,6 +158,24 @@ def _cached_full_schema(model_cls: type) -> dict[str, Any]:
     return model_cls.model_json_schema()
 
 
+def schema_sha256(model_cls: type | None = None) -> str:
+    """Return the SHA-256 of the canonical JSON Schema for *model_cls*.
+
+    Defaults to the full ``HydroModPyConfig`` schema. Used by the lockfile
+    writer to record the schema fingerprint at freeze time so consumers can
+    detect when the configuration schema has changed between freeze and
+    replay.
+    """
+    import hashlib
+
+    if model_cls is None:
+        from hydromodpy.config import HydroModPyConfig
+
+        model_cls = HydroModPyConfig
+    payload = json.dumps(_cached_full_schema(model_cls), sort_keys=True).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 def export_schema(
     model_cls: type | None = None,
     *,
@@ -228,4 +246,4 @@ def write_schema(
     return out_path
 
 
-__all__ = ["export_schema", "write_schema"]
+__all__ = ["export_schema", "schema_sha256", "write_schema"]
