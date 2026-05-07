@@ -13,7 +13,7 @@ TOML section: ``[workflow]``
 
 Pydantic model: ``WorkflowConfig`` defined in ``hydromodpy.config.hydromodpy_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L69>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L70>`__
 
 Workflow selector configuration.
 
@@ -40,7 +40,7 @@ Fields
         <code class="hmp-field-name">mode</code>
       </div>
 
-   :bdg-primary:`Literal['simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L72>`__
+   :bdg-primary:`Literal['simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L73>`__
 
       Workflow mode dispatched by `hmp run`.
 

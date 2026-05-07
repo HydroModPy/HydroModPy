@@ -54,6 +54,9 @@
         "hnoflo": {
           "default": -9999.0,
           "description": "BAS no-flow head sentinel value (HNOFLO).",
+          "examples": [
+            -9999.0
+          ],
           "title": "Hnoflo",
           "type": "number",
           "x-hmp-profile": "expert"
@@ -69,6 +72,9 @@
         "spatial_fields": {
           "default": true,
           "description": "Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.",
+          "examples": [
+            true
+          ],
           "title": "Spatial Fields",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -83,6 +89,9 @@
       "properties": {
         "name": {
           "description": "Unique block identifier used in logs and persistence.",
+          "examples": [
+            "example"
+          ],
           "title": "Name",
           "type": "string",
           "x-hmp-profile": "user"
@@ -96,6 +105,9 @@
             "kge",
             "mae"
           ],
+          "examples": [
+            "rmse"
+          ],
           "title": "Metric",
           "type": "string",
           "x-hmp-profile": "user"
@@ -103,6 +115,9 @@
         "weight": {
           "default": 1.0,
           "description": "Relative weight of this block in the composite sum.",
+          "examples": [
+            1.0
+          ],
           "exclusiveMinimum": 0.0,
           "title": "Weight",
           "type": "number",
@@ -121,6 +136,9 @@
         "normalize_cost": {
           "default": false,
           "description": "When True, divide the block cost by a reference scale (observed std fallback mean absolute value).",
+          "examples": [
+            false
+          ],
           "title": "Normalize Cost",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -132,6 +150,9 @@
             "identity",
             "log",
             "inverse"
+          ],
+          "examples": [
+            "identity"
           ],
           "title": "Transform",
           "type": "string",
@@ -151,6 +172,9 @@
       "properties": {
         "variable": {
           "description": "Simulated variable to extract (e.g. 'head', 'outlet_discharge').",
+          "examples": [
+            "example"
+          ],
           "title": "Variable",
           "type": "string",
           "x-hmp-profile": "user"
@@ -162,6 +186,9 @@
             "point",
             "boundary",
             "cell"
+          ],
+          "examples": [
+            "point"
           ],
           "title": "Support",
           "type": "string",
@@ -304,6 +331,9 @@
         "layer": {
           "default": 0,
           "description": "Structured layer index when support='cell'.",
+          "examples": [
+            0
+          ],
           "minimum": 0,
           "title": "Layer",
           "type": "integer",
@@ -328,6 +358,9 @@
           ],
           "default": "all",
           "description": "'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.",
+          "examples": [
+            "all"
+          ],
           "title": "Time",
           "x-hmp-profile": "user"
         },
@@ -339,6 +372,9 @@
             "sum",
             "last",
             "none"
+          ],
+          "examples": [
+            "mean"
           ],
           "title": "Reducer",
           "type": "string",
@@ -399,6 +435,9 @@
             "log",
             "logit"
           ],
+          "examples": [
+            "identity"
+          ],
           "title": "Transform",
           "type": "string",
           "x-hmp-profile": "user"
@@ -410,6 +449,9 @@
             "uniform",
             "log_uniform",
             "normal"
+          ],
+          "examples": [
+            "uniform"
           ],
           "title": "Prior",
           "type": "string",
@@ -450,6 +492,9 @@
             "replace",
             "scale"
           ],
+          "examples": [
+            "replace"
+          ],
           "title": "Mode",
           "type": "string",
           "x-hmp-profile": "user"
@@ -479,6 +524,9 @@
         "method": {
           "default": "grid",
           "description": "Optimization method. Install the calibration extra for optuna or cma_es.",
+          "examples": [
+            "grid"
+          ],
           "title": "Method",
           "type": "string",
           "x-hmp-profile": "user"
@@ -486,6 +534,9 @@
         "max_iter": {
           "default": 100,
           "description": "Maximum number of calibration iterations.",
+          "examples": [
+            100
+          ],
           "minimum": 1,
           "title": "Max Iter",
           "type": "integer",
@@ -494,6 +545,9 @@
         "batch_size": {
           "default": 1,
           "description": "Number of suggestions drawn per ask (for parallel optimizers).",
+          "examples": [
+            1
+          ],
           "minimum": 1,
           "title": "Batch Size",
           "type": "integer",
@@ -521,6 +575,9 @@
             "best_n",
             "all"
           ],
+          "examples": [
+            "none"
+          ],
           "title": "Save Runs",
           "type": "string",
           "x-hmp-profile": "user"
@@ -528,6 +585,9 @@
         "save_best_n": {
           "default": 10,
           "description": "Number of top iterations to promote when save_runs='best_n'.",
+          "examples": [
+            10
+          ],
           "minimum": 0,
           "title": "Save Best N",
           "type": "integer",
@@ -536,6 +596,9 @@
         "use_cache": {
           "default": true,
           "description": "Enable params_hash content-addressable cache.",
+          "examples": [
+            true
+          ],
           "title": "Use Cache",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -543,6 +606,9 @@
         "objective": {
           "default": "nse",
           "description": "Metric key used by the default ScalarObjective.",
+          "examples": [
+            "nse"
+          ],
           "title": "Objective",
           "type": "string",
           "x-hmp-profile": "user"
@@ -550,6 +616,9 @@
         "variable": {
           "default": "head",
           "description": "Observed variable (for ObservationSet).",
+          "examples": [
+            "head"
+          ],
           "title": "Variable",
           "type": "string",
           "x-hmp-profile": "user"
@@ -596,6 +665,9 @@
             "summary",
             "full"
           ],
+          "examples": [
+            "none"
+          ],
           "title": "Persist Iteration Detail",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -603,6 +675,9 @@
         "persist_model_distribution": {
           "default": false,
           "description": "Persist the candidate distribution alongside the session.",
+          "examples": [
+            false
+          ],
           "title": "Persist Model Distribution",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -610,6 +685,9 @@
         "rerun_best_with_outputs": {
           "default": false,
           "description": "Replay the best candidate with full outputs after the loop.",
+          "examples": [
+            false
+          ],
           "title": "Rerun Best With Outputs",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -617,6 +695,9 @@
         "materialize_candidates": {
           "default": false,
           "description": "Write a standalone override TOML for each candidate under 'candidates_root' so runs can be replayed later.",
+          "examples": [
+            false
+          ],
           "title": "Materialize Candidates",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -652,6 +733,9 @@
         "enabled": {
           "default": false,
           "description": "Render (or copy) selected figures into a versionable gallery folder.",
+          "examples": [
+            false
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -674,6 +758,9 @@
         "case_slug": {
           "default": "launcher_simulation_flow_case",
           "description": "Stable identifier used in the gallery manifest.",
+          "examples": [
+            "launcher_simulation_flow_case"
+          ],
           "title": "Case Slug",
           "type": "string",
           "x-hmp-profile": "user"
@@ -704,6 +791,9 @@
       "properties": {
         "provider": {
           "const": "catchment_zones",
+          "examples": [
+            "catchment_zones"
+          ],
           "title": "Provider",
           "type": "string",
           "x-hmp-profile": "user"
@@ -711,6 +801,9 @@
         "source_zone_id": {
           "default": "catchment",
           "description": "Domain zone id providing the source catchment zonation.",
+          "examples": [
+            "catchment"
+          ],
           "title": "Source Zone Id",
           "type": "string",
           "x-hmp-profile": "user"
@@ -718,6 +811,9 @@
         "default_cell_samples_per_axis": {
           "default": 8,
           "description": "Sub-sampling resolution per cell axis used when rasterizing zone masks.",
+          "examples": [
+            8
+          ],
           "minimum": 2,
           "title": "Default Cell Samples Per Axis",
           "type": "integer",
@@ -736,6 +832,9 @@
       "properties": {
         "id": {
           "description": "Boundary-condition identifier.",
+          "examples": [
+            "example"
+          ],
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
@@ -763,6 +862,9 @@
         "description": {
           "default": "",
           "description": "Boundary-condition description.",
+          "examples": [
+            ""
+          ],
           "title": "Description",
           "type": "string",
           "x-hmp-profile": "user"
@@ -770,6 +872,9 @@
         "units": {
           "default": "",
           "description": "Boundary-condition units.",
+          "examples": [
+            ""
+          ],
           "title": "Units",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -778,6 +883,9 @@
           "const": "cauchy",
           "default": "cauchy",
           "description": "Boundary-condition type.",
+          "examples": [
+            "cauchy"
+          ],
           "title": "Type",
           "type": "string",
           "x-hmp-profile": "user"
@@ -785,6 +893,9 @@
         "data_value": {
           "default": false,
           "description": "If True, boundary-condition values are sourced from data.",
+          "examples": [
+            false
+          ],
           "title": "Data Value",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -838,6 +949,9 @@
         "mode": {
           "const": "strict_same_case",
           "default": "strict_same_case",
+          "examples": [
+            "strict_same_case"
+          ],
           "title": "Mode",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -848,6 +962,9 @@
             "fail",
             "warn",
             "ignore"
+          ],
+          "examples": [
+            "fail"
           ],
           "title": "On Mismatch",
           "type": "string",
@@ -864,6 +981,9 @@
         "backend": {
           "const": "subprocess_hmp_run",
           "default": "subprocess_hmp_run",
+          "examples": [
+            "subprocess_hmp_run"
+          ],
           "title": "Backend",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -871,6 +991,9 @@
         "max_parallel_runs": {
           "default": 1,
           "description": "Number of child simulations executed in parallel. Forced to 1 in V1.",
+          "examples": [
+            1
+          ],
           "minimum": 1,
           "title": "Max Parallel Runs",
           "type": "integer",
@@ -878,12 +1001,18 @@
         },
         "keep_generated_configs": {
           "default": true,
+          "examples": [
+            true
+          ],
           "title": "Keep Generated Configs",
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
         "run_simulations": {
           "default": true,
+          "examples": [
+            true
+          ],
           "title": "Run Simulations",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -926,6 +1055,9 @@
       "properties": {
         "enabled": {
           "default": false,
+          "examples": [
+            false
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "expert"
@@ -950,6 +1082,9 @@
             "union",
             "reference"
           ],
+          "examples": [
+            "intersection"
+          ],
           "title": "Extent Mode",
           "type": "string",
           "x-hmp-profile": "expert"
@@ -960,12 +1095,18 @@
             "linear",
             "nearest"
           ],
+          "examples": [
+            "linear"
+          ],
           "title": "Interpolation",
           "type": "string",
           "x-hmp-profile": "expert"
         },
         "write_geotiff": {
           "default": true,
+          "examples": [
+            true
+          ],
           "title": "Write Geotiff",
           "type": "boolean",
           "x-hmp-profile": "expert"
@@ -979,11 +1120,18 @@
       "description": "One quantity of interest extracted from each simulation run folder.",
       "properties": {
         "name": {
+          "examples": [
+            "example"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
           "title": "Name",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "variable": {
+          "examples": [
+            "example"
+          ],
           "title": "Variable",
           "type": "string",
           "x-hmp-profile": "user"
@@ -991,6 +1139,9 @@
         "source": {
           "const": "disk",
           "default": "disk",
+          "examples": [
+            "disk"
+          ],
           "title": "Source",
           "type": "string",
           "x-hmp-profile": "user"
@@ -999,6 +1150,7 @@
           "anyOf": [
             {
               "items": {
+                "pattern": "^[a-z][a-z0-9_]*$",
                 "type": "string"
               },
               "type": "array"
@@ -1019,6 +1171,9 @@
             "boundary",
             "cell_mask",
             "map"
+          ],
+          "examples": [
+            "point"
           ],
           "title": "Support",
           "type": "string",
@@ -1095,6 +1250,7 @@
         "boundary_id": {
           "anyOf": [
             {
+              "pattern": "^[a-z][a-z0-9_]*$",
               "type": "string"
             },
             {
@@ -1107,6 +1263,9 @@
         },
         "allow_domain_proxy": {
           "default": false,
+          "examples": [
+            false
+          ],
           "title": "Allow Domain Proxy",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1124,6 +1283,9 @@
             }
           ],
           "default": "all",
+          "examples": [
+            "all"
+          ],
           "title": "Time",
           "x-hmp-profile": "user"
         },
@@ -1217,6 +1379,7 @@
         "comparison_id": {
           "anyOf": [
             {
+              "pattern": "^[a-z][a-z0-9_]*$",
               "type": "string"
             },
             {
@@ -1269,6 +1432,7 @@
         "reference_simulation": {
           "anyOf": [
             {
+              "pattern": "^[a-z][a-z0-9_]*$",
               "type": "string"
             },
             {
@@ -1281,6 +1445,9 @@
         },
         "continue_on_error": {
           "default": false,
+          "examples": [
+            false
+          ],
           "title": "Continue On Error",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1334,6 +1501,10 @@
       "description": "One generated child simulation in a comparison experiment.",
       "properties": {
         "id": {
+          "examples": [
+            "example"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
@@ -1353,6 +1524,9 @@
         },
         "enabled": {
           "default": true,
+          "examples": [
+            true
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -1399,6 +1573,7 @@
         "mesh_label": {
           "anyOf": [
             {
+              "pattern": "^[a-z][a-z0-9_]*$",
               "type": "string"
             },
             {
@@ -1418,6 +1593,9 @@
             "structured",
             "unstructured",
             "unknown"
+          ],
+          "examples": [
+            "mesh_catchment"
           ],
           "title": "Mesh Mode",
           "type": "string",
@@ -1444,6 +1622,9 @@
         "spc_name": {
           "default": "NO3",
           "description": "Name of transported species.",
+          "examples": [
+            "NO3"
+          ],
           "title": "Spc Name",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -1451,6 +1632,9 @@
         "sconc_init": {
           "default": 0.0,
           "description": "Initial concentration value (can be overridden at runtime).",
+          "examples": [
+            0.0
+          ],
           "title": "Sconc Init",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -1458,6 +1642,9 @@
         "sconc_input": {
           "default": 0.0,
           "description": "Recharge concentration input value (can be overridden at runtime).",
+          "examples": [
+            0.0
+          ],
           "title": "Sconc Input",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -1465,6 +1652,9 @@
         "disp_long": {
           "default": 0.0,
           "description": "Longitudinal dispersivity [L].",
+          "examples": [
+            0.0
+          ],
           "title": "Disp Long",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -1472,6 +1662,9 @@
         "disp_transh": {
           "default": 0.0,
           "description": "Horizontal transverse dispersivity ratio.",
+          "examples": [
+            0.0
+          ],
           "title": "Disp Transh",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -1479,6 +1672,9 @@
         "disp_transv": {
           "default": 0.0,
           "description": "Vertical transverse dispersivity ratio.",
+          "examples": [
+            0.0
+          ],
           "title": "Disp Transv",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -1486,6 +1682,9 @@
         "diffu_coeff": {
           "default": 0.0,
           "description": "Molecular diffusion coefficient [L2/T].",
+          "examples": [
+            0.0
+          ],
           "title": "Diffu Coeff",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -1507,6 +1706,9 @@
         "rate_decay": {
           "default": 0.0,
           "description": "Decay rate value (can be overridden at runtime).",
+          "examples": [
+            0.0
+          ],
           "title": "Rate Decay",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -1514,6 +1716,9 @@
         "plot_conc": {
           "default": true,
           "description": "Enable concentration plotting outputs.",
+          "examples": [
+            true
+          ],
           "title": "Plot Conc",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1530,6 +1735,9 @@
           "const": "constant_thickness",
           "default": "constant_thickness",
           "description": "Depth-model type selector. Use 'constant_thickness' to define bottom as top-thickness.",
+          "examples": [
+            "constant_thickness"
+          ],
           "title": "Type",
           "type": "string",
           "x-hmp-profile": "user"
@@ -1537,6 +1745,9 @@
         "thickness": {
           "default": 50.0,
           "description": "Constant aquifer thickness (m) applied below topography.",
+          "examples": [
+            50.0
+          ],
           "exclusiveMinimum": 0.0,
           "title": "Thickness",
           "type": "number",
@@ -1579,6 +1790,9 @@
           "enum": [
             "warn",
             "strict"
+          ],
+          "examples": [
+            "warn"
           ],
           "title": "Inference Mode",
           "type": "string",
@@ -1840,6 +2054,9 @@
             "custom",
             "ign_bdalti"
           ],
+          "examples": [
+            "custom"
+          ],
           "title": "Source",
           "type": "string",
           "x-hmp-profile": "user"
@@ -1895,6 +2112,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore cache and re-download from API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1913,6 +2133,9 @@
         "watertable_elevation": {
           "default": true,
           "description": "Compute water-table elevation from uppermost saturated layer.",
+          "examples": [
+            true
+          ],
           "title": "Watertable Elevation",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -1920,6 +2143,9 @@
         "watertable_depth": {
           "default": true,
           "description": "Compute water-table depth (surface minus water-table elevation).",
+          "examples": [
+            true
+          ],
           "title": "Watertable Depth",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -1927,6 +2153,9 @@
         "seepage_areas": {
           "default": true,
           "description": "Identify seepage areas where water table >= surface elevation.",
+          "examples": [
+            true
+          ],
           "title": "Seepage Areas",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -1934,6 +2163,9 @@
         "groundwater_flux": {
           "default": false,
           "description": "Magnitude of inter-cell flow (right/front/lower face). Volumetric.",
+          "examples": [
+            false
+          ],
           "title": "Groundwater Flux",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1941,6 +2173,9 @@
         "accumulation_flux": {
           "default": true,
           "description": "Drain flux routed on the drainage network.",
+          "examples": [
+            true
+          ],
           "title": "Accumulation Flux",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1948,6 +2183,9 @@
         "outflow_drain": {
           "default": true,
           "description": "Positive per-cell drain outflow summed over layers.",
+          "examples": [
+            true
+          ],
           "title": "Outflow Drain",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1955,6 +2193,9 @@
         "concentration_seepage": {
           "default": false,
           "description": "Concentration at seepage cells only. Requires transport.",
+          "examples": [
+            false
+          ],
           "title": "Concentration Seepage",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1962,6 +2203,9 @@
         "mass_seepage": {
           "default": false,
           "description": "Mass flux at seepage cells. Requires transport + budget.",
+          "examples": [
+            false
+          ],
           "title": "Mass Seepage",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1969,6 +2213,9 @@
         "mass_accumulated": {
           "default": false,
           "description": "Cumulative mass_seepage over time.",
+          "examples": [
+            false
+          ],
           "title": "Mass Accumulated",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -1983,6 +2230,9 @@
       "properties": {
         "id": {
           "description": "Boundary-condition identifier.",
+          "examples": [
+            "example"
+          ],
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
@@ -2010,6 +2260,9 @@
         "description": {
           "default": "",
           "description": "Boundary-condition description.",
+          "examples": [
+            ""
+          ],
           "title": "Description",
           "type": "string",
           "x-hmp-profile": "user"
@@ -2017,6 +2270,9 @@
         "units": {
           "default": "",
           "description": "Boundary-condition units.",
+          "examples": [
+            ""
+          ],
           "title": "Units",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2025,6 +2281,9 @@
           "const": "dirichlet",
           "default": "dirichlet",
           "description": "Boundary-condition type.",
+          "examples": [
+            "dirichlet"
+          ],
           "title": "Type",
           "type": "string",
           "x-hmp-profile": "user"
@@ -2032,6 +2291,9 @@
         "data_value": {
           "default": false,
           "description": "If True, boundary-condition values are sourced from data.",
+          "examples": [
+            false
+          ],
           "title": "Data Value",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -2091,6 +2353,9 @@
         "itmuni": {
           "default": 0,
           "description": "DIS time unit code used by MODFLOW (ITMUNI).",
+          "examples": [
+            0
+          ],
           "title": "Itmuni",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -2106,6 +2371,9 @@
         "enabled": {
           "default": true,
           "description": "Master switch. When False, no figure is rendered or saved.",
+          "examples": [
+            true
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2117,6 +2385,9 @@
             "agg",
             "qt5agg",
             "auto"
+          ],
+          "examples": [
+            "agg"
           ],
           "title": "Backend",
           "type": "string",
@@ -2130,6 +2401,9 @@
             "print",
             "dark"
           ],
+          "examples": [
+            "default"
+          ],
           "title": "Preset",
           "type": "string",
           "x-hmp-profile": "user"
@@ -2137,6 +2411,9 @@
         "show": {
           "default": false,
           "description": "Open an interactive window via ``matplotlib.pyplot.show``.",
+          "examples": [
+            false
+          ],
           "title": "Show",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2144,6 +2421,9 @@
         "save": {
           "default": true,
           "description": "Write rendered figures to disk under ``output_dir``.",
+          "examples": [
+            true
+          ],
           "title": "Save",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2151,6 +2431,9 @@
         "output_dir": {
           "default": "figures",
           "description": "Directory (relative to project root) for saved figures.",
+          "examples": [
+            "data/input.csv"
+          ],
           "format": "path",
           "title": "Output Dir",
           "type": "string",
@@ -2159,6 +2442,9 @@
         "dpi": {
           "default": 150,
           "description": "DPI used when saving raster figures.",
+          "examples": [
+            150
+          ],
           "minimum": 1,
           "title": "Dpi",
           "type": "integer",
@@ -2167,6 +2453,9 @@
         "cmap": {
           "default": "viridis",
           "description": "Default sequential colormap for spatial figures.",
+          "examples": [
+            "viridis"
+          ],
           "title": "Cmap",
           "type": "string",
           "x-hmp-profile": "user"
@@ -2216,6 +2505,9 @@
         "enabled": {
           "default": true,
           "description": "Master switch for flow figures.",
+          "examples": [
+            true
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2223,6 +2515,9 @@
         "cross_section": {
           "default": true,
           "description": "Render the flow cross-section plot.",
+          "examples": [
+            true
+          ],
           "title": "Cross Section",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2230,6 +2525,9 @@
         "streamflow": {
           "default": true,
           "description": "Render the streamflow comparison plot.",
+          "examples": [
+            true
+          ],
           "title": "Streamflow",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2237,6 +2535,9 @@
         "piezometry": {
           "default": true,
           "description": "Render the piezometry plot.",
+          "examples": [
+            true
+          ],
           "title": "Piezometry",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2244,6 +2545,9 @@
         "watertable_map": {
           "default": true,
           "description": "Render water-table maps.",
+          "examples": [
+            true
+          ],
           "title": "Watertable Map",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2251,6 +2555,9 @@
         "dem_map": {
           "default": true,
           "description": "Render a DEM overview map.",
+          "examples": [
+            true
+          ],
           "title": "Dem Map",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2258,6 +2565,9 @@
         "budget": {
           "default": false,
           "description": "Render groundwater budget figures.",
+          "examples": [
+            false
+          ],
           "title": "Budget",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2265,6 +2575,9 @@
         "hydrography": {
           "default": true,
           "description": "Render hydrography maps.",
+          "examples": [
+            true
+          ],
           "title": "Hydrography",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2272,6 +2585,9 @@
         "boussinesq_state": {
           "default": true,
           "description": "Render the Boussinesq state figure.",
+          "examples": [
+            true
+          ],
           "title": "Boussinesq State",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2279,6 +2595,9 @@
         "boussinesq_diagnostics": {
           "default": true,
           "description": "Render Boussinesq diagnostics.",
+          "examples": [
+            true
+          ],
           "title": "Boussinesq Diagnostics",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2286,6 +2605,9 @@
         "boussinesq_mass_balance": {
           "default": true,
           "description": "Render Boussinesq mass-balance diagnostics.",
+          "examples": [
+            true
+          ],
           "title": "Boussinesq Mass Balance",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2293,6 +2615,9 @@
         "boussinesq_probes": {
           "default": true,
           "description": "Render Boussinesq probe time series.",
+          "examples": [
+            true
+          ],
           "title": "Boussinesq Probes",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2300,6 +2625,9 @@
         "boussinesq_edge_flux": {
           "default": true,
           "description": "Render final Boussinesq edge fluxes.",
+          "examples": [
+            true
+          ],
           "title": "Boussinesq Edge Flux",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2315,6 +2643,9 @@
         "enabled": {
           "default": true,
           "description": "Master switch for particle figures.",
+          "examples": [
+            true
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2322,6 +2653,9 @@
         "pathlines": {
           "default": false,
           "description": "Render particle pathlines.",
+          "examples": [
+            false
+          ],
           "title": "Pathlines",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2337,6 +2671,9 @@
         "enabled": {
           "default": true,
           "description": "Master switch for transport figures.",
+          "examples": [
+            true
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2344,6 +2681,9 @@
         "concentration": {
           "default": false,
           "description": "Render concentration plots.",
+          "examples": [
+            false
+          ],
           "title": "Concentration",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2351,6 +2691,9 @@
         "gif": {
           "default": false,
           "description": "Export concentration GIF animation.",
+          "examples": [
+            false
+          ],
           "title": "Gif",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2358,6 +2701,9 @@
         "web_animation": {
           "default": false,
           "description": "Export browser-friendly concentration animation.",
+          "examples": [
+            false
+          ],
           "title": "Web Animation",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2373,6 +2719,7 @@
         "zone_ids": {
           "description": "Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support declarations live under domain.supports.",
           "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
             "type": "string"
           },
           "title": "Zone Ids",
@@ -2380,33 +2727,35 @@
           "x-hmp-profile": "user"
         },
         "supports": {
-          "additionalProperties": {
-            "description": "Discriminated union of spatial-support providers selected by provider tag.",
-            "discriminator": {
-              "mapping": {
-                "catchment_zones": "#/$defs/CatchmentZonesSupportConfig",
-                "generated_bands": "#/$defs/GeneratedBandsSupportConfig",
-                "generated_rings": "#/$defs/GeneratedRingsSupportConfig",
-                "geology": "#/$defs/GeologySupportConfig"
-              },
-              "propertyName": "provider"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/$defs/GeneratedBandsSupportConfig"
-              },
-              {
-                "$ref": "#/$defs/GeneratedRingsSupportConfig"
-              },
-              {
-                "$ref": "#/$defs/CatchmentZonesSupportConfig"
-              },
-              {
-                "$ref": "#/$defs/GeologySupportConfig"
-              }
-            ]
-          },
           "description": "Named spatial supports available to heterogeneous parameters. Each key is a support identifier referenced by field_spatial_id.",
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*$": {
+              "description": "Discriminated union of spatial-support providers selected by provider tag.",
+              "discriminator": {
+                "mapping": {
+                  "catchment_zones": "#/$defs/CatchmentZonesSupportConfig",
+                  "generated_bands": "#/$defs/GeneratedBandsSupportConfig",
+                  "generated_rings": "#/$defs/GeneratedRingsSupportConfig",
+                  "geology": "#/$defs/GeologySupportConfig"
+                },
+                "propertyName": "provider"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/GeneratedBandsSupportConfig"
+                },
+                {
+                  "$ref": "#/$defs/GeneratedRingsSupportConfig"
+                },
+                {
+                  "$ref": "#/$defs/CatchmentZonesSupportConfig"
+                },
+                {
+                  "$ref": "#/$defs/GeologySupportConfig"
+                }
+              ]
+            }
+          },
           "title": "Supports",
           "type": "object",
           "x-hmp-profile": "user"
@@ -2450,6 +2799,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -2464,6 +2816,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -2526,6 +2881,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -2533,6 +2891,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2540,6 +2901,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2547,6 +2911,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2554,6 +2921,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2561,6 +2931,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2568,6 +2941,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2575,6 +2951,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2584,6 +2963,9 @@
           "enum": [
             "custom",
             "sim2"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -2647,6 +3029,9 @@
         "nevtop": {
           "default": 3,
           "description": "EVT option code that defines how ET extinction depth is applied (NEVTOP).",
+          "examples": [
+            3
+          ],
           "title": "Nevtop",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -2654,6 +3039,9 @@
         "ievt": {
           "default": 1,
           "description": "EVT integer array selector used when NEVTOP requires layer indices (IEVT).",
+          "examples": [
+            1
+          ],
           "title": "Ievt",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -2661,6 +3049,9 @@
         "ipakcb": {
           "default": 1,
           "description": "EVT cell-by-cell budget output flag (IPAKCB).",
+          "examples": [
+            1
+          ],
           "title": "Ipakcb",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -2676,6 +3067,9 @@
         "netcdf": {
           "default": false,
           "description": "Export to NetCDF-4/UGRID.",
+          "examples": [
+            false
+          ],
           "title": "Netcdf",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2683,6 +3077,9 @@
         "csv_timeseries": {
           "default": true,
           "description": "Export time series to CSV.",
+          "examples": [
+            true
+          ],
           "title": "Csv Timeseries",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2690,6 +3087,9 @@
         "vtu": {
           "default": false,
           "description": "Export to VTU (ParaView).",
+          "examples": [
+            false
+          ],
           "title": "Vtu",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -2697,6 +3097,9 @@
         "geotiff": {
           "default": false,
           "description": "Export to GeoTIFF.",
+          "examples": [
+            false
+          ],
           "title": "Geotiff",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -2704,6 +3107,9 @@
         "shapefile": {
           "default": false,
           "description": "Export to Shapefile.",
+          "examples": [
+            false
+          ],
           "title": "Shapefile",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -2738,6 +3144,9 @@
         "head": {
           "default": true,
           "description": "Export head field.",
+          "examples": [
+            true
+          ],
           "title": "Head",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2745,6 +3154,9 @@
         "concentration": {
           "default": false,
           "description": "Export concentration field.",
+          "examples": [
+            false
+          ],
           "title": "Concentration",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2752,6 +3164,9 @@
         "budget": {
           "default": false,
           "description": "Export spatial budget fields.",
+          "examples": [
+            false
+          ],
           "title": "Budget",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -2759,6 +3174,9 @@
         "pathlines": {
           "default": false,
           "description": "Export pathline data.",
+          "examples": [
+            false
+          ],
           "title": "Pathlines",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -2766,6 +3184,9 @@
         "derived": {
           "default": true,
           "description": "Export derived variables (watertable_depth, seepage_mask, etc.).",
+          "examples": [
+            true
+          ],
           "title": "Derived",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -2796,6 +3217,9 @@
           "const": "heterogeneous",
           "default": "heterogeneous",
           "description": "Field type selector.",
+          "examples": [
+            "heterogeneous"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
@@ -2820,6 +3244,9 @@
           "enum": [
             "inline",
             "csv"
+          ],
+          "examples": [
+            "inline"
           ],
           "title": "Values Source",
           "type": "string",
@@ -2866,6 +3293,9 @@
         "csv_key_column": {
           "default": "zone_key",
           "description": "CSV column name containing zone/material keys.",
+          "examples": [
+            "zone_key"
+          ],
           "title": "Csv Key Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2873,6 +3303,9 @@
         "csv_value_column": {
           "default": "value",
           "description": "CSV column name containing numeric parameter values.",
+          "examples": [
+            "value"
+          ],
           "title": "Csv Value Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -2917,6 +3350,9 @@
           "const": "homogeneous",
           "default": "homogeneous",
           "description": "Field type selector.",
+          "examples": [
+            "homogeneous"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
@@ -2962,6 +3398,9 @@
             "none",
             "exponential",
             "tabulated"
+          ],
+          "examples": [
+            "none"
           ],
           "title": "Mode",
           "type": "string",
@@ -3061,6 +3500,9 @@
             "linear",
             "step"
           ],
+          "examples": [
+            "linear"
+          ],
           "title": "Interpolation",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3077,6 +3519,9 @@
           "const": "flat_substratum",
           "default": "flat_substratum",
           "description": "Depth-model type selector. Use 'flat_substratum' to define one constant bottom elevation.",
+          "examples": [
+            "flat_substratum"
+          ],
           "title": "Type",
           "type": "string",
           "x-hmp-profile": "user"
@@ -3084,6 +3529,9 @@
         "substratum_elevation": {
           "default": 0.0,
           "description": "Flat substratum elevation (m) applied over the full domain.",
+          "examples": [
+            0.0
+          ],
           "title": "Substratum Elevation",
           "type": "number",
           "x-hmp-profile": "user"
@@ -3101,6 +3549,9 @@
           "enum": [
             "constant",
             "csv"
+          ],
+          "examples": [
+            "constant"
           ],
           "title": "Mode",
           "type": "string",
@@ -3152,6 +3603,9 @@
         "sep": {
           "default": ",",
           "description": "CSV column separator.",
+          "examples": [
+            ","
+          ],
           "title": "Sep",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3159,6 +3613,9 @@
         "date_column": {
           "default": "date",
           "description": "CSV column containing timestamps.",
+          "examples": [
+            "date"
+          ],
           "title": "Date Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3180,6 +3637,9 @@
         "value_column": {
           "default": "value",
           "description": "CSV column containing boundary head values.",
+          "examples": [
+            "value"
+          ],
           "title": "Value Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3191,6 +3651,9 @@
             "ffill",
             "bfill"
           ],
+          "examples": [
+            "ffill"
+          ],
           "title": "Fill Method",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3201,6 +3664,9 @@
           "enum": [
             "mean",
             "last"
+          ],
+          "examples": [
+            "mean"
           ],
           "title": "Aggregate",
           "type": "string",
@@ -3219,6 +3685,13 @@
       "properties": {
         "param_list": {
           "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
+          "examples": [
+            [
+              "K",
+              "Sy",
+              "Ss"
+            ]
+          ],
           "items": {
             "type": "string"
           },
@@ -3274,7 +3747,17 @@
         },
         "active_sinks_sources": {
           "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
+          "examples": [
+            [
+              "recharge"
+            ],
+            [
+              "recharge",
+              "wells"
+            ]
+          ],
           "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
             "type": "string"
           },
           "title": "Active Sinks Sources",
@@ -3283,7 +3766,18 @@
         },
         "active_bc": {
           "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.",
+          "examples": [
+            [
+              "ocean"
+            ],
+            [
+              "west_side",
+              "east_side",
+              "drainage"
+            ]
+          ],
           "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
             "type": "string"
           },
           "title": "Active Bc",
@@ -3295,6 +3789,10 @@
           "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
           "display_name_fr": "R\u00e9gime d'\u00e9coulement",
           "enum": [
+            "steady",
+            "transient"
+          ],
+          "examples": [
             "steady",
             "transient"
           ],
@@ -3314,6 +3812,11 @@
             "scipy_sparse",
             "petsc"
           ],
+          "examples": [
+            "local",
+            "scipy_sparse"
+          ],
+          "stability": "experimental",
           "title": "Runtime Backend",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3326,6 +3829,11 @@
             "regularized_partition",
             "complementarity"
           ],
+          "examples": [
+            "auto",
+            "regularized_partition"
+          ],
+          "stability": "experimental",
           "title": "Surface Interaction Model",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3389,6 +3897,9 @@
         "values": {
           "default": 0.0,
           "description": "ETP payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series. Values must be non-negative; the EVT package treats them as outflow rates.",
+          "examples": [
+            0.0
+          ],
           "title": "Values",
           "x-hmp-profile": "user"
         },
@@ -3409,12 +3920,18 @@
           ],
           "default": "mean",
           "description": "Period-0 policy when values is a sequence: 'mean' (series average), 'first' (first element), or a numeric scalar.",
+          "examples": [
+            "mean"
+          ],
           "title": "First Clim",
           "x-hmp-profile": "dev"
         },
         "units": {
           "default": "mm/day",
           "description": "Units of the ETP data source. Data-manager outputs use mm/day by convention; converted to m/s at runtime.",
+          "examples": [
+            "mm/day"
+          ],
           "title": "Units",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3443,6 +3960,9 @@
           ],
           "default": 2.0,
           "description": "Distance below the topographic surface (m) where the EVT extraction surface sits. MODFLOW EVT extracts water linearly between this surface and surface - extinction_depth. Legacy default was DEM - 2 m.",
+          "examples": [
+            2.0
+          ],
           "title": "Surface Offset",
           "x-hmp-profile": "dev"
         },
@@ -3470,6 +3990,9 @@
           ],
           "default": 1.0,
           "description": "EVT extinction depth (m): below surface_offset + extinction_depth, evapotranspiration is zero. Legacy default was 1 m.",
+          "examples": [
+            1.0
+          ],
           "title": "Extinction Depth",
           "x-hmp-profile": "dev"
         },
@@ -3480,6 +4003,9 @@
             "auto",
             "homogeneous",
             "heterogeneous"
+          ],
+          "examples": [
+            "auto"
           ],
           "title": "Spatial Mode",
           "type": "string",
@@ -3492,6 +4018,9 @@
             "nearest",
             "linear",
             "idw"
+          ],
+          "examples": [
+            "nearest"
           ],
           "title": "Interpolation Method",
           "type": "string",
@@ -3508,7 +4037,11 @@
         "id": {
           "default": "h",
           "description": "id of the initial condition (forced to 'h' for flow)",
+          "examples": [
+            "h"
+          ],
           "title": "Id",
+          "toml_exclude": true,
           "type": "string",
           "x-hmp-profile": "dev"
         },
@@ -3545,6 +4078,9 @@
         "description": {
           "default": "",
           "description": "Description of the initial condition",
+          "examples": [
+            ""
+          ],
           "title": "Description",
           "type": "string",
           "x-hmp-profile": "user"
@@ -3552,6 +4088,9 @@
         "units": {
           "default": "",
           "description": "Units of the initial condition",
+          "examples": [
+            ""
+          ],
           "title": "Units",
           "type": "string",
           "x-hmp-profile": "user"
@@ -3564,6 +4103,9 @@
             "top_offset",
             "bottom",
             "custom"
+          ],
+          "examples": [
+            "top"
           ],
           "title": "Type",
           "type": "string",
@@ -3637,6 +4179,9 @@
         "values": {
           "default": 0.0,
           "description": "Recharge payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series.",
+          "examples": [
+            0.0
+          ],
           "title": "Values",
           "x-hmp-profile": "user"
         },
@@ -3657,12 +4202,18 @@
           ],
           "default": "mean",
           "description": "Period-0 policy when values is a sequence: 'mean' (series average), 'first' (first element), or a numeric scalar.",
+          "examples": [
+            "mean"
+          ],
           "title": "First Clim",
           "x-hmp-profile": "dev"
         },
         "units": {
           "default": "mm/day",
           "description": "Units of the recharge data source. Data-manager outputs use mm/day by convention; override when providing values in another unit (e.g. 'm/day'). Converted to m/s at runtime via factor_to_m_per_s().",
+          "examples": [
+            "mm/day"
+          ],
           "title": "Units",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3670,6 +4221,9 @@
         "negative_to_evt": {
           "default": true,
           "description": "When true, negative recharge values are routed to the solver EVT package and RCH receives the non-negative clipped recharge.",
+          "examples": [
+            true
+          ],
           "title": "Negative To Evt",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -3682,6 +4236,9 @@
             "homogeneous",
             "heterogeneous"
           ],
+          "examples": [
+            "auto"
+          ],
           "title": "Spatial Mode",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3693,6 +4250,9 @@
             "nearest",
             "linear",
             "idw"
+          ],
+          "examples": [
+            "nearest"
           ],
           "title": "Interpolation Method",
           "type": "string",
@@ -3917,6 +4477,9 @@
         "units": {
           "default": "m3/s",
           "description": "Units of flux values.",
+          "examples": [
+            "m3/s"
+          ],
           "title": "Units",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -3924,6 +4487,9 @@
         "description": {
           "default": "",
           "description": "Optional well description.",
+          "examples": [
+            ""
+          ],
           "title": "Description",
           "type": "string",
           "x-hmp-profile": "user"
@@ -3940,6 +4506,9 @@
           "const": "constant",
           "default": "constant",
           "description": "Discriminator tag for the constant well-forcing variant.",
+          "examples": [
+            "constant"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
@@ -3999,12 +4568,18 @@
           "const": "csv",
           "default": "csv",
           "description": "Discriminator tag for the CSV-backed well-forcing variant.",
+          "examples": [
+            "csv"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "path_file": {
           "description": "Path to the CSV chronicle file.",
+          "examples": [
+            "data/input.csv"
+          ],
           "format": "path",
           "title": "Path File",
           "type": "string",
@@ -4013,6 +4588,9 @@
         "sep": {
           "default": ",",
           "description": "CSV delimiter.",
+          "examples": [
+            ","
+          ],
           "title": "Sep",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4020,6 +4598,9 @@
         "date_column": {
           "default": "date",
           "description": "CSV column containing timestamps.",
+          "examples": [
+            "date"
+          ],
           "title": "Date Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4041,6 +4622,9 @@
         "value_column": {
           "default": "value",
           "description": "CSV column containing well rates.",
+          "examples": [
+            "value"
+          ],
           "title": "Value Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4052,6 +4636,9 @@
             "ffill",
             "bfill"
           ],
+          "examples": [
+            "ffill"
+          ],
           "title": "Fill Method",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4062,6 +4649,9 @@
           "enum": [
             "mean",
             "last"
+          ],
+          "examples": [
+            "mean"
           ],
           "title": "Aggregate",
           "type": "string",
@@ -4094,6 +4684,9 @@
       "properties": {
         "provider": {
           "const": "generated_bands",
+          "examples": [
+            "generated_bands"
+          ],
           "title": "Provider",
           "type": "string",
           "x-hmp-profile": "user"
@@ -4104,6 +4697,9 @@
             "x",
             "y"
           ],
+          "examples": [
+            "x"
+          ],
           "title": "Axis",
           "type": "string",
           "x-hmp-profile": "user"
@@ -4113,6 +4709,9 @@
           "enum": [
             "relative",
             "absolute"
+          ],
+          "examples": [
+            "relative"
           ],
           "title": "Coordinate Mode",
           "type": "string",
@@ -4146,6 +4745,9 @@
         "default_cell_samples_per_axis": {
           "default": 8,
           "description": "Sub-sampling resolution per cell axis used when rasterizing band masks.",
+          "examples": [
+            8
+          ],
           "minimum": 2,
           "title": "Default Cell Samples Per Axis",
           "type": "integer",
@@ -4164,6 +4766,9 @@
       "properties": {
         "provider": {
           "const": "generated_rings",
+          "examples": [
+            "generated_rings"
+          ],
           "title": "Provider",
           "type": "string",
           "x-hmp-profile": "user"
@@ -4173,6 +4778,9 @@
           "enum": [
             "relative",
             "absolute"
+          ],
+          "examples": [
+            "relative"
           ],
           "title": "Coordinate Mode",
           "type": "string",
@@ -4234,6 +4842,9 @@
         "default_cell_samples_per_axis": {
           "default": 8,
           "description": "Sub-sampling resolution per cell axis used when rasterizing ring masks.",
+          "examples": [
+            8
+          ],
           "minimum": 2,
           "title": "Default Cell Samples Per Axis",
           "type": "integer",
@@ -4256,6 +4867,9 @@
           "enum": [
             "standard",
             "synthetic"
+          ],
+          "examples": [
+            "standard"
           ],
           "title": "Source Mode",
           "type": "string",
@@ -4409,6 +5023,9 @@
             "breach",
             "fill"
           ],
+          "examples": [
+            "breach"
+          ],
           "title": "Dem Correc Type",
           "type": "string",
           "x-hmp-profile": "user"
@@ -4456,6 +5073,9 @@
         "reuse_existing_outputs": {
           "default": false,
           "description": "If true, reuse previously generated geographic artifacts when the cached fingerprint matches the current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated simulation runs in the same workspace.",
+          "examples": [
+            false
+          ],
           "title": "Reuse Existing Outputs",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -4463,6 +5083,9 @@
         "write_intermediates": {
           "default": false,
           "description": "Keep intermediate rasters and shapefiles on disk after geographic preprocessing. When false (default), results_stable/ is removed after ingestion into the simulation Zarr store.",
+          "examples": [
+            false
+          ],
           "title": "Write Intermediates",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -4488,6 +5111,9 @@
         "id": {
           "default": "field_geology",
           "description": "Identifier of the geology spatial field.",
+          "examples": [
+            "field_geology"
+          ],
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
@@ -4495,6 +5121,9 @@
         "cell_samples_per_axis": {
           "default": 8,
           "description": "Sub-sampling density for GeologyField.on_mesh(). Higher = more precise geology interface, slower runtime.",
+          "examples": [
+            8
+          ],
           "minimum": 2,
           "title": "Cell Samples Per Axis",
           "type": "integer",
@@ -4514,6 +5143,9 @@
             "custom",
             "brgm_1m",
             "brgm_50k"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -4566,6 +5198,9 @@
         "col_x": {
           "default": "x",
           "description": "Column for X coordinate in CSV.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4573,6 +5208,9 @@
         "col_y": {
           "default": "y",
           "description": "Column for Y coordinate in CSV.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4580,6 +5218,9 @@
         "col_code": {
           "default": "geology_code",
           "description": "Column for geology code in CSV.",
+          "examples": [
+            "geology_code"
+          ],
           "title": "Col Code",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4587,6 +5228,9 @@
         "default_crs": {
           "default": "EPSG:2154",
           "description": "Default CRS for CSV points.",
+          "examples": [
+            "EPSG:2154"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4627,6 +5271,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore cache and re-download from API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -4644,6 +5291,9 @@
       "properties": {
         "provider": {
           "const": "geology",
+          "examples": [
+            "geology"
+          ],
           "title": "Provider",
           "type": "string",
           "x-hmp-profile": "user"
@@ -4670,6 +5320,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -4684,6 +5337,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -4746,6 +5402,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -4753,6 +5412,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4760,6 +5422,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4767,6 +5432,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4774,6 +5442,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4781,6 +5452,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4788,6 +5462,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4795,6 +5472,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4804,6 +5484,9 @@
           "enum": [
             "custom",
             "sim2"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -4893,6 +5576,9 @@
             "bdtopage",
             "euhydro"
           ],
+          "examples": [
+            "custom"
+          ],
           "title": "Source",
           "type": "string",
           "x-hmp-profile": "user"
@@ -4915,6 +5601,9 @@
         "rasterize_field": {
           "default": "FID",
           "description": "Attribute field used when rasterising the vector layer.",
+          "examples": [
+            "FID"
+          ],
           "title": "Rasterize Field",
           "type": "string",
           "x-hmp-profile": "user"
@@ -4922,6 +5611,9 @@
         "typename": {
           "default": "sa:CoursEau_FXX_Topage2025",
           "description": "WFS typename for BD Topage.",
+          "examples": [
+            "sa:CoursEau_FXX_Topage2025"
+          ],
           "title": "Typename",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4929,6 +5621,9 @@
         "page_size": {
           "default": 2000,
           "description": "WFS pagination page size (BD Topage).",
+          "examples": [
+            2000
+          ],
           "title": "Page Size",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -4936,6 +5631,9 @@
         "group_name": {
           "default": "River_Net_lines",
           "description": "MapServer group name for EU-Hydro layer discovery.",
+          "examples": [
+            "River_Net_lines"
+          ],
           "title": "Group Name",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -4943,6 +5641,9 @@
         "euhydro_page_size": {
           "default": 1000,
           "description": "Pagination page size for EU-Hydro REST queries.",
+          "examples": [
+            1000
+          ],
           "title": "Euhydro Page Size",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -4950,6 +5651,9 @@
         "force_refresh": {
           "default": false,
           "description": "Bypass API cache and re-download data.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -4985,6 +5689,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -4999,6 +5706,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -5061,6 +5771,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -5068,6 +5781,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5075,6 +5791,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5082,6 +5801,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5089,6 +5811,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5096,6 +5821,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5103,6 +5831,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5110,6 +5841,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5119,6 +5853,9 @@
           "enum": [
             "custom",
             "hubeau"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -5171,6 +5908,9 @@
         "require_observations": {
           "default": true,
           "description": "Only keep stations that have observations in the period.",
+          "examples": [
+            true
+          ],
           "title": "Require Observations",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -5225,6 +5965,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -5239,6 +5982,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -5301,6 +6047,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -5308,6 +6057,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5315,6 +6067,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5322,6 +6077,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5329,6 +6087,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5336,6 +6097,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5343,6 +6107,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5350,6 +6117,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5359,6 +6129,9 @@
           "enum": [
             "custom",
             "hubeau"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -5414,6 +6187,9 @@
         "require_observations": {
           "default": true,
           "description": "Only keep stations that have observations in the period.",
+          "examples": [
+            true
+          ],
           "title": "Require Observations",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -5460,6 +6236,9 @@
         "output_file_name": {
           "default": "mt3d_link.ftl",
           "description": "LMT output filename used to couple MODFLOW to MT3DMS.",
+          "examples": [
+            "mt3d_link.ftl"
+          ],
           "title": "Output File Name",
           "type": "string",
           "x-hmp-profile": "expert"
@@ -5467,6 +6246,9 @@
         "extension": {
           "default": "lmt8",
           "description": "LMT package filename extension.",
+          "examples": [
+            "lmt8"
+          ],
           "title": "Extension",
           "type": "string",
           "x-hmp-profile": "expert"
@@ -5474,6 +6256,9 @@
         "output_format": {
           "default": "unformatted",
           "description": "LMT file format (typically 'formatted' or 'unformatted').",
+          "examples": [
+            "unformatted"
+          ],
           "title": "Output Format",
           "type": "string",
           "x-hmp-profile": "expert"
@@ -5493,6 +6278,9 @@
             "geology_only",
             "rivers_only",
             "geology_rivers"
+          ],
+          "examples": [
+            "geology_only"
           ],
           "title": "Constraints Mode",
           "type": "string",
@@ -5557,6 +6345,9 @@
         "figures_enabled": {
           "default": true,
           "description": "If true, generate the overview figure artifacts when figure output paths are configured. Set it to false to skip figure creation entirely, even in batch mode where default filename patterns are present.",
+          "examples": [
+            true
+          ],
           "title": "Figures Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -5564,6 +6355,9 @@
         "export_exchange_bundle": {
           "default": true,
           "description": "If true, export the solver-exchange mesh bundle next to the generated mesh. Set it to false for profiling or mesh-only runs that do not need bundle metadata. Downstream solvers that require runtime mesh support may fail without this bundle.",
+          "examples": [
+            true
+          ],
           "title": "Export Exchange Bundle",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -5571,6 +6365,9 @@
         "figure_dpi": {
           "default": 300,
           "description": "Pixel density used when rendering the main mesh overview figure. Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG.",
+          "examples": [
+            300
+          ],
           "exclusiveMinimum": 0,
           "title": "Figure Dpi",
           "type": "integer",
@@ -5579,6 +6376,9 @@
         "figure_regional_dpi": {
           "default": 220,
           "description": "Pixel density used when rendering the regional overview figure. Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy.",
+          "examples": [
+            220
+          ],
           "exclusiveMinimum": 0,
           "title": "Figure Regional Dpi",
           "type": "integer",
@@ -5587,6 +6387,9 @@
         "output_layout": {
           "default": "standard",
           "description": "Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.",
+          "examples": [
+            "standard"
+          ],
           "title": "Output Layout",
           "type": "string",
           "x-hmp-profile": "user"
@@ -5594,6 +6397,9 @@
         "show_plot": {
           "default": false,
           "description": "If true, open the generated overview figure interactively at the end of the run. Keep it false for batch or headless execution.",
+          "examples": [
+            false
+          ],
           "title": "Show Plot",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -5601,6 +6407,9 @@
         "geographic_outputs_mode": {
           "default": "keep",
           "description": "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.",
+          "examples": [
+            "keep"
+          ],
           "title": "Geographic Outputs Mode",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5684,6 +6493,9 @@
         "values_source": {
           "default": "inline",
           "description": "Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for an external table.",
+          "examples": [
+            "inline"
+          ],
           "title": "Values Source",
           "type": "string",
           "x-hmp-profile": "user"
@@ -5720,6 +6532,9 @@
         "csv_key_column": {
           "default": "zone_key",
           "description": "CSV column containing geology zone keys.",
+          "examples": [
+            "zone_key"
+          ],
           "title": "Csv Key Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5727,6 +6542,9 @@
         "csv_value_column": {
           "default": "value",
           "description": "CSV column containing numeric property values.",
+          "examples": [
+            "value"
+          ],
           "title": "Csv Value Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5746,6 +6564,9 @@
         "unit": {
           "default": "m/s",
           "description": "Input unit used by conductivity values. Exported bundle values are always converted to `m/s`.",
+          "examples": [
+            "m/s"
+          ],
           "minLength": 1,
           "title": "Unit",
           "type": "string",
@@ -5796,6 +6617,9 @@
         "source": {
           "default": "domain_geographic",
           "description": "Origin of the river constraints used to force mesh edges along the river network. Use 'domain_geographic' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk.",
+          "examples": [
+            "domain_geographic"
+          ],
           "title": "Source",
           "type": "string",
           "x-hmp-profile": "user"
@@ -5817,6 +6641,9 @@
         "clip_to_domain": {
           "default": true,
           "description": "If true, clip the river trace to the effective meshing support before sending it to Gmsh. Keep this enabled in most workflows to avoid constraining the mesh with segments that lie outside the chosen domain or scope.",
+          "examples": [
+            true
+          ],
           "title": "Clip To Domain",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -5845,6 +6672,9 @@
           ],
           "default": 0.0,
           "description": "Minimum retained river segment length, in projected metres after reprojection. Use this to discard tiny residual segments created by clipping or noisy hydrography that would only add mesh complexity without hydraulic meaning.",
+          "examples": [
+            0.0
+          ],
           "title": "Min Segment Length",
           "x-hmp-profile": "user"
         },
@@ -5872,6 +6702,9 @@
           ],
           "default": 0.0,
           "description": "Reserved snapping tolerance, in projected metres, for possible future cleanup of nearly coincident river vertices. The current workflow stores the value in the launcher contract but does not apply an additional snapping pass.",
+          "examples": [
+            0.0
+          ],
           "title": "Snap Tolerance",
           "x-hmp-profile": "user"
         }
@@ -5886,6 +6719,9 @@
         "values_source": {
           "default": "inline",
           "description": "Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for an external table.",
+          "examples": [
+            "inline"
+          ],
           "title": "Values Source",
           "type": "string",
           "x-hmp-profile": "user"
@@ -5922,6 +6758,9 @@
         "csv_key_column": {
           "default": "zone_key",
           "description": "CSV column containing geology zone keys.",
+          "examples": [
+            "zone_key"
+          ],
           "title": "Csv Key Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5929,6 +6768,9 @@
         "csv_value_column": {
           "default": "value",
           "description": "CSV column containing numeric property values.",
+          "examples": [
+            "value"
+          ],
           "title": "Csv Value Column",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -5956,6 +6798,9 @@
         "enabled": {
           "default": false,
           "description": "If true, inject the watershed boundary as one dedicated linear constraint in addition to geology and/or river constraints.",
+          "examples": [
+            false
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -6021,6 +6866,9 @@
         "enabled": {
           "default": false,
           "description": "If true, apply the smoothing controls below before converting the watershed boundary into one linear constraint.",
+          "examples": [
+            false
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -6141,6 +6989,9 @@
         "mode": {
           "default": "full_domain",
           "description": "Control where geology remains conformal. Use 'full_domain' to keep the current behavior, or 'buffered_watershed_envelope' to keep geology interfaces active only inside one buffered envelope around the regularized watershed, without creating one strict partition boundary on that envelope.",
+          "examples": [
+            "full_domain"
+          ],
           "title": "Mode",
           "type": "string",
           "x-hmp-profile": "user"
@@ -6191,6 +7042,9 @@
         "enabled": {
           "default": false,
           "description": "If true, add one regional mesh-size field that keeps the current background size inside the watershed and coarsens the mesh outside it.",
+          "examples": [
+            false
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -6198,6 +7052,9 @@
         "size_factor": {
           "default": 2.0,
           "description": "Multiplicative factor applied to zone_meshing.global_size outside the watershed. Use 2.0 for an outside background roughly twice as coarse as the internal baseline.",
+          "examples": [
+            2.0
+          ],
           "minimum": 1.0,
           "title": "Size Factor",
           "type": "number",
@@ -6320,6 +7177,9 @@
         "vka": {
           "default": 1.0,
           "description": "Vertical anisotropy factor used to derive k33 from k.",
+          "examples": [
+            1.0
+          ],
           "title": "Vka",
           "type": "number",
           "x-hmp-profile": "expert"
@@ -6327,6 +7187,9 @@
         "evt_extinction_depth": {
           "default": 1.0,
           "description": "MF6 EVT extinction depth in meters when recharge negatives are routed to EVT.",
+          "examples": [
+            1.0
+          ],
           "exclusiveMinimum": 0.0,
           "title": "Evt Extinction Depth",
           "type": "number",
@@ -6343,6 +7206,9 @@
         "mf6_executable_name": {
           "default": "mf6",
           "description": "MODFLOW 6 executable name or absolute path.",
+          "examples": [
+            "mf6"
+          ],
           "title": "Mf6 Executable Name",
           "type": "string",
           "x-hmp-profile": "expert"
@@ -6350,6 +7216,9 @@
         "mf6_ims_complexity": {
           "default": "COMPLEX",
           "description": "IMS complexity keyword for MODFLOW 6 (e.g. SIMPLE, MODERATE, COMPLEX).",
+          "examples": [
+            "COMPLEX"
+          ],
           "title": "Mf6 Ims Complexity",
           "type": "string",
           "x-hmp-profile": "expert"
@@ -6357,6 +7226,9 @@
         "mf_verbose": {
           "default": false,
           "description": "Enable verbose FloPy logging for MODFLOW 6 setup and execution.",
+          "examples": [
+            false
+          ],
           "title": "Mf Verbose",
           "type": "boolean",
           "x-hmp-profile": "expert"
@@ -6364,6 +7236,9 @@
         "mf6_outer_dvclose": {
           "default": 0.0001,
           "description": "IMS outer-iteration head-change convergence criterion.",
+          "examples": [
+            0.0001
+          ],
           "exclusiveMinimum": 0.0,
           "title": "Mf6 Outer Dvclose",
           "type": "number",
@@ -6372,6 +7247,9 @@
         "mf6_inner_dvclose": {
           "default": 0.0001,
           "description": "IMS inner-iteration head-change convergence criterion.",
+          "examples": [
+            0.0001
+          ],
           "exclusiveMinimum": 0.0,
           "title": "Mf6 Inner Dvclose",
           "type": "number",
@@ -6380,6 +7258,9 @@
         "mf6_outer_maximum": {
           "default": 500,
           "description": "Maximum number of IMS outer iterations.",
+          "examples": [
+            500
+          ],
           "minimum": 1,
           "title": "Mf6 Outer Maximum",
           "type": "integer",
@@ -6388,6 +7269,9 @@
         "mf6_inner_maximum": {
           "default": 500,
           "description": "Maximum number of IMS inner iterations.",
+          "examples": [
+            500
+          ],
           "minimum": 1,
           "title": "Mf6 Inner Maximum",
           "type": "integer",
@@ -6424,6 +7308,9 @@
         "mf6_rewet_wetfct": {
           "default": 0.1,
           "description": "MF6 NPF rewet WETFCT factor.",
+          "examples": [
+            0.1
+          ],
           "exclusiveMinimum": 0.0,
           "title": "Mf6 Rewet Wetfct",
           "type": "number",
@@ -6432,6 +7319,9 @@
         "mf6_rewet_iwetit": {
           "default": 1,
           "description": "MF6 NPF rewet IWETIT interval.",
+          "examples": [
+            1
+          ],
           "minimum": 1,
           "title": "Mf6 Rewet Iwetit",
           "type": "integer",
@@ -6440,6 +7330,9 @@
         "mf6_rewet_ihdwet": {
           "default": 0,
           "description": "MF6 NPF rewet IHDWET flag.",
+          "examples": [
+            0
+          ],
           "title": "Mf6 Rewet Ihdwet",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -6447,6 +7340,9 @@
         "mf6_rewet_wetdry": {
           "default": 0.1,
           "description": "MF6 NPF WETDRY threshold used when rewetting is active.",
+          "examples": [
+            0.1
+          ],
           "exclusiveMinimum": 0.0,
           "title": "Mf6 Rewet Wetdry",
           "type": "number",
@@ -6499,6 +7395,9 @@
         "vka": {
           "default": 1.0,
           "description": "Vertical hydraulic conductivity control passed to the UPW package (VKA).",
+          "examples": [
+            1.0
+          ],
           "title": "Vka",
           "type": "number",
           "x-hmp-profile": "expert"
@@ -6506,6 +7405,9 @@
         "exdp": {
           "default": 1.0,
           "description": "Extinction depth [L] used by the EVT package (EXDP).",
+          "examples": [
+            1.0
+          ],
           "title": "Exdp",
           "type": "number",
           "x-hmp-profile": "expert"
@@ -6562,6 +7464,9 @@
         "zone_partic": {
           "default": "domain",
           "description": "Particle injection zone selector: 'domain', 'seepage_clip', or a raster path.",
+          "examples": [
+            "domain"
+          ],
           "title": "Zone Partic",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -6573,6 +7478,9 @@
             "forward",
             "backward",
             "custom"
+          ],
+          "examples": [
+            "forward"
           ],
           "title": "Track Dir",
           "type": "string",
@@ -6598,6 +7506,9 @@
         "cell_div": {
           "default": 1,
           "description": "Number of particles per axis in each cell.",
+          "examples": [
+            1
+          ],
           "minimum": 1,
           "title": "Cell Div",
           "type": "integer",
@@ -6606,6 +7517,9 @@
         "zloc_div": {
           "default": false,
           "description": "If true, apply vertical subdivision for particle injection.",
+          "examples": [
+            false
+          ],
           "title": "Zloc Div",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -6651,6 +7565,9 @@
         "version": {
           "default": "mfnwt",
           "description": "MODFLOW executable/version identifier passed to FloPy.",
+          "examples": [
+            "mfnwt"
+          ],
           "title": "Version",
           "type": "string",
           "x-hmp-profile": "expert"
@@ -6658,6 +7575,9 @@
         "listunit": {
           "default": 2,
           "description": "Fortran unit number used for the MODFLOW list file.",
+          "examples": [
+            2
+          ],
           "title": "Listunit",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -6665,6 +7585,9 @@
         "verbose": {
           "default": false,
           "description": "Enable verbose FloPy logging for model setup.",
+          "examples": [
+            false
+          ],
           "title": "Verbose",
           "type": "boolean",
           "x-hmp-profile": "expert"
@@ -6672,6 +7595,9 @@
         "headtol": {
           "default": 0.0001,
           "description": "Head closure criterion for the NWT nonlinear solver.",
+          "examples": [
+            0.0001
+          ],
           "title": "Headtol",
           "type": "number",
           "x-hmp-profile": "expert"
@@ -6679,6 +7605,9 @@
         "fluxtol": {
           "default": 500.0,
           "description": "Flux closure criterion for the NWT nonlinear solver.",
+          "examples": [
+            500.0
+          ],
           "title": "Fluxtol",
           "type": "number",
           "x-hmp-profile": "expert"
@@ -6686,6 +7615,9 @@
         "maxiterout": {
           "default": 5000,
           "description": "Maximum outer nonlinear iterations in the NWT solver.",
+          "examples": [
+            5000
+          ],
           "title": "Maxiterout",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -6693,6 +7625,9 @@
         "thickfact": {
           "default": 1e-05,
           "description": "NWT wetting/thickness factor controlling nonlinear updates.",
+          "examples": [
+            1e-05
+          ],
           "title": "Thickfact",
           "type": "number",
           "x-hmp-profile": "expert"
@@ -6700,6 +7635,9 @@
         "linmeth": {
           "default": 1,
           "description": "Linear solver choice for NWT (see MODFLOW-NWT documentation).",
+          "examples": [
+            1
+          ],
           "title": "Linmeth",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -6707,6 +7645,9 @@
         "iprnwt": {
           "default": 1,
           "description": "NWT print flag controlling iteration diagnostics in listing outputs.",
+          "examples": [
+            1
+          ],
           "title": "Iprnwt",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -6714,6 +7655,9 @@
         "ibotav": {
           "default": 1,
           "description": "NWT option for averaging saturated thickness at the cell bottom.",
+          "examples": [
+            1
+          ],
           "title": "Ibotav",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -6721,6 +7665,9 @@
         "options": {
           "default": "COMPLEX",
           "description": "NWT nonlinear option keyword (for example SIMPLE or COMPLEX).",
+          "examples": [
+            "COMPLEX"
+          ],
           "title": "Options",
           "type": "string",
           "x-hmp-profile": "expert"
@@ -6728,6 +7675,9 @@
         "continue_run": {
           "default": false,
           "description": "If true, continue NWT iterations on partially converged stress periods.",
+          "examples": [
+            false
+          ],
           "title": "Continue Run",
           "type": "boolean",
           "x-hmp-profile": "expert"
@@ -6735,6 +7685,9 @@
         "backflag": {
           "default": 0,
           "description": "NWT backtracking activation flag.",
+          "examples": [
+            0
+          ],
           "title": "Backflag",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -6742,6 +7695,9 @@
         "stoptol": {
           "default": 1e-10,
           "description": "NWT backtracking stopping tolerance.",
+          "examples": [
+            1e-10
+          ],
           "title": "Stoptol",
           "type": "number",
           "x-hmp-profile": "expert"
@@ -6757,6 +7713,9 @@
         "compact": {
           "default": true,
           "description": "Enable compact budget format in OC outputs.",
+          "examples": [
+            true
+          ],
           "title": "Compact",
           "type": "boolean",
           "x-hmp-profile": "expert"
@@ -6780,6 +7739,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -6794,6 +7756,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -6856,6 +7821,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -6863,6 +7831,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -6870,6 +7841,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -6877,6 +7851,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -6884,6 +7861,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -6891,6 +7871,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -6898,6 +7881,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -6905,6 +7891,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -6915,6 +7904,9 @@
             "custom",
             "shom",
             "constant"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -6966,6 +7958,9 @@
         "nearest": {
           "default": true,
           "description": "Use nearest tide gauge to watershed centroid.",
+          "examples": [
+            true
+          ],
           "title": "Nearest",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -6987,6 +7982,9 @@
         "require_observations": {
           "default": true,
           "description": "Raise if SHOM returns no observations.",
+          "examples": [
+            true
+          ],
           "title": "Require Observations",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -7020,6 +8018,9 @@
         "map_dem": {
           "default": true,
           "description": "DEM elevation map.",
+          "examples": [
+            true
+          ],
           "title": "Map Dem",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7027,6 +8028,9 @@
         "map_geology": {
           "default": true,
           "description": "Geology lithology map.",
+          "examples": [
+            true
+          ],
           "title": "Map Geology",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7034,6 +8038,9 @@
         "map_hydrography": {
           "default": true,
           "description": "River network map.",
+          "examples": [
+            true
+          ],
           "title": "Map Hydrography",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7041,6 +8048,9 @@
         "stats_card": {
           "default": true,
           "description": "Watershed metrics card.",
+          "examples": [
+            true
+          ],
           "title": "Stats Card",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7048,6 +8058,9 @@
         "timeseries_discharge": {
           "default": true,
           "description": "Observed discharge.",
+          "examples": [
+            true
+          ],
           "title": "Timeseries Discharge",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7055,6 +8068,9 @@
         "timeseries_piezometry": {
           "default": true,
           "description": "Observed piezometry.",
+          "examples": [
+            true
+          ],
           "title": "Timeseries Piezometry",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7062,6 +8078,9 @@
         "climatic_summary": {
           "default": true,
           "description": "P/ETP monthly bars.",
+          "examples": [
+            true
+          ],
           "title": "Climatic Summary",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7069,6 +8088,9 @@
         "timeseries_intermittency": {
           "default": true,
           "description": "ONDE intermittency.",
+          "examples": [
+            true
+          ],
           "title": "Timeseries Intermittency",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7076,6 +8098,9 @@
         "timeseries_water_quality": {
           "default": true,
           "description": "Water-quality series.",
+          "examples": [
+            true
+          ],
           "title": "Timeseries Water Quality",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7083,6 +8108,9 @@
         "station_inventory": {
           "default": true,
           "description": "Station inventory table.",
+          "examples": [
+            true
+          ],
           "title": "Station Inventory",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7098,6 +8126,9 @@
         "name": {
           "default": "",
           "description": "Watershed name.",
+          "examples": [
+            ""
+          ],
           "title": "Name",
           "type": "string",
           "x-hmp-profile": "user"
@@ -7146,6 +8177,9 @@
         "save_catalog": {
           "default": true,
           "description": "Persist DuckDB rows (simulations, parameters, metrics, calibration_iterations). When False, catalog writes are skipped.",
+          "examples": [
+            true
+          ],
           "title": "Save Catalog",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7153,6 +8187,9 @@
         "save_zarr": {
           "default": true,
           "description": "Persist per-simulation field arrays (head, concentration, derived) into the Zarr store.",
+          "examples": [
+            true
+          ],
           "title": "Save Zarr",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7160,6 +8197,9 @@
         "save_parquet": {
           "default": true,
           "description": "Persist per-simulation tabular outputs (timeseries, budgets, mass_balance) as Parquet files.",
+          "examples": [
+            true
+          ],
           "title": "Save Parquet",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7167,6 +8207,9 @@
         "save_lock": {
           "default": true,
           "description": "Generate and refresh the ``hydromodpy.lock`` reproducibility manifest after data ingestion.",
+          "examples": [
+            true
+          ],
           "title": "Save Lock",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -7181,6 +8224,9 @@
             "gzip",
             "snappy"
           ],
+          "examples": [
+            "none"
+          ],
           "title": "Compression",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7188,6 +8234,9 @@
         "compression_level": {
           "default": 3,
           "description": "Compression level (codec-dependent). Ignored when compression='none'.",
+          "examples": [
+            3
+          ],
           "maximum": 22,
           "minimum": 0,
           "title": "Compression Level",
@@ -7213,6 +8262,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -7227,6 +8279,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -7289,6 +8344,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -7296,6 +8354,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7303,6 +8364,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7310,6 +8374,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7317,6 +8384,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7324,6 +8394,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7331,6 +8404,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7338,6 +8414,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7347,6 +8426,9 @@
           "enum": [
             "custom",
             "hubeau"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -7403,6 +8485,9 @@
         "require_observations": {
           "default": true,
           "description": "Only keep stations that have observations in the period.",
+          "examples": [
+            true
+          ],
           "title": "Require Observations",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -7424,6 +8509,9 @@
         "nearest": {
           "default": false,
           "description": "Keep only the nearest piezometer to the extent centroid.",
+          "examples": [
+            false
+          ],
           "title": "Nearest",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -7459,6 +8547,9 @@
           "enum": [
             "keep_native",
             "resample_to_shape"
+          ],
+          "examples": [
+            "keep_native"
           ],
           "title": "Mode",
           "type": "string",
@@ -7502,6 +8593,9 @@
             "average",
             "nearest"
           ],
+          "examples": [
+            "bilinear"
+          ],
           "title": "Resampling",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7525,6 +8619,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -7539,6 +8636,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -7601,6 +8701,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -7608,6 +8711,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7615,6 +8721,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7622,6 +8731,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7629,6 +8741,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7636,6 +8751,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7643,6 +8761,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7650,6 +8771,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7660,6 +8784,9 @@
             "custom",
             "sim2"
           ],
+          "examples": [
+            "custom"
+          ],
           "title": "Source",
           "type": "string",
           "x-hmp-profile": "user"
@@ -7669,6 +8796,11 @@
             "total"
           ],
           "description": "Precipitation components: 'liquid' (rain), 'solid' (snow), 'total' (sum of both).",
+          "examples": [
+            [
+              "total"
+            ]
+          ],
           "items": {
             "enum": [
               "liquid",
@@ -7748,6 +8880,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -7762,6 +8897,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -7824,6 +8962,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -7831,6 +8972,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7838,6 +8982,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7845,6 +8992,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7852,6 +9002,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7859,6 +9012,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7866,6 +9022,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7873,6 +9032,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -7882,6 +9044,9 @@
           "enum": [
             "custom",
             "sim2"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -7893,6 +9058,12 @@
             "visible"
           ],
           "description": "Radiation components: 'atmospheric' (DLI_Q) and/or 'visible' (SSI_Q).",
+          "examples": [
+            [
+              "atmospheric",
+              "visible"
+            ]
+          ],
           "items": {
             "enum": [
               "atmospheric",
@@ -7971,6 +9142,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -7985,6 +9159,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -8047,6 +9224,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -8054,6 +9234,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -8061,6 +9244,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -8068,6 +9254,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -8075,6 +9264,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -8082,6 +9274,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -8089,6 +9284,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -8096,6 +9294,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -8106,6 +9307,9 @@
             "custom",
             "sim2",
             "synthetic"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -8283,6 +9487,9 @@
       "properties": {
         "path": {
           "description": "Resolved path to the site catalog (CSV or JSONL).",
+          "examples": [
+            "data/input.csv"
+          ],
           "format": "path",
           "title": "Path",
           "type": "string",
@@ -8296,6 +9503,9 @@
             "csv",
             "jsonl"
           ],
+          "examples": [
+            "auto"
+          ],
           "title": "Format",
           "type": "string",
           "x-hmp-profile": "user"
@@ -8303,6 +9513,9 @@
         "site_id_field": {
           "default": "site_id",
           "description": "Catalog column carrying the site identifier.",
+          "examples": [
+            "site_id"
+          ],
           "title": "Site Id Field",
           "type": "string",
           "x-hmp-profile": "user"
@@ -8318,6 +9531,9 @@
           ],
           "default": "site_label",
           "description": "Catalog column carrying a human-readable site label.",
+          "examples": [
+            "site_label"
+          ],
           "title": "Site Label Field",
           "x-hmp-profile": "user"
         },
@@ -8332,6 +9548,9 @@
           ],
           "default": "cluster_id",
           "description": "Catalog column carrying the cluster identifier.",
+          "examples": [
+            "cluster_id"
+          ],
           "title": "Cluster Id Field",
           "x-hmp-profile": "user"
         },
@@ -8346,6 +9565,9 @@
           ],
           "default": "cluster_label",
           "description": "Catalog column carrying the cluster label.",
+          "examples": [
+            "cluster_label"
+          ],
           "title": "Cluster Label Field",
           "x-hmp-profile": "user"
         },
@@ -8360,6 +9582,9 @@
           ],
           "default": "cluster_family",
           "description": "Catalog column carrying the cluster family name.",
+          "examples": [
+            "cluster_family"
+          ],
           "title": "Cluster Family Field",
           "x-hmp-profile": "user"
         },
@@ -8374,6 +9599,9 @@
           ],
           "default": "cluster_scale",
           "description": "Catalog column carrying the cluster spatial scale tag.",
+          "examples": [
+            "cluster_scale"
+          ],
           "title": "Cluster Scale Field",
           "x-hmp-profile": "user"
         },
@@ -8388,6 +9616,9 @@
           ],
           "default": "region_id",
           "description": "Catalog column carrying the region identifier.",
+          "examples": [
+            "region_id"
+          ],
           "title": "Region Field",
           "x-hmp-profile": "user"
         },
@@ -8402,6 +9633,9 @@
           ],
           "default": "source_selection_id",
           "description": "Catalog column carrying the data-source selection identifier.",
+          "examples": [
+            "source_selection_id"
+          ],
           "title": "Source Selection Field",
           "x-hmp-profile": "user"
         },
@@ -8416,6 +9650,9 @@
           ],
           "default": "site_status",
           "description": "Catalog column carrying the site lifecycle status.",
+          "examples": [
+            "site_status"
+          ],
           "title": "Status Field",
           "x-hmp-profile": "user"
         },
@@ -8430,6 +9667,9 @@
           ],
           "default": "maturity",
           "description": "Catalog column carrying the site maturity level.",
+          "examples": [
+            "maturity"
+          ],
           "title": "Maturity Field",
           "x-hmp-profile": "user"
         },
@@ -8444,6 +9684,9 @@
           ],
           "default": "x",
           "description": "Catalog column carrying the X coordinate (CRS units).",
+          "examples": [
+            "x"
+          ],
           "title": "X Field",
           "x-hmp-profile": "user"
         },
@@ -8458,6 +9701,9 @@
           ],
           "default": "y",
           "description": "Catalog column carrying the Y coordinate (CRS units).",
+          "examples": [
+            "y"
+          ],
           "title": "Y Field",
           "x-hmp-profile": "user"
         },
@@ -8472,6 +9718,9 @@
           ],
           "default": "area_km2",
           "description": "Catalog column carrying the catchment area in km^2.",
+          "examples": [
+            "area_km2"
+          ],
           "title": "Area Km2 Field",
           "x-hmp-profile": "user"
         },
@@ -8486,6 +9735,9 @@
           ],
           "default": "tags",
           "description": "Catalog column carrying free-form tags joined by tag_separator.",
+          "examples": [
+            "tags"
+          ],
           "title": "Tags Field",
           "x-hmp-profile": "user"
         },
@@ -8500,6 +9752,9 @@
           ],
           "default": "enabled",
           "description": "Catalog column flagging whether a site is active.",
+          "examples": [
+            "enabled"
+          ],
           "title": "Enabled Field",
           "x-hmp-profile": "user"
         },
@@ -8526,6 +9781,9 @@
         "tag_separator": {
           "default": ";",
           "description": "Separator splitting the tags column into individual tags.",
+          "examples": [
+            ";"
+          ],
           "title": "Tag Separator",
           "type": "string",
           "x-hmp-profile": "user"
@@ -8543,12 +9801,18 @@
       "properties": {
         "id": {
           "description": "Unique rule identifier.",
+          "examples": [
+            "example"
+          ],
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "label": {
           "description": "Human-readable rule label.",
+          "examples": [
+            "example"
+          ],
           "title": "Label",
           "type": "string",
           "x-hmp-profile": "user"
@@ -8556,6 +9820,9 @@
         "enabled": {
           "default": true,
           "description": "If False, the rule is parsed but skipped during enrichment.",
+          "examples": [
+            true
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -8563,6 +9830,9 @@
         "priority": {
           "default": 100,
           "description": "Application order (lower runs first) when several rules match.",
+          "examples": [
+            100
+          ],
           "title": "Priority",
           "type": "integer",
           "x-hmp-profile": "user"
@@ -8661,6 +9931,9 @@
         "override_existing_cluster": {
           "default": false,
           "description": "If True, overwrite cluster fields already set on matched sites.",
+          "examples": [
+            false
+          ],
           "title": "Override Existing Cluster",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -8680,6 +9953,9 @@
       "properties": {
         "config_path": {
           "description": "Resolved path to the source TOML file.",
+          "examples": [
+            "data/input.csv"
+          ],
           "format": "path",
           "title": "Config Path",
           "type": "string",
@@ -8687,6 +9963,9 @@
         },
         "base_dir": {
           "description": "Directory used to resolve relative paths.",
+          "examples": [
+            "data/input.csv"
+          ],
           "format": "path",
           "title": "Base Dir",
           "type": "string",
@@ -8694,12 +9973,18 @@
         },
         "lab_id": {
           "description": "Regional-lab identifier.",
+          "examples": [
+            "example"
+          ],
           "title": "Lab Id",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "output_root": {
           "description": "Directory where lab artifacts are written.",
+          "examples": [
+            "data/input.csv"
+          ],
           "format": "path",
           "title": "Output Root",
           "type": "string",
@@ -8708,6 +9993,9 @@
         "execute": {
           "default": true,
           "description": "If False, the planner runs but no child subprocesses are launched.",
+          "examples": [
+            true
+          ],
           "title": "Execute",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -8715,6 +10003,9 @@
         "continue_on_error": {
           "default": true,
           "description": "If True, keep dispatching siblings after a child failure.",
+          "examples": [
+            true
+          ],
           "title": "Continue On Error",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -8722,6 +10013,9 @@
         "validate_config_paths": {
           "default": true,
           "description": "If True, ensure each rendered child config path exists before run.",
+          "examples": [
+            true
+          ],
           "title": "Validate Config Paths",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -8729,6 +10023,9 @@
         "resume_from_report": {
           "default": true,
           "description": "If True, replay the previous report to skip already-completed cases.",
+          "examples": [
+            true
+          ],
           "title": "Resume From Report",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -8736,6 +10033,9 @@
         "skip_completed_cases": {
           "default": true,
           "description": "If True, do not re-run cases marked as completed in the report.",
+          "examples": [
+            true
+          ],
           "title": "Skip Completed Cases",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -8751,6 +10051,9 @@
           ],
           "default": 3600,
           "description": "Per-child subprocess timeout in seconds. Use null to disable.",
+          "examples": [
+            3600
+          ],
           "title": "Child Timeout S",
           "x-hmp-profile": "user"
         },
@@ -8817,12 +10120,18 @@
       "properties": {
         "id": {
           "description": "Unique recipe identifier.",
+          "examples": [
+            "example"
+          ],
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "label": {
           "description": "Human-readable recipe label.",
+          "examples": [
+            "example"
+          ],
           "title": "Label",
           "type": "string",
           "x-hmp-profile": "user"
@@ -8833,12 +10142,18 @@
             "simulation",
             "comparison"
           ],
+          "examples": [
+            "simulation"
+          ],
           "title": "Launcher",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "config_path_template": {
           "description": "Template producing the child config path from a site context.",
+          "examples": [
+            "example"
+          ],
           "title": "Config Path Template",
           "type": "string",
           "x-hmp-profile": "user"
@@ -8846,6 +10161,9 @@
         "enabled": {
           "default": true,
           "description": "If False, the recipe is parsed but skipped during dispatch.",
+          "examples": [
+            true
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -8987,6 +10305,9 @@
         "include_disabled": {
           "default": false,
           "description": "If True, also keep sites flagged as disabled in the catalog.",
+          "examples": [
+            false
+          ],
           "title": "Include Disabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -9007,6 +10328,9 @@
         "keep_solver_files": {
           "default": false,
           "description": "Keep raw solver output files (.hds, .cbc, .lst) after ingestion.",
+          "examples": [
+            false
+          ],
           "title": "Keep Solver Files",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -9014,6 +10338,9 @@
         "solver_scratch": {
           "default": ".solver_scratch",
           "description": "Directory for temporary solver files, relative to the project. Use an absolute path (e.g. /scratch/$USER/hmp) for HPC.",
+          "examples": [
+            ".solver_scratch"
+          ],
           "title": "Solver Scratch",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9042,6 +10369,9 @@
         "enabled": {
           "default": false,
           "description": "Enable DEM-based river-network extraction from flow accumulation during geographic preprocessing.",
+          "examples": [
+            false
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -9052,6 +10382,9 @@
           "enum": [
             "area_km2",
             "cells"
+          ],
+          "examples": [
+            "area_km2"
           ],
           "title": "Threshold Mode",
           "type": "string",
@@ -9088,6 +10421,9 @@
         "prune_short_streams": {
           "default": false,
           "description": "If true, remove short stream segments after extraction.",
+          "examples": [
+            false
+          ],
           "title": "Prune Short Streams",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -9103,12 +10439,18 @@
           ],
           "default": 0.0,
           "description": "Minimum stream length used by short-segment pruning. Accepts SI-friendly values (for example 0, 250, '250 m', '0.5 km').",
+          "examples": [
+            0.0
+          ],
           "title": "Min Stream Length M",
           "x-hmp-profile": "user"
         },
         "compute_strahler_order": {
           "default": true,
           "description": "Compute Strahler order raster from extracted streams.",
+          "examples": [
+            true
+          ],
           "title": "Compute Strahler Order",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -9116,6 +10458,9 @@
         "compute_stream_links": {
           "default": true,
           "description": "Compute stream-link identifier raster from extracted streams.",
+          "examples": [
+            true
+          ],
           "title": "Compute Stream Links",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -9123,6 +10468,9 @@
         "all_vertices": {
           "default": false,
           "description": "Forwarded to Whitebox raster_streams_to_vector. False keeps a lighter vector geometry.",
+          "examples": [
+            false
+          ],
           "title": "All Vertices",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -9137,6 +10485,9 @@
       "properties": {
         "id": {
           "description": "Boundary-condition identifier.",
+          "examples": [
+            "example"
+          ],
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
@@ -9164,6 +10515,9 @@
         "description": {
           "default": "",
           "description": "Boundary-condition description.",
+          "examples": [
+            ""
+          ],
           "title": "Description",
           "type": "string",
           "x-hmp-profile": "user"
@@ -9171,6 +10525,9 @@
         "units": {
           "default": "",
           "description": "Boundary-condition units.",
+          "examples": [
+            ""
+          ],
           "title": "Units",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9179,6 +10536,9 @@
           "const": "robin",
           "default": "robin",
           "description": "Boundary-condition type.",
+          "examples": [
+            "robin"
+          ],
           "title": "Type",
           "type": "string",
           "x-hmp-profile": "user"
@@ -9186,6 +10546,9 @@
         "data_value": {
           "default": false,
           "description": "If True, boundary-condition values are sourced from data.",
+          "examples": [
+            false
+          ],
           "title": "Data Value",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -9247,6 +10610,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -9261,6 +10627,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -9323,6 +10692,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -9330,6 +10702,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9337,6 +10712,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9344,6 +10722,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9351,6 +10732,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9358,6 +10742,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9365,6 +10752,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9372,6 +10762,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9381,6 +10774,9 @@
           "enum": [
             "custom",
             "sim2"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -9444,6 +10840,9 @@
         "name": {
           "default": "",
           "description": "Human-readable simulation name.",
+          "examples": [
+            ""
+          ],
           "title": "Name",
           "type": "string",
           "x-hmp-profile": "user"
@@ -9451,6 +10850,9 @@
         "run_id": {
           "default": "",
           "description": "Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).",
+          "examples": [
+            "steady_nwt"
+          ],
           "title": "Run Id",
           "type": "string",
           "x-hmp-profile": "user"
@@ -9463,6 +10865,9 @@
             "fail",
             "version"
           ],
+          "examples": [
+            "replace"
+          ],
           "title": "On Collision",
           "type": "string",
           "x-hmp-profile": "user"
@@ -9470,6 +10875,9 @@
         "description": {
           "default": "",
           "description": "Short free-text description of the simulation intent.",
+          "examples": [
+            ""
+          ],
           "title": "Description",
           "type": "string",
           "x-hmp-profile": "user"
@@ -9610,12 +11018,19 @@
       "properties": {
         "id": {
           "description": "User-facing identifier for the process. This id is required and must be unique within the simulation.",
+          "examples": [
+            "flow_main"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "type": {
           "description": "Requested process family executed by the launcher.",
+          "examples": [
+            "example"
+          ],
           "title": "Type",
           "type": "string",
           "x-hmp-profile": "user"
@@ -9655,6 +11070,9 @@
           ],
           "default": null,
           "description": "Simulation window lower datetime bound used by launcher-level time alignment and forcing checks.",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Start Datetime",
           "x-hmp-profile": "user"
         },
@@ -9670,6 +11088,9 @@
           ],
           "default": null,
           "description": "Simulation window upper datetime bound, interpreted as inclusive. Must be greater than or equal to start_datetime.",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "End Datetime",
           "x-hmp-profile": "user"
         },
@@ -9687,6 +11108,10 @@
           ],
           "default": "1 month",
           "description": "Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day'). This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods.",
+          "examples": [
+            "1 month",
+            "10 day"
+          ],
           "title": "Step Value",
           "x-hmp-profile": "user"
         },
@@ -9713,6 +11138,9 @@
         "substeps_per_period": {
           "default": 1,
           "description": "Number of solver time steps within each stress period. Higher values improve transient accuracy (e.g., 30 for daily substeps inside monthly stress periods).",
+          "examples": [
+            1
+          ],
           "minimum": 1,
           "title": "Substeps Per Period",
           "type": "integer",
@@ -9725,6 +11153,9 @@
             "error",
             "warn",
             "ignore"
+          ],
+          "examples": [
+            "error"
           ],
           "title": "Coverage Policy",
           "type": "string",
@@ -9749,6 +11180,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -9763,6 +11197,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -9825,6 +11262,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -9832,6 +11272,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9839,6 +11282,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9846,6 +11292,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9853,6 +11302,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9860,6 +11312,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9867,6 +11322,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9874,6 +11332,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -9883,6 +11344,9 @@
           "enum": [
             "custom",
             "sim2"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -9946,6 +11410,9 @@
         "solver_engine": {
           "default": "modflownwt",
           "description": "Groundwater flow solver backend registered for the 'flow' process.",
+          "examples": [
+            "modflownwt"
+          ],
           "title": "Solver Engine",
           "type": "string",
           "x-hmp-profile": "user"
@@ -9979,6 +11446,9 @@
         "case_id": {
           "default": "flat20",
           "description": "Identifier used by local case runners and outputs.",
+          "examples": [
+            "flat20"
+          ],
           "title": "Case Id",
           "type": "string",
           "x-hmp-profile": "user"
@@ -10004,6 +11474,9 @@
         "length_x": {
           "default": 100.0,
           "description": "Total domain length along x. Accepts values such as 100, '100 m', or '0.1 km'.",
+          "examples": [
+            100.0
+          ],
           "title": "Length X",
           "type": "number",
           "x-hmp-profile": "user"
@@ -10011,6 +11484,9 @@
         "length_y": {
           "default": 1.0,
           "description": "Total domain length along y. Accepts values such as 1, '1 m', or '0.001 km'.",
+          "examples": [
+            1.0
+          ],
           "title": "Length Y",
           "type": "number",
           "x-hmp-profile": "user"
@@ -10018,6 +11494,9 @@
         "nx": {
           "default": 100,
           "description": "Number of cells along x.",
+          "examples": [
+            100
+          ],
           "minimum": 1,
           "title": "Nx",
           "type": "integer",
@@ -10026,6 +11505,9 @@
         "ny": {
           "default": 1,
           "description": "Number of cells along y.",
+          "examples": [
+            1
+          ],
           "minimum": 1,
           "title": "Ny",
           "type": "integer",
@@ -10034,6 +11516,9 @@
         "xmin": {
           "default": 0.0,
           "description": "Lower x coordinate of the support extent.",
+          "examples": [
+            0.0
+          ],
           "title": "Xmin",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -10041,6 +11526,9 @@
         "ymin": {
           "default": 0.0,
           "description": "Lower y coordinate of the support extent.",
+          "examples": [
+            0.0
+          ],
           "title": "Ymin",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -10048,6 +11536,9 @@
         "crs": {
           "default": "EPSG:2154",
           "description": "Projected CRS attached to synthetic outputs.",
+          "examples": [
+            "EPSG:2154"
+          ],
           "title": "Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10055,6 +11546,9 @@
         "nodata": {
           "default": -9999.0,
           "description": "Nodata sentinel exported to raster artefacts.",
+          "examples": [
+            -9999.0
+          ],
           "title": "Nodata",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -10075,6 +11569,9 @@
             "linear",
             "radial_island"
           ],
+          "examples": [
+            "flat"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
@@ -10082,6 +11579,9 @@
         "base_elevation": {
           "default": 20.0,
           "description": "Reference elevation (m). For 'flat' this is the constant surface elevation. For 'linear' this is the elevation on the right boundary. For 'radial_island' this is the submerged ocean-floor elevation.",
+          "examples": [
+            20.0
+          ],
           "title": "Base Elevation",
           "type": "number",
           "x-hmp-profile": "user"
@@ -10089,6 +11589,9 @@
         "right_to_left_amplitude": {
           "default": 0.0,
           "description": "Additional elevation reached on the left boundary relative to the right boundary. Positive values make the surface rise from right to left.",
+          "examples": [
+            0.0
+          ],
           "title": "Right To Left Amplitude",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -10110,6 +11613,9 @@
         "crest_elevation": {
           "default": 10.0,
           "description": "Central island elevation (m) used by 'radial_island'. The land surface decays nonlinearly to sea level at the shoreline.",
+          "examples": [
+            10.0
+          ],
           "title": "Crest Elevation",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -10153,6 +11659,9 @@
         "itmuni": {
           "default": "d",
           "description": "Time unit used to interpret lenper values. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility.",
+          "examples": [
+            "d"
+          ],
           "title": "Itmuni",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10163,6 +11672,9 @@
           "enum": [
             "steady",
             "transient"
+          ],
+          "examples": [
+            "steady"
           ],
           "title": "Flow Regime",
           "type": "string",
@@ -10175,6 +11687,9 @@
             "synthetic_regular",
             "from_chron"
           ],
+          "examples": [
+            "synthetic_regular"
+          ],
           "title": "Genmtd",
           "type": "string",
           "x-hmp-profile": "user"
@@ -10182,6 +11697,9 @@
         "nper": {
           "default": 1,
           "description": "Stress-period count. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source.",
+          "examples": [
+            1
+          ],
           "title": "Nper",
           "type": "integer",
           "x-hmp-profile": "user"
@@ -10212,6 +11730,9 @@
           ],
           "default": 1,
           "description": "Stress-period length(s) interpreted with itmuni. Scalar means one regular step length repeated nper times; list means one explicit value per stress period. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source.",
+          "examples": [
+            1
+          ],
           "title": "Lenper",
           "x-hmp-profile": "user"
         },
@@ -10232,6 +11753,9 @@
         "chron_dateformat": {
           "default": "%Y-%m-%d %H:%M:%S",
           "description": "Date format string used to parse the chronicle file.",
+          "examples": [
+            "%Y-%m-%d %H:%M:%S"
+          ],
           "title": "Chron Dateformat",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10239,6 +11763,9 @@
         "chron_colsep": {
           "default": "\t",
           "description": "Column separator used in the chronicle file.",
+          "examples": [
+            "\t"
+          ],
           "title": "Chron Colsep",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10246,6 +11773,9 @@
         "chron_time_col": {
           "default": "Date",
           "description": "Name of the time/date column in the chronicle file.",
+          "examples": [
+            "Date"
+          ],
           "title": "Chron Time Col",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10277,6 +11807,9 @@
         "firstpersteady": {
           "default": true,
           "description": "Whether the first stress period is treated as steady-state.",
+          "examples": [
+            true
+          ],
           "title": "Firstpersteady",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -10304,6 +11837,9 @@
           ],
           "default": 1,
           "description": "Time-step multiplier per stress period (scalar or list). In launcher mode this field is currently forced to 1.0 and generally not intended for manual editing.",
+          "examples": [
+            1
+          ],
           "title": "Tsmult",
           "x-hmp-profile": "dev"
         },
@@ -10321,12 +11857,18 @@
           ],
           "default": 1,
           "description": "Number of time steps per stress period (scalar or list). In launcher mode this field is currently forced to 1 and generally not intended for manual editing.",
+          "examples": [
+            1
+          ],
           "title": "Ntsp",
           "x-hmp-profile": "dev"
         },
         "temporal_nodata": {
           "default": -9999.0,
           "description": "No-data sentinel value for temporal data.",
+          "examples": [
+            -9999.0
+          ],
           "title": "Temporal Nodata",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -10350,6 +11892,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -10364,6 +11909,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -10426,6 +11974,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -10433,6 +11984,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10440,6 +11994,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10447,6 +12004,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10454,6 +12014,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10461,6 +12024,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10468,6 +12034,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10475,6 +12044,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10484,6 +12056,9 @@
           "enum": [
             "custom",
             "sim2"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -10669,6 +12244,9 @@
         "iphdry": {
           "default": 1,
           "description": "UPW dry-cell head output flag (IPHDRY).",
+          "examples": [
+            1
+          ],
           "title": "Iphdry",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -10676,6 +12254,9 @@
         "hdry": {
           "default": -100.0,
           "description": "UPW dry-cell head value (HDRY).",
+          "examples": [
+            -100.0
+          ],
           "title": "Hdry",
           "type": "number",
           "x-hmp-profile": "expert"
@@ -10683,6 +12264,9 @@
         "layvka": {
           "default": 1,
           "description": "UPW flag controlling VKA interpretation per layer (LAYVKA).",
+          "examples": [
+            1
+          ],
           "title": "Layvka",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -10703,6 +12287,9 @@
             "decay",
             "list"
           ],
+          "examples": [
+            "constant"
+          ],
           "title": "Genmtd Lay",
           "type": "string",
           "x-hmp-profile": "user"
@@ -10718,6 +12305,9 @@
           ],
           "default": 1,
           "description": "Number of layers (required for constant/decay, ignored for list).",
+          "examples": [
+            1
+          ],
           "title": "Nlay",
           "x-hmp-profile": "user"
         },
@@ -10755,6 +12345,9 @@
         "nodata": {
           "default": -9999.0,
           "description": "No-data sentinel value.",
+          "examples": [
+            -9999.0
+          ],
           "title": "Nodata",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -10778,6 +12371,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -10792,6 +12388,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -10854,6 +12453,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -10861,6 +12463,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10868,6 +12473,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10875,6 +12483,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10882,6 +12493,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10889,6 +12503,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10896,6 +12513,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10903,6 +12523,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -10912,6 +12535,9 @@
           "enum": [
             "custom",
             "hubeau"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -10923,6 +12549,9 @@
           "enum": [
             "river",
             "piezometer"
+          ],
+          "examples": [
+            "river"
           ],
           "title": "Site Type",
           "type": "string",
@@ -10992,6 +12621,9 @@
         "nearest": {
           "default": false,
           "description": "Keep only the nearest station to the extent centroid.",
+          "examples": [
+            false
+          ],
           "title": "Nearest",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -11024,6 +12656,9 @@
         "ipakcb": {
           "default": 1,
           "description": "WEL cell-by-cell budget output flag (IPAKCB).",
+          "examples": [
+            1
+          ],
           "title": "Ipakcb",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -11047,6 +12682,9 @@
           ],
           "default": null,
           "description": "Project start date (ISO format, e.g. '2019-01-01').",
+          "examples": [
+            "2019-01-01"
+          ],
           "title": "Date Start",
           "x-hmp-profile": "user"
         },
@@ -11061,6 +12699,9 @@
           ],
           "default": null,
           "description": "Project end date (ISO format, e.g. '2025-12-31').",
+          "examples": [
+            "2025-12-31"
+          ],
           "title": "Date End",
           "x-hmp-profile": "user"
         },
@@ -11123,6 +12764,9 @@
         "force_refresh": {
           "default": false,
           "description": "Ignore the cache and force a fresh download from the API.",
+          "examples": [
+            false
+          ],
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -11130,6 +12774,9 @@
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
+          "examples": [
+            "id"
+          ],
           "title": "Col Id",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -11137,6 +12784,9 @@
         "col_x": {
           "default": "x",
           "description": "Column name for the X coordinate in location files.",
+          "examples": [
+            "x"
+          ],
           "title": "Col X",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -11144,6 +12794,9 @@
         "col_y": {
           "default": "y",
           "description": "Column name for the Y coordinate in location files.",
+          "examples": [
+            "y"
+          ],
           "title": "Col Y",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -11151,6 +12804,9 @@
         "col_crs": {
           "default": "crs",
           "description": "Column name for the CRS in location files.",
+          "examples": [
+            "crs"
+          ],
           "title": "Col Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -11158,6 +12814,9 @@
         "col_datetime": {
           "default": "datetime",
           "description": "Column name for timestamps in chronicle CSVs.",
+          "examples": [
+            "datetime"
+          ],
           "title": "Col Datetime",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -11165,6 +12824,9 @@
         "col_value": {
           "default": "value",
           "description": "Column name for numeric values in chronicle CSVs.",
+          "examples": [
+            "value"
+          ],
           "title": "Col Value",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -11172,6 +12834,9 @@
         "default_crs": {
           "default": "EPSG:4326",
           "description": "Default CRS used when a location file omits the CRS column.",
+          "examples": [
+            "EPSG:4326"
+          ],
           "title": "Default Crs",
           "type": "string",
           "x-hmp-profile": "dev"
@@ -11181,6 +12846,9 @@
           "enum": [
             "custom",
             "sim2"
+          ],
+          "examples": [
+            "custom"
           ],
           "title": "Source",
           "type": "string",
@@ -11252,6 +12920,9 @@
             "comparison",
             "testbed"
           ],
+          "examples": [
+            "simulation"
+          ],
           "title": "Mode",
           "type": "string",
           "x-hmp-profile": "user"
@@ -11268,7 +12939,10 @@
       "description": "Strict-binary workspace configuration.\n\nThe canonical workspace layout is::\n\n    <workspace>/\n        data/\n            cache.duckdb\n        projects/\n            <name>/\n                project.toml   <- TOML lives here when using scaffold\n                hydromodpy.duckdb\n                simulations/\n                    <basename>.zarr/ or <basename>.zarr.zip\n\nFields under ``[workspace]``:\n\n``project_root`` (required)\n    Directory of the project TOML. Usually auto-derived from the TOML\n    location by the loader.\n\n``root`` (explicit workspace override)\n    When set, the shared data workspace root. Derives ``data_dir``\n    unless it is explicitly overridden.\n\n``catalog_path`` / ``data_dir`` / ``simulations_dir``\n    Per-component explicit overrides. ``catalog_path`` and\n    ``simulations_dir`` are project-local by default.\n\n``output_root``\n    Optional redirect for heavy outputs (``.solver_scratch/`` and\n    per-run ``figures/``). Defaults to ``project_root``.",
       "properties": {
         "project_root": {
-          "description": "Path to the project directory. Auto-derived from TOML location when absent.",
+          "description": "Path to the project directory. Required in TOML configs.",
+          "examples": [
+            "."
+          ],
           "format": "path",
           "title": "Project Root",
           "type": "string",
@@ -11286,6 +12960,9 @@
           ],
           "default": null,
           "description": "Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.",
+          "examples": [
+            "../.."
+          ],
           "title": "Root",
           "x-hmp-profile": "user"
         },
@@ -11346,6 +13023,9 @@
           ],
           "default": null,
           "description": "Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.",
+          "examples": [
+            "outputs/run_a"
+          ],
           "title": "Output Root",
           "x-hmp-profile": "user"
         }
@@ -11363,6 +13043,9 @@
         "kind": {
           "default": "bbox",
           "description": "Domain kind discriminator, must be 'bbox' for this schema.",
+          "examples": [
+            "bbox"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
@@ -11389,6 +13072,9 @@
         "kind": {
           "default": "geographic_box_buffer",
           "description": "Domain kind discriminator, must be 'geographic_box_buffer' for this schema.",
+          "examples": [
+            "geographic_box_buffer"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
@@ -11404,6 +13090,9 @@
         "kind": {
           "default": "geographic_watershed",
           "description": "Domain kind discriminator, must be 'geographic_watershed' for this schema.",
+          "examples": [
+            "geographic_watershed"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
@@ -11419,6 +13108,9 @@
         "kind": {
           "default": "geographic_watershed_box",
           "description": "Domain kind discriminator, must be 'geographic_watershed_box' for this schema.",
+          "examples": [
+            "geographic_watershed_box"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
@@ -11434,6 +13126,9 @@
         "kind": {
           "default": "polygon",
           "description": "Domain kind discriminator, must be 'polygon' for this schema.",
+          "examples": [
+            "polygon"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
@@ -11463,11 +13158,17 @@
         "kind": {
           "default": "vector",
           "description": "Domain kind discriminator, must be 'vector' for this schema.",
+          "examples": [
+            "vector"
+          ],
           "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
         "path": {
+          "examples": [
+            "example"
+          ],
           "title": "Path",
           "type": "string",
           "x-hmp-profile": "user"
@@ -11514,6 +13215,9 @@
         "enabled": {
           "default": true,
           "description": "If False, this family is parsed but skipped during refinement.",
+          "examples": [
+            true
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -11521,6 +13225,9 @@
         "priority": {
           "default": 0,
           "description": "Application order between families. Higher values win when budgets compete.",
+          "examples": [
+            0
+          ],
           "title": "Priority",
           "type": "integer",
           "x-hmp-profile": "user"
@@ -11592,6 +13299,9 @@
         "neighborhood_rings": {
           "default": 1,
           "description": "Number of cell rings inspected around each hotspot when projecting refinement budget.",
+          "examples": [
+            1
+          ],
           "title": "Neighborhood Rings",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -11599,6 +13309,9 @@
         "enable_exact_gap_check": {
           "default": true,
           "description": "If True, run the exact pairwise gap check between candidate hotspot curves.",
+          "examples": [
+            true
+          ],
           "title": "Enable Exact Gap Check",
           "type": "boolean",
           "x-hmp-profile": "dev"
@@ -11606,6 +13319,9 @@
         "max_exact_gap_candidates": {
           "default": 256,
           "description": "Cap on the number of curves submitted to the exact gap check before falling back to a heuristic.",
+          "examples": [
+            256
+          ],
           "title": "Max Exact Gap Candidates",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -11635,6 +13351,9 @@
         "max_curve_count": {
           "default": 180,
           "description": "Maximum number of constraint curves admitted in one hotspot before triggering local refinement.",
+          "examples": [
+            180
+          ],
           "title": "Max Curve Count",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -11642,6 +13361,9 @@
         "max_family_count": {
           "default": 2,
           "description": "Maximum number of distinct constraint families coexisting in one hotspot.",
+          "examples": [
+            2
+          ],
           "title": "Max Family Count",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -11649,6 +13371,9 @@
         "min_gap": {
           "default": 80.0,
           "description": "Minimum acceptable gap between non-conformal curves in projected metres.",
+          "examples": [
+            80.0
+          ],
           "title": "Min Gap",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -11656,6 +13381,9 @@
         "max_node_degree": {
           "default": 4,
           "description": "Maximum tolerated topological degree at a hotspot junction node.",
+          "examples": [
+            4
+          ],
           "title": "Max Node Degree",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -11663,6 +13391,9 @@
         "short_segment_length": {
           "default": 120.0,
           "description": "Length threshold below which a constraint segment is counted as short, in projected metres.",
+          "examples": [
+            120.0
+          ],
           "title": "Short Segment Length",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -11670,6 +13401,9 @@
         "max_short_segment_count": {
           "default": 12,
           "description": "Maximum tolerated number of short segments inside one hotspot.",
+          "examples": [
+            12
+          ],
           "title": "Max Short Segment Count",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -11685,6 +13419,9 @@
         "enabled": {
           "default": false,
           "description": "If True, the local refinement policy runs on top of the global zone meshing.",
+          "examples": [
+            false
+          ],
           "title": "Enabled",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -11692,6 +13429,9 @@
         "mode": {
           "default": "family_priority_local_budget",
           "description": "Refinement mode selector. One of 'family_priority_local_budget' or 'grid_local_budget'.",
+          "examples": [
+            "family_priority_local_budget"
+          ],
           "title": "Mode",
           "type": "string",
           "x-hmp-profile": "user"
@@ -11726,6 +13466,9 @@
         "algorithm": {
           "default": "delaunay",
           "description": "Planar Gmsh algorithm name. In practice the examples use 'delaunay', which is a robust default for irregular geological and river-constrained domains.",
+          "examples": [
+            "delaunay"
+          ],
           "title": "Algorithm",
           "type": "string",
           "x-hmp-profile": "user"
@@ -11733,6 +13476,9 @@
         "global_size": {
           "default": 250.0,
           "description": "Baseline target cell size in projected metres over the full support domain. Think of it as the coarse background resolution before local interface refinement is added.",
+          "examples": [
+            250.0
+          ],
           "title": "Global Size",
           "type": "number",
           "x-hmp-profile": "user"
@@ -11768,6 +13514,9 @@
         "simplify_tolerance": {
           "default": 0.0,
           "description": "Geometry simplification tolerance, in projected metres, applied before meshing. Increase it only when the source polygons contain excessive vertex noise that does not carry hydrogeological meaning.",
+          "examples": [
+            0.0
+          ],
           "title": "Simplify Tolerance",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -11775,6 +13524,9 @@
         "heal_tolerance": {
           "default": 0.0,
           "description": "Cleanup tolerance, in projected metres, used to repair tiny gaps or slivers between input polygons. Keep it near zero unless the source dataset is known to contain topology artifacts.",
+          "examples": [
+            0.0
+          ],
           "title": "Heal Tolerance",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -11782,6 +13534,9 @@
         "linear_constraint_snap_tolerance": {
           "default": 0.0,
           "description": "Optional global snapping tolerance, in projected metres, applied to internal linear constraints such as rivers or watershed-boundary segments before partition splitting and Gmsh embedding.",
+          "examples": [
+            0.0
+          ],
           "title": "Linear Constraint Snap Tolerance",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -11789,6 +13544,9 @@
         "min_polygon_area": {
           "default": 0.0,
           "description": "Minimum polygon area, in square metres, kept after cleaning. Use it to drop microscopic remnants that would otherwise create meaningless tiny mesh patches.",
+          "examples": [
+            0.0
+          ],
           "title": "Min Polygon Area",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -11796,6 +13554,9 @@
         "refine_interfaces": {
           "default": false,
           "description": "Enable a distance-based size field around geology or river interfaces. When false, the mesh uses only the global background size constraints.",
+          "examples": [
+            false
+          ],
           "title": "Refine Interfaces",
           "type": "boolean",
           "x-hmp-profile": "user"
@@ -11831,6 +13592,9 @@
         "interface_sampling": {
           "default": 64,
           "description": "Sampling density used to discretize interface-based distance fields. Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost.",
+          "examples": [
+            64
+          ],
           "title": "Interface Sampling",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -11859,11 +13623,21 @@
     "workflow": {
       "$ref": "#/$defs/WorkflowConfig",
       "description": "Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.",
+      "examples": [
+        {
+          "mode": "simulation"
+        }
+      ],
       "x-hmp-profile": "user"
     },
     "workspace": {
       "$ref": "#/$defs/WorkspaceConfig",
       "description": "Configuration block for the project workspace and folder structure.",
+      "examples": [
+        {
+          "project_root": "."
+        }
+      ],
       "x-hmp-profile": "user"
     },
     "geographic": {

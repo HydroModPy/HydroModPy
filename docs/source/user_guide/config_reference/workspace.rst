@@ -72,7 +72,7 @@ Fields
 
    :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L70>`__
 
-      Path to the project directory. Auto-derived from TOML location when absent.
+      Path to the project directory. Required in TOML configs.
 
 
 .. container:: hmp-field hmp-field-level-user
@@ -84,7 +84,7 @@ Fields
         <code class="hmp-field-name">root</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L74>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L75>`__
 
       Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
 
@@ -98,7 +98,7 @@ Fields
         <code class="hmp-field-name">catalog_path</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L82>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L84>`__
 
       Explicit path to the project hydromodpy.duckdb. Defaults to <project_root>/hydromodpy.duckdb.
 
@@ -112,7 +112,7 @@ Fields
         <code class="hmp-field-name">data_dir</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L90>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L92>`__
 
       Explicit path to the workspace data directory. Defaults to <root>/data.
 
@@ -126,7 +126,7 @@ Fields
         <code class="hmp-field-name">simulations_dir</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L95>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L97>`__
 
       Explicit path to the simulations Zarr directory. Defaults to <project_root>/simulations.
 
@@ -140,7 +140,7 @@ Fields
         <code class="hmp-field-name">output_root</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L103>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L105>`__
 
       Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
 

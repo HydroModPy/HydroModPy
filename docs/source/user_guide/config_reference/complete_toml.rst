@@ -32,7 +32,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [workspace]
-      # Path to the project directory. Auto-derived from TOML location when absent.
+      # Path to the project directory. Required in TOML configs.
       # project_root = ""  # REQUIRED
       # Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
       # root = ...  # default = None
