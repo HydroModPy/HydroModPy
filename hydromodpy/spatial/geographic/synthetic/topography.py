@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 import numpy as np
 
 from hydromodpy.spatial.geographic.synthetic.config import (
+    FlatTopography,
+    LinearTopography,
+    RadialIslandTopography,
     SyntheticGridConfig,
     SyntheticTopographyConfig,
 )
@@ -29,7 +30,7 @@ def _cell_center_coordinates(grid: SyntheticGridConfig) -> tuple[np.ndarray, np.
 
 
 def _flat_law(
-    config: SyntheticTopographyConfig,
+    config: FlatTopography,
     grid: SyntheticGridConfig,
 ) -> np.ndarray:
     """Build one constant-elevation surface."""
@@ -41,7 +42,7 @@ def _flat_law(
 
 
 def _linear_law(
-    config: SyntheticTopographyConfig,
+    config: LinearTopography,
     grid: SyntheticGridConfig,
 ) -> np.ndarray:
     """Build one linear surface rising from right to left."""
@@ -50,7 +51,7 @@ def _linear_law(
 
 
 def _radial_island_law(
-    config: SyntheticTopographyConfig,
+    config: RadialIslandTopography,
     grid: SyntheticGridConfig,
 ) -> np.ndarray:
     """Build one circular island with a steep coastal relief above sea level."""
@@ -78,26 +79,16 @@ def _radial_island_law(
     return np.where(rr <= radius, land_elevation, ocean_floor)
 
 
-_TOPOGRAPHY_LAWS: dict[
-    str, Callable[[SyntheticTopographyConfig, SyntheticGridConfig], np.ndarray]
-] = {
-    "flat": _flat_law,
-    "linear": _linear_law,
-    "radial_island": _radial_island_law,
-}
-
-
 def build_topography_values(
     *,
     topography: SyntheticTopographyConfig,
     grid: SyntheticGridConfig,
 ) -> np.ndarray:
     """Evaluate the requested topography law on one structured support."""
-    law = _TOPOGRAPHY_LAWS.get(str(topography.kind).strip().lower())
-    if law is None:
-        supported = ", ".join(sorted(_TOPOGRAPHY_LAWS))
-        raise ValueError(
-            f"Unsupported synthetic topography kind={topography.kind!r}. "
-            f"Supported values: {supported}."
-        )
-    return np.asarray(law(topography, grid), dtype=float)
+    if isinstance(topography, FlatTopography):
+        return np.asarray(_flat_law(topography, grid), dtype=float)
+    if isinstance(topography, LinearTopography):
+        return np.asarray(_linear_law(topography, grid), dtype=float)
+    if isinstance(topography, RadialIslandTopography):
+        return np.asarray(_radial_island_law(topography, grid), dtype=float)
+    raise ValueError(f"Unsupported synthetic topography variant: {type(topography).__name__}.")

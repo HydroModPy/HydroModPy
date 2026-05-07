@@ -5,7 +5,7 @@ from __future__ import annotations
 import tomllib
 from math import isclose
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import Field, computed_field, field_validator, model_validator
 
@@ -113,27 +113,29 @@ class SyntheticGridConfig(HydroModelBase):
         return float(self.length_y) / float(self.ny)
 
 
-class SyntheticTopographyConfig(HydroModelBase):
-    """Analytical topography definition on the synthetic support."""
+class FlatTopography(HydroModelBase):
+    """Constant-elevation analytical topography."""
 
-    kind: Annotated[Literal["flat", "linear", "radial_island"], Profile.USER] = Field(
+    kind: Annotated[Literal["flat"], Profile.USER] = Field(
         default="flat",
-        description=(
-            "Analytical topography law. "
-            "'flat' keeps one constant elevation. "
-            "'linear' increases from right to left with a linear profile. "
-            "'radial_island' builds one circular emerged island surrounded by "
-            "submerged ocean cells."
-        ),
+        description="Analytical topography law: 'flat' keeps one constant elevation.",
     )
     base_elevation: Annotated[float, Profile.USER] = Field(
         default=20.0,
-        description=(
-            "Reference elevation (m). "
-            "For 'flat' this is the constant surface elevation. "
-            "For 'linear' this is the elevation on the right boundary. "
-            "For 'radial_island' this is the submerged ocean-floor elevation."
-        ),
+        description="Constant surface elevation (m).",
+    )
+
+
+class LinearTopography(HydroModelBase):
+    """Linear analytical topography rising from right to left."""
+
+    kind: Annotated[Literal["linear"], Profile.USER] = Field(
+        default="linear",
+        description="Analytical topography law: 'linear' increases from right to left.",
+    )
+    base_elevation: Annotated[float, Profile.USER] = Field(
+        default=20.0,
+        description="Reference elevation (m) on the right boundary.",
     )
     right_to_left_amplitude: Annotated[float, Profile.DEV] = Field(
         default=0.0,
@@ -143,31 +145,42 @@ class SyntheticTopographyConfig(HydroModelBase):
             "to left."
         ),
     )
+
+
+class RadialIslandTopography(HydroModelBase):
+    """Circular emerged island surrounded by submerged ocean cells."""
+
+    kind: Annotated[Literal["radial_island"], Profile.USER] = Field(
+        default="radial_island",
+        description=(
+            "Analytical topography law: 'radial_island' builds one circular "
+            "emerged island surrounded by submerged ocean cells."
+        ),
+    )
+    base_elevation: Annotated[float, Profile.USER] = Field(
+        default=-1.0,
+        description="Submerged ocean-floor elevation (m). Must be < 0.",
+    )
     island_radius: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Circular shoreline radius (m) used by 'radial_island'. "
-            "Defaults to 35% of the smallest domain length."
+            "Circular shoreline radius (m). Defaults to 35% of the smallest domain length."
         ),
     )
     crest_elevation: Annotated[float, Profile.DEV] = Field(
         default=10.0,
         description=(
-            "Central island elevation (m) used by 'radial_island'. "
-            "The land surface decays nonlinearly to sea level at the shoreline."
+            "Central island elevation (m). The land surface decays nonlinearly "
+            "to sea level at the shoreline."
         ),
     )
     center_x: Annotated[float | None, Profile.DEV] = Field(
         default=None,
-        description=(
-            "Optional x coordinate of the radial-island center. Defaults to the grid midpoint."
-        ),
+        description="Optional x coordinate of the island center. Defaults to the grid midpoint.",
     )
     center_y: Annotated[float | None, Profile.DEV] = Field(
         default=None,
-        description=(
-            "Optional y coordinate of the radial-island center. Defaults to the grid midpoint."
-        ),
+        description="Optional y coordinate of the island center. Defaults to the grid midpoint.",
     )
 
     @field_validator("island_radius", "center_x", "center_y", mode="before")
@@ -180,10 +193,8 @@ class SyntheticTopographyConfig(HydroModelBase):
         return float(parse_length_to_m(value, default_unit="m", label=label))
 
     @model_validator(mode="after")
-    def _validate_radial_island_payload(self) -> SyntheticTopographyConfig:
-        """Validate radial-island specific parameters when that law is used."""
-        if self.kind != "radial_island":
-            return self
+    def _validate_radial_island_payload(self) -> RadialIslandTopography:
+        """Validate radial-island specific parameters."""
         if self.island_radius is not None and float(self.island_radius) <= 0.0:
             raise ValueError("synthetic_geographic.topography.island_radius must be > 0.")
         if float(self.crest_elevation) <= 0.0:
@@ -201,6 +212,58 @@ class SyntheticTopographyConfig(HydroModelBase):
         return self
 
 
+SyntheticTopographyConfig: TypeAlias = Annotated[
+    FlatTopography | LinearTopography | RadialIslandTopography,
+    Field(discriminator="kind"),
+]
+"""Discriminated union of analytical topography variants."""
+
+
+_TOPOGRAPHY_DEFAULT_LEAKS: dict[str, dict[str, Any]] = {
+    "flat": {
+        "right_to_left_amplitude": 0.0,
+        "island_radius": (None, 0.0),
+        "crest_elevation": 10.0,
+        "center_x": (None, 0.0),
+        "center_y": (None, 0.0),
+    },
+    "linear": {
+        "island_radius": (None, 0.0),
+        "crest_elevation": 10.0,
+        "center_x": (None, 0.0),
+        "center_y": (None, 0.0),
+    },
+    "radial_island": {
+        "right_to_left_amplitude": 0.0,
+    },
+}
+"""Pre-discriminated-union default values stripped from raw TOML payloads.
+
+Some legacy ``expert_generated`` TOMLs export every field of the old flat
+``SyntheticTopographyConfig`` regardless of the active ``kind``. With the
+discriminated union those keys would now be rejected by ``extra="forbid"``.
+This map lists, per ``kind``, the default values that may be safely dropped
+when present. Any other value still raises a validation error.
+"""
+
+
+def _strip_default_topography_leaks(payload: dict[str, Any]) -> dict[str, Any]:
+    """Drop default-valued cross-variant fields from a raw topography payload."""
+    kind = str(payload.get("kind", "flat")).strip().lower()
+    leaks = _TOPOGRAPHY_DEFAULT_LEAKS.get(kind)
+    if leaks is None:
+        return payload
+    cleaned = dict(payload)
+    for field_name, accepted in leaks.items():
+        if field_name not in cleaned:
+            continue
+        value = cleaned[field_name]
+        accepted_values = accepted if isinstance(accepted, tuple) else (accepted,)
+        if value in accepted_values:
+            cleaned.pop(field_name)
+    return cleaned
+
+
 class SyntheticGeographicConfig(HydroModelBase):
     """Top-level config for one synthetic geographic build."""
 
@@ -213,9 +276,31 @@ class SyntheticGeographicConfig(HydroModelBase):
         description="Synthetic grid definition (extent and cell size).",
     )
     topography: Annotated[SyntheticTopographyConfig, Profile.USER] = Field(
-        default_factory=SyntheticTopographyConfig,
+        default_factory=FlatTopography,
         description="Synthetic topography definition (shape, elevations, slope).",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _filter_topography_default_leaks(cls, data: Any) -> Any:
+        """Drop default-valued cross-variant fields from raw topography payloads.
+
+        Legacy ``expert_generated`` TOMLs may dump every field of the old flat
+        ``SyntheticTopographyConfig`` regardless of ``kind``. Those keys are now
+        forbidden by the discriminated union. We tolerate them only when their
+        value matches the legacy default, otherwise validation must fail.
+        """
+        if not isinstance(data, dict):
+            return data
+        topography = data.get("topography")
+        if not isinstance(topography, dict):
+            return data
+        cleaned = _strip_default_topography_leaks(topography)
+        if cleaned is topography:
+            return data
+        new_data = dict(data)
+        new_data["topography"] = cleaned
+        return new_data
 
     @classmethod
     def from_toml(cls, path: str | Path) -> SyntheticGeographicConfig:
