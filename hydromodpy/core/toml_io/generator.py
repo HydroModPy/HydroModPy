@@ -32,7 +32,11 @@ from typing import Any, get_args, get_origin
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
-from hydromodpy.core.config_kit.introspect import extract_profile, resolve_profile
+from hydromodpy.core.config_kit.introspect import (
+    extract_profile,
+    iter_fields_by_profile,
+    resolve_profile,
+)
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.registry import root_scalar_fields, root_sections
 from hydromodpy.core.toml_io.dynamic_examples_protocol import (
@@ -629,7 +633,7 @@ def _root_scalars(
     selected = [
         (name, field_info, extract_profile(field_info))
         for name, field_info in fields.items()
-        if extract_profile(field_info) <= threshold
+        if extract_profile(field_info) <= Profile(threshold)
     ]
     if not selected:
         return []
@@ -709,13 +713,9 @@ def _section(
     nested_fields: list[tuple[str, FieldInfo, Profile, type[BaseModel]]] = []
     array_fields: list[tuple[str, FieldInfo, Profile, type[BaseModel]]] = []
 
-    for name, field_info in model_cls.model_fields.items():
+    for name, field_info, level in iter_fields_by_profile(model_cls, threshold):
         # Skip fields explicitly excluded from serialisation (e.g. Transport)
         if _toml_excluded(field_info):
-            continue
-
-        level = extract_profile(field_info)
-        if level > threshold:
             continue
 
         # list[BaseModel] -> array of tables [[section.name]]
@@ -881,11 +881,8 @@ def _section(
         else:
             # Template mode: show an example entry with defaults
             lines.append(_line(f"[[{sub_section}]]"))
-            for fname, finfo in item_cls.model_fields.items():
+            for fname, finfo, _flevel in iter_fields_by_profile(item_cls, threshold):
                 if _toml_excluded(finfo):
-                    continue
-                flevel = extract_profile(finfo)
-                if flevel > threshold:
                     continue
                 _render_field_comment(lines, finfo)
                 default = _default_value(finfo)

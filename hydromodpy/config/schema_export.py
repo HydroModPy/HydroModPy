@@ -49,6 +49,7 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.config_kit.introspect import read_profile_from_schema
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.config_kit.registry import root_sections as _root_sections
 
@@ -85,12 +86,8 @@ def _filter_properties_by_profile(
     for name, field_schema in properties.items():
         if not isinstance(field_schema, dict):
             continue
-        level_name = field_schema.get("x-hmp-profile")
-        if not isinstance(level_name, str):
-            continue
-        try:
-            level = Profile[level_name.upper()]
-        except KeyError:
+        level = read_profile_from_schema(field_schema)
+        if level is None:
             continue
         if level > threshold:
             drop.append(name)
