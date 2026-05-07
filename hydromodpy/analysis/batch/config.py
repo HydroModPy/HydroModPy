@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import Field
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -40,7 +40,7 @@ def _normalize_text_list(value: object, *, label: str) -> tuple[str, ...]:
     """Normalize one optional list of distinct text values."""
     if value is None:
         return ()
-    if not isinstance(value, list):
+    if not isinstance(value, (list, tuple)):
         raise ValueError(f"{label} must be a list")
     out: list[str] = []
     seen: set[str] = set()
@@ -64,6 +64,8 @@ def _normalize_text_mapping(
     """Normalize one optional mapping of text keys and values."""
     if value is None:
         return ()
+    if isinstance(value, tuple):
+        return value
     if not isinstance(value, Mapping):
         raise ValueError(f"{label} must be a mapping")
     out: list[tuple[str, str]] = []
@@ -79,33 +81,26 @@ def _normalize_text_mapping(
     return tuple(out)
 
 
-def _resolve_required_path(base_dir: Path, raw_path: object, *, label: str) -> Path:
+def _resolve_required_path(base_dir: Path | None, raw_path: object, *, label: str) -> Path:
     """Resolve one required path relative to the configuration file."""
     text = _require_text(raw_path, label=label)
     path = Path(text).expanduser()
     if not path.is_absolute():
+        if base_dir is None:
+            return path.resolve()
         path = base_dir / path
     return path.resolve()
 
 
-def _resolve_optional_path(base_dir: Path, raw_path: object) -> Path | None:
+def _resolve_optional_path(base_dir: Path | None, raw_path: object) -> Path | None:
     """Resolve one optional path relative to the configuration file."""
     text = _optional_text(raw_path)
     if text is None:
         return None
     path = Path(text).expanduser()
     if not path.is_absolute():
-        path = base_dir / path
-    return path.resolve()
-
-
-def _resolve_output_root(*, base_dir: Path, raw_value: object, lab_id: str) -> Path:
-    """Resolve the regional-lab output root."""
-    text = _optional_text(raw_value)
-    if text is None:
-        return (base_dir / "regional_lab" / lab_id).resolve()
-    path = Path(text).expanduser()
-    if not path.is_absolute():
+        if base_dir is None:
+            return path.resolve()
         path = base_dir / path
     return path.resolve()
 
@@ -118,6 +113,17 @@ def _validate_optional_int(value: object, *, label: str) -> int | None:
     if out <= 0:
         raise ValueError(f"{label} must be >= 1")
     return out
+
+
+def _context_base_dir(info: ValidationInfo) -> Path | None:
+    """Extract base_dir from the validation context, if any."""
+    context = info.context
+    if not isinstance(context, Mapping):
+        return None
+    raw = context.get("base_dir")
+    if raw is None:
+        return None
+    return Path(raw)
 
 
 class RegionalLabCatalogConfig(HydroModelBase):
@@ -203,6 +209,67 @@ class RegionalLabCatalogConfig(HydroModelBase):
         description="Separator splitting the tags column into individual tags.",
     )
 
+    @field_validator("path", mode="before")
+    @classmethod
+    def _resolve_path(cls, value: object, info: ValidationInfo) -> Path:
+        return _resolve_required_path(
+            _context_base_dir(info),
+            value,
+            label="regional_lab.catalog.path",
+        )
+
+    @field_validator(
+        "site_label_field",
+        "cluster_id_field",
+        "cluster_label_field",
+        "cluster_family_field",
+        "cluster_scale_field",
+        "region_field",
+        "source_selection_field",
+        "status_field",
+        "maturity_field",
+        "x_field",
+        "y_field",
+        "area_km2_field",
+        "tags_field",
+        "enabled_field",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_optional_field(cls, value: object) -> str | None:
+        return _optional_text(value)
+
+    @field_validator("required_fields", "path_fields", mode="before")
+    @classmethod
+    def _normalize_field_list(cls, value: object, info: ValidationInfo) -> tuple[str, ...]:
+        return _normalize_text_list(value, label=f"regional_lab.catalog.{info.field_name}")
+
+    @field_validator("tag_separator", mode="before")
+    @classmethod
+    def _normalize_tag_separator(cls, value: object) -> str:
+        text = _optional_text(value)
+        if text is None:
+            return ";"
+        if text == "":
+            raise ValueError("regional_lab.catalog.tag_separator cannot be empty")
+        return text
+
+    @field_validator("format", mode="before")
+    @classmethod
+    def _normalize_format(cls, value: object) -> str:
+        text = _optional_text(value)
+        normalized = (text or "auto").lower()
+        if normalized not in {"auto", "csv", "jsonl"}:
+            raise ValueError("regional_lab.catalog.format must be one of: auto, csv, jsonl")
+        return normalized
+
+    @field_validator("site_id_field", mode="before")
+    @classmethod
+    def _normalize_site_id_field(cls, value: object) -> str:
+        if value is None:
+            return "site_id"
+        return _require_text(value, label="regional_lab.catalog.site_id_field")
+
 
 class RegionalLabSelectionConfig(HydroModelBase):
     """Top-level site selection filters."""
@@ -247,6 +314,26 @@ class RegionalLabSelectionConfig(HydroModelBase):
         default=False,
         description="If True, also keep sites flagged as disabled in the catalog.",
     )
+
+    @field_validator(
+        "site_ids",
+        "cluster_ids",
+        "regions",
+        "families",
+        "scales",
+        "statuses",
+        "maturity_levels",
+        "tags",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_selection_list(cls, value: object, info: ValidationInfo) -> tuple[str, ...]:
+        return _normalize_text_list(value, label=f"selection.{info.field_name}")
+
+    @field_validator("limit", mode="before")
+    @classmethod
+    def _normalize_limit(cls, value: object) -> int | None:
+        return _validate_optional_int(value, label="selection.limit")
 
 
 class RegionalLabClusterRuleConfig(HydroModelBase):
@@ -294,6 +381,54 @@ class RegionalLabClusterRuleConfig(HydroModelBase):
         description="If True, overwrite cluster fields already set on matched sites.",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _bootstrap_rule(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+        payload = dict(data)
+        rule_id = payload.get("id")
+        if rule_id is not None:
+            text_id = _require_text(rule_id, label="regional_lab.cluster_rule.id")
+            payload["id"] = text_id
+            if "label" not in payload or payload.get("label") is None:
+                payload["label"] = text_id
+            else:
+                payload["label"] = _optional_text(payload["label"]) or text_id
+        if "selection" not in payload:
+            payload["selection"] = _extract_selection_payload(
+                payload, include_disabled_default=True
+            )
+        for key in _SELECTION_KEYS:
+            payload.pop(key, None)
+        return payload
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _normalize_id(cls, value: object) -> str:
+        return _require_text(value, label="regional_lab.cluster_rule.id")
+
+    @field_validator(
+        "set_cluster_id",
+        "set_cluster_label",
+        "set_cluster_family",
+        "set_cluster_scale",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_optional(cls, value: object) -> str | None:
+        return _optional_text(value)
+
+    @field_validator("cluster_tags", mode="before")
+    @classmethod
+    def _normalize_cluster_tags(cls, value: object) -> tuple[str, ...]:
+        return _normalize_text_list(value, label="regional_lab.cluster_rule.cluster_tags")
+
+    @field_validator("field_equals", mode="before")
+    @classmethod
+    def _normalize_field_equals(cls, value: object) -> tuple[tuple[str, str], ...]:
+        return _normalize_text_mapping(value, label="regional_lab.cluster_rule.field_equals")
+
 
 class RegionalLabRecipeConfig(HydroModelBase):
     """One recipe expanded across selected sites."""
@@ -321,6 +456,84 @@ class RegionalLabRecipeConfig(HydroModelBase):
         default=(),
         description="Platforms (linux, darwin, windows) on which the recipe may run.",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _bootstrap_recipe(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+        payload = dict(data)
+        recipe_id = payload.get("id")
+        if recipe_id is not None:
+            text_id = _require_text(recipe_id, label="regional_lab.recipe.id")
+            payload["id"] = text_id
+            if "label" not in payload or payload.get("label") is None:
+                payload["label"] = text_id
+            else:
+                payload["label"] = _optional_text(payload["label"]) or text_id
+        if "selection" not in payload:
+            payload["selection"] = _extract_selection_payload(
+                payload, include_disabled_default=True
+            )
+        for key in _SELECTION_KEYS:
+            payload.pop(key, None)
+        return payload
+
+    @field_validator("id", mode="before")
+    @classmethod
+    def _normalize_id(cls, value: object) -> str:
+        return _require_text(value, label="regional_lab.recipe.id")
+
+    @field_validator("config_path_template", mode="before")
+    @classmethod
+    def _normalize_template(cls, value: object) -> str:
+        return _require_text(value, label="regional_lab.recipe.config_path_template")
+
+    @field_validator("launcher", mode="before")
+    @classmethod
+    def _normalize_launcher(cls, value: object) -> str:
+        text = _require_text(value, label="regional_lab.recipe.launcher").lower()
+        if text not in {"simulation", "comparison"}:
+            raise ValueError(
+                f"Unsupported regional_lab.recipe launcher '{text}'. "
+                "Use 'simulation' or 'comparison'."
+            )
+        return text
+
+    @field_validator("required_fields", "allowed_platforms", mode="before")
+    @classmethod
+    def _normalize_recipe_list(cls, value: object, info: ValidationInfo) -> tuple[str, ...]:
+        return _normalize_text_list(value, label=f"regional_lab.recipe.{info.field_name}")
+
+
+_SELECTION_KEYS: frozenset[str] = frozenset(
+    {
+        "site_ids",
+        "cluster_ids",
+        "regions",
+        "families",
+        "scales",
+        "statuses",
+        "maturity_levels",
+        "tags",
+        "limit",
+        "include_disabled",
+    }
+)
+
+
+def _extract_selection_payload(
+    raw_mapping: Mapping[str, Any],
+    *,
+    include_disabled_default: bool,
+) -> dict[str, Any]:
+    """Extract the embedded site-selection sub-payload from a parent mapping."""
+    payload: dict[str, Any] = {}
+    for key in _SELECTION_KEYS:
+        if key in raw_mapping:
+            payload[key] = raw_mapping[key]
+    payload.setdefault("include_disabled", include_disabled_default)
+    return payload
 
 
 class RegionalLabConfig(HydroModelBase):
@@ -378,6 +591,100 @@ class RegionalLabConfig(HydroModelBase):
         description="Per-recipe expansion plans declaring which child launchers run on which sites.",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _bootstrap_lab(cls, data: Any, info: ValidationInfo) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+        payload = dict(data)
+        base_dir = _context_base_dir(info)
+
+        config_path_value = payload.get("config_path")
+        if config_path_value is not None and base_dir is None:
+            base_dir = Path(config_path_value).parent
+        if base_dir is not None:
+            payload.setdefault("base_dir", base_dir)
+
+        lab_id = _optional_text(payload.get("lab_id"))
+        if lab_id is None and config_path_value is not None:
+            lab_id = Path(config_path_value).stem
+        if lab_id is not None:
+            payload["lab_id"] = lab_id
+
+        output_root_raw = _optional_text(payload.get("output_root"))
+        if output_root_raw is None and base_dir is not None and lab_id is not None:
+            payload["output_root"] = (base_dir / "regional_lab" / lab_id).resolve()
+        elif output_root_raw is not None:
+            payload["output_root"] = _resolve_required_path(
+                base_dir, output_root_raw, label="regional_lab.output_root"
+            )
+
+        if "selection" not in payload:
+            payload["selection"] = _extract_selection_payload(
+                payload, include_disabled_default=False
+            )
+
+        cluster_rules = payload.pop("cluster_rule", None)
+        if cluster_rules is not None and "cluster_rules" not in payload:
+            payload["cluster_rules"] = cluster_rules
+
+        recipes = payload.pop("recipe", None)
+        if recipes is not None and "recipes" not in payload:
+            payload["recipes"] = recipes
+
+        for key in _SELECTION_KEYS - {"include_disabled"}:
+            payload.pop(key, None)
+
+        return payload
+
+    @field_validator("python_executable", mode="before")
+    @classmethod
+    def _resolve_python_executable(cls, value: object, info: ValidationInfo) -> Path | None:
+        return _resolve_optional_path(_context_base_dir(info), value)
+
+    @field_validator("child_timeout_s", mode="before")
+    @classmethod
+    def _normalize_child_timeout(cls, value: object) -> int | None:
+        return _validate_optional_int(value, label="regional_lab.child_timeout_s")
+
+    @field_validator("cluster_rules", mode="before")
+    @classmethod
+    def _normalize_cluster_rules(cls, value: object) -> Any:
+        if value is None:
+            return ()
+        if not isinstance(value, (list, tuple)):
+            raise ValueError("regional_lab.cluster_rule must be a list when provided")
+        seen: set[str] = set()
+        out: list[Any] = []
+        for index, raw_rule in enumerate(value):
+            mapping = _require_mapping(raw_rule, label=f"regional_lab.cluster_rule[{index}]")
+            rule_id = _require_text(
+                mapping.get("id"), label=f"regional_lab.cluster_rule[{index}].id"
+            )
+            normalized = rule_id.lower()
+            if normalized in seen:
+                raise ValueError(f"Duplicate regional_lab.cluster_rule id '{rule_id}'")
+            seen.add(normalized)
+            out.append(mapping)
+        return tuple(out)
+
+    @field_validator("recipes", mode="before")
+    @classmethod
+    def _normalize_recipes(cls, value: object) -> Any:
+        if not isinstance(value, (list, tuple)) or not value:
+            raise ValueError("regional_lab.recipe must contain at least one item")
+        seen: set[str] = set()
+        out: list[Any] = []
+        for index, raw_recipe in enumerate(value):
+            mapping = _require_mapping(raw_recipe, label=f"regional_lab.recipe[{index}]")
+            recipe_id = _require_text(mapping.get("id"), label=f"regional_lab.recipe[{index}].id")
+            normalized = recipe_id.lower()
+            if normalized in seen:
+                raise ValueError(f"Duplicate regional_lab.recipe id '{recipe_id}'")
+            seen.add(normalized)
+            out.append(mapping)
+        return tuple(out)
+
     @classmethod
     def from_toml(
         cls,
@@ -389,210 +696,16 @@ class RegionalLabConfig(HydroModelBase):
         if not isinstance(raw_toml, Mapping):
             raise ValueError("configuration must be a mapping")
         source = raw_toml.get("regional_lab") if "regional_lab" in raw_toml else raw_toml
-        raw_section = _require_mapping(source, label="regional_lab")
+        section = _require_mapping(source, label="regional_lab")
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
-        lab_id = _optional_text(raw_section.get("lab_id")) or resolved_config_path.stem
-        output_root = _resolve_output_root(
-            base_dir=base_dir,
-            raw_value=raw_section.get("output_root"),
-            lab_id=lab_id,
-        )
-        python_executable = _resolve_optional_path(
-            base_dir,
-            raw_section.get("python_executable"),
-        )
-        child_timeout_s = _validate_optional_int(
-            raw_section.get("child_timeout_s", 3600),
-            label="regional_lab.child_timeout_s",
-        )
 
-        raw_catalog = _require_mapping(
-            raw_section.get("catalog"),
-            label="regional_lab.catalog",
-        )
-        catalog_format = (_optional_text(raw_catalog.get("format")) or "auto").lower()
-        if catalog_format not in {"auto", "csv", "jsonl"}:
-            raise ValueError("regional_lab.catalog.format must be one of: auto, csv, jsonl")
-        tag_separator = _optional_text(raw_catalog.get("tag_separator")) or ";"
-        if tag_separator == "":
-            raise ValueError("regional_lab.catalog.tag_separator cannot be empty")
-        catalog = RegionalLabCatalogConfig(
-            path=_resolve_required_path(
-                base_dir,
-                raw_catalog.get("path"),
-                label="regional_lab.catalog.path",
-            ),
-            format=catalog_format,
-            site_id_field=_require_text(
-                raw_catalog.get("site_id_field", "site_id"),
-                label="regional_lab.catalog.site_id_field",
-            ),
-            site_label_field=_optional_text(raw_catalog.get("site_label_field", "site_label")),
-            cluster_id_field=_optional_text(raw_catalog.get("cluster_id_field", "cluster_id")),
-            cluster_label_field=_optional_text(
-                raw_catalog.get("cluster_label_field", "cluster_label")
-            ),
-            cluster_family_field=_optional_text(
-                raw_catalog.get("cluster_family_field", "cluster_family")
-            ),
-            cluster_scale_field=_optional_text(
-                raw_catalog.get("cluster_scale_field", "cluster_scale")
-            ),
-            region_field=_optional_text(raw_catalog.get("region_field", "region_id")),
-            source_selection_field=_optional_text(
-                raw_catalog.get("source_selection_field", "source_selection_id")
-            ),
-            status_field=_optional_text(raw_catalog.get("status_field", "site_status")),
-            maturity_field=_optional_text(raw_catalog.get("maturity_field", "maturity")),
-            x_field=_optional_text(raw_catalog.get("x_field", "x")),
-            y_field=_optional_text(raw_catalog.get("y_field", "y")),
-            area_km2_field=_optional_text(raw_catalog.get("area_km2_field", "area_km2")),
-            tags_field=_optional_text(raw_catalog.get("tags_field", "tags")),
-            enabled_field=_optional_text(raw_catalog.get("enabled_field", "enabled")),
-            required_fields=_normalize_text_list(
-                raw_catalog.get("required_fields"),
-                label="regional_lab.catalog.required_fields",
-            ),
-            path_fields=_normalize_text_list(
-                raw_catalog.get("path_fields"),
-                label="regional_lab.catalog.path_fields",
-            ),
-            tag_separator=tag_separator,
-        )
+        payload = dict(section)
+        payload.setdefault("config_path", resolved_config_path)
+        payload.setdefault("base_dir", base_dir)
 
-        raw_selection = _require_mapping(
-            raw_section.get("selection", {}),
-            label="regional_lab.selection",
-        )
-        selection = _parse_selection(
-            raw_selection,
-            label="regional_lab.selection",
-            include_disabled_default=False,
-        )
-
-        raw_cluster_rules = raw_section.get("cluster_rule", [])
-        if not isinstance(raw_cluster_rules, list):
-            raise ValueError("regional_lab.cluster_rule must be a list when provided")
-
-        cluster_rules: list[RegionalLabClusterRuleConfig] = []
-        seen_cluster_rule_ids: set[str] = set()
-        for index, raw_rule in enumerate(raw_cluster_rules):
-            rule_mapping = _require_mapping(
-                raw_rule,
-                label=f"regional_lab.cluster_rule[{index}]",
-            )
-            rule_id = _require_text(
-                rule_mapping.get("id"),
-                label=f"regional_lab.cluster_rule[{index}].id",
-            )
-            normalized_rule_id = rule_id.lower()
-            if normalized_rule_id in seen_cluster_rule_ids:
-                raise ValueError(f"Duplicate regional_lab.cluster_rule id '{rule_id}'")
-            seen_cluster_rule_ids.add(normalized_rule_id)
-            cluster_rules.append(
-                RegionalLabClusterRuleConfig(
-                    id=rule_id,
-                    label=_optional_text(rule_mapping.get("label")) or rule_id,
-                    enabled=bool(rule_mapping.get("enabled", True)),
-                    priority=int(rule_mapping.get("priority", 100)),
-                    selection=_parse_selection(
-                        rule_mapping,
-                        label=f"regional_lab.cluster_rule[{rule_id}]",
-                        include_disabled_default=True,
-                    ),
-                    field_equals=_normalize_text_mapping(
-                        rule_mapping.get("field_equals"),
-                        label=f"regional_lab.cluster_rule[{rule_id}].field_equals",
-                    ),
-                    set_cluster_id=_optional_text(rule_mapping.get("set_cluster_id")),
-                    set_cluster_label=_optional_text(rule_mapping.get("set_cluster_label")),
-                    set_cluster_family=_optional_text(rule_mapping.get("set_cluster_family")),
-                    set_cluster_scale=_optional_text(rule_mapping.get("set_cluster_scale")),
-                    cluster_tags=_normalize_text_list(
-                        rule_mapping.get("cluster_tags"),
-                        label=f"regional_lab.cluster_rule[{rule_id}].cluster_tags",
-                    ),
-                    override_existing_cluster=bool(
-                        rule_mapping.get("override_existing_cluster", False)
-                    ),
-                )
-            )
-
-        raw_recipes = raw_section.get("recipe", [])
-        if not isinstance(raw_recipes, list) or not raw_recipes:
-            raise ValueError("regional_lab.recipe must contain at least one item")
-
-        recipes: list[RegionalLabRecipeConfig] = []
-        seen_recipe_ids: set[str] = set()
-        for index, raw_recipe in enumerate(raw_recipes):
-            recipe_mapping = _require_mapping(
-                raw_recipe,
-                label=f"regional_lab.recipe[{index}]",
-            )
-            recipe_id = _require_text(
-                recipe_mapping.get("id"),
-                label=f"regional_lab.recipe[{index}].id",
-            )
-            normalized_recipe_id = recipe_id.lower()
-            if normalized_recipe_id in seen_recipe_ids:
-                raise ValueError(f"Duplicate regional_lab.recipe id '{recipe_id}'")
-            seen_recipe_ids.add(normalized_recipe_id)
-
-            launcher = _require_text(
-                recipe_mapping.get("launcher"),
-                label=f"regional_lab.recipe[{recipe_id}].launcher",
-            ).lower()
-            if launcher not in {"simulation", "comparison"}:
-                raise ValueError(
-                    f"Unsupported regional_lab.recipe launcher '{launcher}'. "
-                    "Use 'simulation' or 'comparison'."
-                )
-
-            recipes.append(
-                RegionalLabRecipeConfig(
-                    id=recipe_id,
-                    label=_optional_text(recipe_mapping.get("label")) or recipe_id,
-                    launcher=launcher,
-                    config_path_template=_require_text(
-                        recipe_mapping.get("config_path_template"),
-                        label=f"regional_lab.recipe[{recipe_id}].config_path_template",
-                    ),
-                    enabled=bool(recipe_mapping.get("enabled", True)),
-                    selection=_parse_selection(
-                        recipe_mapping,
-                        label=f"regional_lab.recipe[{recipe_id}]",
-                        include_disabled_default=True,
-                    ),
-                    required_fields=_normalize_text_list(
-                        recipe_mapping.get("required_fields"),
-                        label=f"regional_lab.recipe[{recipe_id}].required_fields",
-                    ),
-                    allowed_platforms=_normalize_text_list(
-                        recipe_mapping.get("allowed_platforms"),
-                        label=f"regional_lab.recipe[{recipe_id}].allowed_platforms",
-                    ),
-                )
-            )
-
-        return cls(
-            config_path=resolved_config_path,
-            base_dir=base_dir,
-            lab_id=lab_id,
-            output_root=output_root,
-            execute=bool(raw_section.get("execute", True)),
-            continue_on_error=bool(raw_section.get("continue_on_error", True)),
-            validate_config_paths=bool(raw_section.get("validate_config_paths", True)),
-            resume_from_report=bool(raw_section.get("resume_from_report", True)),
-            skip_completed_cases=bool(raw_section.get("skip_completed_cases", True)),
-            child_timeout_s=child_timeout_s,
-            python_executable=python_executable,
-            catalog=catalog,
-            selection=selection,
-            cluster_rules=tuple(cluster_rules),
-            recipes=tuple(recipes),
-        )
+        return cls.model_validate(payload, context={"base_dir": base_dir})
 
     @classmethod
     def from_file(cls, config_path: str | Path) -> RegionalLabConfig:
@@ -600,51 +713,3 @@ class RegionalLabConfig(HydroModelBase):
         resolved_config_path = Path(config_path).expanduser().resolve()
         payload = load_toml_with_base_config(resolved_config_path)
         return cls.from_toml(payload, config_path=resolved_config_path)
-
-
-def _parse_selection(
-    raw_mapping: Mapping[str, Any],
-    *,
-    label: str,
-    include_disabled_default: bool,
-) -> RegionalLabSelectionConfig:
-    """Parse the common site-selection contract."""
-    return RegionalLabSelectionConfig(
-        site_ids=_normalize_text_list(
-            raw_mapping.get("site_ids"),
-            label=f"{label}.site_ids",
-        ),
-        cluster_ids=_normalize_text_list(
-            raw_mapping.get("cluster_ids"),
-            label=f"{label}.cluster_ids",
-        ),
-        regions=_normalize_text_list(
-            raw_mapping.get("regions"),
-            label=f"{label}.regions",
-        ),
-        families=_normalize_text_list(
-            raw_mapping.get("families"),
-            label=f"{label}.families",
-        ),
-        scales=_normalize_text_list(
-            raw_mapping.get("scales"),
-            label=f"{label}.scales",
-        ),
-        statuses=_normalize_text_list(
-            raw_mapping.get("statuses"),
-            label=f"{label}.statuses",
-        ),
-        maturity_levels=_normalize_text_list(
-            raw_mapping.get("maturity_levels"),
-            label=f"{label}.maturity_levels",
-        ),
-        tags=_normalize_text_list(
-            raw_mapping.get("tags"),
-            label=f"{label}.tags",
-        ),
-        limit=_validate_optional_int(
-            raw_mapping.get("limit"),
-            label=f"{label}.limit",
-        ),
-        include_disabled=bool(raw_mapping.get("include_disabled", include_disabled_default)),
-    )
