@@ -33,9 +33,7 @@ from hydromodpy.core.config_kit.introspect import (
 from hydromodpy.core.config_kit.introspect import (
     resolve_profile as _resolve_profile,
 )
-from hydromodpy.core.config_kit.profile import Profile
-
-ProfileName = str
+from hydromodpy.core.config_kit.profile import Profile, ProfileName
 
 
 def _coerce_value(value: Any) -> Any:

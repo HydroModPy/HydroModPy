@@ -31,7 +31,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, model_validator
 from pydantic.fields import FieldInfo
 
 from hydromodpy.analysis.config import AnalysisConfig
@@ -121,8 +121,6 @@ class HydroModPyConfig(HydroModelBase):
     hierarchical model and validates optional flow parameters as
     `FieldParamConfig` dictionaries.
     """
-
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     workflow: Annotated[WorkflowConfig, Profile.USER] = Field(
         description=(

@@ -16,6 +16,7 @@ Usage::
 from __future__ import annotations
 
 from enum import IntEnum
+from typing import Literal, TypeAlias
 
 
 class Profile(IntEnum):
@@ -26,4 +27,8 @@ class Profile(IntEnum):
     EXPERT = 3  # MODFLOW/Boussinesq/pint internals
 
 
-__all__ = ["Profile"]
+ProfileName: TypeAlias = Literal["user", "dev", "expert"]
+"""String form of :class:`Profile` used by CLI/TOML facing APIs."""
+
+
+__all__ = ["Profile", "ProfileName"]

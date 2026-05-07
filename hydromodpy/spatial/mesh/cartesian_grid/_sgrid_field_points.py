@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-InterpolationMethod = Literal["nearest", "linear", "idw"]
+from hydromodpy.core.config_kit.types import InterpolationMethod
 
 
 def extract_located_points(load_result: Any) -> list[Any]:

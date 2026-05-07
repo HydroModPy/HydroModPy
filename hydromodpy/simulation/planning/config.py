@@ -9,7 +9,11 @@ from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import IdentifierStr
+from hydromodpy.core.config_kit.types import (
+    CoveragePolicy,
+    IdentifierStr,
+    TimePeriodUnit,
+)
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
 from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.results_config import ResultsConfig
@@ -27,7 +31,7 @@ _STEP_UNIT_ALIASES = {
 }
 
 
-def _coerce_step_unit(token: str) -> Literal["hour", "day", "month", "year"]:
+def _coerce_step_unit(token: str) -> TimePeriodUnit:
     """Resolve one user-facing step-unit token to the canonical literal."""
     cleaned = token.strip().lower()
     if cleaned == "":
@@ -75,7 +79,7 @@ class SimulationTimeConfig(HydroModelBase):
         ),
         examples=["1 month", "10 day"],
     )
-    step_unit: Annotated[Literal["hour", "day", "month", "year"] | None, Profile.USER] = Field(
+    step_unit: Annotated[TimePeriodUnit | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional forcing/stress-period base time unit used with step_value "
@@ -91,7 +95,7 @@ class SimulationTimeConfig(HydroModelBase):
             "substeps inside monthly stress periods)."
         ),
     )
-    coverage_policy: Annotated[Literal["error", "warn", "ignore"], Profile.DEV] = Field(
+    coverage_policy: Annotated[CoveragePolicy, Profile.DEV] = Field(
         default="error",
         description=(
             "Behavior when recharge does not fully cover the declared simulation "

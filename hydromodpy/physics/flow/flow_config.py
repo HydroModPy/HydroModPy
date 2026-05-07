@@ -9,17 +9,15 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import (
     Field,
-    PrivateAttr,
     ValidationInfo,
     field_validator,
     model_validator,
 )
 
-from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.physics.base import ProcessSpatialConfig
@@ -29,6 +27,8 @@ from hydromodpy.physics.flow.boundary_conditions import (
     BCEntry,
     FlowBoundaryConditionConfig,
 )
+from hydromodpy.physics.flow.flow_param_config import FlowParam
+from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
 from hydromodpy.physics.flow.initial_conditions import (
     FlowInitialConditions,
 )
@@ -43,108 +43,15 @@ from hydromodpy.physics.flow.sinks_sources import (
 from hydromodpy.physics.flow.sinks_sources_config import (
     normalize_flow_sinks_sources,
 )
-from hydromodpy.spatial.field.core.field_param_config import (
-    FieldParamConfig,
-    FieldSection,
-    FieldVerticalProfileSection,
-    resolve_field_param_config_payload,
-)
 
 __all__ = [
     "FlowBoundaryConditionConfig",
-    "FlowParam",
-    "FlowWellConfig",
-    "FlowSinksSourcesConfig",
-    "FlowRuntimeConfig",
     "FlowConfig",
+    "FlowParam",
+    "FlowRuntimeConfig",
+    "FlowSinksSourcesConfig",
+    "FlowWellConfig",
 ]
-
-
-class FlowRuntimeConfig(HydroModelBase):
-    """Grouped view of the Boussinesq runtime fields on :class:`FlowConfig`.
-
-    The spec (``02_config_pydantic.md`` §3.3) groups all runtime-only
-    Boussinesq solver knobs under a single ``runtime`` sub-block so that
-    user-facing templates do not scatter ``runtime_backend``,
-    ``runtime_max_iterations`` and ``runtime_tol_*`` at the top of
-    ``[flow]``. We keep the flat flow-config fields for existing
-    consumers and expose this dataclass-style view via
-    :attr:`FlowConfig.runtime` for new call-sites.
-    """
-
-    backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = Field(
-        default="local",
-        description=("Nonlinear runtime backend used by Boussinesq-style solvers."),
-    )
-    surface_model: Annotated[
-        Literal["auto", "regularized_partition", "complementarity"], Profile.DEV
-    ] = Field(
-        default="auto",
-        description=(
-            "Surface-interaction closure selector (Boussinesq). "
-            "``regularized_partition`` uses the Marcais-style q_ex = G_r(theta) "
-            "R(balance) law; ``complementarity`` uses the PETSc "
-            "q_ex-perp-(z_top-h) formulation; ``auto`` keeps the historical "
-            "backend-dependent default."
-        ),
-    )
-    max_iterations: Annotated[int | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional override for the nonlinear iteration budget.",
-    )
-    tol_residual_inf: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional override for the inf-norm residual tolerance.",
-    )
-    tol_state_update_inf: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional override for the inf-norm state-update tolerance.",
-    )
-
-
-class FlowParam(FieldParamConfig):
-    """Flow parameter payload using native field-param sections."""
-
-    field: Annotated[FieldSection, Profile.USER] = Field(
-        ...,
-        description="Discriminated parameter section `[field]`.",
-    )
-    field_vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.USER] = Field(
-        default=None,
-        description="Optional depth profile section `[field_vertical_profile]`.",
-    )
-
-    _base_dir: Path | None = PrivateAttr(default=None)
-    _section_label: str = PrivateAttr(default="flow.param")
-
-    def model_post_init(self, context: Any) -> None:
-        super().model_post_init(context)
-        if isinstance(context, Mapping):
-            raw_base_dir = context.get("base_dir")
-            if isinstance(raw_base_dir, Path):
-                self._base_dir = raw_base_dir
-        self._section_label = self._section_label_from_field()
-
-    def _section_label_from_field(self) -> str:
-        field_id = self.field.id
-        if field_id:
-            return f"flow.param.{field_id}"
-        return "flow.param"
-
-    def resolved_payload(
-        self,
-        *,
-        param_id: str | None = None,
-        base_dir: Path | None = None,
-        section_label: str | None = None,
-    ) -> dict[str, Any]:
-        """Return the resolved runtime field-parameter payload."""
-        return resolve_field_param_config_payload(
-            self.model_dump(mode="python", exclude_none=True),
-            param_id=param_id,
-            base_dir=base_dir or self._base_dir,
-            section_label=section_label or self._section_label,
-        )
 
 
 class FlowConfig(ProcessSpatialConfig):

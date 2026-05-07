@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -49,13 +49,6 @@ class FlowPhysicalProperties(HydroModelBase):
     Each field uses a pint-backed Pydantic annotation so that unit conversion
     and range validation happen at construction time.
     """
-
-    model_config = ConfigDict(
-        extra="forbid",
-        arbitrary_types_allowed=True,
-        str_strip_whitespace=True,
-        validate_default=True,
-    )
 
     k_aquifer: Annotated[HydraulicConductivity, Profile.USER] = Field(
         default="1e-4 m/s",

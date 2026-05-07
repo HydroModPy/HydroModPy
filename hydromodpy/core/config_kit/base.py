@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_core import PydanticUndefined
 
 from hydromodpy.core.config_kit.introspect import extract_profile
+from hydromodpy.core.config_kit.profile import ProfileName
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 
 
@@ -116,7 +117,7 @@ class HydroModelBase(BaseModel):
         self,
         path: str | Path,
         *,
-        profile: Literal["user", "dev", "expert"] = "user",
+        profile: ProfileName = "user",
     ) -> Path:
         """Serialise this config to a TOML file filtered by *profile*.
 

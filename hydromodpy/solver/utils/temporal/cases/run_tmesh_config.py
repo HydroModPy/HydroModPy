@@ -5,11 +5,13 @@ from __future__ import annotations
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
@@ -17,16 +19,8 @@ from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 class TMeshCaseScenarioConfig(TMeshConfig):
     """One named temporal-mesh demo scenario."""
 
-    id: str
-    description: str | None = None
-
-    @field_validator("id")
-    @classmethod
-    def _validate_non_empty_id(cls, value):
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("scenario id cannot be empty")
-        return text
+    id: Annotated[IdentifierStr, Profile.USER]
+    description: Annotated[str | None, Profile.USER] = None
 
     def to_builder_kwargs(self) -> dict[str, Any]:
         payload = self.model_dump(
@@ -40,12 +34,12 @@ class TMeshCaseScenarioConfig(TMeshConfig):
 class TMeshCasesConfig(HydroModelBase):
     """Collection of temporal-mesh scenarios loaded from one TOML file."""
 
-    scenarios: list[TMeshCaseScenarioConfig] = Field(
+    scenarios: Annotated[list[TMeshCaseScenarioConfig], Profile.USER] = Field(
         default_factory=list,
         description="Named temporal-mesh demo scenarios declared in the TOML file.",
     )
-    output_summary_json: Path | None = None
-    output_figures_dir: Path | None = None
+    output_summary_json: Annotated[Path | None, Profile.DEV] = None
+    output_figures_dir: Annotated[Path | None, Profile.DEV] = None
 
     @field_validator("output_summary_json", "output_figures_dir", mode="before")
     @classmethod

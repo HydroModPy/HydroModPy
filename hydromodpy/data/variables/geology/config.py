@@ -11,6 +11,7 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.core.tracking import InputFile
 
 
@@ -137,7 +138,7 @@ class GeologyConfig(HydroModelBase):
         description="At least one geology data source. Defaults to BRGM 1:1M.",
     )
 
-    id: Annotated[str, Profile.USER] = Field(
+    id: Annotated[IdentifierStr, Profile.USER] = Field(
         default="field_geology",
         description="Identifier of the geology spatial field.",
     )
@@ -149,14 +150,6 @@ class GeologyConfig(HydroModelBase):
             "Higher = more precise geology interface, slower runtime."
         ),
     )
-
-    @field_validator("id")
-    @classmethod
-    def _validate_id(cls, value: str) -> str:
-        text = str(value).strip()
-        if not text:
-            raise ValueError("geology.id cannot be empty")
-        return text
 
     @classmethod
     def brgm_1m(cls, **overrides) -> GeologyConfig:
