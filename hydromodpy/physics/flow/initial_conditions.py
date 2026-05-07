@@ -25,6 +25,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import Length, check_unit_compatible
 from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
@@ -48,7 +49,7 @@ class FlowInitialCondition(BaseInitialCondition):
     id: Annotated[str, Profile.DEV] = Field(
         "h",
         description="id of the initial condition (forced to 'h' for flow)",
-        json_schema_extra={"toml_exclude": True},
+        json_schema_extra=field_metadata(toml_exclude=True),
     )
 
     type: Annotated[Literal["top", "top_offset", "bottom", "custom"], Profile.USER] = Field(

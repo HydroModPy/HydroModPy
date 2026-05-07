@@ -35,6 +35,7 @@ from typing import Annotated
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import (
     HydraulicConductivity,
@@ -53,46 +54,46 @@ class FlowPhysicalProperties(HydroModelBase):
     k_aquifer: Annotated[HydraulicConductivity, Profile.USER] = Field(
         default="1e-4 m/s",
         description="Hydraulic conductivity of the aquifer (K).",
-        json_schema_extra={
-            "widget_type": "input",
-            "unit": "m/s",
-            "display_name_fr": "Conductivité hydraulique",
-            "help_text_fr": (
+        json_schema_extra=field_metadata(
+            widget_type="input",
+            unit="m/s",
+            display_name_fr="Conductivité hydraulique",
+            help_text_fr=(
                 "Vitesse à laquelle l'eau traverse l'aquifère (m/s). "
                 "Accepte une valeur numérique (m/s) ou une chaîne '<valeur> <unité>'."
             ),
-            "display_min": 1e-14,
-            "display_max": 1e2,
-        },
+            display_min=1e-14,
+            display_max=1e2,
+        ),
     )
 
     specific_yield: Annotated[SpecificYield, Profile.USER] = Field(
         default=0.1,
         description="Specific yield of the aquifer (Sy), dimensionless.",
-        json_schema_extra={
-            "widget_type": "slider",
-            "unit": "-",
-            "display_name_fr": "Porosité efficace",
-            "help_text_fr": "Fraction d'eau libérée par gravité (0-1).",
-            "display_min": 0.001,
-            "display_max": 0.5,
-        },
+        json_schema_extra=field_metadata(
+            widget_type="slider",
+            unit="-",
+            display_name_fr="Porosité efficace",
+            help_text_fr="Fraction d'eau libérée par gravité (0-1).",
+            display_min=0.001,
+            display_max=0.5,
+        ),
     )
 
     specific_storage: Annotated[SpecificStorage, Profile.USER] = Field(
         default="1e-5 1/m",
         description="Specific storage coefficient (Ss), in m^-1.",
-        json_schema_extra={
-            "widget_type": "input",
-            "unit": "1/m",
-            "display_name_fr": "Emmagasinement spécifique",
-            "help_text_fr": (
+        json_schema_extra=field_metadata(
+            widget_type="input",
+            unit="1/m",
+            display_name_fr="Emmagasinement spécifique",
+            help_text_fr=(
                 "Volume d'eau libéré par unité de volume d'aquifère pour "
                 "une baisse unitaire de charge (m^-1)."
             ),
-            "display_min": 1e-9,
-            "display_max": 1e-3,
-        },
+            display_min=1e-9,
+            display_max=1e-3,
+        ),
     )
 
 
