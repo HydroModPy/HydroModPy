@@ -624,7 +624,7 @@ def load_standard_section(
 
     payload = dict(section_data)
     _resolve_section_paths(payload, model_cls, base, workspace_data_dir=workspace_data_dir)
-    return model_cls(**payload)
+    return model_cls.model_validate(payload)
 
 
 def _raw_declares_dem_source(section_data: Any) -> bool:
@@ -754,4 +754,4 @@ def _load_optional_analysis_section(
         unknown = ", ".join(sorted(extra_keys))
         raise ValueError(f"Unknown [analysis] sub-section(s): {unknown}")
 
-    return AnalysisConfig(**parsed)
+    return AnalysisConfig.model_validate(parsed)
