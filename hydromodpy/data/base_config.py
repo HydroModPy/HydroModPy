@@ -14,15 +14,8 @@ from pydantic import Field, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IsoDateStr
+from hydromodpy.core.toml_io.loader import validate_toml
 from hydromodpy.core.toml_io.paths import resolve_declared_path
-
-
-def _load_toml(path: Path) -> dict:
-    """Load a TOML file."""
-    import tomllib
-
-    with open(path, "rb") as f:
-        return tomllib.load(f)
 
 
 class BaseVariableConfig(HydroModelBase):
@@ -63,17 +56,17 @@ class BaseVariableConfig(HydroModelBase):
         Relative paths (``path``, ``mask_path``) in the TOML are resolved
         relative to the TOML file's directory, not the CWD.
         """
-        path = Path(path).resolve()
-        data = _load_toml(path)
         if cls._TOML_SECTION is None:
             raise NotImplementedError(f"{cls.__name__} must define _TOML_SECTION")
-        section = data.get(cls._TOML_SECTION, data)
-        cfg = cls.model_validate(section)
-        _resolve_source_paths(cfg, path.parent)
-        return cfg
+        return validate_toml(
+            cls,
+            path,
+            section=cls._TOML_SECTION,
+            base_dir_resolver=_resolve_source_paths,
+        )
 
 
-def _resolve_source_paths(cfg: BaseVariableConfig, toml_dir: Path) -> None:
+def _resolve_source_paths(cfg: BaseVariableConfig, toml_dir: Path) -> BaseVariableConfig:
     """Resolve ``path`` and ``mask_path`` on each source relative to *toml_dir*."""
     sources = getattr(cfg, "sources", [])
     for src in sources:
@@ -81,3 +74,4 @@ def _resolve_source_paths(cfg: BaseVariableConfig, toml_dir: Path) -> None:
             src.path = resolve_declared_path(src.path, base_dir=toml_dir)
         if getattr(src, "mask_path", None) is not None:
             src.mask_path = resolve_declared_path(src.mask_path, base_dir=toml_dir)
+    return cfg
