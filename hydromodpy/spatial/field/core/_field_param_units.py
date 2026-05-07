@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
+from pydantic import BeforeValidator
+
 from hydromodpy.core.units.hydraulic_conductivity import (
     M_PER_S_CANONICAL_UNITS,
     normalize_m_per_s_unit,
@@ -38,3 +42,7 @@ def normalize_unit_token(value: str | None) -> str | None:
     except ValueError:
         allowed = ", ".join(SUPPORTED_PARAMETER_UNITS)
         raise ValueError(f"Unsupported field.unit '{value}'. Allowed: {allowed}") from None
+
+
+UnitStr = Annotated[str | None, BeforeValidator(normalize_unit_token)]
+"""Optional unit token normalised against ``SUPPORTED_PARAMETER_UNITS``."""

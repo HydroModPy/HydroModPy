@@ -9,10 +9,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, ClassVar
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IsoDateStr
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 
 
@@ -35,28 +36,16 @@ class BaseVariableConfig(HydroModelBase):
 
     _TOML_SECTION: ClassVar[str | None] = None
 
-    date_start: Annotated[str | None, Profile.USER] = Field(
+    date_start: Annotated[IsoDateStr, Profile.USER] = Field(
         default=None,
         description="Project start date (ISO format, e.g. '2019-01-01').",
         examples=["2019-01-01"],
     )
-    date_end: Annotated[str | None, Profile.USER] = Field(
+    date_end: Annotated[IsoDateStr, Profile.USER] = Field(
         default=None,
         description="Project end date (ISO format, e.g. '2025-12-31').",
         examples=["2025-12-31"],
     )
-
-    @field_validator("date_start", "date_end", mode="after")
-    @classmethod
-    def _validate_iso_date(cls, v: str | None) -> str | None:
-        if v is not None and v != "":
-            from datetime import datetime
-
-            try:
-                datetime.fromisoformat(v)
-            except ValueError:
-                raise ValueError(f"Invalid ISO date: '{v}'. Expected YYYY-MM-DD.") from None
-        return v
 
     @model_validator(mode="after")
     def _check_date_order(self):

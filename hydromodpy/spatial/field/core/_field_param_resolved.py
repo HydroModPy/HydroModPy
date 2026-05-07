@@ -23,7 +23,7 @@ from hydromodpy.spatial.field.core._field_param_sections import (
     FieldVerticalProfileSection,
     HeterogeneousValueSource,
 )
-from hydromodpy.spatial.field.core._field_param_units import normalize_unit_token
+from hydromodpy.spatial.field.core._field_param_units import UnitStr
 
 
 class ResolvedFieldParam(HydroModelBase):
@@ -37,7 +37,7 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Resolved parameter kind: homogeneous or heterogeneous.",
     )
-    unit: Annotated[str | None, Profile.DEV] = Field(
+    unit: Annotated[UnitStr, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter unit (canonical token).",
     )
@@ -73,11 +73,6 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Resolved optional depth profile configuration.",
     )
-
-    @field_validator("unit")
-    @classmethod
-    def _validate_unit(cls, value):
-        return normalize_unit_token(value)
 
     @field_validator("value")
     @classmethod

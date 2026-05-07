@@ -15,7 +15,7 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr, Probability
 from hydromodpy.core.units import Length
-from hydromodpy.spatial.field.core._field_param_units import normalize_unit_token
+from hydromodpy.spatial.field.core._field_param_units import UnitStr
 
 FieldKind = Literal["homogeneous", "heterogeneous"]
 HeterogeneousValueSource = Literal["inline", "csv"]
@@ -34,17 +34,12 @@ class FieldBaseSection(HydroModelBase):
         default=None,
         description=("Field type selector. Allowed values: 'homogeneous' or 'heterogeneous'."),
     )
-    unit: Annotated[str | None, Profile.USER] = Field(
+    unit: Annotated[UnitStr, Profile.USER] = Field(
         default=None,
         description=(
             "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
         ),
     )
-
-    @field_validator("unit")
-    @classmethod
-    def _validate_unit(cls, value):
-        return normalize_unit_token(value)
 
 
 class FieldHomogeneousSection(HydroModelBase):
@@ -58,7 +53,7 @@ class FieldHomogeneousSection(HydroModelBase):
         default="homogeneous",
         description="Field type selector.",
     )
-    unit: Annotated[str | None, Profile.USER] = Field(
+    unit: Annotated[UnitStr, Profile.USER] = Field(
         default=None,
         description=(
             "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
@@ -68,11 +63,6 @@ class FieldHomogeneousSection(HydroModelBase):
         default=None,
         description="Scalar surface value used when kind='homogeneous'.",
     )
-
-    @field_validator("unit")
-    @classmethod
-    def _validate_unit(cls, value):
-        return normalize_unit_token(value)
 
     @field_validator("value")
     @classmethod
@@ -102,7 +92,7 @@ class FieldHeterogeneousSection(HydroModelBase):
         default="heterogeneous",
         description="Field type selector.",
     )
-    unit: Annotated[str | None, Profile.USER] = Field(
+    unit: Annotated[UnitStr, Profile.USER] = Field(
         default=None,
         description=(
             "Unit of parameter values. Typical examples: 'm/s' (K), '-' (Sy), 'm-1' (Ss)."
@@ -144,11 +134,6 @@ class FieldHeterogeneousSection(HydroModelBase):
             "(must match geometry field id)."
         ),
     )
-
-    @field_validator("unit")
-    @classmethod
-    def _validate_unit(cls, value):
-        return normalize_unit_token(value)
 
     @field_validator("values", mode="before")
     @classmethod
