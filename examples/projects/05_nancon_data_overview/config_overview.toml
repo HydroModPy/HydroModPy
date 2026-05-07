@@ -17,7 +17,9 @@
 # Workspace configuration for project-based workspace structure.
 # ----------------------------------------------------------------------
 
-workflow = "overview"
+
+[workflow]
+mode = "overview"
 
 [workspace]
 # Path to the project directory.

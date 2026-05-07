@@ -1,4 +1,6 @@
-workflow = "testbed"
+
+[workflow]
+mode = "testbed"
 
 [testbed]
 id = "mesh_resolution_testbed"

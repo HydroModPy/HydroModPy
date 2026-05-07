@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -20,8 +20,6 @@ class HydrographySourceConfig(HydroModelBase):
     ``bdtopage`` for the Sandre WFS service, or ``euhydro`` for the EEA
     EU-Hydro service.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     source: Annotated[Literal["custom", "osm", "bdtopage", "euhydro"], Profile.USER] = Field(
         ..., description="Data provider."
@@ -87,8 +85,6 @@ class HydrographyConfig(HydroModelBase):
     preparation. It is commonly inferred when ``flow.active_bc`` contains a
     stream boundary condition.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     sources: Annotated[list[HydrographySourceConfig], Profile.USER] = Field(
         ...,

@@ -5,7 +5,9 @@
 
 base_config = "config_mf6_mesh_catchment_common.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "Example 12 launcher fast MODFLOW 6 embedded mesh"

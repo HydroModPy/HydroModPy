@@ -7,7 +7,9 @@
 # created by firstpersteady.
 
 base_config = "base_nancon_transient_monthly_hydrography_mesh_input.toml"
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/nancon_transient_monthly_mf6_disv_vs_nwt_ic_diagnostic/shared_workspace"

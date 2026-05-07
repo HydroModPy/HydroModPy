@@ -1,7 +1,7 @@
 """``hmp run`` - execute a workflow declared by the TOML.
 
 Single CLI entry point. The TOML must carry a top-level
-``workflow = "..."`` field (one of ``simulation``, ``calibration``,
+``[workflow] mode = "..."`` field (one of ``simulation``, ``calibration``,
 ``batch``, ``overview``, ``mesh``, ``comparison``, ``testbed``). Absence
 raises ``WorkflowMissingError``.
 """
@@ -115,7 +115,7 @@ def run(args: argparse.Namespace) -> None:
 def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """Run a workflow from a TOML file.
 
-    The TOML MUST declare ``workflow = "..."`` at the top level - otherwise
+    The TOML MUST declare ``[workflow] mode = "..."`` - otherwise
     :class:`~hydromodpy.workflow.dispatch.WorkflowMissingError` is raised and
     the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
     """
@@ -235,7 +235,7 @@ def _infer_workflow_from_sections(raw_toml: dict) -> str:
 
     Mirrors the dispatch table in :mod:`hydromodpy.workflow.dispatch` - used
     only when ``--dry-run`` is set and the user has not declared
-    ``workflow = "..."`` at the top level.
+    ``[workflow] mode = "..."``.
     """
     if "calibration" in raw_toml:
         return "calibration"

@@ -18,7 +18,7 @@ def _write_mesh_base(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'workflow = "mesh"',
+                '[workflow]\nmode = "mesh"',
                 "",
                 "[workspace]",
                 'project_root = "mesh_outputs/base"',
@@ -39,7 +39,7 @@ def _write_flow_base(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[workspace]",
                 'project_root = "flow_outputs/base"',
@@ -80,7 +80,7 @@ def test_testbed_config_parses_mesh_variants(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "mesh_resolution"',
@@ -127,7 +127,7 @@ def test_testbed_config_parses_flow_variants(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "flow_k_sensitivity"',
@@ -169,7 +169,7 @@ def test_flow_testbed_requires_separate_base_config(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'subject = "flow"',
@@ -198,7 +198,7 @@ def test_testbed_launcher_materializes_child_configs_without_executing(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "mesh_resolution"',
@@ -243,7 +243,7 @@ def test_testbed_launcher_materializes_flow_child_configs_without_executing(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "flow_k_sensitivity"',
@@ -287,7 +287,7 @@ def test_testbed_launcher_runs_mesh_catchment_variants_and_collects_metrics(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[workspace]",
                 'project_root = "mesh_outputs/base"',
@@ -361,7 +361,7 @@ def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "flow_k_sensitivity"',
@@ -446,7 +446,7 @@ def test_flow_testbed_enriches_metrics_from_simulation_catalog(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "flow_catalog_metrics"',
@@ -603,7 +603,7 @@ def test_testbed_required_metric_failure_is_persisted(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "flow_required_metric"',

@@ -25,7 +25,7 @@ def test_hmp_run_dispatches_simulation_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=simulation dispatches to run_simulation."""
     config = _write_toml(
         tmp_path / "config.toml",
-        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -52,7 +52,7 @@ def test_hmp_run_forwards_no_display_flag(monkeypatch, tmp_path) -> None:
     """``hmp run --no-display`` must reach run_simulation(no_display=True)."""
     config = _write_toml(
         tmp_path / "config.toml",
-        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -73,7 +73,7 @@ def test_hmp_run_forwards_checkpoint_flag(monkeypatch, tmp_path) -> None:
     """``hmp run --checkpoint`` must opt into checkpoint persistence."""
     config = _write_toml(
         tmp_path / "config.toml",
-        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -94,7 +94,7 @@ def test_hmp_run_resume_enables_checkpoint(monkeypatch, tmp_path) -> None:
     """``--resume`` implies checkpoint reads even without ``--checkpoint``."""
     config = _write_toml(
         tmp_path / "config.toml",
-        'workflow = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -115,7 +115,7 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=overview dispatches to run_overview."""
     config = _write_toml(
         tmp_path / "overview.toml",
-        'workflow = "overview"\n[workspace]\nproject_root = "."\n[overview]\nname = "test"\n',
+        '[workflow]\nmode = "overview"\n[workspace]\nproject_root = "."\n[overview]\nname = "test"\n',
     )
 
     captured: dict = {}
@@ -138,7 +138,7 @@ def test_hmp_run_dispatches_mesh_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=mesh dispatches to run_mesh."""
     config = _write_toml(
         tmp_path / "mesh.toml",
-        'workflow = "mesh"\n'
+        '[workflow]\nmode = "mesh"\n'
         '[workspace]\nproject_root = "."\n'
         "[mesh_catchment]\nelement_size = 200\n",
     )
@@ -163,7 +163,7 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=calibration dispatches to run_calibration."""
     config = _write_toml(
         tmp_path / "calib.toml",
-        'workflow = "calibration"\n[calibration]\nmethod = "scipy"\n',
+        '[workflow]\nmode = "calibration"\n[calibration]\nmethod = "scipy"\n',
     )
 
     captured: dict = {}
@@ -186,7 +186,7 @@ def test_hmp_run_dispatches_batch_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=batch dispatches to run_batch."""
     config = _write_toml(
         tmp_path / "batch.toml",
-        'workflow = "batch"\n[batch]\ncatalog_path = "sites.csv"\n',
+        '[workflow]\nmode = "batch"\n[batch]\ncatalog_path = "sites.csv"\n',
     )
 
     captured: dict = {}
@@ -222,7 +222,7 @@ def test_hmp_run_dispatches_comparison_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=comparison dispatches to run_comparison."""
     config = _write_toml(
         tmp_path / "comparison.toml",
-        'workflow = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
+        '[workflow]\nmode = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
     )
 
     captured: dict = {}
@@ -245,7 +245,7 @@ def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=testbed dispatches to run_testbed."""
     config = _write_toml(
         tmp_path / "testbed.toml",
-        'workflow = "testbed"\n[testbed]\nid = "demo"\n',
+        '[workflow]\nmode = "testbed"\n[testbed]\nid = "demo"\n',
     )
 
     captured: dict = {}
@@ -268,7 +268,7 @@ def test_hmp_run_crashes_on_unknown_workflow_value(monkeypatch, tmp_path) -> Non
     """``hmp run`` rejects a workflow value outside the known set."""
     config = _write_toml(
         tmp_path / "bad_workflow.toml",
-        'workflow = "not_a_workflow"\n[workspace]\nproject_root = "."\n',
+        '[workflow]\nmode = "not_a_workflow"\n[workspace]\nproject_root = "."\n',
     )
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 

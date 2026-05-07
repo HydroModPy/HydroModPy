@@ -1,4 +1,6 @@
-workflow = "comparison"
+
+[workflow]
+mode = "comparison"
 
 [comparison]
 comparison_id = "lu_boundary_step_same_support"

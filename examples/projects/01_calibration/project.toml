@@ -21,7 +21,9 @@
 #   hmp run examples/projects/01_calibration/project.toml
 # ======================================================================
 
-workflow = "calibration"
+
+[workflow]
+mode = "calibration"
 
 [simulation]
 name = "calibration_dupuit"
@@ -114,7 +116,7 @@ nlay = 1
 enabled = false
 
 # --- Calibration ----------------------------------------------------
-# `workflow = "calibration"` plus the [calibration] block below trigger
+# `[workflow].mode = "calibration"` plus the [calibration] block below trigger
 # the ask/tell loop. The [simulation] section above is the plan replayed
 # by the evaluator at each iteration.
 #

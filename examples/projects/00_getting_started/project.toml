@@ -13,7 +13,9 @@
 #   hmp.run("examples/00_getting_started/project.toml", headless=True)
 # ======================================================================
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "getting_started_dupuit"

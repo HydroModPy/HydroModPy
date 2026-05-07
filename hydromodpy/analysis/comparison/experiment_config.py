@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.analysis.comparison.config import (
     ComparisonFineRaster,
@@ -42,8 +42,6 @@ def _clean_optional_text(value: object) -> str | None:
 class ComparisonExecutionConfig(HydroModelBase):
     """How comparison child simulations are executed."""
 
-    model_config = ConfigDict(extra="forbid")
-
     backend: Annotated[Literal["subprocess_hmp_run"], Profile.DEV] = "subprocess_hmp_run"
     max_parallel_runs: Annotated[int, Profile.DEV] = Field(
         default=1,
@@ -74,16 +72,12 @@ class ComparisonExecutionConfig(HydroModelBase):
 class ComparisonAuditConfig(HydroModelBase):
     """Post-run equivalence policy for child simulations."""
 
-    model_config = ConfigDict(extra="forbid")
-
     mode: Annotated[Literal["strict_same_case"], Profile.DEV] = "strict_same_case"
     on_mismatch: Annotated[Literal["fail", "warn", "ignore"], Profile.DEV] = "fail"
 
 
 class ComparisonSimulationConfig(HydroModelBase):
     """One generated child simulation in a comparison experiment."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, Profile.USER]
     label: Annotated[str | None, Profile.USER] = None
@@ -146,8 +140,6 @@ class ComparisonSimulationConfig(HydroModelBase):
 
 class ComparisonSection(HydroModelBase):
     """Top-level comparison experiment section."""
-
-    model_config = ConfigDict(extra="forbid")
 
     comparison_id: Annotated[str | None, Profile.USER] = None
     base_simulation_config: Annotated[str | None, Profile.EXPERT] = None
@@ -236,8 +228,6 @@ class ComparisonSection(HydroModelBase):
 
 class SimulationComparisonConfig(HydroModelBase):
     """Resolved comparison experiment config with absolute paths."""
-
-    model_config = ConfigDict(extra="forbid")
 
     config_path: Annotated[Path, Profile.EXPERT]
     base_dir: Annotated[Path, Profile.EXPERT]

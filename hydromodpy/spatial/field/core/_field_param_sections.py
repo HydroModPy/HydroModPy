@@ -6,7 +6,6 @@ import math
 from typing import Annotated, Literal, TypeAlias
 
 from pydantic import (
-    ConfigDict,
     Field,
     field_validator,
     model_validator,
@@ -25,8 +24,6 @@ VerticalProfileInterpolation = Literal["linear", "step"]
 
 class FieldBaseSection(HydroModelBase):
     """Schema for `[field]` base section."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -61,8 +58,6 @@ class FieldBaseSection(HydroModelBase):
 
 class FieldHomogeneousSection(HydroModelBase):
     """Schema for homogeneous `[field]` payloads."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -117,8 +112,6 @@ class FieldHomogeneousSection(HydroModelBase):
 
 class FieldHeterogeneousSection(HydroModelBase):
     """Schema for heterogeneous `[field]` payloads."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str | None, Profile.USER] = Field(
         default=None,
@@ -280,8 +273,6 @@ FieldSection: TypeAlias = Annotated[
 
 class FieldVerticalProfileSection(HydroModelBase):
     """Schema for `[field_vertical_profile]`."""
-
-    model_config = ConfigDict(extra="forbid")
 
     mode: Annotated[VerticalProfileMode, Profile.USER] = Field(
         default="none",

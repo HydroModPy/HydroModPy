@@ -23,7 +23,8 @@ simulation against it.
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [workspace]
    project_root = "./my_basin"
@@ -43,7 +44,8 @@ DEM-driven catchment delineation, no shapefile needed.
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [workspace]
    project_root = "./my_basin"
@@ -68,7 +70,8 @@ When the watershed boundary is already digitized.
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [geographic]
    catch_def = "from_polyg_shp"
@@ -88,7 +91,8 @@ Three zones along the x axis with distinct conductivities.
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [domain.supports.k_bands]
    provider = "generated_bands"
@@ -117,7 +121,8 @@ A pure analytical-style run with the in-house solver.
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [geographic]
    source_mode = "synthetic"
@@ -152,7 +157,8 @@ Bracket K with the built-in grid sweep, no extra dependency required.
 
 .. code-block:: toml
 
-   workflow = "calibration"
+   [workflow]
+   mode = "calibration"
 
    [calibration]
    method = "grid"
@@ -177,7 +183,8 @@ gathers metrics under one parent run.
 
 .. code-block:: toml
 
-   workflow = "comparison"
+   [workflow]
+   mode = "comparison"
 
    [comparison]
    base_config = "shared_base.toml"
@@ -202,7 +209,8 @@ Useful when iterating on conformal meshing before a full run.
 
 .. code-block:: toml
 
-   workflow = "mesh"
+   [workflow]
+   mode = "mesh"
 
    [workspace]
    project_root = "./my_basin"
@@ -230,7 +238,8 @@ Expand the same recipe across many sites listed in a CSV catalog.
 
 .. code-block:: toml
 
-   workflow = "batch"
+   [workflow]
+   mode = "batch"
 
    [analysis.batch.catalog]
    path = "sites.csv"
@@ -256,7 +265,8 @@ Toggle the NetCDF exporter from the persistence section.
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [persistence]
    save_zarr = true

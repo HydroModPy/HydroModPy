@@ -3,7 +3,7 @@ Retrieval Workflow
 
 The retrieval workflow starts from a TOML project and ends with normalized data
 records available to the rest of the run. The same pattern works for
-``workflow = "overview"`` and for solver workflows that need data-backed
+``[workflow].mode = "overview"`` and for solver workflows that need data-backed
 geometry, forcing, observations, or boundary conditions.
 
 Minimal public-data stack

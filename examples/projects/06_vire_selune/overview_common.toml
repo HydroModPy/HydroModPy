@@ -1,4 +1,6 @@
-workflow = "overview"
+
+[workflow]
+mode = "overview"
 
 [workspace]
 project_root = "."

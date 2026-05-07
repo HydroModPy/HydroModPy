@@ -1,4 +1,6 @@
-workflow = "comparison"
+
+[workflow]
+mode = "comparison"
 
 [comparison]
 comparison_id = "nancon_transient_monthly_mf6_bouss_comparable"

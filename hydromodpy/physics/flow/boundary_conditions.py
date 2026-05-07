@@ -29,7 +29,7 @@ from numbers import Real
 from pathlib import Path
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -171,8 +171,6 @@ def _extract_support_label(payload: Mapping[str, object]) -> str | None:
 class FlowBoundaryForcingConstantConfig(HydroModelBase):
     """One constant head forcing applied to every stress period."""
 
-    model_config = ConfigDict(extra="forbid")
-
     value: Annotated[Length, Profile.USER] = Field(
         ...,
         description="Constant boundary head in the same units as the parent boundary.",
@@ -181,8 +179,6 @@ class FlowBoundaryForcingConstantConfig(HydroModelBase):
 
 class FlowBoundaryForcingCsvConfig(HydroModelBase):
     """CSV-backed boundary forcing resolved at runtime against simulation.time."""
-
-    model_config = ConfigDict(extra="forbid")
 
     path_file: Annotated[Path, Profile.DEV] = Field(
         ..., description="Path to the CSV chronicle file."
@@ -219,8 +215,6 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
 
 class FlowBoundaryForcingConfig(HydroModelBase):
     """Launcher-facing boundary forcing declaration."""
-
-    model_config = ConfigDict(extra="forbid")
 
     mode: Annotated[Literal["constant", "csv"], Profile.USER] = Field(
         ...,
@@ -300,8 +294,6 @@ class FlowBoundaryConditionConfig(HydroModelBase):
     - produced by boundary-condition normalizers,
     - consumed by `Flow` runtime and solver adapter layers.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, Profile.USER] = Field(..., description="Boundary-condition identifier.")
     value: Annotated[float | list[float] | None, Profile.USER] = Field(
@@ -457,8 +449,6 @@ class FlowBoundaryConditionConfig(HydroModelBase):
 class DirichletBC(FlowBoundaryConditionConfig):
     """Dirichlet flow boundary condition."""
 
-    model_config = ConfigDict(extra="forbid")
-
     type: Annotated[Literal["dirichlet"], Profile.USER] = Field(
         default="dirichlet",
         description="Boundary-condition type.",
@@ -565,8 +555,6 @@ class DirichletBC(FlowBoundaryConditionConfig):
 class _DrainageBC(FlowBoundaryConditionConfig):
     """Shared Cauchy/Robin boundary payload behavior."""
 
-    model_config = ConfigDict(extra="forbid")
-
     @classmethod
     def _canonicalize_drainage_payload(cls, data, *, expected_type: str):
         if not isinstance(data, Mapping):
@@ -620,8 +608,6 @@ class _DrainageBC(FlowBoundaryConditionConfig):
 class CauchyBC(_DrainageBC):
     """Cauchy flow boundary condition."""
 
-    model_config = ConfigDict(extra="forbid")
-
     type: Annotated[Literal["cauchy"], Profile.USER] = Field(
         default="cauchy",
         description="Boundary-condition type.",
@@ -640,8 +626,6 @@ class CauchyBC(_DrainageBC):
 
 class RobinBC(_DrainageBC):
     """Robin flow boundary condition."""
-
-    model_config = ConfigDict(extra="forbid")
 
     type: Annotated[Literal["robin"], Profile.USER] = Field(
         default="robin",

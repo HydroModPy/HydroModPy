@@ -10,7 +10,9 @@
 # Workspace configuration for watershed project structure.
 # ----------------------------------------------------------------------
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "."
@@ -1462,115 +1464,130 @@ solver_engine = "modflownwt"
 [modflownwt.runtime]
 # MODFLOW executable/version identifier passed to FloPy.
 # Type: string | Default: "mfnwt"
-mf_version = "mfnwt"
 
 # Fortran unit number used for the MODFLOW list file.
 # Type: int | Default: 2
-mf_listunit = 2
 
 # Enable verbose FloPy logging for model setup.
 # Type: bool | Default: false
-mf_verbose = false
 
 # Head closure criterion for the NWT nonlinear solver.
 # Type: float | Default: 0.0001
-nwt_headtol = 0.0001
 
 # Flux closure criterion for the NWT nonlinear solver.
 # Type: float | Default: 500.0
-nwt_fluxtol = 500.0
 
 # Maximum outer nonlinear iterations in the NWT solver.
 # Type: int | Default: 5000
-nwt_maxiterout = 5000
 
 # NWT wetting/thickness factor controlling nonlinear updates.
 # Type: float | Default: 1e-05
-nwt_thickfact = 1e-05
 
 # Linear solver choice for NWT (see MODFLOW-NWT documentation).
 # Type: int | Default: 1
-nwt_linmeth = 1
 
 # NWT print flag controlling iteration diagnostics in listing outputs.
 # Type: int | Default: 1
-nwt_iprnwt = 1
 
 # NWT option for averaging saturated thickness at the cell bottom.
 # Type: int | Default: 1
-nwt_ibotav = 1
 
 # NWT nonlinear option keyword (for example SIMPLE or COMPLEX).
 # Type: string | Default: "COMPLEX"
-nwt_options = "COMPLEX"
 
 # If true, continue NWT iterations on partially converged stress periods.
 # Type: bool | Default: false
-nwt_continue = false
 
 # NWT backtracking activation flag.
 # Type: int | Default: 0
-nwt_backflag = 0
 
 # NWT backtracking stopping tolerance.
 # Type: float | Default: 1e-10
-nwt_stoptol = 1e-10
 
 # DIS time unit code used by MODFLOW (ITMUNI).
 # Type: int | Default: 0
-dis_itmuni = 0
 
 # BAS no-flow head sentinel value (HNOFLO).
 # Type: float | Default: -9999.0
-bas_hnoflo = -9999.0
 
 # UPW dry-cell head output flag (IPHDRY).
 # Type: int | Default: 1
-upw_iphdry = 1
 
 # UPW dry-cell head value (HDRY).
 # Type: float | Default: -100.0
-upw_hdry = -100.0
 
 # UPW flag controlling VKA interpretation per layer (LAYVKA).
 # Type: int | Default: 1
-upw_layvka = 1
 
 # EVT option code that defines how ET extinction depth is applied (NEVTOP).
 # Type: int | Default: 3
-evt_nevtop = 3
 
 # EVT integer array selector used when NEVTOP requires layer indices (IEVT).
 # Type: int | Default: 1
-evt_ievt = 1
 
 # EVT cell-by-cell budget output flag (IPAKCB).
 # Type: int | Default: 1
-evt_ipakcb = 1
 
 # Enable compact budget format in OC outputs.
 # Type: bool | Default: true
-oc_compact = true
 
 # WEL cell-by-cell budget output flag (IPAKCB).
 # Type: int | Default: 1
-wel_ipakcb = 1
 
 # LMT output filename used to couple MODFLOW to MT3DMS.
 # Type: string | Default: "mt3d_link.ftl"
-lmt_output_file_name = "mt3d_link.ftl"
 
 # LMT package filename extension.
 # Type: string | Default: "lmt8"
-lmt_extension = "lmt8"
 
 # LMT file format (typically 'formatted' or 'unformatted').
 # Type: string | Default: "unformatted"
-lmt_output_format = "unformatted"
 
 
 # Process-specific package controls (currently UPW/EVT knobs).
 
+[modflownwt.runtime.nwt]
+version = "mfnwt"
+listunit = 2
+verbose = false
+headtol = 0.0001
+fluxtol = 500.0
+maxiterout = 5000
+thickfact = 1e-05
+linmeth = 1
+iprnwt = 1
+ibotav = 1
+options = "COMPLEX"
+continue_run = false
+backflag = 0
+stoptol = 1e-10
+
+[modflownwt.runtime.dis]
+itmuni = 0
+
+[modflownwt.runtime.bas]
+hnoflo = -9999.0
+
+[modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+
+[modflownwt.runtime.oc]
+compact = true
+
+[modflownwt.runtime.wel]
+ipakcb = 1
+
+[modflownwt.runtime.lmt]
+output_file_name = "mt3d_link.ftl"
+extension = "lmt8"
+output_format = "unformatted"
 [modflownwt.process_specific]
 # Vertical hydraulic conductivity control passed to the UPW package (VKA).
 # Type: float | Default: 1.0
@@ -1858,4 +1875,3 @@ ntsp = 1
 
 # Type: float | Default: -9999.0
 temporal_nodata = -9999.0
-

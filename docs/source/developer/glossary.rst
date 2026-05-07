@@ -49,7 +49,7 @@ Du TOML au Run
 
 Quand on lit ou debogue HydroModPy, le parcours le plus utile est :
 
-1. Le TOML declare un ``workflow = "..."`` et une configuration.
+1. Le TOML declare un ``[workflow].mode = "..."`` et une configuration.
 2. Le CLI ou l'API charge cette configuration et choisit le bon mode
    d'execution.
 3. ``Project`` sert de facade programmatique : il prepare, execute, ingere

@@ -32,7 +32,7 @@ def _write_overlay_config(
             [
                 f'base_config = "{base_config.as_posix()}"',
                 "",
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{project_root.as_posix()}"',
                 "",

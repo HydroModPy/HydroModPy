@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -32,8 +32,6 @@ def _validate_hydraulic_scalar(
 
 class MeshCatchmentHydraulicPropertyMapping(HydroModelBase):
     """Zone-key to property mapping contract used by bundle export."""
-
-    model_config = ConfigDict(extra="forbid")
 
     values_source: Annotated[str, Profile.USER] = Field(
         default="inline",
@@ -156,8 +154,6 @@ class MeshCatchmentStorageCoefficient(MeshCatchmentHydraulicPropertyMapping):
 
 class MeshCatchmentHydraulicPropertiesConfig(HydroModelBase):
     """Optional hydraulic properties derived from the geology zonation."""
-
-    model_config = ConfigDict(extra="forbid")
 
     conductivity: Annotated[MeshCatchmentHydraulicConductivity | None, Profile.USER] = Field(
         default=None,

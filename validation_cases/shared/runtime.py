@@ -25,68 +25,96 @@ from validation_cases.shared.loaders import load_case_metadata
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-_NWT_VALIDATION_PROFILE_SIMPLE = """[modflownwt.runtime]
-mf_version = "mfnwt"
-mf_listunit = 2
-mf_verbose = false
-nwt_headtol = 1e-6
-nwt_fluxtol = 1e-4
-nwt_maxiterout = 500
-nwt_thickfact = 1e-5
-nwt_linmeth = 1
-nwt_iprnwt = 0
-nwt_ibotav = 1
-nwt_options = "SIMPLE"
-nwt_continue = false
-nwt_backflag = 0
-nwt_stoptol = 1e-10
-dis_itmuni = 1
-bas_hnoflo = -9999.0
-upw_iphdry = 1
-upw_hdry = -100.0
-upw_layvka = 1
-evt_nevtop = 3
-evt_ievt = 1
-evt_ipakcb = 1
-oc_compact = true
-wel_ipakcb = 1
-lmt_output_file_name = "mt3d_link.ftl"
-lmt_extension = "lmt8"
-lmt_output_format = "unformatted"
+_NWT_VALIDATION_PROFILE_SIMPLE = """[modflownwt.runtime.nwt]
+version = "mfnwt"
+listunit = 2
+verbose = false
+headtol = 1e-6
+fluxtol = 1e-4
+maxiterout = 500
+thickfact = 1e-5
+linmeth = 1
+iprnwt = 0
+ibotav = 1
+options = "SIMPLE"
+continue_run = false
+backflag = 0
+stoptol = 1e-10
+
+[modflownwt.runtime.dis]
+itmuni = 1
+
+[modflownwt.runtime.bas]
+hnoflo = -9999.0
+
+[modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+
+[modflownwt.runtime.oc]
+compact = true
+
+[modflownwt.runtime.wel]
+ipakcb = 1
+
+[modflownwt.runtime.lmt]
+output_file_name = "mt3d_link.ftl"
+extension = "lmt8"
+output_format = "unformatted"
 
 [modflownwt.process_specific]
 vka = 1.0
 exdp = "1.0 m"
 """
 
-_NWT_VALIDATION_PROFILE_COMPLEX = """[modflownwt.runtime]
-mf_version = "mfnwt"
-mf_listunit = 2
-mf_verbose = false
-nwt_headtol = 1e-6
-nwt_fluxtol = 1e-4
-nwt_maxiterout = 1000
-nwt_thickfact = 1e-5
-nwt_linmeth = 1
-nwt_iprnwt = 0
-nwt_ibotav = 1
-nwt_options = "COMPLEX"
-nwt_continue = false
-nwt_backflag = 0
-nwt_stoptol = 1e-10
-dis_itmuni = 1
-bas_hnoflo = -9999.0
-upw_iphdry = 1
-upw_hdry = -100.0
-upw_layvka = 1
-evt_nevtop = 3
-evt_ievt = 1
-evt_ipakcb = 1
-oc_compact = true
-wel_ipakcb = 1
-lmt_output_file_name = "mt3d_link.ftl"
-lmt_extension = "lmt8"
-lmt_output_format = "unformatted"
+_NWT_VALIDATION_PROFILE_COMPLEX = """[modflownwt.runtime.nwt]
+version = "mfnwt"
+listunit = 2
+verbose = false
+headtol = 1e-6
+fluxtol = 1e-4
+maxiterout = 1000
+thickfact = 1e-5
+linmeth = 1
+iprnwt = 0
+ibotav = 1
+options = "COMPLEX"
+continue_run = false
+backflag = 0
+stoptol = 1e-10
+
+[modflownwt.runtime.dis]
+itmuni = 1
+
+[modflownwt.runtime.bas]
+hnoflo = -9999.0
+
+[modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+
+[modflownwt.runtime.oc]
+compact = true
+
+[modflownwt.runtime.wel]
+ipakcb = 1
+
+[modflownwt.runtime.lmt]
+output_file_name = "mt3d_link.ftl"
+extension = "lmt8"
+output_format = "unformatted"
 
 [modflownwt.process_specific]
 vka = 1.0

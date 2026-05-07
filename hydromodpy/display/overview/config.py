@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -12,8 +12,6 @@ from hydromodpy.core.config_kit.profile import Profile
 
 class OverviewPanelsConfig(HydroModelBase):
     """Toggle individual report panels on/off."""
-
-    model_config = ConfigDict(extra="forbid")
 
     map_dem: Annotated[bool, Profile.USER] = Field(True, description="DEM elevation map.")
     map_geology: Annotated[bool, Profile.USER] = Field(True, description="Geology lithology map.")
@@ -39,8 +37,6 @@ class OverviewPanelsConfig(HydroModelBase):
 
 class OverviewSection(HydroModelBase):
     """Overview report settings (watershed identity card)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: Annotated[str, Profile.USER] = Field("", description="Watershed name.")
     date_start: Annotated[str | None, Profile.USER] = Field(

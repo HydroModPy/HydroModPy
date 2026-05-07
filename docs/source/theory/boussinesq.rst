@@ -1338,7 +1338,8 @@ Use the external comparison workflow as the producer:
 
 .. code-block:: toml
 
-   workflow = "comparison"
+   [workflow]
+   mode = "comparison"
 
    [comparison]
    comparison_id = "boussinesq_surface_closure_comparison"
@@ -1554,7 +1555,7 @@ keep the same separation of concerns:
    ``examples/projects/09_capability_gallery/code_comparison`` or under
    ``docs/source/_static/solvers/boussinesq``;
 3. have the Boussinesq page read committed PNG/JSON artifacts only;
-4. keep any pure ``workflow = "comparison"`` example separate from the
+4. keep any pure ``[workflow].mode = "comparison"`` example separate from the
    MODFLOW-NWT bridge, because MODFLOW-NWT is a cross-code comparison rather
    than a Boussinesq-only formulation test.
 
@@ -1591,7 +1592,7 @@ a MODFLOW 6 versus Boussinesq case:
 
    This is a solver-family comparison, not a Boussinesq formulation
    comparison. It is still useful as the reference pattern for producing
-   stable comparison artifacts through ``workflow = "comparison"``.
+   stable comparison artifacts through ``[workflow].mode = "comparison"``.
 
 Use it as a template for the mechanics, then narrow the variants to
 Boussinesq-only surface closures when the goal is formulation choice. Use the

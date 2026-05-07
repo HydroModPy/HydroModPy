@@ -40,7 +40,7 @@ def _build_payload(*, output_root: Path, run_simulations: bool) -> dict[str, Any
     }
 
     return {
-        "workflow": "comparison",
+        "workflow": {"mode": "comparison"},
         "comparison": {
             "comparison_id": DEFAULT_COMPARISON_ID,
             "base_simulation_config": str(CASE_DIR / "config_modflownwt.toml"),

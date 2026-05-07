@@ -1,7 +1,7 @@
 Simulation Workflow
 ===================
 
-``workflow = "simulation"`` runs one forward model. It turns one validated
+``[workflow].mode = "simulation"`` runs one forward model. It turns one validated
 configuration into one persisted run with solver outputs, catalog rows, result
 stores, and optional figures.
 
@@ -108,7 +108,8 @@ Minimal Shape
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [workspace]
    project_root = "outputs/my_run"

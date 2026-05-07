@@ -55,6 +55,25 @@ from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
+WorkflowMode = Literal[
+    "simulation",
+    "calibration",
+    "batch",
+    "overview",
+    "mesh",
+    "comparison",
+    "testbed",
+]
+
+
+class WorkflowConfig(HydroModelBase):
+    """Workflow selector configuration."""
+
+    mode: Annotated[WorkflowMode, Profile.USER] = Field(
+        ...,
+        description="Workflow mode dispatched by `hmp run`.",
+    )
+
 
 def _derive_run_id_from_filename(toml_path: Path) -> str:
     """Derive a run_id from a TOML filename.
@@ -104,20 +123,9 @@ class HydroModPyConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
-    workflow: Annotated[
-        Literal[
-            "simulation",
-            "calibration",
-            "batch",
-            "overview",
-            "mesh",
-            "comparison",
-            "testbed",
-        ],
-        Profile.USER,
-    ] = Field(
+    workflow: Annotated[WorkflowConfig, Profile.USER] = Field(
         description=(
-            "Workflow selector (mandatory). Must be one of "
+            "Workflow configuration. `workflow.mode` must be one of "
             "'simulation', 'calibration', 'batch', 'overview', 'mesh', "
             "'comparison', 'testbed'. "
             "Drives dispatch in `hmp run <toml>` and in API-driven callers "
@@ -181,7 +189,7 @@ class HydroModPyConfig(HydroModelBase):
         default_factory=ModflowConfig,
         description=(
             "Expert MODFLOW-NWT package configuration loaded from "
-            "[modflownwt.runtime], [modflownwt.process_specific], "
+            "[modflownwt.runtime.<package>], [modflownwt.process_specific], "
             "[modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical]."
         ),
     )
@@ -452,9 +460,11 @@ class HydroModPyConfig(HydroModelBase):
             section_data = raw.get(section_name, default_value)
             parsed_sections[section_name] = loader(section_data, base)
 
-        # Top-level scalar fields (non-section) - forward as-is to Pydantic.
         if "workflow" in raw:
-            parsed_sections["workflow"] = raw["workflow"]
+            workflow_section = raw["workflow"]
+            if not isinstance(workflow_section, Mapping):
+                raise ValueError("TOML section [workflow] must be a mapping with key 'mode'")
+            parsed_sections["workflow"] = WorkflowConfig.model_validate(dict(workflow_section))
 
         cfg = cls.model_validate(
             parsed_sections,

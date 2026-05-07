@@ -37,7 +37,7 @@ Recommended reading path
 When reading the code from the published docs, the shortest useful
 path is:
 
-1. ``hydromodpy/cli/commands/run.py`` (workflow = "calibration"
+1. ``hydromodpy/cli/commands/run.py`` ([workflow].mode = "calibration"
    dispatch)
 2. ``hydromodpy/calibration/runner.py``
 3. ``hydromodpy/calibration/engine.py``

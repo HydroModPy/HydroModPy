@@ -5,7 +5,7 @@
 # three transient runs with three explicit Sy values, K/Ss/thickness
 # frozen at their baseline.
 #
-# WARNING: `workflow = "sweep"` is NOT IMPLEMENTED YET. This TOML is a
+# WARNING: `[workflow].mode = "sweep"` is NOT IMPLEMENTED YET. This TOML is a
 # specification / design draft for the future workflow. It will NOT
 # pass the current dispatcher (see KNOWN_WORKFLOWS in
 # `hydromodpy/cli/workflows.py`) until:
@@ -25,8 +25,10 @@ base_config = "project.toml"
 
 # Forward-looking value. Will be rejected by the current CLI until the
 # sweep dispatcher is wired up. Use the Python API in the meantime.
-workflow = "sweep"
 
+
+[workflow]
+mode = "sweep"
 
 [simulation]
 name = "nancon_sweep_sy"

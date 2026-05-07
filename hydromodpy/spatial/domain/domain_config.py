@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -19,8 +19,6 @@ class DomainConfig(HydroModelBase):
 
     Controls which zone providers are loaded in `Domain`.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     zone_ids: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,

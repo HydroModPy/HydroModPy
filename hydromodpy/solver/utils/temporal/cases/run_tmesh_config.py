@@ -17,8 +17,6 @@ from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 class TMeshCaseScenarioConfig(TMeshConfig):
     """One named temporal-mesh demo scenario."""
 
-    model_config = ConfigDict(extra="forbid")
-
     id: str
     description: str | None = None
 
@@ -41,8 +39,6 @@ class TMeshCaseScenarioConfig(TMeshConfig):
 
 class TMeshCasesConfig(HydroModelBase):
     """Collection of temporal-mesh scenarios loaded from one TOML file."""
-
-    model_config = ConfigDict(extra="forbid")
 
     scenarios: list[TMeshCaseScenarioConfig] = Field(
         default_factory=list,

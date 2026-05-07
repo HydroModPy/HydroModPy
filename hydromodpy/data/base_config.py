@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, ClassVar
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -32,8 +32,6 @@ class BaseVariableConfig(HydroModelBase):
 
     Subclasses must set ``_TOML_SECTION`` (e.g. ``"precipitation"``).
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     _TOML_SECTION: ClassVar[str] = ""
 

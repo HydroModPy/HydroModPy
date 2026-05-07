@@ -1,4 +1,6 @@
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [[simulation.process]]
 solvers = ["modflow6"]

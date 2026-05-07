@@ -82,8 +82,6 @@ def _resolve_sgrid_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[
 class SGridFieldParamDiscretizationConfig(HydroModelBase):
     """Configuration for standalone field-parameter discretization on an SGrid."""
 
-    model_config = ConfigDict(extra="forbid")
-
     geology: dict[str, Any] = Field(
         description=(
             "Embedded geology payload (same content as section `[geology]` "

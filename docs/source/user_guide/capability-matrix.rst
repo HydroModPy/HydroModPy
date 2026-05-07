@@ -46,27 +46,27 @@ Workflow coverage
      - Strong
      - Pipeline flags and transport examples need more depth.
    * - Mesh
-     - ``workflow = "mesh"`` / ``Project.build_mesh``
+     - ``[workflow].mode = "mesh"`` / ``Project.build_mesh``
      - Strong
      - Strong
      - External mesh-input recipes can be expanded.
    * - Testbed
-     - ``workflow = "testbed"``
+     - ``[workflow].mode = "testbed"``
      - Good
      - Partial
      - Operational recipes and result-reading examples are thinner.
    * - Calibration
-     - ``workflow = "calibration"`` / ``Project.calibrate``
+     - ``[workflow].mode = "calibration"`` / ``Project.calibrate``
      - Good
      - Good
      - More API examples for custom objectives and optimizers would help.
    * - Batch
-     - ``workflow = "batch"`` / ``Project.batch``
+     - ``[workflow].mode = "batch"`` / ``Project.batch``
      - Partial
      - Partial
      - Regional production recipes and failure handling need more examples.
    * - Comparison
-     - ``workflow = "comparison"`` / ``Project.compare``
+     - ``[workflow].mode = "comparison"`` / ``Project.compare``
      - Good
      - Good
      - Pairwise Python API examples are still short.

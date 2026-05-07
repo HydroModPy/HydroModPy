@@ -9,7 +9,6 @@ from collections.abc import Mapping
 from typing import Annotated, Any
 
 from pydantic import (
-    ConfigDict,
     Field,
     ValidationError,
     field_validator,
@@ -28,8 +27,6 @@ from hydromodpy.spatial.field.core._field_param_units import normalize_unit_toke
 
 class ResolvedFieldParam(HydroModelBase):
     """Schema for a fully resolved field-parameter payload."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str | None, Profile.DEV] = Field(
         default=None,

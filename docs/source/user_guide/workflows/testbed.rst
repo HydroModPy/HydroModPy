@@ -22,7 +22,7 @@ The first supported subjects are:
 
 This keeps the testbed detached from simulation internals. A mesh testbed can
 evaluate discretization choices without running a flow solver. A flow testbed
-delegates to ordinary generated ``workflow = "simulation"`` children, but the
+delegates to ordinary generated ``[workflow].mode = "simulation"`` children, but the
 testbed itself only expands variants and gathers evidence.
 
 The implementation lives near the analysis workflows in
@@ -36,7 +36,8 @@ Declare a testbed with:
 
 .. code-block:: toml
 
-   workflow = "testbed"
+   [workflow]
+   mode = "testbed"
 
    [testbed]
    id = "mesh_resolution_testbed"
@@ -83,7 +84,8 @@ variant to the simulation workflow:
 
 .. code-block:: toml
 
-   workflow = "testbed"
+   [workflow]
+   mode = "testbed"
 
    [testbed]
    id = "flow_k_sensitivity"
@@ -127,7 +129,7 @@ variant to the simulation workflow:
    name = "head_range_m"
    source = "flow_metrics.head_range_m"
 
-Here ``flow_base.toml`` is a normal ``workflow = "simulation"`` TOML. The
+Here ``flow_base.toml`` is a normal ``[workflow].mode = "simulation"`` TOML. The
 testbed declaration stays outside that base file, so the generated child
 configs remain valid simulation configs. This is the important boundary:
 ``testbed`` owns the experimental matrix; ``simulation`` owns physical

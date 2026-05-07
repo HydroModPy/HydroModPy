@@ -689,17 +689,17 @@
 <polygon fill="none" stroke="black" points="787.12,-2225.5 787.12,-2248 1102.12,-2248 1102.12,-2225.5 787.12,-2225.5"/>
 <text xml:space="preserve" text-anchor="start" x="894.75" y="-2232.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">EtpSourceConfig</text>
 <polygon fill="none" stroke="black" points="787.12,-2203 787.12,-2225.5 865.12,-2225.5 865.12,-2203 787.12,-2203"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-2209.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-2209.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="865.12,-2203 865.12,-2225.5 1102.12,-2225.5 1102.12,-2203 865.12,-2203"/>
-<text xml:space="preserve" text-anchor="start" x="919.5" y="-2209.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="944.25" y="-2209.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-2180.5 787.12,-2203 865.12,-2203 865.12,-2180.5 787.12,-2180.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-2186.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-2186.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="865.12,-2180.5 865.12,-2203 1102.12,-2203 1102.12,-2180.5 865.12,-2180.5"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-2186.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="868.12" y="-2186.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-2158 787.12,-2180.5 865.12,-2180.5 865.12,-2158 787.12,-2158"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-2164.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-2164.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="865.12,-2158 865.12,-2180.5 1102.12,-2180.5 1102.12,-2158 865.12,-2158"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-2164.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="971.62" y="-2164.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="787.12,-2135.5 787.12,-2158 865.12,-2158 865.12,-2135.5 787.12,-2135.5"/>
 <text xml:space="preserve" text-anchor="start" x="809.25" y="-2141.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="865.12,-2135.5 865.12,-2158 1102.12,-2158 1102.12,-2135.5 865.12,-2135.5"/>
@@ -717,33 +717,33 @@
 <polygon fill="none" stroke="black" points="865.12,-2068 865.12,-2090.5 1102.12,-2090.5 1102.12,-2068 865.12,-2068"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2074.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2045.5 787.12,-2068 865.12,-2068 865.12,-2045.5 787.12,-2045.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-2051.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-2051.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="865.12,-2045.5 865.12,-2068 1102.12,-2068 1102.12,-2045.5 865.12,-2045.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2051.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2023 787.12,-2045.5 865.12,-2045.5 865.12,-2023 787.12,-2023"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-2029.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-2029.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="865.12,-2023 865.12,-2045.5 1102.12,-2045.5 1102.12,-2023 865.12,-2023"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2029.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2000.5 787.12,-2023 865.12,-2023 865.12,-2000.5 787.12,-2000.5"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-2006.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-2006.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-2000.5 865.12,-2023 1102.12,-2023 1102.12,-2000.5 865.12,-2000.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2006.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-1978 787.12,-2000.5 865.12,-2000.5 865.12,-1978 787.12,-1978"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-1984.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-1984.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="865.12,-1978 865.12,-2000.5 1102.12,-2000.5 1102.12,-1978 865.12,-1978"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-1984.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="919.5" y="-1984.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
 <polygon fill="none" stroke="black" points="787.12,-1955.5 787.12,-1978 865.12,-1978 865.12,-1955.5 787.12,-1955.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-1961.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-1961.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="865.12,-1955.5 865.12,-1978 1102.12,-1978 1102.12,-1955.5 865.12,-1955.5"/>
-<text xml:space="preserve" text-anchor="start" x="944.25" y="-1961.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-1961.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-1933 787.12,-1955.5 865.12,-1955.5 865.12,-1933 787.12,-1933"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-1939.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-1939.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="865.12,-1933 865.12,-1955.5 1102.12,-1955.5 1102.12,-1933 865.12,-1933"/>
-<text xml:space="preserve" text-anchor="start" x="868.12" y="-1939.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-1939.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-1910.5 787.12,-1933 865.12,-1933 865.12,-1910.5 787.12,-1910.5"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-1916.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-1916.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="865.12,-1910.5 865.12,-1933 1102.12,-1933 1102.12,-1910.5 865.12,-1910.5"/>
-<text xml:space="preserve" text-anchor="start" x="971.62" y="-1916.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-1916.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 </a>
 </g>
 </g>
@@ -825,17 +825,17 @@
 <polygon fill="none" stroke="black" points="787.12,-1103.5 787.12,-1126 1102.12,-1126 1102.12,-1103.5 787.12,-1103.5"/>
 <text xml:space="preserve" text-anchor="start" x="876.75" y="-1110.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">HumiditySourceConfig</text>
 <polygon fill="none" stroke="black" points="787.12,-1081 787.12,-1103.5 865.12,-1103.5 865.12,-1081 787.12,-1081"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-1087.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-1087.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="865.12,-1081 865.12,-1103.5 1102.12,-1103.5 1102.12,-1081 865.12,-1081"/>
-<text xml:space="preserve" text-anchor="start" x="919.5" y="-1087.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="944.25" y="-1087.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-1058.5 787.12,-1081 865.12,-1081 865.12,-1058.5 787.12,-1058.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-1064.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-1064.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="865.12,-1058.5 865.12,-1081 1102.12,-1081 1102.12,-1058.5 865.12,-1058.5"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-1064.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="868.12" y="-1064.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-1036 787.12,-1058.5 865.12,-1058.5 865.12,-1036 787.12,-1036"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-1042.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-1042.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="865.12,-1036 865.12,-1058.5 1102.12,-1058.5 1102.12,-1036 865.12,-1036"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-1042.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="971.62" y="-1042.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="787.12,-1013.5 787.12,-1036 865.12,-1036 865.12,-1013.5 787.12,-1013.5"/>
 <text xml:space="preserve" text-anchor="start" x="809.25" y="-1019.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="865.12,-1013.5 865.12,-1036 1102.12,-1036 1102.12,-1013.5 865.12,-1013.5"/>
@@ -853,33 +853,33 @@
 <polygon fill="none" stroke="black" points="865.12,-946 865.12,-968.5 1102.12,-968.5 1102.12,-946 865.12,-946"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-952.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-923.5 787.12,-946 865.12,-946 865.12,-923.5 787.12,-923.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-929.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-929.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="865.12,-923.5 865.12,-946 1102.12,-946 1102.12,-923.5 865.12,-923.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-929.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-901 787.12,-923.5 865.12,-923.5 865.12,-901 787.12,-901"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-907.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-907.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="865.12,-901 865.12,-923.5 1102.12,-923.5 1102.12,-901 865.12,-901"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-907.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-878.5 787.12,-901 865.12,-901 865.12,-878.5 787.12,-878.5"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-884.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-884.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-878.5 865.12,-901 1102.12,-901 1102.12,-878.5 865.12,-878.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-884.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-856 787.12,-878.5 865.12,-878.5 865.12,-856 787.12,-856"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-862.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-862.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="865.12,-856 865.12,-878.5 1102.12,-878.5 1102.12,-856 865.12,-856"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-862.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="919.5" y="-862.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
 <polygon fill="none" stroke="black" points="787.12,-833.5 787.12,-856 865.12,-856 865.12,-833.5 787.12,-833.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-839.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-839.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="865.12,-833.5 865.12,-856 1102.12,-856 1102.12,-833.5 865.12,-833.5"/>
-<text xml:space="preserve" text-anchor="start" x="944.25" y="-839.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-839.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-811 787.12,-833.5 865.12,-833.5 865.12,-811 787.12,-811"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-817.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-817.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="865.12,-811 865.12,-833.5 1102.12,-833.5 1102.12,-811 865.12,-811"/>
-<text xml:space="preserve" text-anchor="start" x="868.12" y="-817.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-817.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-788.5 787.12,-811 865.12,-811 865.12,-788.5 787.12,-788.5"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-794.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-794.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="865.12,-788.5 865.12,-811 1102.12,-811 1102.12,-788.5 865.12,-788.5"/>
-<text xml:space="preserve" text-anchor="start" x="971.62" y="-794.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-794.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 </a>
 </g>
 </g>
@@ -953,31 +953,31 @@
 <polygon fill="none" stroke="black" points="748.5,-5823.25 748.5,-5845.75 1140.75,-5845.75 1140.75,-5823.25 748.5,-5823.25"/>
 <text xml:space="preserve" text-anchor="start" x="868.5" y="-5830.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">HydrometrySourceConfig</text>
 <polygon fill="none" stroke="black" points="748.5,-5800.75 748.5,-5823.25 903.75,-5823.25 903.75,-5800.75 748.5,-5800.75"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-5806.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-5806.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="903.75,-5800.75 903.75,-5823.25 1140.75,-5823.25 1140.75,-5800.75 903.75,-5800.75"/>
-<text xml:space="preserve" text-anchor="start" x="952.12" y="-5806.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;hubeau&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="982.88" y="-5806.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="748.5,-5778.25 748.5,-5800.75 903.75,-5800.75 903.75,-5778.25 748.5,-5778.25"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-5784.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-5784.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="903.75,-5778.25 903.75,-5800.75 1140.75,-5800.75 1140.75,-5778.25 903.75,-5778.25"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-5784.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="906.75" y="-5784.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="748.5,-5755.75 748.5,-5778.25 903.75,-5778.25 903.75,-5755.75 748.5,-5755.75"/>
-<text xml:space="preserve" text-anchor="start" x="809.25" y="-5761.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-5761.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="903.75,-5755.75 903.75,-5778.25 1140.75,-5778.25 1140.75,-5755.75 903.75,-5755.75"/>
-<text xml:space="preserve" text-anchor="start" x="1015.5" y="-5761.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-5761.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-5733.25 748.5,-5755.75 903.75,-5755.75 903.75,-5733.25 748.5,-5733.25"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-5739.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
+<text xml:space="preserve" text-anchor="start" x="809.25" y="-5739.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="903.75,-5733.25 903.75,-5755.75 1140.75,-5755.75 1140.75,-5733.25 903.75,-5733.25"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5739.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5710.75 748.5,-5733.25 903.75,-5733.25 903.75,-5710.75 748.5,-5710.75"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-5716.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-5716.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
 <polygon fill="none" stroke="black" points="903.75,-5710.75 903.75,-5733.25 1140.75,-5733.25 1140.75,-5710.75 903.75,-5710.75"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5716.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5688.25 748.5,-5710.75 903.75,-5710.75 903.75,-5688.25 748.5,-5688.25"/>
-<text xml:space="preserve" text-anchor="start" x="806.62" y="-5694.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-5694.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
 <polygon fill="none" stroke="black" points="903.75,-5688.25 903.75,-5710.75 1140.75,-5710.75 1140.75,-5688.25 903.75,-5688.25"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5694.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5665.75 748.5,-5688.25 903.75,-5688.25 903.75,-5665.75 748.5,-5665.75"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-5671.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="806.62" y="-5671.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
 <polygon fill="none" stroke="black" points="903.75,-5665.75 903.75,-5688.25 1140.75,-5688.25 1140.75,-5665.75 903.75,-5665.75"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5671.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5643.25 748.5,-5665.75 903.75,-5665.75 903.75,-5643.25 748.5,-5643.25"/>
@@ -989,33 +989,33 @@
 <polygon fill="none" stroke="black" points="903.75,-5620.75 903.75,-5643.25 1140.75,-5643.25 1140.75,-5620.75 903.75,-5620.75"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5626.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5598.25 748.5,-5620.75 903.75,-5620.75 903.75,-5598.25 748.5,-5598.25"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-5604.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-5604.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="903.75,-5598.25 903.75,-5620.75 1140.75,-5620.75 1140.75,-5598.25 903.75,-5598.25"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-5604.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="1015.5" y="-5604.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5575.75 748.5,-5598.25 903.75,-5598.25 903.75,-5575.75 748.5,-5575.75"/>
-<text xml:space="preserve" text-anchor="start" x="805.5" y="-5581.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">product</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-5581.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="903.75,-5575.75 903.75,-5598.25 1140.75,-5598.25 1140.75,-5575.75 903.75,-5575.75"/>
-<text xml:space="preserve" text-anchor="start" x="995.62" y="-5581.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="952.12" y="-5581.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;hubeau&#39;]</text>
 <polygon fill="none" stroke="black" points="748.5,-5553.25 748.5,-5575.75 903.75,-5575.75 903.75,-5553.25 748.5,-5553.25"/>
-<text xml:space="preserve" text-anchor="start" x="769.5" y="-5559.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">require_observations</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-5559.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="903.75,-5553.25 903.75,-5575.75 1140.75,-5575.75 1140.75,-5553.25 903.75,-5553.25"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-5559.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-5559.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="748.5,-5530.75 748.5,-5553.25 903.75,-5553.25 903.75,-5530.75 748.5,-5530.75"/>
-<text xml:space="preserve" text-anchor="start" x="751.5" y="-5536.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-5536.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="903.75,-5530.75 903.75,-5553.25 1140.75,-5553.25 1140.75,-5530.75 903.75,-5530.75"/>
-<text xml:space="preserve" text-anchor="start" x="990" y="-5536.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-5536.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="748.5,-5508.25 748.5,-5530.75 903.75,-5530.75 903.75,-5508.25 748.5,-5508.25"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-5514.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="805.5" y="-5514.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">product</text>
 <polygon fill="none" stroke="black" points="903.75,-5508.25 903.75,-5530.75 1140.75,-5530.75 1140.75,-5508.25 903.75,-5508.25"/>
-<text xml:space="preserve" text-anchor="start" x="982.88" y="-5514.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="995.62" y="-5514.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="748.5,-5485.75 748.5,-5508.25 903.75,-5508.25 903.75,-5485.75 748.5,-5485.75"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-5491.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="769.5" y="-5491.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">require_observations</text>
 <polygon fill="none" stroke="black" points="903.75,-5485.75 903.75,-5508.25 1140.75,-5508.25 1140.75,-5485.75 903.75,-5485.75"/>
-<text xml:space="preserve" text-anchor="start" x="906.75" y="-5491.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-5491.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-5463.25 748.5,-5485.75 903.75,-5485.75 903.75,-5463.25 748.5,-5463.25"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-5469.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="751.5" y="-5469.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
 <polygon fill="none" stroke="black" points="903.75,-5463.25 903.75,-5485.75 1140.75,-5485.75 1140.75,-5463.25 903.75,-5463.25"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-5469.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990" y="-5469.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
 <polygon fill="none" stroke="black" points="748.5,-5440.75 748.5,-5463.25 903.75,-5463.25 903.75,-5440.75 748.5,-5440.75"/>
 <text xml:space="preserve" text-anchor="start" x="794.62" y="-5446.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="903.75,-5440.75 903.75,-5463.25 1140.75,-5463.25 1140.75,-5440.75 903.75,-5440.75"/>
@@ -1039,31 +1039,31 @@
 <polygon fill="none" stroke="black" points="748.5,-5382.25 748.5,-5404.75 1140.75,-5404.75 1140.75,-5382.25 748.5,-5382.25"/>
 <text xml:space="preserve" text-anchor="start" x="865.12" y="-5389.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">IntermittencySourceConfig</text>
 <polygon fill="none" stroke="black" points="748.5,-5359.75 748.5,-5382.25 903.75,-5382.25 903.75,-5359.75 748.5,-5359.75"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-5365.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-5365.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="903.75,-5359.75 903.75,-5382.25 1140.75,-5382.25 1140.75,-5359.75 903.75,-5359.75"/>
-<text xml:space="preserve" text-anchor="start" x="952.12" y="-5365.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;hubeau&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="982.88" y="-5365.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="748.5,-5337.25 748.5,-5359.75 903.75,-5359.75 903.75,-5337.25 748.5,-5337.25"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-5343.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-5343.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="903.75,-5337.25 903.75,-5359.75 1140.75,-5359.75 1140.75,-5337.25 903.75,-5337.25"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-5343.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="906.75" y="-5343.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="748.5,-5314.75 748.5,-5337.25 903.75,-5337.25 903.75,-5314.75 748.5,-5314.75"/>
-<text xml:space="preserve" text-anchor="start" x="809.25" y="-5320.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-5320.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="903.75,-5314.75 903.75,-5337.25 1140.75,-5337.25 1140.75,-5314.75 903.75,-5314.75"/>
-<text xml:space="preserve" text-anchor="start" x="1015.5" y="-5320.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-5320.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-5292.25 748.5,-5314.75 903.75,-5314.75 903.75,-5292.25 748.5,-5292.25"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-5298.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
+<text xml:space="preserve" text-anchor="start" x="809.25" y="-5298.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="903.75,-5292.25 903.75,-5314.75 1140.75,-5314.75 1140.75,-5292.25 903.75,-5292.25"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5298.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5269.75 748.5,-5292.25 903.75,-5292.25 903.75,-5269.75 748.5,-5269.75"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-5275.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-5275.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
 <polygon fill="none" stroke="black" points="903.75,-5269.75 903.75,-5292.25 1140.75,-5292.25 1140.75,-5269.75 903.75,-5269.75"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5275.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5247.25 748.5,-5269.75 903.75,-5269.75 903.75,-5247.25 748.5,-5247.25"/>
-<text xml:space="preserve" text-anchor="start" x="806.62" y="-5253.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-5253.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
 <polygon fill="none" stroke="black" points="903.75,-5247.25 903.75,-5269.75 1140.75,-5269.75 1140.75,-5247.25 903.75,-5247.25"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5253.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5224.75 748.5,-5247.25 903.75,-5247.25 903.75,-5224.75 748.5,-5224.75"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-5230.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="806.62" y="-5230.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
 <polygon fill="none" stroke="black" points="903.75,-5224.75 903.75,-5247.25 1140.75,-5247.25 1140.75,-5224.75 903.75,-5224.75"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5230.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5202.25 748.5,-5224.75 903.75,-5224.75 903.75,-5202.25 748.5,-5202.25"/>
@@ -1075,33 +1075,33 @@
 <polygon fill="none" stroke="black" points="903.75,-5179.75 903.75,-5202.25 1140.75,-5202.25 1140.75,-5179.75 903.75,-5179.75"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-5185.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5157.25 748.5,-5179.75 903.75,-5179.75 903.75,-5157.25 748.5,-5157.25"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-5163.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-5163.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="903.75,-5157.25 903.75,-5179.75 1140.75,-5179.75 1140.75,-5157.25 903.75,-5157.25"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-5163.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="1015.5" y="-5163.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-5134.75 748.5,-5157.25 903.75,-5157.25 903.75,-5134.75 748.5,-5134.75"/>
-<text xml:space="preserve" text-anchor="start" x="776.25" y="-5140.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">code_departement</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-5140.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="903.75,-5134.75 903.75,-5157.25 1140.75,-5157.25 1140.75,-5134.75 903.75,-5134.75"/>
-<text xml:space="preserve" text-anchor="start" x="982.88" y="-5140.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="952.12" y="-5140.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;hubeau&#39;]</text>
 <polygon fill="none" stroke="black" points="748.5,-5112.25 748.5,-5134.75 903.75,-5134.75 903.75,-5112.25 748.5,-5112.25"/>
-<text xml:space="preserve" text-anchor="start" x="769.5" y="-5118.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">require_observations</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-5118.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="903.75,-5112.25 903.75,-5134.75 1140.75,-5134.75 1140.75,-5112.25 903.75,-5112.25"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-5118.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-5118.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="748.5,-5089.75 748.5,-5112.25 903.75,-5112.25 903.75,-5089.75 748.5,-5089.75"/>
-<text xml:space="preserve" text-anchor="start" x="751.5" y="-5095.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-5095.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="903.75,-5089.75 903.75,-5112.25 1140.75,-5112.25 1140.75,-5089.75 903.75,-5089.75"/>
-<text xml:space="preserve" text-anchor="start" x="990" y="-5095.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-5095.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="748.5,-5067.25 748.5,-5089.75 903.75,-5089.75 903.75,-5067.25 748.5,-5067.25"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-5073.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="776.25" y="-5073.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">code_departement</text>
 <polygon fill="none" stroke="black" points="903.75,-5067.25 903.75,-5089.75 1140.75,-5089.75 1140.75,-5067.25 903.75,-5067.25"/>
 <text xml:space="preserve" text-anchor="start" x="982.88" y="-5073.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="748.5,-5044.75 748.5,-5067.25 903.75,-5067.25 903.75,-5044.75 748.5,-5044.75"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-5050.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="769.5" y="-5050.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">require_observations</text>
 <polygon fill="none" stroke="black" points="903.75,-5044.75 903.75,-5067.25 1140.75,-5067.25 1140.75,-5044.75 903.75,-5044.75"/>
-<text xml:space="preserve" text-anchor="start" x="906.75" y="-5050.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-5050.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-5022.25 748.5,-5044.75 903.75,-5044.75 903.75,-5022.25 748.5,-5022.25"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-5028.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="751.5" y="-5028.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
 <polygon fill="none" stroke="black" points="903.75,-5022.25 903.75,-5044.75 1140.75,-5044.75 1140.75,-5022.25 903.75,-5022.25"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-5028.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990" y="-5028.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4999.75 748.5,-5022.25 903.75,-5022.25 903.75,-4999.75 748.5,-4999.75"/>
 <text xml:space="preserve" text-anchor="start" x="794.62" y="-5005.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="903.75,-4999.75 903.75,-5022.25 1140.75,-5022.25 1140.75,-4999.75 903.75,-4999.75"/>
@@ -1125,17 +1125,17 @@
 <polygon fill="none" stroke="black" points="748.5,-4941.5 748.5,-4964 1140.75,-4964 1140.75,-4941.5 748.5,-4941.5"/>
 <text xml:space="preserve" text-anchor="start" x="881.62" y="-4948.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">OceanicSourceConfig</text>
 <polygon fill="none" stroke="black" points="748.5,-4919 748.5,-4941.5 903.75,-4941.5 903.75,-4919 748.5,-4919"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-4925.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-4925.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="903.75,-4919 903.75,-4941.5 1140.75,-4941.5 1140.75,-4919 903.75,-4919"/>
-<text xml:space="preserve" text-anchor="start" x="928.12" y="-4925.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;shom&#39;, &#39;constant&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="982.88" y="-4925.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4896.5 748.5,-4919 903.75,-4919 903.75,-4896.5 748.5,-4896.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-4902.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-4902.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="903.75,-4896.5 903.75,-4919 1140.75,-4919 1140.75,-4896.5 903.75,-4896.5"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-4902.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="906.75" y="-4902.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="748.5,-4874 748.5,-4896.5 903.75,-4896.5 903.75,-4874 748.5,-4874"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-4880.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-4880.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="903.75,-4874 903.75,-4896.5 1140.75,-4896.5 1140.75,-4874 903.75,-4874"/>
-<text xml:space="preserve" text-anchor="start" x="995.62" y="-4880.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4880.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-4851.5 748.5,-4874 903.75,-4874 903.75,-4851.5 748.5,-4851.5"/>
 <text xml:space="preserve" text-anchor="start" x="809.25" y="-4857.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="903.75,-4851.5 903.75,-4874 1140.75,-4874 1140.75,-4851.5 903.75,-4851.5"/>
@@ -1153,49 +1153,49 @@
 <polygon fill="none" stroke="black" points="903.75,-4784 903.75,-4806.5 1140.75,-4806.5 1140.75,-4784 903.75,-4784"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-4790.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4761.5 748.5,-4784 903.75,-4784 903.75,-4761.5 748.5,-4761.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-4767.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-4767.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="903.75,-4761.5 903.75,-4784 1140.75,-4784 1140.75,-4761.5 903.75,-4761.5"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-4767.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4739 748.5,-4761.5 903.75,-4761.5 903.75,-4739 748.5,-4739"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-4745.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-4745.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="903.75,-4739 903.75,-4761.5 1140.75,-4761.5 1140.75,-4739 903.75,-4739"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-4745.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4716.5 748.5,-4739 903.75,-4739 903.75,-4716.5 748.5,-4716.5"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-4722.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-4722.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="903.75,-4716.5 903.75,-4739 1140.75,-4739 1140.75,-4716.5 903.75,-4716.5"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-4722.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4694 748.5,-4716.5 903.75,-4716.5 903.75,-4694 748.5,-4694"/>
-<text xml:space="preserve" text-anchor="start" x="811.5" y="-4700.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">value</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-4700.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="903.75,-4694 903.75,-4716.5 1140.75,-4716.5 1140.75,-4694 903.75,-4694"/>
-<text xml:space="preserve" text-anchor="start" x="990" y="-4700.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="928.12" y="-4700.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;shom&#39;, &#39;constant&#39;]</text>
 <polygon fill="none" stroke="black" points="748.5,-4671.5 748.5,-4694 903.75,-4694 903.75,-4671.5 748.5,-4671.5"/>
-<text xml:space="preserve" text-anchor="start" x="807" y="-4677.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nearest</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-4677.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="903.75,-4671.5 903.75,-4694 1140.75,-4694 1140.75,-4671.5 903.75,-4671.5"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4677.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-4677.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4649 748.5,-4671.5 903.75,-4671.5 903.75,-4649 748.5,-4649"/>
-<text xml:space="preserve" text-anchor="start" x="751.5" y="-4655.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-4655.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="903.75,-4649 903.75,-4671.5 1140.75,-4671.5 1140.75,-4649 903.75,-4649"/>
-<text xml:space="preserve" text-anchor="start" x="990" y="-4655.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="995.62" y="-4655.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4626.5 748.5,-4649 903.75,-4649 903.75,-4626.5 748.5,-4626.5"/>
-<text xml:space="preserve" text-anchor="start" x="769.5" y="-4632.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">require_observations</text>
+<text xml:space="preserve" text-anchor="start" x="811.5" y="-4632.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">value</text>
 <polygon fill="none" stroke="black" points="903.75,-4626.5 903.75,-4649 1140.75,-4649 1140.75,-4626.5 903.75,-4626.5"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4632.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990" y="-4632.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4604 748.5,-4626.5 903.75,-4626.5 903.75,-4604 748.5,-4604"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-4610.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="807" y="-4610.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nearest</text>
 <polygon fill="none" stroke="black" points="903.75,-4604 903.75,-4626.5 1140.75,-4626.5 1140.75,-4604 903.75,-4604"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-4610.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4610.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-4581.5 748.5,-4604 903.75,-4604 903.75,-4581.5 748.5,-4581.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-4587.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="751.5" y="-4587.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
 <polygon fill="none" stroke="black" points="903.75,-4581.5 903.75,-4604 1140.75,-4604 1140.75,-4581.5 903.75,-4581.5"/>
-<text xml:space="preserve" text-anchor="start" x="982.88" y="-4587.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="990" y="-4587.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4559 748.5,-4581.5 903.75,-4581.5 903.75,-4559 748.5,-4559"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-4565.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="769.5" y="-4565.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">require_observations</text>
 <polygon fill="none" stroke="black" points="903.75,-4559 903.75,-4581.5 1140.75,-4581.5 1140.75,-4559 903.75,-4559"/>
-<text xml:space="preserve" text-anchor="start" x="906.75" y="-4565.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4565.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-4536.5 748.5,-4559 903.75,-4559 903.75,-4536.5 748.5,-4536.5"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-4542.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-4542.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="903.75,-4536.5 903.75,-4559 1140.75,-4559 1140.75,-4536.5 903.75,-4536.5"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4542.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-4542.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 </a>
 </g>
 </g>
@@ -1215,31 +1215,31 @@
 <polygon fill="none" stroke="black" points="748.5,-4477.5 748.5,-4500 1140.75,-4500 1140.75,-4477.5 748.5,-4477.5"/>
 <text xml:space="preserve" text-anchor="start" x="872.25" y="-4484.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">PiezometrySourceConfig</text>
 <polygon fill="none" stroke="black" points="748.5,-4455 748.5,-4477.5 903.75,-4477.5 903.75,-4455 748.5,-4455"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-4461.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-4461.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="903.75,-4455 903.75,-4477.5 1140.75,-4477.5 1140.75,-4455 903.75,-4455"/>
-<text xml:space="preserve" text-anchor="start" x="952.12" y="-4461.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;hubeau&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="982.88" y="-4461.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4432.5 748.5,-4455 903.75,-4455 903.75,-4432.5 748.5,-4432.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-4438.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-4438.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="903.75,-4432.5 903.75,-4455 1140.75,-4455 1140.75,-4432.5 903.75,-4432.5"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-4438.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="906.75" y="-4438.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="748.5,-4410 748.5,-4432.5 903.75,-4432.5 903.75,-4410 748.5,-4410"/>
-<text xml:space="preserve" text-anchor="start" x="809.25" y="-4416.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-4416.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="903.75,-4410 903.75,-4432.5 1140.75,-4432.5 1140.75,-4410 903.75,-4410"/>
-<text xml:space="preserve" text-anchor="start" x="1015.5" y="-4416.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4416.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-4387.5 748.5,-4410 903.75,-4410 903.75,-4387.5 748.5,-4387.5"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-4393.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
+<text xml:space="preserve" text-anchor="start" x="809.25" y="-4393.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="903.75,-4387.5 903.75,-4410 1140.75,-4410 1140.75,-4387.5 903.75,-4387.5"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-4393.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4365 748.5,-4387.5 903.75,-4387.5 903.75,-4365 748.5,-4365"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-4371.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-4371.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
 <polygon fill="none" stroke="black" points="903.75,-4365 903.75,-4387.5 1140.75,-4387.5 1140.75,-4365 903.75,-4365"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-4371.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4342.5 748.5,-4365 903.75,-4365 903.75,-4342.5 748.5,-4342.5"/>
-<text xml:space="preserve" text-anchor="start" x="806.62" y="-4348.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-4348.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
 <polygon fill="none" stroke="black" points="903.75,-4342.5 903.75,-4365 1140.75,-4365 1140.75,-4342.5 903.75,-4342.5"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-4348.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4320 748.5,-4342.5 903.75,-4342.5 903.75,-4320 748.5,-4320"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-4326.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="806.62" y="-4326.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
 <polygon fill="none" stroke="black" points="903.75,-4320 903.75,-4342.5 1140.75,-4342.5 1140.75,-4320 903.75,-4320"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-4326.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4297.5 748.5,-4320 903.75,-4320 903.75,-4297.5 748.5,-4297.5"/>
@@ -1251,35 +1251,35 @@
 <polygon fill="none" stroke="black" points="903.75,-4275 903.75,-4297.5 1140.75,-4297.5 1140.75,-4275 903.75,-4275"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-4281.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4252.5 748.5,-4275 903.75,-4275 903.75,-4252.5 748.5,-4252.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-4258.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-4258.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="903.75,-4252.5 903.75,-4275 1140.75,-4275 1140.75,-4252.5 903.75,-4252.5"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-4258.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="1015.5" y="-4258.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-4230 748.5,-4252.5 903.75,-4252.5 903.75,-4230 748.5,-4230"/>
-<text xml:space="preserve" text-anchor="start" x="805.5" y="-4236.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">product</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-4236.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="903.75,-4230 903.75,-4252.5 1140.75,-4252.5 1140.75,-4230 903.75,-4230"/>
-<text xml:space="preserve" text-anchor="start" x="935.25" y="-4236.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;level&#39;, &#39;depth&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="952.12" y="-4236.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;hubeau&#39;]</text>
 <polygon fill="none" stroke="black" points="748.5,-4207.5 748.5,-4230 903.75,-4230 903.75,-4207.5 748.5,-4207.5"/>
-<text xml:space="preserve" text-anchor="start" x="769.5" y="-4213.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">require_observations</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-4213.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="903.75,-4207.5 903.75,-4230 1140.75,-4230 1140.75,-4207.5 903.75,-4207.5"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4213.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-4213.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4185 748.5,-4207.5 903.75,-4207.5 903.75,-4185 748.5,-4185"/>
-<text xml:space="preserve" text-anchor="start" x="751.5" y="-4191.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-4191.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="903.75,-4185 903.75,-4207.5 1140.75,-4207.5 1140.75,-4185 903.75,-4185"/>
-<text xml:space="preserve" text-anchor="start" x="990" y="-4191.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-4191.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4162.5 748.5,-4185 903.75,-4185 903.75,-4162.5 748.5,-4162.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-4168.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="805.5" y="-4168.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">product</text>
 <polygon fill="none" stroke="black" points="903.75,-4162.5 903.75,-4185 1140.75,-4185 1140.75,-4162.5 903.75,-4162.5"/>
-<text xml:space="preserve" text-anchor="start" x="982.88" y="-4168.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="935.25" y="-4168.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;level&#39;, &#39;depth&#39;]]</text>
 <polygon fill="none" stroke="black" points="748.5,-4140 748.5,-4162.5 903.75,-4162.5 903.75,-4140 748.5,-4140"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-4146.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="769.5" y="-4146.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">require_observations</text>
 <polygon fill="none" stroke="black" points="903.75,-4140 903.75,-4162.5 1140.75,-4162.5 1140.75,-4140 903.75,-4140"/>
-<text xml:space="preserve" text-anchor="start" x="906.75" y="-4146.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4146.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-4117.5 748.5,-4140 903.75,-4140 903.75,-4117.5 748.5,-4117.5"/>
-<text xml:space="preserve" text-anchor="start" x="807" y="-4123.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nearest</text>
+<text xml:space="preserve" text-anchor="start" x="751.5" y="-4123.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
 <polygon fill="none" stroke="black" points="903.75,-4117.5 903.75,-4140 1140.75,-4140 1140.75,-4117.5 903.75,-4117.5"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-4123.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990" y="-4123.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
 <polygon fill="none" stroke="black" points="748.5,-4095 748.5,-4117.5 903.75,-4117.5 903.75,-4095 748.5,-4095"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-4101.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="807" y="-4101.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nearest</text>
 <polygon fill="none" stroke="black" points="903.75,-4095 903.75,-4117.5 1140.75,-4117.5 1140.75,-4095 903.75,-4095"/>
 <text xml:space="preserve" text-anchor="start" x="1010.25" y="-4101.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-4072.5 748.5,-4095 903.75,-4095 903.75,-4072.5 748.5,-4072.5"/>
@@ -1305,65 +1305,65 @@
 <polygon fill="none" stroke="black" points="787.12,-2621.75 787.12,-2644.25 1102.12,-2644.25 1102.12,-2621.75 787.12,-2621.75"/>
 <text xml:space="preserve" text-anchor="start" x="867.75" y="-2628.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">PrecipitationSourceConfig</text>
 <polygon fill="none" stroke="black" points="787.12,-2599.25 787.12,-2621.75 865.12,-2621.75 865.12,-2599.25 787.12,-2599.25"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-2605.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-2605.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="865.12,-2599.25 865.12,-2621.75 1102.12,-2621.75 1102.12,-2599.25 865.12,-2599.25"/>
-<text xml:space="preserve" text-anchor="start" x="919.5" y="-2605.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="944.25" y="-2605.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-2576.75 787.12,-2599.25 865.12,-2599.25 865.12,-2576.75 787.12,-2576.75"/>
-<text xml:space="preserve" text-anchor="start" x="793.12" y="-2582.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">components</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-2582.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="865.12,-2576.75 865.12,-2599.25 1102.12,-2599.25 1102.12,-2576.75 865.12,-2576.75"/>
-<text xml:space="preserve" text-anchor="start" x="893.25" y="-2582.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[Literal[&#39;liquid&#39;, &#39;solid&#39;, &#39;total&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="868.12" y="-2582.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-2554.25 787.12,-2576.75 865.12,-2576.75 865.12,-2554.25 787.12,-2554.25"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-2560.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-2560.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="865.12,-2554.25 865.12,-2576.75 1102.12,-2576.75 1102.12,-2554.25 865.12,-2554.25"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-2560.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="971.62" y="-2560.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="787.12,-2531.75 787.12,-2554.25 865.12,-2554.25 865.12,-2531.75 787.12,-2531.75"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-2537.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="809.25" y="-2537.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="865.12,-2531.75 865.12,-2554.25 1102.12,-2554.25 1102.12,-2531.75 865.12,-2531.75"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-2537.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="976.88" y="-2537.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2509.25 787.12,-2531.75 865.12,-2531.75 865.12,-2509.25 787.12,-2509.25"/>
-<text xml:space="preserve" text-anchor="start" x="809.25" y="-2515.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-2515.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
 <polygon fill="none" stroke="black" points="865.12,-2509.25 865.12,-2531.75 1102.12,-2531.75 1102.12,-2509.25 865.12,-2509.25"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2515.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2486.75 787.12,-2509.25 865.12,-2509.25 865.12,-2486.75 787.12,-2486.75"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-2492.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-2492.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
 <polygon fill="none" stroke="black" points="865.12,-2486.75 865.12,-2509.25 1102.12,-2509.25 1102.12,-2486.75 865.12,-2486.75"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2492.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2464.25 787.12,-2486.75 865.12,-2486.75 865.12,-2464.25 787.12,-2464.25"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-2470.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
+<text xml:space="preserve" text-anchor="start" x="806.62" y="-2470.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-2464.25 865.12,-2486.75 1102.12,-2486.75 1102.12,-2464.25 865.12,-2464.25"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2470.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2441.75 787.12,-2464.25 865.12,-2464.25 865.12,-2441.75 787.12,-2441.75"/>
-<text xml:space="preserve" text-anchor="start" x="806.62" y="-2447.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-2447.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="865.12,-2441.75 865.12,-2464.25 1102.12,-2464.25 1102.12,-2441.75 865.12,-2441.75"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2447.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2419.25 787.12,-2441.75 865.12,-2441.75 865.12,-2419.25 787.12,-2419.25"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-2425.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-2425.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="865.12,-2419.25 865.12,-2441.75 1102.12,-2441.75 1102.12,-2419.25 865.12,-2419.25"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2425.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2396.75 787.12,-2419.25 865.12,-2419.25 865.12,-2396.75 787.12,-2396.75"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-2402.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-2402.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-2396.75 865.12,-2419.25 1102.12,-2419.25 1102.12,-2396.75 865.12,-2396.75"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2402.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2374.25 787.12,-2396.75 865.12,-2396.75 865.12,-2374.25 787.12,-2374.25"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-2380.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-2380.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="865.12,-2374.25 865.12,-2396.75 1102.12,-2396.75 1102.12,-2374.25 865.12,-2374.25"/>
-<text xml:space="preserve" text-anchor="start" x="976.88" y="-2380.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<text xml:space="preserve" text-anchor="start" x="919.5" y="-2380.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
 <polygon fill="none" stroke="black" points="787.12,-2351.75 787.12,-2374.25 865.12,-2374.25 865.12,-2351.75 787.12,-2351.75"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-2357.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="793.12" y="-2357.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">components</text>
 <polygon fill="none" stroke="black" points="865.12,-2351.75 865.12,-2374.25 1102.12,-2374.25 1102.12,-2351.75 865.12,-2351.75"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-2357.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="893.25" y="-2357.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[Literal[&#39;liquid&#39;, &#39;solid&#39;, &#39;total&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-2329.25 787.12,-2351.75 865.12,-2351.75 865.12,-2329.25 787.12,-2329.25"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-2335.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-2335.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="865.12,-2329.25 865.12,-2351.75 1102.12,-2351.75 1102.12,-2329.25 865.12,-2329.25"/>
-<text xml:space="preserve" text-anchor="start" x="944.25" y="-2335.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-2335.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-2306.75 787.12,-2329.25 865.12,-2329.25 865.12,-2306.75 787.12,-2306.75"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-2312.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-2312.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="865.12,-2306.75 865.12,-2329.25 1102.12,-2329.25 1102.12,-2306.75 865.12,-2306.75"/>
-<text xml:space="preserve" text-anchor="start" x="868.12" y="-2312.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-2312.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-2284.25 787.12,-2306.75 865.12,-2306.75 865.12,-2284.25 787.12,-2284.25"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-2290.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-2290.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="865.12,-2284.25 865.12,-2306.75 1102.12,-2306.75 1102.12,-2284.25 865.12,-2284.25"/>
-<text xml:space="preserve" text-anchor="start" x="971.62" y="-2290.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-2290.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 </a>
 </g>
 </g>
@@ -1383,65 +1383,65 @@
 <polygon fill="none" stroke="black" points="787.12,-729.75 787.12,-752.25 1102.12,-752.25 1102.12,-729.75 787.12,-729.75"/>
 <text xml:space="preserve" text-anchor="start" x="876.75" y="-736.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">RadiationSourceConfig</text>
 <polygon fill="none" stroke="black" points="787.12,-707.25 787.12,-729.75 865.12,-729.75 865.12,-707.25 787.12,-707.25"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-713.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-713.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="865.12,-707.25 865.12,-729.75 1102.12,-729.75 1102.12,-707.25 865.12,-707.25"/>
-<text xml:space="preserve" text-anchor="start" x="919.5" y="-713.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="944.25" y="-713.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-684.75 787.12,-707.25 865.12,-707.25 865.12,-684.75 787.12,-684.75"/>
-<text xml:space="preserve" text-anchor="start" x="793.12" y="-690.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">components</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-690.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="865.12,-684.75 865.12,-707.25 1102.12,-707.25 1102.12,-684.75 865.12,-684.75"/>
-<text xml:space="preserve" text-anchor="start" x="888.75" y="-690.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[Literal[&#39;atmospheric&#39;, &#39;visible&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="868.12" y="-690.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-662.25 787.12,-684.75 865.12,-684.75 865.12,-662.25 787.12,-662.25"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-668.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-668.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="865.12,-662.25 865.12,-684.75 1102.12,-684.75 1102.12,-662.25 865.12,-662.25"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-668.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="971.62" y="-668.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="787.12,-639.75 787.12,-662.25 865.12,-662.25 865.12,-639.75 787.12,-639.75"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-645.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="809.25" y="-645.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="865.12,-639.75 865.12,-662.25 1102.12,-662.25 1102.12,-639.75 865.12,-639.75"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-645.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="976.88" y="-645.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-617.25 787.12,-639.75 865.12,-639.75 865.12,-617.25 787.12,-617.25"/>
-<text xml:space="preserve" text-anchor="start" x="809.25" y="-623.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-623.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
 <polygon fill="none" stroke="black" points="865.12,-617.25 865.12,-639.75 1102.12,-639.75 1102.12,-617.25 865.12,-617.25"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-623.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-594.75 787.12,-617.25 865.12,-617.25 865.12,-594.75 787.12,-594.75"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-600.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-600.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
 <polygon fill="none" stroke="black" points="865.12,-594.75 865.12,-617.25 1102.12,-617.25 1102.12,-594.75 865.12,-594.75"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-600.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-572.25 787.12,-594.75 865.12,-594.75 865.12,-572.25 787.12,-572.25"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-578.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
+<text xml:space="preserve" text-anchor="start" x="806.62" y="-578.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-572.25 865.12,-594.75 1102.12,-594.75 1102.12,-572.25 865.12,-572.25"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-578.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-549.75 787.12,-572.25 865.12,-572.25 865.12,-549.75 787.12,-549.75"/>
-<text xml:space="preserve" text-anchor="start" x="806.62" y="-555.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-555.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="865.12,-549.75 865.12,-572.25 1102.12,-572.25 1102.12,-549.75 865.12,-549.75"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-555.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-527.25 787.12,-549.75 865.12,-549.75 865.12,-527.25 787.12,-527.25"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-533.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-533.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="865.12,-527.25 865.12,-549.75 1102.12,-549.75 1102.12,-527.25 865.12,-527.25"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-533.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-504.75 787.12,-527.25 865.12,-527.25 865.12,-504.75 787.12,-504.75"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-510.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-510.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-504.75 865.12,-527.25 1102.12,-527.25 1102.12,-504.75 865.12,-504.75"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-510.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-482.25 787.12,-504.75 865.12,-504.75 865.12,-482.25 787.12,-482.25"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-488.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-488.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="865.12,-482.25 865.12,-504.75 1102.12,-504.75 1102.12,-482.25 865.12,-482.25"/>
-<text xml:space="preserve" text-anchor="start" x="976.88" y="-488.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<text xml:space="preserve" text-anchor="start" x="919.5" y="-488.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
 <polygon fill="none" stroke="black" points="787.12,-459.75 787.12,-482.25 865.12,-482.25 865.12,-459.75 787.12,-459.75"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-465.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="793.12" y="-465.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">components</text>
 <polygon fill="none" stroke="black" points="865.12,-459.75 865.12,-482.25 1102.12,-482.25 1102.12,-459.75 865.12,-459.75"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-465.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="888.75" y="-465.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[Literal[&#39;atmospheric&#39;, &#39;visible&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-437.25 787.12,-459.75 865.12,-459.75 865.12,-437.25 787.12,-437.25"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-443.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-443.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="865.12,-437.25 865.12,-459.75 1102.12,-459.75 1102.12,-437.25 865.12,-437.25"/>
-<text xml:space="preserve" text-anchor="start" x="944.25" y="-443.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-443.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-414.75 787.12,-437.25 865.12,-437.25 865.12,-414.75 787.12,-414.75"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-420.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-420.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="865.12,-414.75 865.12,-437.25 1102.12,-437.25 1102.12,-414.75 865.12,-414.75"/>
-<text xml:space="preserve" text-anchor="start" x="868.12" y="-420.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-420.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-392.25 787.12,-414.75 865.12,-414.75 865.12,-392.25 787.12,-392.25"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-398.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-398.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="865.12,-392.25 865.12,-414.75 1102.12,-414.75 1102.12,-392.25 865.12,-392.25"/>
-<text xml:space="preserve" text-anchor="start" x="971.62" y="-398.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-398.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 </a>
 </g>
 </g>
@@ -1461,17 +1461,17 @@
 <polygon fill="none" stroke="black" points="787.12,-3549.5 787.12,-3572 1102.12,-3572 1102.12,-3549.5 787.12,-3549.5"/>
 <text xml:space="preserve" text-anchor="start" x="877.88" y="-3556.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">RechargeSourceConfig</text>
 <polygon fill="none" stroke="black" points="787.12,-3527 787.12,-3549.5 865.12,-3549.5 865.12,-3527 787.12,-3527"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-3533.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-3533.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="865.12,-3527 865.12,-3549.5 1102.12,-3549.5 1102.12,-3527 865.12,-3527"/>
-<text xml:space="preserve" text-anchor="start" x="889.12" y="-3533.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;, &#39;synthetic&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="944.25" y="-3533.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3504.5 787.12,-3527 865.12,-3527 865.12,-3504.5 787.12,-3504.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-3510.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-3510.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="865.12,-3504.5 865.12,-3527 1102.12,-3527 1102.12,-3504.5 865.12,-3504.5"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-3510.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="868.12" y="-3510.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-3482 787.12,-3504.5 865.12,-3504.5 865.12,-3482 787.12,-3482"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-3488.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-3488.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="865.12,-3482 865.12,-3504.5 1102.12,-3504.5 1102.12,-3482 865.12,-3482"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-3488.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="971.62" y="-3488.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="787.12,-3459.5 787.12,-3482 865.12,-3482 865.12,-3459.5 787.12,-3459.5"/>
 <text xml:space="preserve" text-anchor="start" x="809.25" y="-3465.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="865.12,-3459.5 865.12,-3482 1102.12,-3482 1102.12,-3459.5 865.12,-3459.5"/>
@@ -1489,65 +1489,65 @@
 <polygon fill="none" stroke="black" points="865.12,-3392 865.12,-3414.5 1102.12,-3414.5 1102.12,-3392 865.12,-3392"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-3398.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-3369.5 787.12,-3392 865.12,-3392 865.12,-3369.5 787.12,-3369.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-3375.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-3375.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="865.12,-3369.5 865.12,-3392 1102.12,-3392 1102.12,-3369.5 865.12,-3369.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-3375.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-3347 787.12,-3369.5 865.12,-3369.5 865.12,-3347 787.12,-3347"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-3353.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-3353.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="865.12,-3347 865.12,-3369.5 1102.12,-3369.5 1102.12,-3347 865.12,-3347"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-3353.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-3324.5 787.12,-3347 865.12,-3347 865.12,-3324.5 787.12,-3324.5"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-3330.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-3330.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-3324.5 865.12,-3347 1102.12,-3347 1102.12,-3324.5 865.12,-3324.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-3330.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-3302 787.12,-3324.5 865.12,-3324.5 865.12,-3302 787.12,-3302"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-3308.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-3308.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="865.12,-3302 865.12,-3324.5 1102.12,-3324.5 1102.12,-3302 865.12,-3302"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-3308.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="889.12" y="-3308.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;, &#39;synthetic&#39;]</text>
 <polygon fill="none" stroke="black" points="787.12,-3279.5 787.12,-3302 865.12,-3302 865.12,-3279.5 787.12,-3279.5"/>
-<text xml:space="preserve" text-anchor="start" x="808.88" y="-3285.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">values</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-3285.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="865.12,-3279.5 865.12,-3302 1102.12,-3302 1102.12,-3279.5 865.12,-3279.5"/>
-<text xml:space="preserve" text-anchor="start" x="938.62" y="-3285.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[float] | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-3285.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3257 787.12,-3279.5 865.12,-3279.5 865.12,-3257 787.12,-3257"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-3263.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">start_date</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-3263.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="865.12,-3257 865.12,-3279.5 1102.12,-3279.5 1102.12,-3257 865.12,-3257"/>
 <text xml:space="preserve" text-anchor="start" x="957" y="-3263.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3234.5 787.12,-3257 865.12,-3257 865.12,-3234.5 787.12,-3234.5"/>
-<text xml:space="preserve" text-anchor="start" x="815.25" y="-3240.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">freq</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-3240.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="865.12,-3234.5 865.12,-3257 1102.12,-3257 1102.12,-3234.5 865.12,-3234.5"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-3240.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-3240.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3212 787.12,-3234.5 865.12,-3234.5 865.12,-3212 787.12,-3212"/>
-<text xml:space="preserve" text-anchor="start" x="806.25" y="-3218.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">periods</text>
+<text xml:space="preserve" text-anchor="start" x="808.88" y="-3218.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">values</text>
 <polygon fill="none" stroke="black" points="865.12,-3212 865.12,-3234.5 1102.12,-3234.5 1102.12,-3212 865.12,-3212"/>
-<text xml:space="preserve" text-anchor="start" x="956.62" y="-3218.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int | None</text>
+<text xml:space="preserve" text-anchor="start" x="938.62" y="-3218.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[float] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3189.5 787.12,-3212 865.12,-3212 865.12,-3189.5 787.12,-3189.5"/>
-<text xml:space="preserve" text-anchor="start" x="798.75" y="-3195.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">amplitude</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-3195.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">start_date</text>
 <polygon fill="none" stroke="black" points="865.12,-3189.5 865.12,-3212 1102.12,-3212 1102.12,-3189.5 865.12,-3189.5"/>
-<text xml:space="preserve" text-anchor="start" x="951.38" y="-3195.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-3195.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3167 787.12,-3189.5 865.12,-3189.5 865.12,-3167 787.12,-3167"/>
-<text xml:space="preserve" text-anchor="start" x="793.12" y="-3173.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">period_days</text>
+<text xml:space="preserve" text-anchor="start" x="815.25" y="-3173.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">freq</text>
 <polygon fill="none" stroke="black" points="865.12,-3167 865.12,-3189.5 1102.12,-3189.5 1102.12,-3167 865.12,-3167"/>
-<text xml:space="preserve" text-anchor="start" x="956.62" y="-3173.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int | None</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-3173.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3144.5 787.12,-3167 865.12,-3167 865.12,-3144.5 787.12,-3144.5"/>
-<text xml:space="preserve" text-anchor="start" x="810.75" y="-3150.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">offset</text>
+<text xml:space="preserve" text-anchor="start" x="806.25" y="-3150.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">periods</text>
 <polygon fill="none" stroke="black" points="865.12,-3144.5 865.12,-3167 1102.12,-3167 1102.12,-3144.5 865.12,-3144.5"/>
-<text xml:space="preserve" text-anchor="start" x="951.38" y="-3150.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="956.62" y="-3150.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3122 787.12,-3144.5 865.12,-3144.5 865.12,-3122 787.12,-3122"/>
-<text xml:space="preserve" text-anchor="start" x="793.5" y="-3128.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">runoff_ratio</text>
+<text xml:space="preserve" text-anchor="start" x="798.75" y="-3128.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">amplitude</text>
 <polygon fill="none" stroke="black" points="865.12,-3122 865.12,-3144.5 1102.12,-3144.5 1102.12,-3122 865.12,-3122"/>
 <text xml:space="preserve" text-anchor="start" x="951.38" y="-3128.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3099.5 787.12,-3122 865.12,-3122 865.12,-3099.5 787.12,-3099.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-3105.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="793.12" y="-3105.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">period_days</text>
 <polygon fill="none" stroke="black" points="865.12,-3099.5 865.12,-3122 1102.12,-3122 1102.12,-3099.5 865.12,-3099.5"/>
-<text xml:space="preserve" text-anchor="start" x="944.25" y="-3105.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="956.62" y="-3105.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3077 787.12,-3099.5 865.12,-3099.5 865.12,-3077 787.12,-3077"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-3083.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="810.75" y="-3083.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">offset</text>
 <polygon fill="none" stroke="black" points="865.12,-3077 865.12,-3099.5 1102.12,-3099.5 1102.12,-3077 865.12,-3077"/>
-<text xml:space="preserve" text-anchor="start" x="868.12" y="-3083.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="951.38" y="-3083.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
 <polygon fill="none" stroke="black" points="787.12,-3054.5 787.12,-3077 865.12,-3077 865.12,-3054.5 787.12,-3054.5"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-3060.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="793.5" y="-3060.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">runoff_ratio</text>
 <polygon fill="none" stroke="black" points="865.12,-3054.5 865.12,-3077 1102.12,-3077 1102.12,-3054.5 865.12,-3054.5"/>
-<text xml:space="preserve" text-anchor="start" x="971.62" y="-3060.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="951.38" y="-3060.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
 </a>
 </g>
 </g>
@@ -1567,17 +1567,17 @@
 <polygon fill="none" stroke="black" points="787.12,-2995.5 787.12,-3018 1102.12,-3018 1102.12,-2995.5 787.12,-2995.5"/>
 <text xml:space="preserve" text-anchor="start" x="885" y="-3002.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">RunoffSourceConfig</text>
 <polygon fill="none" stroke="black" points="787.12,-2973 787.12,-2995.5 865.12,-2995.5 865.12,-2973 787.12,-2973"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-2979.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-2979.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="865.12,-2973 865.12,-2995.5 1102.12,-2995.5 1102.12,-2973 865.12,-2973"/>
-<text xml:space="preserve" text-anchor="start" x="919.5" y="-2979.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="944.25" y="-2979.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-2950.5 787.12,-2973 865.12,-2973 865.12,-2950.5 787.12,-2950.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-2956.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-2956.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="865.12,-2950.5 865.12,-2973 1102.12,-2973 1102.12,-2950.5 865.12,-2950.5"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-2956.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="868.12" y="-2956.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-2928 787.12,-2950.5 865.12,-2950.5 865.12,-2928 787.12,-2928"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-2934.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-2934.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="865.12,-2928 865.12,-2950.5 1102.12,-2950.5 1102.12,-2928 865.12,-2928"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-2934.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="971.62" y="-2934.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="787.12,-2905.5 787.12,-2928 865.12,-2928 865.12,-2905.5 787.12,-2905.5"/>
 <text xml:space="preserve" text-anchor="start" x="809.25" y="-2911.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="865.12,-2905.5 865.12,-2928 1102.12,-2928 1102.12,-2905.5 865.12,-2905.5"/>
@@ -1595,33 +1595,33 @@
 <polygon fill="none" stroke="black" points="865.12,-2838 865.12,-2860.5 1102.12,-2860.5 1102.12,-2838 865.12,-2838"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2844.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2815.5 787.12,-2838 865.12,-2838 865.12,-2815.5 787.12,-2815.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-2821.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-2821.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="865.12,-2815.5 865.12,-2838 1102.12,-2838 1102.12,-2815.5 865.12,-2815.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2821.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2793 787.12,-2815.5 865.12,-2815.5 865.12,-2793 787.12,-2793"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-2799.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-2799.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="865.12,-2793 865.12,-2815.5 1102.12,-2815.5 1102.12,-2793 865.12,-2793"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2799.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2770.5 787.12,-2793 865.12,-2793 865.12,-2770.5 787.12,-2770.5"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-2776.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-2776.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-2770.5 865.12,-2793 1102.12,-2793 1102.12,-2770.5 865.12,-2770.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-2776.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-2748 787.12,-2770.5 865.12,-2770.5 865.12,-2748 787.12,-2748"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-2754.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-2754.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="865.12,-2748 865.12,-2770.5 1102.12,-2770.5 1102.12,-2748 865.12,-2748"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-2754.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="919.5" y="-2754.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
 <polygon fill="none" stroke="black" points="787.12,-2725.5 787.12,-2748 865.12,-2748 865.12,-2725.5 787.12,-2725.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-2731.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-2731.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="865.12,-2725.5 865.12,-2748 1102.12,-2748 1102.12,-2725.5 865.12,-2725.5"/>
-<text xml:space="preserve" text-anchor="start" x="944.25" y="-2731.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-2731.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-2703 787.12,-2725.5 865.12,-2725.5 865.12,-2703 787.12,-2703"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-2709.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-2709.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="865.12,-2703 865.12,-2725.5 1102.12,-2725.5 1102.12,-2703 865.12,-2703"/>
-<text xml:space="preserve" text-anchor="start" x="868.12" y="-2709.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-2709.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-2680.5 787.12,-2703 865.12,-2703 865.12,-2680.5 787.12,-2680.5"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-2686.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-2686.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="865.12,-2680.5 865.12,-2703 1102.12,-2703 1102.12,-2680.5 865.12,-2680.5"/>
-<text xml:space="preserve" text-anchor="start" x="971.62" y="-2686.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-2686.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 </a>
 </g>
 </g>
@@ -1641,17 +1641,17 @@
 <polygon fill="none" stroke="black" points="787.12,-333.5 787.12,-356 1102.12,-356 1102.12,-333.5 787.12,-333.5"/>
 <text xml:space="preserve" text-anchor="start" x="867.75" y="-340.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">SoilMoistureSourceConfig</text>
 <polygon fill="none" stroke="black" points="787.12,-311 787.12,-333.5 865.12,-333.5 865.12,-311 787.12,-311"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-317.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-317.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="865.12,-311 865.12,-333.5 1102.12,-333.5 1102.12,-311 865.12,-311"/>
-<text xml:space="preserve" text-anchor="start" x="919.5" y="-317.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="944.25" y="-317.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-288.5 787.12,-311 865.12,-311 865.12,-288.5 787.12,-288.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-294.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-294.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="865.12,-288.5 865.12,-311 1102.12,-311 1102.12,-288.5 865.12,-288.5"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-294.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="868.12" y="-294.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-266 787.12,-288.5 865.12,-288.5 865.12,-266 787.12,-266"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-272.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-272.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="865.12,-266 865.12,-288.5 1102.12,-288.5 1102.12,-266 865.12,-266"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-272.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="971.62" y="-272.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="787.12,-243.5 787.12,-266 865.12,-266 865.12,-243.5 787.12,-243.5"/>
 <text xml:space="preserve" text-anchor="start" x="809.25" y="-249.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="865.12,-243.5 865.12,-266 1102.12,-266 1102.12,-243.5 865.12,-243.5"/>
@@ -1669,33 +1669,33 @@
 <polygon fill="none" stroke="black" points="865.12,-176 865.12,-198.5 1102.12,-198.5 1102.12,-176 865.12,-176"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-182.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-153.5 787.12,-176 865.12,-176 865.12,-153.5 787.12,-153.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-159.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-159.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="865.12,-153.5 865.12,-176 1102.12,-176 1102.12,-153.5 865.12,-153.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-159.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-131 787.12,-153.5 865.12,-153.5 865.12,-131 787.12,-131"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-137.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-137.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="865.12,-131 865.12,-153.5 1102.12,-153.5 1102.12,-131 865.12,-131"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-137.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-108.5 787.12,-131 865.12,-131 865.12,-108.5 787.12,-108.5"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-114.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-114.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-108.5 865.12,-131 1102.12,-131 1102.12,-108.5 865.12,-108.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-114.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-86 787.12,-108.5 865.12,-108.5 865.12,-86 787.12,-86"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-92.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-92.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="865.12,-86 865.12,-108.5 1102.12,-108.5 1102.12,-86 865.12,-86"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-92.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="919.5" y="-92.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
 <polygon fill="none" stroke="black" points="787.12,-63.5 787.12,-86 865.12,-86 865.12,-63.5 787.12,-63.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-69.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-69.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="865.12,-63.5 865.12,-86 1102.12,-86 1102.12,-63.5 865.12,-63.5"/>
-<text xml:space="preserve" text-anchor="start" x="944.25" y="-69.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-69.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-41 787.12,-63.5 865.12,-63.5 865.12,-41 787.12,-41"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="865.12,-41 865.12,-63.5 1102.12,-63.5 1102.12,-41 865.12,-41"/>
-<text xml:space="preserve" text-anchor="start" x="868.12" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-18.5 787.12,-41 865.12,-41 865.12,-18.5 787.12,-18.5"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-24.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-24.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="865.12,-18.5 865.12,-41 1102.12,-41 1102.12,-18.5 865.12,-18.5"/>
-<text xml:space="preserve" text-anchor="start" x="971.62" y="-24.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-24.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 </a>
 </g>
 </g>
@@ -1715,17 +1715,17 @@
 <polygon fill="none" stroke="black" points="787.12,-1851.5 787.12,-1874 1102.12,-1874 1102.12,-1851.5 787.12,-1851.5"/>
 <text xml:space="preserve" text-anchor="start" x="867" y="-1858.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">TemperatureSourceConfig</text>
 <polygon fill="none" stroke="black" points="787.12,-1829 787.12,-1851.5 865.12,-1851.5 865.12,-1829 787.12,-1829"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-1835.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-1835.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="865.12,-1829 865.12,-1851.5 1102.12,-1851.5 1102.12,-1829 865.12,-1829"/>
-<text xml:space="preserve" text-anchor="start" x="919.5" y="-1835.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="944.25" y="-1835.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-1806.5 787.12,-1829 865.12,-1829 865.12,-1806.5 787.12,-1806.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-1812.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-1812.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="865.12,-1806.5 865.12,-1829 1102.12,-1829 1102.12,-1806.5 865.12,-1806.5"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-1812.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="868.12" y="-1812.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-1784 787.12,-1806.5 865.12,-1806.5 865.12,-1784 787.12,-1784"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-1790.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-1790.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="865.12,-1784 865.12,-1806.5 1102.12,-1806.5 1102.12,-1784 865.12,-1784"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-1790.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="971.62" y="-1790.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="787.12,-1761.5 787.12,-1784 865.12,-1784 865.12,-1761.5 787.12,-1761.5"/>
 <text xml:space="preserve" text-anchor="start" x="809.25" y="-1767.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="865.12,-1761.5 865.12,-1784 1102.12,-1784 1102.12,-1761.5 865.12,-1761.5"/>
@@ -1743,33 +1743,33 @@
 <polygon fill="none" stroke="black" points="865.12,-1694 865.12,-1716.5 1102.12,-1716.5 1102.12,-1694 865.12,-1694"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-1700.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-1671.5 787.12,-1694 865.12,-1694 865.12,-1671.5 787.12,-1671.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-1677.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-1677.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="865.12,-1671.5 865.12,-1694 1102.12,-1694 1102.12,-1671.5 865.12,-1671.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-1677.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-1649 787.12,-1671.5 865.12,-1671.5 865.12,-1649 787.12,-1649"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-1655.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-1655.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="865.12,-1649 865.12,-1671.5 1102.12,-1671.5 1102.12,-1649 865.12,-1649"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-1655.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-1626.5 787.12,-1649 865.12,-1649 865.12,-1626.5 787.12,-1626.5"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-1632.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-1632.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-1626.5 865.12,-1649 1102.12,-1649 1102.12,-1626.5 865.12,-1626.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-1632.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-1604 787.12,-1626.5 865.12,-1626.5 865.12,-1604 787.12,-1604"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-1610.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-1610.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="865.12,-1604 865.12,-1626.5 1102.12,-1626.5 1102.12,-1604 865.12,-1604"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-1610.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="919.5" y="-1610.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
 <polygon fill="none" stroke="black" points="787.12,-1581.5 787.12,-1604 865.12,-1604 865.12,-1581.5 787.12,-1581.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-1587.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-1587.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="865.12,-1581.5 865.12,-1604 1102.12,-1604 1102.12,-1581.5 865.12,-1581.5"/>
-<text xml:space="preserve" text-anchor="start" x="944.25" y="-1587.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-1587.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-1559 787.12,-1581.5 865.12,-1581.5 865.12,-1559 787.12,-1559"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-1565.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-1565.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="865.12,-1559 865.12,-1581.5 1102.12,-1581.5 1102.12,-1559 865.12,-1559"/>
-<text xml:space="preserve" text-anchor="start" x="868.12" y="-1565.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-1565.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-1536.5 787.12,-1559 865.12,-1559 865.12,-1536.5 787.12,-1536.5"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-1542.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-1542.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="865.12,-1536.5 865.12,-1559 1102.12,-1559 1102.12,-1536.5 865.12,-1536.5"/>
-<text xml:space="preserve" text-anchor="start" x="971.62" y="-1542.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-1542.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 </a>
 </g>
 </g>
@@ -1789,71 +1789,71 @@
 <polygon fill="none" stroke="black" points="748.5,-4013.5 748.5,-4036 1140.75,-4036 1140.75,-4013.5 748.5,-4013.5"/>
 <text xml:space="preserve" text-anchor="start" x="864.75" y="-4020.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">WaterQualitySourceConfig</text>
 <polygon fill="none" stroke="black" points="748.5,-3991 748.5,-4013.5 903.75,-4013.5 903.75,-3991 748.5,-3991"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-3997.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-3997.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="903.75,-3991 903.75,-4013.5 1140.75,-4013.5 1140.75,-3991 903.75,-3991"/>
-<text xml:space="preserve" text-anchor="start" x="952.12" y="-3997.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;hubeau&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="982.88" y="-3997.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="748.5,-3968.5 748.5,-3991 903.75,-3991 903.75,-3968.5 748.5,-3968.5"/>
-<text xml:space="preserve" text-anchor="start" x="801.75" y="-3974.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">site_type</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-3974.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="903.75,-3968.5 903.75,-3991 1140.75,-3991 1140.75,-3968.5 903.75,-3968.5"/>
-<text xml:space="preserve" text-anchor="start" x="948.38" y="-3974.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;river&#39;, &#39;piezometer&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="906.75" y="-3974.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="748.5,-3946 748.5,-3968.5 903.75,-3968.5 903.75,-3946 748.5,-3946"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-3952.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">parameters</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-3952.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="903.75,-3946 903.75,-3968.5 1140.75,-3968.5 1140.75,-3946 903.75,-3946"/>
-<text xml:space="preserve" text-anchor="start" x="982.88" y="-3952.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="1010.25" y="-3952.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-3923.5 748.5,-3946 903.75,-3946 903.75,-3923.5 748.5,-3923.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-3929.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.25" y="-3929.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="903.75,-3923.5 903.75,-3946 1140.75,-3946 1140.75,-3923.5 903.75,-3923.5"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-3929.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="1015.5" y="-3929.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-3901 748.5,-3923.5 903.75,-3923.5 903.75,-3901 748.5,-3901"/>
-<text xml:space="preserve" text-anchor="start" x="809.25" y="-3907.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-3907.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
 <polygon fill="none" stroke="black" points="903.75,-3901 903.75,-3923.5 1140.75,-3923.5 1140.75,-3901 903.75,-3901"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-3907.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-3878.5 748.5,-3901 903.75,-3901 903.75,-3878.5 748.5,-3878.5"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-3884.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_x</text>
+<text xml:space="preserve" text-anchor="start" x="811.12" y="-3884.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
 <polygon fill="none" stroke="black" points="903.75,-3878.5 903.75,-3901 1140.75,-3901 1140.75,-3878.5 903.75,-3878.5"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-3884.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-3856 748.5,-3878.5 903.75,-3878.5 903.75,-3856 748.5,-3856"/>
-<text xml:space="preserve" text-anchor="start" x="811.12" y="-3862.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_y</text>
+<text xml:space="preserve" text-anchor="start" x="806.62" y="-3862.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
 <polygon fill="none" stroke="black" points="903.75,-3856 903.75,-3878.5 1140.75,-3878.5 1140.75,-3856 903.75,-3856"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-3862.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-3833.5 748.5,-3856 903.75,-3856 903.75,-3833.5 748.5,-3833.5"/>
-<text xml:space="preserve" text-anchor="start" x="806.62" y="-3839.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-3839.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="903.75,-3833.5 903.75,-3856 1140.75,-3856 1140.75,-3833.5 903.75,-3833.5"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-3839.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-3811 748.5,-3833.5 903.75,-3833.5 903.75,-3811 748.5,-3811"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-3817.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-3817.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="903.75,-3811 903.75,-3833.5 1140.75,-3833.5 1140.75,-3811 903.75,-3811"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-3817.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-3788.5 748.5,-3811 903.75,-3811 903.75,-3788.5 748.5,-3788.5"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-3794.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-3794.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="903.75,-3788.5 903.75,-3811 1140.75,-3811 1140.75,-3788.5 903.75,-3788.5"/>
 <text xml:space="preserve" text-anchor="start" x="1015.5" y="-3794.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="748.5,-3766 748.5,-3788.5 903.75,-3788.5 903.75,-3766 748.5,-3766"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-3772.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-3772.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="903.75,-3766 903.75,-3788.5 1140.75,-3788.5 1140.75,-3766 903.75,-3766"/>
-<text xml:space="preserve" text-anchor="start" x="1015.5" y="-3772.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<text xml:space="preserve" text-anchor="start" x="952.12" y="-3772.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;hubeau&#39;]</text>
 <polygon fill="none" stroke="black" points="748.5,-3743.5 748.5,-3766 903.75,-3766 903.75,-3743.5 748.5,-3743.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-3749.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="801.75" y="-3749.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">site_type</text>
 <polygon fill="none" stroke="black" points="903.75,-3743.5 903.75,-3766 1140.75,-3766 1140.75,-3743.5 903.75,-3743.5"/>
-<text xml:space="preserve" text-anchor="start" x="990.38" y="-3749.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="948.38" y="-3749.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;river&#39;, &#39;piezometer&#39;]</text>
 <polygon fill="none" stroke="black" points="748.5,-3721 748.5,-3743.5 903.75,-3743.5 903.75,-3721 748.5,-3721"/>
-<text xml:space="preserve" text-anchor="start" x="751.5" y="-3727.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-3727.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">parameters</text>
 <polygon fill="none" stroke="black" points="903.75,-3721 903.75,-3743.5 1140.75,-3743.5 1140.75,-3721 903.75,-3721"/>
-<text xml:space="preserve" text-anchor="start" x="990" y="-3727.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="982.88" y="-3727.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="748.5,-3698.5 748.5,-3721 903.75,-3721 903.75,-3698.5 748.5,-3698.5"/>
-<text xml:space="preserve" text-anchor="start" x="807" y="-3704.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nearest</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-3704.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="903.75,-3698.5 903.75,-3721 1140.75,-3721 1140.75,-3698.5 903.75,-3698.5"/>
-<text xml:space="preserve" text-anchor="start" x="1010.25" y="-3704.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-3704.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="748.5,-3676 748.5,-3698.5 903.75,-3698.5 903.75,-3676 748.5,-3676"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-3682.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-3682.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="903.75,-3676 903.75,-3698.5 1140.75,-3698.5 1140.75,-3676 903.75,-3676"/>
-<text xml:space="preserve" text-anchor="start" x="982.88" y="-3682.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="990.38" y="-3682.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="748.5,-3653.5 748.5,-3676 903.75,-3676 903.75,-3653.5 748.5,-3653.5"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-3659.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="751.5" y="-3659.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">fallback_search_radius_km</text>
 <polygon fill="none" stroke="black" points="903.75,-3653.5 903.75,-3676 1140.75,-3676 1140.75,-3653.5 903.75,-3653.5"/>
-<text xml:space="preserve" text-anchor="start" x="906.75" y="-3659.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="990" y="-3659.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
 <polygon fill="none" stroke="black" points="748.5,-3631 748.5,-3653.5 903.75,-3653.5 903.75,-3631 748.5,-3631"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-3637.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="807" y="-3637.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nearest</text>
 <polygon fill="none" stroke="black" points="903.75,-3631 903.75,-3653.5 1140.75,-3653.5 1140.75,-3631 903.75,-3631"/>
 <text xml:space="preserve" text-anchor="start" x="1010.25" y="-3637.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="748.5,-3608.5 748.5,-3631 903.75,-3631 903.75,-3608.5 748.5,-3608.5"/>
@@ -1879,17 +1879,17 @@
 <polygon fill="none" stroke="black" points="787.12,-1477.5 787.12,-1500 1102.12,-1500 1102.12,-1477.5 787.12,-1477.5"/>
 <text xml:space="preserve" text-anchor="start" x="889.12" y="-1484.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">WindSourceConfig</text>
 <polygon fill="none" stroke="black" points="787.12,-1455 787.12,-1477.5 865.12,-1477.5 865.12,-1455 787.12,-1455"/>
-<text xml:space="preserve" text-anchor="start" x="808.5" y="-1461.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
+<text xml:space="preserve" text-anchor="start" x="796.88" y="-1461.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
 <polygon fill="none" stroke="black" points="865.12,-1455 865.12,-1477.5 1102.12,-1477.5 1102.12,-1455 865.12,-1455"/>
-<text xml:space="preserve" text-anchor="start" x="919.5" y="-1461.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
+<text xml:space="preserve" text-anchor="start" x="944.25" y="-1461.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
 <polygon fill="none" stroke="black" points="787.12,-1432.5 787.12,-1455 865.12,-1455 865.12,-1432.5 787.12,-1432.5"/>
-<text xml:space="preserve" text-anchor="start" x="814.5" y="-1438.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
+<text xml:space="preserve" text-anchor="start" x="809.62" y="-1438.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
 <polygon fill="none" stroke="black" points="865.12,-1432.5 865.12,-1455 1102.12,-1455 1102.12,-1432.5 865.12,-1432.5"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-1438.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="868.12" y="-1438.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
 <polygon fill="none" stroke="black" points="787.12,-1410 787.12,-1432.5 865.12,-1432.5 865.12,-1410 787.12,-1410"/>
-<text xml:space="preserve" text-anchor="start" x="794.62" y="-1416.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
+<text xml:space="preserve" text-anchor="start" x="790.12" y="-1416.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
 <polygon fill="none" stroke="black" points="865.12,-1410 865.12,-1432.5 1102.12,-1432.5 1102.12,-1410 865.12,-1410"/>
-<text xml:space="preserve" text-anchor="start" x="957" y="-1416.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="971.62" y="-1416.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
 <polygon fill="none" stroke="black" points="787.12,-1387.5 787.12,-1410 865.12,-1410 865.12,-1387.5 787.12,-1387.5"/>
 <text xml:space="preserve" text-anchor="start" x="809.25" y="-1393.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_id</text>
 <polygon fill="none" stroke="black" points="865.12,-1387.5 865.12,-1410 1102.12,-1410 1102.12,-1387.5 865.12,-1387.5"/>
@@ -1907,33 +1907,33 @@
 <polygon fill="none" stroke="black" points="865.12,-1320 865.12,-1342.5 1102.12,-1342.5 1102.12,-1320 865.12,-1320"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-1326.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-1297.5 787.12,-1320 865.12,-1320 865.12,-1297.5 787.12,-1297.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.12" y="-1303.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
+<text xml:space="preserve" text-anchor="start" x="790.88" y="-1303.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
 <polygon fill="none" stroke="black" points="865.12,-1297.5 865.12,-1320 1102.12,-1320 1102.12,-1297.5 865.12,-1297.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-1303.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-1275 787.12,-1297.5 865.12,-1297.5 865.12,-1275 787.12,-1275"/>
-<text xml:space="preserve" text-anchor="start" x="790.88" y="-1281.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_datetime</text>
+<text xml:space="preserve" text-anchor="start" x="799.88" y="-1281.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
 <polygon fill="none" stroke="black" points="865.12,-1275 865.12,-1297.5 1102.12,-1297.5 1102.12,-1275 865.12,-1275"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-1281.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-1252.5 787.12,-1275 865.12,-1275 865.12,-1252.5 787.12,-1252.5"/>
-<text xml:space="preserve" text-anchor="start" x="799.88" y="-1258.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">col_value</text>
+<text xml:space="preserve" text-anchor="start" x="796.12" y="-1258.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_crs</text>
 <polygon fill="none" stroke="black" points="865.12,-1252.5 865.12,-1275 1102.12,-1275 1102.12,-1252.5 865.12,-1252.5"/>
 <text xml:space="preserve" text-anchor="start" x="976.88" y="-1258.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
 <polygon fill="none" stroke="black" points="787.12,-1230 787.12,-1252.5 865.12,-1252.5 865.12,-1230 787.12,-1230"/>
-<text xml:space="preserve" text-anchor="start" x="796.5" y="-1236.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
+<text xml:space="preserve" text-anchor="start" x="808.5" y="-1236.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source</text>
 <polygon fill="none" stroke="black" points="865.12,-1230 865.12,-1252.5 1102.12,-1252.5 1102.12,-1230 865.12,-1230"/>
-<text xml:space="preserve" text-anchor="start" x="951.75" y="-1236.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
+<text xml:space="preserve" text-anchor="start" x="919.5" y="-1236.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;custom&#39;, &#39;sim2&#39;]</text>
 <polygon fill="none" stroke="black" points="787.12,-1207.5 787.12,-1230 865.12,-1230 865.12,-1207.5 787.12,-1207.5"/>
-<text xml:space="preserve" text-anchor="start" x="796.88" y="-1213.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">station_ids</text>
+<text xml:space="preserve" text-anchor="start" x="814.5" y="-1213.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">path</text>
 <polygon fill="none" stroke="black" points="865.12,-1207.5 865.12,-1230 1102.12,-1230 1102.12,-1207.5 865.12,-1207.5"/>
-<text xml:space="preserve" text-anchor="start" x="944.25" y="-1213.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">list[str] | None</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-1213.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 <polygon fill="none" stroke="black" points="787.12,-1185 787.12,-1207.5 865.12,-1207.5 865.12,-1185 787.12,-1185"/>
-<text xml:space="preserve" text-anchor="start" x="809.62" y="-1191.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent</text>
+<text xml:space="preserve" text-anchor="start" x="794.62" y="-1191.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">source_unit</text>
 <polygon fill="none" stroke="black" points="865.12,-1185 865.12,-1207.5 1102.12,-1207.5 1102.12,-1185 865.12,-1185"/>
-<text xml:space="preserve" text-anchor="start" x="868.12" y="-1191.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[Literal[&#39;watershed&#39;, &#39;study_area&#39;]]</text>
+<text xml:space="preserve" text-anchor="start" x="957" y="-1191.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
 <polygon fill="none" stroke="black" points="787.12,-1162.5 787.12,-1185 865.12,-1185 865.12,-1162.5 787.12,-1162.5"/>
-<text xml:space="preserve" text-anchor="start" x="790.12" y="-1168.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">force_refresh</text>
+<text xml:space="preserve" text-anchor="start" x="796.5" y="-1168.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mask_path</text>
 <polygon fill="none" stroke="black" points="865.12,-1162.5 865.12,-1185 1102.12,-1185 1102.12,-1162.5 865.12,-1162.5"/>
-<text xml:space="preserve" text-anchor="start" x="971.62" y="-1168.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bool</text>
+<text xml:space="preserve" text-anchor="start" x="951.75" y="-1168.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Path | None</text>
 </a>
 </g>
 </g>

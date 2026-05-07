@@ -1,7 +1,7 @@
 Calibration Workflow
 ====================
 
-``workflow = "calibration"`` runs a parameter-estimation campaign. Instead of
+``[workflow].mode = "calibration"`` runs a parameter-estimation campaign. Instead of
 executing one fixed simulation, HydroModPy repeatedly proposes parameter
 values, runs candidate simulations, scores them, and records the calibration
 history.
@@ -79,7 +79,8 @@ Minimal Shape
 
 .. code-block:: toml
 
-   workflow = "calibration"
+   [workflow]
+   mode = "calibration"
    base_config = "project.toml"
 
    [simulation]

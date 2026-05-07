@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -32,8 +32,6 @@ class FlowSinksSourcesConfig(HydroModelBase):
         Diffuse evapotranspiration configuration. ``None`` means no
         EVT package is built.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     wells: Annotated[dict[str, FlowWellConfig], Profile.USER] = Field(
         default_factory=dict,

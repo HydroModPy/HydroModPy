@@ -16,7 +16,6 @@ from collections.abc import Mapping
 from typing import Annotated, Any
 
 from pydantic import (
-    ConfigDict,
     Field,
     ValidationError,
     field_validator,
@@ -29,8 +28,6 @@ from hydromodpy.core.config_kit.profile import Profile
 
 class ZoneMeshingRefinementFamilySettings(HydroModelBase):
     """One family-specific refinement override inside the hotspot policy."""
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -85,8 +82,6 @@ class ZoneMeshingRefinementFamilySettings(HydroModelBase):
 class ZoneMeshingRefinementFamilies(HydroModelBase):
     """Validated family-specific refinement policy settings."""
 
-    model_config = ConfigDict(extra="forbid")
-
     river: Annotated[ZoneMeshingRefinementFamilySettings, Profile.USER] = Field(
         default_factory=lambda: ZoneMeshingRefinementFamilySettings(
             enabled=True,
@@ -112,8 +107,6 @@ class ZoneMeshingRefinementFamilies(HydroModelBase):
 
 class ZoneMeshingRefinementHotspotSettings(HydroModelBase):
     """Validated hotspot-detection thresholds for local refinement budgeting."""
-
-    model_config = ConfigDict(extra="forbid")
 
     radius: Annotated[float | None, Profile.DEV] = Field(
         default=None,
@@ -174,8 +167,6 @@ class ZoneMeshingRefinementHotspotSettings(HydroModelBase):
 class ZoneMeshingRefinementGridSettings(HydroModelBase):
     """Validated grid settings for one locality-first refinement policy."""
 
-    model_config = ConfigDict(extra="forbid")
-
     cell_size: Annotated[float | None, Profile.USER] = Field(
         default=None,
         description="Target cell size in projected metres. None lets the mesher derive a default from constraints.",
@@ -224,8 +215,6 @@ _FAMILY_DEFAULTS: dict[str, dict[str, Any]] = {
 
 class ZoneMeshingRefinementPolicy(HydroModelBase):
     """Local refinement policy for mixed river/geology interfaces."""
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -314,8 +303,6 @@ class ZoneMeshingRefinementPolicy(HydroModelBase):
 
 class ZoneMeshingSettings(HydroModelBase):
     """Validated settings for one conformal 2D Gmsh meshing run."""
-
-    model_config = ConfigDict(extra="forbid")
 
     algorithm: Annotated[str, Profile.USER] = Field(
         default="delaunay",

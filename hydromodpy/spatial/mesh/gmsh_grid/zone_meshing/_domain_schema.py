@@ -7,7 +7,6 @@ from typing import Annotated, Any
 
 from pydantic import (
     BaseModel,
-    ConfigDict,
     Field,
     ValidationError,
     field_validator,
@@ -20,8 +19,6 @@ from hydromodpy.core.config_kit.profile import Profile
 
 class ZoneMeshingDomainBBox(HydroModelBase):
     """Axis-aligned bounding box domain contract."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Annotated[str, Profile.USER] = Field(
         default="bbox",
@@ -51,8 +48,6 @@ class ZoneMeshingDomainBBox(HydroModelBase):
 class ZoneMeshingDomainPolygon(HydroModelBase):
     """Inline polygon coordinates domain contract."""
 
-    model_config = ConfigDict(extra="forbid")
-
     kind: Annotated[str, Profile.USER] = Field(
         default="polygon",
         description="Domain kind discriminator, must be 'polygon' for this schema.",
@@ -77,8 +72,6 @@ class ZoneMeshingDomainPolygon(HydroModelBase):
 
 class ZoneMeshingDomainVector(HydroModelBase):
     """Vector file domain contract."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Annotated[str, Profile.USER] = Field(
         default="vector",
@@ -129,8 +122,6 @@ class ZoneMeshingDomainVector(HydroModelBase):
 class ZoneMeshingDomainGeographicBoxBuffer(HydroModelBase):
     """Domain resolved from ``domain_geographic.box_buff_shp``."""
 
-    model_config = ConfigDict(extra="forbid")
-
     kind: Annotated[str, Profile.USER] = Field(
         default="geographic_box_buffer",
         description="Domain kind discriminator, must be 'geographic_box_buffer' for this schema.",
@@ -147,8 +138,6 @@ class ZoneMeshingDomainGeographicBoxBuffer(HydroModelBase):
 class ZoneMeshingDomainGeographicWatershed(HydroModelBase):
     """Domain resolved from ``domain_geographic.watershed_shp``."""
 
-    model_config = ConfigDict(extra="forbid")
-
     kind: Annotated[str, Profile.USER] = Field(
         default="geographic_watershed",
         description="Domain kind discriminator, must be 'geographic_watershed' for this schema.",
@@ -164,8 +153,6 @@ class ZoneMeshingDomainGeographicWatershed(HydroModelBase):
 
 class ZoneMeshingDomainGeographicWatershedBox(HydroModelBase):
     """Domain resolved from ``domain_geographic.watershed_box_shp``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Annotated[str, Profile.USER] = Field(
         default="geographic_watershed_box",

@@ -136,7 +136,7 @@ class ModflowNwt(Solver):
         self.routing_ctx: SolverRoutingContext | None = None
 
         # dis_itmuni is mutable: may be updated in _build_temporal_discretization
-        self.dis_itmuni = specif_params.runtime.dis_itmuni
+        self.dis_itmuni = specif_params.runtime.dis.itmuni
 
     def _select_active_dem(self, box: bool) -> None:
         """Select and normalize the active DEM support for the simulation."""
@@ -217,25 +217,25 @@ class ModflowNwt(Solver):
         self.mf = flopy.modflow.Modflow(
             self.model_name,
             exe_name=self.exe,
-            version=r.mf_version,
-            listunit=r.mf_listunit,
-            verbose=r.mf_verbose,
+            version=r.nwt.version,
+            listunit=r.nwt.listunit,
+            verbose=r.nwt.verbose,
             model_ws=self.full_path,
         )
 
         self.nwt = flopy.modflow.ModflowNwt(
             self.mf,
-            headtol=r.nwt_headtol,
-            fluxtol=r.nwt_fluxtol,
-            maxiterout=r.nwt_maxiterout,
-            thickfact=r.nwt_thickfact,
-            linmeth=r.nwt_linmeth,
-            iprnwt=r.nwt_iprnwt,
-            ibotav=r.nwt_ibotav,
-            options=r.nwt_options,
-            Continue=r.nwt_continue,
-            backflag=r.nwt_backflag,
-            stoptol=r.nwt_stoptol,
+            headtol=r.nwt.headtol,
+            fluxtol=r.nwt.fluxtol,
+            maxiterout=r.nwt.maxiterout,
+            thickfact=r.nwt.thickfact,
+            linmeth=r.nwt.linmeth,
+            iprnwt=r.nwt.iprnwt,
+            ibotav=r.nwt.ibotav,
+            options=r.nwt.options,
+            Continue=r.nwt.continue_run,
+            backflag=r.nwt.backflag,
+            stoptol=r.nwt.stoptol,
         )
 
     def _build_temporal_discretization(self) -> dict[str, object]:
@@ -410,9 +410,9 @@ class ModflowNwt(Solver):
         if options.link_mt3dms:
             flopy.modflow.ModflowLmt(
                 self.mf,
-                output_file_name=self._params.runtime.lmt_output_file_name,
-                extension=self._params.runtime.lmt_extension,
-                output_file_format=self._params.runtime.lmt_output_format,
+                output_file_name=self._params.runtime.lmt.output_file_name,
+                extension=self._params.runtime.lmt.extension,
+                output_file_format=self._params.runtime.lmt.output_format,
                 unitnumber=None,
             )
 

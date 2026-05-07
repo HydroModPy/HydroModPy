@@ -1,7 +1,7 @@
 Overview Workflow
 =================
 
-``workflow = "overview"`` builds a watershed identity card. It runs the
+``[workflow].mode = "overview"`` builds a watershed identity card. It runs the
 geographic and data-loading parts of HydroModPy without running a groundwater
 solver.
 
@@ -162,7 +162,8 @@ Minimal Shape
 
 .. code-block:: toml
 
-   workflow = "overview"
+   [workflow]
+   mode = "overview"
 
    [workspace]
    project_root = "."

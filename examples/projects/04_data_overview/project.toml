@@ -5,7 +5,9 @@
 #   hmp run examples/projects/04_data_overview/project.toml
 # ======================================================================
 
-workflow = "overview"
+
+[workflow]
+mode = "overview"
 
 [workspace]
 project_root = "."

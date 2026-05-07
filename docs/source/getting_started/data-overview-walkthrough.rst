@@ -25,7 +25,7 @@ What this workflow teaches
 Run it
 ------
 
-The TOML declares ``workflow = "overview"`` so the same ``hmp run`` entry
+The TOML declares ``[workflow].mode = "overview"`` so the same ``hmp run`` entry
 point dispatches to the data-only pipeline:
 
 .. code-block:: bash
@@ -44,7 +44,7 @@ How the files relate
 --------------------
 
 - ``examples/projects/04_data_overview/project.toml`` is the case
-  definition. It declares ``workflow = "overview"`` at the top level, so
+  definition. It declares ``[workflow].mode = "overview"`` at the top level, so
   ``hmp run`` dispatches to the data-only pipeline (no solver, no mesh).
 - The gallery page
   :doc:`../capability_gallery/cases/geographic_watershed_overview`

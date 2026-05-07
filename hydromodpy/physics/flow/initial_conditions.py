@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Annotated, ClassVar, Literal
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -88,8 +88,6 @@ class FlowInitialConditions(HydroModelBase):
     Keeping one explicit container (instead of bare values) allows the process
     API to remain extensible when adding future IC variables.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     # Tell the TOML generator to emit fields from the single nested model
     # directly at the parent section level ([flow.ic] instead of [flow.ic.h]).

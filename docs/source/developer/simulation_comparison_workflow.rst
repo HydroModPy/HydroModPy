@@ -1,7 +1,7 @@
 Workflow de comparaison de simulations
 ======================================
 
-Cette note fixe le contrat de la surcouche ``workflow = "comparison"``.
+Cette note fixe le contrat de la surcouche ``[workflow].mode = "comparison"``.
 Objectif: comparer plusieurs simulations HydroModPy sans ajouter de logique
 dans le workflow ``simulation``.
 
@@ -25,7 +25,7 @@ Fichiers d'entree
 
 Le cas recommande utilise deux niveaux de TOML:
 
-- un TOML de comparaison, avec ``workflow = "comparison"``;
+- un TOML de comparaison, avec ``[workflow].mode = "comparison"``;
 - un TOML de simulation de base, pointe par
   ``[comparison].base_simulation_config``.
 
@@ -33,7 +33,8 @@ Le TOML de comparaison declare les simulations a comparer:
 
 .. code-block:: toml
 
-   workflow = "comparison"
+   [workflow]
+   mode = "comparison"
 
    [comparison]
    comparison_id = "dupuit_mf6_vs_bouss"

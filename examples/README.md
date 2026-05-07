@@ -46,7 +46,7 @@ dans les TOML d'exemple y pointent via `../../data/...`.
 
 1. **00_getting_started** - structure minimale d'un `project.toml`,
    premier run, découverte du catalogue.
-2. **01_calibration** - `workflow = "calibration"` via `hmp run`,
+2. **01_calibration** - `[workflow].mode = "calibration"` via `hmp run`,
    API `hmp.calibrate`, `save_runs` (`best_n` / `all`).
 3. **04_data_overview** - workflow « données seulement » (sans
    simulation) pour inventorier ce que charge le launcher.

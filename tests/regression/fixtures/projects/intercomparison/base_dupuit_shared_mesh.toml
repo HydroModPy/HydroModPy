@@ -1,6 +1,8 @@
 base_config = "../../../../../validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [mesh_input]
 mesh_path = "../../../../../validation_cases/shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh"

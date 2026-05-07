@@ -2,24 +2,24 @@
 .. Run ``python -m tools.doc_config`` to refresh.
 
 
-[solver] SolverConfig
-=====================
+[workflow] WorkflowConfig
+=========================
 
 .. contents:: On this page
    :local:
    :depth: 2
 
-TOML section: ``[solver]``
+TOML section: ``[workflow]``
 
-Pydantic model: ``SolverConfig`` defined in ``hydromodpy.solver.base.solver_config``.
+Pydantic model: ``WorkflowConfig`` defined in ``hydromodpy.config.hydromodpy_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L14>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L69>`__
 
-Configuration block defining the active groundwater solver engine.
+Workflow selector configuration.
 
 .. raw:: html
 
-   <div class="hmp-level-toggle" data-section="solver">
+   <div class="hmp-level-toggle" data-section="workflow">
      <span class="hmp-level-toggle-label">Show fields:</span>
      <button type="button" data-level="user" class="hmp-level-btn is-active">User</button>
      <button type="button" data-level="dev" class="hmp-level-btn">User + Dev</button>
@@ -32,23 +32,23 @@ Fields
 .. rst-class:: hmp-config-fields
 
 .. container:: hmp-field hmp-field-level-user
-   :name: solver-solver-engine
+   :name: workflow-mode
 
    .. raw:: html
 
-      <div class="hmp-field-header" data-toml-path="solver.solver_engine">
-        <code class="hmp-field-name">solver_engine</code>
+      <div class="hmp-field-header" data-toml-path="workflow.mode">
+        <code class="hmp-field-name">mode</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "modflownwt"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L17>`__
+   :bdg-primary:`Literal['simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L72>`__
 
-      Groundwater flow solver backend registered for the 'flow' process.
+      Workflow mode dispatched by `hmp run`.
 
 
 Starter TOML snippet
 --------------------
 
-.. dropdown:: Click to expand a copy-pasteable ``[solver]`` TOML skeleton
+.. dropdown:: Click to expand a copy-pasteable ``[workflow]`` TOML skeleton
    :icon: code
    :animate: fade-in-slide-down
 
@@ -58,18 +58,18 @@ Starter TOML snippet
 
    .. code-block:: toml
 
-      [solver]
-      # solver_engine = "modflownwt"
+      [workflow]
+      # mode = ""  # REQUIRED
 
 Entity-relationship diagram
 ---------------------------
 
 .. container:: hmp-er-wrapper
 
-   .. image:: _diagrams/solver.svg
-      :alt: ER diagram for SolverConfig
+   .. image:: _diagrams/workflow.svg
+      :alt: ER diagram for WorkflowConfig
       :class: er-diagram hmp-zoomable
-      :target: _diagrams/solver.svg
+      :target: _diagrams/workflow.svg
 
    .. container:: hmp-er-hint
 

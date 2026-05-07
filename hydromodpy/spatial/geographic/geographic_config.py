@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -21,8 +21,6 @@ class RiverNetworkConfig(HydroModelBase):
     (``area_km2``) or contributing cell count (``cells``), with optional
     pruning and Strahler/link rasters for downstream diagnostics.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
@@ -151,8 +149,6 @@ class GeographicConfig(HydroModelBase):
     Synthetic mode builds an analytical support and bypasses external DEM
     delineation.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     source_mode: Annotated[Literal["standard", "synthetic"], Profile.USER] = Field(
         default="standard",

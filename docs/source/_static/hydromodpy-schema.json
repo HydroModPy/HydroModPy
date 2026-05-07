@@ -47,6 +47,21 @@
       "title": "AnalysisConfig",
       "type": "object"
     },
+    "BasConfig": {
+      "additionalProperties": false,
+      "description": "BAS package settings.",
+      "properties": {
+        "hnoflo": {
+          "default": -9999.0,
+          "description": "BAS no-flow head sentinel value (HNOFLO).",
+          "title": "Hnoflo",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        }
+      },
+      "title": "BasConfig",
+      "type": "object"
+    },
     "BudgetConfig": {
       "additionalProperties": false,
       "description": "Budget extraction configuration.",
@@ -2069,6 +2084,21 @@
       "title": "DirichletBC",
       "type": "object"
     },
+    "DisConfig": {
+      "additionalProperties": false,
+      "description": "DIS package settings.",
+      "properties": {
+        "itmuni": {
+          "default": 0,
+          "description": "DIS time unit code used by MODFLOW (ITMUNI).",
+          "title": "Itmuni",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        }
+      },
+      "title": "DisConfig",
+      "type": "object"
+    },
     "DisplayConfig": {
       "additionalProperties": false,
       "description": "Display behaviour resolved from the ``[display]`` TOML section.",
@@ -2458,6 +2488,97 @@
       "additionalProperties": false,
       "description": "Configuration for one potential evapotranspiration data source.\n\nETP sources load potential evapotranspiration from custom files or SIM2\nEDR products. Source-level fields define station columns, gridded file\npaths, masks, units, and cache refresh behavior.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
           "enum": [
@@ -2497,55 +2618,6 @@
           "title": "Source Unit",
           "x-hmp-profile": "user"
         },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "mask_path": {
           "anyOf": [
             {
@@ -2560,54 +2632,41 @@
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
           "title": "Mask Path",
           "x-hmp-profile": "user"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
         }
       },
       "required": [
         "source"
       ],
       "title": "EtpSourceConfig",
+      "type": "object"
+    },
+    "EvtConfig": {
+      "additionalProperties": false,
+      "description": "EVT package settings.",
+      "properties": {
+        "nevtop": {
+          "default": 3,
+          "description": "EVT option code that defines how ET extinction depth is applied (NEVTOP).",
+          "title": "Nevtop",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        },
+        "ievt": {
+          "default": 1,
+          "description": "EVT integer array selector used when NEVTOP requires layer indices (IEVT).",
+          "title": "Ievt",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        },
+        "ipakcb": {
+          "default": 1,
+          "description": "EVT cell-by-cell budget output flag (IPAKCB).",
+          "title": "Ipakcb",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        }
+      },
+      "title": "EvtConfig",
       "type": "object"
     },
     "ExportConfig": {
@@ -4649,6 +4708,97 @@
       "additionalProperties": false,
       "description": "Configuration for one relative-humidity data source.\n\nHumidity sources load station or gridded relative-humidity time series from\ncustom files or SIM2 EDR products. Source-level fields define file paths,\nstation columns, masks, units, and cache refresh behavior.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
           "enum": [
@@ -4688,55 +4838,6 @@
           "title": "Source Unit",
           "x-hmp-profile": "user"
         },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "mask_path": {
           "anyOf": [
             {
@@ -4751,48 +4852,6 @@
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
           "title": "Mask Path",
           "x-hmp-profile": "user"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
         }
       },
       "required": [
@@ -4964,6 +5023,97 @@
       "additionalProperties": false,
       "description": "Configuration for one hydrometry data source.\n\nHydrometry sources load river discharge or stage time series. Use\n``custom`` for local station files and ``hubeau`` for the French Hub'Eau\nhydrometry API. Station filters, spatial masks, and units are declared at\nsource level.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.",
           "enum": [
@@ -4988,55 +5138,6 @@
           "description": "Directory containing location file and chronicle CSVs.",
           "title": "Path",
           "x-hmp-profile": "user"
-        },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
         },
         "mask_path": {
           "anyOf": [
@@ -5086,48 +5187,6 @@
           "default": null,
           "description": "If no station found in bbox, expand search by this radius (km).",
           "title": "Fallback Search Radius Km",
-          "x-hmp-profile": "dev"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit list of station ids to load.",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based station discovery using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
           "x-hmp-profile": "dev"
         },
         "source_unit": {
@@ -5204,6 +5263,97 @@
       "additionalProperties": false,
       "description": "Configuration for one intermittency data source.\n\nIntermittency sources load stream flow-state observations from local files\nor from the Hub'Eau ONDE API. The source can restrict stations by id,\ndepartment code, project extent, or a spatial mask.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau stream-flow API.",
           "enum": [
@@ -5228,55 +5378,6 @@
           "description": "Directory containing location file and chronicle CSVs.",
           "title": "Path",
           "x-hmp-profile": "user"
-        },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
         },
         "mask_path": {
           "anyOf": [
@@ -5331,48 +5432,6 @@
           "title": "Fallback Search Radius Km",
           "x-hmp-profile": "dev"
         },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit list of station codes (code_station) to load.",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based station discovery using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
         "source_unit": {
           "anyOf": [
             {
@@ -5392,6 +5451,35 @@
         "source"
       ],
       "title": "IntermittencySourceConfig",
+      "type": "object"
+    },
+    "LmtConfig": {
+      "additionalProperties": false,
+      "description": "LMT package settings.",
+      "properties": {
+        "output_file_name": {
+          "default": "mt3d_link.ftl",
+          "description": "LMT output filename used to couple MODFLOW to MT3DMS.",
+          "title": "Output File Name",
+          "type": "string",
+          "x-hmp-profile": "expert"
+        },
+        "extension": {
+          "default": "lmt8",
+          "description": "LMT package filename extension.",
+          "title": "Extension",
+          "type": "string",
+          "x-hmp-profile": "expert"
+        },
+        "output_format": {
+          "default": "unformatted",
+          "description": "LMT file format (typically 'formatted' or 'unformatted').",
+          "title": "Output Format",
+          "type": "string",
+          "x-hmp-profile": "expert"
+        }
+      },
+      "title": "LmtConfig",
       "type": "object"
     },
     "MeshCatchmentConfig": {
@@ -6374,7 +6462,7 @@
       "properties": {
         "runtime": {
           "$ref": "#/$defs/ModflowRuntimeConfig",
-          "description": "MODFLOW runtime package options (NWT/DIS/BAS/UPW/EVT/OC/WEL/LMT).",
+          "description": "MODFLOW runtime package options grouped by package.",
           "x-hmp-profile": "expert"
         },
         "process_specific": {
@@ -6428,195 +6516,39 @@
     },
     "ModflowRuntimeConfig": {
       "additionalProperties": false,
-      "description": "Expert runtime settings used to build and solve MODFLOW-NWT packages.",
+      "description": "Expert runtime settings grouped by MODFLOW-NWT package.",
       "properties": {
-        "mf_version": {
-          "default": "mfnwt",
-          "description": "MODFLOW executable/version identifier passed to FloPy.",
-          "title": "Mf Version",
-          "type": "string",
+        "nwt": {
+          "$ref": "#/$defs/NwtSolverConfig",
+          "description": "NWT solver and executable settings.",
           "x-hmp-profile": "expert"
         },
-        "mf_listunit": {
-          "default": 2,
-          "description": "Fortran unit number used for the MODFLOW list file.",
-          "title": "Mf Listunit",
-          "type": "integer",
+        "dis": {
+          "$ref": "#/$defs/DisConfig",
           "x-hmp-profile": "expert"
         },
-        "mf_verbose": {
-          "default": false,
-          "description": "Enable verbose FloPy logging for model setup.",
-          "title": "Mf Verbose",
-          "type": "boolean",
+        "bas": {
+          "$ref": "#/$defs/BasConfig",
           "x-hmp-profile": "expert"
         },
-        "nwt_headtol": {
-          "default": 0.0001,
-          "description": "Head closure criterion for the NWT nonlinear solver.",
-          "title": "Nwt Headtol",
-          "type": "number",
+        "upw": {
+          "$ref": "#/$defs/UpwConfig",
           "x-hmp-profile": "expert"
         },
-        "nwt_fluxtol": {
-          "default": 500.0,
-          "description": "Flux closure criterion for the NWT nonlinear solver.",
-          "title": "Nwt Fluxtol",
-          "type": "number",
+        "evt": {
+          "$ref": "#/$defs/EvtConfig",
           "x-hmp-profile": "expert"
         },
-        "nwt_maxiterout": {
-          "default": 5000,
-          "description": "Maximum outer nonlinear iterations in the NWT solver.",
-          "title": "Nwt Maxiterout",
-          "type": "integer",
+        "oc": {
+          "$ref": "#/$defs/OcConfig",
           "x-hmp-profile": "expert"
         },
-        "nwt_thickfact": {
-          "default": 1e-05,
-          "description": "NWT wetting/thickness factor controlling nonlinear updates.",
-          "title": "Nwt Thickfact",
-          "type": "number",
+        "wel": {
+          "$ref": "#/$defs/WelConfig",
           "x-hmp-profile": "expert"
         },
-        "nwt_linmeth": {
-          "default": 1,
-          "description": "Linear solver choice for NWT (see MODFLOW-NWT documentation).",
-          "title": "Nwt Linmeth",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "nwt_iprnwt": {
-          "default": 1,
-          "description": "NWT print flag controlling iteration diagnostics in listing outputs.",
-          "title": "Nwt Iprnwt",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "nwt_ibotav": {
-          "default": 1,
-          "description": "NWT option for averaging saturated thickness at the cell bottom.",
-          "title": "Nwt Ibotav",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "nwt_options": {
-          "default": "COMPLEX",
-          "description": "NWT nonlinear option keyword (for example SIMPLE or COMPLEX).",
-          "title": "Nwt Options",
-          "type": "string",
-          "x-hmp-profile": "expert"
-        },
-        "nwt_continue": {
-          "default": false,
-          "description": "If true, continue NWT iterations on partially converged stress periods.",
-          "title": "Nwt Continue",
-          "type": "boolean",
-          "x-hmp-profile": "expert"
-        },
-        "nwt_backflag": {
-          "default": 0,
-          "description": "NWT backtracking activation flag.",
-          "title": "Nwt Backflag",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "nwt_stoptol": {
-          "default": 1e-10,
-          "description": "NWT backtracking stopping tolerance.",
-          "title": "Nwt Stoptol",
-          "type": "number",
-          "x-hmp-profile": "expert"
-        },
-        "dis_itmuni": {
-          "default": 0,
-          "description": "DIS time unit code used by MODFLOW (ITMUNI).",
-          "title": "Dis Itmuni",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "bas_hnoflo": {
-          "default": -9999.0,
-          "description": "BAS no-flow head sentinel value (HNOFLO).",
-          "title": "Bas Hnoflo",
-          "type": "number",
-          "x-hmp-profile": "expert"
-        },
-        "upw_iphdry": {
-          "default": 1,
-          "description": "UPW dry-cell head output flag (IPHDRY).",
-          "title": "Upw Iphdry",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "upw_hdry": {
-          "default": -100.0,
-          "description": "UPW dry-cell head value (HDRY).",
-          "title": "Upw Hdry",
-          "type": "number",
-          "x-hmp-profile": "expert"
-        },
-        "upw_layvka": {
-          "default": 1,
-          "description": "UPW flag controlling VKA interpretation per layer (LAYVKA).",
-          "title": "Upw Layvka",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "evt_nevtop": {
-          "default": 3,
-          "description": "EVT option code that defines how ET extinction depth is applied (NEVTOP).",
-          "title": "Evt Nevtop",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "evt_ievt": {
-          "default": 1,
-          "description": "EVT integer array selector used when NEVTOP requires layer indices (IEVT).",
-          "title": "Evt Ievt",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "evt_ipakcb": {
-          "default": 1,
-          "description": "EVT cell-by-cell budget output flag (IPAKCB).",
-          "title": "Evt Ipakcb",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "oc_compact": {
-          "default": true,
-          "description": "Enable compact budget format in OC outputs.",
-          "title": "Oc Compact",
-          "type": "boolean",
-          "x-hmp-profile": "expert"
-        },
-        "wel_ipakcb": {
-          "default": 1,
-          "description": "WEL cell-by-cell budget output flag (IPAKCB).",
-          "title": "Wel Ipakcb",
-          "type": "integer",
-          "x-hmp-profile": "expert"
-        },
-        "lmt_output_file_name": {
-          "default": "mt3d_link.ftl",
-          "description": "LMT output filename used to couple MODFLOW to MT3DMS.",
-          "title": "Lmt Output File Name",
-          "type": "string",
-          "x-hmp-profile": "expert"
-        },
-        "lmt_extension": {
-          "default": "lmt8",
-          "description": "LMT package filename extension.",
-          "title": "Lmt Extension",
-          "type": "string",
-          "x-hmp-profile": "expert"
-        },
-        "lmt_output_format": {
-          "default": "unformatted",
-          "description": "LMT file format (typically 'formatted' or 'unformatted').",
-          "title": "Lmt Output Format",
-          "type": "string",
+        "lmt": {
+          "$ref": "#/$defs/LmtConfig",
           "x-hmp-profile": "expert"
         }
       },
@@ -6712,6 +6644,127 @@
       "title": "ModpathParametersConfig",
       "type": "object"
     },
+    "NwtSolverConfig": {
+      "additionalProperties": false,
+      "description": "MODFLOW-NWT solver package settings.",
+      "properties": {
+        "version": {
+          "default": "mfnwt",
+          "description": "MODFLOW executable/version identifier passed to FloPy.",
+          "title": "Version",
+          "type": "string",
+          "x-hmp-profile": "expert"
+        },
+        "listunit": {
+          "default": 2,
+          "description": "Fortran unit number used for the MODFLOW list file.",
+          "title": "Listunit",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        },
+        "verbose": {
+          "default": false,
+          "description": "Enable verbose FloPy logging for model setup.",
+          "title": "Verbose",
+          "type": "boolean",
+          "x-hmp-profile": "expert"
+        },
+        "headtol": {
+          "default": 0.0001,
+          "description": "Head closure criterion for the NWT nonlinear solver.",
+          "title": "Headtol",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
+        "fluxtol": {
+          "default": 500.0,
+          "description": "Flux closure criterion for the NWT nonlinear solver.",
+          "title": "Fluxtol",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
+        "maxiterout": {
+          "default": 5000,
+          "description": "Maximum outer nonlinear iterations in the NWT solver.",
+          "title": "Maxiterout",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        },
+        "thickfact": {
+          "default": 1e-05,
+          "description": "NWT wetting/thickness factor controlling nonlinear updates.",
+          "title": "Thickfact",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
+        "linmeth": {
+          "default": 1,
+          "description": "Linear solver choice for NWT (see MODFLOW-NWT documentation).",
+          "title": "Linmeth",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        },
+        "iprnwt": {
+          "default": 1,
+          "description": "NWT print flag controlling iteration diagnostics in listing outputs.",
+          "title": "Iprnwt",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        },
+        "ibotav": {
+          "default": 1,
+          "description": "NWT option for averaging saturated thickness at the cell bottom.",
+          "title": "Ibotav",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        },
+        "options": {
+          "default": "COMPLEX",
+          "description": "NWT nonlinear option keyword (for example SIMPLE or COMPLEX).",
+          "title": "Options",
+          "type": "string",
+          "x-hmp-profile": "expert"
+        },
+        "continue_run": {
+          "default": false,
+          "description": "If true, continue NWT iterations on partially converged stress periods.",
+          "title": "Continue Run",
+          "type": "boolean",
+          "x-hmp-profile": "expert"
+        },
+        "backflag": {
+          "default": 0,
+          "description": "NWT backtracking activation flag.",
+          "title": "Backflag",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        },
+        "stoptol": {
+          "default": 1e-10,
+          "description": "NWT backtracking stopping tolerance.",
+          "title": "Stoptol",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        }
+      },
+      "title": "NwtSolverConfig",
+      "type": "object"
+    },
+    "OcConfig": {
+      "additionalProperties": false,
+      "description": "OC package settings.",
+      "properties": {
+        "compact": {
+          "default": true,
+          "description": "Enable compact budget format in OC outputs.",
+          "title": "Compact",
+          "type": "boolean",
+          "x-hmp-profile": "expert"
+        }
+      },
+      "title": "OcConfig",
+      "type": "object"
+    },
     "OceanicConfig": {
       "additionalProperties": false,
       "description": "Top-level oceanic configuration.\n\nThe section groups sea-level sources and an optional date window. It is\ncommonly inferred when ``flow.active_bc`` contains an ocean boundary\ncondition.",
@@ -6765,6 +6818,97 @@
       "additionalProperties": false,
       "description": "Configuration for one oceanic boundary data source.\n\nOceanic sources describe sea-level information for coastal boundary\nconditions. Use ``custom`` for local files, ``shom`` for tide-gauge data,\nor ``constant`` for a fixed mean sea-level value.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL.",
           "enum": [
@@ -6804,55 +6948,6 @@
           "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
           "title": "Source Unit",
           "x-hmp-profile": "user"
-        },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
         },
         "value": {
           "anyOf": [
@@ -6910,48 +7005,6 @@
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
           "title": "Mask Path",
           "x-hmp-profile": "user"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids to load (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
         }
       },
       "required": [
@@ -7198,6 +7251,97 @@
       "additionalProperties": false,
       "description": "Configuration for one piezometry data source.\n\nPiezometry sources load groundwater-level or depth observations from local\nstation files or from the Hub'Eau piezometry API. Station filters, nearest\nstation selection, and source units are declared here.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider.",
           "enum": [
@@ -7222,55 +7366,6 @@
           "description": "Directory containing location file and chronicle CSVs.",
           "title": "Path",
           "x-hmp-profile": "user"
-        },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for piezometer identifier.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
         },
         "mask_path": {
           "anyOf": [
@@ -7326,52 +7421,10 @@
           "title": "Fallback Search Radius Km",
           "x-hmp-profile": "dev"
         },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids.",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based station discovery using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
         "nearest": {
           "default": false,
           "description": "Keep only the nearest piezometer to the extent centroid.",
           "title": "Nearest",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
@@ -7510,6 +7563,97 @@
       "additionalProperties": false,
       "description": "Configuration for one precipitation data source.\n\nPrecipitation sources provide rainfall, snowfall, or total precipitation\nfrom custom files or SIM2 EDR products. Components select which\nprecipitation signal is loaded from the provider.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
           "enum": [
@@ -7567,55 +7711,6 @@
           "title": "Source Unit",
           "x-hmp-profile": "user"
         },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "mask_path": {
           "anyOf": [
             {
@@ -7630,48 +7725,6 @@
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
           "title": "Mask Path",
           "x-hmp-profile": "user"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
         }
       },
       "required": [
@@ -7733,6 +7786,97 @@
       "additionalProperties": false,
       "description": "Configuration for one radiation data source.\n\nRadiation sources load atmospheric and/or visible radiation from custom\nfiles or SIM2 EDR products. Components select the radiation signals used by\ndownstream forcing and HELP coupling.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
           "enum": [
@@ -7790,55 +7934,6 @@
           "title": "Source Unit",
           "x-hmp-profile": "user"
         },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "mask_path": {
           "anyOf": [
             {
@@ -7853,48 +7948,6 @@
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
           "title": "Mask Path",
           "x-hmp-profile": "user"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
         }
       },
       "required": [
@@ -7956,6 +8009,97 @@
       "additionalProperties": false,
       "description": "Configuration for one recharge data source.\n\nRecharge sources provide water input to the subsurface as custom files,\nSIM2 gridded products, or synthetic series. Synthetic fields can be\nconstant, time-varying, or sinusoidal depending on the declared values and\noptional amplitude settings.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated series.",
           "enum": [
@@ -7995,55 +8139,6 @@
           "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
           "title": "Source Unit",
           "x-hmp-profile": "user"
-        },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
         },
         "mask_path": {
           "anyOf": [
@@ -8173,48 +8268,6 @@
           "default": null,
           "description": "Fraction of recharge routed to runoff (0.0 to 1.0).",
           "title": "Runoff Ratio",
-          "x-hmp-profile": "dev"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
           "x-hmp-profile": "dev"
         }
       },
@@ -9232,6 +9285,97 @@
       "additionalProperties": false,
       "description": "Configuration for one runoff data source.\n\nRunoff sources load station or gridded surface-runoff time series from\ncustom files or SIM2 EDR products. Source-level fields define file paths,\nstation columns, masks, units, and cache refresh behavior.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
           "enum": [
@@ -9271,55 +9415,6 @@
           "title": "Source Unit",
           "x-hmp-profile": "user"
         },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "mask_path": {
           "anyOf": [
             {
@@ -9334,48 +9429,6 @@
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
           "title": "Mask Path",
           "x-hmp-profile": "user"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
         }
       },
       "required": [
@@ -9734,6 +9787,97 @@
       "additionalProperties": false,
       "description": "Configuration for one soil-moisture data source.\n\nSoil-moisture sources load station or gridded soil-moisture indices from\ncustom files or SIM2 EDR products. Source-level fields define file paths,\nstation columns, masks, units, and cache refresh behavior.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
           "enum": [
@@ -9773,55 +9917,6 @@
           "title": "Source Unit",
           "x-hmp-profile": "user"
         },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "mask_path": {
           "anyOf": [
             {
@@ -9836,48 +9931,6 @@
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
           "title": "Mask Path",
           "x-hmp-profile": "user"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
         }
       },
       "required": [
@@ -10335,6 +10388,97 @@
       "additionalProperties": false,
       "description": "Configuration for one air-temperature data source.\n\nTemperature sources load station or gridded air-temperature time series\nfrom custom files or SIM2 EDR products. Source-level fields define file\npaths, station columns, masks, units, and cache refresh behavior.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
           "enum": [
@@ -10374,55 +10518,6 @@
           "title": "Source Unit",
           "x-hmp-profile": "user"
         },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "mask_path": {
           "anyOf": [
             {
@@ -10437,48 +10532,6 @@
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
           "title": "Mask Path",
           "x-hmp-profile": "user"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
         }
       },
       "required": [
@@ -10609,6 +10662,35 @@
       "title": "TransportMt3dmsConfig",
       "type": "object"
     },
+    "UpwConfig": {
+      "additionalProperties": false,
+      "description": "UPW package settings.",
+      "properties": {
+        "iphdry": {
+          "default": 1,
+          "description": "UPW dry-cell head output flag (IPHDRY).",
+          "title": "Iphdry",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        },
+        "hdry": {
+          "default": -100.0,
+          "description": "UPW dry-cell head value (HDRY).",
+          "title": "Hdry",
+          "type": "number",
+          "x-hmp-profile": "expert"
+        },
+        "layvka": {
+          "default": 1,
+          "description": "UPW flag controlling VKA interpretation per layer (LAYVKA).",
+          "title": "Layvka",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        }
+      },
+      "title": "UpwConfig",
+      "type": "object"
+    },
     "VerticalGridConfig": {
       "additionalProperties": false,
       "description": "Single source of truth for vertical-grid validation.\n\nThis model is used by surface-driven SGrid generation:\n- layering strategy (`genmtd_lay`),\n- layer count or proportions,\n- nodata masking metadata.\n\nAll geometric quantities are interpreted in SI metres.",
@@ -10734,6 +10816,97 @@
       "additionalProperties": false,
       "description": "Configuration for one water quality data source.\n\nWater-quality sources load physico-chemical observations for river or\npiezometer sites. The source selects local files or Hub'Eau, optional\nparameter filters, station filters, and spatial discovery rules.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.",
           "enum": [
@@ -10787,55 +10960,6 @@
           "title": "Path",
           "x-hmp-profile": "user"
         },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicles.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicles.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "mask_path": {
           "anyOf": [
             {
@@ -10872,48 +10996,6 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids.",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based station discovery using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
         "source_unit": {
           "anyOf": [
             {
@@ -10933,6 +11015,21 @@
         "source"
       ],
       "title": "WaterQualitySourceConfig",
+      "type": "object"
+    },
+    "WelConfig": {
+      "additionalProperties": false,
+      "description": "WEL package settings.",
+      "properties": {
+        "ipakcb": {
+          "default": 1,
+          "description": "WEL cell-by-cell budget output flag (IPAKCB).",
+          "title": "Ipakcb",
+          "type": "integer",
+          "x-hmp-profile": "expert"
+        }
+      },
+      "title": "WelConfig",
       "type": "object"
     },
     "WindConfig": {
@@ -10988,6 +11085,97 @@
       "additionalProperties": false,
       "description": "Configuration for one wind-speed data source.\n\nWind sources load station or gridded wind-speed time series from custom\nfiles or SIM2 EDR products. Source-level fields define file paths, station\ncolumns, masks, units, and cache refresh behavior.",
       "properties": {
+        "station_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Explicit station identifiers to load (custom source).",
+          "title": "Station Ids",
+          "x-hmp-profile": "user"
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "enum": [
+                "watershed",
+                "study_area"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.",
+          "title": "Extent",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore the cache and force a fresh download from the API.",
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "col_id": {
+          "default": "id",
+          "description": "Column name for the station identifier in location files.",
+          "title": "Col Id",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_x": {
+          "default": "x",
+          "description": "Column name for the X coordinate in location files.",
+          "title": "Col X",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_y": {
+          "default": "y",
+          "description": "Column name for the Y coordinate in location files.",
+          "title": "Col Y",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_crs": {
+          "default": "crs",
+          "description": "Column name for the CRS in location files.",
+          "title": "Col Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_datetime": {
+          "default": "datetime",
+          "description": "Column name for timestamps in chronicle CSVs.",
+          "title": "Col Datetime",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "col_value": {
+          "default": "value",
+          "description": "Column name for numeric values in chronicle CSVs.",
+          "title": "Col Value",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "default_crs": {
+          "default": "EPSG:4326",
+          "description": "Default CRS used when a location file omits the CRS column.",
+          "title": "Default Crs",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
         "source": {
           "description": "Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API.",
           "enum": [
@@ -11027,55 +11215,6 @@
           "title": "Source Unit",
           "x-hmp-profile": "user"
         },
-        "col_id": {
-          "default": "id",
-          "description": "Column name for station identifier in location file.",
-          "title": "Col Id",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_x": {
-          "default": "x",
-          "description": "Column name for X coordinate in location CSV.",
-          "title": "Col X",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_y": {
-          "default": "y",
-          "description": "Column name for Y coordinate in location CSV.",
-          "title": "Col Y",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_crs": {
-          "default": "crs",
-          "description": "Column name for CRS in location CSV.",
-          "title": "Col Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "default_crs": {
-          "default": "EPSG:4326",
-          "description": "Default CRS when not specified in location file.",
-          "title": "Default Crs",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_datetime": {
-          "default": "datetime",
-          "description": "Column name for datetime in chronicle CSVs.",
-          "title": "Col Datetime",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
-        "col_value": {
-          "default": "value",
-          "description": "Column name for value in chronicle CSVs.",
-          "title": "Col Value",
-          "type": "string",
-          "x-hmp-profile": "dev"
-        },
         "mask_path": {
           "anyOf": [
             {
@@ -11090,54 +11229,38 @@
           "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
           "title": "Mask Path",
           "x-hmp-profile": "user"
-        },
-        "station_ids": {
-          "anyOf": [
-            {
-              "items": {
-                "type": "string"
-              },
-              "type": "array"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Explicit station ids (custom source).",
-          "title": "Station Ids",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Enable bbox-based data retrieval using the project extent.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
         }
       },
       "required": [
         "source"
       ],
       "title": "WindSourceConfig",
+      "type": "object"
+    },
+    "WorkflowConfig": {
+      "additionalProperties": false,
+      "description": "Workflow selector configuration.",
+      "properties": {
+        "mode": {
+          "description": "Workflow mode dispatched by `hmp run`.",
+          "enum": [
+            "simulation",
+            "calibration",
+            "batch",
+            "overview",
+            "mesh",
+            "comparison",
+            "testbed"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "WorkflowConfig",
       "type": "object"
     },
     "WorkspaceConfig": {
@@ -11734,18 +11857,8 @@
   "description": "Top-level configuration for HydroModPy.\n\nAggregates sub-components (workspace, geographic, domain, data, flow,\ntransport, solver, modflownwt, modflow6, display)\ninto a centralized,\nhierarchical model and validates optional flow parameters as\n`FieldParamConfig` dictionaries.",
   "properties": {
     "workflow": {
-      "description": "Workflow selector (mandatory). Must be one of 'simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.",
-      "enum": [
-        "simulation",
-        "calibration",
-        "batch",
-        "overview",
-        "mesh",
-        "comparison",
-        "testbed"
-      ],
-      "title": "Workflow",
-      "type": "string",
+      "$ref": "#/$defs/WorkflowConfig",
+      "description": "Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.",
       "x-hmp-profile": "user"
     },
     "workspace": {
@@ -11790,7 +11903,7 @@
     },
     "modflownwt": {
       "$ref": "#/$defs/ModflowConfig",
-      "description": "Expert MODFLOW-NWT package configuration loaded from [modflownwt.runtime], [modflownwt.process_specific], [modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical].",
+      "description": "Expert MODFLOW-NWT package configuration loaded from [modflownwt.runtime.<package>], [modflownwt.process_specific], [modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical].",
       "x-hmp-profile": "expert"
     },
     "modflow6": {

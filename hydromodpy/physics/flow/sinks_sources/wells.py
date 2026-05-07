@@ -13,7 +13,7 @@ from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -27,8 +27,6 @@ if TYPE_CHECKING:
 
 class FlowWellForcingConstantConfig(HydroModelBase):
     """One constant well-rate forcing applied to every stress period."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Annotated[Literal["constant"], Profile.USER] = Field(
         default="constant",
@@ -46,8 +44,6 @@ class FlowWellForcingConstantConfig(HydroModelBase):
 
 class FlowWellForcingCsvConfig(HydroModelBase):
     """CSV-backed well forcing resolved at runtime against simulation.time."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Annotated[Literal["csv"], Profile.USER] = Field(
         default="csv",
@@ -109,8 +105,6 @@ class FlowWellConfig(HydroModelBase):
     convention: negative = pumping, positive = injection. ``flux`` may be a
     scalar (constant rate) or a list with one value per stress period.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     cell: Annotated[tuple[int, int, int] | None, Profile.USER] = Field(
         default=None,

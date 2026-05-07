@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
@@ -13,8 +13,6 @@ from hydromodpy.core.config_kit.profile import Profile
 
 class DerivedConfig(HydroModelBase):
     """Toggle flags for derived variable computation."""
-
-    model_config = ConfigDict(extra="forbid")
 
     watertable_elevation: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -57,8 +55,6 @@ class DerivedConfig(HydroModelBase):
 class ExportVariablesConfig(HydroModelBase):
     """Which variables to include in automated exports."""
 
-    model_config = ConfigDict(extra="forbid")
-
     head: Annotated[bool, Profile.USER] = Field(default=True, description="Export head field.")
     concentration: Annotated[bool, Profile.USER] = Field(
         default=False, description="Export concentration field."
@@ -88,8 +84,6 @@ class ExportVariablesConfig(HydroModelBase):
 
 class ExportConfig(HydroModelBase):
     """Automated export configuration."""
-
-    model_config = ConfigDict(extra="forbid")
 
     netcdf: Annotated[bool, Profile.USER] = Field(
         default=False, description="Export to NetCDF-4/UGRID."
@@ -121,8 +115,6 @@ class ExportConfig(HydroModelBase):
 class BudgetConfig(HydroModelBase):
     """Budget extraction configuration."""
 
-    model_config = ConfigDict(extra="forbid")
-
     spatial_fields: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description="Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.",
@@ -136,8 +128,6 @@ class ResultsConfig(HydroModelBase):
     which derived variables are computed, and which export formats are
     produced automatically after each run.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     persistence: Annotated[PersistenceConfig, Profile.USER] = Field(
         default_factory=PersistenceConfig,

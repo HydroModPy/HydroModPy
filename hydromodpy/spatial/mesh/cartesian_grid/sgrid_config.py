@@ -18,7 +18,7 @@ from math import isclose
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -59,8 +59,6 @@ class VerticalGridConfig(HydroModelBase):
 
     All geometric quantities are interpreted in SI metres.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     genmtd_lay: Annotated[Literal["constant", "decay", "list"], Profile.USER] = Field(
         default="constant",
@@ -144,8 +142,6 @@ class VerticalGridConfig(HydroModelBase):
 class PlanarGridConfig(HydroModelBase):
     """Planar discretization contract for solver-facing grids."""
 
-    model_config = ConfigDict(extra="forbid")
-
     mode: Annotated[Literal["keep_native", "resample_to_shape"], Profile.USER] = Field(
         default="keep_native",
         description=(
@@ -195,8 +191,6 @@ class PlanarGridConfig(HydroModelBase):
 class SolverSGridConfig(HydroModelBase):
     """Solver-facing grid configuration split into explicit planar and vertical parts."""
 
-    model_config = ConfigDict(extra="forbid")
-
     planar: Annotated[PlanarGridConfig, Profile.USER] = Field(
         default_factory=PlanarGridConfig,
         description="Planar discretization of the solver grid.",
@@ -222,8 +216,6 @@ class SGridConfig(HydroModelBase):
 
     All geometric quantities are interpreted in SI metres.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     sgrid_type: Annotated[Literal["structured"], Profile.USER] = Field(
         default="structured",

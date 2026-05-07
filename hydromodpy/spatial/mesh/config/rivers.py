@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -13,8 +13,6 @@ from hydromodpy.core.units import Length
 
 class MeshCatchmentRiversConfig(HydroModelBase):
     """River-trace inputs consumed by the conformal mesher."""
-
-    model_config = ConfigDict(extra="forbid")
 
     source: Annotated[str, Profile.USER] = Field(
         default="domain_geographic",

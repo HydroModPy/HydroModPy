@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -16,8 +16,6 @@ class ConstantThicknessDepthModel(HydroModelBase):
     Bottom elevation is computed cell-wise as:
     ``bottom = top_surface - thickness``.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     type: Annotated[Literal["constant_thickness"], Profile.USER] = Field(
         default="constant_thickness",
@@ -48,8 +46,6 @@ class FlatSubstratumDepthModel(HydroModelBase):
     Bottom elevation is constant over the whole domain:
     ``bottom = substratum_elevation``.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     type: Annotated[Literal["flat_substratum"], Profile.USER] = Field(
         default="flat_substratum",

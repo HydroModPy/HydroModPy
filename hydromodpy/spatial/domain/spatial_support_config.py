@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -11,8 +11,6 @@ from hydromodpy.core.units import parse_length_to_m
 
 class DomainSupportBaseConfig(HydroModelBase):
     """Base schema for one named spatial-support declaration."""
-
-    model_config = ConfigDict(extra="forbid")
 
     provider: Annotated[str, Profile.USER]
 

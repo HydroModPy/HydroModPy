@@ -19,7 +19,7 @@ Point d'entrée unique :
 
    hmp run chemin/vers/project.toml
 
-Le TOML doit déclarer un champ ``workflow = "..."`` au premier niveau.
+Le TOML doit déclarer un champ ``[workflow].mode = "..."`` au premier niveau.
 Valeurs reconnues (voir ``hydromodpy/cli/workflows.py``, constante
 ``KNOWN_WORKFLOWS``) :
 
@@ -43,7 +43,8 @@ Exemple minimal de TOML :
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [workspace]
    root = "/chemin/vers/workspace"

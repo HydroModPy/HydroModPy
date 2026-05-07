@@ -27,7 +27,7 @@ def _write_base_simulation_config(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[workspace]",
                 'project_root = "."',
@@ -62,7 +62,7 @@ def _write_comparison_config(
     path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "demo_sim_compare"',
@@ -128,7 +128,7 @@ def test_simulation_comparison_generated_child_run_folder_uses_workspace_root(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "demo_workspace_root"',
@@ -169,7 +169,7 @@ def test_simulation_comparison_accepts_existing_run_folders_without_base_config(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "existing_runs"',
@@ -225,7 +225,7 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "existing_runs"',
@@ -337,7 +337,7 @@ def test_simulation_comparison_rejects_physical_overlay_changes(tmp_path: Path) 
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -373,7 +373,7 @@ def test_simulation_comparison_allows_flow_parameter_sweep_overlay(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -411,7 +411,7 @@ def test_simulation_comparison_allows_flow_boundary_sweep_overlay(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -455,7 +455,7 @@ def test_simulation_comparison_requires_enabled_reference(tmp_path: Path) -> Non
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -493,7 +493,7 @@ def test_simulation_comparison_rejects_unknown_observable_simulation(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -532,7 +532,7 @@ def test_simulation_comparison_rejects_path_like_comparison_id(tmp_path: Path) -
 def test_cli_resolves_comparison_workflow(tmp_path: Path) -> None:
     config_path = tmp_path / "compare.toml"
     config_path.write_text(
-        'workflow = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
+        '[workflow]\nmode = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
         encoding="utf-8",
     )
 
@@ -559,7 +559,7 @@ def test_resolve_bundle_cells_reads_mesh_input_from_generated_config(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[workspace]",
                 'project_root = "."',
@@ -595,7 +595,7 @@ def test_equivalence_audit_flags_physical_config_mismatch(
     ref_config = tmp_path / "mf6_ref.toml"
     candidate_config = tmp_path / "bouss_candidate.toml"
     common = [
-        'workflow = "simulation"',
+        '[workflow]\nmode = "simulation"',
         "",
         "[simulation.time]",
         'start_datetime = "2020-01-01 00:00:00"',

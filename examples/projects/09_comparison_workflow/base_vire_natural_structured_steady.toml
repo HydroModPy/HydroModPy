@@ -1,6 +1,8 @@
 base_config = "../06_vire_selune/project_simulation_steady.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/vire_natural_structured_comparison/workspace"

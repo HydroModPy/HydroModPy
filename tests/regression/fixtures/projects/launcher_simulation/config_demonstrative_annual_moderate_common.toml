@@ -9,7 +9,9 @@
 
 base_config = "project.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "Example 12 moderate annual flow-only comparison"

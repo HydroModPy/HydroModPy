@@ -240,8 +240,10 @@ RUN_TOML_TEMPLATE = """\
 # Inherits from : project.toml
 # ===========================================================================
 
-workflow = "simulation"
 base_config = "project.toml"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "."

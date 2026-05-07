@@ -128,7 +128,8 @@ Run overlay
 .. code-block:: toml
 
    base_config = "project.toml"
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [simulation]
    name = "nancon_transient_nwt"
@@ -213,9 +214,9 @@ The exact ``EVT`` call is scientifically important. HydroModPy currently uses:
 - ``evtr = evt_spd_solver``
 - ``surf = self.top_elevation - surf_offset``
 - ``exdp = evt_extinction_depth``
-- ``nevtop = modflownwt.runtime.evt_nevtop``
-- ``ievt = modflownwt.runtime.evt_ievt``
-- ``ipakcb = modflownwt.runtime.evt_ipakcb``
+- ``nevtop = modflownwt.runtime.evt.nevtop``
+- ``ievt = modflownwt.runtime.evt.ievt``
+- ``ipakcb = modflownwt.runtime.evt.ipakcb``
 
 So the public project choice is:
 

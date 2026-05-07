@@ -29,10 +29,12 @@
 # `hydromodpy.calibration.cases` and are loaded directly from Python.
 # ======================================================================
 
-workflow = "calibration_case"
 case = "groundwater_1d"
 
 # --- Chronicle (synthetic truth + noisy observations) ---------------
+
+[workflow]
+mode = "calibration_case"
 
 [chronicle]
 # Time discretization

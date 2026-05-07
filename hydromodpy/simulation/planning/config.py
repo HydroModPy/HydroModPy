@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -47,8 +47,6 @@ def _coerce_step_unit(token: str) -> Literal["hour", "day", "month", "year"]:
 
 class SimulationTimeConfig(HydroModelBase):
     """Canonical simulation time window and forcing-coverage policy."""
-
-    model_config = ConfigDict(extra="forbid")
 
     start_datetime: Annotated[datetime | None, Profile.USER] = Field(
         default=None,
@@ -147,8 +145,6 @@ class SimulationTimeConfig(HydroModelBase):
 class SimulationProcessConfig(HydroModelBase):
     """One requested process entry under ``[[simulation.process]]``."""
 
-    model_config = ConfigDict(extra="forbid")
-
     id: Annotated[str, Profile.USER] = Field(
         description=(
             "User-facing identifier for the process. "
@@ -194,8 +190,6 @@ class SimulationProcessConfig(HydroModelBase):
 
 class SimulationConfig(HydroModelBase):
     """Minimal orchestration block declared under ``[simulation]``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     @classmethod
     def transient(

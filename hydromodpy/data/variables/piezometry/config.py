@@ -5,23 +5,24 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
-from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.base_config import BaseVariableConfig
+from hydromodpy.data.variables.timeseries_variable_config import (
+    TimeseriesColumnsMixin,
+    TimeseriesSelectionMixin,
+)
 
 
-class PiezometrySourceConfig(HydroModelBase):
+class PiezometrySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     """Configuration for one piezometry data source.
 
     Piezometry sources load groundwater-level or depth observations from local
     station files or from the Hub'Eau piezometry API. Station filters, nearest
     station selection, and source units are declared here.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     source: Annotated[Literal["custom", "hubeau"], Profile.USER] = Field(
         ..., description="Data provider."
@@ -33,27 +34,6 @@ class PiezometrySourceConfig(HydroModelBase):
         Profile.USER,
         InputFile(role="piezometry", category="data"),
     ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
-    col_id: Annotated[str, Profile.DEV] = Field(
-        default="id", description="Column name for piezometer identifier."
-    )
-    col_x: Annotated[str, Profile.DEV] = Field(
-        default="x", description="Column name for X coordinate in location CSV."
-    )
-    col_y: Annotated[str, Profile.DEV] = Field(
-        default="y", description="Column name for Y coordinate in location CSV."
-    )
-    col_crs: Annotated[str, Profile.DEV] = Field(
-        default="crs", description="Column name for CRS in location CSV."
-    )
-    default_crs: Annotated[str, Profile.DEV] = Field(
-        default="EPSG:4326", description="Default CRS."
-    )
-    col_datetime: Annotated[str, Profile.DEV] = Field(
-        default="datetime", description="Column name for datetime in chronicle CSVs."
-    )
-    col_value: Annotated[str, Profile.DEV] = Field(
-        default="value", description="Column name for value in chronicle CSVs."
-    )
 
     # --- Spatial mask ---
     mask_path: Annotated[Path | None, Profile.USER] = Field(
@@ -71,21 +51,9 @@ class PiezometrySourceConfig(HydroModelBase):
         default=None, description="If no station found in bbox, expand search by this radius (km)."
     )
 
-    # --- Common fields ---
-    station_ids: Annotated[list[str] | None, Profile.USER] = Field(
-        default=None, description="Explicit station ids."
-    )
-    extent: Annotated[Literal["watershed", "study_area"] | None, Profile.USER] = Field(
-        default=None,
-        description="Enable bbox-based station discovery using the project extent.",
-    )
     nearest: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Keep only the nearest piezometer to the extent centroid.",
-    )
-    force_refresh: Annotated[bool, Profile.DEV] = Field(
-        default=False,
-        description="Ignore cache and re-download from API.",
     )
     source_unit: Annotated[str | None, Profile.USER] = Field(
         default=None,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -23,8 +23,6 @@ class DemSourceConfig(HydroModelBase):
 
     The optional mask or extent controls spatial clipping during data loading.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     source: Annotated[Literal["custom", "ign_bdalti"], Profile.USER] = Field(
         ...,
@@ -85,8 +83,6 @@ class DemConfig(HydroModelBase):
         source = "custom"
         path = "data/my_dem.tif"
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     sources: Annotated[list[DemSourceConfig], Profile.USER] = Field(
         ...,

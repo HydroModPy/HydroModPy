@@ -45,7 +45,7 @@ from __future__ import annotations
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
@@ -72,8 +72,6 @@ class CalibParameterDecl(HydroModelBase):
     Use ``mode="replace"`` for direct parameter values and ``mode="scale"``
     for multiplicative factors applied to an existing config value.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     bounds: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
@@ -123,8 +121,6 @@ class CalibOutputDecl(HydroModelBase):
     Supported spatial supports are ``"point"``, ``"boundary"``, and
     ``"cell"``. Each support validates the fields it needs.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     variable: Annotated[str, Profile.USER] = Field(
         description="Simulated variable to extract (e.g. 'head', 'outlet_discharge').",
@@ -210,8 +206,6 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     signals in one calibration session.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     name: Annotated[str, Profile.USER] = Field(
         description="Unique block identifier used in logs and persistence.",
     )
@@ -250,8 +244,6 @@ class CalibrationConfig(HydroModelBase):
     When no explicit objective block is declared, HydroModPy can synthesize one
     from ``objective`` and ``variable`` if the matching output exists.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
         default="grid",

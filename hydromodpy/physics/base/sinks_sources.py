@@ -8,15 +8,13 @@ typed source/sink payloads.
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 
 
 class SinkSource(HydroModelBase):
-    model_config = ConfigDict(extra="forbid")
-
     id: Annotated[str, Profile.USER] = Field(
         ..., description="id of the sink/source (ex: Q_well, etc.)"
     )

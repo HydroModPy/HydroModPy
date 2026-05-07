@@ -116,7 +116,7 @@ def _write_base_simulation_config(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 'project_root = "project/base_case"',
                 "",
@@ -175,7 +175,7 @@ def _write_simulation_comparison_config(path: Path, run_folder: Path) -> None:
     simulation_config.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[simulation]",
                 'run_id = "mf6_demo"',
@@ -774,7 +774,7 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(
     simulation_config.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{project_root.as_posix()}"',
                 "",
@@ -1147,7 +1147,7 @@ def test_write_budget_exports_uses_child_config_bundle_when_run_folder_has_no_me
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[mesh_input]",
                 'bundle_dir = "../../bundle_from_child_config"',
@@ -1216,7 +1216,7 @@ def test_catalog_budget_rows_are_normalized_to_elapsed_seconds_and_m3_s(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[simulation]",
                 'name = "mf6_budget_demo"',
@@ -1747,7 +1747,7 @@ def test_simulation_comparison_launcher_infers_completed_run_folder_from_declare
     simulation_config.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 'project_root = "project/demo"',
                 f'solver_scratch_folder = "{scratch.as_posix()}"',

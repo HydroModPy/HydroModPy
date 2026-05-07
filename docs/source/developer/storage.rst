@@ -1,7 +1,9 @@
 Storage architecture
 ====================
 
-How HydroModPy persists, indexes and reads back its outputs and input cache. This page merges the four pre-refactor notes about the simulation catalog, the Parquet lakehouse layout, the concurrency model, and the cache of input data.
+How HydroModPy persists, indexes and reads back its outputs and input cache.
+This page merges the four pre-refactor notes about the simulation catalog,
+the Parquet lakehouse layout, the concurrency model, and the cache of input data.
 
 Bases de données et workflows
 -----------------------------
@@ -487,7 +489,7 @@ interaction avec les deux bases.
 ^^^^^^^^^^^^^^^^^^^
 
 Pipeline standard ``hmp run config.toml`` (workflow implicite ou
-``workflow = "simulation"``), code ``hydromodpy/workflow/pipelines/simulation.py``.
+``[workflow].mode = "simulation"``), code ``hydromodpy/workflow/pipelines/simulation.py``.
 
 Phase de préparation :
 

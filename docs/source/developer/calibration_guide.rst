@@ -85,7 +85,7 @@ Workflow de bout en bout
 Node by node:
 
 - **TOML**: a regular HydroModPy project TOML extended with a
-  ``[calibration]`` section and a top-level ``workflow = "calibration"``
+  ``[calibration]`` section and a top-level ``[workflow].mode = "calibration"``
   marker. The rest of the file (``[simulation]``, ``[flow]``, ``[data]``,
   ``[solver]``) is exactly what you would write for a single run.
 - **``hmp run``**: the unified CLI entry point. It reads `workflow =
@@ -131,14 +131,15 @@ Overlay et marqueur de workflow
 
    base_config = "project.toml"
 
-   workflow = "calibration"
+   [workflow]
+   mode = "calibration"
 
 - ``base_config``: relative path to the *base* project TOML
   (``project.toml`` here). All sections of the base are inherited and
   overridden by the current file. This is how you keep a single
   description of the catchment shared between simulation, calibration,
   and sweep overlays.
-- ``workflow = "calibration"``: the single switch that tells ``hmp run``
+- ``[workflow].mode = "calibration"``: the single switch that tells ``hmp run``
   to dispatch to the ask/tell loop instead of the default
   single-simulation path. Dispatch logic lives in
   ``hydromodpy/cli/workflows.py:DISPATCH``.
@@ -798,7 +799,7 @@ Pièges fréquents et comment les éviter
   ``hydromodpy.calibration.metrics`` currently covers MODFLOW-NWT only;
   MODFLOW-6 returns ``NaN``. Scheduled as future work: use
   MODFLOW-NWT in the meantime or plug in a custom extractor via §10.
-- **Oublier ``workflow = "calibration"``.** ``hmp run`` then treats the
+- **Oublier ``[workflow].mode = "calibration"``.** ``hmp run`` then treats the
   TOML as a simulation and runs ``K`` exactly once with its default
   value. The ``[calibration]`` section is ignored silently.
 

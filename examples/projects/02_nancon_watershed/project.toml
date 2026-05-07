@@ -17,12 +17,14 @@
 # (simulation / calibration / batch / overview / mesh). Run TOMLs can
 # override this; the base value is "simulation" because most of the
 # time we just compute one MODFLOW run.
-workflow = "simulation"
 
 
 # ----------------------------------------------------------------------
 # Workspace
 # ----------------------------------------------------------------------
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 # Project root. "." means the folder that contains this TOML.

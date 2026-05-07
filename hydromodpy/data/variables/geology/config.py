@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -21,8 +21,6 @@ class GeologySourceConfig(HydroModelBase):
     geological maps at 1:1M or 1:50K scale. Custom vector sources need a code
     field so HydroModPy can map lithological units to model parameters.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     source: Annotated[Literal["custom", "brgm_1m", "brgm_50k"], Profile.USER] = Field(
         ...,
@@ -133,8 +131,6 @@ class GeologyConfig(HydroModelBase):
         code_field = "LITHOLOGY"
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     sources: Annotated[list[GeologySourceConfig], Profile.USER] = Field(
         default_factory=lambda: [GeologySourceConfig(source="brgm_1m")],
         min_length=1,
@@ -224,8 +220,6 @@ def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping
 class GeologySource(HydroModelBase):
     """Schema for geology data source definition (standalone field construction)."""
 
-    model_config = ConfigDict(extra="forbid")
-
     path: Annotated[str, Profile.USER] = Field(
         description=(
             "Path to the raw geology dataset used by the meshing workflow. "
@@ -300,8 +294,6 @@ class GeologySource(HydroModelBase):
 class GeologyLandSea(HydroModelBase):
     """Optional sea-mask override for coastal workflows."""
 
-    model_config = ConfigDict(extra="forbid")
-
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=("Enable the coastal override that replaces geology values over sea areas."),
@@ -360,8 +352,6 @@ class GeologyLandSea(HydroModelBase):
 
 class GeologyConfigBlock(HydroModelBase):
     """Top-level schema for one geology field definition (standalone construction)."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, Profile.USER] = Field(
         default="field_geology",

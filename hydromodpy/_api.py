@@ -167,7 +167,7 @@ def overview(config: Any, **kwargs: Any) -> Any:
     Parameters
     ----------
     config
-        TOML file containing ``workflow = "overview"``.
+        TOML file containing ``[workflow]\nmode = "overview"``.
     kwargs
         Runtime options forwarded to the workflow dispatcher.
 
@@ -193,7 +193,7 @@ def batch(config: Any, **kwargs: Any) -> Any:
     Parameters
     ----------
     config
-        TOML file containing ``workflow = "batch"``.
+        TOML file containing ``[workflow]\nmode = "batch"``.
     kwargs
         Runtime options forwarded to the workflow dispatcher.
 
@@ -259,7 +259,7 @@ def testbed(toml_path: Any) -> Any:
 def mesh(toml_path: Any) -> dict:
     """Run the mesh-only workflow from a TOML file.
 
-    Mirrors ``hmp run`` for ``workflow = "mesh"`` configs: one call,
+    Mirrors ``hmp run`` for ``[workflow]\nmode = "mesh"`` configs: one call,
     returns the launcher summary dict.
 
     Parameters

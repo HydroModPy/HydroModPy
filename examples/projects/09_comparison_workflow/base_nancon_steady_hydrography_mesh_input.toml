@@ -1,4 +1,6 @@
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/nancon_steady_mf6_disv_vs_nwt/shared_workspace"

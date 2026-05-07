@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -23,8 +23,6 @@ def _clean_optional_text(value: object) -> str | None:
 
 class ComparisonSimulation(HydroModelBase):
     """One simulation to run or reuse in a comparison."""
-
-    model_config = ConfigDict(extra="forbid")
 
     id: Annotated[str, Profile.USER]
     label: Annotated[str | None, Profile.USER] = None
@@ -82,8 +80,6 @@ class ComparisonSimulation(HydroModelBase):
 
 class ComparisonObservable(HydroModelBase):
     """One quantity of interest extracted from each simulation run folder."""
-
-    model_config = ConfigDict(extra="forbid")
 
     name: Annotated[str, Profile.USER]
     variable: Annotated[str, Profile.USER]
@@ -209,8 +205,6 @@ class ComparisonObservable(HydroModelBase):
 class RuntimeComparisonSection(HydroModelBase):
     """Launcher-owned comparison section."""
 
-    model_config = ConfigDict(extra="forbid")
-
     comparison_id: Annotated[str | None, Profile.USER] = None
     base_simulation_config: Annotated[str | None, Profile.EXPERT] = None
     anchors_file: Annotated[str | None, Profile.EXPERT] = None
@@ -269,8 +263,6 @@ class RuntimeComparisonSection(HydroModelBase):
 class ComparisonFineRaster(HydroModelBase):
     """Optional common regular-grid rasterization for map comparisons."""
 
-    model_config = ConfigDict(extra="forbid")
-
     enabled: Annotated[bool, Profile.EXPERT] = False
     resolution: Annotated[float | None, Profile.EXPERT] = None
     extent_mode: Annotated[Literal["intersection", "union", "reference"], Profile.EXPERT] = (
@@ -300,8 +292,6 @@ class ComparisonFineRaster(HydroModelBase):
 
 class RuntimeComparisonConfig(HydroModelBase):
     """Validated top-level configuration for TOML-compatible comparisons."""
-
-    model_config = ConfigDict(extra="forbid")
 
     config_path: Annotated[Path, Profile.EXPERT]
     base_dir: Annotated[Path, Profile.EXPERT]

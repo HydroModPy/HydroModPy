@@ -25,7 +25,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, PrivateAttr, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -66,8 +66,6 @@ class WorkspaceConfig(HydroModelBase):
         Optional redirect for heavy outputs (``.solver_scratch/`` and
         per-run ``figures/``). Defaults to ``project_root``.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     project_root: Annotated[Path, Profile.USER] = Field(
         description=("Path to the project directory. Auto-derived from TOML location when absent."),

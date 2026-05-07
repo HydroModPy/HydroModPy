@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Any
 
-from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -13,8 +13,6 @@ from hydromodpy.core.config_kit.profile import Profile
 
 class MeshCatchmentBatchOutputs(HydroModelBase):
     """Output filename patterns for batch meshing."""
-
-    model_config = ConfigDict(extra="forbid")
 
     mesh_filename: Annotated[str | None, Profile.DEV] = Field(
         default=None,
@@ -64,8 +62,6 @@ class MeshCatchmentBatchOutputs(HydroModelBase):
 
 class MeshCatchmentBatchSection(HydroModelBase):
     """Optional batch loop over several outlet coordinates."""
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,

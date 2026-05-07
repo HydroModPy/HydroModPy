@@ -485,7 +485,7 @@ def write_piecewise_strip_launcher_config(
         active_sinks_sources.append("recharge")
 
     lines = [
-        'workflow = "simulation"',
+        '[workflow]\nmode = "simulation"',
         "",
         "[workspace]",
         'project_root = "."',

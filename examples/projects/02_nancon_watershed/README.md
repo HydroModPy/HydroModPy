@@ -36,7 +36,7 @@ route and the Python API.
 There are two execution paths:
 
 1. `hmp run <toml>` parses one TOML, validates it against the Pydantic schema,
-   dispatches to the workflow declared in `workflow = "..."`, and persists the
+   dispatches to the workflow declared in `[workflow].mode = "..."`, and persists the
    run in the project workspace.
 2. `hmp.Project(...)` drives the same pipeline from Python. Use it when you want
    to sweep parameters, work from notebooks, or inspect the catalog directly.

@@ -1,7 +1,7 @@
 Batch Workflow
 ==============
 
-``workflow = "batch"`` runs a regional-lab campaign. It expands one or more
+``[workflow].mode = "batch"`` runs a regional-lab campaign. It expands one or more
 recipes over a site catalog and records which cases were planned, skipped,
 completed, or failed.
 
@@ -52,7 +52,8 @@ Minimal Shape
 
 .. code-block:: toml
 
-   workflow = "batch"
+   [workflow]
+   mode = "batch"
 
    [regional_lab]
    lab_id = "headwater_campaign"

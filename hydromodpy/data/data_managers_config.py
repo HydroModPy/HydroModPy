@@ -17,7 +17,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -63,8 +63,6 @@ class DataManagersConfig(HydroModelBase):
     Use this model for validation only. Runtime activation order is represented
     by ``DataLoadPlan`` and loaded by ``DataManagersRuntimeLoader``.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     project_crs: Annotated[str | None, Profile.USER] = Field(
         default=None,

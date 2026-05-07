@@ -18,7 +18,8 @@ data, no figures by default. Great as a smoke test.
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [simulation]
    name = "smoke_test"
@@ -235,7 +236,8 @@ parameters at runtime.
 
 .. code-block:: toml
 
-   workflow = "calibration"
+   [workflow]
+   mode = "calibration"
 
    [calibration]
    algorithm = "cma"
@@ -259,7 +261,8 @@ Re-publish a project as a gallery card with tagged figures and metadata.
 
 .. code-block:: toml
 
-   workflow = "analysis"
+   [workflow]
+   mode = "analysis"
 
    [analysis.capability_gallery]
    enabled = true

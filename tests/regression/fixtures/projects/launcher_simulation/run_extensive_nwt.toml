@@ -1,7 +1,9 @@
 # Canonical NWT / MODPATH / MT3DMS launcher baseline for example12.
 base_config = "config_extensive_common.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [[simulation.process]]
 id = "flow_main"
@@ -34,8 +36,9 @@ mass_seepage = true
 spatial_fields = true
 
 [modflownwt.runtime]
-dis_itmuni = 1
 
+[modflownwt.runtime.dis]
+itmuni = 1
 [modflownwt.sgrid.vertical]
 genmtd_lay = "decay"
 nlay = 10

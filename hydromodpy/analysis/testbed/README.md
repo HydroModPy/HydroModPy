@@ -1,6 +1,6 @@
 # Method Testbed Workflow
 
-This package implements `workflow = "testbed"`: an orchestration and evidence
+This package implements `[workflow].mode = "testbed"`: an orchestration and evidence
 layer for controlled method experiments.
 
 The testbed package does not implement mesh generation, flow solving, or
@@ -29,7 +29,7 @@ The workflow is intentionally small and explicit.
 2. Every enabled variant becomes one child TOML under
    `<output_root>/_generated_configs/`.
 3. Generated children are ordinary workflow files:
-   `workflow = "mesh"` for `mesh_catchment`, or `workflow = "simulation"` for
+   `[workflow].mode = "mesh"` for `mesh_catchment`, or `[workflow].mode = "simulation"` for
    flow children.
 4. Generated children never contain `[testbed]`.
 5. Evidence files are always written, including dry plans with
@@ -45,7 +45,8 @@ Supported pairs are currently:
 ## TOML Shape
 
 ```toml
-workflow = "testbed"
+[workflow]
+mode = "testbed"
 
 [testbed]
 id = "flow_k_sensitivity"

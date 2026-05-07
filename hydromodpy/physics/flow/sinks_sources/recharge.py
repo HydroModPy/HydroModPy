@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -50,8 +50,6 @@ class FlowRechargeConfig(HydroModelBase):
         Physical units of ``values``. The flow runtime converts the payload
         to SI ``m/s`` when the process is built.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     values: Annotated[Any, Profile.USER] = Field(
         default=0.0,

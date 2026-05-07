@@ -1,4 +1,6 @@
-workflow = "comparison"
+
+[workflow]
+mode = "comparison"
 
 [comparison]
 comparison_id = "nancon_transient_monthly_mf6_disv_vs_nwt"
@@ -66,24 +68,37 @@ project_root = "outputs/nancon_transient_monthly_mf6_disv_vs_nwt/workspace_nwt_1
 root = "outputs/nancon_transient_monthly_mf6_disv_vs_nwt/workspace_nwt_120"
 
 [comparison.simulation.overlay.modflownwt.runtime]
-mf_version = "mfnwt"
-nwt_headtol = 1e-4
-nwt_fluxtol = 500.0
-nwt_maxiterout = 5000
-nwt_options = "COMPLEX"
-nwt_continue = false
-dis_itmuni = 4
-bas_hnoflo = -9999.0
-upw_iphdry = 1
-upw_hdry = -100.0
-upw_layvka = 1
-evt_nevtop = 3
-evt_ievt = 1
-evt_ipakcb = 1
-oc_compact = true
-wel_ipakcb = 1
-mf_verbose = false
 
+[comparison.simulation.overlay.modflownwt.runtime.nwt]
+version = "mfnwt"
+verbose = false
+headtol = 1e-4
+fluxtol = 500.0
+maxiterout = 5000
+options = "COMPLEX"
+continue_run = false
+
+[comparison.simulation.overlay.modflownwt.runtime.dis]
+itmuni = 4
+
+[comparison.simulation.overlay.modflownwt.runtime.bas]
+hnoflo = -9999.0
+
+[comparison.simulation.overlay.modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.oc]
+compact = true
+
+[comparison.simulation.overlay.modflownwt.runtime.wel]
+ipakcb = 1
 [comparison.simulation.overlay.modflownwt.sgrid.planar]
 mode = "resample_to_shape"
 nx = 120
@@ -108,24 +123,37 @@ project_root = "outputs/nancon_transient_monthly_mf6_disv_vs_nwt/workspace_nwt_1
 root = "outputs/nancon_transient_monthly_mf6_disv_vs_nwt/workspace_nwt_180"
 
 [comparison.simulation.overlay.modflownwt.runtime]
-mf_version = "mfnwt"
-nwt_headtol = 1e-4
-nwt_fluxtol = 500.0
-nwt_maxiterout = 5000
-nwt_options = "COMPLEX"
-nwt_continue = false
-dis_itmuni = 4
-bas_hnoflo = -9999.0
-upw_iphdry = 1
-upw_hdry = -100.0
-upw_layvka = 1
-evt_nevtop = 3
-evt_ievt = 1
-evt_ipakcb = 1
-oc_compact = true
-wel_ipakcb = 1
-mf_verbose = false
 
+[comparison.simulation.overlay.modflownwt.runtime.nwt]
+version = "mfnwt"
+verbose = false
+headtol = 1e-4
+fluxtol = 500.0
+maxiterout = 5000
+options = "COMPLEX"
+continue_run = false
+
+[comparison.simulation.overlay.modflownwt.runtime.dis]
+itmuni = 4
+
+[comparison.simulation.overlay.modflownwt.runtime.bas]
+hnoflo = -9999.0
+
+[comparison.simulation.overlay.modflownwt.runtime.upw]
+iphdry = 1
+hdry = -100.0
+layvka = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.evt]
+nevtop = 3
+ievt = 1
+ipakcb = 1
+
+[comparison.simulation.overlay.modflownwt.runtime.oc]
+compact = true
+
+[comparison.simulation.overlay.modflownwt.runtime.wel]
+ipakcb = 1
 [comparison.simulation.overlay.modflownwt.sgrid.planar]
 mode = "resample_to_shape"
 nx = 180

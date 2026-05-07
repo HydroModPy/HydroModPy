@@ -1,7 +1,7 @@
 Testbed Workflow Architecture
 =============================
 
-``workflow = "testbed"`` is an orchestration workflow for method robustness
+``[workflow].mode = "testbed"`` is an orchestration workflow for method robustness
 studies. It deliberately sits above domain workflows such as mesh generation or
 flow simulation.
 
@@ -60,11 +60,11 @@ The current contract accepts only explicit subject/runner pairs:
      - Purpose
    * - ``mesh``
      - ``mesh_catchment``
-     - ``workflow = "mesh"``
+     - ``[workflow].mode = "mesh"``
      - Resolution ladders, constraint sensitivity, conformity checks.
    * - ``flow``
      - ``simulation``
-     - ``workflow = "simulation"``
+     - ``[workflow].mode = "simulation"``
      - Parameter sensitivity, boundary-condition variants, solver-option
        robustness.
 
@@ -112,7 +112,7 @@ Flow Metric Extraction
 ----------------------
 
 For ``subject = "flow"``, the testbed does not parse solver files directly.
-It delegates to ``workflow = "simulation"``, then reopens the completed run
+It delegates to ``[workflow].mode = "simulation"``, then reopens the completed run
 through the result catalog. The catalog summary is flattened into
 ``flow_metrics`` keys that can be referenced by ``[[testbed.metric]]``.
 

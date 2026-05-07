@@ -114,7 +114,7 @@ Workflow execution flags
 ------------------------
 
 ``hmp run`` accepts workflow-independent TOML files, but checkpoint and step
-flags only apply to ``workflow = "simulation"``:
+flags only apply to ``[workflow].mode = "simulation"``:
 
 .. list-table::
    :header-rows: 1

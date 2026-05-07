@@ -5,7 +5,9 @@
 # observed-network overlap diagnostics.
 
 base_config = "base_nancon_transient_seasonal.toml"
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "nancon_transient_seasonal_hydrography_shared_case"
