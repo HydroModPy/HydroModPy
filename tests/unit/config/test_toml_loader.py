@@ -117,6 +117,26 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     assert cfg.flow.active_bc == ["ocean", "drainage"]
 
 
+def test_from_toml_requires_workspace_project_root(tmp_path: Path) -> None:
+    path = tmp_path / "missing_workspace.toml"
+    path.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"\[workspace\]\.project_root is required"):
+        HydroModPyConfig.from_toml(path)
+
+
+def test_from_dict_keeps_api_workspace_default(tmp_path: Path) -> None:
+    cfg = HydroModPyConfig.from_dict(
+        {
+            "workflow": {"mode": "simulation"},
+            "geographic": {"source_mode": "synthetic"},
+        },
+        base_dir=tmp_path,
+    )
+
+    assert cfg.workspace.project_root == tmp_path.resolve()
+
+
 def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]
@@ -228,6 +248,7 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -257,6 +278,7 @@ def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
                 "",
                 "[workspace]",
                 f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
                 f'data_dir = "{tmp_path / "data"}"',
                 "",
                 "[geographic]",
@@ -328,6 +350,7 @@ def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> Non
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',
@@ -349,6 +372,7 @@ def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
                 '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',

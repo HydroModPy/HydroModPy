@@ -30,7 +30,7 @@ write_geotiff = false
 id = "mf6_ref"
 label = "MODFLOW 6 transient-pulse reference"
 solver = "modflow6"
-mesh_label = "precomputed 10 km2 natural triangular mesh"
+mesh_label = "precomputed_10km2_natural_triangular_mesh"
 mesh_mode = "mesh_input"
 
 [comparison.simulation.overlay.modflow6.runtime]
@@ -51,7 +51,7 @@ nlay = 1
 id = "bouss_candidate"
 label = "Boussinesq transient-pulse candidate"
 solver = "boussinesq"
-mesh_label = "precomputed 10 km2 natural triangular mesh"
+mesh_label = "precomputed_10km2_natural_triangular_mesh"
 mesh_mode = "mesh_input"
 
 [comparison.simulation.overlay.flow]

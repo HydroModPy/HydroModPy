@@ -1,11 +1,11 @@
 """Unit tests for ``hmp run`` CLI subcommand dispatch.
 
-The dispatcher is driven by a mandatory top-level ``workflow = "..."``
-field declared in the TOML (no implicit section-based detection).
+The dispatcher is driven by mandatory ``[workflow].mode`` in the TOML.
 """
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -88,6 +88,49 @@ def test_hmp_run_forwards_checkpoint_flag(monkeypatch, tmp_path) -> None:
     main()
 
     assert captured["kwargs"].get("checkpoint") is True
+
+
+def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) -> None:
+    config = _write_toml(
+        tmp_path / "config.toml",
+        '[workflow]\nmode = "simulation"\n'
+        '[workspace]\nproject_root = "."\n'
+        '[simulation]\nname = "base"\nrun_id = "base_run"\n',
+    )
+    overlay = _write_toml(
+        tmp_path / "overlay.toml",
+        '[simulation]\nname = "overlay"\nrun_id = "overlay_run"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path, **kwargs):
+        path = Path(config_path)
+        captured["config_path"] = path
+        captured["payload"] = tomllib.loads(path.read_text(encoding="utf-8"))
+        return {"name": "test", "sim_id": "abc"}
+
+    monkeypatch.setenv("HYDROMODPY_SET_simulation__run_id", "env_run")
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "hmp",
+            "run",
+            str(config),
+            "--overlay",
+            str(overlay),
+            "--set",
+            "simulation.run_id=cli_run",
+        ],
+    )
+
+    main()
+
+    assert captured["config_path"] != config.resolve()
+    assert not captured["config_path"].exists()
+    assert captured["payload"]["simulation"]["name"] == "overlay"
+    assert captured["payload"]["simulation"]["run_id"] == "env_run"
 
 
 def test_hmp_run_resume_enables_checkpoint(monkeypatch, tmp_path) -> None:
@@ -206,7 +249,7 @@ def test_hmp_run_dispatches_batch_workflow(monkeypatch, tmp_path) -> None:
 
 
 def test_hmp_run_crashes_when_workflow_field_missing(monkeypatch, tmp_path) -> None:
-    """``hmp run`` refuses a TOML that does not declare ``workflow = "..."``."""
+    """``hmp run`` refuses a TOML that does not declare ``[workflow].mode``."""
     config = _write_toml(
         tmp_path / "no_workflow.toml",
         '[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',

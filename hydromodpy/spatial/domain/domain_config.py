@@ -6,6 +6,7 @@ from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.spatial.domain.depth_model_config import (
     ConstantThicknessDepthModel,
     DepthModelConfig,
@@ -20,7 +21,7 @@ class DomainConfig(HydroModelBase):
     Controls which zone providers are loaded in `Domain`.
     """
 
-    zone_ids: Annotated[list[str], Profile.USER] = Field(
+    zone_ids: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Ordered list of zone identifiers loaded in the domain registry. "
@@ -29,7 +30,7 @@ class DomainConfig(HydroModelBase):
             "under domain.supports."
         ),
     )
-    supports: Annotated[dict[str, DomainSupportConfig], Profile.USER] = Field(
+    supports: Annotated[dict[IdentifierStr, DomainSupportConfig], Profile.USER] = Field(
         default_factory=dict,
         description=(
             "Named spatial supports available to heterogeneous parameters. "

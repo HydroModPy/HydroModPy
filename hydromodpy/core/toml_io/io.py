@@ -25,7 +25,7 @@ from typing import Any
 
 import tomlkit
 from pydantic import BaseModel
-from tomlkit.items import Item
+from tomlkit.items import Item, Table
 
 from hydromodpy.core.config_kit.introspect import (
     extract_profile as _field_level,
@@ -75,7 +75,28 @@ def _iter_serialisable_fields(
     for field_name, info in type(model).model_fields.items():
         if _field_level(info) > profile_threshold:
             continue
+        extra = getattr(info, "json_schema_extra", None)
+        if isinstance(extra, dict) and extra.get("toml_exclude") is True:
+            continue
         yield field_name, info, getattr(model, field_name)
+
+
+def _is_implicit_relative_path_default(value: Any, field_info: Any) -> bool:
+    default = getattr(field_info, "default", None)
+    return (
+        isinstance(value, Path)
+        and isinstance(default, Path)
+        and value == default
+        and not value.is_absolute()
+    )
+
+
+def _inline_comment(description: str | None) -> str:
+    for line in (description or "").splitlines():
+        text = line.strip()
+        if text:
+            return text
+    return ""
 
 
 _SENTINEL_MISSING = object()
@@ -100,11 +121,24 @@ def _render_container_value(value: Any, *, profile_threshold: Profile) -> Item |
             table[str(key)] = rendered
         return table
     if isinstance(value, (list, tuple)):
-        array = tomlkit.array()
+        rendered_items: list[Item | Any] = []
+        has_table = False
         for sub in value:
             rendered = _render_container_value(sub, profile_threshold=profile_threshold)
             if rendered is _SENTINEL_MISSING:
                 continue
+            rendered_items.append(rendered)
+            has_table = has_table or isinstance(rendered, Table)
+        if has_table:
+            aot = tomlkit.aot()
+            for rendered in rendered_items:
+                if not isinstance(rendered, Table):
+                    msg = "Mixed scalar and table lists cannot be serialized to TOML."
+                    raise TypeError(msg)
+                aot.append(rendered)
+            return aot
+        array = tomlkit.array()
+        for rendered in rendered_items:
             array.append(rendered)
         return array
     return _coerce_value(value)
@@ -116,11 +150,13 @@ def _render_model_table(model: BaseModel, *, profile_threshold: Profile) -> Item
     for field_name, info, value in _iter_serialisable_fields(
         model, profile_threshold=profile_threshold
     ):
+        if _is_implicit_relative_path_default(value, info):
+            continue
         rendered = _render_container_value(value, profile_threshold=profile_threshold)
         if rendered is _SENTINEL_MISSING:
             continue
         table[field_name] = rendered
-        description = getattr(info, "description", None)
+        description = _inline_comment(getattr(info, "description", None))
         if description:
             try:
                 table[field_name].comment(description)

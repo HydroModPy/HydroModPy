@@ -40,8 +40,8 @@ def register(subparsers) -> argparse.ArgumentParser:
     tpl.add_argument(
         "--profile",
         choices=profile_names,
-        default="expert",
-        help="Parameter visibility level (default: expert)",
+        default="user",
+        help="Parameter visibility level (default: user)",
     )
     tpl.add_argument(
         "--modules",
@@ -141,7 +141,7 @@ def _cmd_config_template(args: argparse.Namespace) -> None:
     content = generate_toml(
         output_path=output,
         modules=getattr(args, "modules", None),
-        profile=getattr(args, "profile", "expert"),
+        profile=getattr(args, "profile", "user"),
     )
 
     if output:
@@ -176,7 +176,10 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
         for err in exc.errors():
             loc = ".".join(str(p) for p in err.get("loc", ()))
             msg = err.get("msg", "")
-            print(f"  {loc}: {msg}", file=sys.stderr)
+            if "input" in err:
+                print(f"  {loc}: {msg} (input={err.get('input')!r})", file=sys.stderr)
+            else:
+                print(f"  {loc}: {msg}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except ValueError as exc:
         print(f"Invalid base_config chain: {exc}", file=sys.stderr)

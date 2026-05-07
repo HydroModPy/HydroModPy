@@ -210,12 +210,80 @@ def _fmt(val: Any) -> str:
         return _fmt(val.value)
     if isinstance(val, Path):
         return f'"{val}"'
+    if hasattr(val, "magnitude") and hasattr(val, "units"):
+        return f'"{val.magnitude} {val.units:~}"'
     if isinstance(val, str):
         return f'"{val}"'
+    if hasattr(val, "isoformat"):
+        return f'"{val.isoformat()}"'
     if isinstance(val, (list, tuple)):
         inner = ", ".join(_fmt(item) for item in val)
         return f"[{inner}]"
     return str(val)
+
+
+def _render_mapping_value(
+    section_name: str,
+    values: dict[str, Any],
+    *,
+    _commented: bool = False,
+) -> list[str]:
+    """Render a free-form TOML mapping as nested tables."""
+    lines: list[str] = []
+    scalar_items: list[tuple[str, Any]] = []
+    nested_items: list[tuple[str, dict[str, Any]]] = []
+    array_items: list[tuple[str, list[dict[str, Any]]]] = []
+
+    for raw_key, raw_value in values.items():
+        key = str(raw_key)
+        if isinstance(raw_value, BaseModel):
+            nested_items.append((key, raw_value.model_dump(exclude_none=True)))
+        elif isinstance(raw_value, dict):
+            nested_items.append((key, raw_value))
+        elif (
+            isinstance(raw_value, list)
+            and raw_value
+            and all(isinstance(item, dict) for item in raw_value)
+        ):
+            array_items.append((key, raw_value))
+        else:
+            scalar_items.append((key, raw_value))
+
+    def _line(text: str) -> str:
+        return f"# {text}" if _commented else text
+
+    if scalar_items:
+        lines.append("")
+        lines.append(_line(f"[{section_name}]"))
+        for key, value in scalar_items:
+            lines.append(_line(f"{key} = {_fmt(value)}"))
+
+    for key, nested in nested_items:
+        lines.extend(
+            _render_mapping_value(
+                f"{section_name}.{key}",
+                nested,
+                _commented=_commented,
+            )
+        )
+
+    for key, items in array_items:
+        sub_section = f"{section_name}.{key}"
+        for item in items:
+            lines.append("")
+            lines.append(_line(f"[[{sub_section}]]"))
+            for item_key, item_value in item.items():
+                if isinstance(item_value, dict):
+                    lines.extend(
+                        _render_mapping_value(
+                            f"{sub_section}.{item_key}",
+                            item_value,
+                            _commented=_commented,
+                        )
+                    )
+                else:
+                    lines.append(_line(f"{item_key} = {_fmt(item_value)}"))
+    return lines
 
 
 _FRIENDLY_TYPES = {
@@ -295,6 +363,25 @@ def _default_value(field_info: FieldInfo) -> Any:
     if field_info.default is PydanticUndefined:
         return _UNDEFINED
     return field_info.default  # may be None (optional with no value)
+
+
+def _toml_excluded(field_info: FieldInfo) -> bool:
+    extra = field_info.json_schema_extra
+    return bool(
+        getattr(field_info, "exclude", False)
+        or (isinstance(extra, dict) and extra.get("toml_exclude") is True)
+    )
+
+
+def _is_implicit_relative_path_default(value: Any, field_info: FieldInfo) -> bool:
+    default = _default_value(field_info)
+    if not isinstance(default, Path) or default.is_absolute():
+        return False
+    if isinstance(value, Path):
+        return value == default
+    if isinstance(value, str):
+        return Path(value) == default
+    return False
 
 
 def _is_union_origin(origin: Any) -> bool:
@@ -400,7 +487,7 @@ def _relativize_paths_in_dict(d: dict, toml_dir: Path) -> None:
     """In-place: convert absolute Path/str paths to relative strings."""
     for key, val in d.items():
         if isinstance(val, Path):
-            d[key] = os.path.relpath(str(val), str(toml_dir))
+            d[key] = os.path.relpath(str(val), str(toml_dir)) if val.is_absolute() else str(val)
         elif isinstance(val, str) and os.path.isabs(val):
             d[key] = os.path.relpath(val, str(toml_dir))
         elif isinstance(val, dict):
@@ -498,12 +585,7 @@ def _render_field_comment(
     """Append description + meta comment lines for a single field."""
     desc = field_info.description or ""
     if desc:
-        for desc_line in desc.split(". "):
-            desc_line = desc_line.strip()
-            if desc_line:
-                if not desc_line.endswith("."):
-                    desc_line += "."
-                lines.append(f"# {desc_line}")
+        _append_comment_text(lines, desc)
 
     meta_parts = [f"Type: {_type_label(field_info)}"]
     meta_parts.extend(_constraints_from_field(field_info))
@@ -515,8 +597,27 @@ def _render_field_comment(
         meta_parts.append("Optional")
     else:
         meta_parts.append(f"Default: {_fmt(default)}")
+    examples = getattr(field_info, "examples", None) or []
+    if examples:
+        rendered = ", ".join(_fmt(item) for item in examples[:3])
+        meta_parts.append(f"Examples: {rendered}")
 
     lines.append(f"# {' | '.join(meta_parts)}")
+
+
+def _append_comment_text(lines: list[str], text: str) -> None:
+    """Append text as TOML comment lines."""
+    for raw_line in text.splitlines():
+        raw_line = raw_line.strip()
+        if not raw_line:
+            lines.append("#")
+            continue
+        for desc_line in raw_line.split(". "):
+            desc_line = desc_line.strip()
+            if desc_line:
+                if not desc_line.endswith("."):
+                    desc_line += "."
+                lines.append(f"# {desc_line}")
 
 
 def _root_scalars(
@@ -610,7 +711,7 @@ def _section(
 
     for name, field_info in model_cls.model_fields.items():
         # Skip fields explicitly excluded from serialisation (e.g. Transport)
-        if getattr(field_info, "exclude", False):
+        if _toml_excluded(field_info):
             continue
 
         level = extract_profile(field_info)
@@ -647,15 +748,29 @@ def _section(
     if scalar_fields:
         lines.append("")
         lines.append(_line(f"[{section_name}]"))
+        deferred_mappings: list[tuple[str, dict[str, Any]]] = []
 
         for name, field_info, level in scalar_fields:
+            if (
+                values is not None
+                and name in values
+                and values[name] is not None
+                and _is_implicit_relative_path_default(values[name], field_info)
+            ):
+                continue
             _render_field_comment(lines, field_info)
 
             default = _default_value(field_info)
 
             # Value line -- prefer override value when provided
             if values is not None and name in values and values[name] is not None:
-                lines.append(_line(f"{name} = {_fmt(values[name])}"))
+                raw_value = values[name]
+                if isinstance(raw_value, BaseModel):
+                    raw_value = raw_value.model_dump(exclude_none=True)
+                if isinstance(raw_value, dict):
+                    deferred_mappings.append((name, raw_value))
+                else:
+                    lines.append(_line(f"{name} = {_fmt(raw_value)}"))
             elif default is not _UNDEFINED and default is not None:
                 lines.append(_line(f"{name} = {_fmt(default)}"))
             elif level == Profile.USER and default is _UNDEFINED:
@@ -670,6 +785,15 @@ def _section(
                 )
 
             lines.append("")
+
+        for name, mapping_value in deferred_mappings:
+            lines.extend(
+                _render_mapping_value(
+                    f"{section_name}.{name}",
+                    mapping_value,
+                    _commented=_commented,
+                )
+            )
 
     elif not has_content:
         # No fields at all at this profile level
@@ -699,12 +823,7 @@ def _section(
         desc = field_info.description or ""
         if desc:
             lines.append("")
-            for desc_line in desc.split(". "):
-                desc_line = desc_line.strip()
-                if desc_line:
-                    if not desc_line.endswith("."):
-                        desc_line += "."
-                    lines.append(f"# {desc_line}")
+            _append_comment_text(lines, desc)
 
         if is_truly_optional and sub_values is None:
             # Optional with no override: expand commented out
@@ -739,14 +858,10 @@ def _section(
         desc = field_info.description or ""
         if desc:
             lines.append("")
-            for desc_line in desc.split(". "):
-                desc_line = desc_line.strip()
-                if desc_line:
-                    if not desc_line.endswith("."):
-                        desc_line += "."
-                    lines.append(f"# {desc_line}")
+            _append_comment_text(lines, desc)
 
         items: list[dict] | None = None
+        has_instance_value = values is not None and name in values
         if values is not None and name in values:
             raw = values[name]
             if isinstance(raw, list):
@@ -761,11 +876,13 @@ def _section(
                         _render_field_comment(lines, item_cls.model_fields[key])
                     lines.append(_line(f"{key} = {_fmt(val)}"))
                     lines.append("")
+        elif has_instance_value:
+            continue
         else:
             # Template mode: show an example entry with defaults
             lines.append(_line(f"[[{sub_section}]]"))
             for fname, finfo in item_cls.model_fields.items():
-                if getattr(finfo, "exclude", False):
+                if _toml_excluded(finfo):
                     continue
                 flevel = extract_profile(finfo)
                 if flevel > threshold:

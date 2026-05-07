@@ -53,6 +53,17 @@ Exemple minimal de TOML :
    [geographic]
    # ...
 
+Surcharges d'exécution :
+
+.. code-block:: bash
+
+   hmp run project.toml --overlay local.toml --set workspace.project_root=/tmp/demo
+
+La précédence est : valeurs par défaut, chaîne ``base_config``, fichiers
+``--overlay`` dans l'ordre donné, ``--set`` CLI, puis variables
+``HYDROMODPY_SET_<path>``. Dans un shell, utilisez ``__`` pour encoder un
+point, par exemple ``HYDROMODPY_SET_simulation__run_id=debug``.
+
 Si ``workflow`` est absent ou prend une valeur inconnue, la commande
 échoue au chargement avec un message explicite. La même contrainte est
 appliquée côté Pydantic (``HydroModPyConfig``) afin que les frontaux

@@ -30,7 +30,7 @@ write_geotiff = false
 id = "mf6_ref"
 label = "MODFLOW 6 natural reference"
 solver = "modflow6"
-mesh_label = "Vire structured 40x40"
+mesh_label = "vire_structured_40x40"
 mesh_mode = "structured"
 
 [comparison.simulation.overlay.modflow6.runtime]
@@ -54,7 +54,7 @@ nlay = 1
 id = "nwt_candidate"
 label = "MODFLOW-NWT natural candidate"
 solver = "modflownwt"
-mesh_label = "Vire structured 40x40"
+mesh_label = "vire_structured_40x40"
 mesh_mode = "structured"
 
 [comparison.simulation.overlay.modflownwt.runtime]

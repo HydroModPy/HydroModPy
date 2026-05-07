@@ -6,7 +6,6 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
 
@@ -77,10 +76,6 @@ def _cmd_validate_field(args: argparse.Namespace) -> None:
     from hydromodpy.schema import validate_field
 
     raw_value: str = args.value
-    try:
-        value: Any = json.loads(raw_value)
-    except (ValueError, TypeError):
-        value = raw_value
 
     context: dict | None = None
     ctx_path = getattr(args, "context", None)
@@ -92,7 +87,7 @@ def _cmd_validate_field(args: argparse.Namespace) -> None:
         with ctx_file.open("rb") as fh:
             context = tomllib.load(fh)
 
-    result = validate_field(args.path, value, context=context)
+    result = validate_field(args.path, raw_value, context=context)
     payload = result.as_dict()
     print(json.dumps(payload, indent=2, ensure_ascii=False))
     if not result.valid:

@@ -46,7 +46,9 @@ class FlowInitialCondition(BaseInitialCondition):
     # users never set ``id`` themselves and the [flow.ic] normalizer actively
     # rejects it. Hide it from user-profile templates.
     id: Annotated[str, Profile.DEV] = Field(
-        "h", description="id of the initial condition (forced to 'h' for flow)"
+        "h",
+        description="id of the initial condition (forced to 'h' for flow)",
+        json_schema_extra={"toml_exclude": True},
     )
 
     type: Annotated[Literal["top", "top_offset", "bottom", "custom"], Profile.USER] = Field(

@@ -35,6 +35,7 @@ tolerances:
   - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
   - {src: analysis,    tgt: solver,   reason: "comparison runtime resolves solver families"}
   - {src: results,     tgt: analysis, reason: "Run exposes stream-network diagnostics"}
+  - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a

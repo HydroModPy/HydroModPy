@@ -33,15 +33,17 @@ class BaseVariableConfig(HydroModelBase):
     Subclasses must set ``_TOML_SECTION`` (e.g. ``"precipitation"``).
     """
 
-    _TOML_SECTION: ClassVar[str] = ""
+    _TOML_SECTION: ClassVar[str | None] = None
 
     date_start: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Project start date (ISO format, e.g. '2019-01-01').",
+        examples=["2019-01-01"],
     )
     date_end: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description="Project end date (ISO format, e.g. '2025-12-31').",
+        examples=["2025-12-31"],
     )
 
     @field_validator("date_start", "date_end", mode="after")
@@ -74,7 +76,9 @@ class BaseVariableConfig(HydroModelBase):
         """
         path = Path(path).resolve()
         data = _load_toml(path)
-        section = data.get(cls._TOML_SECTION, data) if cls._TOML_SECTION else data
+        if cls._TOML_SECTION is None:
+            raise NotImplementedError(f"{cls.__name__} must define _TOML_SECTION")
+        section = data.get(cls._TOML_SECTION, data)
         cfg = cls.model_validate(section)
         _resolve_source_paths(cfg, path.parent)
         return cfg

@@ -31,7 +31,7 @@ write_geotiff = false
 id = "mf6_ref"
 label = "MODFLOW 6 DISV Nancon monthly reference, comparable setup"
 solver = "modflow6"
-mesh_label = "Nancon river-constrained triangular mesh"
+mesh_label = "nancon_river_constrained_triangular_mesh"
 mesh_mode = "mesh_input"
 
 [comparison.simulation.overlay.workspace]
@@ -60,7 +60,7 @@ firstpersteady = false
 id = "bouss_candidate"
 label = "Boussinesq Nancon monthly candidate, comparable setup"
 solver = "boussinesq"
-mesh_label = "Nancon river-constrained triangular mesh"
+mesh_label = "nancon_river_constrained_triangular_mesh"
 mesh_mode = "mesh_input"
 
 [comparison.simulation.overlay.workspace]

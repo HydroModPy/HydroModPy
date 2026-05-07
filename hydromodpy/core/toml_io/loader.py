@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import re
 import tomllib
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.logging import get_logger
+from hydromodpy.core.toml_io.merge import merge_toml_payloads
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
 
 _BASIC_STRING_ASSIGNMENT_RE = re.compile(
     r'^(?P<prefix>\s*[^#=\n]+?=\s*)"(?P<value>[^"\n]*)"(?P<suffix>\s*(?:#.*)?)$'
 )
+_LOG = get_logger(__name__)
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -24,6 +26,10 @@ def _read_toml(path: Path) -> dict[str, Any]:
         repaired_text = _repair_path_like_basic_strings(raw_text)
         if repaired_text == raw_text:
             raise
+        _LOG.warning(
+            "Retried TOML parse after escaping path-like backslashes in %s",
+            path,
+        )
         return tomllib.loads(repaired_text)
 
 
@@ -59,40 +65,6 @@ def _repair_path_like_basic_strings(text: str) -> str:
         repaired_value = value.replace("\\", "\\\\")
         repaired_lines.append(f'{prefix}"{repaired_value}"{match.group("suffix")}{newline}')
     return "".join(repaired_lines)
-
-
-def merge_toml_payloads(
-    base: Mapping[str, Any],
-    override: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Recursively merge two TOML payloads.
-
-    Nested mappings are merged key-by-key. Lists of equal-length mappings are
-    merged item-by-item so callers can override fields inside array-of-table
-    payloads without rewriting every item. All other override values replace
-    the base payload as-is.
-    """
-    merged: dict[str, Any] = dict(base)
-    for key, value in override.items():
-        existing = merged.get(key)
-        if isinstance(existing, Mapping) and isinstance(value, Mapping):
-            merged[key] = merge_toml_payloads(existing, value)
-        elif (
-            isinstance(existing, list)
-            and isinstance(value, list)
-            and len(existing) == len(value)
-            and all(isinstance(item, Mapping) for item in existing)
-            and all(isinstance(item, Mapping) for item in value)
-        ):
-            merged[key] = [
-                merge_toml_payloads(base_item, override_item)
-                for base_item, override_item in zip(existing, value, strict=True)
-            ]
-        elif isinstance(value, list):
-            merged[key] = list(value)
-        else:
-            merged[key] = value
-    return merged
 
 
 def _strip_empty_strings(data: dict[str, Any]) -> dict[str, Any]:

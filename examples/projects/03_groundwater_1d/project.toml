@@ -36,6 +36,9 @@ case = "groundwater_1d"
 [workflow]
 mode = "calibration_case"
 
+[workspace]
+project_root = "."
+
 [chronicle]
 # Time discretization
 n_days = 120

@@ -31,7 +31,7 @@ write_geotiff = false
 id = "mf6_disv_ref"
 label = "MODFLOW 6 DISV Nancon monthly transient reference, river-constrained mesh"
 solver = "modflow6"
-mesh_label = "Nancon river-constrained triangular mesh"
+mesh_label = "nancon_river_constrained_triangular_mesh"
 mesh_mode = "mesh_input"
 
 [comparison.simulation.overlay.workspace]
@@ -60,7 +60,7 @@ nlay = 1
 id = "nwt_structured_120"
 label = "MODFLOW-NWT structured 120x120 Nancon monthly transient candidate"
 solver = "modflownwt"
-mesh_label = "Nancon structured grid 120x120"
+mesh_label = "nancon_structured_grid_120x120"
 mesh_mode = "structured"
 
 [comparison.simulation.overlay.workspace]
@@ -115,7 +115,7 @@ firstpersteady = true
 id = "nwt_structured_180"
 label = "MODFLOW-NWT structured 180x180 Nancon monthly transient candidate"
 solver = "modflownwt"
-mesh_label = "Nancon structured grid 180x180"
+mesh_label = "nancon_structured_grid_180x180"
 mesh_mode = "structured"
 
 [comparison.simulation.overlay.workspace]

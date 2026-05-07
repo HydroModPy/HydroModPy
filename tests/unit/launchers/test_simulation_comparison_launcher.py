@@ -113,7 +113,7 @@ def test_simulation_comparison_materializes_child_tomls(tmp_path: Path) -> None:
     assert [child.simulation_id for child in children] == ["mf6_ref", "bouss_candidate"]
     mf6_raw = load_toml_with_base_config(children[0].config_path)
     bouss_raw = load_toml_with_base_config(children[1].config_path)
-    assert mf6_raw["workflow"] == "simulation"
+    assert mf6_raw["workflow"] == {"mode": "simulation"}
     assert mf6_raw["simulation"]["name"] == "demo_sim_compare__mf6_ref"
     assert mf6_raw["simulation"]["process"][0]["solvers"] == ["modflow6"]
     assert bouss_raw["simulation"]["run_id"] == "demo_sim_compare__bouss_candidate"
@@ -525,7 +525,7 @@ def test_simulation_comparison_rejects_path_like_comparison_id(tmp_path: Path) -
     raw = load_toml_with_base_config(config_path)
     raw["comparison"]["comparison_id"] = "bad/name"
 
-    with pytest.raises(ValueError, match="comparison.comparison_id cannot contain"):
+    with pytest.raises(ValueError, match="String should match pattern"):
         SimulationComparisonConfig.from_toml(raw, config_path=config_path)
 
 

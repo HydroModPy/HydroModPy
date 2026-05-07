@@ -25,6 +25,9 @@
 [workflow]
 mode = "calibration"
 
+[workspace]
+project_root = "."
+
 [simulation]
 name = "calibration_dupuit"
 description = "Calibration Optuna de K sur aquifère Dupuit synthétique."

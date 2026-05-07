@@ -16,19 +16,13 @@ from hydromodpy.analysis.comparison.config import (
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IdentifierStr
 
 
 def _clean_text(value: object) -> str:
     text = str(value).strip()
     if not text:
         raise ValueError("comparison text fields cannot be empty")
-    return text
-
-
-def _clean_path_safe_id(value: object, *, field_name: str) -> str:
-    text = _clean_text(value)
-    if any(token in text for token in ("/", "\\")):
-        raise ValueError(f"{field_name} cannot contain path separators")
     return text
 
 
@@ -79,13 +73,13 @@ class ComparisonAuditConfig(HydroModelBase):
 class ComparisonSimulationConfig(HydroModelBase):
     """One generated child simulation in a comparison experiment."""
 
-    id: Annotated[str, Profile.USER]
+    id: Annotated[IdentifierStr, Profile.USER]
     label: Annotated[str | None, Profile.USER] = None
     enabled: Annotated[bool, Profile.USER] = True
     solver: Annotated[str | None, Profile.EXPERT] = None
     simulation_config: Annotated[str | None, Profile.EXPERT] = None
     run_folder: Annotated[str | None, Profile.EXPERT] = None
-    mesh_label: Annotated[str | None, Profile.USER] = None
+    mesh_label: Annotated[IdentifierStr | None, Profile.USER] = None
     mesh_mode: Annotated[
         Literal[
             "mesh_catchment",
@@ -101,11 +95,6 @@ class ComparisonSimulationConfig(HydroModelBase):
         default_factory=dict,
         description="Free-form TOML overlay merged into the base simulation config when this child runs.",
     )
-
-    @field_validator("id")
-    @classmethod
-    def _validate_id(cls, value: object) -> str:
-        return _clean_path_safe_id(value, field_name="comparison.simulation.id")
 
     @field_validator("solver")
     @classmethod
@@ -141,11 +130,11 @@ class ComparisonSimulationConfig(HydroModelBase):
 class ComparisonSection(HydroModelBase):
     """Top-level comparison experiment section."""
 
-    comparison_id: Annotated[str | None, Profile.USER] = None
+    comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
     base_simulation_config: Annotated[str | None, Profile.EXPERT] = None
     anchors_file: Annotated[str | None, Profile.EXPERT] = None
     output_root: Annotated[str | None, Profile.EXPERT] = None
-    reference_simulation: Annotated[str | None, Profile.EXPERT] = None
+    reference_simulation: Annotated[IdentifierStr | None, Profile.EXPERT] = None
     continue_on_error: Annotated[bool, Profile.DEV] = False
     execution: Annotated[ComparisonExecutionConfig, Profile.DEV] = Field(
         default_factory=ComparisonExecutionConfig,
@@ -178,9 +167,7 @@ class ComparisonSection(HydroModelBase):
     @field_validator("comparison_id")
     @classmethod
     def _validate_comparison_id(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        return _clean_path_safe_id(value, field_name="comparison.comparison_id")
+        return _clean_optional_text(value)
 
     @model_validator(mode="after")
     def _validate_lists(self) -> ComparisonSection:

@@ -31,7 +31,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
 from pydantic.fields import FieldInfo
 
 from hydromodpy.analysis.config import AnalysisConfig
@@ -64,6 +64,7 @@ WorkflowMode = Literal[
     "comparison",
     "testbed",
 ]
+ValidationContext = Literal["toml", "api"]
 
 
 class WorkflowConfig(HydroModelBase):
@@ -131,9 +132,11 @@ class HydroModPyConfig(HydroModelBase):
             "Drives dispatch in `hmp run <toml>` and in API-driven callers "
             "that instantiate `HydroModPyConfig` from a frontend form."
         ),
+        examples=[{"mode": "simulation"}],
     )
     workspace: Annotated[WorkspaceConfig, Profile.USER] = Field(
-        description="Configuration block for the project workspace and folder structure."
+        description="Configuration block for the project workspace and folder structure.",
+        examples=[{"project_root": "."}],
     )
     geographic: Annotated[GeographicConfig, Profile.USER] = Field(
         description="Configuration block for geographic and watershed delineation parameters."
@@ -250,12 +253,18 @@ class HydroModPyConfig(HydroModelBase):
 
     @model_validator(mode="before")
     @classmethod
-    def _default_workspace_for_direct_validation(cls, data):
+    def _default_workspace_for_direct_validation(cls, data, info: ValidationInfo):
         """Provide a minimal workspace for direct model_validate callers."""
         if not isinstance(data, Mapping):
             return data
+        context = _validation_context(info.context)
         payload = dict(data)
         workspace = payload.get("workspace")
+        has_project_root = (
+            isinstance(workspace, Mapping) and bool(workspace.get("project_root"))
+        ) or bool(getattr(workspace, "project_root", None))
+        if context == "toml" and not has_project_root:
+            raise ValueError("TOML [workspace].project_root is required")
         if workspace is None:
             payload["workspace"] = {"project_root": "."}
         elif isinstance(workspace, Mapping) and not workspace.get("project_root"):
@@ -332,7 +341,7 @@ class HydroModPyConfig(HydroModelBase):
         toml_path = Path(toml_path).expanduser().resolve()
         raw = load_toml_with_base_config(toml_path)
 
-        cfg = cls._from_payload(raw, base=toml_path.parent)
+        cfg = cls._from_payload(raw, base=toml_path.parent, context="toml")
 
         # Derive run_id from TOML filename if not set explicitly.
         if not cfg.simulation.run_id:
@@ -364,7 +373,7 @@ class HydroModPyConfig(HydroModelBase):
     ) -> HydroModPyConfig:
         """Load and validate configuration from a Python mapping."""
         base = Path(base_dir).expanduser().resolve() if base_dir is not None else Path.cwd()
-        return cls._from_payload(payload, base=base)
+        return cls._from_payload(payload, base=base, context="api")
 
     @classmethod
     def _from_payload(
@@ -372,6 +381,7 @@ class HydroModPyConfig(HydroModelBase):
         payload: Mapping[str, Any],
         *,
         base: Path,
+        context: ValidationContext = "api",
     ) -> HydroModPyConfig:
         """Normalize one raw config payload and validate the root model."""
         raw = copy.deepcopy(dict(payload))
@@ -400,10 +410,17 @@ class HydroModPyConfig(HydroModelBase):
         # Auto-derive workspace.project_root from TOML location if absent.
         # HYDROMODPY_PROJECT_ROOT env var takes precedence (used by test infra).
         workspace_section = raw.get("workspace", {})
+        if workspace_section is None:
+            workspace_section = {}
+        if not isinstance(workspace_section, Mapping):
+            raise ValueError("TOML section [workspace] must be a mapping")
+        workspace_section = dict(workspace_section)
         env_project_root = os.environ.get("HYDROMODPY_PROJECT_ROOT")
         if env_project_root:
             workspace_section["project_root"] = str(Path(env_project_root).expanduser().resolve())
         elif not workspace_section.get("project_root"):
+            if context == "toml":
+                raise ValueError("TOML [workspace].project_root is required")
             workspace_section["project_root"] = str(base)
 
         # Workspace must be parsed first so we can derive the shared data
@@ -468,7 +485,10 @@ class HydroModPyConfig(HydroModelBase):
 
         cfg = cls.model_validate(
             parsed_sections,
-            context={"allow_dem_bootstrap": allow_dem_bootstrap},
+            context={
+                "allow_dem_bootstrap": allow_dem_bootstrap,
+                "validation_context": context,
+            },
         )
         return cfg
 
@@ -505,6 +525,12 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
         else:
             result[key] = val
     return result
+
+
+def _validation_context(raw_context: object) -> ValidationContext:
+    if isinstance(raw_context, Mapping) and raw_context.get("validation_context") == "toml":
+        return "toml"
+    return "api"
 
 
 def _is_path_field(field_info: FieldInfo) -> bool:

@@ -131,7 +131,9 @@ def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArt
         station_id=row.get("station_id"),
         file_path=str(row["file_path"]),
         sha256=str(row.get("sha256") or sha256_of(path)),
-        file_mtime=float(row["file_mtime"]) if row.get("file_mtime") is not None else None,
+        file_mtime=round(float(row["file_mtime"]), 6)
+        if row.get("file_mtime") is not None
+        else None,
         size_bytes=size,
         fetched_at=_now_iso(),
     )

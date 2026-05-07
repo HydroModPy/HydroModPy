@@ -30,7 +30,7 @@ write_geotiff = false
 id = "k_5e5"
 label = "MF6 Nancon hydrography K=5e-5 m/s, wider saturated branch"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -70,7 +70,7 @@ value = "3e-3 m2/s"
 id = "k_1e4"
 label = "MF6 Nancon hydrography K=1e-4 m/s, Nancon F low"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -110,7 +110,7 @@ value = "3e-3 m2/s"
 id = "k_2e4"
 label = "MF6 Nancon hydrography K=2e-4 m/s, Nancon F middle"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -150,7 +150,7 @@ value = "3e-3 m2/s"
 id = "k_5e4"
 label = "MF6 Nancon hydrography K=5e-4 m/s, wider dry branch"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]

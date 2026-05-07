@@ -25,7 +25,7 @@ mode = "overview"
 # Path to the project directory.
 # Auto-derived from TOML location when absent.
 # Type: path | REQUIRED
-project_root = ""
+project_root = "."
 
 # Root directory for all outputs (hydromodpy.duckdb, simulations/<uuid>.zarr/).
 # Defaults to project_root when not set.

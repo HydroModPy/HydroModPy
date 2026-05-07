@@ -13,13 +13,50 @@ field on the same model (catches refactor drift).
 
 from __future__ import annotations
 
+from enum import Enum
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic_core import PydanticUndefined
 
 from hydromodpy.core.config_kit.introspect import extract_profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
+
+
+def _json_schema_examples(field_info: Any) -> list[Any] | None:
+    """Return examples for JSON Schema export."""
+    explicit = getattr(field_info, "examples", None)
+    if explicit:
+        return list(explicit)
+
+    annotation = getattr(field_info, "annotation", None)
+    args = get_args(annotation)
+    if args and all(isinstance(item, str) for item in args):
+        return [args[0]]
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        return [next(iter(annotation)).value]
+
+    default = getattr(field_info, "default", PydanticUndefined)
+    if default is not PydanticUndefined and default is not None:
+        if isinstance(default, Enum):
+            return [default.value]
+        if isinstance(default, (str, int, float, bool, list, dict)):
+            return [default]
+
+    origin = get_origin(annotation)
+    target = args[0] if origin is Literal and args else annotation
+    if target is str:
+        return ["example"]
+    if target is int:
+        return [1]
+    if target is float:
+        return [1.0]
+    if target is bool:
+        return [False]
+    if target is Path:
+        return ["data/input.csv"]
+    return None
 
 
 class HydroModelBase(BaseModel):
@@ -58,6 +95,9 @@ class HydroModelBase(BaseModel):
                 field_schema = properties.get(field_name)
                 if isinstance(field_schema, dict):
                     field_schema["x-hmp-profile"] = extract_profile(field_info).name.lower()
+                    examples = _json_schema_examples(field_info)
+                    if examples is not None:
+                        field_schema.setdefault("examples", examples)
         return schema
 
     @model_validator(mode="after")

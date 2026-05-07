@@ -138,6 +138,17 @@ flags only apply to ``[workflow].mode = "simulation"``:
        already exist and match its recorded hash.
    * - ``--no-display``
      - Persist results without rendering configured display figures.
+   * - ``--overlay <path.toml>``
+     - Merge an extra TOML payload after the ``base_config`` chain. The flag
+       can be repeated; later overlays win.
+   * - ``--set <path=value>``
+     - Override one dotted TOML path after overlays, for example
+       ``--set workspace.project_root=/tmp/run``.
+
+Override precedence is, from lowest to highest: defaults, ``base_config``
+chain, ``--overlay`` files, ``--set`` values, then
+``HYDROMODPY_SET_<path>`` environment values. Use ``__`` for dots in shell
+environment variables, for example ``HYDROMODPY_SET_simulation__run_id``.
 
 Nested command families
 -----------------------

@@ -30,7 +30,7 @@ write_geotiff = false
 id = "mf6_ref"
 label = "MODFLOW 6 reference"
 solver = "modflow6"
-mesh_label = "shared irregular triangle mesh"
+mesh_label = "shared_irregular_triangle_mesh"
 mesh_mode = "mesh_input"
 
 [comparison.simulation.overlay.modflow6.runtime]
@@ -47,7 +47,7 @@ nlay = 1
 id = "bouss_candidate"
 label = "Boussinesq candidate"
 solver = "boussinesq"
-mesh_label = "shared irregular triangle mesh"
+mesh_label = "shared_irregular_triangle_mesh"
 mesh_mode = "mesh_input"
 
 [comparison.simulation.overlay.flow]

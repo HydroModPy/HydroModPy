@@ -30,7 +30,7 @@ write_geotiff = false
 id = "mf6_ref"
 label = "MODFLOW 6 Nancon seasonal reference with observed hydrography"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -55,7 +55,7 @@ nlay = 1
 id = "bouss_candidate"
 label = "Boussinesq Nancon seasonal candidate with observed hydrography"
 solver = "boussinesq"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]

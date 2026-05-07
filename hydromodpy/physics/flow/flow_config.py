@@ -21,6 +21,7 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.physics.base import ProcessSpatialConfig
 from hydromodpy.physics.flow import flow_toml_loader
 from hydromodpy.physics.flow.boundary_conditions import (
@@ -158,6 +159,7 @@ class FlowConfig(ProcessSpatialConfig):
         description=(
             "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
         ),
+        examples=["steady", "transient"],
         json_schema_extra={
             "widget_type": "select",
             "unit": "-",
@@ -175,6 +177,8 @@ class FlowConfig(ProcessSpatialConfig):
                 "Optional nonlinear runtime backend hint used by the Boussinesq "
                 "solver implementation. Other flow solvers may ignore this field."
             ),
+            examples=["local", "scipy_sparse"],
+            json_schema_extra={"stability": "experimental"},
         )
     )
     surface_interaction_model: Annotated[
@@ -189,6 +193,8 @@ class FlowConfig(ProcessSpatialConfig):
             "q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical "
             "backend-dependent default."
         ),
+        examples=["auto", "regularized_partition"],
+        json_schema_extra={"stability": "experimental"},
     )
     runtime_max_iterations: Annotated[int | None, Profile.DEV] = Field(
         default=None,
@@ -225,6 +231,7 @@ class FlowConfig(ProcessSpatialConfig):
             "Ordered list of flow-parameter identifiers used to build runtime "
             "parameters (for example ['K', 'Ss', 'Sy'])."
         ),
+        examples=[["K", "Sy", "Ss"]],
     )
     param: Annotated[dict[str, FlowParam], Profile.USER] = Field(
         default_factory=dict,
@@ -275,15 +282,16 @@ class FlowConfig(ProcessSpatialConfig):
         default_factory=FlowSinksSourcesConfig,
         description="Typed sinks/sources payload (for example pumping wells).",
     )
-    active_sinks_sources: Annotated[list[str], Profile.USER] = Field(
+    active_sinks_sources: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Explicitly activated sink/source names for this flow run. "
             "Allowed values: 'recharge', 'wells'. "
             "An empty list means no sink/source package is assembled by the solver."
         ),
+        examples=[["recharge"], ["recharge", "wells"]],
     )
-    active_bc: Annotated[list[str], Profile.USER] = Field(
+    active_bc: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Explicitly activated boundary-condition ids for this flow run. "
@@ -291,6 +299,7 @@ class FlowConfig(ProcessSpatialConfig):
             "'east_side', 'west_side', 'drainage'. "
             "An empty list means no boundary-condition package is assembled by the solver."
         ),
+        examples=[["ocean"], ["west_side", "east_side", "drainage"]],
     )
 
     @model_validator(mode="before")
