@@ -71,11 +71,11 @@ def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
     return {
         "base": {
             "label": "Base outlet case (from TOML)",
-            "overrides": {},
+            "catchment": None,
         },
         "canut": {
             "label": "Canut polygon case (from_polyg_shp)",
-            "overrides": {
+            "catchment": {
                 "catch_def": "from_polyg_shp",
                 "polyg_shp_path": canut_shp,
                 "dem_init_path": wide_brittany_dem,
@@ -84,7 +84,7 @@ def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
         },
         "nancon": {
             "label": "Nancon outlet case",
-            "overrides": {
+            "catchment": {
                 "catch_def": "from_outlet_coord",
                 "dem_init_path": wide_brittany_dem,
                 "x_outlet": 389285.910,
@@ -95,7 +95,7 @@ def _build_case_specs(cfg: HydroModPyConfig) -> dict[str, dict[str, Any]]:
         },
         "aber": {
             "label": "Aber outlet case",
-            "overrides": {
+            "catchment": {
                 "catch_def": "from_outlet_coord",
                 "dem_init_path": wide_brittany_dem,
                 "x_outlet": 150727.164,
@@ -215,7 +215,7 @@ def run_geographic_cases_from_toml(
     selected_case_ids = case_ids or list(KNOWN_CASE_IDS)
 
     if "canut" in selected_case_ids:
-        canut_path = Path(case_specs["canut"]["overrides"]["polyg_shp_path"]).resolve()
+        canut_path = Path(case_specs["canut"]["catchment"]["polyg_shp_path"]).resolve()
         if not canut_path.exists():
             raise FileNotFoundError(f"Canut shapefile not found at expected path: {canut_path}")
 
@@ -225,11 +225,19 @@ def run_geographic_cases_from_toml(
     for case_id in selected_case_ids:
         spec = case_specs[case_id]
         case_label = str(spec["label"])
-        geo_overrides = dict(spec["overrides"])
+        catchment_override = spec["catchment"]
 
         case_project_root = cfg.workspace.project_root / f"{cfg.workspace.catch_name}_{case_id}"
         init_cfg = cfg.workspace.model_copy(update={"project_root": case_project_root})
-        geo_cfg = cfg.geographic.model_copy(update=geo_overrides)
+        if catchment_override is None:
+            geo_cfg = cfg.geographic
+        else:
+            geo_cfg = cfg.geographic.model_validate(
+                {
+                    **cfg.geographic.model_dump(mode="python", exclude={"catchment"}),
+                    "catchment": catchment_override,
+                }
+            )
 
         workspace = Workspace(config=init_cfg)
         geographic = CatchmentDelineation(config=geo_cfg, initializing=workspace)

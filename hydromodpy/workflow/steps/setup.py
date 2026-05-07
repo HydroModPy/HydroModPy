@@ -96,7 +96,13 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
         cache_dir=cache_dir,
     )
     if resolved is not None:
-        geographic_cfg.dem_init_path = resolved
+        catchment = getattr(geographic_cfg, "catchment", None)
+        if catchment is None:
+            raise ConfigError(
+                "geographic.catch_def is required when [[data.dem.sources]] is the "
+                "DEM source. Set geographic.catchment.catch_def."
+            )
+        catchment.dem_init_path = resolved
         return
     raise ConfigError(
         "geographic.dem_init_path is missing and [[data.dem.sources]] did not resolve."

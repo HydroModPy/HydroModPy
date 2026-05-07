@@ -140,6 +140,66 @@ def _raw_declares_dem_source(section_data: Any) -> bool:
     return isinstance(sources, list) and bool(sources)
 
 
+_CATCHMENT_VARIANT_BY_KEY: dict[str, str] = {
+    "dem": "DemCatchDef",
+    "txt": "TxtCatchDef",
+    "from_outlet_coord": "OutletCatchDef",
+    "from_polyg_shp": "PolygonCatchDef",
+}
+
+
+def _resolve_catchment_paths(
+    payload: dict[str, Any],
+    base: Path,
+    workspace_data_dir: Path | None,
+) -> None:
+    """Resolve relative paths inside the ``catchment`` block (in-place).
+
+    Mirrors ``_resolve_section_paths`` but operates on the discriminated
+    catchment variant identified by ``catch_def``. Legacy flat payloads
+    where ``catch_def``/``dem_init_path`` live at the top of the geographic
+    section are first folded into a ``catchment`` mapping so the same path
+    resolution path applies in both cases.
+    """
+    from hydromodpy.spatial.geographic import geographic_config as _geo_cfg
+
+    legacy_keys = {
+        "catch_def",
+        "dem_init_path",
+        "cell_size",
+        "x_outlet",
+        "y_outlet",
+        "snap_dist",
+        "buff_area",
+        "polyg_shp_path",
+    }
+    legacy_present = legacy_keys.intersection(payload.keys())
+    if legacy_present:
+        nested = payload.get("catchment")
+        merged: dict[str, Any] = dict(nested) if isinstance(nested, Mapping) else {}
+        for key in legacy_present:
+            value = payload.pop(key)
+            if value is None:
+                continue
+            merged.setdefault(key, value)
+        if merged:
+            payload["catchment"] = merged
+
+    catchment = payload.get("catchment")
+    if not isinstance(catchment, Mapping):
+        return
+    catch_def = str(catchment.get("catch_def", "")).strip()
+    variant_name = _CATCHMENT_VARIANT_BY_KEY.get(catch_def)
+    if variant_name is None:
+        return
+    variant_cls = getattr(_geo_cfg, variant_name)
+    catchment_payload = dict(catchment)
+    _resolve_section_paths(
+        catchment_payload, variant_cls, base, workspace_data_dir=workspace_data_dir
+    )
+    payload["catchment"] = catchment_payload
+
+
 def load_geographic_section(
     section_data: Any,
     base: Path,
@@ -155,6 +215,7 @@ def load_geographic_section(
 
     payload = dict(section_data)
     _resolve_section_paths(payload, GeographicConfig, base, workspace_data_dir=workspace_data_dir)
+    _resolve_catchment_paths(payload, base, workspace_data_dir)
     return GeographicConfig.model_validate(
         payload,
         context={"allow_dem_bootstrap": allow_dem_bootstrap},

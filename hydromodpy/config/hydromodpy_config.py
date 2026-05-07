@@ -480,9 +480,18 @@ class HydroModPyConfig(HydroModelBase):
             )
 
         geographic_section = raw.get("geographic", {})
+        catchment_section = (
+            geographic_section.get("catchment") if isinstance(geographic_section, Mapping) else None
+        )
+        catchment_dem = (
+            catchment_section.get("dem_init_path")
+            if isinstance(catchment_section, Mapping)
+            else None
+        )
         allow_dem_bootstrap = (
             isinstance(geographic_section, Mapping)
             and not geographic_section.get("dem_init_path")
+            and not catchment_dem
             and _raw_declares_dem_source(raw.get("data", {}))
         )
 
