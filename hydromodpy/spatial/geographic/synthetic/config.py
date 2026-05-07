@@ -11,6 +11,7 @@ from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import PositiveInt
 from hydromodpy.core.units import parse_length_to_m
 
 
@@ -25,14 +26,12 @@ class SyntheticGridConfig(HydroModelBase):
         default=1.0,
         description="Total domain length along y. Accepts values such as 1, '1 m', or '0.001 km'.",
     )
-    nx: Annotated[int, Profile.USER] = Field(
+    nx: Annotated[PositiveInt, Profile.USER] = Field(
         default=100,
-        ge=1,
         description="Number of cells along x.",
     )
-    ny: Annotated[int, Profile.USER] = Field(
+    ny: Annotated[PositiveInt, Profile.USER] = Field(
         default=1,
-        ge=1,
         description="Number of cells along y.",
     )
     xmin: Annotated[float, Profile.DEV] = Field(

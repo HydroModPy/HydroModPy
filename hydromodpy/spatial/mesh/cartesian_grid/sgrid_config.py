@@ -22,7 +22,7 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.config_kit.types import NonEmptyStr, PositiveInt
 from hydromodpy.core.toml_io.paths import resolve_path
 
 
@@ -150,14 +150,12 @@ class PlanarGridConfig(HydroModelBase):
             "resample to an explicit (ny, nx) target shape."
         ),
     )
-    nx: Annotated[int | None, Profile.USER] = Field(
+    nx: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
-        ge=1,
         description="Target number of columns when planar mode is 'resample_to_shape'.",
     )
-    ny: Annotated[int | None, Profile.USER] = Field(
+    ny: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
-        ge=1,
         description="Target number of rows when planar mode is 'resample_to_shape'.",
     )
     resampling: Annotated[Literal["bilinear", "average", "nearest"], Profile.DEV] = Field(
@@ -243,14 +241,12 @@ class SGridConfig(HydroModelBase):
             "resample to explicit (ny, nx) target shape."
         ),
     )
-    nx: Annotated[int | None, Profile.USER] = Field(
+    nx: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
-        ge=1,
         description="Target number of columns when plan_discretization_mode='resample_to_shape'.",
     )
-    ny: Annotated[int | None, Profile.USER] = Field(
+    ny: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
-        ge=1,
         description="Target number of rows when plan_discretization_mode='resample_to_shape'.",
     )
 
@@ -281,9 +277,8 @@ class SGridConfig(HydroModelBase):
         ...,
         description="Vertical-layering method.",
     )
-    nlay: Annotated[int | None, Profile.USER] = Field(
+    nlay: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
-        ge=1,
         description="Number of model layers for constant/decay layering.",
     )
     lay_decay: Annotated[float | None, Profile.DEV] = Field(

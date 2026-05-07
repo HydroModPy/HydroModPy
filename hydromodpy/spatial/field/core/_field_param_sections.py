@@ -13,7 +13,7 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.config_kit.types import NonEmptyStr, Probability
 from hydromodpy.core.units import Length
 from hydromodpy.spatial.field.core._field_param_units import normalize_unit_token
 
@@ -232,10 +232,8 @@ class FieldVerticalProfileSection(HydroModelBase):
             "Vertical factor is exp(-depth/characteristic_depth)."
         ),
     )
-    min_factor: Annotated[float | None, Profile.DEV] = Field(
+    min_factor: Annotated[Probability | None, Profile.DEV] = Field(
         default=None,
-        ge=0.0,
-        le=1.0,
         description=(
             "Optional floor factor for exponential mode. "
             "If provided, factor is max(exp(-depth/characteristic_depth), min_factor)."
