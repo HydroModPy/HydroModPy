@@ -50,6 +50,7 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
@@ -59,7 +60,7 @@ OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
 MetricKind = Literal["rmse", "nse", "kge", "mae"]
-CalibrationMethod = str
+CalibrationMethod = NonEmptyStr
 
 
 class CalibParameterDecl(HydroModelBase):
@@ -334,14 +335,6 @@ class CalibrationConfig(HydroModelBase):
         description="Single switch governing every persistence sink "
         "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
-
-    @field_validator("method")
-    @classmethod
-    def _validate_method(cls, value: str) -> str:
-        method = str(value).strip()
-        if method == "":
-            raise ValueError("calibration.method cannot be empty")
-        return method
 
     def model_post_init(self, context: object) -> None:
         super().model_post_init(context)

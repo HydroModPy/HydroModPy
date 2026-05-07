@@ -81,13 +81,6 @@ class RiverNetworkConfig(HydroModelBase):
         ),
     )
 
-    @field_validator("threshold_area_km2", "threshold_cells", mode="before")
-    @classmethod
-    def _normalize_optional_thresholds(cls, value):
-        if value is None:
-            return None
-        return float(value)
-
     @field_validator("min_stream_length_m", mode="before")
     @classmethod
     def _normalize_min_stream_length(cls, value):

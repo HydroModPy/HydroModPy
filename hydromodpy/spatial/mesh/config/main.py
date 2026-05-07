@@ -9,6 +9,7 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr, StripLower
 from hydromodpy.spatial.mesh.config.hydraulic import (
     MeshCatchmentHydraulicPropertiesConfig,
 )
@@ -31,6 +32,7 @@ class MeshCatchmentConfig(HydroModelBase):
 
     constraints_mode: Annotated[
         Literal["geology_only", "rivers_only", "geology_rivers"],
+        StripLower,
         Profile.USER,
     ] = Field(
         "geology_rivers",
@@ -41,7 +43,7 @@ class MeshCatchmentConfig(HydroModelBase):
             "'geology_rivers' enforces both sets of constraints in one mesh."
         ),
     )
-    output_mesh: Annotated[str | None, Profile.DEV] = Field(
+    output_mesh: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional `.msh` output path for the generated planar mesh. "
@@ -50,7 +52,7 @@ class MeshCatchmentConfig(HydroModelBase):
             "`workspace.project_root/mesh_catchment.msh` when `output_layout='flat'` is used."
         ),
     )
-    output_summary_json: Annotated[str | None, Profile.DEV] = Field(
+    output_summary_json: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional JSON sidecar path for QA metrics, cleaned-input diagnostics, "
@@ -58,7 +60,7 @@ class MeshCatchmentConfig(HydroModelBase):
             "When omitted, the launcher writes it next to the default mesh output."
         ),
     )
-    output_figure: Annotated[str | None, Profile.DEV] = Field(
+    output_figure: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional overview figure path. "
@@ -66,7 +68,7 @@ class MeshCatchmentConfig(HydroModelBase):
             "geology zones, river constraints, and final mesh footprint."
         ),
     )
-    output_figure_regional: Annotated[str | None, Profile.DEV] = Field(
+    output_figure_regional: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional regional overview figure path. "
@@ -105,7 +107,7 @@ class MeshCatchmentConfig(HydroModelBase):
             "Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy."
         ),
     )
-    output_layout: Annotated[str, Profile.USER] = Field(
+    output_layout: Annotated[Literal["standard", "flat"], StripLower, Profile.USER] = Field(
         default="standard",
         description=(
             "Dedicated-launcher output layout. "
@@ -121,7 +123,7 @@ class MeshCatchmentConfig(HydroModelBase):
             "Keep it false for batch or headless execution."
         ),
     )
-    geographic_outputs_mode: Annotated[str, Profile.DEV] = Field(
+    geographic_outputs_mode: Annotated[Literal["keep", "cleanup"], StripLower, Profile.DEV] = Field(
         default="keep",
         description=(
             "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. "
@@ -180,47 +182,6 @@ class MeshCatchmentConfig(HydroModelBase):
             "to target a desired number of cells."
         ),
     )
-
-    @field_validator("constraints_mode")
-    @classmethod
-    def _validate_constraints_mode(cls, value: object) -> str:
-        token = str(value).strip().lower()
-        if token not in {"geology_only", "rivers_only", "geology_rivers"}:
-            raise ValueError(
-                "constraints_mode must be one of: geology_only, rivers_only, geology_rivers."
-            )
-        return token
-
-    @field_validator("geographic_outputs_mode")
-    @classmethod
-    def _validate_geographic_outputs_mode(cls, value: object) -> str:
-        token = str(value).strip().lower()
-        if token not in {"keep", "cleanup"}:
-            raise ValueError("geographic_outputs_mode must be 'keep' or 'cleanup'.")
-        return token
-
-    @field_validator("output_layout")
-    @classmethod
-    def _validate_output_layout(cls, value: object) -> str:
-        token = str(value).strip().lower()
-        if token not in {"standard", "flat"}:
-            raise ValueError("output_layout must be 'standard' or 'flat'.")
-        return token
-
-    @field_validator(
-        "output_mesh",
-        "output_summary_json",
-        "output_figure",
-        "output_figure_regional",
-    )
-    @classmethod
-    def _validate_optional_output_path(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("output paths cannot be empty when provided.")
-        return text
 
     @field_validator("geology", mode="before")
     @classmethod

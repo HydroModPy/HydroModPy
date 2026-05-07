@@ -33,6 +33,7 @@ from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.units import (
     Length,
     canonical_unit_short_form,
@@ -183,15 +184,15 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
     path_file: Annotated[Path, Profile.DEV] = Field(
         ..., description="Path to the CSV chronicle file."
     )
-    sep: Annotated[str, Profile.DEV] = Field(default=",", description="CSV delimiter.")
-    date_column: Annotated[str, Profile.DEV] = Field(
+    sep: Annotated[NonEmptyStr, Profile.DEV] = Field(default=",", description="CSV delimiter.")
+    date_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="date", description="CSV column containing timestamps."
     )
     date_format: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional datetime format passed to pandas.to_datetime.",
     )
-    value_column: Annotated[str, Profile.DEV] = Field(
+    value_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="value",
         description="CSV column containing boundary head values.",
     )
@@ -203,14 +204,6 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
         default="mean",
         description="Stress-period aggregation method.",
     )
-
-    @field_validator("sep", "date_column", "value_column", mode="before")
-    @classmethod
-    def _validate_text_fields(cls, value, info):
-        text = str(value).strip()
-        if text == "":
-            raise ValueError(f"boundary.forcing.{info.field_name} cannot be empty")
-        return text
 
 
 class FlowBoundaryForcingConfig(HydroModelBase):
@@ -327,7 +320,7 @@ class FlowBoundaryConditionConfig(HydroModelBase):
             "south side, east side, west side."
         ),
     )
-    support_label: Annotated[str | None, Profile.USER] = Field(
+    support_label: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional explicit runtime support label used by unstructured backends "
@@ -347,17 +340,6 @@ class FlowBoundaryConditionConfig(HydroModelBase):
         if domain not in ALLOWED_BC_APPLICATION_DOMAINS:
             raise ValueError(f"invalid application_domain: {domain}")
         return domain
-
-    @field_validator("support_label")
-    @classmethod
-    def _validate_support_label(cls, value: str | None) -> str | None:
-        """Normalize one optional explicit support label."""
-        if value is None:
-            return None
-        label = str(value).strip()
-        if label == "":
-            raise ValueError("support_label cannot be empty")
-        return label
 
     @field_validator("value", mode="before")
     @classmethod

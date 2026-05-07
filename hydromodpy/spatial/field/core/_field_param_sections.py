@@ -13,6 +13,7 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.units import Length
 from hydromodpy.spatial.field.core._field_param_units import normalize_unit_token
 
@@ -25,7 +26,7 @@ VerticalProfileInterpolation = Literal["linear", "step"]
 class FieldBaseSection(HydroModelBase):
     """Schema for `[field]` base section."""
 
-    id: Annotated[str | None, Profile.USER] = Field(
+    id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
     )
@@ -40,16 +41,6 @@ class FieldBaseSection(HydroModelBase):
         ),
     )
 
-    @field_validator("id")
-    @classmethod
-    def _validate_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("field.id cannot be empty")
-        return text
-
     @field_validator("unit")
     @classmethod
     def _validate_unit(cls, value):
@@ -59,7 +50,7 @@ class FieldBaseSection(HydroModelBase):
 class FieldHomogeneousSection(HydroModelBase):
     """Schema for homogeneous `[field]` payloads."""
 
-    id: Annotated[str | None, Profile.USER] = Field(
+    id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
     )
@@ -77,16 +68,6 @@ class FieldHomogeneousSection(HydroModelBase):
         default=None,
         description="Scalar surface value used when kind='homogeneous'.",
     )
-
-    @field_validator("id")
-    @classmethod
-    def _validate_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("field.id cannot be empty")
-        return text
 
     @field_validator("unit")
     @classmethod
@@ -113,7 +94,7 @@ class FieldHomogeneousSection(HydroModelBase):
 class FieldHeterogeneousSection(HydroModelBase):
     """Schema for heterogeneous `[field]` payloads."""
 
-    id: Annotated[str | None, Profile.USER] = Field(
+    id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=("Parameter identifier used in outputs and logs (for example 'K', 'Sy')."),
     )
@@ -141,38 +122,28 @@ class FieldHeterogeneousSection(HydroModelBase):
             "Keys are zone/material ids, values are numeric parameter values."
         ),
     )
-    values_csv_file: Annotated[str | None, Profile.DEV] = Field(
+    values_csv_file: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Path to CSV mapping file used when values_source='csv'. "
             "Relative paths are resolved from TOML directory."
         ),
     )
-    csv_key_column: Annotated[str, Profile.DEV] = Field(
+    csv_key_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="zone_key",
         description="CSV column name containing zone/material keys.",
     )
-    csv_value_column: Annotated[str, Profile.DEV] = Field(
+    csv_value_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="value",
         description="CSV column name containing numeric parameter values.",
     )
-    field_spatial_id: Annotated[str | None, Profile.USER] = Field(
+    field_spatial_id: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
             "Identifier of the spatial field used to map heterogeneous values "
             "(must match geometry field id)."
         ),
     )
-
-    @field_validator("id")
-    @classmethod
-    def _validate_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("field.id cannot be empty")
-        return text
 
     @field_validator("unit")
     @classmethod
@@ -204,34 +175,6 @@ class FieldHeterogeneousSection(HydroModelBase):
         if any(str(key).strip() == "" for key in values):
             raise ValueError("field.values cannot contain empty keys")
         return values
-
-    @field_validator("values_csv_file")
-    @classmethod
-    def _validate_values_csv_file(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("field.values_csv_file cannot be empty when provided")
-        return text
-
-    @field_validator("csv_key_column", "csv_value_column")
-    @classmethod
-    def _validate_csv_column_names(cls, value):
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("CSV column name cannot be empty")
-        return text
-
-    @field_validator("field_spatial_id")
-    @classmethod
-    def _validate_field_spatial_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("field.field_spatial_id cannot be empty")
-        return text
 
     @model_validator(mode="after")
     def _validate_value_source_payload(self):

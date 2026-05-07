@@ -187,7 +187,7 @@ def test_invalid_flow_regime_raises():
 
 def test_invalid_nper_raises():
     mod = _load_tmesh_module()
-    with pytest.raises(ValueError, match="nper must be > 0"):
+    with pytest.raises(ValueError, match="greater than 0"):
         _ = mod.TmeshGenerator(config=mod.TMeshConfig(nper=0))
 
 

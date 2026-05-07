@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import StripLower
 from hydromodpy.core.units import Length
 
 
@@ -86,7 +87,11 @@ class MeshCatchmentWatershedOutsideCoarseningConfig(HydroModelBase):
 class MeshCatchmentWatershedGeologyConformityConfig(HydroModelBase):
     """Optional control of where geology remains conformal around the watershed."""
 
-    mode: Annotated[str, Profile.USER] = Field(
+    mode: Annotated[
+        Literal["full_domain", "buffered_watershed_envelope"],
+        StripLower,
+        Profile.USER,
+    ] = Field(
         default="full_domain",
         description=(
             "Control where geology remains conformal. "
@@ -103,16 +108,6 @@ class MeshCatchmentWatershedGeologyConformityConfig(HydroModelBase):
             "where geology interfaces remain active. When omitted in buffered_watershed_envelope mode, the mesher reuses zone_meshing.global_size."
         ),
     )
-
-    @field_validator("mode")
-    @classmethod
-    def _validate_mode(cls, value: object) -> str:
-        token = str(value).strip().lower()
-        if token not in {"full_domain", "buffered_watershed_envelope"}:
-            raise ValueError(
-                "geology_conformity.mode must be 'full_domain' or 'buffered_watershed_envelope'."
-            )
-        return token
 
 
 class MeshCatchmentWatershedBoundaryConfig(HydroModelBase):

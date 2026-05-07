@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-
-_SUPPORTED_HYDRAULIC_VALUE_SOURCES = {"inline", "csv"}
+from hydromodpy.core.config_kit.types import NonEmptyStr, StripLower
 
 
 def _validate_hydraulic_scalar(
@@ -33,7 +32,7 @@ def _validate_hydraulic_scalar(
 class MeshCatchmentHydraulicPropertyMapping(HydroModelBase):
     """Zone-key to property mapping contract used by bundle export."""
 
-    values_source: Annotated[str, Profile.USER] = Field(
+    values_source: Annotated[Literal["inline", "csv"], StripLower, Profile.USER] = Field(
         default="inline",
         description=(
             "Source of the geology-key to property mapping. "
@@ -47,18 +46,18 @@ class MeshCatchmentHydraulicPropertyMapping(HydroModelBase):
             "Keys must match the normalized `zone_key` values exported by the geology loader."
         ),
     )
-    values_csv_file: Annotated[str | None, Profile.DEV] = Field(
+    values_csv_file: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=(
             "CSV file used when values_source='csv'. "
             "Relative paths are resolved from the launcher TOML directory."
         ),
     )
-    csv_key_column: Annotated[str, Profile.DEV] = Field(
+    csv_key_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="zone_key",
         description="CSV column containing geology zone keys.",
     )
-    csv_value_column: Annotated[str, Profile.DEV] = Field(
+    csv_value_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="value",
         description="CSV column containing numeric property values.",
     )
@@ -69,15 +68,6 @@ class MeshCatchmentHydraulicPropertyMapping(HydroModelBase):
             "Leave empty to keep exported cell values undefined for unmapped zones."
         ),
     )
-
-    @field_validator("values_source")
-    @classmethod
-    def _validate_values_source(cls, value: object) -> str:
-        token = str(value).strip().lower()
-        if token not in _SUPPORTED_HYDRAULIC_VALUE_SOURCES:
-            allowed = ", ".join(sorted(_SUPPORTED_HYDRAULIC_VALUE_SOURCES))
-            raise ValueError(f"values_source must be one of: {allowed}.")
-        return token
 
     @field_validator("values")
     @classmethod
@@ -100,24 +90,6 @@ class MeshCatchmentHydraulicPropertyMapping(HydroModelBase):
                 raise ValueError(f"values[{key!r}] cannot be null.")
             out[key] = normalized
         return out
-
-    @field_validator("values_csv_file")
-    @classmethod
-    def _validate_values_csv_file(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("values_csv_file cannot be empty when provided.")
-        return text
-
-    @field_validator("csv_key_column", "csv_value_column")
-    @classmethod
-    def _validate_csv_column(cls, value: object) -> str:
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("CSV column names cannot be empty.")
-        return text
 
     @field_validator("default_value")
     @classmethod

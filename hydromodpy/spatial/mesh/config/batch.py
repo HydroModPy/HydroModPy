@@ -3,61 +3,46 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr, StripLower
 
 
 class MeshCatchmentBatchOutputs(HydroModelBase):
     """Output filename patterns for batch meshing."""
 
-    mesh_filename: Annotated[str | None, Profile.DEV] = Field(
+    mesh_filename: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Relative filename pattern for each generated mesh, resolved inside the outlet-specific mesh output folder. "
             "Use tokens like {outlet_id} and {catch_name}."
         ),
     )
-    summary_filename: Annotated[str | None, Profile.DEV] = Field(
+    summary_filename: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=("Relative filename pattern for each JSON mesh summary written in batch mode."),
     )
-    figure_filename: Annotated[str | None, Profile.DEV] = Field(
+    figure_filename: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=("Relative filename pattern for each overview figure written in batch mode."),
     )
-    figure_regional_filename: Annotated[str | None, Profile.DEV] = Field(
+    figure_regional_filename: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Relative filename pattern for each regional overview figure written in batch mode."
         ),
     )
-    manifest_csv: Annotated[str | None, Profile.DEV] = Field(
+    manifest_csv: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Manifest CSV path summarizing the status of all outlet runs. "
             "Relative paths are resolved from the base catchment project root."
         ),
     )
-
-    @field_validator(
-        "mesh_filename",
-        "summary_filename",
-        "figure_filename",
-        "figure_regional_filename",
-        "manifest_csv",
-    )
-    @classmethod
-    def _validate_optional_pattern(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("batch output patterns cannot be empty when provided.")
-        return text
 
 
 class MeshCatchmentBatchSection(HydroModelBase):
@@ -69,23 +54,23 @@ class MeshCatchmentBatchSection(HydroModelBase):
             "Enable batch mode. When false or omitted, the launcher runs one mono-catchment workflow only."
         ),
     )
-    outlets_table_path: Annotated[str | None, Profile.USER] = Field(
+    outlets_table_path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=("CSV or vector table listing outlet points to process in batch mode."),
     )
-    outlet_id_column: Annotated[str, Profile.DEV] = Field(
+    outlet_id_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="outlet_id",
         description="Column storing the outlet identifier in the batch table.",
     )
-    x_column: Annotated[str, Profile.DEV] = Field(
+    x_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="x_outlet_m",
         description="Column storing the outlet X coordinate in the batch table.",
     )
-    y_column: Annotated[str, Profile.DEV] = Field(
+    y_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="y_outlet_m",
         description="Column storing the outlet Y coordinate in the batch table.",
     )
-    selection_mode: Annotated[str, Profile.DEV] = Field(
+    selection_mode: Annotated[Literal["all", "selected"], StripLower, Profile.DEV] = Field(
         default="all",
         description=(
             "Batch selection strategy. Use 'all' to process every outlet in the table, or 'selected' "
@@ -96,7 +81,7 @@ class MeshCatchmentBatchSection(HydroModelBase):
         default_factory=list,
         description=("Explicit subset of outlet ids to mesh when selection_mode='selected'."),
     )
-    catch_name_pattern: Annotated[str, Profile.DEV] = Field(
+    catch_name_pattern: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="{catch_name}_outlet_{outlet_id}",
         description=(
             "Pattern used to derive the child catchment workspace name for each outlet. "
@@ -114,26 +99,6 @@ class MeshCatchmentBatchSection(HydroModelBase):
             "so each outlet writes distinct artifacts."
         ),
     )
-
-    @field_validator(
-        "outlets_table_path", "outlet_id_column", "x_column", "y_column", "catch_name_pattern"
-    )
-    @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("batch text fields cannot be empty when provided.")
-        return text
-
-    @field_validator("selection_mode")
-    @classmethod
-    def _validate_selection_mode(cls, value: object) -> str:
-        token = str(value).strip().lower()
-        if token not in {"all", "selected"}:
-            raise ValueError("selection_mode must be 'all' or 'selected'.")
-        return token
 
     @field_validator("selected_outlet_ids", mode="before")
     @classmethod

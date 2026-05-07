@@ -6,6 +6,7 @@ from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import CellSamplingDensity, NonEmptyStr
 from hydromodpy.core.units import parse_length_to_m
 
 
@@ -35,9 +36,8 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
         default_factory=list,
         description="Ordered band labels. Length must be len(breaks)+1.",
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description="Sub-sampling resolution per cell axis used when rasterizing band masks.",
     )
 
@@ -131,9 +131,8 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
             "Defaults to the domain midpoint."
         ),
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description="Sub-sampling resolution per cell axis used when rasterizing ring masks.",
     )
 
@@ -212,23 +211,14 @@ class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
     """Support built from catchment/domain zonation already prepared in setup."""
 
     kind: Annotated[Literal["catchment_zones"], Profile.USER]
-    source_zone_id: Annotated[str, Profile.USER] = Field(
+    source_zone_id: Annotated[NonEmptyStr, Profile.USER] = Field(
         default="catchment",
         description="Domain zone id providing the source catchment zonation.",
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description="Sub-sampling resolution per cell axis used when rasterizing zone masks.",
     )
-
-    @field_validator("source_zone_id", mode="before")
-    @classmethod
-    def _normalize_source_zone_id(cls, value):
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("source_zone_id cannot be empty")
-        return text
 
 
 class GeologySupportConfig(DomainSupportBaseConfig):

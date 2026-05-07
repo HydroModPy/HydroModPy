@@ -2,19 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr, StripLower
 from hydromodpy.core.units import Length
 
 
 class MeshCatchmentRiversConfig(HydroModelBase):
     """River-trace inputs consumed by the conformal mesher."""
 
-    source: Annotated[str, Profile.USER] = Field(
+    source: Annotated[Literal["domain_geographic", "file"], StripLower, Profile.USER] = Field(
         default="domain_geographic",
         description=(
             "Origin of the river constraints used to force mesh edges along the river network. "
@@ -22,7 +23,7 @@ class MeshCatchmentRiversConfig(HydroModelBase):
             "or 'file' to reload a vector river dataset from disk."
         ),
     )
-    path: Annotated[str | None, Profile.USER] = Field(
+    path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
             "Vector file path used only when source='file'. "
@@ -56,24 +57,6 @@ class MeshCatchmentRiversConfig(HydroModelBase):
             "additional snapping pass."
         ),
     )
-
-    @field_validator("source")
-    @classmethod
-    def _validate_source(cls, value: object) -> str:
-        token = str(value).strip().lower()
-        if token not in {"domain_geographic", "file"}:
-            raise ValueError("rivers.source must be 'domain_geographic' or 'file'.")
-        return token
-
-    @field_validator("path")
-    @classmethod
-    def _validate_optional_path(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("rivers.path cannot be empty when provided.")
-        return text
 
     @model_validator(mode="after")
     def _validate_file_mode(self) -> MeshCatchmentRiversConfig:

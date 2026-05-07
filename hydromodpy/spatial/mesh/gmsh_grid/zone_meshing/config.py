@@ -13,7 +13,7 @@ Actual geometry cleaning and Gmsh generation live elsewhere.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     Field,
@@ -24,6 +24,12 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import (
+    NonNegativeFloat,
+    PositiveFloat,
+    PositiveInt,
+    StripLower,
+)
 
 
 class ZoneMeshingRefinementFamilySettings(HydroModelBase):
@@ -37,43 +43,19 @@ class ZoneMeshingRefinementFamilySettings(HydroModelBase):
         default=0,
         description="Application order between families. Higher values win when budgets compete.",
     )
-    interface_size: Annotated[float | None, Profile.DEV] = Field(
+    interface_size: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
         default=None,
         description="Override target cell size at the family interface, in projected metres.",
     )
-    interface_distance: Annotated[float | None, Profile.DEV] = Field(
+    interface_distance: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
         default=None,
         description="Override influence distance from the family interface, in projected metres.",
     )
     interface_sampling: Annotated[int | None, Profile.DEV] = Field(
         default=None,
+        ge=2,
         description="Override the number of sampled points along the family interface (>=2).",
     )
-
-    @field_validator("priority")
-    @classmethod
-    def _validate_priority(cls, value):
-        return int(value)
-
-    @field_validator("interface_size", "interface_distance")
-    @classmethod
-    def _validate_optional_non_negative_family_float(cls, value):
-        if value is None:
-            return None
-        out = float(value)
-        if out < 0.0:
-            raise ValueError("values must be >= 0")
-        return out
-
-    @field_validator("interface_sampling")
-    @classmethod
-    def _validate_optional_family_sampling(cls, value):
-        if value is None:
-            return None
-        out = int(value)
-        if out < 2:
-            raise ValueError("interface_sampling must be >= 2 when provided")
-        return out
 
     def to_mapping(self) -> dict[str, Any]:
         return self.model_dump(mode="python")
@@ -108,57 +90,34 @@ class ZoneMeshingRefinementFamilies(HydroModelBase):
 class ZoneMeshingRefinementHotspotSettings(HydroModelBase):
     """Validated hotspot-detection thresholds for local refinement budgeting."""
 
-    radius: Annotated[float | None, Profile.DEV] = Field(
+    radius: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
         default=None,
         description="Hotspot detection radius in projected metres. None lets the mesher derive a default.",
     )
-    max_curve_count: Annotated[int, Profile.DEV] = Field(
+    max_curve_count: Annotated[PositiveInt, Profile.DEV] = Field(
         default=180,
         description="Maximum number of constraint curves admitted in one hotspot before triggering local refinement.",
     )
-    max_family_count: Annotated[int, Profile.DEV] = Field(
+    max_family_count: Annotated[PositiveInt, Profile.DEV] = Field(
         default=2,
         description="Maximum number of distinct constraint families coexisting in one hotspot.",
     )
-    min_gap: Annotated[float, Profile.DEV] = Field(
+    min_gap: Annotated[NonNegativeFloat, Profile.DEV] = Field(
         default=80.0,
         description="Minimum acceptable gap between non-conformal curves in projected metres.",
     )
-    max_node_degree: Annotated[int, Profile.DEV] = Field(
+    max_node_degree: Annotated[PositiveInt, Profile.DEV] = Field(
         default=4,
         description="Maximum tolerated topological degree at a hotspot junction node.",
     )
-    short_segment_length: Annotated[float, Profile.DEV] = Field(
+    short_segment_length: Annotated[NonNegativeFloat, Profile.DEV] = Field(
         default=120.0,
         description="Length threshold below which a constraint segment is counted as short, in projected metres.",
     )
-    max_short_segment_count: Annotated[int, Profile.DEV] = Field(
+    max_short_segment_count: Annotated[PositiveInt, Profile.DEV] = Field(
         default=12,
         description="Maximum tolerated number of short segments inside one hotspot.",
     )
-
-    @field_validator("radius", "min_gap", "short_segment_length")
-    @classmethod
-    def _validate_optional_non_negative_hotspot_float(cls, value):
-        if value is None:
-            return None
-        out = float(value)
-        if out < 0.0:
-            raise ValueError("values must be >= 0")
-        return out
-
-    @field_validator(
-        "max_curve_count",
-        "max_family_count",
-        "max_node_degree",
-        "max_short_segment_count",
-    )
-    @classmethod
-    def _validate_positive_int(cls, value):
-        out = int(value)
-        if out < 1:
-            raise ValueError("values must be >= 1")
-        return out
 
     def to_mapping(self) -> dict[str, Any]:
         return self.model_dump(mode="python")
@@ -167,11 +126,11 @@ class ZoneMeshingRefinementHotspotSettings(HydroModelBase):
 class ZoneMeshingRefinementGridSettings(HydroModelBase):
     """Validated grid settings for one locality-first refinement policy."""
 
-    cell_size: Annotated[float | None, Profile.USER] = Field(
+    cell_size: Annotated[PositiveFloat | None, Profile.USER] = Field(
         default=None,
         description="Target cell size in projected metres. None lets the mesher derive a default from constraints.",
     )
-    neighborhood_rings: Annotated[int, Profile.DEV] = Field(
+    neighborhood_rings: Annotated[PositiveInt, Profile.DEV] = Field(
         default=1,
         description="Number of cell rings inspected around each hotspot when projecting refinement budget.",
     )
@@ -179,28 +138,10 @@ class ZoneMeshingRefinementGridSettings(HydroModelBase):
         default=True,
         description="If True, run the exact pairwise gap check between candidate hotspot curves.",
     )
-    max_exact_gap_candidates: Annotated[int, Profile.DEV] = Field(
+    max_exact_gap_candidates: Annotated[PositiveInt, Profile.DEV] = Field(
         default=256,
         description="Cap on the number of curves submitted to the exact gap check before falling back to a heuristic.",
     )
-
-    @field_validator("cell_size")
-    @classmethod
-    def _validate_optional_positive_cell_size(cls, value):
-        if value is None:
-            return None
-        out = float(value)
-        if out <= 0.0:
-            raise ValueError("cell_size must be > 0 when provided")
-        return out
-
-    @field_validator("neighborhood_rings", "max_exact_gap_candidates")
-    @classmethod
-    def _validate_positive_grid_int(cls, value):
-        out = int(value)
-        if out < 1:
-            raise ValueError("values must be >= 1")
-        return out
 
     def to_mapping(self) -> dict[str, Any]:
         return self.model_dump(mode="python")
@@ -220,7 +161,11 @@ class ZoneMeshingRefinementPolicy(HydroModelBase):
         default=False,
         description="If True, the local refinement policy runs on top of the global zone meshing.",
     )
-    mode: Annotated[str, Profile.USER] = Field(
+    mode: Annotated[
+        Literal["family_priority_local_budget", "grid_local_budget"],
+        StripLower,
+        Profile.USER,
+    ] = Field(
         default="family_priority_local_budget",
         description=(
             "Refinement mode selector. One of 'family_priority_local_budget' or "
@@ -242,16 +187,6 @@ class ZoneMeshingRefinementPolicy(HydroModelBase):
         },
         description="Per-family refinement settings keyed by family name.",
     )
-
-    @field_validator("mode")
-    @classmethod
-    def _validate_mode(cls, value):
-        text = str(value).strip().lower()
-        allowed = {"family_priority_local_budget", "grid_local_budget"}
-        if text not in allowed:
-            allowed_text = ", ".join(sorted(allowed))
-            raise ValueError(f"mode must be one of: {allowed_text}")
-        return text
 
     @field_validator("families", mode="before")
     @classmethod
@@ -311,49 +246,49 @@ class ZoneMeshingSettings(HydroModelBase):
             "In practice the examples use 'delaunay', which is a robust default for irregular geological and river-constrained domains."
         ),
     )
-    global_size: Annotated[float, Profile.USER] = Field(
+    global_size: Annotated[NonNegativeFloat, Profile.USER] = Field(
         default=250.0,
         description=(
             "Baseline target cell size in projected metres over the full support domain. "
             "Think of it as the coarse background resolution before local interface refinement is added."
         ),
     )
-    min_size: Annotated[float | None, Profile.USER] = Field(
+    min_size: Annotated[NonNegativeFloat | None, Profile.USER] = Field(
         default=None,
         description=(
             "Lower bound on local cell size in projected metres. "
             "Use it to prevent extreme refinement from generating very small cells in narrow features."
         ),
     )
-    max_size: Annotated[float | None, Profile.USER] = Field(
+    max_size: Annotated[NonNegativeFloat | None, Profile.USER] = Field(
         default=None,
         description=(
             "Upper bound on local cell size in projected metres. "
             "Use it when you want to cap the coarsening far from interfaces."
         ),
     )
-    simplify_tolerance: Annotated[float, Profile.DEV] = Field(
+    simplify_tolerance: Annotated[NonNegativeFloat, Profile.DEV] = Field(
         default=0.0,
         description=(
             "Geometry simplification tolerance, in projected metres, applied before meshing. "
             "Increase it only when the source polygons contain excessive vertex noise that does not carry hydrogeological meaning."
         ),
     )
-    heal_tolerance: Annotated[float, Profile.DEV] = Field(
+    heal_tolerance: Annotated[NonNegativeFloat, Profile.DEV] = Field(
         default=0.0,
         description=(
             "Cleanup tolerance, in projected metres, used to repair tiny gaps or slivers between input polygons. "
             "Keep it near zero unless the source dataset is known to contain topology artifacts."
         ),
     )
-    linear_constraint_snap_tolerance: Annotated[float, Profile.DEV] = Field(
+    linear_constraint_snap_tolerance: Annotated[NonNegativeFloat, Profile.DEV] = Field(
         default=0.0,
         description=(
             "Optional global snapping tolerance, in projected metres, applied to internal linear constraints "
             "such as rivers or watershed-boundary segments before partition splitting and Gmsh embedding."
         ),
     )
-    min_polygon_area: Annotated[float, Profile.DEV] = Field(
+    min_polygon_area: Annotated[NonNegativeFloat, Profile.DEV] = Field(
         default=0.0,
         description=(
             "Minimum polygon area, in square metres, kept after cleaning. "
@@ -367,14 +302,14 @@ class ZoneMeshingSettings(HydroModelBase):
             "When false, the mesh uses only the global background size constraints."
         ),
     )
-    interface_size: Annotated[float | None, Profile.DEV] = Field(
+    interface_size: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Target local size, in projected metres, close to constrained interfaces. "
             "When omitted and refine_interfaces=true, the schema derives a conservative default from global_size/min_size."
         ),
     )
-    interface_distance: Annotated[float | None, Profile.DEV] = Field(
+    interface_distance: Annotated[NonNegativeFloat | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Influence distance, in projected metres, over which the local interface refinement fades back to the background size. "
@@ -383,6 +318,7 @@ class ZoneMeshingSettings(HydroModelBase):
     )
     interface_sampling: Annotated[int, Profile.DEV] = Field(
         default=64,
+        ge=2,
         description=(
             "Sampling density used to discretize interface-based distance fields. "
             "Higher values better capture long and sinuous interfaces but increase Gmsh preprocessing cost."
@@ -404,34 +340,6 @@ class ZoneMeshingSettings(HydroModelBase):
         if not text:
             raise ValueError("algorithm cannot be empty")
         return text
-
-    @field_validator(
-        "global_size",
-        "min_size",
-        "max_size",
-        "simplify_tolerance",
-        "heal_tolerance",
-        "linear_constraint_snap_tolerance",
-        "min_polygon_area",
-        "interface_size",
-        "interface_distance",
-    )
-    @classmethod
-    def _validate_optional_non_negative_float(cls, value):
-        if value is None:
-            return None
-        out = float(value)
-        if out < 0.0:
-            raise ValueError("values must be >= 0")
-        return out
-
-    @field_validator("interface_sampling")
-    @classmethod
-    def _validate_interface_sampling(cls, value):
-        out = int(value)
-        if out < 2:
-            raise ValueError("interface_sampling must be >= 2")
-        return out
 
     @model_validator(mode="after")
     def _validate_cross_constraints(self):
