@@ -35,7 +35,7 @@ class OverviewPanelsConfig(HydroModelBase):
     )
 
 
-class OverviewSection(HydroModelBase):
+class OverviewConfig(HydroModelBase):
     """Overview report settings (watershed identity card)."""
 
     name: Annotated[str, Profile.USER] = Field("", description="Watershed name.")

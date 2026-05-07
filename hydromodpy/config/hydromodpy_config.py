@@ -44,7 +44,7 @@ from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.display.config import DisplayConfig
-from hydromodpy.display.overview.config import OverviewSection
+from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.simulation.planning.config import SimulationConfig
@@ -225,7 +225,7 @@ class HydroModPyConfig(HydroModelBase):
     )
 
     # Lightweight workflows (without simulation)
-    overview: Annotated[OverviewSection | None, Profile.USER] = Field(
+    overview: Annotated[OverviewConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional overview report settings loaded from the [overview] "
@@ -678,11 +678,11 @@ def _load_data_section(
 def _load_optional_overview_section(
     section_data: Any,
     base: Path,
-) -> OverviewSection | None:
+) -> OverviewConfig | None:
     """Load the optional ``[overview]`` section."""
     if section_data is None:
         return None
-    return load_standard_section(section_data, OverviewSection, base)
+    return load_standard_section(section_data, OverviewConfig, base)
 
 
 def _load_optional_mesh_catchment_section(

@@ -386,7 +386,7 @@ nitpick_ignore_regex = [
         r"(AnalysisConfig|Axes|BaseModel|CalibrationConfig|ConfigError|DerivedComputation|"
         r"DerivedResult|DisplayConfig|Domain|DomainConfig|FlowConfig|Grid|HydroModPyConfig|"
         r"LoadedDataContext|MeshCatchmentConfig|Modflow6Config|ModflowConfig|"
-        r"ModflowPreprocessOptions|MplFigure|Objective|OverviewSection|PersistenceConfig|"
+        r"ModflowPreprocessOptions|MplFigure|Objective|OverviewConfig|PersistenceConfig|"
         r"ResolvedSimulationTimeGrid|ResolvedSteadySimulationTimeGrid|RiverMeshTrace|Run|RunResult|"
         r"ScalarObjective|SetupContext|SimulationCatalog|SimulationZarr|SolverConfig|Stack|"
         r"StoragePathResolver|Surface|SyntheticGeographicConfig|TransportConfig|"
@@ -599,10 +599,7 @@ def _regenerate_config_reference(app) -> None:
     try:
         from tools.doc_config import generate_all
     except Exception as exc:
-        app.warn(
-            "tools.doc_config import failed; skipping config-reference regeneration: "
-            f"{exc}"
-        )
+        app.warn(f"tools.doc_config import failed; skipping config-reference regeneration: {exc}")
         return
     try:
         generate_all()
