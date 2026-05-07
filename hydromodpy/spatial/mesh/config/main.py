@@ -18,23 +18,12 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.config import (
     ZoneMeshingSettings,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
-    ZoneMeshingDomainBBox,
+    ZoneMeshingDomain as ZoneMeshingDomainSchema,
+)
+from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing.domain import (
     ZoneMeshingDomainGeographicBoxBuffer,
-    ZoneMeshingDomainGeographicWatershed,
-    ZoneMeshingDomainGeographicWatershedBox,
-    ZoneMeshingDomainPolygon,
-    ZoneMeshingDomainVector,
 )
 from hydromodpy.spatial.protocols import get_geology_data_source
-
-ZoneMeshingDomainSchema = (
-    ZoneMeshingDomainBBox
-    | ZoneMeshingDomainPolygon
-    | ZoneMeshingDomainVector
-    | ZoneMeshingDomainGeographicBoxBuffer
-    | ZoneMeshingDomainGeographicWatershed
-    | ZoneMeshingDomainGeographicWatershedBox
-)
 
 
 class MeshCatchmentConfig(HydroModelBase):

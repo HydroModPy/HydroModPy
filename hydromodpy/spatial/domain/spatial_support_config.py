@@ -10,9 +10,11 @@ from hydromodpy.core.units import parse_length_to_m
 
 
 class DomainSupportBaseConfig(HydroModelBase):
-    """Base schema for one named spatial-support declaration."""
+    """Base schema for one named spatial-support declaration.
 
-    kind: Annotated[str, Profile.USER]
+    Concrete variants are unified through :data:`DomainSupportConfig`,
+    a discriminated union over the ``kind`` literal.
+    """
 
 
 class GeneratedBandsSupportConfig(DomainSupportBaseConfig):

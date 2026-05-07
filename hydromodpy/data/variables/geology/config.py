@@ -11,7 +11,11 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import IdentifierStr
+from hydromodpy.core.config_kit.types import (
+    IdentifierStr,
+    NonEmptyStr,
+    StripLower,
+)
 from hydromodpy.core.tracking import InputFile
 
 
@@ -195,8 +199,6 @@ class GeologyConfig(HydroModelBase):
 # and the data loader for direct field construction).
 # ---------------------------------------------------------------------------
 
-SUPPORTED_SOURCE_KINDS = ("auto", "raster", "vector")
-
 
 def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
     """Resolve a nested TOML section from a dotted path."""
@@ -210,29 +212,32 @@ def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping
     return current
 
 
+SourceKind = Annotated[Literal["auto", "raster", "vector"], StripLower]
+
+
 class GeologySource(HydroModelBase):
     """Schema for geology data source definition (standalone field construction)."""
 
-    path: Annotated[str, Profile.USER] = Field(
+    path: Annotated[NonEmptyStr, Profile.USER] = Field(
         description=(
             "Path to the raw geology dataset used by the meshing workflow. "
             "It can point to a raster or polygon vector file depending on kind."
         )
     )
-    kind: Annotated[str, Profile.USER] = Field(
+    kind: Annotated[SourceKind, Profile.USER] = Field(
         default="auto",
         description=(
             "How to interpret the geology source. "
             "Use 'vector' for polygon geology, 'raster' for an already rasterized grid, or 'auto' to infer the type from the file."
         ),
     )
-    code_field: Annotated[str | None, Profile.USER] = Field(
+    code_field: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
             "Attribute column carrying the geology code for each polygon when kind='vector'."
         ),
     )
-    reference_raster_path: Annotated[str | None, Profile.USER] = Field(
+    reference_raster_path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
             "Reference raster used when vector geology must be rasterized. "
@@ -246,33 +251,6 @@ class GeologySource(HydroModelBase):
             "When true, any pixel touched by a polygon is filled; when false, only pixels whose center falls inside are filled."
         ),
     )
-
-    @field_validator("path")
-    @classmethod
-    def _validate_path(cls, value):
-        text = str(value).strip()
-        if not text:
-            raise ValueError("source.path cannot be empty")
-        return text
-
-    @field_validator("kind")
-    @classmethod
-    def _validate_kind(cls, value):
-        key = str(value).strip().lower()
-        if key not in SUPPORTED_SOURCE_KINDS:
-            allowed = ", ".join(SUPPORTED_SOURCE_KINDS)
-            raise ValueError(f"Unsupported source.kind '{value}'. Allowed: {allowed}")
-        return key
-
-    @field_validator("code_field", "reference_raster_path")
-    @classmethod
-    def _validate_optional_non_empty(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("value cannot be empty when provided")
-        return text
 
     @model_validator(mode="after")
     def _validate_vector_constraints(self):

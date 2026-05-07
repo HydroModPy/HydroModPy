@@ -26,6 +26,7 @@ from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_loaders import (
     load_zone_meshing_domain_payload_impl,
 )
 from hydromodpy.spatial.mesh.gmsh_grid.zone_meshing._domain_schema import (
+    ZoneMeshingDomain,
     ZoneMeshingDomainBBox,
     ZoneMeshingDomainGeographicBoxBuffer,
     ZoneMeshingDomainGeographicWatershed,
@@ -60,6 +61,7 @@ def load_zone_meshing_domain_payload(
 
 __all__ = [
     "parse_zone_meshing_domain_config",
+    "ZoneMeshingDomain",
     "ZoneMeshingDomainBBox",
     "ZoneMeshingDomainConfig",
     "ZoneMeshingDomainGeographicBoxBuffer",
