@@ -37,8 +37,12 @@ from pydantic.fields import FieldInfo
 from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.introspect import (
+    collect_profile_violations,
+    resolve_profile,
+)
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
-from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.toml_io.error_locator import format_validation_error
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.paths import resolve_declared_path
@@ -319,7 +323,12 @@ class HydroModPyConfig(HydroModelBase):
         return self
 
     @classmethod
-    def from_toml(cls, toml_path: Path | str) -> HydroModPyConfig:
+    def from_toml(
+        cls,
+        toml_path: Path | str,
+        *,
+        validate_profile: ProfileName | Profile | None = None,
+    ) -> HydroModPyConfig:
         """
         Load and validate configuration from a TOML file.
 
@@ -331,6 +340,10 @@ class HydroModPyConfig(HydroModelBase):
         ----------
         toml_path : Path | str
             Path to the input TOML configuration file.
+        validate_profile : ProfileName | Profile | None
+            Optional profile threshold. When provided, fields whose declared
+            :class:`Profile` exceeds the threshold and are present in the TOML
+            payload trigger a :class:`UserWarning` (validation still succeeds).
 
         Returns
         -------
@@ -339,6 +352,22 @@ class HydroModPyConfig(HydroModelBase):
         """
         toml_path = Path(toml_path).expanduser().resolve()
         raw = load_toml_with_base_config(toml_path)
+
+        if validate_profile is not None:
+            threshold = resolve_profile(validate_profile)
+            violations = collect_profile_violations(cls, raw, threshold)
+            if violations:
+                import warnings
+
+                joined = ", ".join(
+                    f"{'.'.join(path)}={level.name.lower()}" for path, level in violations
+                )
+                warnings.warn(
+                    f"TOML {toml_path} declares fields above profile "
+                    f"{threshold.name.lower()!r}: {joined}",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
         try:
             cfg = cls._from_payload(raw, base=toml_path.parent, context="toml")

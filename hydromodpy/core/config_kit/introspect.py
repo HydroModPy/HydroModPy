@@ -78,8 +78,74 @@ def read_profile_from_schema(field_schema: dict[str, Any]) -> Profile | None:
         return None
 
 
+def _resolve_field_basemodel(field_info: Any) -> type[BaseModel] | None:
+    """Return the :class:`BaseModel` subclass referenced by *field_info*, when applicable."""
+    from typing import Union, get_args, get_origin
+
+    from pydantic import BaseModel as _BaseModel
+
+    annotation = getattr(field_info, "annotation", None)
+    candidates: list[Any] = [annotation]
+    args = get_args(annotation)
+    if get_origin(annotation) is Union and args:
+        candidates.extend(args)
+    elif args:
+        candidates.extend(args)
+    for cand in candidates:
+        if isinstance(cand, type) and issubclass(cand, _BaseModel):
+            return cand
+    return None
+
+
+def collect_profile_violations(
+    model_cls: type[BaseModel],
+    payload: Any,
+    threshold: Profile,
+    *,
+    _path: tuple[str, ...] = (),
+) -> list[tuple[tuple[str, ...], Profile]]:
+    """Return ``(path, level)`` for every payload key whose Profile exceeds *threshold*.
+
+    Walks raw mapping payloads (typically a TOML dict pre-validation) and reports
+    any user-supplied key whose declared :class:`Profile` is stricter than the
+    declared *threshold*. Used to surface "user TOML mentions an expert field"
+    situations as warnings without blocking validation.
+    """
+    if not isinstance(payload, dict):
+        return []
+    violations: list[tuple[tuple[str, ...], Profile]] = []
+    for name, info in model_cls.model_fields.items():
+        if name not in payload:
+            continue
+        level = extract_profile(info)
+        sub_path = (*_path, name)
+        if level > threshold:
+            violations.append((sub_path, level))
+            continue
+        nested_cls = _resolve_field_basemodel(info)
+        if nested_cls is None:
+            continue
+        value = payload[name]
+        if isinstance(value, dict):
+            violations.extend(
+                collect_profile_violations(nested_cls, value, threshold, _path=sub_path)
+            )
+        elif isinstance(value, list):
+            for idx, item in enumerate(value):
+                violations.extend(
+                    collect_profile_violations(
+                        nested_cls,
+                        item,
+                        threshold,
+                        _path=(*sub_path, f"[{idx}]"),
+                    )
+                )
+    return violations
+
+
 __all__ = [
     "DEFAULT_FIELD_PROFILE",
+    "collect_profile_violations",
     "extract_profile",
     "iter_fields_by_profile",
     "read_profile_from_schema",
