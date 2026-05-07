@@ -35,7 +35,6 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.units import (
-    Length,
     canonical_unit_short_form,
     check_unit_compatible,
     parse_to_canonical_magnitude,
@@ -170,23 +169,40 @@ def _extract_support_label(payload: Mapping[str, object]) -> str | None:
 
 
 class FlowBoundaryForcingConstantConfig(HydroModelBase):
-    """One constant head forcing applied to every stress period."""
+    """Constant head forcing applied to every stress period."""
 
-    value: Annotated[Length, Profile.USER] = Field(
+    mode: Annotated[Literal["constant"], Profile.USER] = Field(
+        default="constant",
+        description="Discriminator tag for the constant boundary-forcing variant.",
+    )
+    value: Annotated[float, Profile.USER] = Field(
         ...,
-        description="Constant boundary head in the same units as the parent boundary.",
+        description="Constant boundary head value used when mode='constant'.",
+    )
+    units: Annotated[str | None, Profile.DEV] = Field(
+        default=None,
+        description="Source units of forcing values before runtime conversion.",
     )
 
 
 class FlowBoundaryForcingCsvConfig(HydroModelBase):
     """CSV-backed boundary forcing resolved at runtime against simulation.time."""
 
-    path_file: Annotated[Path, Profile.DEV] = Field(
-        ..., description="Path to the CSV chronicle file."
+    mode: Annotated[Literal["csv"], Profile.USER] = Field(
+        default="csv",
+        description="Discriminator tag for the CSV-backed boundary-forcing variant.",
     )
-    sep: Annotated[NonEmptyStr, Profile.DEV] = Field(default=",", description="CSV delimiter.")
+    path_file: Annotated[Path, Profile.DEV] = Field(
+        ...,
+        description="CSV file path containing time-series boundary head values when mode='csv'.",
+    )
+    sep: Annotated[NonEmptyStr, Profile.DEV] = Field(
+        default=",",
+        description="CSV column separator.",
+    )
     date_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
-        default="date", description="CSV column containing timestamps."
+        default="date",
+        description="CSV column containing timestamps.",
     )
     date_format: Annotated[str | None, Profile.DEV] = Field(
         default=None,
@@ -204,79 +220,20 @@ class FlowBoundaryForcingCsvConfig(HydroModelBase):
         default="mean",
         description="Stress-period aggregation method.",
     )
-
-
-class FlowBoundaryForcingConfig(HydroModelBase):
-    """Launcher-facing boundary forcing declaration."""
-
-    mode: Annotated[Literal["constant", "csv"], Profile.USER] = Field(
-        ...,
-        description="Boundary forcing mode consumed by launcher runtime.",
-    )
     units: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Source units of forcing values before runtime conversion.",
     )
-    value: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        description="Constant boundary head value used when mode='constant'.",
-    )
-    path_file: Annotated[Path | None, Profile.DEV] = Field(
-        default=None,
-        description="CSV file path containing time-series boundary head values when mode='csv'.",
-    )
-    sep: Annotated[str, Profile.DEV] = Field(
-        default=",",
-        description="CSV column separator.",
-    )
-    date_column: Annotated[str, Profile.DEV] = Field(
-        default="date",
-        description="CSV column containing timestamps.",
-    )
-    date_format: Annotated[str | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional datetime format passed to pandas.to_datetime.",
-    )
-    value_column: Annotated[str, Profile.DEV] = Field(
-        default="value",
-        description="CSV column containing boundary head values.",
-    )
-    fill_method: Annotated[FlowTimeFillMethod, Profile.DEV] = Field(
-        default="ffill",
-        description="Gap-filling policy used when a stress period has no direct sample.",
-    )
-    aggregate: Annotated[FlowTimeAggregate, Profile.DEV] = Field(
-        default="mean",
-        description="Stress-period aggregation method.",
-    )
 
-    @model_validator(mode="after")
-    def _validate_mode_payload(self):
-        if self.mode == "constant":
-            if self.value is None:
-                raise ValueError("boundary.forcing.mode='constant' requires value")
-            return self
-        if self.path_file is None:
-            raise ValueError("boundary.forcing.mode='csv' requires path_file")
-        return self
 
-    def as_constant(self) -> FlowBoundaryForcingConstantConfig:
-        if self.mode != "constant":
-            raise ValueError("boundary forcing is not in constant mode")
-        return FlowBoundaryForcingConstantConfig(value=self.value)
-
-    def as_csv(self) -> FlowBoundaryForcingCsvConfig:
-        if self.mode != "csv":
-            raise ValueError("boundary forcing is not in csv mode")
-        return FlowBoundaryForcingCsvConfig(
-            path_file=self.path_file,
-            sep=self.sep,
-            date_column=self.date_column,
-            date_format=self.date_format,
-            value_column=self.value_column,
-            fill_method=self.fill_method,
-            aggregate=self.aggregate,
-        )
+FlowBoundaryForcingConfig: TypeAlias = Annotated[
+    FlowBoundaryForcingConstantConfig | FlowBoundaryForcingCsvConfig,
+    Field(
+        discriminator="mode",
+        description="Discriminated union of boundary-forcing payloads (constant or csv).",
+    ),
+]
+"""Discriminated union of boundary-forcing payloads selected by the mode tag."""
 
 
 class FlowBoundaryConditionConfig(HydroModelBase):
