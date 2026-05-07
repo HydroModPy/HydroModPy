@@ -13,13 +13,12 @@ import json
 import re
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import FancyBboxPatch
-
 
 HERE = Path(__file__).resolve()
 SOURCE_ROOT = HERE.parents[2]
@@ -58,19 +57,71 @@ FAMILIES: tuple[Family, ...] = (
         "river overlay",
         "mesh/drainage",
     ),
-    Family("hydrometry", "Observed", ("custom", "hubeau"), "Stations + series", "hydrograph", "calibration"),
-    Family("piezometry", "Observed", ("custom", "hubeau"), "Wells + series", "level/depth", "head checks"),
-    Family("intermittency", "Observed", ("custom", "hubeau"), "States", "state timeline", "active net"),
-    Family("water_quality", "Observed", ("custom", "hubeau"), "Chemistry", "parameter series", "transport"),
-    Family("oceanic", "Boundary", ("custom", "shom", "constant"), "Sea level", "stage series", "coast BC"),
-    Family("recharge", "Forcing", ("custom", "sim2", "synthetic"), "Grid/series", "forcing curve", "RCH"),
-    Family("precipitation", "Forcing", ("custom", "sim2"), "Grid/series", "climate summary", "preprocess"),
+    Family(
+        "hydrometry",
+        "Observed",
+        ("custom", "hubeau"),
+        "Stations + series",
+        "hydrograph",
+        "calibration",
+    ),
+    Family(
+        "piezometry",
+        "Observed",
+        ("custom", "hubeau"),
+        "Wells + series",
+        "level/depth",
+        "head checks",
+    ),
+    Family(
+        "intermittency", "Observed", ("custom", "hubeau"), "States", "state timeline", "active net"
+    ),
+    Family(
+        "water_quality",
+        "Observed",
+        ("custom", "hubeau"),
+        "Chemistry",
+        "parameter series",
+        "transport",
+    ),
+    Family(
+        "oceanic",
+        "Boundary",
+        ("custom", "shom", "constant"),
+        "Sea level",
+        "stage series",
+        "coast BC",
+    ),
+    Family(
+        "recharge",
+        "Forcing",
+        ("custom", "sim2", "synthetic"),
+        "Grid/series",
+        "forcing curve",
+        "RCH",
+    ),
+    Family(
+        "precipitation",
+        "Forcing",
+        ("custom", "sim2"),
+        "Grid/series",
+        "climate summary",
+        "preprocess",
+    ),
     Family("etp", "Forcing", ("custom", "sim2"), "Grid/series", "ETP summary", "EVT"),
-    Family("temperature", "Forcing", ("custom", "sim2"), "Grid/series", "climate summary", "preprocess"),
+    Family(
+        "temperature", "Forcing", ("custom", "sim2"), "Grid/series", "climate summary", "preprocess"
+    ),
     Family("wind", "Forcing", ("custom", "sim2"), "Grid/series", "climate summary", "preprocess"),
-    Family("humidity", "Forcing", ("custom", "sim2"), "Grid/series", "climate summary", "preprocess"),
-    Family("radiation", "Forcing", ("custom", "sim2"), "Grid/series", "climate summary", "preprocess"),
-    Family("soil_moisture", "Forcing", ("custom", "sim2"), "Grid/series", "soil summary", "diagnostic"),
+    Family(
+        "humidity", "Forcing", ("custom", "sim2"), "Grid/series", "climate summary", "preprocess"
+    ),
+    Family(
+        "radiation", "Forcing", ("custom", "sim2"), "Grid/series", "climate summary", "preprocess"
+    ),
+    Family(
+        "soil_moisture", "Forcing", ("custom", "sim2"), "Grid/series", "soil summary", "diagnostic"
+    ),
     Family("runoff", "Forcing", ("custom", "sim2"), "Grid/series", "runoff summary", "balance"),
 )
 
@@ -106,7 +157,7 @@ def _save(fig: plt.Figure, name: str) -> Path:
 
 def _parse_code_sources() -> dict[str, list[str]]:
     result: dict[str, list[str]] = {}
-    pattern = re.compile(r'Literal\[(.*?)\]')
+    pattern = re.compile(r"Literal\[(.*?)\]")
     for config in sorted((REPO_ROOT / "hydromodpy" / "data" / "variables").glob("*/config.py")):
         text = config.read_text(encoding="utf-8")
         for line in text.splitlines():
@@ -130,12 +181,23 @@ def render_source_matrix() -> Path:
 
     ax.text(-2.85, len(FAMILIES) + 0.45, "Data family", weight="bold", fontsize=10)
     ax.text(len(SOURCE_COLUMNS) + 0.15, len(FAMILIES) + 0.45, "Sources", weight="bold", fontsize=10)
-    ax.text(len(SOURCE_COLUMNS) + 5.0, len(FAMILIES) + 0.45, "Payload -> first check -> use", weight="bold", fontsize=10)
+    ax.text(
+        len(SOURCE_COLUMNS) + 5.0,
+        len(FAMILIES) + 0.45,
+        "Payload -> first check -> use",
+        weight="bold",
+        fontsize=10,
+    )
 
     for idx, (label, _sources, _color) in enumerate(SOURCE_COLUMNS):
         ax.text(idx + 0.5, len(FAMILIES) + 0.35, label, ha="center", va="bottom", weight="bold")
 
-    group_colors = {"Spatial": "#E7F0E1", "Observed": "#F4E9D8", "Boundary": "#E1F0EF", "Forcing": "#E8EBF5"}
+    group_colors = {
+        "Spatial": "#E7F0E1",
+        "Observed": "#F4E9D8",
+        "Boundary": "#E1F0EF",
+        "Forcing": "#E8EBF5",
+    }
 
     for row, family in enumerate(FAMILIES):
         y = len(FAMILIES) - row - 0.15
@@ -155,7 +217,15 @@ def render_source_matrix() -> Path:
         for idx, (_label, source_names, color) in enumerate(SOURCE_COLUMNS):
             present = [source for source in family.sources if source in source_names]
             if present:
-                ax.scatter(idx + 0.5, y - 0.08, s=145, marker="s", color=color, edgecolor="white", linewidth=1.0)
+                ax.scatter(
+                    idx + 0.5,
+                    y - 0.08,
+                    s=145,
+                    marker="s",
+                    color=color,
+                    edgecolor="white",
+                    linewidth=1.0,
+                )
         ax.text(
             len(SOURCE_COLUMNS) + 0.15,
             y - 0.08,
@@ -212,7 +282,16 @@ def render_contract_ladder() -> Path:
                 alpha=0.96,
             )
         )
-        ax.text(x + 0.775, 3.06, title, ha="center", va="center", color="white", weight="bold", fontsize=10)
+        ax.text(
+            x + 0.775,
+            3.06,
+            title,
+            ha="center",
+            va="center",
+            color="white",
+            weight="bold",
+            fontsize=10,
+        )
         ax.text(x + 0.775, 2.5, body, ha="center", va="center", color="white", fontsize=8)
         if idx < len(steps) - 1:
             ax.annotate(
@@ -222,7 +301,14 @@ def render_contract_ladder() -> Path:
                 arrowprops={"arrowstyle": "->", "color": "#333333", "lw": 1.2},
             )
 
-    ax.text(0.35, 4.45, "The data contract is not the file path", fontsize=15, weight="bold", color="#222222")
+    ax.text(
+        0.35,
+        4.45,
+        "The data contract is not the file path",
+        fontsize=15,
+        weight="bold",
+        color="#222222",
+    )
     ax.text(
         0.35,
         4.05,
@@ -248,10 +334,34 @@ def render_run_roadmap() -> Path:
 
     rows = [
         ("1", "Static inventory", "No run", "source matrix, contract ladder", "Keep docs complete"),
-        ("2", "Local data cases", "Seconds", "oceanic, intermittency, custom files", "Explain formats"),
-        ("3", "Data overview", "Minutes", "Nancon identity card, time series", "Show real basin inputs"),
-        ("4", "Solver illustration", "Minutes+", "water budget, hydrograph, active network", "Connect data to model output"),
-        ("5", "New gallery basins", "Case-by-case", "coastal SHOM, OSM/EU-Hydro, provider contrasts", "Cover missing providers"),
+        (
+            "2",
+            "Local data cases",
+            "Seconds",
+            "oceanic, intermittency, custom files",
+            "Explain formats",
+        ),
+        (
+            "3",
+            "Data overview",
+            "Minutes",
+            "Nancon identity card, time series",
+            "Show real basin inputs",
+        ),
+        (
+            "4",
+            "Solver illustration",
+            "Minutes+",
+            "water budget, hydrograph, active network",
+            "Connect data to model output",
+        ),
+        (
+            "5",
+            "New gallery basins",
+            "Case-by-case",
+            "coastal SHOM, OSM/EU-Hydro, provider contrasts",
+            "Cover missing providers",
+        ),
     ]
     headers = ["Step", "Run type", "Cost", "Figures to produce", "Documentation purpose"]
     widths = [0.8, 2.2, 1.25, 4.2, 2.9]
@@ -261,18 +371,53 @@ def render_run_roadmap() -> Path:
 
     y_top = 4.7
     ax.text(0.35, 5.55, "Run and figure roadmap", fontsize=15, weight="bold", color="#222222")
-    ax.text(0.35, 5.20, "Use the cheapest figure that answers the documentation question.", fontsize=10, color="#333333")
+    ax.text(
+        0.35,
+        5.20,
+        "Use the cheapest figure that answers the documentation question.",
+        fontsize=10,
+        color="#333333",
+    )
 
     for x, width, header in zip(xs, widths, headers):
-        ax.add_patch(FancyBboxPatch((x, y_top - 0.25), width - 0.05, 0.48, boxstyle="round,pad=0.02", facecolor="#333333", edgecolor="none"))
-        ax.text(x + 0.08, y_top, header, va="center", ha="left", color="white", weight="bold", fontsize=8.5)
+        ax.add_patch(
+            FancyBboxPatch(
+                (x, y_top - 0.25),
+                width - 0.05,
+                0.48,
+                boxstyle="round,pad=0.02",
+                facecolor="#333333",
+                edgecolor="none",
+            )
+        )
+        ax.text(
+            x + 0.08,
+            y_top,
+            header,
+            va="center",
+            ha="left",
+            color="white",
+            weight="bold",
+            fontsize=8.5,
+        )
 
     row_colors = ["#EEF3F8", "#F3F6ED", "#F7EFE4", "#EEF3F8", "#F3F0F7"]
     for ridx, row in enumerate(rows):
         y = y_top - 0.78 - ridx * 0.78
         for cidx, (x, width, text) in enumerate(zip(xs, widths, row)):
-            ax.add_patch(FancyBboxPatch((x, y - 0.28), width - 0.05, 0.55, boxstyle="round,pad=0.02", facecolor=row_colors[ridx], edgecolor="white"))
-            ax.text(x + 0.08, y, text, va="center", ha="left", color="#222222", fontsize=8.2, wrap=True)
+            ax.add_patch(
+                FancyBboxPatch(
+                    (x, y - 0.28),
+                    width - 0.05,
+                    0.55,
+                    boxstyle="round,pad=0.02",
+                    facecolor=row_colors[ridx],
+                    edgecolor="white",
+                )
+            )
+            ax.text(
+                x + 0.08, y, text, va="center", ha="left", color="#222222", fontsize=8.2, wrap=True
+            )
 
     return _save(fig, "data_run_figure_roadmap.png")
 
@@ -302,7 +447,7 @@ def _read_timeseries_csv(
         else:
             date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
             if date.tzinfo is not None:
-                date = date.astimezone(timezone.utc).replace(tzinfo=None)
+                date = date.astimezone(UTC).replace(tzinfo=None)
         dates.append(date)
         values.append(float(row[value_column]))
     return dates, values
@@ -385,7 +530,9 @@ def render_spatial_local_example() -> tuple[Path, dict[str, object]]:
 
 
 def render_geology_property_local_example() -> tuple[Path, dict[str, object]]:
-    from hydromodpy.data.variables.geology.cases.run_geology_property_case import main as run_geology_case
+    from hydromodpy.data.variables.geology.cases.run_geology_property_case import (
+        main as run_geology_case,
+    )
 
     output_path = OUTPUT_DIR / "geology_property_brittany_local.png"
     run_geology_case(
@@ -415,15 +562,34 @@ def render_geology_property_local_example() -> tuple[Path, dict[str, object]]:
 
 
 def render_forcing_local_example() -> tuple[Path, dict[str, object]]:
-    recharge_path = REPO_ROOT / "examples" / "data" / "recharge" / "recharge_custom_NANCON_20000101_20021231_M.csv"
-    runoff_path = REPO_ROOT / "examples" / "data" / "runoff" / "runoff_custom_NANCON_20000101_20021231_M.csv"
+    recharge_path = (
+        REPO_ROOT
+        / "examples"
+        / "data"
+        / "recharge"
+        / "recharge_custom_NANCON_20000101_20021231_M.csv"
+    )
+    runoff_path = (
+        REPO_ROOT / "examples" / "data" / "runoff" / "runoff_custom_NANCON_20000101_20021231_M.csv"
+    )
     recharge_dates, recharge_values = _read_timeseries_csv(recharge_path)
     runoff_dates, runoff_values = _read_timeseries_csv(runoff_path)
 
     fig, (ax_values, ax_cumulative) = plt.subplots(2, 1, figsize=(10.5, 6.0), sharex=True)
-    ax_values.plot(recharge_dates, recharge_values, marker="o", markersize=3.0, color="#2E6F9E", label="recharge")
-    ax_values.plot(runoff_dates, runoff_values, marker="o", markersize=3.0, color="#C78B48", label="runoff")
-    ax_values.set_title("Local forcing custom case: monthly source values", loc="left", weight="bold")
+    ax_values.plot(
+        recharge_dates,
+        recharge_values,
+        marker="o",
+        markersize=3.0,
+        color="#2E6F9E",
+        label="recharge",
+    )
+    ax_values.plot(
+        runoff_dates, runoff_values, marker="o", markersize=3.0, color="#C78B48", label="runoff"
+    )
+    ax_values.set_title(
+        "Local forcing custom case: monthly source values", loc="left", weight="bold"
+    )
     ax_values.set_ylabel("source value")
     ax_values.grid(True, color="#DDDDDD", linewidth=0.7)
     ax_values.legend(frameon=False, loc="upper right")
@@ -442,7 +608,9 @@ def render_forcing_local_example() -> tuple[Path, dict[str, object]]:
         linewidth=2.0,
         label="cumulative runoff",
     )
-    ax_cumulative.set_title("Coverage and aggregate behaviour before solver use", loc="left", weight="bold")
+    ax_cumulative.set_title(
+        "Coverage and aggregate behaviour before solver use", loc="left", weight="bold"
+    )
     ax_cumulative.set_ylabel("cumulative source value")
     ax_cumulative.set_xlabel("date")
     ax_cumulative.grid(True, color="#DDDDDD", linewidth=0.7)
@@ -459,9 +627,23 @@ def render_forcing_local_example() -> tuple[Path, dict[str, object]]:
 def render_sim2_grid_example() -> tuple[Path, dict[str, object]]:
     import xarray as xr
 
-    recharge_path = REPO_ROOT / "examples" / "data" / "recharge" / "recharge_sim2_5ce2a843_20200101_20201231.nc"
-    precip_path = REPO_ROOT / "examples" / "data" / "precipitation" / "precipitation_total_sim2_5347fa22_20000101_20251231.nc"
-    temperature_path = REPO_ROOT / "examples" / "data" / "temperature" / "temperature_sim2_5347fa22_20000101_20251231.nc"
+    recharge_path = (
+        REPO_ROOT / "examples" / "data" / "recharge" / "recharge_sim2_5ce2a843_20200101_20201231.nc"
+    )
+    precip_path = (
+        REPO_ROOT
+        / "examples"
+        / "data"
+        / "precipitation"
+        / "precipitation_total_sim2_5347fa22_20000101_20251231.nc"
+    )
+    temperature_path = (
+        REPO_ROOT
+        / "examples"
+        / "data"
+        / "temperature"
+        / "temperature_sim2_5347fa22_20000101_20251231.nc"
+    )
 
     with xr.open_dataset(recharge_path) as recharge_ds:
         recharge = recharge_ds["recharge"].sel(time=slice("2020-01-01", "2020-12-31"))
@@ -475,7 +657,11 @@ def render_sim2_grid_example() -> tuple[Path, dict[str, object]]:
         }
 
     with xr.open_dataset(precip_path) as precip_ds:
-        precip = precip_ds["precipitation_total"].sel(time=slice("2020-01-01", "2020-12-31")).mean(dim=("x", "y"))
+        precip = (
+            precip_ds["precipitation_total"]
+            .sel(time=slice("2020-01-01", "2020-12-31"))
+            .mean(dim=("x", "y"))
+        )
         precip_monthly = precip.resample(time="MS").sum()
         precip_summary = {
             "days": int(precip.sizes["time"]),
@@ -483,7 +669,11 @@ def render_sim2_grid_example() -> tuple[Path, dict[str, object]]:
         }
 
     with xr.open_dataset(temperature_path) as temperature_ds:
-        temperature = temperature_ds["temperature"].sel(time=slice("2020-01-01", "2020-12-31")).mean(dim=("x", "y"))
+        temperature = (
+            temperature_ds["temperature"]
+            .sel(time=slice("2020-01-01", "2020-12-31"))
+            .mean(dim=("x", "y"))
+        )
         temperature_monthly = temperature.resample(time="MS").mean()
         temperature_summary = {
             "days": int(temperature.sizes["time"]),
@@ -494,7 +684,12 @@ def render_sim2_grid_example() -> tuple[Path, dict[str, object]]:
     im = ax_map.imshow(
         recharge_map,
         origin="lower",
-        extent=[float(np.min(recharge_x)), float(np.max(recharge_x)), float(np.min(recharge_y)), float(np.max(recharge_y))],
+        extent=[
+            float(np.min(recharge_x)),
+            float(np.max(recharge_x)),
+            float(np.min(recharge_y)),
+            float(np.max(recharge_y)),
+        ],
         cmap="Blues",
         aspect="auto",
     )
@@ -503,9 +698,23 @@ def render_sim2_grid_example() -> tuple[Path, dict[str, object]]:
     fig.colorbar(im, ax=ax_map, shrink=0.78, pad=0.02, label="mean recharge")
 
     months = [datetime.fromisoformat(str(value)[:10]) for value in precip_monthly["time"].values]
-    ax_cycle.bar(months, precip_monthly.values, width=20, color="#2E6F9E", alpha=0.75, label="monthly precipitation")
+    ax_cycle.bar(
+        months,
+        precip_monthly.values,
+        width=20,
+        color="#2E6F9E",
+        alpha=0.75,
+        label="monthly precipitation",
+    )
     ax_temp = ax_cycle.twinx()
-    ax_temp.plot(months, temperature_monthly.values, color="#C85A54", marker="o", linewidth=1.8, label="monthly temperature")
+    ax_temp.plot(
+        months,
+        temperature_monthly.values,
+        color="#C85A54",
+        marker="o",
+        linewidth=1.8,
+        label="monthly temperature",
+    )
     ax_cycle.set_title("SIM2 local NetCDF: climate cycle, 2020", loc="left", weight="bold")
     ax_cycle.set_ylabel("precipitation total")
     ax_temp.set_ylabel("temperature mean")
@@ -528,19 +737,31 @@ def render_observation_local_examples() -> tuple[Path, dict[str, object]]:
         (
             "Hydrometry",
             "Nancon discharge",
-            REPO_ROOT / "examples" / "data" / "hydrometry" / "hydrometry_custom_NANCON_19820201_20220125_D.csv",
+            REPO_ROOT
+            / "examples"
+            / "data"
+            / "hydrometry"
+            / "hydrometry_custom_NANCON_19820201_20220125_D.csv",
             "#2E6F9E",
         ),
         (
             "Piezometry",
             "Groundwater level",
-            REPO_ROOT / "examples" / "data" / "piezometry" / "piezometry_custom_PIEZO01_19900101_19921231_D.csv",
+            REPO_ROOT
+            / "examples"
+            / "data"
+            / "piezometry"
+            / "piezometry_custom_PIEZO01_19900101_19921231_D.csv",
             "#7BAA64",
         ),
         (
             "Water quality",
             "NO3 concentration",
-            REPO_ROOT / "examples" / "data" / "water_quality" / "waterquality_custom_WQ_NO3_19900101_19921231_D.csv",
+            REPO_ROOT
+            / "examples"
+            / "data"
+            / "water_quality"
+            / "waterquality_custom_WQ_NO3_19900101_19921231_D.csv",
             "#7A6EA8",
         ),
     ]
@@ -550,7 +771,9 @@ def render_observation_local_examples() -> tuple[Path, dict[str, object]]:
     for ax, (family, label, path, color) in zip(axes, series, strict=True):
         dates, values = _read_timeseries_csv(path)
         summaries[family.lower().replace(" ", "_")] = _series_summary(dates, values)
-        selected = [(date, value) for date, value in zip(dates, values, strict=True) if date.year == 1990]
+        selected = [
+            (date, value) for date, value in zip(dates, values, strict=True) if date.year == 1990
+        ]
         if not selected:
             selected = list(zip(dates[:365], values[:365], strict=True))
         selected_dates = [date for date, _value in selected]
@@ -570,7 +793,12 @@ def render_observation_local_examples() -> tuple[Path, dict[str, object]]:
             color="#333333",
         )
     axes[-1].set_xlabel("date")
-    fig.suptitle("Local observation chronicles: same visual contract, different semantics", x=0.01, ha="left", weight="bold")
+    fig.suptitle(
+        "Local observation chronicles: same visual contract, different semantics",
+        x=0.01,
+        ha="left",
+        weight="bold",
+    )
     fig.autofmt_xdate()
     fig.tight_layout(rect=[0, 0, 1, 0.95])
     return _save(fig, "observations_local_timeseries_examples.png"), summaries
@@ -586,25 +814,41 @@ def render_hubeau_provider_replay() -> tuple[Path, dict[str, object]]:
         (
             "Hydrometry",
             REPO_ROOT / "examples" / "data" / "hydrometry" / "hydrometry_hubeau_LOC.csv",
-            REPO_ROOT / "examples" / "data" / "hydrometry" / "hydrometry_hubeau_J709063002_20220101_20220331_D.csv",
+            REPO_ROOT
+            / "examples"
+            / "data"
+            / "hydrometry"
+            / "hydrometry_hubeau_J709063002_20220101_20220331_D.csv",
             "#2E6F9E",
         ),
         (
             "Piezometry",
             REPO_ROOT / "examples" / "data" / "piezometry" / "piezometry_hubeau_LOC.csv",
-            REPO_ROOT / "examples" / "data" / "piezometry" / "piezometry_hubeau_03172X0088_PZ_20220101_20220331_D.csv",
+            REPO_ROOT
+            / "examples"
+            / "data"
+            / "piezometry"
+            / "piezometry_hubeau_03172X0088_PZ_20220101_20220331_D.csv",
             "#7BAA64",
         ),
         (
             "Water quality",
             REPO_ROOT / "examples" / "data" / "water_quality" / "waterquality_hubeau_LOC.csv",
-            REPO_ROOT / "examples" / "data" / "water_quality" / "waterquality_hubeau_04161595_20070110_20240702_irregular.csv",
+            REPO_ROOT
+            / "examples"
+            / "data"
+            / "water_quality"
+            / "waterquality_hubeau_04161595_20070110_20240702_irregular.csv",
             "#7A6EA8",
         ),
         (
             "Intermittency",
             REPO_ROOT / "examples" / "data" / "intermittency" / "intermittency_hubeau_LOC.csv",
-            REPO_ROOT / "examples" / "data" / "intermittency" / "intermittency_hubeau_J0014011_20000101_20251231_irregular.csv",
+            REPO_ROOT
+            / "examples"
+            / "data"
+            / "intermittency"
+            / "intermittency_hubeau_J0014011_20000101_20251231_irregular.csv",
             "#C78B48",
         ),
     ]
@@ -620,9 +864,17 @@ def render_hubeau_provider_replay() -> tuple[Path, dict[str, object]]:
         locs = _read_locations(loc_path)
         xs = [float(row["x"]) for row in locs]
         ys = [float(row["y"]) for row in locs]
-        ax_map.scatter(xs, ys, s=46, color=color, label=f"{family} stations", edgecolor="white", linewidth=0.8)
+        ax_map.scatter(
+            xs, ys, s=46, color=color, label=f"{family} stations", edgecolor="white", linewidth=0.8
+        )
         for row in locs[:4]:
-            ax_map.text(float(row["x"]), float(row["y"]), str(row["id"]).split("/")[0], fontsize=7, color="#333333")
+            ax_map.text(
+                float(row["x"]),
+                float(row["y"]),
+                str(row["id"]).split("/")[0],
+                fontsize=7,
+                color="#333333",
+            )
 
         dates, values = _read_timeseries_csv(series_path)
         key = family.lower().replace(" ", "_")
@@ -661,7 +913,9 @@ def render_hubeau_provider_replay() -> tuple[Path, dict[str, object]]:
     ax_coverage.set_xscale("log")
     ax_coverage.grid(True, axis="x", color="#DDDDDD", linewidth=0.7)
 
-    ax_series.set_title("Normalized first-look chronicles by Hub'Eau family", loc="left", weight="bold")
+    ax_series.set_title(
+        "Normalized first-look chronicles by Hub'Eau family", loc="left", weight="bold"
+    )
     ax_series.set_ylabel("scaled value")
     ax_series.set_xlabel("date")
     ax_series.grid(True, color="#DDDDDD", linewidth=0.7)
@@ -673,24 +927,49 @@ def render_hubeau_provider_replay() -> tuple[Path, dict[str, object]]:
 
 def render_shom_provider_replay() -> tuple[Path, dict[str, object]]:
     loc_path = REPO_ROOT / "examples" / "data" / "oceanic" / "oceanic_custom_LOC.csv"
-    shom_path = REPO_ROOT / "examples" / "data" / "oceanic" / "sealevel_shom_152_20030101_20030130_H.csv"
-    custom_path = REPO_ROOT / "examples" / "data" / "oceanic" / "oceanic_custom_152_20030101_20030130_H.csv"
+    shom_path = (
+        REPO_ROOT / "examples" / "data" / "oceanic" / "sealevel_shom_152_20030101_20030130_H.csv"
+    )
+    custom_path = (
+        REPO_ROOT / "examples" / "data" / "oceanic" / "oceanic_custom_152_20030101_20030130_H.csv"
+    )
     locs = _read_locations(loc_path)
     shom_dates, shom_values = _read_timeseries_csv(shom_path, date_column="timestamp")
     custom_dates, custom_values = _read_timeseries_csv(custom_path, date_column="timestamp")
 
     fig, (ax_map, ax_series) = plt.subplots(1, 2, figsize=(11.8, 4.4), dpi=140)
     for row in locs:
-        ax_map.scatter(float(row["x"]), float(row["y"]), s=90, color="#2E6F9E", edgecolor="white", linewidth=1.2)
-        ax_map.text(float(row["x"]) + 0.015, float(row["y"]) + 0.015, f"station {row['id']}", fontsize=9)
+        ax_map.scatter(
+            float(row["x"]),
+            float(row["y"]),
+            s=90,
+            color="#2E6F9E",
+            edgecolor="white",
+            linewidth=1.2,
+        )
+        ax_map.text(
+            float(row["x"]) + 0.015, float(row["y"]) + 0.015, f"station {row['id']}", fontsize=9
+        )
     ax_map.set_title("SHOM replay: station selected for coastal stage", loc="left", weight="bold")
     ax_map.set_xlabel("longitude")
     ax_map.set_ylabel("latitude")
     ax_map.grid(True, color="#DDDDDD", linewidth=0.7)
 
-    ax_series.plot(shom_dates, shom_values, marker="o", color="#2E6F9E", linewidth=2.0, label="SHOM replay")
-    ax_series.plot(custom_dates, custom_values, marker="x", color="#C78B48", linestyle="--", linewidth=1.3, label="custom mirror")
-    ax_series.set_title("Sea-level chronicle: provider replay vs custom mirror", loc="left", weight="bold")
+    ax_series.plot(
+        shom_dates, shom_values, marker="o", color="#2E6F9E", linewidth=2.0, label="SHOM replay"
+    )
+    ax_series.plot(
+        custom_dates,
+        custom_values,
+        marker="x",
+        color="#C78B48",
+        linestyle="--",
+        linewidth=1.3,
+        label="custom mirror",
+    )
+    ax_series.set_title(
+        "Sea-level chronicle: provider replay vs custom mirror", loc="left", weight="bold"
+    )
     ax_series.set_ylabel("stage (m)")
     ax_series.set_xlabel("timestamp")
     ax_series.grid(True, color="#DDDDDD", linewidth=0.7)
@@ -717,9 +996,7 @@ def render_hydrography_provider_replay() -> tuple[Path, dict[str, object]]:
     }
     regional = gpd.read_file(regional_path)
     provider_gdfs = {
-        name: gpd.read_file(path)
-        for name, path in provider_paths.items()
-        if path.exists()
+        name: gpd.read_file(path) for name, path in provider_paths.items() if path.exists()
     }
 
     fig, axes = plt.subplots(2, 2, figsize=(12.8, 9.0), dpi=140)
@@ -863,8 +1140,20 @@ def render_hydrography_provider_comparison() -> tuple[Path, dict[str, object]]:
     if lengths:
         ax_len.set_xlim(0, max(lengths) * 1.18)
     for idx, row in enumerate(stats):
-        ax_stats.text(row["feature_count"] + max(counts) * 0.02, idx - 0.18, str(row["feature_count"]), va="center", fontsize=8)
-        ax_len.text(row["length_km"] + max(lengths) * 0.02, idx + 0.18, f"{row['length_km']:.1f}", va="center", fontsize=8)
+        ax_stats.text(
+            row["feature_count"] + max(counts) * 0.02,
+            idx - 0.18,
+            str(row["feature_count"]),
+            va="center",
+            fontsize=8,
+        )
+        ax_len.text(
+            row["length_km"] + max(lengths) * 0.02,
+            idx + 0.18,
+            f"{row['length_km']:.1f}",
+            va="center",
+            fontsize=8,
+        )
 
     fig.tight_layout()
     return _save(fig, "hydrography_provider_couesnon_comparison.png"), {
@@ -899,8 +1188,26 @@ def render_provider_case_ladder() -> Path:
                 alpha=0.96,
             )
         )
-        ax.text(x + 1.175, 3.03, title, ha="center", va="center", color="white", weight="bold", fontsize=11)
-        ax.text(x + 1.175, 2.43, body, ha="center", va="center", color="white", fontsize=8.2, linespacing=1.05)
+        ax.text(
+            x + 1.175,
+            3.03,
+            title,
+            ha="center",
+            va="center",
+            color="white",
+            weight="bold",
+            fontsize=11,
+        )
+        ax.text(
+            x + 1.175,
+            2.43,
+            body,
+            ha="center",
+            va="center",
+            color="white",
+            fontsize=8.2,
+            linespacing=1.05,
+        )
         if idx < len(cards) - 1:
             ax.annotate(
                 "",
@@ -932,9 +1239,28 @@ def render_oceanic_example() -> tuple[Path, dict[str, object]]:
         run_oceanic_case_from_toml,
     )
 
-    config = REPO_ROOT / "hydromodpy" / "data" / "variables" / "oceanic" / "cases" / "run_oceanic_config.toml"
-    summary = run_oceanic_case_from_toml(config, output_json=OUTPUT_DIR / "oceanic_local_case_summary.json")
-    csv_path = REPO_ROOT / "hydromodpy" / "data" / "variables" / "oceanic" / "cases" / "data" / "oceanic_local_sample.csv"
+    config = (
+        REPO_ROOT
+        / "hydromodpy"
+        / "data"
+        / "variables"
+        / "oceanic"
+        / "cases"
+        / "run_oceanic_config.toml"
+    )
+    summary = run_oceanic_case_from_toml(
+        config, output_json=OUTPUT_DIR / "oceanic_local_case_summary.json"
+    )
+    csv_path = (
+        REPO_ROOT
+        / "hydromodpy"
+        / "data"
+        / "variables"
+        / "oceanic"
+        / "cases"
+        / "data"
+        / "oceanic_local_sample.csv"
+    )
     rows = _read_csv_rows(csv_path)
     dates = [datetime.fromisoformat(row["timestamp"]) for row in rows]
     values = [float(row["value"]) for row in rows]
@@ -966,12 +1292,24 @@ def render_intermittency_example() -> tuple[Path, dict[str, object]]:
         run_intermittency_case_from_toml,
     )
 
-    config = REPO_ROOT / "hydromodpy" / "data" / "variables" / "intermittency" / "cases" / "run_intermittency_config.toml"
-    summary = run_intermittency_case_from_toml(config, output_json=OUTPUT_DIR / "intermittency_local_case_summary.json")
+    config = (
+        REPO_ROOT
+        / "hydromodpy"
+        / "data"
+        / "variables"
+        / "intermittency"
+        / "cases"
+        / "run_intermittency_config.toml"
+    )
+    summary = run_intermittency_case_from_toml(
+        config, output_json=OUTPUT_DIR / "intermittency_local_case_summary.json"
+    )
     data_dir = REPO_ROOT / "hydromodpy" / "data" / "variables" / "intermittency" / "cases" / "data"
     station_files = sorted(data_dir.glob("intermittency_custom_ONDE*_irregular.csv"))
 
-    fig, (ax_timeline, ax_hist) = plt.subplots(1, 2, figsize=(11.5, 4.2), gridspec_kw={"width_ratios": [2.6, 1.0]})
+    fig, (ax_timeline, ax_hist) = plt.subplots(
+        1, 2, figsize=(11.5, 4.2), gridspec_kw={"width_ratios": [2.6, 1.0]}
+    )
     colors = ["#2E6F9E", "#7BAA64", "#C78B48"]
     all_values: list[int] = []
     for idx, path in enumerate(station_files):
@@ -980,10 +1318,14 @@ def render_intermittency_example() -> tuple[Path, dict[str, object]]:
         dates = [datetime.fromisoformat(row["datetime"]) for row in rows]
         values = [int(row["value"]) for row in rows]
         all_values.extend(values)
-        ax_timeline.scatter(dates, values, s=28, color=colors[idx % len(colors)], label=station, alpha=0.9)
+        ax_timeline.scatter(
+            dates, values, s=28, color=colors[idx % len(colors)], label=station, alpha=0.9
+        )
         ax_timeline.plot(dates, values, color=colors[idx % len(colors)], linewidth=0.7, alpha=0.45)
 
-    ax_timeline.set_title("Local intermittency custom case: state timeline", loc="left", weight="bold")
+    ax_timeline.set_title(
+        "Local intermittency custom case: state timeline", loc="left", weight="bold"
+    )
     ax_timeline.set_ylabel("state code")
     ax_timeline.set_xlabel("observation date")
     ax_timeline.set_yticks([1, 2, 3, 4, 5])
@@ -1018,7 +1360,9 @@ def main() -> int:
     hubeau_provider_path, hubeau_provider_summary = render_hubeau_provider_replay()
     shom_provider_path, shom_provider_summary = render_shom_provider_replay()
     hydrography_provider_path, hydrography_provider_summary = render_hydrography_provider_replay()
-    hydrography_comparison_path, hydrography_comparison_summary = render_hydrography_provider_comparison()
+    hydrography_comparison_path, hydrography_comparison_summary = (
+        render_hydrography_provider_comparison()
+    )
     oceanic_path, oceanic_summary = render_oceanic_example()
     intermittency_path, intermittency_summary = render_intermittency_example()
     outputs["spatial_local_dem_hydrography"] = str(spatial_path.relative_to(SOURCE_ROOT))
@@ -1030,7 +1374,9 @@ def main() -> int:
     outputs["hubeau_provider_replay"] = str(hubeau_provider_path.relative_to(SOURCE_ROOT))
     outputs["shom_provider_replay"] = str(shom_provider_path.relative_to(SOURCE_ROOT))
     outputs["hydrography_provider_replay"] = str(hydrography_provider_path.relative_to(SOURCE_ROOT))
-    outputs["hydrography_provider_comparison"] = str(hydrography_comparison_path.relative_to(SOURCE_ROOT))
+    outputs["hydrography_provider_comparison"] = str(
+        hydrography_comparison_path.relative_to(SOURCE_ROOT)
+    )
     outputs["oceanic_local_stage"] = str(oceanic_path.relative_to(SOURCE_ROOT))
     outputs["intermittency_local_state"] = str(intermittency_path.relative_to(SOURCE_ROOT))
 
@@ -1053,8 +1399,12 @@ def main() -> int:
         "intermittency_case": intermittency_summary,
     }
     summary_path = OUTPUT_DIR / "data_communication_assets_summary.json"
-    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
-    print(json.dumps({"summary": str(summary_path), "outputs": outputs}, indent=2, ensure_ascii=True))
+    summary_path.write_text(
+        json.dumps(summary, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+    )
+    print(
+        json.dumps({"summary": str(summary_path), "outputs": outputs}, indent=2, ensure_ascii=True)
+    )
     return 0
 
 

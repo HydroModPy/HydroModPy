@@ -7,7 +7,6 @@ import json
 import math
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[2]
 STATIC_DIR = ROOT / "_static" / "scientific" / "mesh"
 MESH_GALLERY_DIR = ROOT / "_static" / "capability_gallery" / "mesh"
@@ -25,7 +24,9 @@ def _rect(x: float, y: float, w: float, h: float, klass: str = "panel") -> str:
     return f'<rect class="{klass}" x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}"/>'
 
 
-def _point_grid(nx: int, ny: int, x: float, y: float, w: float, h: float) -> list[list[tuple[float, float]]]:
+def _point_grid(
+    nx: int, ny: int, x: float, y: float, w: float, h: float
+) -> list[list[tuple[float, float]]]:
     points: list[list[tuple[float, float]]] = []
     for j in range(ny + 1):
         row: list[tuple[float, float]] = []
@@ -82,7 +83,12 @@ def render_regular_irregular_same_counts() -> str:
         "</style>",
         '<rect class="bg" width="1200" height="780"/>',
         _text(48, 56, "Same cell budget, different topology", "title"),
-        _text(48, 84, "Synthetic side-by-side: regular quadrilateral grids versus irregular triangular meshes with exactly the same number of cells.", "small"),
+        _text(
+            48,
+            84,
+            "Synthetic side-by-side: regular quadrilateral grids versus irregular triangular meshes with exactly the same number of cells.",
+            "small",
+        ),
         _text(210, 128, "Regular structured grid", "head"),
         _text(730, 128, "Irregular triangular mesh", "head"),
     ]
@@ -94,7 +100,14 @@ def render_regular_irregular_same_counts() -> str:
         svg.append(_text(78, y + 52, f"right: {n} x {n // 2} split cells", "mono"))
         svg.extend(_regular_grid(270, y - 16, 136, n))
         svg.extend(_irregular_triangles(780, y - 16, 136, n))
-    svg.append(_text(70, 735, "Interpretation: identical cell counts do not imply identical accuracy. Cell shape, topology, boundary alignment, and field transfer also matter.", "small"))
+    svg.append(
+        _text(
+            70,
+            735,
+            "Interpretation: identical cell counts do not imply identical accuracy. Cell shape, topology, boundary alignment, and field transfer also matter.",
+            "small",
+        )
+    )
     svg.append("</svg>")
     return "\n".join(svg)
 
@@ -116,8 +129,14 @@ def render_real_mesh_cell_budget() -> str:
         ("10 km2", "mesh_s3_10km2_outlet_1_geology_rivers_buffer30_summary.json"),
         ("10 km2 rivers only", "mesh_s3_10km2_outlet_1_rivers_only_buffer30_summary.json"),
         ("100 km2 rivers only", "mesh_100km2_outlet_27_rivers_only_buffer30_summary.json"),
-        ("100 km2 floor 340", "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_summary.json"),
-        ("100 km2 floor 200", "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json"),
+        (
+            "100 km2 floor 340",
+            "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor340_target200_summary.json",
+        ),
+        (
+            "100 km2 floor 200",
+            "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_floor200_target200_summary.json",
+        ),
         ("100 km2 default", "mesh_headwater_100km2_outlet_27_geology_rivers_buffer30_summary.json"),
         ("1000 km2", "mesh_1000km2_outlet_2_geology_rivers_buffer30_summary.json"),
     ]
@@ -132,7 +151,12 @@ def render_real_mesh_cell_budget() -> str:
         "</style>",
         '<rect class="bg" width="1200" height="660"/>',
         _text(48, 56, "Cell-count balance for committed irregular catchment meshes", "title"),
-        _text(48, 84, "Counts are read from the capability-gallery summary JSON files; all cases shown here are triangular Gmsh-style catchment meshes.", "small"),
+        _text(
+            48,
+            84,
+            "Counts are read from the capability-gallery summary JSON files; all cases shown here are triangular Gmsh-style catchment meshes.",
+            "small",
+        ),
     ]
     x0, y0, max_w = 280, 132, 720
     for i, (label, metrics) in enumerate(rows):
@@ -140,9 +164,27 @@ def render_real_mesh_cell_budget() -> str:
         w = max_w * metrics["cells"] / max_cells
         svg.append(_text(60, y + 22, label, "label"))
         svg.append(f'<rect class="bar" x="{x0}" y="{y}" width="{w:.2f}" height="28" rx="6"/>')
-        svg.append(_text(x0 + w + 14, y + 21, f'{metrics["cells"]:,} cells'.replace(",", " "), "mono"))
-        svg.append(_text(x0, y + 48, f'nodes={metrics["nodes"]:,}  river_edges={metrics["river_edges"]:,}  geology_edges={metrics["geology_edges"]:,}'.replace(",", " "), "small"))
-    svg.append(_text(60, 626, "Use this as a mesh-budget view, not as a quality ranking: a larger cell count is only useful if the added cells resolve relevant constraints.", "small"))
+        svg.append(
+            _text(x0 + w + 14, y + 21, f"{metrics['cells']:,} cells".replace(",", " "), "mono")
+        )
+        svg.append(
+            _text(
+                x0,
+                y + 48,
+                f"nodes={metrics['nodes']:,}  river_edges={metrics['river_edges']:,}  geology_edges={metrics['geology_edges']:,}".replace(
+                    ",", " "
+                ),
+                "small",
+            )
+        )
+    svg.append(
+        _text(
+            60,
+            626,
+            "Use this as a mesh-budget view, not as a quality ranking: a larger cell count is only useful if the added cells resolve relevant constraints.",
+            "small",
+        )
+    )
     svg.append("</svg>")
     return "\n".join(svg)
 

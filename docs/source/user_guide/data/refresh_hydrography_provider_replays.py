@@ -10,12 +10,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable
 
 import geopandas as gpd
-
 
 HERE = Path(__file__).resolve()
 REPO_ROOT = HERE.parents[5]
@@ -143,7 +142,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=["osm", "euhydro"],
         help="Providers to refresh. BD Topage is usually already committed.",
     )
-    parser.add_argument("--force", action="store_true", help="Fetch again even when a replay GPKG exists.")
+    parser.add_argument(
+        "--force", action="store_true", help="Fetch again even when a replay GPKG exists."
+    )
     parser.add_argument(
         "--manifest",
         type=Path,
@@ -163,7 +164,9 @@ def main(argv: list[str] | None = None) -> int:
         "artifacts": rows,
     }
     args.manifest.parent.mkdir(parents=True, exist_ok=True)
-    args.manifest.write_text(json.dumps(manifest, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    args.manifest.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+    )
     print(json.dumps(manifest, indent=2, ensure_ascii=True))
     return 0
 
