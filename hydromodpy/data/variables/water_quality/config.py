@@ -47,11 +47,6 @@ class WaterQualitySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin)
         InputFile(role="water_quality", category="data"),
     ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
 
-    # --- Spatial mask ---
-    mask_path: Annotated[Path | None, Profile.USER] = Field(
-        default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
-    )
-
     # --- API fallback / nearest ---
     fallback_search_radius_km: Annotated[float | None, Profile.DEV] = Field(
         default=None, description="If no station found in bbox, expand search by this radius (km)."
@@ -59,11 +54,6 @@ class WaterQualitySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin)
     nearest: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Keep only the nearest station to the extent centroid.",
-    )
-
-    source_unit: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.",
     )
 
     @model_validator(mode="after")
