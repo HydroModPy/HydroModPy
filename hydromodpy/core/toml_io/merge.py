@@ -1,9 +1,45 @@
-"""TOML payload merge helpers."""
+"""TOML payload merge helpers.
+
+Lists in TOML overlays replace the base value by default. To append instead,
+use the ``<key>__append`` suffix in the overlay::
+
+    [base]
+    process = ["A", "B"]
+
+    # overlay
+    [base]
+    process__append = ["C"]
+    # result: process = ["A", "B", "C"]
+
+The suffix is stripped during merge and never appears in the validated
+:class:`HydroModPyConfig` payload.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from typing import Any
+
+_APPEND_SUFFIX = "__append"
+
+
+def _split_append_keys(payload: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, list[Any]]]:
+    """Separate plain-replace entries from ``<name>__append`` directives."""
+    replace: dict[str, Any] = {}
+    append: dict[str, list[Any]] = {}
+    for key, value in payload.items():
+        if key.endswith(_APPEND_SUFFIX):
+            target = key[: -len(_APPEND_SUFFIX)]
+            if not target:
+                raise ValueError(f"empty target key for append directive {key!r}")
+            if not isinstance(value, list):
+                raise ValueError(
+                    f"merge directive {key!r} requires a list value, got {type(value).__name__}"
+                )
+            append[target] = list(value)
+        else:
+            replace[key] = value
+    return replace, append
 
 
 def _merge_two_payloads(
@@ -11,8 +47,10 @@ def _merge_two_payloads(
     override: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Recursively merge one TOML override into one base payload."""
+    replace, append = _split_append_keys(override)
     merged: dict[str, Any] = dict(base)
-    for key, value in override.items():
+
+    for key, value in replace.items():
         existing = merged.get(key)
         if isinstance(existing, Mapping) and isinstance(value, Mapping):
             merged[key] = _merge_two_payloads(existing, value)
@@ -31,6 +69,17 @@ def _merge_two_payloads(
             merged[key] = list(value)
         else:
             merged[key] = value
+
+    for key, items in append.items():
+        existing = merged.get(key)
+        if existing is None:
+            merged[key] = list(items)
+        elif isinstance(existing, list):
+            merged[key] = list(existing) + list(items)
+        else:
+            raise ValueError(
+                f"cannot append to non-list value at key {key!r} (found {type(existing).__name__})"
+            )
     return merged
 
 

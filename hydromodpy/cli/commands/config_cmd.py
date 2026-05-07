@@ -72,6 +72,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--section", default=None, help="Export a single root TOML section (e.g. 'flow')"
     )
     sch.add_argument("--out", default=None, help="Write the JSON Schema to this file")
+    sch.add_argument(
+        "--profile",
+        choices=profile_names,
+        default=None,
+        help="Filter the exported schema by profile (drops fields above the level)",
+    )
     sch.add_argument("--list-sections", action="store_true", help="List available section names")
 
     wiz = sub.add_parser("wizard", help="Interactive stdin-based TOML wizard")
@@ -206,13 +212,14 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
 
     section = getattr(args, "section", None)
     out_path = getattr(args, "out", None)
+    profile = getattr(args, "profile", None)
 
     if out_path:
-        written = write_schema(out_path, section=section)
+        written = write_schema(out_path, section=section, profile=profile)
         print(f"Written to: {written}", file=sys.stderr)
         return
 
-    schema = export_schema(section=section)
+    schema = export_schema(section=section, profile=profile)
     print(json.dumps(schema, indent=2, ensure_ascii=False))
 
 
