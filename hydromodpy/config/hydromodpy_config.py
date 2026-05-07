@@ -31,7 +31,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field, ValidationInfo, model_validator
+from pydantic import BaseModel, Field, ValidationError, ValidationInfo, model_validator
 from pydantic.fields import FieldInfo
 
 from hydromodpy.analysis.config import AnalysisConfig
@@ -39,6 +39,7 @@ from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.toml_io.error_locator import format_validation_error
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.core.workspace.config import WorkspaceConfig
@@ -339,7 +340,11 @@ class HydroModPyConfig(HydroModelBase):
         toml_path = Path(toml_path).expanduser().resolve()
         raw = load_toml_with_base_config(toml_path)
 
-        cfg = cls._from_payload(raw, base=toml_path.parent, context="toml")
+        try:
+            cfg = cls._from_payload(raw, base=toml_path.parent, context="toml")
+        except ValidationError as exc:
+            message = format_validation_error(exc, source_path=toml_path)
+            raise ValueError(message) from exc
 
         # Derive run_id from TOML filename if not set explicitly.
         if not cfg.simulation.run_id:
