@@ -10,10 +10,35 @@
 <title>Entity Relationship Diagram created by erdantic</title>
 <polygon fill="white" stroke="none" points="-4,4 -4,-359.5 475,-359.5 475,4 -4,4"/>
 <text xml:space="preserve" text-anchor="middle" x="235.5" y="-5.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="9.00" fill="#a8a8a8">Created by erdantic v1.2.1 &lt;https://github.com/drivendataorg/erdantic&gt;</text>
-<!-- hydromodpy.display.overview.config.OverviewPanelsConfig -->
+<!-- hydromodpy.display.overview.config.OverviewConfig -->
 <g id="node1" class="node">
+<title>hydromodpy.display.overview.config.OverviewConfig</title>
+<g id="a_node1"><a xlink:title="hydromodpy.display.overview.config.OverviewConfig&#10;&#10;Overview report settings (watershed identity card).&#10;">
+<polygon fill="none" stroke="black" points="0,-333 0,-355.5 190.5,-355.5 190.5,-333 0,-333"/>
+<text xml:space="preserve" text-anchor="start" x="47.62" y="-340.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">OverviewConfig</text>
+<polygon fill="none" stroke="black" points="0,-310.5 0,-333 58.5,-333 58.5,-310.5 0,-310.5"/>
+<text xml:space="preserve" text-anchor="start" x="14.25" y="-316.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">name</text>
+<polygon fill="none" stroke="black" points="58.5,-310.5 58.5,-333 190.5,-333 190.5,-310.5 58.5,-310.5"/>
+<text xml:space="preserve" text-anchor="start" x="117.75" y="-316.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<polygon fill="none" stroke="black" points="0,-288 0,-310.5 58.5,-310.5 58.5,-288 0,-288"/>
+<text xml:space="preserve" text-anchor="start" x="3" y="-294.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">date_start</text>
+<polygon fill="none" stroke="black" points="58.5,-288 58.5,-310.5 190.5,-310.5 190.5,-288 58.5,-288"/>
+<text xml:space="preserve" text-anchor="start" x="97.88" y="-294.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<polygon fill="none" stroke="black" points="0,-265.5 0,-288 58.5,-288 58.5,-265.5 0,-265.5"/>
+<text xml:space="preserve" text-anchor="start" x="4.88" y="-271.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">date_end</text>
+<polygon fill="none" stroke="black" points="58.5,-265.5 58.5,-288 190.5,-288 190.5,-265.5 58.5,-265.5"/>
+<text xml:space="preserve" text-anchor="start" x="97.88" y="-271.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<polygon fill="none" stroke="black" points="0,-243 0,-265.5 58.5,-265.5 58.5,-243 0,-243"/>
+<text xml:space="preserve" text-anchor="start" x="12" y="-249.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">panels</text>
+<polygon fill="none" stroke="black" points="58.5,-243 58.5,-265.5 190.5,-265.5 190.5,-243 58.5,-243"/>
+<text xml:space="preserve" text-anchor="start" x="61.5" y="-249.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">OverviewPanelsConfig</text>
+</a>
+</g>
+</g>
+<!-- hydromodpy.display.overview.config.OverviewPanelsConfig -->
+<g id="node2" class="node">
 <title>hydromodpy.display.overview.config.OverviewPanelsConfig</title>
-<g id="a_node1"><a xlink:title="hydromodpy.display.overview.config.OverviewPanelsConfig&#10;&#10;Toggle individual report panels on/off.&#10;">
+<g id="a_node2"><a xlink:title="hydromodpy.display.overview.config.OverviewPanelsConfig&#10;&#10;Toggle individual report panels on/off.&#10;">
 <polygon fill="none" stroke="black" points="298.5,-243.5 298.5,-266 471,-266 471,-243.5 298.5,-243.5"/>
 <text xml:space="preserve" text-anchor="start" x="318.38" y="-250.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">OverviewPanelsConfig</text>
 <polygon fill="none" stroke="black" points="298.5,-221 298.5,-243.5 441,-243.5 441,-221 298.5,-221"/>
@@ -59,34 +84,9 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.display.overview.config.OverviewSection -->
-<g id="node2" class="node">
-<title>hydromodpy.display.overview.config.OverviewSection</title>
-<g id="a_node2"><a xlink:title="hydromodpy.display.overview.config.OverviewSection&#10;&#10;Overview report settings (watershed identity card).&#10;">
-<polygon fill="none" stroke="black" points="0,-333 0,-355.5 190.5,-355.5 190.5,-333 0,-333"/>
-<text xml:space="preserve" text-anchor="start" x="46.12" y="-340.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">OverviewSection</text>
-<polygon fill="none" stroke="black" points="0,-310.5 0,-333 58.5,-333 58.5,-310.5 0,-310.5"/>
-<text xml:space="preserve" text-anchor="start" x="14.25" y="-316.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">name</text>
-<polygon fill="none" stroke="black" points="58.5,-310.5 58.5,-333 190.5,-333 190.5,-310.5 58.5,-310.5"/>
-<text xml:space="preserve" text-anchor="start" x="117.75" y="-316.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
-<polygon fill="none" stroke="black" points="0,-288 0,-310.5 58.5,-310.5 58.5,-288 0,-288"/>
-<text xml:space="preserve" text-anchor="start" x="3" y="-294.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">date_start</text>
-<polygon fill="none" stroke="black" points="58.5,-288 58.5,-310.5 190.5,-310.5 190.5,-288 58.5,-288"/>
-<text xml:space="preserve" text-anchor="start" x="97.88" y="-294.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
-<polygon fill="none" stroke="black" points="0,-265.5 0,-288 58.5,-288 58.5,-265.5 0,-265.5"/>
-<text xml:space="preserve" text-anchor="start" x="4.88" y="-271.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">date_end</text>
-<polygon fill="none" stroke="black" points="58.5,-265.5 58.5,-288 190.5,-288 190.5,-265.5 58.5,-265.5"/>
-<text xml:space="preserve" text-anchor="start" x="97.88" y="-271.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
-<polygon fill="none" stroke="black" points="0,-243 0,-265.5 58.5,-265.5 58.5,-243 0,-243"/>
-<text xml:space="preserve" text-anchor="start" x="12" y="-249.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">panels</text>
-<polygon fill="none" stroke="black" points="58.5,-243 58.5,-265.5 190.5,-265.5 190.5,-243 58.5,-243"/>
-<text xml:space="preserve" text-anchor="start" x="61.5" y="-249.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">OverviewPanelsConfig</text>
-</a>
-</g>
-</g>
-<!-- hydromodpy.display.overview.config.OverviewSection&#45;&gt;hydromodpy.display.overview.config.OverviewPanelsConfig -->
+<!-- hydromodpy.display.overview.config.OverviewConfig&#45;&gt;hydromodpy.display.overview.config.OverviewPanelsConfig -->
 <g id="edge1" class="edge">
-<title>hydromodpy.display.overview.config.OverviewSection:e&#45;&gt;hydromodpy.display.overview.config.OverviewPanelsConfig:w</title>
+<title>hydromodpy.display.overview.config.OverviewConfig:e&#45;&gt;hydromodpy.display.overview.config.OverviewPanelsConfig:w</title>
 <path fill="none" stroke="black" d="M200.37,-254.26C235.57,-254.31 250.3,-254.65 283.58,-254.73"/>
 <polyline fill="none" stroke="black" points="190.5,-254.25 195.5,-254.25"/>
 <polyline fill="none" stroke="black" points="195.5,-254.25 200.5,-254.26"/>

@@ -17,7 +17,7 @@
 <polygon fill="none" stroke="black" points="964.5,-167.5 964.5,-190 1178.25,-190 1178.25,-167.5 964.5,-167.5"/>
 <text xml:space="preserve" text-anchor="start" x="979.88" y="-174.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">ConstantThicknessDepthModel</text>
 <polygon fill="none" stroke="black" points="964.5,-145 964.5,-167.5 1020.75,-167.5 1020.75,-145 964.5,-145"/>
-<text xml:space="preserve" text-anchor="start" x="981" y="-151.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">type</text>
+<text xml:space="preserve" text-anchor="start" x="980.62" y="-151.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">kind</text>
 <polygon fill="none" stroke="black" points="1020.75,-145 1020.75,-167.5 1178.25,-167.5 1178.25,-145 1020.75,-145"/>
 <text xml:space="preserve" text-anchor="start" x="1023.75" y="-151.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;constant_thickness&#39;]</text>
 <polygon fill="none" stroke="black" points="964.5,-122.5 964.5,-145 1020.75,-145 1020.75,-122.5 964.5,-122.5"/>
@@ -34,7 +34,7 @@
 <polygon fill="none" stroke="black" points="940.12,-63.5 940.12,-86 1202.62,-86 1202.62,-63.5 940.12,-63.5"/>
 <text xml:space="preserve" text-anchor="start" x="988.88" y="-70.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">FlatSubstratumDepthModel</text>
 <polygon fill="none" stroke="black" points="940.12,-41 940.12,-63.5 1062.38,-63.5 1062.38,-41 940.12,-41"/>
-<text xml:space="preserve" text-anchor="start" x="989.62" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">type</text>
+<text xml:space="preserve" text-anchor="start" x="989.25" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">kind</text>
 <polygon fill="none" stroke="black" points="1062.38,-41 1062.38,-63.5 1202.62,-63.5 1202.62,-41 1062.38,-41"/>
 <text xml:space="preserve" text-anchor="start" x="1065.38" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;flat_substratum&#39;]</text>
 <polygon fill="none" stroke="black" points="940.12,-18.5 940.12,-41 1062.38,-41 1062.38,-18.5 940.12,-18.5"/>
@@ -96,7 +96,7 @@
 <polygon fill="none" stroke="black" points="910.12,-784.75 910.12,-807.25 1232.62,-807.25 1232.62,-784.75 910.12,-784.75"/>
 <text xml:space="preserve" text-anchor="start" x="978.75" y="-791.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">CatchmentZonesSupportConfig</text>
 <polygon fill="none" stroke="black" points="910.12,-762.25 910.12,-784.75 1083.38,-784.75 1083.38,-762.25 910.12,-762.25"/>
-<text xml:space="preserve" text-anchor="start" x="973.88" y="-768.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">provider</text>
+<text xml:space="preserve" text-anchor="start" x="984.75" y="-768.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">kind</text>
 <polygon fill="none" stroke="black" points="1083.38,-762.25 1083.38,-784.75 1232.62,-784.75 1232.62,-762.25 1083.38,-762.25"/>
 <text xml:space="preserve" text-anchor="start" x="1086.38" y="-768.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;catchment_zones&#39;]</text>
 <polygon fill="none" stroke="black" points="910.12,-739.75 910.12,-762.25 1083.38,-762.25 1083.38,-739.75 910.12,-739.75"/>
@@ -126,7 +126,7 @@
 <polygon fill="none" stroke="black" points="908.25,-658.5 908.25,-681 1234.5,-681 1234.5,-658.5 908.25,-658.5"/>
 <text xml:space="preserve" text-anchor="start" x="979.5" y="-665.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">GeneratedBandsSupportConfig</text>
 <polygon fill="none" stroke="black" points="908.25,-636 908.25,-658.5 1081.5,-658.5 1081.5,-636 908.25,-636"/>
-<text xml:space="preserve" text-anchor="start" x="972" y="-642.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">provider</text>
+<text xml:space="preserve" text-anchor="start" x="982.88" y="-642.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">kind</text>
 <polygon fill="none" stroke="black" points="1081.5,-636 1081.5,-658.5 1234.5,-658.5 1234.5,-636 1081.5,-636"/>
 <text xml:space="preserve" text-anchor="start" x="1087.88" y="-642.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;generated_bands&#39;]</text>
 <polygon fill="none" stroke="black" points="908.25,-613.5 908.25,-636 1081.5,-636 1081.5,-613.5 908.25,-613.5"/>
@@ -168,7 +168,7 @@
 <polygon fill="none" stroke="black" points="908.25,-464.75 908.25,-487.25 1234.5,-487.25 1234.5,-464.75 908.25,-464.75"/>
 <text xml:space="preserve" text-anchor="start" x="981" y="-471.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">GeneratedRingsSupportConfig</text>
 <polygon fill="none" stroke="black" points="908.25,-442.25 908.25,-464.75 1081.5,-464.75 1081.5,-442.25 908.25,-442.25"/>
-<text xml:space="preserve" text-anchor="start" x="972" y="-448.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">provider</text>
+<text xml:space="preserve" text-anchor="start" x="982.88" y="-448.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">kind</text>
 <polygon fill="none" stroke="black" points="1081.5,-442.25 1081.5,-464.75 1234.5,-464.75 1234.5,-442.25 1081.5,-442.25"/>
 <text xml:space="preserve" text-anchor="start" x="1090.12" y="-448.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;generated_rings&#39;]</text>
 <polygon fill="none" stroke="black" points="908.25,-419.75 908.25,-442.25 1081.5,-442.25 1081.5,-419.75 908.25,-419.75"/>
@@ -211,23 +211,23 @@
 <g id="node7" class="node">
 <title>hydromodpy.spatial.domain.spatial_support_config.GeologySupportConfig</title>
 <g id="a_node7"><a xlink:title="hydromodpy.spatial.domain.spatial_support_config.GeologySupportConfig&#10;&#10;Support backed by the geology data manager.&#10;">
-<polygon fill="none" stroke="black" points="996,-248.25 996,-270.75 1146.75,-270.75 1146.75,-248.25 996,-248.25"/>
+<polygon fill="none" stroke="black" points="1001.25,-248.25 1001.25,-270.75 1141.5,-270.75 1141.5,-248.25 1001.25,-248.25"/>
 <text xml:space="preserve" text-anchor="start" x="1004.25" y="-255.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">GeologySupportConfig</text>
-<polygon fill="none" stroke="black" points="996,-225.75 996,-248.25 1047.75,-248.25 1047.75,-225.75 996,-225.75"/>
-<text xml:space="preserve" text-anchor="start" x="999" y="-231.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">provider</text>
-<polygon fill="none" stroke="black" points="1047.75,-225.75 1047.75,-248.25 1146.75,-248.25 1146.75,-225.75 1047.75,-225.75"/>
-<text xml:space="preserve" text-anchor="start" x="1050.75" y="-231.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;geology&#39;]</text>
+<polygon fill="none" stroke="black" points="1001.25,-225.75 1001.25,-248.25 1036.88,-248.25 1036.88,-225.75 1001.25,-225.75"/>
+<text xml:space="preserve" text-anchor="start" x="1007.06" y="-231.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">kind</text>
+<polygon fill="none" stroke="black" points="1036.88,-225.75 1036.88,-248.25 1141.5,-248.25 1141.5,-225.75 1036.88,-225.75"/>
+<text xml:space="preserve" text-anchor="start" x="1042.69" y="-231.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Literal[&#39;geology&#39;]</text>
 </a>
 </g>
 </g>
 <!-- hydromodpy.spatial.domain.domain_config.DomainConfig&#45;&gt;hydromodpy.spatial.domain.spatial_support_config.GeologySupportConfig -->
 <g id="edge6" class="edge">
 <title>hydromodpy.spatial.domain.domain_config.DomainConfig:e&#45;&gt;hydromodpy.spatial.domain.spatial_support_config.GeologySupportConfig:w</title>
-<path fill="none" stroke="black" d="M810.02,-366.49C859.16,-361.15 858.79,-314.82 908.25,-289.25 939.51,-273.09 951.07,-262.66 979.87,-260.11"/>
+<path fill="none" stroke="black" d="M810.02,-366.49C859.13,-361.1 858.57,-314.38 908.25,-289.25 941.65,-272.35 954.06,-262.32 985.11,-260.01"/>
 <polyline fill="none" stroke="black" points="800.25,-367 805.24,-366.74"/>
 <polyline fill="none" stroke="black" points="805.24,-366.74 810.24,-366.48"/>
-<polygon fill="black" stroke="black" points="984.67,-259.92 994.85,-264.01 990,-259.7 994.33,-259.53 994.33,-259.53 994.33,-259.53 990,-259.7 994.48,-255.02 984.67,-259.92"/>
-<polyline fill="none" stroke="black" points="983.46,-259.97 978.46,-260.17"/>
+<polygon fill="black" stroke="black" points="989.92,-259.85 1000.07,-264.01 995.25,-259.67 999.58,-259.52 999.58,-259.52 999.58,-259.52 995.25,-259.67 999.76,-255.01 989.92,-259.85"/>
+<polyline fill="none" stroke="black" points="988.7,-259.89 983.71,-260.06"/>
 </g>
 </g>
 </svg>

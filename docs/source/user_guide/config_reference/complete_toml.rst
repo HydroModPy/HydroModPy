@@ -55,22 +55,8 @@ Sub-models are linked back to their per-section page.
       [geographic]
       # Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow. 'synthetic' builds one analytical support from [geographic.synthetic].
       source_mode = "standard"
-      # Catchment definition mode used when source_mode='standard'. 'dem' = model domain defined directly from a DEM raster (dem_init_path required). 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required). 'from_outlet_coord' = watershed from outlet coordinates (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required). 'from_polyg_shp' = watershed from a polygon shapefile (dem_init_path, polyg_shp_path, buff_area required).
-      # catch_def = ...  # default = None
-      # Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
-      # dem_init_path = ...  # default = None
-      # Grid cell size in metres used to rasterise the XYZ point cloud. Required for 'txt' mode.
-      # cell_size = ...  # default = None
-      # X coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.
-      # x_outlet = ...  # default = None
-      # Y coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.
-      # y_outlet = ...  # default = None
-      # Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-friendly values (for example 50, '50 m', '0.05 km'). Required for 'from_outlet_coord' mode.
-      # snap_dist = ...  # default = None
-      # Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km'). Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
-      # buff_area = ...  # default = None
-      # Path to the watershed polygon shapefile. Required for 'from_polyg_shp' mode.
-      # polyg_shp_path = ...  # default = None
+      # Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'.
+      # catchment = ...  # default = None
       # Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.
       # crs_project = ...  # default = None
       # DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill' raises sinks to their pour point.
@@ -359,7 +345,7 @@ Sub-models are linked back to their per-section page.
       # Optional simulation-comparison block loaded from [analysis.comparison]. Parsed standalone via SimulationComparisonConfig under the section name [comparison].
       # comparison = ...  # default = None
 
-.. dropdown:: ``[overview]`` (OverviewSection)
+.. dropdown:: ``[overview]`` (OverviewConfig)
    :icon: gear
 
    See :doc:`overview` for the full description.

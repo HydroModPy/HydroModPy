@@ -2,8 +2,8 @@
 .. Run ``python -m tools.doc_config`` to refresh.
 
 
-[overview] OverviewSection
-==========================
+[overview] OverviewConfig
+=========================
 
 .. contents:: On this page
    :local:
@@ -11,7 +11,7 @@
 
 TOML section: ``[overview]``
 
-Pydantic model: ``OverviewSection`` defined in ``hydromodpy.display.overview.config``.
+Pydantic model: ``OverviewConfig`` defined in ``hydromodpy.display.overview.config``.
 
 `Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/overview/config.py#L38>`__
 
@@ -272,7 +272,7 @@ Entity-relationship diagram
 .. container:: hmp-er-wrapper
 
    .. image:: _diagrams/overview.svg
-      :alt: ER diagram for OverviewSection
+      :alt: ER diagram for OverviewConfig
       :class: er-diagram hmp-zoomable
       :target: _diagrams/overview.svg
 

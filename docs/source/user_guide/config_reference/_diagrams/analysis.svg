@@ -419,7 +419,7 @@
 <polygon fill="none" stroke="black" points="997.12,-788 997.12,-810.5 1073.62,-810.5 1073.62,-788 997.12,-788"/>
 <text xml:space="preserve" text-anchor="start" x="1008.38" y="-794.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">resolution</text>
 <polygon fill="none" stroke="black" points="1073.62,-788 1073.62,-810.5 1297.12,-810.5 1297.12,-788 1073.62,-788"/>
-<text xml:space="preserve" text-anchor="start" x="1153.12" y="-794.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="1144.88" y="-794.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[float]</text>
 <polygon fill="none" stroke="black" points="997.12,-765.5 997.12,-788 1073.62,-788 1073.62,-765.5 997.12,-765.5"/>
 <text xml:space="preserve" text-anchor="start" x="1000.12" y="-771.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extent_mode</text>
 <polygon fill="none" stroke="black" points="1073.62,-765.5 1073.62,-788 1297.12,-788 1297.12,-765.5 1073.62,-765.5"/>
@@ -476,7 +476,7 @@
 <polygon fill="none" stroke="black" points="939.75,-198.5 939.75,-221 1062,-221 1062,-198.5 939.75,-198.5"/>
 <text xml:space="preserve" text-anchor="start" x="972.75" y="-204.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">cell_index</text>
 <polygon fill="none" stroke="black" points="1062,-198.5 1062,-221 1354.5,-221 1354.5,-198.5 1062,-198.5"/>
-<text xml:space="preserve" text-anchor="start" x="1181.25" y="-204.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int | None</text>
+<text xml:space="preserve" text-anchor="start" x="1173" y="-204.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[int]</text>
 <polygon fill="none" stroke="black" points="939.75,-176 939.75,-198.5 1062,-198.5 1062,-176 939.75,-176"/>
 <text xml:space="preserve" text-anchor="start" x="968.62" y="-182.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">cell_indices</text>
 <polygon fill="none" stroke="black" points="1062,-176 1062,-198.5 1354.5,-198.5 1354.5,-176 1062,-176"/>

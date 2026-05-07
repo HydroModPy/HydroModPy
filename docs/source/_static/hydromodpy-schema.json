@@ -166,12 +166,12 @@
       "title": "CalibObjectiveBlockDecl",
       "type": "object"
     },
-    "CalibOutputDecl": {
+    "CalibOutputBoundary": {
       "additionalProperties": false,
-      "description": "Observable extracted from every candidate simulation.\n\nOutputs connect model results to objective blocks. A declaration selects\nthe simulated variable, the spatial support used for extraction, the time\nslice, and optional observed values for synthetic or benchmark cases.\n\nSupported spatial supports are ``\"point\"``, ``\"boundary\"``, and\n``\"cell\"``. Each support validates the fields it needs.",
+      "description": "Observable extracted from a boundary package.\n\nUse this variant for fluxes integrated over a named boundary\n(drains, rivers, GHB) referenced by ``boundary_id``.",
       "properties": {
         "variable": {
-          "description": "Simulated variable to extract (e.g. 'head', 'outlet_discharge').",
+          "description": "Simulated variable to extract (e.g. 'discharge').",
           "examples": [
             "example"
           ],
@@ -180,107 +180,113 @@
           "x-hmp-profile": "user"
         },
         "support": {
-          "default": "point",
-          "description": "'point' reads at (x, y); 'boundary' sums flux at boundary_id; 'cell' reads a single cell.",
-          "enum": [
-            "point",
-            "boundary",
-            "cell"
-          ],
+          "const": "boundary",
+          "default": "boundary",
+          "description": "Discriminator tag. 'boundary' sums flux at boundary_id.",
           "examples": [
-            "point"
+            "boundary"
           ],
           "title": "Support",
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "geometry": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "GeoJSON point geometry when support='point'. Coordinates are in metres.",
-          "title": "Geometry",
-          "x-hmp-profile": "user"
-        },
-        "x": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "properties": {
-                "magnitude": {
-                  "title": "Magnitude",
-                  "type": "string"
-                },
-                "units": {
-                  "title": "Units",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "magnitude"
-              ],
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "X coordinate when support='point'. Accepts a bare number (metres) or a pint string like '100 m'.",
-          "title": "X",
-          "x-hmp-profile": "user"
-        },
-        "y": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "properties": {
-                "magnitude": {
-                  "title": "Magnitude",
-                  "type": "string"
-                },
-                "units": {
-                  "title": "Units",
-                  "type": "string"
-                }
-              },
-              "required": [
-                "magnitude"
-              ],
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Y coordinate when support='point'. Accepts a bare number (metres) or a pint string like '100 m'.",
-          "title": "Y",
-          "x-hmp-profile": "user"
-        },
         "boundary_id": {
+          "description": "Boundary package identifier.",
+          "examples": [
+            "example"
+          ],
+          "title": "Boundary Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "time": {
           "anyOf": [
             {
+              "enum": [
+                "all",
+                "last",
+                "first"
+              ],
               "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": "all",
+          "description": "'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.",
+          "examples": [
+            "all"
+          ],
+          "title": "Time",
+          "x-hmp-profile": "user"
+        },
+        "reducer": {
+          "default": "none",
+          "description": "Aggregation over the retained time slice.",
+          "enum": [
+            "mean",
+            "sum",
+            "last",
+            "none"
+          ],
+          "examples": [
+            "mean"
+          ],
+          "title": "Reducer",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "observed_values": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Boundary package identifier when support='boundary'.",
-          "title": "Boundary Id",
+          "description": "Hard-coded observed values (used by twin-synthetic cases).",
+          "title": "Observed Values",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "variable",
+        "boundary_id"
+      ],
+      "title": "CalibOutputBoundary",
+      "type": "object"
+    },
+    "CalibOutputCell": {
+      "additionalProperties": false,
+      "description": "Observable extracted at one structured cell.\n\nUse this variant for explicit ``(row, col)`` selectors on a structured\ngrid, optionally with a non-zero ``layer``. ``cell_id`` is a flat index\naccepted on backends that expose one.",
+      "properties": {
+        "variable": {
+          "description": "Simulated variable to extract (e.g. 'head').",
+          "examples": [
+            "example"
+          ],
+          "title": "Variable",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "support": {
+          "const": "cell",
+          "default": "cell",
+          "description": "Discriminator tag. 'cell' reads one structured cell.",
+          "examples": [
+            "cell"
+          ],
+          "title": "Support",
+          "type": "string",
           "x-hmp-profile": "user"
         },
         "cell_id": {
@@ -294,7 +300,7 @@
             }
           ],
           "default": null,
-          "description": "Flat cell index when support='cell' and the backend exposes one.",
+          "description": "Flat cell index when the backend exposes one.",
           "title": "Cell Id",
           "x-hmp-profile": "user"
         },
@@ -309,7 +315,7 @@
             }
           ],
           "default": null,
-          "description": "Structured row index when support='cell'.",
+          "description": "Structured row index.",
           "title": "Row",
           "x-hmp-profile": "user"
         },
@@ -324,13 +330,13 @@
             }
           ],
           "default": null,
-          "description": "Structured column index when support='cell'.",
+          "description": "Structured column index.",
           "title": "Col",
           "x-hmp-profile": "user"
         },
         "layer": {
           "default": 0,
-          "description": "Structured layer index when support='cell'.",
+          "description": "Structured layer index.",
           "examples": [
             0
           ],
@@ -401,7 +407,171 @@
       "required": [
         "variable"
       ],
-      "title": "CalibOutputDecl",
+      "title": "CalibOutputCell",
+      "type": "object"
+    },
+    "CalibOutputPoint": {
+      "additionalProperties": false,
+      "description": "Observable extracted at a planar ``(x, y)`` point.\n\nUse this variant for piezometric heads sampled at a single coordinate.\nProvide either ``x`` and ``y`` or a GeoJSON ``geometry`` block.",
+      "properties": {
+        "variable": {
+          "description": "Simulated variable to extract (e.g. 'head', 'outlet_discharge').",
+          "examples": [
+            "example"
+          ],
+          "title": "Variable",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "support": {
+          "const": "point",
+          "default": "point",
+          "description": "Discriminator tag. 'point' reads the variable at (x, y).",
+          "examples": [
+            "point"
+          ],
+          "title": "Support",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "geometry": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "GeoJSON point geometry. Coordinates are in metres.",
+          "title": "Geometry",
+          "x-hmp-profile": "user"
+        },
+        "x": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "X coordinate. Accepts a bare number (metres) or a pint string like '100 m'.",
+          "title": "X",
+          "x-hmp-profile": "user"
+        },
+        "y": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Y coordinate. Accepts a bare number (metres) or a pint string like '100 m'.",
+          "title": "Y",
+          "x-hmp-profile": "user"
+        },
+        "time": {
+          "anyOf": [
+            {
+              "enum": [
+                "all",
+                "last",
+                "first"
+              ],
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": "all",
+          "description": "'all' keeps every time step; 'last' / 'first' selects one; a list of ISO timestamps selects specific steps.",
+          "examples": [
+            "all"
+          ],
+          "title": "Time",
+          "x-hmp-profile": "user"
+        },
+        "reducer": {
+          "default": "none",
+          "description": "Aggregation over the retained time slice.",
+          "enum": [
+            "mean",
+            "sum",
+            "last",
+            "none"
+          ],
+          "examples": [
+            "mean"
+          ],
+          "title": "Reducer",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "observed_values": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hard-coded observed values (used by twin-synthetic cases).",
+          "title": "Observed Values",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "variable"
+      ],
+      "title": "CalibOutputPoint",
       "type": "object"
     },
     "CalibParameterDecl": {
@@ -641,7 +811,26 @@
         },
         "outputs": {
           "additionalProperties": {
-            "$ref": "#/$defs/CalibOutputDecl"
+            "description": "Discriminated union of calibration output variants selected by 'support'.",
+            "discriminator": {
+              "mapping": {
+                "boundary": "#/$defs/CalibOutputBoundary",
+                "cell": "#/$defs/CalibOutputCell",
+                "point": "#/$defs/CalibOutputPoint"
+              },
+              "propertyName": "support"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/CalibOutputPoint"
+              },
+              {
+                "$ref": "#/$defs/CalibOutputBoundary"
+              },
+              {
+                "$ref": "#/$defs/CalibOutputCell"
+              }
+            ]
           },
           "description": "Named observables extracted from each candidate run.",
           "title": "Outputs",
@@ -789,12 +978,12 @@
       "additionalProperties": false,
       "description": "Support built from catchment/domain zonation already prepared in setup.",
       "properties": {
-        "provider": {
+        "kind": {
           "const": "catchment_zones",
           "examples": [
             "catchment_zones"
           ],
-          "title": "Provider",
+          "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
@@ -821,7 +1010,7 @@
         }
       },
       "required": [
-        "provider"
+        "kind"
       ],
       "title": "CatchmentZonesSupportConfig",
       "type": "object"
@@ -879,14 +1068,14 @@
           "type": "string",
           "x-hmp-profile": "dev"
         },
-        "type": {
+        "kind": {
           "const": "cauchy",
           "default": "cauchy",
-          "description": "Boundary-condition type.",
+          "description": "Boundary-condition kind discriminator.",
           "examples": [
             "cauchy"
           ],
-          "title": "Type",
+          "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
@@ -1065,6 +1254,7 @@
         "resolution": {
           "anyOf": [
             {
+              "exclusiveMinimum": 0.0,
               "type": "number"
             },
             {
@@ -1221,6 +1411,7 @@
         "cell_index": {
           "anyOf": [
             {
+              "minimum": 0,
               "type": "integer"
             },
             {
@@ -1235,8 +1426,10 @@
           "anyOf": [
             {
               "items": {
+                "minimum": 0,
                 "type": "integer"
               },
+              "minItems": 1,
               "type": "array"
             },
             {
@@ -1731,14 +1924,14 @@
       "additionalProperties": false,
       "description": "Vertical model using one constant thickness below topography.\n\nBottom elevation is computed cell-wise as:\n``bottom = top_surface - thickness``.",
       "properties": {
-        "type": {
+        "kind": {
           "const": "constant_thickness",
           "default": "constant_thickness",
-          "description": "Depth-model type selector. Use 'constant_thickness' to define bottom as top-thickness.",
+          "description": "Depth-model kind discriminator. Use 'constant_thickness' to define bottom as top-thickness.",
           "examples": [
             "constant_thickness"
           ],
-          "title": "Type",
+          "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
@@ -2023,6 +2216,40 @@
       "title": "DataManagersConfig",
       "type": "object"
     },
+    "DemCatchDef": {
+      "additionalProperties": false,
+      "description": "Model domain defined directly from a DEM raster.",
+      "properties": {
+        "dem_init_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
+          "title": "Dem Init Path",
+          "x-hmp-profile": "user"
+        },
+        "catch_def": {
+          "const": "dem",
+          "default": "dem",
+          "description": "Catchment defined by the DEM raster extent.",
+          "examples": [
+            "dem"
+          ],
+          "title": "Catch Def",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "DemCatchDef",
+      "type": "object"
+    },
     "DemConfig": {
       "additionalProperties": false,
       "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_bdalti\"\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
@@ -2277,14 +2504,14 @@
           "type": "string",
           "x-hmp-profile": "dev"
         },
-        "type": {
+        "kind": {
           "const": "dirichlet",
           "default": "dirichlet",
-          "description": "Boundary-condition type.",
+          "description": "Boundary-condition kind discriminator.",
           "examples": [
             "dirichlet"
           ],
-          "title": "Type",
+          "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
@@ -2301,7 +2528,22 @@
         "forcing": {
           "anyOf": [
             {
-              "$ref": "#/$defs/FlowBoundaryForcingConfig"
+              "description": "Discriminated union of boundary-forcing payloads (constant or csv).",
+              "discriminator": {
+                "mapping": {
+                  "constant": "#/$defs/FlowBoundaryForcingConstantConfig",
+                  "csv": "#/$defs/FlowBoundaryForcingCsvConfig"
+                },
+                "propertyName": "mode"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/FlowBoundaryForcingConstantConfig"
+                },
+                {
+                  "$ref": "#/$defs/FlowBoundaryForcingCsvConfig"
+                }
+              ]
             },
             {
               "type": "null"
@@ -2309,6 +2551,7 @@
           ],
           "default": null,
           "description": "Optional runtime forcing declaration for lateral Dirichlet boundaries. Supported modes: 'constant' and 'csv'. The launcher resolves this payload to boundary.value using [simulation.time].",
+          "title": "Forcing",
           "x-hmp-profile": "dev"
         },
         "application_domain": {
@@ -2730,7 +2973,7 @@
           "description": "Named spatial supports available to heterogeneous parameters. Each key is a support identifier referenced by field_spatial_id.",
           "patternProperties": {
             "^[a-z][a-z0-9_]*$": {
-              "description": "Discriminated union of spatial-support providers selected by provider tag.",
+              "description": "Discriminated union of spatial-support kinds selected by kind tag.",
               "discriminator": {
                 "mapping": {
                   "catchment_zones": "#/$defs/CatchmentZonesSupportConfig",
@@ -2738,7 +2981,7 @@
                   "generated_rings": "#/$defs/GeneratedRingsSupportConfig",
                   "geology": "#/$defs/GeologySupportConfig"
                 },
-                "propertyName": "provider"
+                "propertyName": "kind"
               },
               "oneOf": [
                 {
@@ -2767,7 +3010,7 @@
               "constant_thickness": "#/$defs/ConstantThicknessDepthModel",
               "flat_substratum": "#/$defs/FlatSubstratumDepthModel"
             },
-            "propertyName": "type"
+            "propertyName": "kind"
           },
           "oneOf": [
             {
@@ -2888,6 +3131,35 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
+        },
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
@@ -2984,35 +3256,6 @@
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
           "title": "Path",
-          "x-hmp-profile": "user"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
           "x-hmp-profile": "user"
         }
       },
@@ -3515,14 +3758,14 @@
       "additionalProperties": false,
       "description": "Vertical model using one flat (constant-elevation) substratum.\n\nBottom elevation is constant over the whole domain:\n``bottom = substratum_elevation``.",
       "properties": {
-        "type": {
+        "kind": {
           "const": "flat_substratum",
           "default": "flat_substratum",
-          "description": "Depth-model type selector. Use 'flat_substratum' to define one constant bottom elevation.",
+          "description": "Depth-model kind discriminator. Use 'flat_substratum' to define one constant bottom elevation.",
           "examples": [
             "flat_substratum"
           ],
-          "title": "Type",
+          "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
@@ -3540,21 +3783,57 @@
       "title": "FlatSubstratumDepthModel",
       "type": "object"
     },
-    "FlowBoundaryForcingConfig": {
+    "FlatTopography": {
       "additionalProperties": false,
-      "description": "Launcher-facing boundary forcing declaration.",
+      "description": "Constant-elevation analytical topography.",
+      "properties": {
+        "kind": {
+          "const": "flat",
+          "default": "flat",
+          "description": "Analytical topography law: 'flat' keeps one constant elevation.",
+          "examples": [
+            "flat"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "base_elevation": {
+          "default": 20.0,
+          "description": "Constant surface elevation (m).",
+          "examples": [
+            20.0
+          ],
+          "title": "Base Elevation",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FlatTopography",
+      "type": "object"
+    },
+    "FlowBoundaryForcingConstantConfig": {
+      "additionalProperties": false,
+      "description": "Constant head forcing applied to every stress period.",
       "properties": {
         "mode": {
-          "description": "Boundary forcing mode consumed by launcher runtime.",
-          "enum": [
-            "constant",
-            "csv"
-          ],
+          "const": "constant",
+          "default": "constant",
+          "description": "Discriminator tag for the constant boundary-forcing variant.",
           "examples": [
             "constant"
           ],
           "title": "Mode",
           "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "value": {
+          "description": "Constant boundary head value used when mode='constant'.",
+          "examples": [
+            1.0
+          ],
+          "title": "Value",
+          "type": "number",
           "x-hmp-profile": "user"
         },
         "units": {
@@ -3570,34 +3849,37 @@
           "description": "Source units of forcing values before runtime conversion.",
           "title": "Units",
           "x-hmp-profile": "dev"
-        },
-        "value": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "FlowBoundaryForcingConstantConfig",
+      "type": "object"
+    },
+    "FlowBoundaryForcingCsvConfig": {
+      "additionalProperties": false,
+      "description": "CSV-backed boundary forcing resolved at runtime against simulation.time.",
+      "properties": {
+        "mode": {
+          "const": "csv",
+          "default": "csv",
+          "description": "Discriminator tag for the CSV-backed boundary-forcing variant.",
+          "examples": [
+            "csv"
           ],
-          "default": null,
-          "description": "Constant boundary head value used when mode='constant'.",
-          "title": "Value",
+          "title": "Mode",
+          "type": "string",
           "x-hmp-profile": "user"
         },
         "path_file": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
           "description": "CSV file path containing time-series boundary head values when mode='csv'.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
           "title": "Path File",
+          "type": "string",
           "x-hmp-profile": "dev"
         },
         "sep": {
@@ -3671,12 +3953,26 @@
           "title": "Aggregate",
           "type": "string",
           "x-hmp-profile": "dev"
+        },
+        "units": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Source units of forcing values before runtime conversion.",
+          "title": "Units",
+          "x-hmp-profile": "dev"
         }
       },
       "required": [
-        "mode"
+        "path_file"
       ],
-      "title": "FlowBoundaryForcingConfig",
+      "title": "FlowBoundaryForcingCsvConfig",
       "type": "object"
     },
     "FlowConfig": {
@@ -3721,7 +4017,7 @@
                 "dirichlet": "#/$defs/DirichletBC",
                 "robin": "#/$defs/RobinBC"
               },
-              "propertyName": "type"
+              "propertyName": "kind"
             },
             "oneOf": [
               {
@@ -4030,9 +4326,71 @@
       "title": "FlowEtpConfig",
       "type": "object"
     },
-    "FlowInitialCondition": {
+    "FlowICBottom": {
       "additionalProperties": false,
-      "description": "Flow initial condition used by MODFLOW head initialization.\n\nSemantics\n---------\n- `type=\"top\"`: initialize head at top surface.\n- `type=\"top_offset\"`: initialize head at top surface minus `value`.\n- `type=\"bottom\"`: initialize head at bottom surface.\n- `type=\"custom\"`: initialize with one explicit numeric value.",
+      "description": "Initialize head at the bottom surface (empty aquifer).",
+      "properties": {
+        "id": {
+          "default": "h",
+          "description": "id of the initial condition (forced to 'h' for flow)",
+          "examples": [
+            "h"
+          ],
+          "title": "Id",
+          "toml_exclude": true,
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "value": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Process-specific initial-condition value payload.",
+          "title": "Value",
+          "x-hmp-profile": "user"
+        },
+        "description": {
+          "default": "",
+          "description": "Description of the initial condition",
+          "examples": [
+            ""
+          ],
+          "title": "Description",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "units": {
+          "default": "",
+          "description": "Units of the initial condition",
+          "examples": [
+            ""
+          ],
+          "title": "Units",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "type": {
+          "const": "bottom",
+          "default": "bottom",
+          "description": "Initialize head at the bottom surface (empty aquifer).",
+          "examples": [
+            "bottom"
+          ],
+          "title": "Type",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FlowICBottom",
+      "type": "object"
+    },
+    "FlowICCustom": {
+      "additionalProperties": false,
+      "description": "Initialize head with one explicit numeric value.",
       "properties": {
         "id": {
           "default": "h",
@@ -4065,13 +4423,9 @@
                 "magnitude"
               ],
               "type": "object"
-            },
-            {
-              "type": "null"
             }
           ],
-          "default": null,
-          "description": "Initial hydraulic-head value. Required when type='custom'; vertical offset below top when type='top_offset'.",
+          "description": "Initial hydraulic-head value.",
           "title": "Value",
           "x-hmp-profile": "user"
         },
@@ -4096,14 +4450,74 @@
           "x-hmp-profile": "user"
         },
         "type": {
+          "const": "custom",
           "default": "custom",
-          "description": "Type of initial condition ('top', 'top_offset', 'bottom', or 'custom'). 'top' means a full aquifer, 'top_offset' means top minus value, 'bottom' means an empty aquifer.",
-          "enum": [
-            "top",
-            "top_offset",
-            "bottom",
+          "description": "Initialize head with one explicit numeric value.",
+          "examples": [
             "custom"
           ],
+          "title": "Type",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "FlowICCustom",
+      "type": "object"
+    },
+    "FlowICTop": {
+      "additionalProperties": false,
+      "description": "Initialize head at the top surface (full aquifer).",
+      "properties": {
+        "id": {
+          "default": "h",
+          "description": "id of the initial condition (forced to 'h' for flow)",
+          "examples": [
+            "h"
+          ],
+          "title": "Id",
+          "toml_exclude": true,
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "value": {
+          "anyOf": [
+            {},
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Process-specific initial-condition value payload.",
+          "title": "Value",
+          "x-hmp-profile": "user"
+        },
+        "description": {
+          "default": "",
+          "description": "Description of the initial condition",
+          "examples": [
+            ""
+          ],
+          "title": "Description",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "units": {
+          "default": "",
+          "description": "Units of the initial condition",
+          "examples": [
+            ""
+          ],
+          "title": "Units",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "type": {
+          "const": "top",
+          "default": "top",
+          "description": "Initialize head at the top surface (full aquifer).",
           "examples": [
             "top"
           ],
@@ -4112,7 +4526,86 @@
           "x-hmp-profile": "user"
         }
       },
-      "title": "FlowInitialCondition",
+      "title": "FlowICTop",
+      "type": "object"
+    },
+    "FlowICTopOffset": {
+      "additionalProperties": false,
+      "description": "Initialize head at the top surface minus a vertical offset `value`.",
+      "properties": {
+        "id": {
+          "default": "h",
+          "description": "id of the initial condition (forced to 'h' for flow)",
+          "examples": [
+            "h"
+          ],
+          "title": "Id",
+          "toml_exclude": true,
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "properties": {
+                "magnitude": {
+                  "title": "Magnitude",
+                  "type": "string"
+                },
+                "units": {
+                  "title": "Units",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "magnitude"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "Vertical offset below the top surface.",
+          "title": "Value",
+          "x-hmp-profile": "user"
+        },
+        "description": {
+          "default": "",
+          "description": "Description of the initial condition",
+          "examples": [
+            ""
+          ],
+          "title": "Description",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "units": {
+          "default": "",
+          "description": "Units of the initial condition",
+          "examples": [
+            ""
+          ],
+          "title": "Units",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "type": {
+          "const": "top_offset",
+          "default": "top_offset",
+          "description": "Initialize head at the top surface minus `value`.",
+          "examples": [
+            "top_offset"
+          ],
+          "title": "Type",
+          "type": "string",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "FlowICTopOffset",
       "type": "object"
     },
     "FlowInitialConditions": {
@@ -4120,8 +4613,31 @@
       "description": "Container for flow initial conditions stored in process runtime.\n\nKeeping one explicit container (instead of bare values) allows the process\nAPI to remain extensible when adding future IC variables.",
       "properties": {
         "h": {
-          "$ref": "#/$defs/FlowInitialCondition",
           "description": "Hydraulic-head initial condition payload.",
+          "discriminator": {
+            "mapping": {
+              "bottom": "#/$defs/FlowICBottom",
+              "custom": "#/$defs/FlowICCustom",
+              "top": "#/$defs/FlowICTop",
+              "top_offset": "#/$defs/FlowICTopOffset"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/FlowICTop"
+            },
+            {
+              "$ref": "#/$defs/FlowICTopOffset"
+            },
+            {
+              "$ref": "#/$defs/FlowICBottom"
+            },
+            {
+              "$ref": "#/$defs/FlowICCustom"
+            }
+          ],
+          "title": "H",
           "x-hmp-profile": "user"
         }
       },
@@ -4307,122 +4823,30 @@
     },
     "FlowWellConfig": {
       "additionalProperties": false,
-      "description": "Typed payload for one pumping or injection well.\n\nA well is defined by its location in the MODFLOW grid (``cell``) and its\nflux schedule over time (``flux``). ``cell`` uses 0-based ``(lay, row,\ncol)`` indexing (FLOPY convention). ``flux`` follows the MODFLOW sign\nconvention: negative = pumping, positive = injection. ``flux`` may be a\nscalar (constant rate) or a list with one value per stress period.",
+      "description": "Typed payload for one pumping or injection well.\n\nA well is defined by its location (``location``) and its flux schedule\nover time (``flux``). ``location`` is a discriminated union with three\nvariants: ``cell`` for direct ``[lay, row, col]`` indexing, ``absolute_xy``\nfor projected coordinates, or ``relative_xy`` for normalized horizontal\ncoordinates. ``flux`` follows the MODFLOW sign convention: negative =\npumping, positive = injection. ``flux`` may be a scalar (constant rate)\nor a list with one value per stress period.",
       "properties": {
-        "cell": {
-          "anyOf": [
+        "location": {
+          "description": "Well location payload. Discriminated by 'kind': 'cell', 'absolute_xy', or 'relative_xy'.",
+          "discriminator": {
+            "mapping": {
+              "absolute_xy": "#/$defs/FlowWellLocationAbsoluteXY",
+              "cell": "#/$defs/FlowWellLocationCell",
+              "relative_xy": "#/$defs/FlowWellLocationRelativeXY"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
             {
-              "maxItems": 3,
-              "minItems": 3,
-              "prefixItems": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "integer"
-                }
-              ],
-              "type": "array"
+              "$ref": "#/$defs/FlowWellLocationCell"
             },
             {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Direct cell indices as [lay, row, col] (0-based).",
-          "title": "Cell",
-          "x-hmp-profile": "user"
-        },
-        "location_mode": {
-          "anyOf": [
-            {
-              "enum": [
-                "cell",
-                "absolute_xy",
-                "relative_xy"
-              ],
-              "type": "string"
+              "$ref": "#/$defs/FlowWellLocationAbsoluteXY"
             },
             {
-              "type": "null"
+              "$ref": "#/$defs/FlowWellLocationRelativeXY"
             }
           ],
-          "default": null,
-          "description": "Well location mode. Use 'cell' for direct [lay,row,col] indices, 'absolute_xy' for projected coordinates, or 'relative_xy' for normalized horizontal coordinates in the domain extent.",
-          "title": "Location Mode",
-          "x-hmp-profile": "user"
-        },
-        "layer": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Layer index (0-based) used with absolute_xy or relative_xy modes.",
-          "title": "Layer",
-          "x-hmp-profile": "dev"
-        },
-        "x": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Projected X coordinate used when location_mode='absolute_xy'.",
-          "title": "X",
-          "x-hmp-profile": "user"
-        },
-        "y": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Projected Y coordinate used when location_mode='absolute_xy'.",
-          "title": "Y",
-          "x-hmp-profile": "user"
-        },
-        "x_rel": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Relative X position in [0,1] from west to east when location_mode='relative_xy'.",
-          "title": "X Rel",
-          "x-hmp-profile": "user"
-        },
-        "y_rel": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Relative Y position in [0,1] from south to north when location_mode='relative_xy'.",
-          "title": "Y Rel",
+          "title": "Location",
           "x-hmp-profile": "user"
         },
         "flux": {
@@ -4495,6 +4919,9 @@
           "x-hmp-profile": "user"
         }
       },
+      "required": [
+        "location"
+      ],
       "title": "FlowWellConfig",
       "type": "object"
     },
@@ -4678,16 +5105,159 @@
       "title": "FlowWellForcingCsvConfig",
       "type": "object"
     },
+    "FlowWellLocationAbsoluteXY": {
+      "additionalProperties": false,
+      "description": "Projected ``(x, y)`` coordinates in solver units.",
+      "properties": {
+        "kind": {
+          "const": "absolute_xy",
+          "default": "absolute_xy",
+          "description": "Discriminator tag for the absolute-xy well location.",
+          "examples": [
+            "absolute_xy"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "layer": {
+          "default": 0,
+          "description": "Layer index (0-based) targeted by the well.",
+          "examples": [
+            0
+          ],
+          "title": "Layer",
+          "type": "integer",
+          "x-hmp-profile": "dev"
+        },
+        "x": {
+          "description": "Projected X coordinate in solver units.",
+          "examples": [
+            1.0
+          ],
+          "title": "X",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "y": {
+          "description": "Projected Y coordinate in solver units.",
+          "examples": [
+            1.0
+          ],
+          "title": "Y",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "FlowWellLocationAbsoluteXY",
+      "type": "object"
+    },
+    "FlowWellLocationCell": {
+      "additionalProperties": false,
+      "description": "Direct ``[lay, row, col]`` addressing on a structured solver grid.",
+      "properties": {
+        "kind": {
+          "const": "cell",
+          "default": "cell",
+          "description": "Discriminator tag for the cell-based well location.",
+          "examples": [
+            "cell"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "cell": {
+          "description": "Direct cell indices as [lay, row, col] (0-based, FLOPY convention).",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "integer"
+            }
+          ],
+          "title": "Cell",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "cell"
+      ],
+      "title": "FlowWellLocationCell",
+      "type": "object"
+    },
+    "FlowWellLocationRelativeXY": {
+      "additionalProperties": false,
+      "description": "Normalized ``(x_rel, y_rel)`` in ``[0, 1]`` over the domain extent.",
+      "properties": {
+        "kind": {
+          "const": "relative_xy",
+          "default": "relative_xy",
+          "description": "Discriminator tag for the relative-xy well location.",
+          "examples": [
+            "relative_xy"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "layer": {
+          "default": 0,
+          "description": "Layer index (0-based) targeted by the well.",
+          "examples": [
+            0
+          ],
+          "title": "Layer",
+          "type": "integer",
+          "x-hmp-profile": "dev"
+        },
+        "x_rel": {
+          "description": "Relative X position in [0, 1] from west to east.",
+          "examples": [
+            1.0
+          ],
+          "title": "X Rel",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "y_rel": {
+          "description": "Relative Y position in [0, 1] from south to north.",
+          "examples": [
+            1.0
+          ],
+          "title": "Y Rel",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "x_rel",
+        "y_rel"
+      ],
+      "title": "FlowWellLocationRelativeXY",
+      "type": "object"
+    },
     "GeneratedBandsSupportConfig": {
       "additionalProperties": false,
       "description": "Analytical bands split along one cartesian axis.",
       "properties": {
-        "provider": {
+        "kind": {
           "const": "generated_bands",
           "examples": [
             "generated_bands"
           ],
-          "title": "Provider",
+          "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
@@ -4755,7 +5325,7 @@
         }
       },
       "required": [
-        "provider"
+        "kind"
       ],
       "title": "GeneratedBandsSupportConfig",
       "type": "object"
@@ -4764,12 +5334,12 @@
       "additionalProperties": false,
       "description": "Analytical concentric rings centered on one cartesian point.",
       "properties": {
-        "provider": {
+        "kind": {
           "const": "generated_rings",
           "examples": [
             "generated_rings"
           ],
-          "title": "Provider",
+          "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
@@ -4852,7 +5422,7 @@
         }
       },
       "required": [
-        "provider"
+        "kind"
       ],
       "title": "GeneratedRingsSupportConfig",
       "type": "object"
@@ -4875,131 +5445,40 @@
           "type": "string",
           "x-hmp-profile": "user"
         },
-        "catch_def": {
+        "catchment": {
           "anyOf": [
             {
-              "enum": [
-                "dem",
-                "txt",
-                "from_outlet_coord",
-                "from_polyg_shp"
-              ],
-              "type": "string"
+              "discriminator": {
+                "mapping": {
+                  "dem": "#/$defs/DemCatchDef",
+                  "from_outlet_coord": "#/$defs/OutletCatchDef",
+                  "from_polyg_shp": "#/$defs/PolygonCatchDef",
+                  "txt": "#/$defs/TxtCatchDef"
+                },
+                "propertyName": "catch_def"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/DemCatchDef"
+                },
+                {
+                  "$ref": "#/$defs/TxtCatchDef"
+                },
+                {
+                  "$ref": "#/$defs/OutletCatchDef"
+                },
+                {
+                  "$ref": "#/$defs/PolygonCatchDef"
+                }
+              ]
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Catchment definition mode used when source_mode='standard'. 'dem' = model domain defined directly from a DEM raster (dem_init_path required). 'txt' = model domain from an XYZ text file (dem_init_path, cell_size required). 'from_outlet_coord' = watershed from outlet coordinates (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required). 'from_polyg_shp' = watershed from a polygon shapefile (dem_init_path, polyg_shp_path, buff_area required).",
-          "title": "Catch Def",
-          "x-hmp-profile": "user"
-        },
-        "dem_init_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.",
-          "title": "Dem Init Path",
-          "x-hmp-profile": "user"
-        },
-        "cell_size": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Grid cell size in metres used to rasterise the XYZ point cloud. Required for 'txt' mode.",
-          "title": "Cell Size",
-          "x-hmp-profile": "user"
-        },
-        "x_outlet": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "X coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.",
-          "title": "X Outlet",
-          "x-hmp-profile": "user"
-        },
-        "y_outlet": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Y coordinate of the watershed outlet in the projected CRS. Required for 'from_outlet_coord' mode.",
-          "title": "Y Outlet",
-          "x-hmp-profile": "user"
-        },
-        "snap_dist": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-friendly values (for example 50, '50 m', '0.05 km'). Required for 'from_outlet_coord' mode.",
-          "title": "Snap Dist",
-          "x-hmp-profile": "user"
-        },
-        "buff_area": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km'). Required for 'from_outlet_coord' and 'from_polyg_shp' modes.",
-          "title": "Buff Area",
-          "x-hmp-profile": "user"
-        },
-        "polyg_shp_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Path to the watershed polygon shapefile. Required for 'from_polyg_shp' mode.",
-          "title": "Polyg Shp Path",
+          "description": "Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'.",
+          "title": "Catchment",
           "x-hmp-profile": "user"
         },
         "crs_project": {
@@ -5114,6 +5593,7 @@
           "examples": [
             "field_geology"
           ],
+          "pattern": "^[a-z][a-z0-9_]*$",
           "title": "Id",
           "type": "string",
           "x-hmp-profile": "user"
@@ -5289,18 +5769,18 @@
       "additionalProperties": false,
       "description": "Support backed by the geology data manager.",
       "properties": {
-        "provider": {
+        "kind": {
           "const": "geology",
           "examples": [
             "geology"
           ],
-          "title": "Provider",
+          "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         }
       },
       "required": [
-        "provider"
+        "kind"
       ],
       "title": "GeologySupportConfig",
       "type": "object"
@@ -5409,6 +5889,35 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
+        },
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
@@ -5505,35 +6014,6 @@
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
           "title": "Path",
-          "x-hmp-profile": "user"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
           "x-hmp-profile": "user"
         }
       },
@@ -5733,6 +6213,21 @@
       "additionalProperties": false,
       "description": "Configuration for one hydrometry data source.\n\nHydrometry sources load river discharge or stage time series. Use\n``custom`` for local station files and ``hubeau`` for the French Hub'Eau\nhydrometry API. Station filters, spatial masks, and units are declared at\nsource level.",
       "properties": {
+        "fallback_search_radius_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.",
+          "title": "Fallback Search Radius Km",
+          "x-hmp-profile": "dev"
+        },
         "station_ids": {
           "anyOf": [
             {
@@ -5777,6 +6272,35 @@
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
         },
         "col_id": {
           "default": "id",
@@ -5876,21 +6400,6 @@
           "title": "Path",
           "x-hmp-profile": "user"
         },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.",
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
-        },
         "product": {
           "anyOf": [
             {
@@ -5914,34 +6423,6 @@
           "title": "Require Observations",
           "type": "boolean",
           "x-hmp-profile": "dev"
-        },
-        "fallback_search_radius_km": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "If no station found in bbox, expand search by this radius (km).",
-          "title": "Fallback Search Radius Km",
-          "x-hmp-profile": "dev"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -6009,6 +6490,21 @@
       "additionalProperties": false,
       "description": "Configuration for one intermittency data source.\n\nIntermittency sources load stream flow-state observations from local files\nor from the Hub'Eau ONDE API. The source can restrict stations by id,\ndepartment code, project extent, or a spatial mask.",
       "properties": {
+        "fallback_search_radius_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.",
+          "title": "Fallback Search Radius Km",
+          "x-hmp-profile": "dev"
+        },
         "station_ids": {
           "anyOf": [
             {
@@ -6053,6 +6549,35 @@
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
         },
         "col_id": {
           "default": "id",
@@ -6152,21 +6677,6 @@
           "title": "Path",
           "x-hmp-profile": "user"
         },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.",
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
-        },
         "code_departement": {
           "anyOf": [
             {
@@ -6193,40 +6703,51 @@
           "title": "Require Observations",
           "type": "boolean",
           "x-hmp-profile": "dev"
-        },
-        "fallback_search_radius_km": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "If no station found in bbox, expand search by this radius (km).",
-          "title": "Fallback Search Radius Km",
-          "x-hmp-profile": "dev"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
         }
       },
       "required": [
         "source"
       ],
       "title": "IntermittencySourceConfig",
+      "type": "object"
+    },
+    "LinearTopography": {
+      "additionalProperties": false,
+      "description": "Linear analytical topography rising from right to left.",
+      "properties": {
+        "kind": {
+          "const": "linear",
+          "default": "linear",
+          "description": "Analytical topography law: 'linear' increases from right to left.",
+          "examples": [
+            "linear"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "base_elevation": {
+          "default": 20.0,
+          "description": "Reference elevation (m) on the right boundary.",
+          "examples": [
+            20.0
+          ],
+          "title": "Base Elevation",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "right_to_left_amplitude": {
+          "default": 0.0,
+          "description": "Additional elevation reached on the left boundary relative to the right boundary. Positive values make the surface rise from right to left.",
+          "examples": [
+            0.0
+          ],
+          "title": "Right To Left Amplitude",
+          "type": "number",
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "LinearTopography",
       "type": "object"
     },
     "LmtConfig": {
@@ -6387,6 +6908,10 @@
         "output_layout": {
           "default": "standard",
           "description": "Dedicated-launcher output layout. Use 'standard' to keep final mesh artifacts under `results_stable/mesh/`, or 'flat' to write final mesh artifacts directly under `workspace.project_root` while keeping intermediate runtime folders out of that final directory.",
+          "enum": [
+            "standard",
+            "flat"
+          ],
           "examples": [
             "standard"
           ],
@@ -6407,6 +6932,10 @@
         "geographic_outputs_mode": {
           "default": "keep",
           "description": "Control what happens to intermediate geographic preprocessing artifacts after the mesh run. Use 'keep' to preserve the canonical `results_stable/geographic` and `results_stable/demcorrecflow` folders, or 'cleanup' to delete them at the end of the dedicated mesh launcher once the mesh outputs and exchange bundle have been written.",
+          "enum": [
+            "keep",
+            "cleanup"
+          ],
           "examples": [
             "keep"
           ],
@@ -6453,7 +6982,19 @@
           "x-hmp-profile": "user"
         },
         "domain": {
-          "anyOf": [
+          "description": "Effective support domain to mesh. The default `geographic_box_buffer` mode reuses the catchment bounding box plus geographic buffer prepared during delineation, which is usually the right support for mono-catchment meshing.",
+          "discriminator": {
+            "mapping": {
+              "bbox": "#/$defs/ZoneMeshingDomainBBox",
+              "geographic_box_buffer": "#/$defs/ZoneMeshingDomainGeographicBoxBuffer",
+              "geographic_watershed": "#/$defs/ZoneMeshingDomainGeographicWatershed",
+              "geographic_watershed_box": "#/$defs/ZoneMeshingDomainGeographicWatershedBox",
+              "polygon": "#/$defs/ZoneMeshingDomainPolygon",
+              "vector": "#/$defs/ZoneMeshingDomainVector"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
             {
               "$ref": "#/$defs/ZoneMeshingDomainBBox"
             },
@@ -6473,7 +7014,6 @@
               "$ref": "#/$defs/ZoneMeshingDomainGeographicWatershedBox"
             }
           ],
-          "description": "Effective support domain to mesh. The default `geographic_box_buffer` mode reuses the catchment bounding box plus geographic buffer prepared during delineation, which is usually the right support for mono-catchment meshing.",
           "title": "Domain",
           "x-hmp-profile": "user"
         },
@@ -6493,6 +7033,10 @@
         "values_source": {
           "default": "inline",
           "description": "Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for an external table.",
+          "enum": [
+            "inline",
+            "csv"
+          ],
           "examples": [
             "inline"
           ],
@@ -6617,6 +7161,10 @@
         "source": {
           "default": "domain_geographic",
           "description": "Origin of the river constraints used to force mesh edges along the river network. Use 'domain_geographic' for the in-memory river trace produced by geographic preprocessing, or 'file' to reload a vector river dataset from disk.",
+          "enum": [
+            "domain_geographic",
+            "file"
+          ],
           "examples": [
             "domain_geographic"
           ],
@@ -6719,6 +7267,10 @@
         "values_source": {
           "default": "inline",
           "description": "Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for an external table.",
+          "enum": [
+            "inline",
+            "csv"
+          ],
           "examples": [
             "inline"
           ],
@@ -6989,6 +7541,10 @@
         "mode": {
           "default": "full_domain",
           "description": "Control where geology remains conformal. Use 'full_domain' to keep the current behavior, or 'buffered_watershed_envelope' to keep geology interfaces active only inside one buffered envelope around the regularized watershed, without creating one strict partition boundary on that envelope.",
+          "enum": [
+            "full_domain",
+            "buffered_watershed_envelope"
+          ],
           "examples": [
             "full_domain"
           ],
@@ -7261,7 +7817,7 @@
           "examples": [
             500
           ],
-          "minimum": 1,
+          "exclusiveMinimum": 0,
           "title": "Mf6 Outer Maximum",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -7272,7 +7828,7 @@
           "examples": [
             500
           ],
-          "minimum": 1,
+          "exclusiveMinimum": 0,
           "title": "Mf6 Inner Maximum",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -7322,7 +7878,7 @@
           "examples": [
             1
           ],
-          "minimum": 1,
+          "exclusiveMinimum": 0,
           "title": "Mf6 Rewet Iwetit",
           "type": "integer",
           "x-hmp-profile": "expert"
@@ -7783,6 +8339,21 @@
       "additionalProperties": false,
       "description": "Configuration for one oceanic boundary data source.\n\nOceanic sources describe sea-level information for coastal boundary\nconditions. Use ``custom`` for local files, ``shom`` for tide-gauge data,\nor ``constant`` for a fixed mean sea-level value.",
       "properties": {
+        "fallback_search_radius_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.",
+          "title": "Fallback Search Radius Km",
+          "x-hmp-profile": "dev"
+        },
         "station_ids": {
           "anyOf": [
             {
@@ -7827,6 +8398,35 @@
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
         },
         "col_id": {
           "default": "id",
@@ -7927,20 +8527,6 @@
           "title": "Path",
           "x-hmp-profile": "user"
         },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
         "value": {
           "anyOf": [
             {
@@ -7965,20 +8551,6 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
-        "fallback_search_radius_km": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Maximum search radius (km) for nearest tide gauge.",
-          "title": "Fallback Search Radius Km",
-          "x-hmp-profile": "dev"
-        },
         "require_observations": {
           "default": true,
           "description": "Raise if SHOM returns no observations.",
@@ -7988,8 +8560,19 @@
           "title": "Require Observations",
           "type": "boolean",
           "x-hmp-profile": "dev"
-        },
-        "mask_path": {
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "OceanicSourceConfig",
+      "type": "object"
+    },
+    "OutletCatchDef": {
+      "additionalProperties": false,
+      "description": "Watershed delineated from an outlet coordinate.",
+      "properties": {
+        "dem_init_path": {
           "anyOf": [
             {
               "format": "path",
@@ -8000,15 +8583,124 @@
             }
           ],
           "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
+          "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
+          "title": "Dem Init Path",
+          "x-hmp-profile": "user"
+        },
+        "catch_def": {
+          "const": "from_outlet_coord",
+          "default": "from_outlet_coord",
+          "description": "Watershed delineated from outlet coordinates on a regional DEM.",
+          "examples": [
+            "from_outlet_coord"
+          ],
+          "title": "Catch Def",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "x_outlet": {
+          "description": "X coordinate of the watershed outlet in the projected CRS.",
+          "examples": [
+            1.0
+          ],
+          "title": "X Outlet",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "y_outlet": {
+          "description": "Y coordinate of the watershed outlet in the projected CRS.",
+          "examples": [
+            1.0
+          ],
+          "title": "Y Outlet",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "snap_dist": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-friendly values (for example 50, '50 m', '0.05 km').",
+          "title": "Snap Dist",
+          "x-hmp-profile": "user"
+        },
+        "buff_area": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').",
+          "title": "Buff Area",
           "x-hmp-profile": "user"
         }
       },
       "required": [
-        "source"
+        "x_outlet",
+        "y_outlet",
+        "snap_dist",
+        "buff_area"
       ],
-      "title": "OceanicSourceConfig",
+      "title": "OutletCatchDef",
+      "type": "object"
+    },
+    "OverviewConfig": {
+      "additionalProperties": false,
+      "description": "Overview report settings (watershed identity card).",
+      "properties": {
+        "name": {
+          "default": "",
+          "description": "Watershed name.",
+          "examples": [
+            ""
+          ],
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "date_start": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Global start date (YYYY-MM-DD).",
+          "title": "Date Start",
+          "x-hmp-profile": "user"
+        },
+        "date_end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Global end date (YYYY-MM-DD).",
+          "title": "Date End",
+          "x-hmp-profile": "user"
+        },
+        "panels": {
+          "$ref": "#/$defs/OverviewPanelsConfig",
+          "description": "Panel toggles.",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "OverviewConfig",
       "type": "object"
     },
     "OverviewPanelsConfig": {
@@ -8117,57 +8809,6 @@
         }
       },
       "title": "OverviewPanelsConfig",
-      "type": "object"
-    },
-    "OverviewSection": {
-      "additionalProperties": false,
-      "description": "Overview report settings (watershed identity card).",
-      "properties": {
-        "name": {
-          "default": "",
-          "description": "Watershed name.",
-          "examples": [
-            ""
-          ],
-          "title": "Name",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "date_start": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Global start date (YYYY-MM-DD).",
-          "title": "Date Start",
-          "x-hmp-profile": "user"
-        },
-        "date_end": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Global end date (YYYY-MM-DD).",
-          "title": "Date End",
-          "x-hmp-profile": "user"
-        },
-        "panels": {
-          "$ref": "#/$defs/OverviewPanelsConfig",
-          "description": "Panel toggles.",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "OverviewSection",
       "type": "object"
     },
     "PersistenceConfig": {
@@ -8306,6 +8947,21 @@
       "additionalProperties": false,
       "description": "Configuration for one piezometry data source.\n\nPiezometry sources load groundwater-level or depth observations from local\nstation files or from the Hub'Eau piezometry API. Station filters, nearest\nstation selection, and source units are declared here.",
       "properties": {
+        "fallback_search_radius_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.",
+          "title": "Fallback Search Radius Km",
+          "x-hmp-profile": "dev"
+        },
         "station_ids": {
           "anyOf": [
             {
@@ -8350,6 +9006,35 @@
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
         },
         "col_id": {
           "default": "id",
@@ -8449,21 +9134,6 @@
           "title": "Path",
           "x-hmp-profile": "user"
         },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.",
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
-        },
         "product": {
           "anyOf": [
             {
@@ -8492,20 +9162,6 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
-        "fallback_search_radius_km": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "If no station found in bbox, expand search by this radius (km).",
-          "title": "Fallback Search Radius Km",
-          "x-hmp-profile": "dev"
-        },
         "nearest": {
           "default": false,
           "description": "Keep only the nearest piezometer to the extent centroid.",
@@ -8515,20 +9171,6 @@
           "title": "Nearest",
           "type": "boolean",
           "x-hmp-profile": "dev"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -8558,7 +9200,7 @@
         "nx": {
           "anyOf": [
             {
-              "minimum": 1,
+              "exclusiveMinimum": 0,
               "type": "integer"
             },
             {
@@ -8573,7 +9215,7 @@
         "ny": {
           "anyOf": [
             {
-              "minimum": 1,
+              "exclusiveMinimum": 0,
               "type": "integer"
             },
             {
@@ -8602,6 +9244,67 @@
         }
       },
       "title": "PlanarGridConfig",
+      "type": "object"
+    },
+    "PolygonCatchDef": {
+      "additionalProperties": false,
+      "description": "Watershed delineated from a polygon shapefile.",
+      "properties": {
+        "dem_init_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
+          "title": "Dem Init Path",
+          "x-hmp-profile": "user"
+        },
+        "catch_def": {
+          "const": "from_polyg_shp",
+          "default": "from_polyg_shp",
+          "description": "Watershed delineated from a polygon shapefile plus a regional DEM.",
+          "examples": [
+            "from_polyg_shp"
+          ],
+          "title": "Catch Def",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "polyg_shp_path": {
+          "description": "Path to the watershed polygon shapefile.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Polyg Shp Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "buff_area": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "description": "Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').",
+          "title": "Buff Area",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "polyg_shp_path",
+        "buff_area"
+      ],
+      "title": "PolygonCatchDef",
       "type": "object"
     },
     "PrecipitationConfig": {
@@ -8707,6 +9410,35 @@
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
         },
         "col_id": {
           "default": "id",
@@ -8828,41 +9560,93 @@
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
           "title": "Path",
           "x-hmp-profile": "user"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
         }
       },
       "required": [
         "source"
       ],
       "title": "PrecipitationSourceConfig",
+      "type": "object"
+    },
+    "RadialIslandTopography": {
+      "additionalProperties": false,
+      "description": "Circular emerged island surrounded by submerged ocean cells.",
+      "properties": {
+        "kind": {
+          "const": "radial_island",
+          "default": "radial_island",
+          "description": "Analytical topography law: 'radial_island' builds one circular emerged island surrounded by submerged ocean cells.",
+          "examples": [
+            "radial_island"
+          ],
+          "title": "Kind",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "base_elevation": {
+          "default": -1.0,
+          "description": "Submerged ocean-floor elevation (m). Must be < 0.",
+          "examples": [
+            -1.0
+          ],
+          "title": "Base Elevation",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "island_radius": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Circular shoreline radius (m). Defaults to 35% of the smallest domain length.",
+          "title": "Island Radius",
+          "x-hmp-profile": "dev"
+        },
+        "crest_elevation": {
+          "default": 10.0,
+          "description": "Central island elevation (m). The land surface decays nonlinearly to sea level at the shoreline.",
+          "examples": [
+            10.0
+          ],
+          "title": "Crest Elevation",
+          "type": "number",
+          "x-hmp-profile": "dev"
+        },
+        "center_x": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional x coordinate of the island center. Defaults to the grid midpoint.",
+          "title": "Center X",
+          "x-hmp-profile": "dev"
+        },
+        "center_y": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional y coordinate of the island center. Defaults to the grid midpoint.",
+          "title": "Center Y",
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "RadialIslandTopography",
       "type": "object"
     },
     "RadiationConfig": {
@@ -8968,6 +9752,35 @@
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
         },
         "col_id": {
           "default": "id",
@@ -9090,35 +9903,6 @@
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
           "title": "Path",
           "x-hmp-profile": "user"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -9231,6 +10015,35 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
+        },
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
@@ -9328,35 +10141,6 @@
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
           "title": "Path",
-          "x-hmp-profile": "user"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
           "x-hmp-profile": "user"
         },
         "values": {
@@ -10532,14 +11316,14 @@
           "type": "string",
           "x-hmp-profile": "dev"
         },
-        "type": {
+        "kind": {
           "const": "robin",
           "default": "robin",
-          "description": "Boundary-condition type.",
+          "description": "Boundary-condition kind discriminator.",
           "examples": [
             "robin"
           ],
-          "title": "Type",
+          "title": "Kind",
           "type": "string",
           "x-hmp-profile": "user"
         },
@@ -10699,6 +11483,35 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
+        },
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
@@ -10795,35 +11608,6 @@
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
           "title": "Path",
-          "x-hmp-profile": "user"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
           "x-hmp-profile": "user"
         }
       },
@@ -11269,6 +12053,35 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
+        },
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
@@ -11366,35 +12179,6 @@
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
           "title": "Path",
           "x-hmp-profile": "user"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -11459,8 +12243,27 @@
           "x-hmp-profile": "user"
         },
         "topography": {
-          "$ref": "#/$defs/SyntheticTopographyConfig",
           "description": "Synthetic topography definition (shape, elevations, slope).",
+          "discriminator": {
+            "mapping": {
+              "flat": "#/$defs/FlatTopography",
+              "linear": "#/$defs/LinearTopography",
+              "radial_island": "#/$defs/RadialIslandTopography"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/FlatTopography"
+            },
+            {
+              "$ref": "#/$defs/LinearTopography"
+            },
+            {
+              "$ref": "#/$defs/RadialIslandTopography"
+            }
+          ],
+          "title": "Topography",
           "x-hmp-profile": "user"
         }
       },
@@ -11497,7 +12300,7 @@
           "examples": [
             100
           ],
-          "minimum": 1,
+          "exclusiveMinimum": 0,
           "title": "Nx",
           "type": "integer",
           "x-hmp-profile": "user"
@@ -11508,7 +12311,7 @@
           "examples": [
             1
           ],
-          "minimum": 1,
+          "exclusiveMinimum": 0,
           "title": "Ny",
           "type": "integer",
           "x-hmp-profile": "user"
@@ -11555,101 +12358,6 @@
         }
       },
       "title": "SyntheticGridConfig",
-      "type": "object"
-    },
-    "SyntheticTopographyConfig": {
-      "additionalProperties": false,
-      "description": "Analytical topography definition on the synthetic support.",
-      "properties": {
-        "kind": {
-          "default": "flat",
-          "description": "Analytical topography law. 'flat' keeps one constant elevation. 'linear' increases from right to left with a linear profile. 'radial_island' builds one circular emerged island surrounded by submerged ocean cells.",
-          "enum": [
-            "flat",
-            "linear",
-            "radial_island"
-          ],
-          "examples": [
-            "flat"
-          ],
-          "title": "Kind",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "base_elevation": {
-          "default": 20.0,
-          "description": "Reference elevation (m). For 'flat' this is the constant surface elevation. For 'linear' this is the elevation on the right boundary. For 'radial_island' this is the submerged ocean-floor elevation.",
-          "examples": [
-            20.0
-          ],
-          "title": "Base Elevation",
-          "type": "number",
-          "x-hmp-profile": "user"
-        },
-        "right_to_left_amplitude": {
-          "default": 0.0,
-          "description": "Additional elevation reached on the left boundary relative to the right boundary. Positive values make the surface rise from right to left.",
-          "examples": [
-            0.0
-          ],
-          "title": "Right To Left Amplitude",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "island_radius": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Circular shoreline radius (m) used by 'radial_island'. Defaults to 35% of the smallest domain length.",
-          "title": "Island Radius",
-          "x-hmp-profile": "dev"
-        },
-        "crest_elevation": {
-          "default": 10.0,
-          "description": "Central island elevation (m) used by 'radial_island'. The land surface decays nonlinearly to sea level at the shoreline.",
-          "examples": [
-            10.0
-          ],
-          "title": "Crest Elevation",
-          "type": "number",
-          "x-hmp-profile": "dev"
-        },
-        "center_x": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional x coordinate of the radial-island center. Defaults to the grid midpoint.",
-          "title": "Center X",
-          "x-hmp-profile": "dev"
-        },
-        "center_y": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional y coordinate of the radial-island center. Defaults to the grid midpoint.",
-          "title": "Center Y",
-          "x-hmp-profile": "dev"
-        }
-      },
-      "title": "SyntheticTopographyConfig",
       "type": "object"
     },
     "TMeshConfig": {
@@ -11700,6 +12408,7 @@
           "examples": [
             1
           ],
+          "exclusiveMinimum": 0,
           "title": "Nper",
           "type": "integer",
           "x-hmp-profile": "user"
@@ -11981,6 +12690,35 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
+        },
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
@@ -12077,35 +12815,6 @@
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
           "title": "Path",
-          "x-hmp-profile": "user"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
           "x-hmp-profile": "user"
         }
       },
@@ -12235,6 +12944,53 @@
         }
       },
       "title": "TransportMt3dmsConfig",
+      "type": "object"
+    },
+    "TxtCatchDef": {
+      "additionalProperties": false,
+      "description": "Model domain defined from an XYZ text grid plus a cell size.",
+      "properties": {
+        "dem_init_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.",
+          "title": "Dem Init Path",
+          "x-hmp-profile": "user"
+        },
+        "catch_def": {
+          "const": "txt",
+          "default": "txt",
+          "description": "Catchment defined from an XYZ text grid (cell_size required).",
+          "examples": [
+            "txt"
+          ],
+          "title": "Catch Def",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "cell_size": {
+          "description": "Grid cell size in metres used to rasterise the XYZ point cloud.",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0,
+          "title": "Cell Size",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "cell_size"
+      ],
+      "title": "TxtCatchDef",
       "type": "object"
     },
     "UpwConfig": {
@@ -12415,6 +13171,21 @@
       "additionalProperties": false,
       "description": "Configuration for one water quality data source.\n\nWater-quality sources load physico-chemical observations for river or\npiezometer sites. The source selects local files or Hub'Eau, optional\nparameter filters, station filters, and spatial discovery rules.",
       "properties": {
+        "fallback_search_radius_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.",
+          "title": "Fallback Search Radius Km",
+          "x-hmp-profile": "dev"
+        },
         "station_ids": {
           "anyOf": [
             {
@@ -12459,6 +13230,35 @@
           "title": "Force Refresh",
           "type": "boolean",
           "x-hmp-profile": "dev"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
         },
         "col_id": {
           "default": "id",
@@ -12589,35 +13389,6 @@
           "title": "Path",
           "x-hmp-profile": "user"
         },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.",
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
-        },
-        "fallback_search_radius_km": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "If no station found in bbox, expand search by this radius (km).",
-          "title": "Fallback Search Radius Km",
-          "x-hmp-profile": "dev"
-        },
         "nearest": {
           "default": false,
           "description": "Keep only the nearest station to the extent centroid.",
@@ -12627,20 +13398,6 @@
           "title": "Nearest",
           "type": "boolean",
           "x-hmp-profile": "dev"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -12771,6 +13528,35 @@
           "type": "boolean",
           "x-hmp-profile": "dev"
         },
+        "mask_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.",
+          "title": "Mask Path",
+          "x-hmp-profile": "user"
+        },
+        "source_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.",
+          "title": "Source Unit",
+          "x-hmp-profile": "user"
+        },
         "col_id": {
           "default": "id",
           "description": "Column name for the station identifier in location files.",
@@ -12867,35 +13653,6 @@
           "default": null,
           "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
           "title": "Path",
-          "x-hmp-profile": "user"
-        },
-        "source_unit": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-          "title": "Source Unit",
-          "x-hmp-profile": "user"
-        },
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-          "title": "Mask Path",
           "x-hmp-profile": "user"
         }
       },
@@ -13041,8 +13798,8 @@
       "description": "Axis-aligned bounding box domain contract.",
       "properties": {
         "kind": {
+          "const": "bbox",
           "default": "bbox",
-          "description": "Domain kind discriminator, must be 'bbox' for this schema.",
           "examples": [
             "bbox"
           ],
@@ -13070,8 +13827,8 @@
       "description": "Domain resolved from ``domain_geographic.box_buff_shp``.",
       "properties": {
         "kind": {
+          "const": "geographic_box_buffer",
           "default": "geographic_box_buffer",
-          "description": "Domain kind discriminator, must be 'geographic_box_buffer' for this schema.",
           "examples": [
             "geographic_box_buffer"
           ],
@@ -13088,8 +13845,8 @@
       "description": "Domain resolved from ``domain_geographic.watershed_shp``.",
       "properties": {
         "kind": {
+          "const": "geographic_watershed",
           "default": "geographic_watershed",
-          "description": "Domain kind discriminator, must be 'geographic_watershed' for this schema.",
           "examples": [
             "geographic_watershed"
           ],
@@ -13106,8 +13863,8 @@
       "description": "Domain resolved from ``domain_geographic.watershed_box_shp``.",
       "properties": {
         "kind": {
+          "const": "geographic_watershed_box",
           "default": "geographic_watershed_box",
-          "description": "Domain kind discriminator, must be 'geographic_watershed_box' for this schema.",
           "examples": [
             "geographic_watershed_box"
           ],
@@ -13124,8 +13881,8 @@
       "description": "Inline polygon coordinates domain contract.",
       "properties": {
         "kind": {
+          "const": "polygon",
           "default": "polygon",
-          "description": "Domain kind discriminator, must be 'polygon' for this schema.",
           "examples": [
             "polygon"
           ],
@@ -13156,8 +13913,8 @@
       "description": "Vector file domain contract.",
       "properties": {
         "kind": {
+          "const": "vector",
           "default": "vector",
-          "description": "Domain kind discriminator, must be 'vector' for this schema.",
           "examples": [
             "vector"
           ],
@@ -13235,6 +13992,7 @@
         "interface_size": {
           "anyOf": [
             {
+              "minimum": 0.0,
               "type": "number"
             },
             {
@@ -13249,6 +14007,7 @@
         "interface_distance": {
           "anyOf": [
             {
+              "minimum": 0.0,
               "type": "number"
             },
             {
@@ -13263,6 +14022,7 @@
         "interface_sampling": {
           "anyOf": [
             {
+              "minimum": 2,
               "type": "integer"
             },
             {
@@ -13285,6 +14045,7 @@
         "cell_size": {
           "anyOf": [
             {
+              "exclusiveMinimum": 0.0,
               "type": "number"
             },
             {
@@ -13302,6 +14063,7 @@
           "examples": [
             1
           ],
+          "exclusiveMinimum": 0,
           "title": "Neighborhood Rings",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -13322,6 +14084,7 @@
           "examples": [
             256
           ],
+          "exclusiveMinimum": 0,
           "title": "Max Exact Gap Candidates",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -13337,6 +14100,7 @@
         "radius": {
           "anyOf": [
             {
+              "minimum": 0.0,
               "type": "number"
             },
             {
@@ -13354,6 +14118,7 @@
           "examples": [
             180
           ],
+          "exclusiveMinimum": 0,
           "title": "Max Curve Count",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -13364,6 +14129,7 @@
           "examples": [
             2
           ],
+          "exclusiveMinimum": 0,
           "title": "Max Family Count",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -13374,6 +14140,7 @@
           "examples": [
             80.0
           ],
+          "minimum": 0.0,
           "title": "Min Gap",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -13384,6 +14151,7 @@
           "examples": [
             4
           ],
+          "exclusiveMinimum": 0,
           "title": "Max Node Degree",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -13394,6 +14162,7 @@
           "examples": [
             120.0
           ],
+          "minimum": 0.0,
           "title": "Short Segment Length",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -13404,6 +14173,7 @@
           "examples": [
             12
           ],
+          "exclusiveMinimum": 0,
           "title": "Max Short Segment Count",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -13429,6 +14199,10 @@
         "mode": {
           "default": "family_priority_local_budget",
           "description": "Refinement mode selector. One of 'family_priority_local_budget' or 'grid_local_budget'.",
+          "enum": [
+            "family_priority_local_budget",
+            "grid_local_budget"
+          ],
           "examples": [
             "family_priority_local_budget"
           ],
@@ -13479,6 +14253,7 @@
           "examples": [
             250.0
           ],
+          "minimum": 0.0,
           "title": "Global Size",
           "type": "number",
           "x-hmp-profile": "user"
@@ -13486,6 +14261,7 @@
         "min_size": {
           "anyOf": [
             {
+              "minimum": 0.0,
               "type": "number"
             },
             {
@@ -13500,6 +14276,7 @@
         "max_size": {
           "anyOf": [
             {
+              "minimum": 0.0,
               "type": "number"
             },
             {
@@ -13517,6 +14294,7 @@
           "examples": [
             0.0
           ],
+          "minimum": 0.0,
           "title": "Simplify Tolerance",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -13527,6 +14305,7 @@
           "examples": [
             0.0
           ],
+          "minimum": 0.0,
           "title": "Heal Tolerance",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -13537,6 +14316,7 @@
           "examples": [
             0.0
           ],
+          "minimum": 0.0,
           "title": "Linear Constraint Snap Tolerance",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -13547,6 +14327,7 @@
           "examples": [
             0.0
           ],
+          "minimum": 0.0,
           "title": "Min Polygon Area",
           "type": "number",
           "x-hmp-profile": "dev"
@@ -13564,6 +14345,7 @@
         "interface_size": {
           "anyOf": [
             {
+              "minimum": 0.0,
               "type": "number"
             },
             {
@@ -13578,6 +14360,7 @@
         "interface_distance": {
           "anyOf": [
             {
+              "minimum": 0.0,
               "type": "number"
             },
             {
@@ -13595,6 +14378,7 @@
           "examples": [
             64
           ],
+          "minimum": 2,
           "title": "Interface Sampling",
           "type": "integer",
           "x-hmp-profile": "dev"
@@ -13711,7 +14495,7 @@
     "overview": {
       "anyOf": [
         {
-          "$ref": "#/$defs/OverviewSection"
+          "$ref": "#/$defs/OverviewConfig"
         },
         {
           "type": "null"
