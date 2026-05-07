@@ -25,7 +25,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, PrivateAttr, model_validator
+from pydantic import Field, PrivateAttr, computed_field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -159,16 +159,19 @@ class WorkspaceConfig(HydroModelBase):
             return self.output_root
         return self.project_root
 
+    @computed_field
     @property
     def catch_name(self) -> str:
         """Project name derived from the project directory name."""
         return self.project_root.name
 
+    @computed_field
     @property
     def solver_scratch_folder(self) -> Path:
         """Path to the temporary solver scratch directory."""
         return self._effective_output_root / ".solver_scratch"
 
+    @computed_field
     @property
     def data_path(self) -> Path:
         """Path to the shared data folder (always resolved)."""

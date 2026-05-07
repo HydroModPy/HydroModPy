@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import BeforeValidator, Field
+from pydantic import AfterValidator, BeforeValidator, Field
 
 # ---------------------------------------------------------------------------
 # String types
@@ -29,6 +29,25 @@ def _strip_non_empty(value: object) -> str:
     return text
 
 
+def _clean_optional_text(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _validate_iso_date(value: str | None) -> str | None:
+    if value is None or value == "":
+        return value
+    from datetime import datetime
+
+    try:
+        datetime.fromisoformat(value)
+    except ValueError:
+        raise ValueError(f"Invalid ISO date: '{value}'. Expected YYYY-MM-DD.") from None
+    return value
+
+
 NormalizedStr = Annotated[str, BeforeValidator(_strip)]
 """String stripped of surrounding whitespace."""
 
@@ -37,6 +56,12 @@ NormalizedLowerStr = Annotated[str, BeforeValidator(_strip_lower)]
 
 NonEmptyStr = Annotated[str, BeforeValidator(_strip_non_empty)]
 """Non-empty string after stripping whitespace."""
+
+OptionalText = Annotated[str | None, BeforeValidator(_clean_optional_text)]
+"""Optional free-form text. Empty / whitespace-only inputs collapse to ``None``."""
+
+IsoDateStr = Annotated[str | None, AfterValidator(_validate_iso_date)]
+"""Optional ISO-8601 date (``YYYY-MM-DD``). Validated lazily, ``None`` allowed."""
 
 StripLower = BeforeValidator(_strip_lower)
 """Reusable BeforeValidator to combine with a ``Literal`` for case-insensitive enums."""
@@ -76,11 +101,13 @@ __all__ = [
     "CoveragePolicy",
     "IdentifierStr",
     "InterpolationMethod",
+    "IsoDateStr",
     "NonEmptyStr",
     "NonNegativeFloat",
     "NonNegativeInt",
     "NormalizedLowerStr",
     "NormalizedStr",
+    "OptionalText",
     "PositiveFloat",
     "PositiveInt",
     "Probability",

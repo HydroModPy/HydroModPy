@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from tomlkit.items import Item, Table
 
 from hydromodpy.core.config_kit.introspect import (
-    extract_profile as _field_level,
+    iter_fields_by_profile,
 )
 from hydromodpy.core.config_kit.introspect import (
     resolve_profile as _resolve_profile,
@@ -70,9 +70,7 @@ def _iter_serialisable_fields(
     skipped. The yielded value is the live attribute on *model*
     (already validated).
     """
-    for field_name, info in type(model).model_fields.items():
-        if _field_level(info) > profile_threshold:
-            continue
+    for field_name, info, _level in iter_fields_by_profile(type(model), profile_threshold):
         extra = getattr(info, "json_schema_extra", None)
         if isinstance(extra, dict) and extra.get("toml_exclude") is True:
             continue

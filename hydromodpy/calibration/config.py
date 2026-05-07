@@ -50,7 +50,7 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr
+from hydromodpy.core.config_kit.types import NonEmptyStr, NonNegativeInt, PositiveFloat
 from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
@@ -149,24 +149,20 @@ class CalibOutputDecl(HydroModelBase):
         default=None,
         description="Boundary package identifier when support='boundary'.",
     )
-    cell_id: Annotated[int | None, Profile.USER] = Field(
+    cell_id: Annotated[NonNegativeInt | None, Profile.USER] = Field(
         default=None,
-        ge=0,
         description="Flat cell index when support='cell' and the backend exposes one.",
     )
-    row: Annotated[int | None, Profile.USER] = Field(
+    row: Annotated[NonNegativeInt | None, Profile.USER] = Field(
         default=None,
-        ge=0,
         description="Structured row index when support='cell'.",
     )
-    col: Annotated[int | None, Profile.USER] = Field(
+    col: Annotated[NonNegativeInt | None, Profile.USER] = Field(
         default=None,
-        ge=0,
         description="Structured column index when support='cell'.",
     )
-    layer: Annotated[int, Profile.USER] = Field(
+    layer: Annotated[NonNegativeInt, Profile.USER] = Field(
         default=0,
-        ge=0,
         description="Structured layer index when support='cell'.",
     )
     time: Annotated[Literal["all", "last", "first"] | list[str], Profile.USER] = Field(
@@ -214,9 +210,8 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         default="rmse",
         description="Metric key. One of rmse, nse, kge, mae.",
     )
-    weight: Annotated[float, Profile.USER] = Field(
+    weight: Annotated[PositiveFloat, Profile.USER] = Field(
         default=1.0,
-        gt=0.0,
         description="Relative weight of this block in the composite sum.",
     )
     uses_outputs: Annotated[list[str], Profile.USER] = Field(

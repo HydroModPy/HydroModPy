@@ -101,6 +101,22 @@ class HydroModelBase(BaseModel):
                         field_schema.setdefault("examples", examples)
         return schema
 
+    @model_validator(mode="before")
+    @classmethod
+    def _strip_computed_fields(cls, data: Any) -> Any:
+        """Drop any ``model_computed_fields`` keys that survived a ``model_dump`` round-trip.
+
+        Computed fields appear in ``model_dump()`` output but raise under
+        ``extra="forbid"`` when fed back through ``model_validate``. Stripping
+        them here keeps ``model_dump`` -> ``model_validate`` symmetric.
+        """
+        if not isinstance(data, dict) or not cls.model_computed_fields:
+            return data
+        computed = set(cls.model_computed_fields)
+        if not any(key in computed for key in data):
+            return data
+        return {key: value for key, value in data.items() if key not in computed}
+
     @model_validator(mode="after")
     def _check_visible_when_targets(self) -> HydroModelBase:
         own_fields = set(type(self).model_fields)

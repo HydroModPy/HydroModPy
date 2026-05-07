@@ -35,11 +35,6 @@ class PiezometrySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
         InputFile(role="piezometry", category="data"),
     ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
 
-    # --- Spatial mask ---
-    mask_path: Annotated[Path | None, Profile.USER] = Field(
-        default=None, description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations."
-    )
-
     # --- API source fields ---
     product: Annotated[Literal["level", "depth"] | None, Profile.USER] = Field(
         default=None, description="Hub'Eau measurement type: 'level' or 'depth'."
@@ -54,10 +49,6 @@ class PiezometrySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     nearest: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Keep only the nearest piezometer to the extent centroid.",
-    )
-    source_unit: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.",
     )
 
     @model_validator(mode="after")

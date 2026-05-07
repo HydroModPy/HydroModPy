@@ -14,28 +14,21 @@ from hydromodpy.core.config_kit.types import (
     IdentifierStr,
     NonEmptyStr,
     NonNegativeInt,
+    OptionalText,
     PositiveFloat,
 )
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
-
-def _clean_optional_text(value: object) -> str | None:
-    """Normalize optional user text fields."""
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
 
 
 class ComparisonSimulation(HydroModelBase):
     """One simulation to run or reuse in a comparison."""
 
     id: Annotated[IdentifierStr, Profile.USER]
-    label: Annotated[str | None, Profile.USER] = None
+    label: Annotated[OptionalText, Profile.USER] = None
     enabled: Annotated[bool, Profile.USER] = True
-    simulation_config: Annotated[str | None, Profile.EXPERT] = None
-    run_folder: Annotated[str | None, Profile.EXPERT] = None
-    solver: Annotated[str | None, Profile.EXPERT] = None
+    simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    run_folder: Annotated[OptionalText, Profile.EXPERT] = None
+    solver: Annotated[OptionalText, Profile.EXPERT] = None
     mesh_label: Annotated[IdentifierStr | None, Profile.USER] = None
     mesh_mode: Annotated[
         Literal[
@@ -53,16 +46,13 @@ class ComparisonSimulation(HydroModelBase):
         description="Free-form TOML overlay merged into the base simulation config when this child runs.",
     )
 
-    @field_validator(
-        "label",
-        "simulation_config",
-        "run_folder",
-        "solver",
-        "mesh_label",
-    )
+    @field_validator("mesh_label")
     @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
+    def _validate_optional_identifier(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     @field_validator("overlay")
     @classmethod
@@ -96,14 +86,17 @@ class ComparisonObservable(HydroModelBase):
     allow_domain_proxy: Annotated[bool, Profile.DEV] = False
     time: Annotated[str | int | None, Profile.USER] = "all"
     time_window: Annotated[tuple[str, str] | tuple[float, float] | None, Profile.USER] = None
-    reducer: Annotated[str | None, Profile.USER] = None
-    time_reducer: Annotated[str | None, Profile.USER] = None
-    unit: Annotated[str | None, Profile.USER] = None
+    reducer: Annotated[OptionalText, Profile.USER] = None
+    time_reducer: Annotated[OptionalText, Profile.USER] = None
+    unit: Annotated[OptionalText, Profile.USER] = None
 
-    @field_validator("anchor_id", "boundary_id", "reducer", "time_reducer", "unit")
+    @field_validator("anchor_id", "boundary_id")
     @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
+    def _validate_optional_identifier(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     @field_validator("simulations")
     @classmethod
@@ -126,7 +119,8 @@ class ComparisonObservable(HydroModelBase):
         if not isinstance(value, Mapping):
             return value
         payload = dict(value)
-        if _clean_optional_text(payload.get("reducer")) is not None:
+        raw_reducer = payload.get("reducer")
+        if raw_reducer is not None and str(raw_reducer).strip():
             return payload
         support = str(payload.get("support", "point")).strip()
         if support == "point":
@@ -175,9 +169,9 @@ class RuntimeComparisonSection(HydroModelBase):
     """Launcher-owned comparison section."""
 
     comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
-    base_simulation_config: Annotated[str | None, Profile.EXPERT] = None
-    anchors_file: Annotated[str | None, Profile.EXPERT] = None
-    output_root: Annotated[str | None, Profile.EXPERT] = None
+    base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    anchors_file: Annotated[OptionalText, Profile.EXPERT] = None
+    output_root: Annotated[OptionalText, Profile.EXPERT] = None
     run_simulations: Annotated[bool, Profile.DEV] = True
     continue_on_error: Annotated[bool, Profile.DEV] = False
     reference_simulation: Annotated[IdentifierStr | None, Profile.EXPERT] = None
@@ -191,16 +185,13 @@ class RuntimeComparisonSection(HydroModelBase):
         description="Observables to compare across the declared simulations. At least one entry required.",
     )
 
-    @field_validator(
-        "comparison_id",
-        "base_simulation_config",
-        "anchors_file",
-        "output_root",
-        "reference_simulation",
-    )
+    @field_validator("comparison_id", "reference_simulation")
     @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
+    def _validate_optional_identifier(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     @model_validator(mode="after")
     def _validate_non_empty_lists(self) -> RuntimeComparisonSection:

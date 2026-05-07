@@ -6,7 +6,6 @@ from html import escape
 from pathlib import Path
 from textwrap import dedent
 
-
 ROOT = Path(__file__).resolve().parents[3]
 OUT = ROOT / "_static" / "concepts" / "streams_and_seepage"
 
@@ -36,7 +35,9 @@ class Svg:
         stroke: str | None = None,
         width: float | None = None,
     ) -> None:
-        self.raw(f"<rect{_attrs({'x': x, 'y': y, 'width': w, 'height': h, 'rx': rx, 'class': klass, 'fill': fill, 'stroke': stroke, 'stroke-width': width})}/>")
+        self.raw(
+            f"<rect{_attrs({'x': x, 'y': y, 'width': w, 'height': h, 'rx': rx, 'class': klass, 'fill': fill, 'stroke': stroke, 'stroke-width': width})}/>"
+        )
 
     def line(
         self,
@@ -83,7 +84,9 @@ class Svg:
         fill: str | None = None,
     ) -> None:
         pts = " ".join(f"{x:g},{y:g}" for x, y in points)
-        self.raw(f"<polyline{_attrs({'points': pts, 'class': klass, 'marker-end': _marker(marker), 'fill': fill})}/>")
+        self.raw(
+            f"<polyline{_attrs({'points': pts, 'class': klass, 'marker-end': _marker(marker), 'fill': fill})}/>"
+        )
 
     def circle(self, cx: float, cy: float, r: float, *, klass: str = "") -> None:
         self.raw(f'<circle cx="{cx:g}" cy="{cy:g}" r="{r:g}" class="{klass}"/>')
@@ -97,7 +100,9 @@ class Svg:
         klass: str = "",
         anchor: str | None = None,
     ) -> None:
-        self.raw(f"<text{_attrs({'x': x, 'y': y, 'class': klass, 'text-anchor': anchor})}>{escape(value)}</text>")
+        self.raw(
+            f"<text{_attrs({'x': x, 'y': y, 'class': klass, 'text-anchor': anchor})}>{escape(value)}</text>"
+        )
 
     def multiline(
         self,
@@ -254,11 +259,15 @@ def _smooth_path(points: list[tuple[float, float]]) -> str:
     return " ".join(d)
 
 
-def _scaled(points: list[tuple[float, float]], x: int, y: int, scale: float) -> list[tuple[float, float]]:
+def _scaled(
+    points: list[tuple[float, float]], x: int, y: int, scale: float
+) -> list[tuple[float, float]]:
     return [(x + px * scale, y + py * scale) for px, py in points]
 
 
-def _top_cards(svg: Svg, input_lines: list[str], eq_lines: list[str], note: str, result_lines: list[str]) -> None:
+def _top_cards(
+    svg: Svg, input_lines: list[str], eq_lines: list[str], note: str, result_lines: list[str]
+) -> None:
     _card(svg, 48, 118, 285, 158, "Input object", input_lines)
     svg.line(352, 197, 405, 197, klass="thin-flow", marker=True)
     _equation(svg, 426, 118, 365, 158, eq_lines, note)
@@ -267,10 +276,37 @@ def _top_cards(svg: Svg, input_lines: list[str], eq_lines: list[str], note: str,
 
 
 def _cross_section(svg: Svg, x: int, y: int, scale: float = 1.0, *, head: str = "default") -> None:
-    ground = [(0, 110), (80, 122), (150, 145), (215, 196), (265, 226), (345, 240), (430, 205), (515, 165), (620, 142)]
+    ground = [
+        (0, 110),
+        (80, 122),
+        (150, 145),
+        (215, 196),
+        (265, 226),
+        (345, 240),
+        (430, 205),
+        (515, 165),
+        (620, 142),
+    ]
     head_profiles = {
-        "default": [(35, 154), (120, 169), (210, 202), (300, 228), (392, 237), (500, 229), (598, 222)],
-        "seepage": [(35, 158), (120, 177), (205, 214), (285, 229), (350, 219), (415, 199), (480, 176), (598, 188)],
+        "default": [
+            (35, 154),
+            (120, 169),
+            (210, 202),
+            (300, 228),
+            (392, 237),
+            (500, 229),
+            (598, 222),
+        ],
+        "seepage": [
+            (35, 158),
+            (120, 177),
+            (205, 214),
+            (285, 229),
+            (350, 219),
+            (415, 199),
+            (480, 176),
+            (598, 188),
+        ],
     }
     head_points = head_profiles[head]
 
@@ -309,7 +345,10 @@ def render_stream_stage_boundary() -> None:
     _section_label(svg, 1022, 310, "result")
     _cross_section(svg, 295, 305, 1.0)
 
-    svg.path(_smooth_path([(535, 530), (590, 538), (640, 545), (705, 518), (765, 486)]), klass="surface-support")
+    svg.path(
+        _smooth_path([(535, 530), (590, 538), (640, 545), (705, 518), (765, 486)]),
+        klass="surface-support",
+    )
     svg.circle(610, 540, 8, klass="surface-marker")
     svg.circle(692, 522, 8, klass="surface-marker")
     svg.line(540, 472, 750, 472, klass="stage-line")
@@ -325,7 +364,10 @@ def render_stream_stage_boundary() -> None:
     svg.text(913, 427, "computed flux", klass="small")
 
     svg.text(548, 576, "zero-thickness support on the surface", klass="label")
-    _concept(svg, "Read this as line exchange at the surface: prescribe H_stream on a support, solve h, compute q_stream.")
+    _concept(
+        svg,
+        "Read this as line exchange at the surface: prescribe H_stream on a support, solve h, compute q_stream.",
+    )
     _write("method_stream_stage_boundary.svg", svg)
 
 
@@ -349,7 +391,10 @@ def render_seepage_drainage_operator() -> None:
     _section_label(svg, 1022, 310, "outflow")
     _cross_section(svg, 295, 305, 1.0, head="seepage")
 
-    svg.path(_smooth_path([(535, 530), (590, 538), (640, 545), (705, 518), (765, 486), (825, 470)]), klass="surface-support")
+    svg.path(
+        _smooth_path([(535, 530), (590, 538), (640, 545), (705, 518), (765, 486), (825, 470)]),
+        klass="surface-support",
+    )
     svg.rect(830, 558, 218, 36, klass="tag-orange", rx=10)
     svg.text(846, 582, "local surface z_s,i", klass="label")
 
@@ -359,7 +404,11 @@ def render_seepage_drainage_operator() -> None:
         svg.circle(x + 24, surface_y, 8, klass="surface-marker")
         svg.rect(x, y, 48, 40, klass="cell-on" if active else "cell-off", rx=4)
         if active:
-            svg.path(f"M {x + 24} {surface_y} C {x + 24} {surface_y - 30}, {x + 10} {surface_y - 54}, {x + 24} {surface_y - 82}", klass="orange-flow", marker="orange")
+            svg.path(
+                f"M {x + 24} {surface_y} C {x + 24} {surface_y - 30}, {x + 10} {surface_y - 54}, {x + 24} {surface_y - 82}",
+                klass="orange-flow",
+                marker="orange",
+            )
     svg.line(650, 524, 650, 545, klass="compare")
     svg.circle(650, 524, 7, klass="head-marker")
     svg.circle(650, 545, 7, klass="surface-marker")
@@ -372,7 +421,10 @@ def render_seepage_drainage_operator() -> None:
     svg.path("M 430 480 C 500 505, 560 525, 610 545", klass="flow", marker=True)
     svg.path("M 890 455 C 820 482, 755 505, 709 526", klass="flow", marker=True)
 
-    _concept(svg, "Read this as seepage through a surface line: solve h, compare with z_s,i, release only where h_i exceeds the surface.")
+    _concept(
+        svg,
+        "Read this as seepage through a surface line: solve h, compare with z_s,i, release only where h_i exceeds the surface.",
+    )
     _write("method_seepage_drainage_operator.svg", svg)
 
 
@@ -410,7 +462,13 @@ def render_simulated_active_postprocess() -> None:
     svg.line(575, 458, 662, 458, klass="thin-flow", marker=True)
     svg.rect(690, 330, 220, 244, klass="panel", rx=14)
     svg.text(718, 365, "route downstream", klass="label")
-    svg.multiline(718, 407, ["1. keep positive flux", "2. accumulate on graph", "3. apply threshold"], klass="card-text", line_height=32)
+    svg.multiline(
+        718,
+        407,
+        ["1. keep positive flux", "2. accumulate on graph", "3. apply threshold"],
+        klass="card-text",
+        line_height=32,
+    )
     svg.rect(720, 505, 160, 45, klass="tag", rx=10)
     svg.text(747, 534, "A_i -> m_i", klass="label")
 
@@ -424,7 +482,10 @@ def render_simulated_active_postprocess() -> None:
     svg.circle(1132, 495, 8, klass="source")
     svg.text(1040, 535, "diagnostic view", klass="small")
 
-    _concept(svg, "Read this as a view layer: water-budget fields stay raw; active linework is a thresholded diagnostic.")
+    _concept(
+        svg,
+        "Read this as a view layer: water-budget fields stay raw; active linework is a thresholded diagnostic.",
+    )
     _write("method_simulated_active_postprocess.svg", svg)
 
 

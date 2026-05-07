@@ -151,6 +151,13 @@ class GeographicConfig(HydroModelBase):
             "'synthetic' builds one analytical support from [geographic.synthetic]."
         ),
     )
+    # Future refactor target: convert (catch_def + dem_init_path/cell_size/
+    # x_outlet/y_outlet/snap_dist/buff_area/polyg_shp_path) into a discriminated
+    # union following the pattern in
+    # ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py``.
+    # Deferred because it changes the user-facing TOML schema and requires a
+    # backward-compatible ``model_validator(mode="before")`` to migrate flat
+    # legacy payloads to the nested form.
     catch_def: Annotated[
         Literal["dem", "txt", "from_outlet_coord", "from_polyg_shp"] | None,
         Profile.USER,

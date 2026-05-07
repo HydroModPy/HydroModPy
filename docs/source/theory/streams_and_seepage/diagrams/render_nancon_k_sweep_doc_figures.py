@@ -25,7 +25,12 @@ import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[6]
 DOC_STATIC_ROOT = (
-    REPO_ROOT / "docs" / "readthedocs" / "source" / "_static" / "workflows"
+    REPO_ROOT
+    / "docs"
+    / "readthedocs"
+    / "source"
+    / "_static"
+    / "workflows"
     / "simulated_active_network"
 )
 COMPARISON_ROOT = REPO_ROOT / "examples" / "projects" / "09_comparison_workflow" / "outputs"
@@ -124,8 +129,12 @@ def _parse_k(simulation_id: str, label: str) -> float:
 
 def _merged_metrics(spec: SweepSpec) -> list[dict[str, object]]:
     occupancy = _by_simulation(_read_csv(spec.source_root / "simulated_active_network_metrics.csv"))
-    overlap = _by_simulation(_read_csv(spec.source_root / "simulated_active_network_overlap_metrics.csv"))
-    distance = _by_simulation(_read_csv(spec.source_root / "simulated_active_network_distance_metrics.csv"))
+    overlap = _by_simulation(
+        _read_csv(spec.source_root / "simulated_active_network_overlap_metrics.csv")
+    )
+    distance = _by_simulation(
+        _read_csv(spec.source_root / "simulated_active_network_distance_metrics.csv")
+    )
     rows: list[dict[str, object]] = []
     for simulation_id in spec.simulation_ids:
         if simulation_id not in overlap:
@@ -299,7 +308,9 @@ def _render_trend_graph(spec: SweepSpec, rows: list[dict[str, object]]) -> Path:
     fig.patch.set_facecolor("white")
     fig.suptitle(spec.title, fontsize=15, fontweight="bold", y=0.985)
 
-    axes[0].plot(x_values, _series(rows, "active_cell_count"), "o-", color="#2878b5", label=r"$N_a$")
+    axes[0].plot(
+        x_values, _series(rows, "active_cell_count"), "o-", color="#2878b5", label=r"$N_a$"
+    )
     axes[0].plot(
         x_values,
         _series(rows, "missing_network_cell_count"),

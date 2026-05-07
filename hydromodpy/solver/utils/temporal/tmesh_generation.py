@@ -364,7 +364,7 @@ class TmeshGenerator:
         if config is not None and kwargs:
             raise ValueError("Provide either config or keyword parameters, not both.")
         if config is None:
-            config = TMeshConfig(**kwargs)
+            config = TMeshConfig.model_validate(kwargs)
         _validate_config(config)
         self._config: TMeshConfig = config
         self._tmesh_created = False

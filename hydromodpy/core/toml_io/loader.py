@@ -4,12 +4,20 @@ from __future__ import annotations
 
 import re
 import tomllib
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.merge import merge_toml_payloads
 from hydromodpy.core.toml_io.paths import is_declared_absolute_path
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+
+    M = TypeVar("M", bound=BaseModel)
+else:
+    M = TypeVar("M")
 
 _BASIC_STRING_ASSIGNMENT_RE = re.compile(
     r'^(?P<prefix>\s*[^#=\n]+?=\s*)"(?P<value>[^"\n]*)"(?P<suffix>\s*(?:#.*)?)$'
@@ -67,7 +75,7 @@ def _repair_path_like_basic_strings(text: str) -> str:
     return "".join(repaired_lines)
 
 
-def _strip_empty_strings(data: dict[str, Any]) -> dict[str, Any]:
+def _strip_empty_strings(data: dict[str, Any], *, _path: str = "") -> dict[str, Any]:
     """Recursively remove keys whose value is the empty string ``""``.
 
     Empty strings cannot represent ``None`` in TOML (no native null), so the
@@ -75,19 +83,31 @@ def _strip_empty_strings(data: dict[str, Any]) -> dict[str, Any]:
     fields.  Stripping them before Pydantic validation lets the model fall
     back to ``default=None``, which is the intended semantics.
 
+    Caveat
+    ------
+    A field where ``""`` is a meaningful value (e.g. a string with
+    ``min_length=0`` semantics) cannot be expressed in TOML under this
+    loader. Use a sentinel like ``"<empty>"`` or omit the key entirely.
+
     Only plain ``""`` values on leaf keys are affected -- non-empty strings,
-    nested dicts, and lists are traversed but never removed.
+    nested dicts, and lists are traversed but never removed. Each strip is
+    logged at debug level so unexpected drops can be diagnosed.
     """
     cleaned: dict[str, Any] = {}
     for key, value in data.items():
+        sub_path = f"{_path}.{key}" if _path else str(key)
         if isinstance(value, dict):
-            cleaned[key] = _strip_empty_strings(value)
+            cleaned[key] = _strip_empty_strings(value, _path=sub_path)
         elif isinstance(value, list):
             cleaned[key] = [
-                _strip_empty_strings(item) if isinstance(item, dict) else item for item in value
+                _strip_empty_strings(item, _path=f"{sub_path}[{idx}]")
+                if isinstance(item, dict)
+                else item
+                for idx, item in enumerate(value)
             ]
         elif value == "":
-            continue  # drop empty-string placeholders
+            _LOG.debug("Stripped empty-string placeholder at %s", sub_path)
+            continue
         else:
             cleaned[key] = value
     return cleaned
@@ -120,3 +140,53 @@ def load_toml_with_base_config(
 
     base_payload = load_toml_with_base_config(base_path, _stack=(*_stack, resolved))
     return _strip_empty_strings(merge_toml_payloads(base_payload, current))
+
+
+def validate_toml(
+    model_cls: type[M],
+    path: Path | str,
+    *,
+    section: str | None = None,
+    context: dict[str, Any] | None = None,
+    base_dir_resolver: Callable[[M, Path], M | None] | None = None,
+) -> M:
+    """Load *path* through ``load_toml_with_base_config`` then validate against *model_cls*.
+
+    Single entry point that replaces ad-hoc ``tomllib.load + model_validate``
+    duplications scattered across sub-config modules.
+
+    Parameters
+    ----------
+    model_cls
+        Pydantic ``BaseModel`` subclass to validate the payload through.
+    path
+        Path to the input TOML file. Expanded and resolved.
+    section
+        Optional dotted section path (e.g. ``"data.precipitation"``) to
+        extract from the raw payload before validation. When the section is
+        missing, an empty mapping is used so subclasses can still validate
+        with their declared defaults.
+    context
+        Optional context dict forwarded to :meth:`model_validate`.
+    base_dir_resolver
+        Optional callback invoked with ``(instance, toml_dir)`` after
+        validation. Returning a new instance overrides the default; returning
+        ``None`` keeps the original. Used by callers that resolve relative
+        paths post-validation.
+    """
+    resolved = Path(path).expanduser().resolve()
+    payload: Any = load_toml_with_base_config(resolved)
+    if section is not None:
+        for key in section.split("."):
+            if not isinstance(payload, Mapping) or key not in payload:
+                payload = {}
+                break
+            payload = payload[key]
+        if not isinstance(payload, Mapping):
+            payload = {}
+    cfg = model_cls.model_validate(payload, context=context)
+    if base_dir_resolver is not None:
+        replaced = base_dir_resolver(cfg, resolved.parent)
+        if replaced is not None:
+            cfg = replaced
+    return cfg

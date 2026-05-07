@@ -66,7 +66,7 @@ class TimeseriesColumnsMixin(HydroModelBase):
 
 
 class TimeseriesSelectionMixin(HydroModelBase):
-    """Shared station selection and cache grammar for timeseries variables."""
+    """Shared station selection, mask, and cache grammar for timeseries variables."""
 
     station_ids: Annotated[list[str] | None, Profile.USER] = Field(
         default=None,
@@ -87,6 +87,20 @@ class TimeseriesSelectionMixin(HydroModelBase):
         default=False,
         description="Ignore the cache and force a fresh download from the API.",
     )
+    mask_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations "
+            "or clip gridded sources."
+        ),
+    )
+    source_unit: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional source unit for custom gridded .nc/.tif inputs. "
+            "When omitted for NetCDF, units are inferred from variable metadata."
+        ),
+    )
 
 
 class TimeseriesVariableConfig(
@@ -99,16 +113,8 @@ class TimeseriesVariableConfig(
     Subclasses bring their own ``sources: list[<VariableSourceConfig>]``
     field (and any variable-specific parameters such as ``product`` or
     ``components``). The date range and CSV column grammar are inherited
-    from :class:`BaseVariableConfig` and the selection/cache fields below.
+    from :class:`BaseVariableConfig` and the selection/cache fields above.
     """
-
-    mask_path: Annotated[Path | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations "
-            "or clip gridded sources."
-        ),
-    )
 
 
 __all__ = [

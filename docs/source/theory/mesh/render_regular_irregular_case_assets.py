@@ -19,9 +19,17 @@ from shapely import prepared
 from shapely.geometry import Point, Polygon
 from shapely.ops import unary_union
 
-
 REPO_ROOT = Path(__file__).resolve().parents[5]
-STATIC_DIR = REPO_ROOT / "docs" / "readthedocs" / "source" / "_static" / "scientific" / "mesh" / "regular_irregular_cases"
+STATIC_DIR = (
+    REPO_ROOT
+    / "docs"
+    / "readthedocs"
+    / "source"
+    / "_static"
+    / "scientific"
+    / "mesh"
+    / "regular_irregular_cases"
+)
 SUMMARY_PATH = STATIC_DIR / "regular_irregular_case_summary.json"
 
 
@@ -254,8 +262,22 @@ def _plot_case(case: MeshCase) -> dict[str, object]:
 
     fig, axes = plt.subplots(1, 2, figsize=(15, 7.2), constrained_layout=False)
     panels = [
-        (axes[0], irregular_polygons, f"Irregular Gmsh mesh\n{target_count:,} triangular cells".replace(",", " "), "#334b5b", 0.32),
-        (axes[1], regular_polygons, f"Generated regular grid\n{len(regular_polygons):,} active square cells".replace(",", " "), "#394f36", 0.32),
+        (
+            axes[0],
+            irregular_polygons,
+            f"Irregular Gmsh mesh\n{target_count:,} triangular cells".replace(",", " "),
+            "#334b5b",
+            0.32,
+        ),
+        (
+            axes[1],
+            regular_polygons,
+            f"Generated regular grid\n{len(regular_polygons):,} active square cells".replace(
+                ",", " "
+            ),
+            "#394f36",
+            0.32,
+        ),
     ]
     minx, miny, maxx, maxy = domain.bounds
     pad = max(maxx - minx, maxy - miny) * 0.03

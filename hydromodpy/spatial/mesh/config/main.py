@@ -9,7 +9,7 @@ from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import NonEmptyStr, StripLower
+from hydromodpy.core.config_kit.types import NonEmptyStr, PositiveInt, StripLower
 from hydromodpy.spatial.mesh.config.hydraulic import (
     MeshCatchmentHydraulicPropertiesConfig,
 )
@@ -91,17 +91,15 @@ class MeshCatchmentConfig(HydroModelBase):
             "Downstream solvers that require runtime mesh support may fail without this bundle."
         ),
     )
-    figure_dpi: Annotated[int, Profile.USER] = Field(
+    figure_dpi: Annotated[PositiveInt, Profile.USER] = Field(
         default=300,
-        gt=0,
         description=(
             "Pixel density used when rendering the main mesh overview figure. "
             "Increase it when you need to inspect mesh edges and constraints more closely in the saved PNG."
         ),
     )
-    figure_regional_dpi: Annotated[int, Profile.USER] = Field(
+    figure_regional_dpi: Annotated[PositiveInt, Profile.USER] = Field(
         default=220,
-        gt=0,
         description=(
             "Pixel density used when rendering the regional overview figure. "
             "Keep it lower than figure_dpi when you want detailed local mesh inspection without making the regional PNG too heavy."

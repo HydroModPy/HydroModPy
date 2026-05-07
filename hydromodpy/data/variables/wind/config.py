@@ -38,16 +38,6 @@ class WindSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
         default=None,
         description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
     )
-    source_unit: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.",
-    )
-
-    # --- Spatial mask ---
-    mask_path: Annotated[Path | None, Profile.USER] = Field(
-        default=None,
-        description="SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.",
-    )
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> WindSourceConfig:

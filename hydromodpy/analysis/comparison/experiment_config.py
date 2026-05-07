@@ -16,21 +16,7 @@ from hydromodpy.analysis.comparison.config import (
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.config_kit.types import IdentifierStr
-
-
-def _clean_text(value: object) -> str:
-    text = str(value).strip()
-    if not text:
-        raise ValueError("comparison text fields cannot be empty")
-    return text
-
-
-def _clean_optional_text(value: object) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
+from hydromodpy.core.config_kit.types import IdentifierStr, OptionalText
 
 
 class ComparisonExecutionConfig(HydroModelBase):
@@ -44,17 +30,12 @@ class ComparisonExecutionConfig(HydroModelBase):
     )
     keep_generated_configs: Annotated[bool, Profile.DEV] = True
     run_simulations: Annotated[bool, Profile.DEV] = True
-    python_executable: Annotated[str | None, Profile.DEV] = None
+    python_executable: Annotated[OptionalText, Profile.DEV] = None
     timeout_seconds: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         gt=0,
         description="Optional per-child timeout in seconds. None disables the timeout.",
     )
-
-    @field_validator("python_executable")
-    @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
 
     @model_validator(mode="after")
     def _validate_v1_scope(self) -> ComparisonExecutionConfig:
@@ -74,11 +55,11 @@ class ComparisonSimulationConfig(HydroModelBase):
     """One generated child simulation in a comparison experiment."""
 
     id: Annotated[IdentifierStr, Profile.USER]
-    label: Annotated[str | None, Profile.USER] = None
+    label: Annotated[OptionalText, Profile.USER] = None
     enabled: Annotated[bool, Profile.USER] = True
-    solver: Annotated[str | None, Profile.EXPERT] = None
-    simulation_config: Annotated[str | None, Profile.EXPERT] = None
-    run_folder: Annotated[str | None, Profile.EXPERT] = None
+    solver: Annotated[OptionalText, Profile.EXPERT] = None
+    simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    run_folder: Annotated[OptionalText, Profile.EXPERT] = None
     mesh_label: Annotated[IdentifierStr | None, Profile.USER] = None
     mesh_mode: Annotated[
         Literal[
@@ -96,17 +77,13 @@ class ComparisonSimulationConfig(HydroModelBase):
         description="Free-form TOML overlay merged into the base simulation config when this child runs.",
     )
 
-    @field_validator("solver")
+    @field_validator("mesh_label")
     @classmethod
-    def _validate_solver_text(cls, value: object) -> str | None:
+    def _validate_optional_identifier(cls, value: object) -> str | None:
         if value is None:
             return None
-        return _clean_text(value)
-
-    @field_validator("label", "simulation_config", "run_folder", "mesh_label")
-    @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
+        text = str(value).strip()
+        return text or None
 
     @field_validator("overlay")
     @classmethod
@@ -131,9 +108,9 @@ class ComparisonSection(HydroModelBase):
     """Top-level comparison experiment section."""
 
     comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
-    base_simulation_config: Annotated[str | None, Profile.EXPERT] = None
-    anchors_file: Annotated[str | None, Profile.EXPERT] = None
-    output_root: Annotated[str | None, Profile.EXPERT] = None
+    base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    anchors_file: Annotated[OptionalText, Profile.EXPERT] = None
+    output_root: Annotated[OptionalText, Profile.EXPERT] = None
     reference_simulation: Annotated[IdentifierStr | None, Profile.EXPERT] = None
     continue_on_error: Annotated[bool, Profile.DEV] = False
     execution: Annotated[ComparisonExecutionConfig, Profile.DEV] = Field(
@@ -154,20 +131,13 @@ class ComparisonSection(HydroModelBase):
         description="Observables to compare across the declared simulations. At least one entry required.",
     )
 
-    @field_validator(
-        "base_simulation_config",
-        "anchors_file",
-        "output_root",
-        "reference_simulation",
-    )
+    @field_validator("comparison_id", "reference_simulation")
     @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
-
-    @field_validator("comparison_id")
-    @classmethod
-    def _validate_comparison_id(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
+    def _validate_optional_identifier(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
 
     @model_validator(mode="after")
     def _validate_lists(self) -> ComparisonSection:

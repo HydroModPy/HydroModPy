@@ -18,6 +18,7 @@ from pydantic import (
     model_validator,
 )
 
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.physics.base import ProcessSpatialConfig
@@ -67,15 +68,15 @@ class FlowConfig(ProcessSpatialConfig):
             "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
         ),
         examples=["steady", "transient"],
-        json_schema_extra={
-            "widget_type": "select",
-            "unit": "-",
-            "display_name_fr": "Régime d'écoulement",
-            "help_text_fr": (
+        json_schema_extra=field_metadata(
+            widget_type="select",
+            unit="-",
+            display_name_fr="Régime d'écoulement",
+            help_text_fr=(
                 "Régime stationnaire (steady) ou transitoire (transient). "
                 "Le régime transitoire requiert une condition initiale [flow.ic]."
             ),
-        },
+        ),
     )
     runtime_backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = (
         Field(
@@ -85,7 +86,7 @@ class FlowConfig(ProcessSpatialConfig):
                 "solver implementation. Other flow solvers may ignore this field."
             ),
             examples=["local", "scipy_sparse"],
-            json_schema_extra={"stability": "experimental"},
+            json_schema_extra=field_metadata(stability="experimental"),
         )
     )
     surface_interaction_model: Annotated[
@@ -101,7 +102,7 @@ class FlowConfig(ProcessSpatialConfig):
             "backend-dependent default."
         ),
         examples=["auto", "regularized_partition"],
-        json_schema_extra={"stability": "experimental"},
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     runtime_max_iterations: Annotated[int | None, Profile.DEV] = Field(
         default=None,
@@ -109,14 +110,14 @@ class FlowConfig(ProcessSpatialConfig):
             "Optional override for the nonlinear iteration budget used by the "
             "Boussinesq runtime backend."
         ),
-        json_schema_extra={
-            "widget_type": "input",
-            "unit": "-",
-            "display_name_fr": "Itérations max (solveur)",
-            "help_text_fr": "Budget d'itérations non-linéaires pour le solveur.",
-            "display_min": 1,
-            "display_max": 100_000,
-        },
+        json_schema_extra=field_metadata(
+            widget_type="input",
+            unit="-",
+            display_name_fr="Itérations max (solveur)",
+            help_text_fr="Budget d'itérations non-linéaires pour le solveur.",
+            display_min=1,
+            display_max=100_000,
+        ),
     )
     runtime_tol_residual_inf: Annotated[float | None, Profile.DEV] = Field(
         default=None,
