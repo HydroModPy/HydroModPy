@@ -250,6 +250,13 @@ class SGridConfig(HydroModelBase):
         description="Target number of rows when plan_discretization_mode='resample_to_shape'.",
     )
 
+    # Future refactor target: convert (genmtd_bot + bot_path/bot_raster/thick/zbot)
+    # and (genmtd_lay + nlay/lay_decay/lay_proportions) to discriminated unions
+    # following the pattern in
+    # ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py``.
+    # Deferred because it changes the user-facing TOML schema and requires a
+    # backward-compatible ``model_validator(mode="before")`` to migrate flat
+    # legacy payloads to the nested form.
     genmtd_bot: Annotated[
         Literal["filepath", "raster", "constant_thickness", "constant_altitude"], Profile.USER
     ] = Field(
