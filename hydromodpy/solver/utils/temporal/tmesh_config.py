@@ -22,7 +22,7 @@ class TMeshConfig(HydroModelBase):
 
     # ``chron_colsep`` accepts single whitespace separators (e.g. ``"\t"``) so
     # we opt out of the HydroModelBase ``str_strip_whitespace`` default.
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
+    model_config = ConfigDict(**{**HydroModelBase.model_config, "str_strip_whitespace": False})
 
     itmuni: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="d",

@@ -35,7 +35,7 @@ _INT64_MASK = 0x7FFFFFFFFFFFFFFF
 class RngManager(HydroModelBase):
     """Derive child seeds and ``np.random`` generators from a master seed."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(**HydroModelBase.model_config, frozen=True)
 
     master_seed: Annotated[int, Profile.DEV] = Field(
         ge=0,
