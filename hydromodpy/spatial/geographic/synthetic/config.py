@@ -7,7 +7,7 @@ from math import isclose
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, computed_field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -76,31 +76,37 @@ class SyntheticGridConfig(HydroModelBase):
             )
         return self
 
+    @computed_field
     @property
     def xmax(self) -> float:
         """Upper x coordinate of the support extent."""
         return float(self.xmin) + float(self.length_x)
 
+    @computed_field
     @property
     def ymax(self) -> float:
         """Upper y coordinate of the support extent."""
         return float(self.ymin) + float(self.length_y)
 
+    @computed_field
     @property
     def ncol(self) -> int:
         """Number of raster columns implied by x discretization."""
         return int(self.nx)
 
+    @computed_field
     @property
     def nrow(self) -> int:
         """Number of raster rows implied by y discretization."""
         return int(self.ny)
 
+    @computed_field
     @property
     def dx(self) -> float:
         """Compatibility alias returning the x cell size."""
         return float(self.length_x) / float(self.nx)
 
+    @computed_field
     @property
     def dy(self) -> float:
         """Compatibility alias returning the y cell size."""
