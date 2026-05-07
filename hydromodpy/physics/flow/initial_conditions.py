@@ -6,8 +6,10 @@ Typed initial-condition structures for the flow process.
 
 This module defines:
 
-- `FlowInitialCondition`: one validated payload describing how head values are
-  initialized (`top`, `top_offset`, `bottom`, or `custom`).
+- `FlowICTop`, `FlowICTopOffset`, `FlowICBottom`, `FlowICCustom`: the four
+  discriminated variants describing how head values are initialized.
+- `FlowInitialCondition`: discriminated union (on the `type` field) over the
+  four variants above.
 - `FlowInitialConditions`: the runtime container currently exposing the `h`
   initial condition consumed by the flow process and solver adapters.
 
@@ -20,9 +22,10 @@ Raw `[flow.ic]` configuration payloads are normalized separately in
 
 from __future__ import annotations
 
-from typing import Annotated, ClassVar, Literal
+from collections.abc import Mapping
+from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -31,17 +34,8 @@ from hydromodpy.core.units import Length, check_unit_compatible
 from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 
 
-class FlowInitialCondition(BaseInitialCondition):
-    """
-    Flow initial condition used by MODFLOW head initialization.
-
-    Semantics
-    ---------
-    - `type="top"`: initialize head at top surface.
-    - `type="top_offset"`: initialize head at top surface minus `value`.
-    - `type="bottom"`: initialize head at bottom surface.
-    - `type="custom"`: initialize with one explicit numeric value.
-    """
+class _FlowICBase(BaseInitialCondition):
+    """Shared metadata fields and validators for flow IC variants."""
 
     # The flow process exposes a single IC variable always identified by "h";
     # users never set ``id`` themselves and the [flow.ic] normalizer actively
@@ -50,22 +44,6 @@ class FlowInitialCondition(BaseInitialCondition):
         "h",
         description="id of the initial condition (forced to 'h' for flow)",
         json_schema_extra=field_metadata(toml_exclude=True),
-    )
-
-    type: Annotated[Literal["top", "top_offset", "bottom", "custom"], Profile.USER] = Field(
-        "custom",
-        description=(
-            "Type of initial condition ('top', 'top_offset', 'bottom', or 'custom'). "
-            "'top' means a full aquifer, 'top_offset' means top minus value, "
-            "'bottom' means an empty aquifer."
-        ),
-    )
-    value: Annotated[Length | None, Profile.USER] = Field(
-        None,
-        description=(
-            "Initial hydraulic-head value. Required when type='custom'; "
-            "vertical offset below top when type='top_offset'."
-        ),
     )
 
     @field_validator("units", mode="before")
@@ -79,12 +57,69 @@ class FlowInitialCondition(BaseInitialCondition):
             raise ValueError("flow.ic.units must be normalized to 'm' in runtime objects")
         return "m"
 
-    @model_validator(mode="after")
-    def _validate_custom_value(self) -> FlowInitialCondition:
-        """Require `value` whenever the selected IC semantics needs it."""
-        if self.type in {"custom", "top_offset"} and self.value is None:
-            raise ValueError(f"flow.ic.value is required when flow.ic.type='{self.type}'")
-        return self
+
+class FlowICTop(_FlowICBase):
+    """Initialize head at the top surface (full aquifer)."""
+
+    type: Annotated[Literal["top"], Profile.USER] = Field(
+        "top",
+        description="Initialize head at the top surface (full aquifer).",
+    )
+
+
+class FlowICTopOffset(_FlowICBase):
+    """Initialize head at the top surface minus a vertical offset `value`."""
+
+    type: Annotated[Literal["top_offset"], Profile.USER] = Field(
+        "top_offset",
+        description="Initialize head at the top surface minus `value`.",
+    )
+    value: Annotated[Length, Profile.USER] = Field(
+        ...,
+        description="Vertical offset below the top surface.",
+    )
+
+
+class FlowICBottom(_FlowICBase):
+    """Initialize head at the bottom surface (empty aquifer)."""
+
+    type: Annotated[Literal["bottom"], Profile.USER] = Field(
+        "bottom",
+        description="Initialize head at the bottom surface (empty aquifer).",
+    )
+
+
+class FlowICCustom(_FlowICBase):
+    """Initialize head with one explicit numeric value."""
+
+    type: Annotated[Literal["custom"], Profile.USER] = Field(
+        "custom",
+        description="Initialize head with one explicit numeric value.",
+    )
+    value: Annotated[Length, Profile.USER] = Field(
+        ...,
+        description="Initial hydraulic-head value.",
+    )
+
+
+FlowInitialCondition: TypeAlias = Annotated[
+    FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom,
+    Field(discriminator="type"),
+]
+"""Discriminated union of flow initial-condition variants."""
+
+
+_FLOW_IC_ADAPTER: TypeAdapter[FlowInitialCondition] = TypeAdapter(FlowInitialCondition)
+
+
+def _coerce_flow_ic_payload(value: Any) -> Any:
+    """Backward-compat: accept dicts without explicit `type`, default to 'custom'."""
+    if not isinstance(value, Mapping):
+        return value
+    payload = dict(value)
+    if "type" not in payload or payload["type"] in (None, ""):
+        payload["type"] = "custom"
+    return payload
 
 
 class FlowInitialConditions(HydroModelBase):
@@ -100,8 +135,35 @@ class FlowInitialConditions(HydroModelBase):
     toml_flatten: ClassVar[bool] = True
 
     h: Annotated[FlowInitialCondition, Profile.USER] = Field(
-        default_factory=lambda: FlowInitialCondition(
-            type="top", id="h", units="m", description="Initial condition 'h'"
-        ),
+        default_factory=lambda: FlowICTop(id="h", units="m", description="Initial condition 'h'"),
         description="Hydraulic-head initial condition payload.",
     )
+
+    @field_validator("h", mode="before")
+    @classmethod
+    def _coerce_h(cls, value):
+        """Accept legacy flat dicts without explicit `type`."""
+        return _coerce_flow_ic_payload(value)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _coerce_flat_payload(cls, value):
+        """Accept a flat IC payload without the `h` wrapper for backward-compat."""
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        if "h" in payload:
+            return payload
+        if any(key in payload for key in ("type", "value", "units", "unit", "description")):
+            return {"h": payload}
+        return payload
+
+
+__all__ = [
+    "FlowICBottom",
+    "FlowICCustom",
+    "FlowICTop",
+    "FlowICTopOffset",
+    "FlowInitialCondition",
+    "FlowInitialConditions",
+]

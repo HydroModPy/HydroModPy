@@ -83,7 +83,7 @@ from hydromodpy.physics.base import BoundaryCondition, ProcessSpatial, SinkSourc
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.initial_conditions import (
-    FlowInitialCondition,
+    FlowICCustom,
     FlowInitialConditions,
 )
 from hydromodpy.physics.flow.initial_conditions_config import (
@@ -514,8 +514,7 @@ class Flow(ProcessSpatial):
 
 if __name__ == "__main__":
     test = Flow(FlowConfig())
-    h0 = FlowInitialCondition(
-        type="custom",
+    h0 = FlowICCustom(
         value=10,
         units="m",
     )
