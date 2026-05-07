@@ -67,7 +67,7 @@ def _repair_path_like_basic_strings(text: str) -> str:
     return "".join(repaired_lines)
 
 
-def _strip_empty_strings(data: dict[str, Any]) -> dict[str, Any]:
+def _strip_empty_strings(data: dict[str, Any], *, _path: str = "") -> dict[str, Any]:
     """Recursively remove keys whose value is the empty string ``""``.
 
     Empty strings cannot represent ``None`` in TOML (no native null), so the
@@ -75,19 +75,31 @@ def _strip_empty_strings(data: dict[str, Any]) -> dict[str, Any]:
     fields.  Stripping them before Pydantic validation lets the model fall
     back to ``default=None``, which is the intended semantics.
 
+    Caveat
+    ------
+    A field where ``""`` is a meaningful value (e.g. a string with
+    ``min_length=0`` semantics) cannot be expressed in TOML under this
+    loader. Use a sentinel like ``"<empty>"`` or omit the key entirely.
+
     Only plain ``""`` values on leaf keys are affected -- non-empty strings,
-    nested dicts, and lists are traversed but never removed.
+    nested dicts, and lists are traversed but never removed. Each strip is
+    logged at debug level so unexpected drops can be diagnosed.
     """
     cleaned: dict[str, Any] = {}
     for key, value in data.items():
+        sub_path = f"{_path}.{key}" if _path else str(key)
         if isinstance(value, dict):
-            cleaned[key] = _strip_empty_strings(value)
+            cleaned[key] = _strip_empty_strings(value, _path=sub_path)
         elif isinstance(value, list):
             cleaned[key] = [
-                _strip_empty_strings(item) if isinstance(item, dict) else item for item in value
+                _strip_empty_strings(item, _path=f"{sub_path}[{idx}]")
+                if isinstance(item, dict)
+                else item
+                for idx, item in enumerate(value)
             ]
         elif value == "":
-            continue  # drop empty-string placeholders
+            _LOG.debug("Stripped empty-string placeholder at %s", sub_path)
+            continue
         else:
             cleaned[key] = value
     return cleaned
