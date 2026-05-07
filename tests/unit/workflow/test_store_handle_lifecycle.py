@@ -131,11 +131,11 @@ class _Dumpable:
 def test_effective_config_snapshot_uses_runtime_domain_and_results() -> None:
     declared = {
         "workflow": {"mode": "simulation"},
-        "domain": {"depth_model": {"type": "constant_thickness", "thickness": 10.0}},
+        "domain": {"depth_model": {"kind": "constant_thickness", "thickness": 10.0}},
         "simulation": {"results": {"keep_solver_files": False}},
     }
     effective_domain = {
-        "depth_model": {"type": "constant_thickness", "thickness": 25.0},
+        "depth_model": {"kind": "constant_thickness", "thickness": 25.0},
     }
     effective_results = {
         "keep_solver_files": True,

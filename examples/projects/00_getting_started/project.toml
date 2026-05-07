@@ -52,7 +52,7 @@ base_elevation = 20.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "20.0 m"
 
 # --- Processus d'écoulement -----------------------------------------
@@ -73,11 +73,11 @@ type = "custom"
 value = "5.0 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "5.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "5.0 m"
 
 [flow.sinks_sources.recharge]

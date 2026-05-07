@@ -209,7 +209,7 @@ supports = {}
 # Depth-model type selector.
 # Use 'constant_thickness' to define bottom as top-thickness.
 # Type: Literal['constant_thickness'] | one of: "constant_thickness" | Default: "constant_thickness"
-type = "constant_thickness"
+kind = "constant_thickness"
 
 # Constant aquifer thickness (m) applied below topography.
 # Type: float | > 0.0 | Default: 50.0

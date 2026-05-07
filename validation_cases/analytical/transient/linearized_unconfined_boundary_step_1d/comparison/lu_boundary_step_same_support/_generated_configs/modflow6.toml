@@ -42,7 +42,7 @@ base_elevation = 20.0
 
 [domain]
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "20.0 m"
 
 [flow]
@@ -76,7 +76,7 @@ value = "10.0 m"
 [flow.bc]
 [flow.bc.dirichlet]
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 
 [flow.bc.dirichlet.west_side.forcing]
 mode = "csv"
@@ -84,7 +84,7 @@ path_file = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearize
 aggregate = "last"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "10.0 m"
 
 [modflownwt]

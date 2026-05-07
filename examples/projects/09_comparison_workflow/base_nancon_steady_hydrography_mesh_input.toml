@@ -49,7 +49,7 @@ bundle_dir = "outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/m
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "30.0 m"
 
 [flow]
@@ -84,7 +84,7 @@ type = "top"
 
 [flow.bc.cauchy.drainage]
 id = "drainage"
-type = "cauchy"
+kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
 value = "1e-5 m2/s"

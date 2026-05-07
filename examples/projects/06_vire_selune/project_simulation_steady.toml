@@ -17,10 +17,10 @@ dem_correc_type = "breach"
 zone_ids = ["geology"]
 
 [domain.supports.field_geology]
-provider = "geology"
+kind = "geology"
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "50.0 m"
 
 [data]
@@ -81,7 +81,7 @@ unit = "m"
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
-type = "cauchy"
+kind = "cauchy"
 value = "0.0 m2/s"
 
 [flow.sinks_sources.recharge]

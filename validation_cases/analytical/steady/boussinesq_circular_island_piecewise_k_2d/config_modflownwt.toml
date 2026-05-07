@@ -41,13 +41,13 @@ island_radius = "200.0 m"
 [domain]
 
 [domain.supports.k_rings]
-provider = "generated_rings"
+kind = "generated_rings"
 coordinate_mode = "absolute"
 radii = ["70.0 m", "140.0 m"]
 labels = ["inner_ring", "middle_ring", "outer_ring"]
 
 [domain.depth_model]
-type = "flat_substratum"
+kind = "flat_substratum"
 substratum_elevation = -5.0
 
 [data]
@@ -77,7 +77,7 @@ type = "custom"
 value = "1.0 m"
 
 [flow.bc.dirichlet.ocean]
-type = "dirichlet"
+kind = "dirichlet"
 value = "0.0 m"
 
 [flow.sinks_sources.recharge]

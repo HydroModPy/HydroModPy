@@ -95,7 +95,7 @@ Three zones along the x axis with distinct conductivities.
    mode = "simulation"
 
    [domain.supports.k_bands]
-   provider = "generated_bands"
+   kind = "generated_bands"
    axis = "x"
    coordinate_mode = "relative"
    breaks = [0.3, 0.7]

@@ -216,7 +216,7 @@ types = []
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "50 m"
 
 [flow]

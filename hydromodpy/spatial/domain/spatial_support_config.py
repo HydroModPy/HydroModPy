@@ -12,13 +12,13 @@ from hydromodpy.core.units import parse_length_to_m
 class DomainSupportBaseConfig(HydroModelBase):
     """Base schema for one named spatial-support declaration."""
 
-    provider: Annotated[str, Profile.USER]
+    kind: Annotated[str, Profile.USER]
 
 
 class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
     """Analytical bands split along one cartesian axis."""
 
-    provider: Annotated[Literal["generated_bands"], Profile.USER]
+    kind: Annotated[Literal["generated_bands"], Profile.USER]
     axis: Annotated[Literal["x", "y"], Profile.USER] = "x"
     coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
     breaks: Annotated[list[float | str], Profile.USER] = Field(
@@ -100,7 +100,7 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
 class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
     """Analytical concentric rings centered on one cartesian point."""
 
-    provider: Annotated[Literal["generated_rings"], Profile.USER]
+    kind: Annotated[Literal["generated_rings"], Profile.USER]
     coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
     radii: Annotated[list[float | str], Profile.USER] = Field(
         default_factory=list,
@@ -209,7 +209,7 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
 class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
     """Support built from catchment/domain zonation already prepared in setup."""
 
-    provider: Annotated[Literal["catchment_zones"], Profile.USER]
+    kind: Annotated[Literal["catchment_zones"], Profile.USER]
     source_zone_id: Annotated[str, Profile.USER] = Field(
         default="catchment",
         description="Domain zone id providing the source catchment zonation.",
@@ -232,7 +232,7 @@ class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
 class GeologySupportConfig(DomainSupportBaseConfig):
     """Support backed by the geology data manager."""
 
-    provider: Annotated[Literal["geology"], Profile.USER]
+    kind: Annotated[Literal["geology"], Profile.USER]
 
 
 DomainSupportConfig = Annotated[
@@ -241,7 +241,7 @@ DomainSupportConfig = Annotated[
     | CatchmentZonesSupportConfig
     | GeologySupportConfig,
     Field(
-        discriminator="provider",
-        description="Discriminated union of spatial-support providers selected by provider tag.",
+        discriminator="kind",
+        description="Discriminated union of spatial-support kinds selected by kind tag.",
     ),
 ]

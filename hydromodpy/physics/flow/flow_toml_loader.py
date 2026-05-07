@@ -107,7 +107,7 @@ def normalize_bc_payloads(
             parsed[canonical_key] = _prepare_bc_entry_payload(
                 bc_id=canonical_key,
                 raw_payload=item,
-                default_type="dirichlet",
+                default_kind="dirichlet",
                 location_prefix=f"flow.bc.dirichlet.{key}",
                 force_dirichlet=True,
             )
@@ -123,7 +123,7 @@ def normalize_bc_payloads(
             parsed["drainage"] = _prepare_bc_entry_payload(
                 bc_id="drainage",
                 raw_payload=drainage_item,
-                default_type="cauchy",
+                default_kind="cauchy",
                 location_prefix="flow.bc.cauchy.drainage",
             )
 
@@ -138,7 +138,7 @@ def normalize_bc_payloads(
             parsed["drainage"] = _prepare_bc_entry_payload(
                 bc_id="drainage",
                 raw_payload=drainage_item,
-                default_type="robin",
+                default_kind="robin",
                 location_prefix="flow.bc.robin.drainage",
             )
 
@@ -152,12 +152,12 @@ def normalize_bc_payloads(
             if (
                 isinstance(raw_payload, Mapping)
                 and str(raw_payload.get("id", "")).strip() == "drainage"
-                and str(raw_payload.get("type", "")).strip().lower() in {"cauchy", "robin"}
+                and str(raw_payload.get("kind", "")).strip().lower() in {"cauchy", "robin"}
             ):
                 parsed[key] = _prepare_bc_entry_payload(
                     bc_id=key,
                     raw_payload=raw_payload,
-                    default_type=str(raw_payload.get("type")).strip().lower(),
+                    default_kind=str(raw_payload.get("kind")).strip().lower(),
                     location_prefix=f"flow.bc.{key}",
                 )
                 continue
@@ -174,7 +174,7 @@ def normalize_bc_payloads(
             parsed[key] = _prepare_bc_entry_payload(
                 bc_id=key,
                 raw_payload=raw_payload,
-                default_type="dirichlet",
+                default_kind="dirichlet",
                 location_prefix=f"flow.bc.{key}",
                 force_dirichlet=True,
             )
@@ -182,7 +182,7 @@ def normalize_bc_payloads(
             parsed[key] = _prepare_bc_entry_payload(
                 bc_id=key,
                 raw_payload=raw_payload,
-                default_type="dirichlet",
+                default_kind="dirichlet",
                 location_prefix=f"flow.bc.{key}",
             )
 
@@ -273,18 +273,18 @@ def _prepare_bc_entry_payload(
     *,
     bc_id: str,
     raw_payload: Mapping[str, object],
-    default_type: str,
+    default_kind: str,
     location_prefix: str,
     force_dirichlet: bool = False,
 ) -> dict[str, object]:
     payload = dict(raw_payload)
-    raw_type = str(payload.get("type", default_type)).strip().lower() or default_type
-    if force_dirichlet and raw_type != "dirichlet":
-        raise ValueError(f"{location_prefix}.type must be 'dirichlet'")
-    if raw_type not in {"dirichlet", "cauchy", "robin"}:
-        raise ValueError(f"{location_prefix}.type must be one of: dirichlet, cauchy, robin")
+    raw_kind = str(payload.get("kind", default_kind)).strip().lower() or default_kind
+    if force_dirichlet and raw_kind != "dirichlet":
+        raise ValueError(f"{location_prefix}.kind must be 'dirichlet'")
+    if raw_kind not in {"dirichlet", "cauchy", "robin"}:
+        raise ValueError(f"{location_prefix}.kind must be one of: dirichlet, cauchy, robin")
     payload["id"] = bc_id
-    payload["type"] = raw_type
+    payload["kind"] = raw_kind
     payload["_location_prefix"] = location_prefix
     return payload
 

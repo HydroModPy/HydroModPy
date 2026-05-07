@@ -38,7 +38,7 @@ base_elevation = 5.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "5.0 m"
 
 [flow]
@@ -67,7 +67,7 @@ type = "custom"
 value = "1.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 
 [flow.bc.dirichlet.east_side.forcing]
 mode = "constant"

@@ -232,8 +232,8 @@ class DirichletSupportResolutionMixin:
         boundary = boundary_conditions.get(bc_id)
         if boundary is None:
             raise ValueError(f"Active boundary '{bc_id}' is missing from flow.bc.")
-        boundary_type = str(getattr(boundary, "type", "dirichlet")).strip().lower()
-        if boundary_type != "dirichlet":
+        boundary_kind = str(getattr(boundary, "kind", "dirichlet")).strip().lower()
+        if boundary_kind != "dirichlet":
             raise ValueError(
                 f"Boundary '{bc_id}' must be Dirichlet for the current boussinesq backend slice."
             )

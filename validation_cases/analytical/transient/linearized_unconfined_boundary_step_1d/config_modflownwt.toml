@@ -39,7 +39,7 @@ base_elevation = 20.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "20.0 m"
 
 [flow]
@@ -68,7 +68,7 @@ type = "custom"
 value = "10.0 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 
 [flow.bc.dirichlet.west_side.forcing]
 mode = "csv"
@@ -76,7 +76,7 @@ path_file = "west_head_step.csv"
 aggregate = "last"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "10.0 m"
 
 [modflownwt.sgrid.planar]

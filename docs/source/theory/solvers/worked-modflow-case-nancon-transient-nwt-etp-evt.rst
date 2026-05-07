@@ -111,7 +111,7 @@ Shared project blocks
 
    [flow.bc.cauchy.drainage]
    id = "drainage"
-   type = "cauchy"
+   kind = "cauchy"
    application_domain = "top"
    value = 0.0
 

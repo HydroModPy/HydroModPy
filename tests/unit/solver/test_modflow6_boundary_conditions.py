@@ -320,7 +320,7 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
         boundary_conditions={
             "east_side": FlowBoundaryConditionConfig(
                 id="east_side",
-                type="dirichlet",
+                kind="dirichlet",
                 units="cm",
                 application_domain="east side",
                 forcing={"mode": "constant", "value": 20.0},
@@ -522,7 +522,7 @@ def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_m
                 id="east_side",
                 value=6.0,
                 units="m",
-                type="dirichlet",
+                kind="dirichlet",
                 application_domain="east side",
                 support_label="east_custom",
             ),
@@ -544,7 +544,7 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
                 id="stream",
                 value=5.0,
                 units="m",
-                type="dirichlet",
+                kind="dirichlet",
                 application_domain="top",
                 support_label="ditch_custom",
             ),

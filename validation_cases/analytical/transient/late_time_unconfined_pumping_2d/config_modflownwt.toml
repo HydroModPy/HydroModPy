@@ -39,7 +39,7 @@ base_elevation = 40.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "40.0 m"
 
 [flow]
@@ -68,19 +68,19 @@ type = "custom"
 value = "30.0 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "30.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "30.0 m"
 
 [flow.bc.dirichlet.north_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "30.0 m"
 
 [flow.bc.dirichlet.south_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "30.0 m"
 
 [flow.sinks_sources.wells.P1]

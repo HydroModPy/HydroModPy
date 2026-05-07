@@ -41,7 +41,7 @@ island_radius = "200.0 m"
 [domain]
 
 [domain.depth_model]
-type = "flat_substratum"
+kind = "flat_substratum"
 substratum_elevation = -5.0
 
 [data]
@@ -69,7 +69,7 @@ type = "custom"
 value = "1.0 m"
 
 [flow.bc.dirichlet.ocean]
-type = "dirichlet"
+kind = "dirichlet"
 value = "0.0 m"
 
 [flow.sinks_sources.recharge]

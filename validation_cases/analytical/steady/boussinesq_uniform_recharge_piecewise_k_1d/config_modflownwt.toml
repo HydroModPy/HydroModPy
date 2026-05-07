@@ -33,14 +33,14 @@ base_elevation = 20.0
 [domain]
 
 [domain.supports.k_bands]
-provider = "generated_bands"
+kind = "generated_bands"
 axis = "x"
 coordinate_mode = "relative"
 breaks = [0.3, 0.7]
 labels = ["west_zone", "middle_zone", "east_zone"]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "20.0 m"
 
 [flow]
@@ -61,11 +61,11 @@ type = "custom"
 value = "6.0 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "5.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "5.0 m"
 
 [flow.sinks_sources.recharge]

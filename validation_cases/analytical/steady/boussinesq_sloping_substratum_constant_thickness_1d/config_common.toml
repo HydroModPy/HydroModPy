@@ -34,7 +34,7 @@ right_to_left_amplitude = 5.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "20.0 m"
 
 [flow]
@@ -53,11 +53,11 @@ type = "custom"
 value = "10.5 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "13.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "8.0 m"
 
 [display]

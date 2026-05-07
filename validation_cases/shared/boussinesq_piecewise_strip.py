@@ -507,7 +507,7 @@ def write_piecewise_strip_launcher_config(
         f"base_elevation = {PIECEWISE_STRIP_Z_TOP_M:.1f}",
         "",
         "[domain.depth_model]",
-        'type = "constant_thickness"',
+        'kind = "constant_thickness"',
         f'thickness = "{PIECEWISE_STRIP_Z_TOP_M - PIECEWISE_STRIP_Z_BOTTOM_M:.1f} m"',
         "",
         "[simulation]",
@@ -544,7 +544,7 @@ def write_piecewise_strip_launcher_config(
             [
                 "",
                 "[flow.bc.dirichlet.west_side]",
-                'type = "dirichlet"',
+                'kind = "dirichlet"',
                 f"value = {float(west_head_m):.12g}",
             ]
         )
@@ -553,7 +553,7 @@ def write_piecewise_strip_launcher_config(
             [
                 "",
                 "[flow.bc.dirichlet.east_side]",
-                'type = "dirichlet"',
+                'kind = "dirichlet"',
                 f"value = {float(east_head_m):.12g}",
             ]
         )

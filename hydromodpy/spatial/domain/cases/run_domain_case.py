@@ -160,7 +160,7 @@ def run_domain_case_from_toml(
     geology_requested = "geology" in {
         str(zone_id).strip().lower() for zone_id in domain_cfg.zone_ids
     } or any(
-        str(getattr(support_cfg, "provider", "")).strip().lower() == "geology"
+        str(getattr(support_cfg, "kind", "")).strip().lower() == "geology"
         for support_cfg in getattr(domain_cfg, "supports", {}).values()
     )
     if geology_requested and "geology" not in domain_cfg.zone_ids:
@@ -197,7 +197,7 @@ def run_domain_case_from_toml(
         "catchment_area_km2": float(geographic_context.catchment_area_km2),
         "surface_topo_shape": tuple(int(v) for v in domain.surface_topo.as_array().shape),
         "substratum_shape": tuple(int(v) for v in domain.substratum.as_array().shape),
-        "depth_model_type": str(domain.config.depth_model.type),
+        "depth_model_kind": str(domain.config.depth_model.kind),
         "geology_loaded": bool(geology_loaded),
         "geology_reason": geology_reason,
         "catchment_zone_loaded": bool(catchment_zone_loaded),
@@ -233,10 +233,10 @@ def _mask_nodata(values: np.ndarray, *, nodata: float | None) -> np.ndarray:
 
 def _choose_zone_replacement_panel(domain: Domain) -> str:
     """Return which scalar panel is replaced by the catchment-zone map."""
-    depth_model_type = str(getattr(domain.config.depth_model, "type", "")).strip().lower()
-    if depth_model_type == "constant_thickness":
+    depth_model_kind = str(getattr(domain.config.depth_model, "kind", "")).strip().lower()
+    if depth_model_kind == "constant_thickness":
         return "thickness"
-    if depth_model_type == "flat_substratum":
+    if depth_model_kind == "flat_substratum":
         return "substratum"
     return "thickness"
 
@@ -629,7 +629,7 @@ def main(argv: list[str] | None = None) -> int:
         f"[{args.case_id}] substratum_shape="
         f"{summary['substratum_shape'][0]}x{summary['substratum_shape'][1]}"
     )
-    print(f"[{args.case_id}] depth_model_type={summary['depth_model_type']}")
+    print(f"[{args.case_id}] depth_model_kind={summary['depth_model_kind']}")
     print(f"[{args.case_id}] geology_loaded={summary['geology_loaded']}")
     print(f"[{args.case_id}] catchment_zone_loaded={summary['catchment_zone_loaded']}")
     if summary["geology_reason"] is not None:

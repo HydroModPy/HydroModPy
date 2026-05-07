@@ -17,8 +17,8 @@ class DrainageResolutionMixin:
         boundary = self.boundary_conditions_mapping().get("ocean")
         if boundary is None:
             raise ValueError("Active boundary 'ocean' is missing from flow.bc.")
-        boundary_type = str(getattr(boundary, "type", "dirichlet")).strip().lower()
-        if boundary_type != "dirichlet":
+        boundary_kind = str(getattr(boundary, "kind", "dirichlet")).strip().lower()
+        if boundary_kind != "dirichlet":
             raise ValueError(
                 "Boundary 'ocean' must be Dirichlet for the current boussinesq backend slice."
             )
@@ -74,10 +74,10 @@ class DrainageResolutionMixin:
         boundary = self.boundary_conditions_mapping().get("drainage")
         if boundary is None:
             raise ValueError("Active boundary 'drainage' is missing from flow.bc.")
-        boundary_type = str(getattr(boundary, "type", "cauchy")).strip().lower()
-        if boundary_type not in {"cauchy", "robin"}:
+        boundary_kind = str(getattr(boundary, "kind", "cauchy")).strip().lower()
+        if boundary_kind not in {"cauchy", "robin"}:
             raise ValueError(
-                "Boundary 'drainage' must be of type cauchy/robin for the "
+                "Boundary 'drainage' must be of kind cauchy/robin for the "
                 "current boussinesq backend slice."
             )
         return self.simple_period_series(

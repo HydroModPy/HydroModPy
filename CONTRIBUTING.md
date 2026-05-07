@@ -319,7 +319,7 @@ crs_project = "EPSG:2154"
 zone_ids = ["geology"]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "50.0 m"
 
 [flow]

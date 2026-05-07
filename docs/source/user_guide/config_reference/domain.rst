@@ -326,11 +326,11 @@ Fields
         <code class="hmp-field-toml">[domain.depth_model]</code>
       </div>
 
-   :bdg-primary:`type = "constant_thickness" | "flat_substratum"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L40>`__
+   :bdg-primary:`kind = "constant_thickness" | "flat_substratum"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L40>`__
 
       Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
 
-      Set ``type`` in your TOML to choose one of the schemas below.
+      Set ``kind`` in your TOML to choose one of the schemas below.
 
    .. dropdown:: ``[domain.depth_model.constant_thickness]``  (ConstantThicknessDepthModel)
       :icon: list-unordered
@@ -393,7 +393,7 @@ Starter TOML snippet
       # [domain.supports.<id>]
 
       [domain.depth_model]
-      # type = "constant_thickness"
+      # kind = "constant_thickness"
       # thickness = 50.0
 
 Cases using this section
