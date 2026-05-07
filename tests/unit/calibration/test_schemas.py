@@ -28,9 +28,9 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.calibration.config import (
-    CalibOutputDecl,
     CalibParameterDecl,
     CalibrationConfig,
+    validate_calib_output,
 )
 
 
@@ -184,7 +184,7 @@ class TestCalibParameterDeclDefaults:
 
 class TestCalibOutputDeclSelectors:
     def test_point_accepts_geojson_geometry(self):
-        decl = CalibOutputDecl.model_validate(
+        decl = validate_calib_output(
             {
                 "variable": "head",
                 "support": "point",
@@ -195,19 +195,15 @@ class TestCalibOutputDeclSelectors:
 
     def test_cell_requires_structural_selector(self):
         with pytest.raises(ValidationError, match="support='cell' requires"):
-            CalibOutputDecl.model_validate({"variable": "head", "support": "cell"})
+            validate_calib_output({"variable": "head", "support": "cell"})
 
     def test_cell_accepts_row_col(self):
-        decl = CalibOutputDecl.model_validate(
-            {"variable": "head", "support": "cell", "row": 2, "col": 3}
-        )
+        decl = validate_calib_output({"variable": "head", "support": "cell", "row": 2, "col": 3})
         assert decl.row == 2
         assert decl.col == 3
 
     def test_cell_accepts_cell_id(self):
-        decl = CalibOutputDecl.model_validate(
-            {"variable": "head", "support": "cell", "cell_id": 42}
-        )
+        decl = validate_calib_output({"variable": "head", "support": "cell", "cell_id": 42})
         assert decl.cell_id == 42
 
 
