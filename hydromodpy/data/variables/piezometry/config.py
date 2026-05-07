@@ -11,12 +11,15 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.base_config import BaseVariableConfig
 from hydromodpy.data.variables.timeseries_variable_config import (
+    SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
 )
 
 
-class PiezometrySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class PiezometrySourceConfig(
+    TimeseriesColumnsMixin, TimeseriesSelectionMixin, SparseStationFallbackMixin
+):
     """Configuration for one piezometry data source.
 
     Piezometry sources load groundwater-level or depth observations from local
@@ -42,10 +45,6 @@ class PiezometrySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     require_observations: Annotated[bool, Profile.DEV] = Field(
         default=True, description="Only keep stations that have observations in the period."
     )
-    fallback_search_radius_km: Annotated[float | None, Profile.DEV] = Field(
-        default=None, description="If no station found in bbox, expand search by this radius (km)."
-    )
-
     nearest: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Keep only the nearest piezometer to the extent centroid.",

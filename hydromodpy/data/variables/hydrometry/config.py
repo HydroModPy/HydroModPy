@@ -11,12 +11,15 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.base_config import BaseVariableConfig
 from hydromodpy.data.variables.timeseries_variable_config import (
+    SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
 )
 
 
-class HydrometrySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class HydrometrySourceConfig(
+    TimeseriesColumnsMixin, TimeseriesSelectionMixin, SparseStationFallbackMixin
+):
     """Configuration for one hydrometry data source.
 
     Hydrometry sources load river discharge or stage time series. Use
@@ -43,9 +46,6 @@ class HydrometrySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     )
     require_observations: Annotated[bool, Profile.DEV] = Field(
         default=True, description="Only keep stations that have observations in the period."
-    )
-    fallback_search_radius_km: Annotated[float | None, Profile.DEV] = Field(
-        default=None, description="If no station found in bbox, expand search by this radius (km)."
     )
 
     @model_validator(mode="after")

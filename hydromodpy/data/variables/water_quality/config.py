@@ -11,12 +11,15 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.base_config import BaseVariableConfig
 from hydromodpy.data.variables.timeseries_variable_config import (
+    SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
 )
 
 
-class WaterQualitySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class WaterQualitySourceConfig(
+    TimeseriesColumnsMixin, TimeseriesSelectionMixin, SparseStationFallbackMixin
+):
     """Configuration for one water quality data source.
 
     Water-quality sources load physico-chemical observations for river or
@@ -47,10 +50,7 @@ class WaterQualitySourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin)
         InputFile(role="water_quality", category="data"),
     ] = Field(default=None, description="Directory containing location file and chronicle CSVs.")
 
-    # --- API fallback / nearest ---
-    fallback_search_radius_km: Annotated[float | None, Profile.DEV] = Field(
-        default=None, description="If no station found in bbox, expand search by this radius (km)."
-    )
+    # --- API nearest ---
     nearest: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Keep only the nearest station to the extent centroid.",

@@ -11,12 +11,15 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 from hydromodpy.data.base_config import BaseVariableConfig
 from hydromodpy.data.variables.timeseries_variable_config import (
+    SparseStationFallbackMixin,
     TimeseriesColumnsMixin,
     TimeseriesSelectionMixin,
 )
 
 
-class OceanicSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
+class OceanicSourceConfig(
+    TimeseriesColumnsMixin, TimeseriesSelectionMixin, SparseStationFallbackMixin
+):
     """Configuration for one oceanic boundary data source.
 
     Oceanic sources describe sea-level information for coastal boundary
@@ -49,10 +52,6 @@ class OceanicSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
     nearest: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description="Use nearest tide gauge to watershed centroid.",
-    )
-    fallback_search_radius_km: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        description="Maximum search radius (km) for nearest tide gauge.",
     )
     require_observations: Annotated[bool, Profile.DEV] = Field(
         default=True,
