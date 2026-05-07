@@ -2,25 +2,26 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import CellSamplingDensity, NonEmptyStr
 from hydromodpy.core.units import parse_length_to_m
 
 
 class DomainSupportBaseConfig(HydroModelBase):
-    """Base schema for one named spatial-support declaration."""
+    """Base schema for one named spatial-support declaration.
 
-    model_config = ConfigDict(extra="forbid")
-
-    provider: Annotated[str, Profile.USER]
+    Concrete variants are unified through :data:`DomainSupportConfig`,
+    a discriminated union over the ``kind`` literal.
+    """
 
 
 class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
     """Analytical bands split along one cartesian axis."""
 
-    provider: Annotated[Literal["generated_bands"], Profile.USER]
+    kind: Annotated[Literal["generated_bands"], Profile.USER]
     axis: Annotated[Literal["x", "y"], Profile.USER] = "x"
     coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
     breaks: Annotated[list[float | str], Profile.USER] = Field(
@@ -35,9 +36,8 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
         default_factory=list,
         description="Ordered band labels. Length must be len(breaks)+1.",
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description="Sub-sampling resolution per cell axis used when rasterizing band masks.",
     )
 
@@ -102,7 +102,7 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
 class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
     """Analytical concentric rings centered on one cartesian point."""
 
-    provider: Annotated[Literal["generated_rings"], Profile.USER]
+    kind: Annotated[Literal["generated_rings"], Profile.USER]
     coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
     radii: Annotated[list[float | str], Profile.USER] = Field(
         default_factory=list,
@@ -131,9 +131,8 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
             "Defaults to the domain midpoint."
         ),
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description="Sub-sampling resolution per cell axis used when rasterizing ring masks.",
     )
 
@@ -211,30 +210,21 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
 class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
     """Support built from catchment/domain zonation already prepared in setup."""
 
-    provider: Annotated[Literal["catchment_zones"], Profile.USER]
-    source_zone_id: Annotated[str, Profile.USER] = Field(
+    kind: Annotated[Literal["catchment_zones"], Profile.USER]
+    source_zone_id: Annotated[NonEmptyStr, Profile.USER] = Field(
         default="catchment",
         description="Domain zone id providing the source catchment zonation.",
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description="Sub-sampling resolution per cell axis used when rasterizing zone masks.",
     )
-
-    @field_validator("source_zone_id", mode="before")
-    @classmethod
-    def _normalize_source_zone_id(cls, value):
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("source_zone_id cannot be empty")
-        return text
 
 
 class GeologySupportConfig(DomainSupportBaseConfig):
     """Support backed by the geology data manager."""
 
-    provider: Annotated[Literal["geology"], Profile.USER]
+    kind: Annotated[Literal["geology"], Profile.USER]
 
 
 DomainSupportConfig = Annotated[
@@ -243,7 +233,7 @@ DomainSupportConfig = Annotated[
     | CatchmentZonesSupportConfig
     | GeologySupportConfig,
     Field(
-        discriminator="provider",
-        description="Discriminated union of spatial-support providers selected by provider tag.",
+        discriminator="kind",
+        description="Discriminated union of spatial-support kinds selected by kind tag.",
     ),
 ]

@@ -63,7 +63,7 @@ Calibration
 When the question is "how does HydroModPy calibrate a simulation
 workflow?":
 
-1. ``hydromodpy/cli/commands/run.py`` (workflow = "calibration"
+1. ``hydromodpy/cli/commands/run.py`` ([workflow].mode = "calibration"
    dispatch)
 2. ``hydromodpy/calibration/runner.py`` (calibration entry point)
 3. ``hydromodpy/calibration/engine.py`` and the ``CalibrationEngine``

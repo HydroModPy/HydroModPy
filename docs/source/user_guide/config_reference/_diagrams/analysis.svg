@@ -484,7 +484,7 @@
 <polygon fill="none" stroke="black" points="939.75,-153.5 939.75,-176 1062,-176 1062,-153.5 939.75,-153.5"/>
 <text xml:space="preserve" text-anchor="start" x="966.75" y="-159.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">boundary_id</text>
 <polygon fill="none" stroke="black" points="1062,-153.5 1062,-176 1354.5,-176 1354.5,-153.5 1062,-153.5"/>
-<text xml:space="preserve" text-anchor="start" x="1181.62" y="-159.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="1173.38" y="-159.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
 <polygon fill="none" stroke="black" points="939.75,-131 939.75,-153.5 1062,-153.5 1062,-131 939.75,-131"/>
 <text xml:space="preserve" text-anchor="start" x="942.75" y="-137.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">allow_domain_proxy</text>
 <polygon fill="none" stroke="black" points="1062,-131 1062,-153.5 1354.5,-153.5 1354.5,-131 1062,-131"/>
@@ -571,7 +571,7 @@
 <polygon fill="none" stroke="black" points="405.75,-1053 405.75,-1075.5 541.5,-1075.5 541.5,-1053 405.75,-1053"/>
 <text xml:space="preserve" text-anchor="start" x="433.12" y="-1059.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">comparison_id</text>
 <polygon fill="none" stroke="black" points="541.5,-1053 541.5,-1075.5 737.25,-1075.5 737.25,-1053 541.5,-1053"/>
-<text xml:space="preserve" text-anchor="start" x="612.75" y="-1059.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="604.5" y="-1059.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
 <polygon fill="none" stroke="black" points="405.75,-1030.5 405.75,-1053 541.5,-1053 541.5,-1030.5 405.75,-1030.5"/>
 <text xml:space="preserve" text-anchor="start" x="408.75" y="-1036.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">base_simulation_config</text>
 <polygon fill="none" stroke="black" points="541.5,-1030.5 541.5,-1053 737.25,-1053 737.25,-1030.5 541.5,-1030.5"/>
@@ -587,7 +587,7 @@
 <polygon fill="none" stroke="black" points="405.75,-963 405.75,-985.5 541.5,-985.5 541.5,-963 405.75,-963"/>
 <text xml:space="preserve" text-anchor="start" x="416.25" y="-969.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">reference_simulation</text>
 <polygon fill="none" stroke="black" points="541.5,-963 541.5,-985.5 737.25,-985.5 737.25,-963 541.5,-963"/>
-<text xml:space="preserve" text-anchor="start" x="612.75" y="-969.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="604.5" y="-969.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
 <polygon fill="none" stroke="black" points="405.75,-940.5 405.75,-963 541.5,-963 541.5,-940.5 405.75,-940.5"/>
 <text xml:space="preserve" text-anchor="start" x="423.75" y="-946.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">continue_on_error</text>
 <polygon fill="none" stroke="black" points="541.5,-940.5 541.5,-963 737.25,-963 737.25,-940.5 541.5,-940.5"/>
@@ -693,7 +693,7 @@
 <polygon fill="none" stroke="black" points="859.5,-504.5 859.5,-527 964.5,-527 964.5,-504.5 859.5,-504.5"/>
 <text xml:space="preserve" text-anchor="start" x="880.88" y="-510.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mesh_label</text>
 <polygon fill="none" stroke="black" points="964.5,-504.5 964.5,-527 1434.75,-527 1434.75,-504.5 964.5,-504.5"/>
-<text xml:space="preserve" text-anchor="start" x="1173" y="-510.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | None</text>
+<text xml:space="preserve" text-anchor="start" x="1164.75" y="-510.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[str]</text>
 <polygon fill="none" stroke="black" points="859.5,-482 859.5,-504.5 964.5,-504.5 964.5,-482 859.5,-482"/>
 <text xml:space="preserve" text-anchor="start" x="878.62" y="-488.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">mesh_mode</text>
 <polygon fill="none" stroke="black" points="964.5,-482 964.5,-504.5 1434.75,-504.5 1434.75,-482 964.5,-482"/>

@@ -60,7 +60,9 @@ def test_completion_emits_script(monkeypatch, capsys, shell: str) -> None:
 
 def test_run_dry_run_lists_steps(monkeypatch, capsys, tmp_path) -> None:
     config = tmp_path / "cfg.toml"
-    config.write_text('workflow = "simulation"\n[simulation]\nname = "dry"\n', encoding="utf-8")
+    config.write_text(
+        '[workflow]\nmode = "simulation"\n[simulation]\nname = "dry"\n', encoding="utf-8"
+    )
     monkeypatch.setattr(sys, "argv", ["hmp", "run", "--dry-run", str(config)])
 
     main()
@@ -103,7 +105,8 @@ def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:
     main()
     assert out.is_file()
     content = out.read_text(encoding="utf-8")
-    assert 'workflow = "simulation"' in content
+    assert "[workflow]" in content
+    assert 'mode = "simulation"' in content
     assert "[workspace]" in content or "[flow]" in content
 
 
@@ -117,6 +120,6 @@ def test_new_project_scaffold_writes_valid_run_config(monkeypatch, tmp_path) -> 
 
     run_config = tmp_path / "projects" / "demo" / "run_demo.toml"
     cfg = HydroModPyConfig.from_toml(run_config)
-    assert cfg.workflow == "simulation"
+    assert cfg.workflow.mode == "simulation"
     assert cfg.geographic.source_mode == "synthetic"
     assert cfg.simulation.process[0].solvers == ["modflownwt"]

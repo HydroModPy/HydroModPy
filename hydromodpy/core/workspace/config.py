@@ -25,7 +25,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, PrivateAttr, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -67,10 +67,9 @@ class WorkspaceConfig(HydroModelBase):
         per-run ``figures/``). Defaults to ``project_root``.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     project_root: Annotated[Path, Profile.USER] = Field(
-        description=("Path to the project directory. Auto-derived from TOML location when absent."),
+        description="Path to the project directory. Required in TOML configs.",
+        examples=["."],
     )
 
     root: Annotated[Path | None, Profile.USER] = Field(
@@ -79,6 +78,7 @@ class WorkspaceConfig(HydroModelBase):
             "Explicit shared data workspace root. When set, derives data_dir unless "
             "it is overridden. Result catalogs stay project-local by default."
         ),
+        examples=["../.."],
     )
 
     catalog_path: Annotated[Path | None, Profile.DEV] = Field(
@@ -109,6 +109,7 @@ class WorkspaceConfig(HydroModelBase):
             "figures/). Defaults to project_root when not set. "
             "Use this to redirect heavy outputs to a separate disk."
         ),
+        examples=["outputs/run_a"],
     )
 
     _resolution_source: ResolutionSource = PrivateAttr(default="explicit")

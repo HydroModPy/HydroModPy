@@ -55,12 +55,12 @@ value = "12.5 m"                    # "<value> <unit>" in one field
 
 [flow.bc.dirichlet.ocean]
 value = "1.0 m"
-type = "dirichlet"
+kind = "dirichlet"
 data_value = true
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
-type = "cauchy"
+kind = "cauchy"
 value = "0.0 m2/s"
 
 [flow.sinks_sources.wells.W1]
@@ -264,16 +264,16 @@ description = "Initial hydraulic head"
 
 [flow.bc.dirichlet.ocean]
 value = "0.0 m"
-type = "dirichlet"
+kind = "dirichlet"
 data_value = true
 
 [flow.bc.dirichlet.west_side]
 value = "3.0 m"
-type = "dirichlet"
+kind = "dirichlet"
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
-type = "cauchy"
+kind = "cauchy"
 value = "1e-6 m2/s"
 
 [flow.sinks_sources.wells.P1]

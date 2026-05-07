@@ -21,7 +21,12 @@
 #   hmp run examples/projects/01_calibration/project.toml
 # ======================================================================
 
-workflow = "calibration"
+
+[workflow]
+mode = "calibration"
+
+[workspace]
+project_root = "."
 
 [simulation]
 name = "calibration_dupuit"
@@ -55,7 +60,7 @@ base_elevation = 20.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "20.0 m"
 
 # --- Processus d'écoulement -----------------------------------------
@@ -76,11 +81,11 @@ type = "custom"
 value = "5.0 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "5.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "5.0 m"
 
 [flow.sinks_sources.recharge]
@@ -114,7 +119,7 @@ nlay = 1
 enabled = false
 
 # --- Calibration ----------------------------------------------------
-# `workflow = "calibration"` plus the [calibration] block below trigger
+# `[workflow].mode = "calibration"` plus the [calibration] block below trigger
 # the ask/tell loop. The [simulation] section above is the plan replayed
 # by the evaluator at each iteration.
 #

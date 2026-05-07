@@ -13,10 +13,11 @@ from numbers import Real
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.units import FlowRate
 from hydromodpy.core.units.volumetric_flow import normalize_m3_per_s_unit
 from hydromodpy.physics.base.forcing import FlowTimeAggregate, FlowTimeFillMethod
@@ -27,8 +28,6 @@ if TYPE_CHECKING:
 
 class FlowWellForcingConstantConfig(HydroModelBase):
     """One constant well-rate forcing applied to every stress period."""
-
-    model_config = ConfigDict(extra="forbid")
 
     kind: Annotated[Literal["constant"], Profile.USER] = Field(
         default="constant",
@@ -47,8 +46,6 @@ class FlowWellForcingConstantConfig(HydroModelBase):
 class FlowWellForcingCsvConfig(HydroModelBase):
     """CSV-backed well forcing resolved at runtime against simulation.time."""
 
-    model_config = ConfigDict(extra="forbid")
-
     kind: Annotated[Literal["csv"], Profile.USER] = Field(
         default="csv",
         description="Discriminator tag for the CSV-backed well-forcing variant.",
@@ -56,15 +53,15 @@ class FlowWellForcingCsvConfig(HydroModelBase):
     path_file: Annotated[Path, Profile.DEV] = Field(
         ..., description="Path to the CSV chronicle file."
     )
-    sep: Annotated[str, Profile.DEV] = Field(default=",", description="CSV delimiter.")
-    date_column: Annotated[str, Profile.DEV] = Field(
+    sep: Annotated[NonEmptyStr, Profile.DEV] = Field(default=",", description="CSV delimiter.")
+    date_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="date", description="CSV column containing timestamps."
     )
     date_format: Annotated[str | None, Profile.DEV] = Field(
         default=None,
         description="Optional datetime format passed to pandas.to_datetime.",
     )
-    value_column: Annotated[str, Profile.DEV] = Field(
+    value_column: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="value", description="CSV column containing well rates."
     )
     fill_method: Annotated[FlowTimeFillMethod, Profile.DEV] = Field(
@@ -79,14 +76,6 @@ class FlowWellForcingCsvConfig(HydroModelBase):
         default=None,
         description="Source units of CSV values before runtime conversion.",
     )
-
-    @field_validator("sep", "date_column", "value_column", mode="before")
-    @classmethod
-    def _validate_text_fields(cls, value, info):
-        text = str(value).strip()
-        if text == "":
-            raise ValueError(f"well.forcing.{info.field_name} cannot be empty")
-        return text
 
 
 FlowWellForcingConfig = Annotated[
@@ -109,8 +98,6 @@ class FlowWellConfig(HydroModelBase):
     convention: negative = pumping, positive = injection. ``flux`` may be a
     scalar (constant rate) or a list with one value per stress period.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     cell: Annotated[tuple[int, int, int] | None, Profile.USER] = Field(
         default=None,

@@ -5,10 +5,15 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import (
+    CoveragePolicy,
+    IdentifierStr,
+    TimePeriodUnit,
+)
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
 from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.results_config import ResultsConfig
@@ -26,7 +31,7 @@ _STEP_UNIT_ALIASES = {
 }
 
 
-def _coerce_step_unit(token: str) -> Literal["hour", "day", "month", "year"]:
+def _coerce_step_unit(token: str) -> TimePeriodUnit:
     """Resolve one user-facing step-unit token to the canonical literal."""
     cleaned = token.strip().lower()
     if cleaned == "":
@@ -48,14 +53,13 @@ def _coerce_step_unit(token: str) -> Literal["hour", "day", "month", "year"]:
 class SimulationTimeConfig(HydroModelBase):
     """Canonical simulation time window and forcing-coverage policy."""
 
-    model_config = ConfigDict(extra="forbid")
-
     start_datetime: Annotated[datetime | None, Profile.USER] = Field(
         default=None,
         description=(
             "Simulation window lower datetime bound used by launcher-level "
             "time alignment and forcing checks."
         ),
+        examples=["2019-01-01"],
     )
     end_datetime: Annotated[datetime | None, Profile.USER] = Field(
         default=None,
@@ -63,6 +67,7 @@ class SimulationTimeConfig(HydroModelBase):
             "Simulation window upper datetime bound, interpreted as inclusive. "
             "Must be greater than or equal to start_datetime."
         ),
+        examples=["2025-12-31"],
     )
     step_value: Annotated[int | float | str, Profile.USER] = Field(
         default="1 month",
@@ -72,8 +77,9 @@ class SimulationTimeConfig(HydroModelBase):
             "This controls the temporal aggregation step for forcing series "
             "(for example recharge/runoff) and the resulting stress periods."
         ),
+        examples=["1 month", "10 day"],
     )
-    step_unit: Annotated[Literal["hour", "day", "month", "year"] | None, Profile.USER] = Field(
+    step_unit: Annotated[TimePeriodUnit | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional forcing/stress-period base time unit used with step_value "
@@ -89,7 +95,7 @@ class SimulationTimeConfig(HydroModelBase):
             "substeps inside monthly stress periods)."
         ),
     )
-    coverage_policy: Annotated[Literal["error", "warn", "ignore"], Profile.DEV] = Field(
+    coverage_policy: Annotated[CoveragePolicy, Profile.DEV] = Field(
         default="error",
         description=(
             "Behavior when recharge does not fully cover the declared simulation "
@@ -147,13 +153,12 @@ class SimulationTimeConfig(HydroModelBase):
 class SimulationProcessConfig(HydroModelBase):
     """One requested process entry under ``[[simulation.process]]``."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    id: Annotated[str, Profile.USER] = Field(
+    id: Annotated[IdentifierStr, Profile.USER] = Field(
         description=(
             "User-facing identifier for the process. "
             "This id is required and must be unique within the simulation."
         ),
+        examples=["flow_main"],
     )
     type: Annotated[str, Profile.USER] = Field(
         description="Requested process family executed by the launcher.",
@@ -194,8 +199,6 @@ class SimulationProcessConfig(HydroModelBase):
 
 class SimulationConfig(HydroModelBase):
     """Minimal orchestration block declared under ``[simulation]``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     @classmethod
     def transient(
@@ -258,6 +261,7 @@ class SimulationConfig(HydroModelBase):
             "results_simulations/. When empty, derived from the TOML "
             "filename at load time (e.g. run_steady_nwt.toml -> steady_nwt)."
         ),
+        examples=["steady_nwt"],
     )
     on_collision: Annotated[
         Literal["replace", "fail", "version"],

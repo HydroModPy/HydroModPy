@@ -89,7 +89,11 @@ class TimeseriesSelectionMixin(HydroModelBase):
     )
 
 
-class TimeseriesVariableConfig(BaseVariableConfig):
+class TimeseriesVariableConfig(
+    TimeseriesColumnsMixin,
+    TimeseriesSelectionMixin,
+    BaseVariableConfig,
+):
     """Factored base for ``[data.<timeseries_variable>]`` TOML sections.
 
     Subclasses bring their own ``sources: list[<VariableSourceConfig>]``
@@ -98,52 +102,6 @@ class TimeseriesVariableConfig(BaseVariableConfig):
     from :class:`BaseVariableConfig` and the selection/cache fields below.
     """
 
-    # Re-expose the shared CSV column-name grammar at the top level of the
-    # variable config so it can be overridden alongside dates.
-    col_id: Annotated[str, Profile.DEV] = Field(
-        default="id",
-        description="Column name for the station identifier in location files.",
-    )
-    col_x: Annotated[str, Profile.DEV] = Field(
-        default="x",
-        description="Column name for the X coordinate in location files.",
-    )
-    col_y: Annotated[str, Profile.DEV] = Field(
-        default="y",
-        description="Column name for the Y coordinate in location files.",
-    )
-    col_crs: Annotated[str, Profile.DEV] = Field(
-        default="crs",
-        description="Column name for the CRS in location files.",
-    )
-    col_datetime: Annotated[str, Profile.DEV] = Field(
-        default="datetime",
-        description="Column name for timestamps in chronicle CSVs.",
-    )
-    col_value: Annotated[str, Profile.DEV] = Field(
-        default="value",
-        description="Column name for numeric values in chronicle CSVs.",
-    )
-    default_crs: Annotated[str, Profile.DEV] = Field(
-        default="EPSG:4326",
-        description="Default CRS used when a location file omits the CRS column.",
-    )
-
-    station_ids: Annotated[list[str] | None, Profile.USER] = Field(
-        default=None,
-        description="Explicit station identifiers to load (custom source).",
-    )
-    extent: Annotated[
-        Literal["watershed", "study_area"] | None,
-        Profile.USER,
-    ] = Field(
-        default=None,
-        description="Enable bbox-based data retrieval using the project extent.",
-    )
-    force_refresh: Annotated[bool, Profile.DEV] = Field(
-        default=False,
-        description="Ignore the cache and force a fresh download from the API.",
-    )
     mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(

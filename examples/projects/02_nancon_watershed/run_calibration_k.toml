@@ -7,7 +7,7 @@
 #
 # Sy, Ss and aquifer thickness are frozen at their baseline value.
 #
-# `hmp run` reads `workflow = "calibration"` and dispatches to the
+# `hmp run` reads `[workflow].mode = "calibration"` and dispatches to the
 # calibration ask/tell loop. Each iteration forks the prepared context
 # and runs a real MODFLOW-NWT simulation in lightweight mode (no per
 # iteration Zarr / Parquet by default).
@@ -26,8 +26,10 @@ base_config = "project.toml"
 
 # `calibration` switches the dispatcher to the ask/tell loop instead of
 # the single-run pipeline. Required: a [calibration] block (below).
-workflow = "calibration"
 
+
+[workflow]
+mode = "calibration"
 
 [simulation]
 name = "nancon_calibration_k"
@@ -59,7 +61,7 @@ value = 1e-5
 
 
 # ---- Calibration -----------------------------------------------------
-# The mere presence of [calibration] (with `workflow = "calibration"`)
+# The mere presence of [calibration] (with `[workflow].mode = "calibration"`)
 # triggers the calibration workflow. Each parameter declares:
 #   bounds     : [low, high] in the physical space
 #   transform  : 'log' for K (strictly positive, multi-decade range)

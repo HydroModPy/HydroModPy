@@ -21,7 +21,7 @@ HydroModPy distinguishes two different ideas:
 - a usage mode is the entry style: CLI TOML, JSON payload, full Python,
   notebook cells, or low-level primitives;
 - a workflow is the user-facing operation declared through
-  ``workflow = "..."`` in a TOML file, such as ``overview``,
+  ``[workflow].mode = "..."`` in a TOML file, such as ``overview``,
   ``simulation``, ``mesh``, ``calibration``, ``batch``, or ``comparison``.
 
 The distinction matters because one workflow can be driven through several

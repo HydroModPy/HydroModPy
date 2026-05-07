@@ -33,7 +33,7 @@ def _write_simulation_config(path: Path, workspace_root: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[workspace]",
                 f'root = "{workspace_root.as_posix()}"',

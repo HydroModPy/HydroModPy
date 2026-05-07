@@ -25,6 +25,7 @@ from typing import Any, Literal
 
 import pandas as pd
 
+from hydromodpy.core.config_kit.types import CoveragePolicy, TimePeriodUnit
 from hydromodpy.core.units import (
     normalize_time_unit,
     parse_scalar_and_unit,
@@ -49,8 +50,8 @@ class ResolvedSimulationTimeWindow:
     start: pd.Timestamp
     end: pd.Timestamp
     step_value: int
-    step_unit: Literal["hour", "day", "month", "year"]
-    coverage_policy: Literal["error", "warn", "ignore"]
+    step_unit: TimePeriodUnit
+    coverage_policy: CoveragePolicy
 
     def to_date_bounds(self) -> tuple[str, str]:
         """Return inclusive date bounds as ISO ``YYYY-MM-DD`` strings.
@@ -130,7 +131,7 @@ def _simulation_time_config(cfg: Any) -> Any | None:
     return getattr(simulation_cfg, "time", None) if simulation_cfg is not None else None
 
 
-def _normalize_policy(raw_policy: Any) -> Literal["error", "warn", "ignore"]:
+def _normalize_policy(raw_policy: Any) -> CoveragePolicy:
     """Normalize coverage-policy token and validate allowed values."""
     policy = str(raw_policy).strip().lower()
     if policy not in _VALID_POLICIES:
@@ -163,7 +164,7 @@ def _normalize_step_value(raw_step_value: Any) -> int:
     return int(step_value)
 
 
-def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", "year"]:
+def _normalize_step_unit(raw_step_unit: Any) -> TimePeriodUnit:
     """Normalize step-unit aliases to canonical tokens."""
     token = str(raw_step_unit).strip().lower()
     if token in {"m", "mo", "mon", "month", "months"}:
@@ -189,7 +190,7 @@ def _parse_step_spec(
     *,
     raw_step_value: Any,
     raw_step_unit: Any,
-) -> tuple[int, Literal["hour", "day", "month", "year"]]:
+) -> tuple[int, TimePeriodUnit]:
     explicit_unit_raw: str | None = None
     if raw_step_unit is not None and str(raw_step_unit).strip() != "":
         explicit_unit_raw = str(raw_step_unit).strip()

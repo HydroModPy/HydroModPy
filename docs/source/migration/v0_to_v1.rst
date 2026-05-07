@@ -73,7 +73,8 @@ is now an explicit workflow in TOML:
 
 .. code-block:: toml
 
-   workflow = "mesh"
+   [workflow]
+   mode = "mesh"
 
    [workspace]
    project_root = "./my_basin"
@@ -98,7 +99,8 @@ workflow:
 
 .. code-block:: toml
 
-   workflow = "calibration"
+   [workflow]
+   mode = "calibration"
 
    [calibration]
    method = "grid"

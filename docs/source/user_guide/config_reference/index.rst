@@ -33,6 +33,15 @@ Sections
    :gutter: 2 2 3 3
 
    .. grid-item-card::
+      :link: workflow
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[workflow]**
+      ^^^
+      Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.
+
+   .. grid-item-card::
       :link: workspace
       :link-type: doc
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
@@ -111,7 +120,7 @@ Sections
 
       **[modflownwt]**
       ^^^
-      Expert MODFLOW-NWT package configuration loaded from [modflownwt.runtime], [modflownwt.process_specific], [modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical].
+      Expert MODFLOW-NWT package configuration loaded from [modflownwt.runtime.<package>], [modflownwt.process_specific], [modflownwt.sgrid.planar], and [modflownwt.sgrid.vertical].
 
    .. grid-item-card::
       :link: modflow6
@@ -184,6 +193,7 @@ Sections
    schema_explorer
    recipes
    validate
+   workflow
    workspace
    geographic
    domain

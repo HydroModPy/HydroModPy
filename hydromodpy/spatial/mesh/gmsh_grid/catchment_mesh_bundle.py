@@ -116,15 +116,15 @@ def _serialize_depth_model(domain: Domain) -> dict[str, Any]:
     depth_model = domain.config.depth_model
     if isinstance(depth_model, ConstantThicknessDepthModel):
         return {
-            "type": str(depth_model.type),
+            "kind": str(depth_model.kind),
             "thickness_m": float(depth_model.thickness),
         }
     if isinstance(depth_model, FlatSubstratumDepthModel):
         return {
-            "type": str(depth_model.type),
+            "kind": str(depth_model.kind),
             "substratum_elevation_m": float(depth_model.substratum_elevation),
         }
-    return {"type": str(getattr(depth_model, "type", "unknown"))}
+    return {"kind": str(getattr(depth_model, "kind", "unknown"))}
 
 
 def _polygon_area(vertices: np.ndarray) -> float:

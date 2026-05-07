@@ -85,7 +85,7 @@ def test_top_level_drainage_alias_is_rejected() -> None:
                 "bc": {
                     "drainage": {
                         "value": 1e-6,
-                        "type": "cauchy",
+                        "kind": "cauchy",
                         "application_domain": "top",
                     }
                 }

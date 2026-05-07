@@ -1,4 +1,6 @@
-workflow = "testbed"
+
+[workflow]
+mode = "testbed"
 
 [testbed]
 id = "flow_k_sensitivity"

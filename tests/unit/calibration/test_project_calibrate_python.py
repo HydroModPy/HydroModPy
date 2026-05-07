@@ -267,7 +267,7 @@ class TestRunCalibrationProgrammatic:
         class _Config:
             def model_dump(self, **kwargs):
                 return {
-                    "workflow": "simulation",
+                    "workflow": {"mode": "simulation"},
                     "workspace": {"root": str(tmp_path / "ws")},
                     "flow": {
                         "param": {

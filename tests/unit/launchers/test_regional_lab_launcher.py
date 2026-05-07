@@ -142,7 +142,7 @@ def _write_planned_configs(tmp_path: Path) -> None:
     (configs_dir / "compare_headwater_100km2_outlet_2.toml").write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "demo"',
@@ -562,7 +562,7 @@ def test_regional_lab_extracts_canonical_comparison_child_artifacts(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "demo_compare"',

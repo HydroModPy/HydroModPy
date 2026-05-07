@@ -187,7 +187,7 @@ def build_child_payload(
     if cfg.base_simulation_config_path is None:
         raise ValueError("comparison.base_simulation_config is required")
     base_payload = _load_self_contained_base_payload(cfg.base_simulation_config_path)
-    base_payload["workflow"] = "simulation"
+    base_payload["workflow"] = {"mode": "simulation"}
     payload = merge_toml_payloads(base_payload, overlay)
     return payload, run_name
 

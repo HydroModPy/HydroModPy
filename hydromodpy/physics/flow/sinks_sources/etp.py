@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -25,8 +25,6 @@ class FlowEtpConfig(HydroModelBase):
     :class:`FlowToModflowAdapter._build_etp_payload`. This is the unique
     entry point for the EVT package.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     values: Annotated[Any, Profile.USER] = Field(
         default=0.0,

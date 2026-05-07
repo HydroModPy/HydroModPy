@@ -558,7 +558,7 @@ def test_transient_west_side_uses_chd_and_keeps_face_active():
 def test_boundary_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
     west_bc = FlowBoundaryConditionConfig(
         id="west_side",
-        type="dirichlet",
+        kind="dirichlet",
         units="cm",
         application_domain="west side",
         forcing={"mode": "constant", "value": 5.0},
@@ -579,7 +579,7 @@ def test_boundary_forcing_constant_is_resolved_in_adapter_without_runtime_bindin
 def test_boundary_forcing_csv_requires_simulation_window():
     west_bc = FlowBoundaryConditionConfig(
         id="west_side",
-        type="dirichlet",
+        kind="dirichlet",
         units="m",
         application_domain="west side",
         forcing={

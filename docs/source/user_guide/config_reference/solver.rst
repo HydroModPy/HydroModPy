@@ -40,7 +40,7 @@ Fields
         <code class="hmp-field-name">solver_engine</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "modflownwt"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L19>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "modflownwt"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L17>`__
 
       Groundwater flow solver backend registered for the 'flow' process.
 

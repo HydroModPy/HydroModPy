@@ -18,7 +18,8 @@ data, no figures by default. Great as a smoke test.
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
    [simulation]
    name = "smoke_test"
@@ -48,7 +49,7 @@ data, no figures by default. Great as a smoke test.
    base_elevation = 20.0
 
    [domain.depth_model]
-   type = "constant_thickness"
+   kind = "constant_thickness"
    thickness = "20.0 m"
 
    [flow]
@@ -65,11 +66,11 @@ data, no figures by default. Great as a smoke test.
    value = "1e-4 m/s"
 
    [flow.bc.dirichlet.west_side]
-   type = "dirichlet"
+   kind = "dirichlet"
    value = "5.0 m"
 
    [flow.bc.dirichlet.east_side]
-   type = "dirichlet"
+   kind = "dirichlet"
    value = "5.0 m"
 
    [data]
@@ -161,16 +162,16 @@ Combine Dirichlet sides with a top-cell drainage:
    active_bc = ["west_side", "east_side", "drainage"]
 
    [flow.bc.dirichlet.west_side]
-   type = "dirichlet"
+   kind = "dirichlet"
    value = "5.0 m"
 
    [flow.bc.dirichlet.east_side]
-   type = "dirichlet"
+   kind = "dirichlet"
    value = "5.0 m"
 
    [flow.bc.cauchy.drainage]
    application_domain = "top"
-   type = "cauchy"
+   kind = "cauchy"
    value = 0.0
    units = "m2/s"
 
@@ -235,7 +236,8 @@ parameters at runtime.
 
 .. code-block:: toml
 
-   workflow = "calibration"
+   [workflow]
+   mode = "calibration"
 
    [calibration]
    algorithm = "cma"
@@ -259,7 +261,8 @@ Re-publish a project as a gallery card with tagged figures and metadata.
 
 .. code-block:: toml
 
-   workflow = "analysis"
+   [workflow]
+   mode = "analysis"
 
    [analysis.capability_gallery]
    enabled = true

@@ -14,7 +14,7 @@
   - `mf6` for MODFLOW 6 / GWT
   - `nwt` for MODFLOW-NWT / MODPATH / MT3DMS
 - Solver intercomparison tests use the `intercomparison` marker. They compare
-  compact metrics produced by a `workflow = "comparison"` run, not figure files
+  compact metrics produced by a `[workflow].mode = "comparison"` run, not figure files
   or full solver workspaces.
 
 Current non-regression tests:

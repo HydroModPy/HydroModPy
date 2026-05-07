@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -51,8 +51,6 @@ _CANDIDATE_SOURCE_SUBDIRS: tuple[str, ...] = (
 
 class CapabilityGalleryConfig(HydroModelBase):
     """Optional publication target for stable, versionable run figures."""
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,

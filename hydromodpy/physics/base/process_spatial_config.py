@@ -11,7 +11,7 @@ process-specific validation.
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -19,8 +19,6 @@ from hydromodpy.core.config_kit.profile import Profile
 
 class ProcessSpatialConfig(HydroModelBase):
     """Base Pydantic schema shared by `ProcessSpatial` child configurations."""
-
-    model_config = ConfigDict(extra="forbid")
 
     param_list: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,

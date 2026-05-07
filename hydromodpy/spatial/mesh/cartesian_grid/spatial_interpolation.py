@@ -7,15 +7,12 @@ cell-center arrays.
 
 from __future__ import annotations
 
-from typing import Literal
-
 import numpy as np
 
+from hydromodpy.core.config_kit.types import InterpolationMethod
 from hydromodpy.core.logging import get_logger
 
 logger = get_logger(__name__)
-
-InterpolationMethod = Literal["nearest", "linear", "idw"]
 
 
 def interpolate_to_grid(

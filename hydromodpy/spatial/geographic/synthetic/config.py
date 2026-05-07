@@ -7,7 +7,7 @@ from math import isclose
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -16,8 +16,6 @@ from hydromodpy.core.units import parse_length_to_m
 
 class SyntheticGridConfig(HydroModelBase):
     """Structured-grid support used to generate one synthetic DEM."""
-
-    model_config = ConfigDict(extra="forbid")
 
     length_x: Annotated[float, Profile.USER] = Field(
         default=100.0,
@@ -113,8 +111,6 @@ class SyntheticGridConfig(HydroModelBase):
 class SyntheticTopographyConfig(HydroModelBase):
     """Analytical topography definition on the synthetic support."""
 
-    model_config = ConfigDict(extra="forbid")
-
     kind: Annotated[Literal["flat", "linear", "radial_island"], Profile.USER] = Field(
         default="flat",
         description=(
@@ -202,8 +198,6 @@ class SyntheticTopographyConfig(HydroModelBase):
 
 class SyntheticGeographicConfig(HydroModelBase):
     """Top-level config for one synthetic geographic build."""
-
-    model_config = ConfigDict(extra="forbid")
 
     case_id: Annotated[str, Profile.USER] = Field(
         default="flat20",

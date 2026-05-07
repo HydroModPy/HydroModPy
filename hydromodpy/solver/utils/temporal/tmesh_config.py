@@ -12,6 +12,7 @@ from pydantic import ConfigDict, Field, ValidationError, field_validator, model_
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr, PositiveInt
 from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
 from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 
@@ -23,7 +24,7 @@ class TMeshConfig(HydroModelBase):
     # we opt out of the HydroModelBase ``str_strip_whitespace`` default.
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
 
-    itmuni: Annotated[str, Profile.DEV] = Field(
+    itmuni: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="d",
         description=(
             "Time unit used to interpret lenper values. In launcher mode stress periods "
@@ -44,7 +45,7 @@ class TMeshConfig(HydroModelBase):
             "[simulation.time], so this field is mirrored only for compatibility."
         ),
     )
-    nper: Annotated[int, Profile.USER] = Field(
+    nper: Annotated[PositiveInt, Profile.USER] = Field(
         default=1,
         description=(
             "Stress-period count. In launcher mode this is mirrored from [simulation.time] "
@@ -67,7 +68,7 @@ class TMeshConfig(HydroModelBase):
             "is generally not used."
         ),
     )
-    chron_dateformat: Annotated[str, Profile.DEV] = Field(
+    chron_dateformat: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="%Y-%m-%d %H:%M:%S",
         description="Date format string used to parse the chronicle file.",
     )
@@ -75,7 +76,7 @@ class TMeshConfig(HydroModelBase):
         default="\t",
         description="Column separator used in the chronicle file.",
     )
-    chron_time_col: Annotated[str, Profile.DEV] = Field(
+    chron_time_col: Annotated[NonEmptyStr, Profile.DEV] = Field(
         default="Date",
         description="Name of the time/date column in the chronicle file.",
     )
@@ -116,14 +117,6 @@ class TMeshConfig(HydroModelBase):
         description="No-data sentinel value for temporal data.",
     )
 
-    @field_validator("itmuni", "chron_dateformat", "chron_time_col")
-    @classmethod
-    def _validate_non_empty_text(cls, value):
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("value cannot be empty")
-        return text
-
     @field_validator("flow_regime", mode="before")
     @classmethod
     def _validate_flow_regime(cls, value):
@@ -146,14 +139,6 @@ class TMeshConfig(HydroModelBase):
         if text == "":
             raise ValueError("chron_path cannot be empty when provided")
         return str(Path(text).expanduser())
-
-    @field_validator("nper")
-    @classmethod
-    def _validate_positive_nper(cls, value):
-        out = int(value)
-        if out <= 0:
-            raise ValueError("nper must be > 0")
-        return out
 
     @field_validator("lenper")
     @classmethod

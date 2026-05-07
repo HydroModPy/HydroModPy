@@ -99,7 +99,7 @@ Bands support:
    [domain]
 
    [domain.supports.k_x]
-   provider = "generated_bands"
+   kind = "generated_bands"
    axis = "x"
    coordinate_mode = "absolute"
    breaks = [200.0, 500.0]
@@ -112,7 +112,7 @@ Rings support:
    [domain]
 
    [domain.supports.k_r]
-   provider = "generated_rings"
+   kind = "generated_rings"
    coordinate_mode = "absolute"
    center_x = 500.0
    center_y = 500.0
@@ -126,7 +126,7 @@ Catchment zones support:
    [domain]
 
    [domain.supports.management]
-   provider = "catchment_zones"
+   kind = "catchment_zones"
    source_zone_id = "management"
 
 Geology support:
@@ -136,7 +136,7 @@ Geology support:
    [domain]
 
    [domain.supports.field_geology]
-   provider = "geology"
+   kind = "geology"
 
 Heterogeneous parameter referencing a support:
 

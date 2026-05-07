@@ -18,8 +18,10 @@ base_config = "project.toml"
 
 # `simulation` is the standard "compute one MODFLOW run" workflow.
 # We keep it explicit so anybody reading the file knows the dispatcher.
-workflow = "simulation"
 
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 # Run name. Used as the catalog entry and as the figure subfolder.

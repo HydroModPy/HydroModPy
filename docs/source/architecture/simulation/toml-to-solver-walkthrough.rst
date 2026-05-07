@@ -34,7 +34,7 @@ Step 1: config loading and project bootstrap
 --------------------------------------------
 
 The CLI is a thin entry point. ``hmp run`` reads the TOML, dispatches
-based on the top-level ``workflow = "..."`` field, then instantiates
+based on the top-level ``[workflow].mode = "..."`` field, then instantiates
 ``Project`` or dispatches to a workflow launcher. ``Project`` owns the
 user-facing session bootstrap:
 

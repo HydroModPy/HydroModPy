@@ -216,7 +216,7 @@ types = []
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "50 m"
 
 [flow]
@@ -240,8 +240,10 @@ RUN_TOML_TEMPLATE = """\
 # Inherits from : project.toml
 # ===========================================================================
 
-workflow = "simulation"
 base_config = "project.toml"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "."

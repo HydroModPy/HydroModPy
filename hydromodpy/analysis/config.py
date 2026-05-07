@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -28,8 +28,6 @@ class AnalysisConfig(HydroModelBase):
     figures for the versionable gallery, and ``[analysis.comparison]``
     drives the comparison launcher.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     batch: Annotated[RegionalLabConfig | None, Profile.USER] = Field(
         default=None,

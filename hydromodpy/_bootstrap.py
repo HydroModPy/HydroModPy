@@ -27,7 +27,7 @@ def _rebuild_forward_refs() -> None:
     from hydromodpy.config import hydromodpy_config as cfg_module
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.overview.config import OverviewSection
+    from hydromodpy.display.overview.config import OverviewConfig
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.transport.transport_config import TransportConfig
     from hydromodpy.simulation.planning.config import SimulationConfig
@@ -57,7 +57,7 @@ def _rebuild_forward_refs() -> None:
         "DomainConfig": DomainConfig,
         "GeographicConfig": GeographicConfig,
         "MeshCatchmentConfig": MeshCatchmentConfig,
-        "OverviewSection": OverviewSection,
+        "OverviewConfig": OverviewConfig,
     }
     cfg_module.__dict__.update(refs)
     cfg_module.HydroModPyConfig.model_rebuild()

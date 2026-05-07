@@ -375,18 +375,19 @@ MODFLOW-NWT: Option Selection Rationale
 NWT solver package
 ^^^^^^^^^^^^^^^^^^
 
-HydroModPy exposes the main Newton-solver fields under ``modflownwt.runtime``:
+HydroModPy exposes the main Newton-solver fields under
+``modflownwt.runtime.nwt``:
 
-- ``nwt_headtol``
-- ``nwt_fluxtol``
-- ``nwt_maxiterout``
-- ``nwt_thickfact``
-- ``nwt_linmeth``
-- ``nwt_ibotav``
-- ``nwt_options``
-- ``nwt_continue``
-- ``nwt_backflag``
-- ``nwt_stoptol``
+- ``headtol``
+- ``fluxtol``
+- ``maxiterout``
+- ``thickfact``
+- ``linmeth``
+- ``ibotav``
+- ``options``
+- ``continue_run``
+- ``backflag``
+- ``stoptol``
 
 The official NWT guide explains that ``OPTIONS`` may be ``SIMPLE``,
 ``MODERATE``, ``COMPLEX``, or ``SPECIFIED``. HydroModPy currently defaults to

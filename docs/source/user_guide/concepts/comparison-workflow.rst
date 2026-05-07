@@ -17,7 +17,8 @@ The comparison workflow is an external orchestration layer declared through:
 
 .. code-block:: toml
 
-   workflow = "comparison"
+   [workflow]
+   mode = "comparison"
 
 It does not replace the standard ``simulation`` workflow. Instead, it:
 
@@ -67,7 +68,7 @@ Two-Level Input Structure
 
 The recommended structure uses:
 
-- one comparison TOML with ``workflow = "comparison"``,
+- one comparison TOML with ``[workflow].mode = "comparison"``,
 - one base simulation TOML referenced by
   ``[comparison].base_simulation_config``.
 
@@ -75,7 +76,8 @@ Minimal example:
 
 .. code-block:: toml
 
-   workflow = "comparison"
+   [workflow]
+   mode = "comparison"
 
    [comparison]
    comparison_id = "dupuit_mf6_vs_bouss"

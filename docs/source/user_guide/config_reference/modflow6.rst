@@ -13,7 +13,7 @@ TOML section: ``[modflow6]``
 
 Pydantic model: ``Modflow6Config`` defined in ``hydromodpy.solver.modflow6.modflow6_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L107>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L103>`__
 
 Expert-level MODFLOW 6 configuration organized by concern.
 
@@ -42,7 +42,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.runtime]</code>
       </div>
 
-   :bdg-primary:`Modflow6RuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L112>`__
+   :bdg-primary:`Modflow6RuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L106>`__
 
       MODFLOW 6 runtime options.
 
@@ -61,7 +61,7 @@ Fields
               <code class="hmp-field-name">mf6_executable_name</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "mf6"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L22>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "mf6"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L20>`__
 
             MODFLOW 6 executable name or absolute path.
 
@@ -75,7 +75,7 @@ Fields
               <code class="hmp-field-name">mf6_ims_complexity</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "COMPLEX"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L26>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "COMPLEX"` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L24>`__
 
             IMS complexity keyword for MODFLOW 6 (e.g. SIMPLE, MODERATE, COMPLEX).
 
@@ -89,7 +89,7 @@ Fields
               <code class="hmp-field-name">mf_verbose</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L30>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L28>`__
 
             Enable verbose FloPy logging for MODFLOW 6 setup and execution.
 
@@ -103,7 +103,7 @@ Fields
               <code class="hmp-field-name">mf6_outer_dvclose</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L34>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L32>`__
 
             IMS outer-iteration head-change convergence criterion.
 
@@ -117,7 +117,7 @@ Fields
               <code class="hmp-field-name">mf6_inner_dvclose</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L39>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.0001` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L37>`__
 
             IMS inner-iteration head-change convergence criterion.
 
@@ -131,7 +131,7 @@ Fields
               <code class="hmp-field-name">mf6_outer_maximum</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 500` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L44>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 500` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L42>`__
 
             Maximum number of IMS outer iterations.
 
@@ -145,7 +145,7 @@ Fields
               <code class="hmp-field-name">mf6_inner_maximum</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 500` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L49>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 500` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L47>`__
 
             Maximum number of IMS inner iterations.
 
@@ -159,7 +159,7 @@ Fields
               <code class="hmp-field-name">mf6_enable_rewet</code>
             </div>
 
-         :bdg-primary:`bool | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L54>`__
+         :bdg-primary:`bool | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L52>`__
 
             Enable NPF cell rewetting. When left to None, HydroModPy keeps rewetting disabled unless explicitly enabled.
 
@@ -173,7 +173,7 @@ Fields
               <code class="hmp-field-name">mf6_enable_xt3d</code>
             </div>
 
-         :bdg-primary:`bool | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L61>`__
+         :bdg-primary:`bool | None` :bdg-secondary:`default = None` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L59>`__
 
             Enable MF6 NPF XT3D terms. When left to None, HydroModPy auto-enables XT3D on unstructured solver meshes. This increases computational cost but can improve accuracy on unstructured or non-orthogonal grids.
 
@@ -187,7 +187,7 @@ Fields
               <code class="hmp-field-name">mf6_rewet_wetfct</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L70>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L68>`__
 
             MF6 NPF rewet WETFCT factor.
 
@@ -201,7 +201,7 @@ Fields
               <code class="hmp-field-name">mf6_rewet_iwetit</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L75>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L73>`__
 
             MF6 NPF rewet IWETIT interval.
 
@@ -215,7 +215,7 @@ Fields
               <code class="hmp-field-name">mf6_rewet_ihdwet</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L80>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L78>`__
 
             MF6 NPF rewet IHDWET flag.
 
@@ -229,7 +229,7 @@ Fields
               <code class="hmp-field-name">mf6_rewet_wetdry</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L84>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L82>`__
 
             MF6 NPF WETDRY threshold used when rewetting is active.
 
@@ -247,7 +247,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.process_specific]</code>
       </div>
 
-   :bdg-primary:`Modflow6ProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L116>`__
+   :bdg-primary:`Modflow6ProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L110>`__
 
       Process-specific controls for MODFLOW 6 flow packages.
 
@@ -266,7 +266,7 @@ Fields
               <code class="hmp-field-name">vka</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L96>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L92>`__
 
             Vertical anisotropy factor used to derive k33 from k.
 
@@ -280,7 +280,7 @@ Fields
               <code class="hmp-field-name">evt_extinction_depth</code>
             </div>
 
-         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L100>`__
+         :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L96>`__
 
             MF6 EVT extinction depth in meters when recharge negatives are routed to EVT.
 
@@ -298,7 +298,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.sgrid]</code>
       </div>
 
-   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L120>`__
+   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L114>`__
 
       Solver-grid payload split into planar and vertical sections.
 
@@ -319,7 +319,7 @@ Fields
               <code class="hmp-field-toml">[modflow6.sgrid.planar]</code>
             </div>
 
-         :bdg-primary:`PlanarGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L181>`__
+         :bdg-primary:`PlanarGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L194>`__
 
             Planar discretization of the solver grid.
 
@@ -338,7 +338,7 @@ Fields
                     <code class="hmp-field-name">mode</code>
                   </div>
 
-               :bdg-primary:`Literal['keep_native', 'resample_to_shape']` :bdg-secondary:`default = "keep_native"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L140>`__
+               :bdg-primary:`Literal['keep_native', 'resample_to_shape']` :bdg-secondary:`default = "keep_native"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L145>`__
 
                   Planar solver-grid mode: keep the native domain support or resample to an explicit (ny, nx) target shape.
 
@@ -352,7 +352,7 @@ Fields
                     <code class="hmp-field-name">nx</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L147>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L152>`__
 
                   Target number of columns when planar mode is 'resample_to_shape'.
 
@@ -366,7 +366,7 @@ Fields
                     <code class="hmp-field-name">ny</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L152>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L157>`__
 
                   Target number of rows when planar mode is 'resample_to_shape'.
 
@@ -380,7 +380,7 @@ Fields
                     <code class="hmp-field-name">resampling</code>
                   </div>
 
-               :bdg-primary:`Literal['bilinear', 'average', 'nearest']` :bdg-secondary:`default = "bilinear"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L157>`__
+               :bdg-primary:`Literal['bilinear', 'average', 'nearest']` :bdg-secondary:`default = "bilinear"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L162>`__
 
                   Resampling rule applied when planar mode is 'resample_to_shape'.
 
@@ -398,7 +398,7 @@ Fields
               <code class="hmp-field-toml">[modflow6.sgrid.vertical]</code>
             </div>
 
-         :bdg-primary:`VerticalGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L185>`__
+         :bdg-primary:`VerticalGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L198>`__
 
             Vertical layering of the solver grid.
 
@@ -417,7 +417,7 @@ Fields
                     <code class="hmp-field-name">genmtd_lay</code>
                   </div>
 
-               :bdg-primary:`Literal['constant', 'decay', 'list']` :bdg-secondary:`default = "constant"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L65>`__
+               :bdg-primary:`Literal['constant', 'decay', 'list']` :bdg-secondary:`default = "constant"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L63>`__
 
                   Vertical-layering strategy.
 
@@ -431,7 +431,7 @@ Fields
                     <code class="hmp-field-name">nlay</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L69>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L67>`__
 
                   Number of layers (required for constant/decay, ignored for list).
 
@@ -445,7 +445,7 @@ Fields
                     <code class="hmp-field-name">lay_decay</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L73>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L71>`__
 
                   Decay exponent (>1) for decay layering.
 
@@ -459,7 +459,7 @@ Fields
                     <code class="hmp-field-name">lay_proportions</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L77>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L75>`__
 
                   Explicit layer fractions when genmtd_lay='list' (must sum to 1).
 
@@ -473,7 +473,7 @@ Fields
                     <code class="hmp-field-name">nodata</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L81>`__
+               :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L79>`__
 
                   No-data sentinel value.
 
@@ -493,7 +493,7 @@ Fields
         <code class="hmp-field-toml">[modflow6.tgrid]</code>
       </div>
 
-   :bdg-primary:`TMeshConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L124>`__
+   :bdg-primary:`TMeshConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L118>`__
 
       Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.
 

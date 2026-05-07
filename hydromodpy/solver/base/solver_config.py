@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -13,8 +13,6 @@ from hydromodpy.solver.base import registry
 
 class SolverConfig(HydroModelBase):
     """Configuration block defining the active groundwater solver engine."""
-
-    model_config = ConfigDict(extra="forbid")
 
     solver_engine: Annotated[str, Profile.USER] = Field(
         default="modflownwt",

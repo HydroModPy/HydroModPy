@@ -23,7 +23,8 @@ from hydromodpy.workflow.dispatch import (
 
 def _write_rich_calibration_toml(path: Path) -> Path:
     content = """
-workflow = "calibration"
+[workflow]
+mode = "calibration"
 
 [calibration]
 method = "grid"

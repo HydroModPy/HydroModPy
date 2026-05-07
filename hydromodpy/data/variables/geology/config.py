@@ -7,10 +7,16 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import (
+    CellSamplingDensity,
+    IdentifierStr,
+    NonEmptyStr,
+    StripLower,
+)
 from hydromodpy.core.tracking import InputFile
 
 
@@ -21,8 +27,6 @@ class GeologySourceConfig(HydroModelBase):
     geological maps at 1:1M or 1:50K scale. Custom vector sources need a code
     field so HydroModPy can map lithological units to model parameters.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     source: Annotated[Literal["custom", "brgm_1m", "brgm_50k"], Profile.USER] = Field(
         ...,
@@ -133,34 +137,23 @@ class GeologyConfig(HydroModelBase):
         code_field = "LITHOLOGY"
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     sources: Annotated[list[GeologySourceConfig], Profile.USER] = Field(
         default_factory=lambda: [GeologySourceConfig(source="brgm_1m")],
         min_length=1,
         description="At least one geology data source. Defaults to BRGM 1:1M.",
     )
 
-    id: Annotated[str, Profile.USER] = Field(
+    id: Annotated[IdentifierStr, Profile.USER] = Field(
         default="field_geology",
         description="Identifier of the geology spatial field.",
     )
-    cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description=(
             "Sub-sampling density for GeologyField.on_mesh(). "
             "Higher = more precise geology interface, slower runtime."
         ),
     )
-
-    @field_validator("id")
-    @classmethod
-    def _validate_id(cls, value: str) -> str:
-        text = str(value).strip()
-        if not text:
-            raise ValueError("geology.id cannot be empty")
-        return text
 
     @classmethod
     def brgm_1m(cls, **overrides) -> GeologyConfig:
@@ -206,8 +199,6 @@ class GeologyConfig(HydroModelBase):
 # and the data loader for direct field construction).
 # ---------------------------------------------------------------------------
 
-SUPPORTED_SOURCE_KINDS = ("auto", "raster", "vector")
-
 
 def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping[str, Any]:
     """Resolve a nested TOML section from a dotted path."""
@@ -221,31 +212,32 @@ def _get_nested_section(payload: Mapping[str, Any], dotted_path: str) -> Mapping
     return current
 
 
+SourceKind = Annotated[Literal["auto", "raster", "vector"], StripLower]
+
+
 class GeologySource(HydroModelBase):
     """Schema for geology data source definition (standalone field construction)."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    path: Annotated[str, Profile.USER] = Field(
+    path: Annotated[NonEmptyStr, Profile.USER] = Field(
         description=(
             "Path to the raw geology dataset used by the meshing workflow. "
             "It can point to a raster or polygon vector file depending on kind."
         )
     )
-    kind: Annotated[str, Profile.USER] = Field(
+    kind: Annotated[SourceKind, Profile.USER] = Field(
         default="auto",
         description=(
             "How to interpret the geology source. "
             "Use 'vector' for polygon geology, 'raster' for an already rasterized grid, or 'auto' to infer the type from the file."
         ),
     )
-    code_field: Annotated[str | None, Profile.USER] = Field(
+    code_field: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
             "Attribute column carrying the geology code for each polygon when kind='vector'."
         ),
     )
-    reference_raster_path: Annotated[str | None, Profile.USER] = Field(
+    reference_raster_path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
             "Reference raster used when vector geology must be rasterized. "
@@ -260,33 +252,6 @@ class GeologySource(HydroModelBase):
         ),
     )
 
-    @field_validator("path")
-    @classmethod
-    def _validate_path(cls, value):
-        text = str(value).strip()
-        if not text:
-            raise ValueError("source.path cannot be empty")
-        return text
-
-    @field_validator("kind")
-    @classmethod
-    def _validate_kind(cls, value):
-        key = str(value).strip().lower()
-        if key not in SUPPORTED_SOURCE_KINDS:
-            allowed = ", ".join(SUPPORTED_SOURCE_KINDS)
-            raise ValueError(f"Unsupported source.kind '{value}'. Allowed: {allowed}")
-        return key
-
-    @field_validator("code_field", "reference_raster_path")
-    @classmethod
-    def _validate_optional_non_empty(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("value cannot be empty when provided")
-        return text
-
     @model_validator(mode="after")
     def _validate_vector_constraints(self):
         if self.kind == "vector":
@@ -300,13 +265,11 @@ class GeologySource(HydroModelBase):
 class GeologyLandSea(HydroModelBase):
     """Optional sea-mask override for coastal workflows."""
 
-    model_config = ConfigDict(extra="forbid")
-
     enabled: Annotated[bool, Profile.USER] = Field(
         default=False,
         description=("Enable the coastal override that replaces geology values over sea areas."),
     )
-    path: Annotated[str | None, Profile.USER] = Field(
+    path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
             "Mask raster or vector path used when landsea.enabled=true. "
@@ -320,36 +283,13 @@ class GeologyLandSea(HydroModelBase):
             "It is compared against the loaded mask before applying override_code."
         ),
     )
-    override_code: Annotated[str, Profile.USER] = Field(
+    override_code: Annotated[NonEmptyStr, Profile.USER] = Field(
         default="1",
         description=(
             "Geology code written into sea areas after applying the land/sea mask. "
             "Choose a stable code that is meaningful in downstream parameter tables."
         ),
     )
-
-    @field_validator("path")
-    @classmethod
-    def _validate_optional_path(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("landsea.path cannot be empty when provided")
-        return text
-
-    @field_validator("sea_value")
-    @classmethod
-    def _validate_sea_value(cls, value):
-        return float(value)
-
-    @field_validator("override_code")
-    @classmethod
-    def _validate_override_code(cls, value):
-        text = str(value).strip()
-        if not text:
-            raise ValueError("landsea.override_code cannot be empty")
-        return text
 
     @model_validator(mode="after")
     def _validate_path_when_enabled(self):
@@ -361,9 +301,7 @@ class GeologyLandSea(HydroModelBase):
 class GeologyConfigBlock(HydroModelBase):
     """Top-level schema for one geology field definition (standalone construction)."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    id: Annotated[str, Profile.USER] = Field(
+    id: Annotated[NonEmptyStr, Profile.USER] = Field(
         default="field_geology",
         description=(
             "Logical identifier of the geology field once loaded into HydroModPy. "
@@ -376,7 +314,7 @@ class GeologyConfigBlock(HydroModelBase):
             "This section explains where the geology polygons or raster come from and how they should be interpreted."
         )
     )
-    clip_polygon_path: Annotated[str | None, Profile.USER] = Field(
+    clip_polygon_path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional polygon mask applied before meshing or field projection. "
@@ -387,39 +325,13 @@ class GeologyConfigBlock(HydroModelBase):
         default_factory=GeologyLandSea,
         description=("Optional coastal override applied after loading the base geology source."),
     )
-    cell_samples_per_axis: Annotated[int, Profile.USER] = Field(
+    cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.USER] = Field(
         default=8,
         description=(
             "Default sampling density used later when projecting geology fractions onto a target mesh. "
             "Higher values improve fraction estimates in narrow or irregular polygons at the cost of runtime."
         ),
     )
-
-    @field_validator("id")
-    @classmethod
-    def _validate_id_standalone(cls, value):
-        text = str(value).strip()
-        if not text:
-            raise ValueError("geology.id cannot be empty")
-        return text
-
-    @field_validator("clip_polygon_path")
-    @classmethod
-    def _validate_optional_clip_path(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("clip_polygon_path cannot be empty when provided")
-        return text
-
-    @field_validator("cell_samples_per_axis")
-    @classmethod
-    def _validate_cell_samples_per_axis(cls, value):
-        out = int(value)
-        if out < 2:
-            raise ValueError("cell_samples_per_axis must be >= 2")
-        return out
 
 
 def validate_geology_config_data(config_data: Mapping[str, Any]) -> dict[str, Any]:

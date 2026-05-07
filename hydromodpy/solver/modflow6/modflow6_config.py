@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -16,8 +16,6 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfi
 
 class Modflow6RuntimeConfig(HydroModelBase):
     """Expert runtime settings used to build and solve MODFLOW 6 packages."""
-
-    model_config = ConfigDict(extra="forbid")
 
     mf6_executable_name: Annotated[str, Profile.EXPERT] = Field(
         default="mf6",
@@ -91,8 +89,6 @@ class Modflow6RuntimeConfig(HydroModelBase):
 class Modflow6ProcessSpecificConfig(HydroModelBase):
     """Process-specific parameters used by selected MODFLOW 6 packages."""
 
-    model_config = ConfigDict(extra="forbid")
-
     vka: Annotated[float, Profile.EXPERT] = Field(
         default=1.0,
         description="Vertical anisotropy factor used to derive k33 from k.",
@@ -106,8 +102,6 @@ class Modflow6ProcessSpecificConfig(HydroModelBase):
 
 class Modflow6Config(HydroModelBase):
     """Expert-level MODFLOW 6 configuration organized by concern."""
-
-    model_config = ConfigDict(extra="forbid")
 
     runtime: Annotated[Modflow6RuntimeConfig, Profile.EXPERT] = Field(
         default_factory=Modflow6RuntimeConfig,

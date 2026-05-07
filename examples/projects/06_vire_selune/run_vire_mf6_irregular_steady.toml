@@ -1,6 +1,8 @@
 base_config = "project_simulation_steady.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/vire_mf6_irregular_steady"

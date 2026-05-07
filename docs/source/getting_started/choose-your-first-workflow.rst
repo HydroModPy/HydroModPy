@@ -9,7 +9,7 @@ Use this page when you know what you want to learn, but not which HydroModPy
 entry point to open first.
 
 If you already know the CLI keyword you are looking for and want the full map
-of ``workflow = "..."`` families, use :doc:`../user_guide/concepts/workflow-families`.
+of ``[workflow].mode = "..."`` families, use :doc:`../user_guide/concepts/workflow-families`.
 
 .. important::
 

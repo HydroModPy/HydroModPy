@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -25,8 +25,6 @@ class PersistenceConfig(HydroModelBase):
     project DuckDB; when False, every write through
     :class:`SimulationCatalog` becomes a no-op.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     save_catalog: Annotated[bool, Profile.USER] = Field(
         default=True,

@@ -9,25 +9,26 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import (
-    ConfigDict,
     Field,
-    PrivateAttr,
     ValidationInfo,
     field_validator,
     model_validator,
 )
 
-from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.physics.base import ProcessSpatialConfig
+from hydromodpy.physics.flow import flow_toml_loader
 from hydromodpy.physics.flow.boundary_conditions import (
     DIRICHLET_BC_CANONICAL_DOMAINS,
     BCEntry,
     FlowBoundaryConditionConfig,
 )
+from hydromodpy.physics.flow.flow_param_config import FlowParam
+from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
 from hydromodpy.physics.flow.initial_conditions import (
     FlowInitialConditions,
 )
@@ -42,110 +43,15 @@ from hydromodpy.physics.flow.sinks_sources import (
 from hydromodpy.physics.flow.sinks_sources_config import (
     normalize_flow_sinks_sources,
 )
-from hydromodpy.spatial.field.core.field_param_config import (
-    FieldParamConfig,
-    FieldSection,
-    FieldVerticalProfileSection,
-    resolve_field_param_config_payload,
-)
 
 __all__ = [
     "FlowBoundaryConditionConfig",
-    "FlowParam",
-    "FlowWellConfig",
-    "FlowSinksSourcesConfig",
-    "FlowRuntimeConfig",
     "FlowConfig",
+    "FlowParam",
+    "FlowRuntimeConfig",
+    "FlowSinksSourcesConfig",
+    "FlowWellConfig",
 ]
-
-
-class FlowRuntimeConfig(HydroModelBase):
-    """Grouped view of the Boussinesq runtime fields on :class:`FlowConfig`.
-
-    The spec (``02_config_pydantic.md`` §3.3) groups all runtime-only
-    Boussinesq solver knobs under a single ``runtime`` sub-block so that
-    user-facing templates do not scatter ``runtime_backend``,
-    ``runtime_max_iterations`` and ``runtime_tol_*`` at the top of
-    ``[flow]``. We keep the flat flow-config fields for existing
-    consumers and expose this dataclass-style view via
-    :attr:`FlowConfig.runtime` for new call-sites.
-    """
-
-    backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = Field(
-        default="local",
-        description=("Nonlinear runtime backend used by Boussinesq-style solvers."),
-    )
-    surface_model: Annotated[
-        Literal["auto", "regularized_partition", "complementarity"], Profile.DEV
-    ] = Field(
-        default="auto",
-        description=(
-            "Surface-interaction closure selector (Boussinesq). "
-            "``regularized_partition`` uses the Marcais-style q_ex = G_r(theta) "
-            "R(balance) law; ``complementarity`` uses the PETSc "
-            "q_ex-perp-(z_top-h) formulation; ``auto`` keeps the historical "
-            "backend-dependent default."
-        ),
-    )
-    max_iterations: Annotated[int | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional override for the nonlinear iteration budget.",
-    )
-    tol_residual_inf: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional override for the inf-norm residual tolerance.",
-    )
-    tol_state_update_inf: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional override for the inf-norm state-update tolerance.",
-    )
-
-
-class FlowParam(FieldParamConfig):
-    """Flow parameter payload using native field-param sections."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    field: Annotated[FieldSection, Profile.USER] = Field(
-        ...,
-        description="Discriminated parameter section `[field]`.",
-    )
-    field_vertical_profile: Annotated[FieldVerticalProfileSection | None, Profile.USER] = Field(
-        default=None,
-        description="Optional depth profile section `[field_vertical_profile]`.",
-    )
-
-    _base_dir: Path | None = PrivateAttr(default=None)
-    _section_label: str = PrivateAttr(default="flow.param")
-
-    def model_post_init(self, context: Any) -> None:
-        super().model_post_init(context)
-        if isinstance(context, Mapping):
-            raw_base_dir = context.get("base_dir")
-            if isinstance(raw_base_dir, Path):
-                self._base_dir = raw_base_dir
-        self._section_label = self._section_label_from_field()
-
-    def _section_label_from_field(self) -> str:
-        field_id = self.field.id
-        if field_id:
-            return f"flow.param.{field_id}"
-        return "flow.param"
-
-    def resolved_payload(
-        self,
-        *,
-        param_id: str | None = None,
-        base_dir: Path | None = None,
-        section_label: str | None = None,
-    ) -> dict[str, Any]:
-        """Return the resolved runtime field-parameter payload."""
-        return resolve_field_param_config_payload(
-            self.model_dump(mode="python", exclude_none=True),
-            param_id=param_id,
-            base_dir=base_dir or self._base_dir,
-            section_label=section_label or self._section_label,
-        )
 
 
 class FlowConfig(ProcessSpatialConfig):
@@ -160,6 +66,7 @@ class FlowConfig(ProcessSpatialConfig):
         description=(
             "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
         ),
+        examples=["steady", "transient"],
         json_schema_extra={
             "widget_type": "select",
             "unit": "-",
@@ -177,6 +84,8 @@ class FlowConfig(ProcessSpatialConfig):
                 "Optional nonlinear runtime backend hint used by the Boussinesq "
                 "solver implementation. Other flow solvers may ignore this field."
             ),
+            examples=["local", "scipy_sparse"],
+            json_schema_extra={"stability": "experimental"},
         )
     )
     surface_interaction_model: Annotated[
@@ -191,6 +100,8 @@ class FlowConfig(ProcessSpatialConfig):
             "q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical "
             "backend-dependent default."
         ),
+        examples=["auto", "regularized_partition"],
+        json_schema_extra={"stability": "experimental"},
     )
     runtime_max_iterations: Annotated[int | None, Profile.DEV] = Field(
         default=None,
@@ -227,6 +138,7 @@ class FlowConfig(ProcessSpatialConfig):
             "Ordered list of flow-parameter identifiers used to build runtime "
             "parameters (for example ['K', 'Ss', 'Sy'])."
         ),
+        examples=[["K", "Sy", "Ss"]],
     )
     param: Annotated[dict[str, FlowParam], Profile.USER] = Field(
         default_factory=dict,
@@ -277,15 +189,16 @@ class FlowConfig(ProcessSpatialConfig):
         default_factory=FlowSinksSourcesConfig,
         description="Typed sinks/sources payload (for example pumping wells).",
     )
-    active_sinks_sources: Annotated[list[str], Profile.USER] = Field(
+    active_sinks_sources: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Explicitly activated sink/source names for this flow run. "
             "Allowed values: 'recharge', 'wells'. "
             "An empty list means no sink/source package is assembled by the solver."
         ),
+        examples=[["recharge"], ["recharge", "wells"]],
     )
-    active_bc: Annotated[list[str], Profile.USER] = Field(
+    active_bc: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Explicitly activated boundary-condition ids for this flow run. "
@@ -293,6 +206,7 @@ class FlowConfig(ProcessSpatialConfig):
             "'east_side', 'west_side', 'drainage'. "
             "An empty list means no boundary-condition package is assembled by the solver."
         ),
+        examples=[["ocean"], ["west_side", "east_side", "drainage"]],
     )
 
     @model_validator(mode="before")
@@ -458,7 +372,7 @@ class FlowConfig(ProcessSpatialConfig):
         context = info.context if isinstance(info.context, Mapping) else {}
         raw_base_dir = context.get("base_dir")
         base_dir = raw_base_dir if isinstance(raw_base_dir, Path) else None
-        return cls._normalize_bc_payloads(value, base_dir=base_dir)
+        return flow_toml_loader.normalize_bc_payloads(value, base_dir=base_dir)
 
     @field_validator("ic", mode="before")
     @classmethod
@@ -619,362 +533,5 @@ class FlowConfig(ProcessSpatialConfig):
         *,
         base_dir: Path,
     ) -> FlowConfig:
-        """
-        Build a validated `FlowConfig` from the `[flow]` TOML section.
-
-        Processing steps:
-        1. Validate raw section shapes.
-        2. Parse and resolve parameter sections (`flow.param.<id>`).
-        3. Normalize IC/BC/sinks-sources sections.
-        4. Validate the final typed model with Pydantic.
-        """
-        if flow_section is None:
-            return cls()
-        if not isinstance(flow_section, Mapping):
-            raise ValueError("TOML section 'flow' must be a mapping when provided")
-        known_keys = set(cls.model_fields) | {"param_values"}
-        unknown_keys = sorted(set(flow_section) - known_keys)
-        if unknown_keys:
-            raise ValueError(f"Unknown TOML key(s) in [flow]: {', '.join(unknown_keys)}")
-
-        raw_param_list = flow_section.get("param_list", [])
-        if raw_param_list is None:
-            raw_param_list = []
-        if not isinstance(raw_param_list, (list, tuple)):
-            raise ValueError("TOML section 'flow.param_list' must be a list of ids when provided")
-
-        raw_param = flow_section.get("param", {})
-        if raw_param is None:
-            raw_param = {}
-        if not isinstance(raw_param, Mapping):
-            raise ValueError("TOML section 'flow.param' must be a mapping when provided")
-        if flow_section.get("param_values") is not None:
-            raise ValueError("TOML section 'flow.param_values' is no longer supported.")
-
-        raw_bc = flow_section.get("bc", {})
-        if raw_bc is None:
-            raw_bc = {}
-        if not isinstance(raw_bc, Mapping):
-            raise ValueError("TOML section 'flow.bc' must be a mapping when provided")
-
-        raw_ic = flow_section.get("ic", {})
-        if raw_ic is None:
-            raw_ic = {}
-        if not isinstance(raw_ic, Mapping):
-            raise ValueError("TOML section 'flow.ic' must be a mapping when provided")
-
-        raw_sinks_sources = flow_section.get("sinks_sources", {})
-        if raw_sinks_sources is None:
-            raw_sinks_sources = {}
-        if not isinstance(raw_sinks_sources, Mapping):
-            raise ValueError("TOML section 'flow.sinks_sources' must be a mapping when provided")
-
-        raw_active_sinks_sources = flow_section.get("active_sinks_sources", [])
-        if raw_active_sinks_sources is None:
-            raw_active_sinks_sources = []
-        if not isinstance(raw_active_sinks_sources, (list, tuple)):
-            raise ValueError(
-                "TOML section 'flow.active_sinks_sources' must be a list when provided"
-            )
-
-        raw_active_bc = flow_section.get("active_bc", [])
-        if raw_active_bc is None:
-            raw_active_bc = []
-        if not isinstance(raw_active_bc, (list, tuple)):
-            raise ValueError("TOML section 'flow.active_bc' must be a list when provided")
-
-        parsed_param = raw_param
-        declared_param = list(raw_param_list)
-        if len(declared_param) == 0 and len(parsed_param) > 0:
-            declared_param = list(parsed_param.keys())
-
-        # Keep raw TOML payloads for IC/BC/sinks_sources here and let field
-        # validators normalize exactly once.
-        #
-        # Rationale:
-        # - `FlowConfig` already defines dedicated validators for `ic`, `bc`,
-        #   and `sinks_sources`;
-        # - pre-normalizing here and validating again may trigger false legacy
-        #   detections (for example normalized key "drainage" seen as deprecated
-        #   input on second pass).
-        parsed_ic = raw_ic
-        parsed_bc = raw_bc
-        parsed_sinks_sources = _resolve_well_forcing_paths(
-            raw_sinks_sources,
-            base_dir=base_dir,
-        )
-        raw_flow_regime = flow_section.get("flow_regime", "transient")
-        raw_runtime_backend = flow_section.get("runtime_backend", "local")
-        raw_surface_interaction_model = flow_section.get(
-            "surface_interaction_model",
-            "auto",
-        )
-        raw_runtime_max_iterations = flow_section.get("runtime_max_iterations")
-        raw_runtime_tol_residual_inf = flow_section.get("runtime_tol_residual_inf")
-        raw_runtime_tol_state_update_inf = flow_section.get("runtime_tol_state_update_inf")
-        return cls.model_validate(
-            {
-                "flow_regime": raw_flow_regime,
-                "runtime_backend": raw_runtime_backend,
-                "surface_interaction_model": raw_surface_interaction_model,
-                "runtime_max_iterations": raw_runtime_max_iterations,
-                "runtime_tol_residual_inf": raw_runtime_tol_residual_inf,
-                "runtime_tol_state_update_inf": raw_runtime_tol_state_update_inf,
-                "param_list": declared_param,
-                "param": parsed_param,
-                "ic": parsed_ic,
-                "bc": parsed_bc,
-                "sinks_sources": parsed_sinks_sources,
-                "active_sinks_sources": list(raw_active_sinks_sources),
-                "active_bc": list(raw_active_bc),
-            },
-            context={"base_dir": base_dir},
-        )
-
-    @classmethod
-    def _normalize_bc_payloads(
-        cls,
-        value: Mapping[str, object] | None,
-        *,
-        base_dir: Path | None = None,
-    ) -> dict[str, object]:
-        """Flatten `[flow.bc]` TOML sections into discriminated BC payloads."""
-        if value is None:
-            return {}
-        if not isinstance(value, Mapping):
-            raise ValueError("flow.bc must be a mapping payload")
-        bc_cfg: Mapping[str, object]
-        if base_dir is None:
-            bc_cfg = value
-        else:
-            bc_cfg = cls._resolve_bc_forcing_paths(value, base_dir=base_dir)
-
-        parsed: dict[str, object] = {}
-
-        dirichlet_payload = bc_cfg.get("dirichlet")
-        if dirichlet_payload is not None:
-            if not isinstance(dirichlet_payload, Mapping):
-                raise ValueError("flow.bc.dirichlet must be a mapping when provided")
-            for raw_key, item in dirichlet_payload.items():
-                key = str(raw_key).strip()
-                if key == "":
-                    raise ValueError("flow.bc.dirichlet cannot contain empty keys")
-                if item is None:
-                    continue
-                if not isinstance(item, Mapping):
-                    raise ValueError(f"flow.bc.dirichlet.{key} must be a mapping")
-                canonical_key = cls._canonicalize_dirichlet_bc_id(
-                    raw_bc_id=key,
-                    location_prefix=f"flow.bc.dirichlet.{key}",
-                )
-                if canonical_key in parsed:
-                    raise ValueError(
-                        f"Duplicate Dirichlet entry for '{canonical_key}' in flow.bc.dirichlet"
-                    )
-                parsed[canonical_key] = cls._prepare_bc_entry_payload(
-                    bc_id=canonical_key,
-                    raw_payload=item,
-                    default_type="dirichlet",
-                    location_prefix=f"flow.bc.dirichlet.{key}",
-                    force_dirichlet=True,
-                )
-
-        cauchy_payload = bc_cfg.get("cauchy")
-        if cauchy_payload is not None:
-            if not isinstance(cauchy_payload, Mapping):
-                raise ValueError("flow.bc.cauchy must be a mapping when provided")
-            drainage_item = cauchy_payload.get("drainage")
-            if drainage_item is not None:
-                if not isinstance(drainage_item, Mapping):
-                    raise ValueError("flow.bc.cauchy.drainage must be a mapping")
-                parsed["drainage"] = cls._prepare_bc_entry_payload(
-                    bc_id="drainage",
-                    raw_payload=drainage_item,
-                    default_type="cauchy",
-                    location_prefix="flow.bc.cauchy.drainage",
-                )
-
-        robin_payload = bc_cfg.get("robin")
-        if robin_payload is not None and "drainage" not in parsed:
-            if not isinstance(robin_payload, Mapping):
-                raise ValueError("flow.bc.robin must be a mapping when provided")
-            drainage_item = robin_payload.get("drainage")
-            if drainage_item is not None:
-                if not isinstance(drainage_item, Mapping):
-                    raise ValueError("flow.bc.robin.drainage must be a mapping")
-                parsed["drainage"] = cls._prepare_bc_entry_payload(
-                    bc_id="drainage",
-                    raw_payload=drainage_item,
-                    default_type="robin",
-                    location_prefix="flow.bc.robin.drainage",
-                )
-
-        for raw_key, raw_payload in bc_cfg.items():
-            key = str(raw_key).strip()
-            if key == "":
-                raise ValueError("flow.bc cannot contain empty keys")
-            if key in {"dirichlet", "cauchy", "robin"}:
-                continue
-            if key == "drainage":
-                if (
-                    isinstance(raw_payload, Mapping)
-                    and str(raw_payload.get("id", "")).strip() == "drainage"
-                    and str(raw_payload.get("type", "")).strip().lower() in {"cauchy", "robin"}
-                ):
-                    parsed[key] = cls._prepare_bc_entry_payload(
-                        bc_id=key,
-                        raw_payload=raw_payload,
-                        default_type=str(raw_payload.get("type")).strip().lower(),
-                        location_prefix=f"flow.bc.{key}",
-                    )
-                    continue
-                raise ValueError(
-                    "flow.bc.drainage is no longer supported. "
-                    "Use flow.bc.cauchy.drainage or flow.bc.robin.drainage."
-                )
-            if not isinstance(raw_payload, Mapping):
-                raise TypeError(f"flow.bc.{key} must be a mapping payload")
-
-            if key in DIRICHLET_BC_CANONICAL_DOMAINS:
-                if key in parsed:
-                    raise ValueError(f"Duplicate boundary condition entry for '{key}' in flow.bc")
-                parsed[key] = cls._prepare_bc_entry_payload(
-                    bc_id=key,
-                    raw_payload=raw_payload,
-                    default_type="dirichlet",
-                    location_prefix=f"flow.bc.{key}",
-                    force_dirichlet=True,
-                )
-            else:
-                parsed[key] = cls._prepare_bc_entry_payload(
-                    bc_id=key,
-                    raw_payload=raw_payload,
-                    default_type="dirichlet",
-                    location_prefix=f"flow.bc.{key}",
-                )
-
-        return parsed
-
-    @classmethod
-    def _prepare_bc_entry_payload(
-        cls,
-        *,
-        bc_id: str,
-        raw_payload: Mapping[str, object],
-        default_type: str,
-        location_prefix: str,
-        force_dirichlet: bool = False,
-    ) -> dict[str, object]:
-        payload = dict(raw_payload)
-        raw_type = str(payload.get("type", default_type)).strip().lower() or default_type
-        if force_dirichlet and raw_type != "dirichlet":
-            raise ValueError(f"{location_prefix}.type must be 'dirichlet'")
-        if raw_type not in {"dirichlet", "cauchy", "robin"}:
-            raise ValueError(f"{location_prefix}.type must be one of: dirichlet, cauchy, robin")
-        payload["id"] = bc_id
-        payload["type"] = raw_type
-        payload["_location_prefix"] = location_prefix
-        return payload
-
-    @classmethod
-    def _canonicalize_dirichlet_bc_id(
-        cls,
-        *,
-        raw_bc_id: str,
-        location_prefix: str,
-    ) -> str:
-        bc_id = str(raw_bc_id).strip()
-        if bc_id == "":
-            raise ValueError(f"{location_prefix} cannot be empty")
-        if bc_id in DIRICHLET_BC_CANONICAL_DOMAINS:
-            return bc_id
-        supported_text = ", ".join(sorted(DIRICHLET_BC_CANONICAL_DOMAINS))
-        raise ValueError(
-            f"{location_prefix} contains unsupported Dirichlet key '{bc_id}'. "
-            f"Supported keys: {supported_text}"
-        )
-
-    @classmethod
-    def _resolve_bc_forcing_paths(
-        cls,
-        raw_bc: Mapping[str, object],
-        *,
-        base_dir: Path,
-    ) -> dict[str, object]:
-        """Resolve relative CSV paths declared under flow.bc.*.forcing."""
-        payload = dict(raw_bc)
-
-        def resolve_forcing_mapping(item: object) -> object:
-            if not isinstance(item, Mapping):
-                return item
-            item_payload = dict(item)
-            forcing = item_payload.get("forcing")
-            if isinstance(forcing, Mapping):
-                forcing_payload = dict(forcing)
-                path_value = forcing_payload.get("path_file")
-                if isinstance(path_value, str) and path_value.strip() != "":
-                    path = Path(path_value).expanduser()
-                    if not path.is_absolute():
-                        path = (base_dir / path).resolve()
-                    forcing_payload["path_file"] = path
-                item_payload["forcing"] = forcing_payload
-            return item_payload
-
-        for section_key in ("dirichlet", "cauchy", "robin"):
-            section = payload.get(section_key)
-            if not isinstance(section, Mapping):
-                continue
-            resolved_section: dict[str, object] = {}
-            for bc_id, raw_item in section.items():
-                resolved_section[str(bc_id)] = resolve_forcing_mapping(raw_item)
-            payload[section_key] = resolved_section
-
-        for key, raw_item in list(payload.items()):
-            if key in {"dirichlet", "cauchy", "robin"}:
-                continue
-            payload[key] = resolve_forcing_mapping(raw_item)
-
-        return payload
-
-
-def _parse_flow_ic_section(ic_cfg: Mapping[str, object]) -> FlowInitialConditions | None:
-    """
-    Parse and normalize one single `[flow.ic]` payload.
-
-    Supported shapes:
-    - Preferred: flat `[flow.ic]` with keys `type`, `value`, `unit|units`, `description`,
-      where `value` can be numeric or `"<value> <unit>"`.
-    """
-    return normalize_flow_initial_conditions(ic_cfg, location_prefix="flow.ic")
-
-
-def _resolve_well_forcing_paths(
-    raw_sinks_sources: Mapping[str, object],
-    *,
-    base_dir: Path,
-) -> dict[str, object]:
-    """Resolve relative CSV paths declared under flow.sinks_sources.wells.*.forcing."""
-    payload = dict(raw_sinks_sources)
-    wells = payload.get("wells")
-    if not isinstance(wells, Mapping):
-        return payload
-
-    resolved_wells: dict[str, object] = {}
-    for well_id, raw_well in wells.items():
-        if not isinstance(raw_well, Mapping):
-            resolved_wells[str(well_id)] = raw_well
-            continue
-        well_payload = dict(raw_well)
-        forcing = well_payload.get("forcing")
-        if isinstance(forcing, Mapping):
-            forcing_payload = dict(forcing)
-            path_value = forcing_payload.get("path_file")
-            if isinstance(path_value, str) and path_value.strip() != "":
-                path = Path(path_value).expanduser()
-                if not path.is_absolute():
-                    path = (base_dir / path).resolve()
-                forcing_payload["path_file"] = path
-            well_payload["forcing"] = forcing_payload
-        resolved_wells[str(well_id)] = well_payload
-    payload["wells"] = resolved_wells
-    return payload
+        """Build a validated `FlowConfig` from the `[flow]` TOML section."""
+        return flow_toml_loader.from_toml_section(cls, flow_section, base_dir=base_dir)

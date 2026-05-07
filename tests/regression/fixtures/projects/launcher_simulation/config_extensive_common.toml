@@ -3,4 +3,5 @@
 
 base_config = "config_demonstrative_annual_moderate_common.toml"
 
-workflow = "simulation"
+[workflow]
+mode = "simulation"

@@ -70,9 +70,9 @@ Fields
         <code class="hmp-field-name">project_root</code>
       </div>
 
-   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L72>`__
+   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L70>`__
 
-      Path to the project directory. Auto-derived from TOML location when absent.
+      Path to the project directory. Required in TOML configs.
 
 
 .. container:: hmp-field hmp-field-level-user
@@ -84,7 +84,7 @@ Fields
         <code class="hmp-field-name">root</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L76>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L75>`__
 
       Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
 

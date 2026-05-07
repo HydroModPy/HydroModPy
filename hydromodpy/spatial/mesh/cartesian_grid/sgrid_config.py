@@ -18,10 +18,11 @@ from math import isclose
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.core.toml_io.paths import resolve_path
 
 
@@ -59,8 +60,6 @@ class VerticalGridConfig(HydroModelBase):
 
     All geometric quantities are interpreted in SI metres.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     genmtd_lay: Annotated[Literal["constant", "decay", "list"], Profile.USER] = Field(
         default="constant",
@@ -144,8 +143,6 @@ class VerticalGridConfig(HydroModelBase):
 class PlanarGridConfig(HydroModelBase):
     """Planar discretization contract for solver-facing grids."""
 
-    model_config = ConfigDict(extra="forbid")
-
     mode: Annotated[Literal["keep_native", "resample_to_shape"], Profile.USER] = Field(
         default="keep_native",
         description=(
@@ -195,8 +192,6 @@ class PlanarGridConfig(HydroModelBase):
 class SolverSGridConfig(HydroModelBase):
     """Solver-facing grid configuration split into explicit planar and vertical parts."""
 
-    model_config = ConfigDict(extra="forbid")
-
     planar: Annotated[PlanarGridConfig, Profile.USER] = Field(
         default_factory=PlanarGridConfig,
         description="Planar discretization of the solver grid.",
@@ -223,8 +218,6 @@ class SGridConfig(HydroModelBase):
     All geometric quantities are interpreted in SI metres.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     sgrid_type: Annotated[Literal["structured"], Profile.USER] = Field(
         default="structured",
         description="Spatial grid family. Only 'structured' is supported.",
@@ -233,11 +226,11 @@ class SGridConfig(HydroModelBase):
         default="filepath",
         description="Method used to define top surface. Currently only raster filepath is supported.",
     )
-    top_path: Annotated[str, Profile.USER] = Field(
+    top_path: Annotated[NonEmptyStr, Profile.USER] = Field(
         ...,
         description="Path to top DEM raster used as model top surface.",
     )
-    crs: Annotated[str | None, Profile.USER] = Field(
+    crs: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description="Optional CRS identifier (for example 'EPSG:2154').",
     )
@@ -267,7 +260,7 @@ class SGridConfig(HydroModelBase):
         ...,
         description="Bottom-surface generation method.",
     )
-    bot_path: Annotated[str | None, Profile.USER] = Field(
+    bot_path: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description="Path to bottom raster when genmtd_bot='filepath'.",
     )
@@ -307,24 +300,6 @@ class SGridConfig(HydroModelBase):
         default=-9999.0,
         description="No-data sentinel value used to mask invalid raster cells.",
     )
-
-    @field_validator("top_path")
-    @classmethod
-    def _validate_required_non_empty_text(cls, value):
-        text = str(value).strip()
-        if not text:
-            raise ValueError("value cannot be empty")
-        return text
-
-    @field_validator("crs", "bot_path")
-    @classmethod
-    def _validate_optional_non_empty_text(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("value cannot be empty when provided")
-        return text
 
     @field_validator("top_path", "bot_path")
     @classmethod

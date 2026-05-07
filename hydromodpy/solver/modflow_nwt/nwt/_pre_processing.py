@@ -49,7 +49,7 @@ def assemble_flopy_packages(
     # - ibound = 0: inactive/no-flow cells
     # - ibound < 0: constant-head cells
     # - strt: startup head field and imposed head on constant-head cells
-    solver.bas_hnoflo = solver._params.runtime.bas_hnoflo
+    solver.bas_hnoflo = solver._params.runtime.bas.hnoflo
     solver.bas = flopy.modflow.ModflowBas(
         solver.mf,
         ibound=flow_inputs.ibound,
@@ -67,7 +67,7 @@ def assemble_flopy_packages(
     solver.ss = flow_inputs.ss
     solver.ss_value = flow_inputs.ss_value
 
-    solver.upw_hdry = solver._params.runtime.upw_hdry
+    solver.upw_hdry = solver._params.runtime.upw.hdry
     solver.upw = flopy.modflow.ModflowUpw(
         solver.mf,
         laytyp=solver.laytype,
@@ -76,9 +76,9 @@ def assemble_flopy_packages(
         sy=solver.sy,
         ss=solver.ss,
         vka=solver._params.process_specific.vka,
-        iphdry=solver._params.runtime.upw_iphdry,
+        iphdry=solver._params.runtime.upw.iphdry,
         hdry=solver.upw_hdry,
-        layvka=solver._params.runtime.upw_layvka,
+        layvka=solver._params.runtime.upw.layvka,
         extension="upw",
         unitnumber=None,
         noparcheck=False,
@@ -100,10 +100,10 @@ def assemble_flopy_packages(
             solver.mf,
             evtr=evt_spd_solver,
             surf=solver.top_elevation - surf_offset,
-            nevtop=solver._params.runtime.evt_nevtop,
+            nevtop=solver._params.runtime.evt.nevtop,
             exdp=exdp,
-            ievt=solver._params.runtime.evt_ievt,
-            ipakcb=solver._params.runtime.evt_ipakcb,
+            ievt=solver._params.runtime.evt.ievt,
+            ipakcb=solver._params.runtime.evt.ipakcb,
         )
 
     if rch_data_solver is not None:
@@ -134,7 +134,7 @@ def assemble_flopy_packages(
         }
         solver.wel = flopy.modflow.ModflowWel(
             solver.mf,
-            ipakcb=solver._params.runtime.wel_ipakcb,
+            ipakcb=solver._params.runtime.wel.ipakcb,
             stress_period_data=wel_spd_solver,
         )
 
@@ -151,7 +151,7 @@ def assemble_flopy_packages(
         stress_period_data=stress_period_data,
         extension=["oc", "hds", "cbc"],
         unitnumber=None,
-        compact=solver._params.runtime.oc_compact,
+        compact=solver._params.runtime.oc.compact,
     )
     solver.oc.reset_budgetunit(fname=solver.model_name + ".cbc")
 

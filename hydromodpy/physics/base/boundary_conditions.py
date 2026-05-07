@@ -8,15 +8,13 @@ that need typed boundary-condition payloads.
 
 from typing import Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 
 
 class BoundaryCondition(HydroModelBase):
-    model_config = ConfigDict(extra="forbid")
-
     id: Annotated[str, Profile.USER] = Field(
         ..., description="id of the boundary condition (ex: h_BC, etc.)"
     )

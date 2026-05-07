@@ -142,7 +142,7 @@ def minimal_config(tmp_path: Path):
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     return HydroModPyConfig(
-        workflow="simulation",
+        workflow={"mode": "simulation"},
         workspace=WorkspaceConfig(
             project_root=tmp_path / "project",
             root=tmp_path,

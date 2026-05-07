@@ -90,6 +90,7 @@ def test_root_sections_lists_expected_keys():
     # ``flow_physical_properties`` is reachable via FlowConfig, not as a
     # root section.
     for key in (
+        "workflow",
         "workspace",
         "geographic",
         "domain",
@@ -99,4 +100,4 @@ def test_root_sections_lists_expected_keys():
         "solver",
     ):
         assert key in sections, f"missing section {key!r}"
-    assert "workflow" in scalars
+    assert scalars == {}

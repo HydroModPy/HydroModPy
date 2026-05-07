@@ -16,7 +16,7 @@ Implementation details are split across:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
@@ -39,7 +39,7 @@ from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_xarray import (
 if TYPE_CHECKING:
     from hydromodpy.core.time import ResolvedSimulationTimeWindow
 
-InterpolationMethod = Literal["nearest", "linear", "idw"]
+from hydromodpy.core.config_kit.types import InterpolationMethod
 
 __all__ = (
     "InterpolationMethod",

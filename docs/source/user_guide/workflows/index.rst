@@ -8,7 +8,8 @@ They are selected by the mandatory top-level field:
 
 .. code-block:: toml
 
-   workflow = "simulation"
+   [workflow]
+   mode = "simulation"
 
 The same workflow can be driven from different usage modes. For example, a
 ``simulation`` can be launched from the CLI, from Python, or from a notebook.
@@ -88,7 +89,7 @@ The CLI dispatch is intentionally simple:
 
    hmp run <config.toml>
         |
-        +-- read workflow = "..."
+        +-- read [workflow].mode = "..."
         |
         +-- dispatch to one launcher
               simulation  -> Project(config).run()

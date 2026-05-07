@@ -164,7 +164,7 @@ def support_provider_names(domain_supports: dict[str, object]) -> tuple[str, ...
     provider_names: list[str] = []
     seen: set[str] = set()
     for support_cfg in domain_supports.values():
-        provider_name = str(getattr(support_cfg, "provider", "")).strip().lower()
+        provider_name = str(getattr(support_cfg, "kind", "")).strip().lower()
         if provider_name == "" or provider_name in seen:
             continue
         seen.add(provider_name)
@@ -317,7 +317,7 @@ def build_domain_spatial_supports(
             and str(getattr(existing_zone, "identifier", "")).strip() == str(support_id).strip()
         ):
             continue
-        provider = registry.get(getattr(support_cfg, "provider", ""))
+        provider = registry.get(getattr(support_cfg, "kind", ""))
         if str(provider.build_phase).strip().lower() != str(phase).strip().lower():
             continue
         support_field = provider.build(

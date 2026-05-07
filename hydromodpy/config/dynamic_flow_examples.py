@@ -54,7 +54,7 @@ class DynamicFlowExamples:
                 "flow.bc.cauchy.drainage",
                 FlowBoundaryConditionConfig,
                 threshold,
-                values={"application_domain": "top", "type": "cauchy", "unit": "m2/s"},
+                values={"application_domain": "top", "kind": "cauchy", "unit": "m2/s"},
                 _depth=0,
             )
         )

@@ -280,8 +280,8 @@ def apply_simulation_time_to_flow_boundary_conditions(
             label=label,
         )
         updated_units = getattr(boundary_cfg, "units", "m")
-        boundary_type = str(getattr(boundary_cfg, "type", "dirichlet")).strip().lower()
-        if boundary_type == "dirichlet":
+        boundary_kind = str(getattr(boundary_cfg, "kind", "dirichlet")).strip().lower()
+        if boundary_kind == "dirichlet":
             source_units = normalize_length_unit(
                 str(getattr(forcing, "units", None) or updated_units or "m")
             )

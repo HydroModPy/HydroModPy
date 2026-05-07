@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, Literal
 
@@ -35,7 +35,7 @@ class WorkflowError(ConfigError):
 
 
 class WorkflowMissingError(WorkflowError):
-    """TOML lacks the top-level workflow field."""
+    """TOML lacks the workflow mode field."""
 
 
 class WorkflowUnknownError(WorkflowError):
@@ -53,12 +53,19 @@ def load_raw_toml(config_path: Path) -> dict[str, Any]:
 
 
 def extract_workflow_field(raw_toml: dict[str, Any]) -> str | None:
-    """Return the top-level workflow field."""
-    value = raw_toml.get("workflow")
+    """Return `[workflow].mode`."""
+    section = raw_toml.get("workflow")
+    if section is None:
+        return None
+    if not isinstance(section, Mapping):
+        raise WorkflowUnknownError(f"TOML [workflow] must be a table, got {type(section).__name__}")
+    value = section.get("mode")
     if value is None:
         return None
     if not isinstance(value, str):
-        raise WorkflowUnknownError(f"TOML 'workflow' must be a string, got {type(value).__name__}")
+        raise WorkflowUnknownError(
+            f"TOML 'workflow.mode' must be a string, got {type(value).__name__}"
+        )
     return value
 
 
@@ -74,14 +81,14 @@ def resolve_workflow(
 
     if toml_workflow is not None and toml_workflow not in KNOWN_WORKFLOWS:
         raise WorkflowUnknownError(
-            f"TOML 'workflow' value {toml_workflow!r} is not one of "
+            f"TOML 'workflow.mode' value {toml_workflow!r} is not one of "
             f"{', '.join(repr(w) for w in KNOWN_WORKFLOWS)}"
         )
 
     if require_toml_field and toml_workflow is None:
         raise WorkflowMissingError(
-            f"{config_path.name} must declare a top-level "
-            f"'workflow = \"...\"' field.\n"
+            f"{config_path.name} must declare a [workflow] section with "
+            f"'mode = \"...\"'.\n"
             f"Valid values: {', '.join(KNOWN_WORKFLOWS)}."
         )
 
@@ -96,8 +103,8 @@ def resolve_workflow(
         return cli_workflow
     if toml_workflow is None:
         raise WorkflowMissingError(
-            f"{config_path.name} must declare a top-level "
-            f"'workflow = \"...\"' field.\n"
+            f"{config_path.name} must declare a [workflow] section with "
+            f"'mode = \"...\"'.\n"
             f"Valid values: {', '.join(KNOWN_WORKFLOWS)}."
         )
     return toml_workflow

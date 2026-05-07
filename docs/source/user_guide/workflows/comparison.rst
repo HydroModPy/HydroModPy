@@ -1,7 +1,7 @@
 Comparison Workflow
 ===================
 
-``workflow = "comparison"`` creates several child simulations from one shared
+``[workflow].mode = "comparison"`` creates several child simulations from one shared
 base configuration and compares declared observables.
 
 Use it when the question is:
@@ -69,7 +69,8 @@ Minimal Shape
 
 .. code-block:: toml
 
-   workflow = "comparison"
+   [workflow]
+   mode = "comparison"
 
    [comparison]
    comparison_id = "dupuit_mf6_vs_bouss"

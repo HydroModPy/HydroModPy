@@ -189,7 +189,7 @@ class TestMaterializeCandidateErrors:
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
         cfg = HydroModPyConfig(
-            workflow="simulation",
+            workflow={"mode": "simulation"},
             workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
             geographic=GeographicConfig(source_mode="synthetic"),
         )
@@ -247,7 +247,7 @@ class TestMaterializeCandidateHydroModPyConfig:
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
         cfg = HydroModPyConfig(
-            workflow="simulation",
+            workflow={"mode": "simulation"},
             workspace=WorkspaceConfig(project_root=str(tmp_path), root=str(tmp_path)),
             geographic=GeographicConfig(source_mode="synthetic"),
         )
@@ -302,7 +302,8 @@ class TestOverlayReloadableViaHydroModPyConfig:
         full_base = tmp_path / "full_base.toml"
         full_base.write_text(
             f"""\
-workflow = "simulation"
+[workflow]
+mode = "simulation"
 
 [workspace]
 root = "{tmp_path.as_posix()}"

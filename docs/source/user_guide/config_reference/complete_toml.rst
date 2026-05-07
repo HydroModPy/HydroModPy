@@ -13,6 +13,17 @@ Sub-models are linked back to their per-section page.
    Required and factory fields are commented out: uncomment and
    replace the placeholder before running the project.
 
+.. dropdown:: ``[workflow]`` (WorkflowConfig)
+   :icon: gear
+
+   See :doc:`workflow` for the full description.
+
+   .. code-block:: toml
+
+      [workflow]
+      # Workflow mode dispatched by `hmp run`.
+      # mode = ""  # REQUIRED
+
 .. dropdown:: ``[workspace]`` (WorkspaceConfig)
    :icon: gear
 
@@ -21,7 +32,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [workspace]
-      # Path to the project directory. Auto-derived from TOML location when absent.
+      # Path to the project directory. Required in TOML configs.
       # project_root = ""  # REQUIRED
       # Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
       # root = ...  # default = None
@@ -251,7 +262,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [modflownwt]
-      # MODFLOW runtime package options (NWT/DIS/BAS/UPW/EVT/OC/WEL/LMT).
+      # MODFLOW runtime package options grouped by package.
       # runtime = ...  # uses factory default
       # Process-specific package controls (currently UPW/EVT knobs).
       # process_specific = ...  # uses factory default

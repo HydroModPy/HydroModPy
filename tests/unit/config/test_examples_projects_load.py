@@ -23,9 +23,10 @@ def test_examples_projects_load() -> None:
     for project_file in project_files:
         with project_file.open("rb") as stream:
             payload = tomllib.load(stream)
-        if payload.get("workflow") not in supported_workflows:
+        workflow = payload.get("workflow")
+        if not isinstance(workflow, dict) or workflow.get("mode") not in supported_workflows:
             continue
-        HydroModPyConfig.model_validate(payload)
+        HydroModPyConfig.model_validate(payload, context={"validation_context": "api"})
         validated_files.append(project_file)
 
     assert validated_files

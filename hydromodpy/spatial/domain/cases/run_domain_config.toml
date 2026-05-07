@@ -65,15 +65,15 @@ zone_ids = ["geology"]
 # Vertical domain model configuration.
 # Use 'constant_thickness' or 'flat_substratum'.
 
-# Depth-model type selector.
+# Depth-model kind discriminator.
 # Use 'flat_substratum' to define one constant bottom elevation.
-type = "flat_substratum"
+kind = "flat_substratum"
 
 # Flat substratum elevation (m) applied over the full domain.
 substratum_elevation = 0.0
 
 # Alternative depth model:
-# type = "constant_thickness"
+# kind = "constant_thickness"
 # thickness = 50.0
 # Constant aquifer thickness (m) applied below topography.
 

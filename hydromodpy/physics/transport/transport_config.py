@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -13,8 +13,6 @@ from hydromodpy.physics.base import ProcessSpatialConfig
 
 class ModpathParametersConfig(HydroModelBase):
     """Configuration payload for the Modpath transport solver."""
-
-    model_config = ConfigDict(extra="forbid")
 
     zone_partic: Annotated[str, Profile.DEV] = Field(
         default="domain",
@@ -54,8 +52,6 @@ class ModpathParametersConfig(HydroModelBase):
 class TransportModpathConfig(HydroModelBase):
     """Container for Modpath solver settings."""
 
-    model_config = ConfigDict(extra="forbid")
-
     parameters: Annotated[ModpathParametersConfig, Profile.USER] = Field(
         default_factory=ModpathParametersConfig,
         description="Solver parameter block used by Modpath.",
@@ -64,8 +60,6 @@ class TransportModpathConfig(HydroModelBase):
 
 class ConcentrationTransportParametersConfig(HydroModelBase):
     """Configuration payload shared by concentration transport solvers."""
-
-    model_config = ConfigDict(extra="forbid")
 
     spc_name: Annotated[str, Profile.DEV] = Field(
         default="NO3",
@@ -112,8 +106,6 @@ class ConcentrationTransportParametersConfig(HydroModelBase):
 class TransportMt3dmsConfig(HydroModelBase):
     """Container for MT3DMS solver settings."""
 
-    model_config = ConfigDict(extra="forbid")
-
     parameters: Annotated[ConcentrationTransportParametersConfig, Profile.USER] = Field(
         default_factory=ConcentrationTransportParametersConfig,
         description="Solver parameter block used by Mt3dms.",
@@ -122,8 +114,6 @@ class TransportMt3dmsConfig(HydroModelBase):
 
 class TransportModflow6GwtConfig(HydroModelBase):
     """Container for MODFLOW 6 GWT solver settings."""
-
-    model_config = ConfigDict(extra="forbid")
 
     parameters: Annotated[ConcentrationTransportParametersConfig, Profile.USER] = Field(
         default_factory=ConcentrationTransportParametersConfig,

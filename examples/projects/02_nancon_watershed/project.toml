@@ -17,12 +17,14 @@
 # (simulation / calibration / batch / overview / mesh). Run TOMLs can
 # override this; the base value is "simulation" because most of the
 # time we just compute one MODFLOW run.
-workflow = "simulation"
 
 
 # ----------------------------------------------------------------------
 # Workspace
 # ----------------------------------------------------------------------
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 # Project root. "." means the folder that contains this TOML.
@@ -89,7 +91,7 @@ supports = {}
 [domain.depth_model]
 # Aquifer described as a constant-thickness layer below topography.
 # 30 m is a reasonable baseline for the Armorican fractured aquifer.
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = 30.0
 
 
@@ -247,7 +249,7 @@ value = 1e-5
 
 [flow.bc.cauchy.drainage]
 id = "drainage"
-type = "cauchy"
+kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
 value = 0.0

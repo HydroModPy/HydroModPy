@@ -378,7 +378,7 @@ def test_mesh_catchment_launcher_passes_domain_depth_model_to_bundle_export(
     domain_cfg = DomainConfig.model_validate(
         {
             "depth_model": {
-                "type": "flat_substratum",
+                "kind": "flat_substratum",
                 "substratum_elevation": 12.5,
             }
         }
@@ -400,7 +400,7 @@ def test_mesh_catchment_launcher_passes_domain_depth_model_to_bundle_export(
         lambda _: {
             "domain": {
                 "depth_model": {
-                    "type": "flat_substratum",
+                    "kind": "flat_substratum",
                     "substratum_elevation": 12.5,
                 }
             },
@@ -436,7 +436,7 @@ def test_mesh_catchment_launcher_passes_domain_depth_model_to_bundle_export(
     _ = MeshCatchmentLauncher(config_path).run()
 
     exported_domain_cfg = captured["domain_cfg"]
-    assert exported_domain_cfg.depth_model.type == "flat_substratum"
+    assert exported_domain_cfg.depth_model.kind == "flat_substratum"
     assert exported_domain_cfg.depth_model.substratum_elevation == 12.5
 
 
@@ -714,7 +714,7 @@ def test_mesh_runtime_can_skip_exchange_bundle_export(
         ),
         workspace_cfg=workspace_cfg,
         geographic_cfg=geographic_cfg,
-        domain_cfg=SimpleNamespace(depth_model=SimpleNamespace(type="constant_thickness")),
+        domain_cfg=SimpleNamespace(depth_model=SimpleNamespace(kind="constant_thickness")),
         constraints_mode="rivers_only",
         workspace=local_workspace,
         domain_geographic=_DummyDomainGeographic(),
@@ -763,7 +763,7 @@ def test_mesh_runtime_cleanup_mode_skips_external_domain_geographic(
         ),
         workspace_cfg=workspace_cfg,
         geographic_cfg=geographic_cfg,
-        domain_cfg=SimpleNamespace(depth_model=SimpleNamespace(type="constant_thickness")),
+        domain_cfg=SimpleNamespace(depth_model=SimpleNamespace(kind="constant_thickness")),
         constraints_mode="rivers_only",
         workspace=local_workspace,
         domain_geographic=_DummyDomainGeographic(),

@@ -2,7 +2,9 @@
 # conductivity, used to reduce the simulated saturated/active network extent.
 
 base_config = "base_nancon_transient_seasonal_with_hydrography.toml"
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "nancon_transient_seasonal_high_k_hydrography_shared_case"
