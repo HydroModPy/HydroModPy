@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Annotated, ClassVar, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.field_metadata import field_metadata
@@ -68,19 +68,22 @@ class FlowInitialCondition(BaseInitialCondition):
         ),
     )
 
+    @field_validator("units", mode="before")
+    @classmethod
+    def _normalize_units(cls, value) -> str:
+        """Runtime invariant: IC values are stored in meters; reject anything else."""
+        raw_units = str(value).strip() if value is not None else ""
+        raw_units = raw_units or "m"
+        check_unit_compatible(raw_units, canonical_unit="m", label="length")
+        if raw_units != "m":
+            raise ValueError("flow.ic.units must be normalized to 'm' in runtime objects")
+        return "m"
+
     @model_validator(mode="after")
     def _validate_custom_value(self) -> FlowInitialCondition:
         """Require `value` whenever the selected IC semantics needs it."""
         if self.type in {"custom", "top_offset"} and self.value is None:
             raise ValueError(f"flow.ic.value is required when flow.ic.type='{self.type}'")
-        raw_units = str(self.units).strip() or "m"
-        # Runtime invariant: IC values are stored in meters (magnitude) and the
-        # label must already reflect that; anything else is a normalization bug
-        # upstream in ``initial_conditions_config``.
-        check_unit_compatible(raw_units, canonical_unit="m", label="length")
-        if raw_units != "m":
-            raise ValueError("flow.ic.units must be normalized to 'm' in runtime objects")
-        object.__setattr__(self, "units", "m")
         return self
 
 

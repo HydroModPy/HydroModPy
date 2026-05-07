@@ -364,7 +364,15 @@ class FlowBoundaryConditionConfig(HydroModelBase):
 
     @model_validator(mode="after")
     def _validate_runtime_payload(self):
-        """Enforce one coherent value/forcing grammar."""
+        """Enforce one coherent value/forcing grammar.
+
+        ``object.__setattr__`` is used below to bypass the
+        :class:`HydroModelBase` ``validate_assignment=True`` setting which would
+        otherwise recurse through this validator on every self-write. The
+        normalization depends on ``self.model_fields_set`` and the validated
+        nested ``forcing`` instance, so a ``mode="before"`` rewrite would lose
+        the explicit-vs-default distinction.
+        """
         if self.forcing is not None and self.value is not None:
             raise ValueError("boundary.value and boundary.forcing are mutually exclusive")
         if self.forcing is not None and self.data_value:
