@@ -41,24 +41,6 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
         description="Sub-sampling resolution per cell axis used when rasterizing band masks.",
     )
 
-    @field_validator("breaks", mode="before")
-    @classmethod
-    def _validate_breaks_input(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("domain.supports.<id>.breaks must be a list")
-        return value
-
-    @field_validator("labels", mode="before")
-    @classmethod
-    def _validate_labels_input(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("domain.supports.<id>.labels must be a list")
-        return value
-
     @model_validator(mode="after")
     def _normalize_and_validate(self) -> GeneratedBandsSupportConfig:
         normalized_breaks: list[float] = []
@@ -135,24 +117,6 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
         default=8,
         description="Sub-sampling resolution per cell axis used when rasterizing ring masks.",
     )
-
-    @field_validator("radii", mode="before")
-    @classmethod
-    def _validate_radii_input(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("domain.supports.<id>.radii must be a list")
-        return value
-
-    @field_validator("labels", mode="before")
-    @classmethod
-    def _validate_ring_labels_input(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("domain.supports.<id>.labels must be a list")
-        return value
 
     @field_validator("center_x", "center_y", mode="before")
     @classmethod

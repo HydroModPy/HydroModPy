@@ -59,15 +59,6 @@ class DomainConfig(HydroModelBase):
             **overrides,
         )
 
-    @field_validator("zone_ids", mode="before")
-    @classmethod
-    def _validate_zone_ids(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("domain.zone_ids must be a list of strings")
-        return value
-
     @field_validator("zone_ids")
     @classmethod
     def _normalize_zone_ids(cls, value: list[str]) -> list[str]:
@@ -82,15 +73,6 @@ class DomainConfig(HydroModelBase):
             seen.add(zone_id)
             out.append(zone_id)
         return out
-
-    @field_validator("supports", mode="before")
-    @classmethod
-    def _validate_supports_input(cls, value):
-        if value is None:
-            return {}
-        if not isinstance(value, dict):
-            raise ValueError("domain.supports must be a mapping")
-        return value
 
     @field_validator("supports")
     @classmethod
