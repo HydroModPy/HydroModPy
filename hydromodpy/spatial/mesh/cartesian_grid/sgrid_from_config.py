@@ -130,22 +130,23 @@ def _build_bottom_surface(
     top = np.asarray(top_surface.as_array(), dtype=float)
     nodata = float(cfg.nodata)
 
-    if cfg.genmtd_bot == "constant_thickness":
-        bottom_values = top - float(cfg.thick)
+    bottom_cfg = cfg.bottom
+    if bottom_cfg.kind == "constant_thickness":
+        bottom_values = top - float(bottom_cfg.thick)
         bottom_surface = Surface(
             name="bottom_surface",
             values=bottom_values,
             support=top_surface.support,
         )
-    elif cfg.genmtd_bot == "constant_altitude":
-        bottom_values = np.full_like(top, float(cfg.zbot), dtype=float)
+    elif bottom_cfg.kind == "constant_altitude":
+        bottom_values = np.full_like(top, float(bottom_cfg.zbot), dtype=float)
         bottom_surface = Surface(
             name="bottom_surface",
             values=bottom_values,
             support=top_surface.support,
         )
-    elif cfg.genmtd_bot == "filepath":
-        values, _, crs, bounds = reader.read_band1_with_metadata(str(cfg.bot_path))
+    elif bottom_cfg.kind == "filepath":
+        values, _, crs, bounds = reader.read_band1_with_metadata(str(bottom_cfg.path))
         source_bottom = _surface_from_band_metadata(
             values=values,
             bounds=bounds,
@@ -164,7 +165,7 @@ def _build_bottom_surface(
             )
         bottom_surface = source_bottom
     else:
-        raw_bot = np.asarray(cfg.bot_raster, dtype=float)
+        raw_bot = np.asarray(bottom_cfg.raster, dtype=float)
         target_shape = np.asarray(top_surface.as_array(), dtype=float).shape
         if raw_bot.shape == target_shape:
             bottom_surface = Surface(
@@ -214,7 +215,7 @@ def _build_bottom_surface(
             bottom_surface = source_bottom
         else:
             raise ValueError(
-                "bot_raster shape must match top source shape or top target shape. "
+                "bottom.raster shape must match top source shape or top target shape. "
                 f"Got bot{raw_bot.shape}, source_top{tuple(source_top_shape)}, "
                 f"target_top{target_shape}."
             )
@@ -246,17 +247,27 @@ def build_sgrid_from_config(config: SGridConfig | Mapping[str, object]):
         reader=reader,
     )
 
-    vertical_cfg = VerticalGridConfig(
-        genmtd_lay=cfg.genmtd_lay,
-        nlay=(None if cfg.genmtd_lay == "list" else cfg.nlay),
-        lay_decay=cfg.lay_decay,
-        lay_proportions=(
-            tuple(float(v) for v in cfg.lay_proportions)
-            if cfg.lay_proportions is not None
-            else None
-        ),
-        nodata=float(cfg.nodata),
-    )
+    layering = cfg.layering
+    if layering.kind == "constant":
+        vertical_cfg = VerticalGridConfig(
+            genmtd_lay="constant",
+            nlay=int(layering.nlay),
+            nodata=float(cfg.nodata),
+        )
+    elif layering.kind == "decay":
+        vertical_cfg = VerticalGridConfig(
+            genmtd_lay="decay",
+            nlay=int(layering.nlay),
+            lay_decay=float(layering.lay_decay),
+            nodata=float(cfg.nodata),
+        )
+    else:
+        vertical_cfg = VerticalGridConfig(
+            genmtd_lay="list",
+            nlay=None,
+            lay_proportions=tuple(float(v) for v in layering.lay_proportions),
+            nodata=float(cfg.nodata),
+        )
     return StructuredGridBuilder().build_from_surfaces(
         top_surface=top_surface,
         bottom_surface=bottom_surface,
