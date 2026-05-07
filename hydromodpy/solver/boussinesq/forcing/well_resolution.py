@@ -39,31 +39,31 @@ class WellResolutionMixin:
 
     def resolve_well_cell_index(self, well_id: str, well_cfg: object) -> int:
         """Project one well location to one cell of the triangular mesh."""
-        layer = getattr(well_cfg, "layer", 0)
+        location = getattr(well_cfg, "location", None)
+        location_kind = getattr(location, "kind", "") or ""
+        layer = getattr(location, "layer", 0)
         if layer is not None and int(layer) != 0:
             raise NotImplementedError(
                 f"Well '{well_id}' targets layer={int(layer)} but the current "
                 "boussinesq backend is 2D and supports only layer 0."
             )
 
-        cell_payload = getattr(well_cfg, "cell", None)
-        location_mode = str(getattr(well_cfg, "location_mode", "") or "").strip().lower()
-        if cell_payload is not None or location_mode in {"", "cell"}:
+        if location_kind in {"", "cell"}:
             raise NotImplementedError(
                 f"Well '{well_id}' uses structured-grid cell addressing. "
                 "The current boussinesq backend on gmsh triangles supports "
                 "only coordinate-based wells (absolute_xy or relative_xy)."
             )
-        if location_mode == "absolute_xy":
-            x_m = float(well_cfg.x)
-            y_m = float(well_cfg.y)
-        elif location_mode == "relative_xy":
-            x_rel = float(well_cfg.x_rel)
-            y_rel = float(well_cfg.y_rel)
+        if location_kind == "absolute_xy":
+            x_m = float(location.x)
+            y_m = float(location.y)
+        elif location_kind == "relative_xy":
+            x_rel = float(location.x_rel)
+            y_rel = float(location.y_rel)
             x_m = self.mesh.x_min_m + x_rel * (self.mesh.x_max_m - self.mesh.x_min_m)
             y_m = self.mesh.y_min_m + y_rel * (self.mesh.y_max_m - self.mesh.y_min_m)
         else:
-            raise ValueError(f"Unsupported well location mode for '{well_id}': {location_mode!r}.")
+            raise ValueError(f"Unsupported well location mode for '{well_id}': {location_kind!r}.")
         return self.mesh.locate_cell_index_for_point(x_m, y_m, allow_nearest=False)
 
     def resolve_well_flux_series(

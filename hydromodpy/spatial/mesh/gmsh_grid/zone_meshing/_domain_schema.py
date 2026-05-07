@@ -25,16 +25,18 @@ class ZoneMeshingDomainBBox(HydroModelBase):
     kind: Annotated[Literal["bbox"], Profile.USER] = "bbox"
     bbox: Annotated[list[float], Profile.USER]
 
-    @model_validator(mode="after")
-    def _validate_bbox(self):
-        coords = [float(v) for v in self.bbox]
+    @field_validator("bbox", mode="before")
+    @classmethod
+    def _normalize_bbox(cls, value):
+        if not isinstance(value, (list, tuple)):
+            return value
+        coords = [float(v) for v in value]
         if len(coords) != 4:
             raise ValueError("bbox domain requires 4 values: xmin, ymin, xmax, ymax")
         xmin, ymin, xmax, ymax = coords
         if not (xmax > xmin and ymax > ymin):
             raise ValueError("bbox domain requires xmax > xmin and ymax > ymin")
-        object.__setattr__(self, "bbox", [xmin, ymin, xmax, ymax])
-        return self
+        return [xmin, ymin, xmax, ymax]
 
 
 class ZoneMeshingDomainPolygon(HydroModelBase):

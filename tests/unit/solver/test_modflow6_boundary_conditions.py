@@ -13,7 +13,9 @@ from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.initial_conditions import (
-    FlowInitialCondition,
+    FlowICBottom,
+    FlowICCustom,
+    FlowICTop,
     FlowInitialConditions,
 )
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
@@ -382,7 +384,7 @@ def test_modflow6_resolves_absolute_xy_well_on_unstructured_runtime_mesh() -> No
     assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
 
 
-def test_modflow6_coordinate_well_ignores_inherited_cell_payload() -> None:
+def test_modflow6_coordinate_well_rejects_inherited_cell_payload() -> None:
     model = _build_unstructured_model()
     model.grid_ctx = SimpleNamespace(grid=None)
     model.flow = SimpleNamespace(
@@ -401,9 +403,8 @@ def test_modflow6_coordinate_well_ignores_inherited_cell_payload() -> None:
         active_sinks_sources=["wells"],
     )
 
-    wel_spd = build_well_stress_period_data(model, 1)
-
-    assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
+    with pytest.raises(ValueError, match="well.cell cannot be combined"):
+        build_well_stress_period_data(model, 1)
 
 
 def test_modflow6_rejects_unstructured_well_outside_runtime_mesh() -> None:
@@ -499,9 +500,7 @@ def test_modflow6_builds_stream_boundary_chd_on_unstructured_runtime_mesh() -> N
 def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> None:
     model = _build_unstructured_model(river_internal_edge=True)
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="custom", value=2.0)
-        ),
+        initial_conditions=FlowInitialConditions(h=FlowICCustom(id="h", value=2.0)),
         boundary_conditions={
             "stream": SimpleNamespace(value=7.0),
         },
@@ -562,7 +561,7 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
 def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(h=FlowInitialCondition(id="h", type="top")),
+        initial_conditions=FlowInitialConditions(h=FlowICTop(id="h")),
         boundary_conditions={},
         active_bc=[],
     )
@@ -585,7 +584,7 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(h=FlowInitialCondition(id="h", type="bottom")),
+        initial_conditions=FlowInitialConditions(h=FlowICBottom(id="h")),
         boundary_conditions={},
         active_bc=[],
     )

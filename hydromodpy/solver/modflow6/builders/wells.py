@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from numbers import Real
+from typing import Any
 
 import numpy as np
 
@@ -25,6 +26,34 @@ def _forcing_units(forcing: object, *, fallback: object) -> object:
     return getattr(forcing, "units", fallback)
 
 
+def _resolve_well_location(well_id: str, well_cfg: object) -> tuple[str, dict[str, Any]]:
+    """Return ``(kind, fields)`` for one well payload (config or raw mapping)."""
+    if isinstance(well_cfg, Mapping):
+        from hydromodpy.physics.flow.sinks_sources.wells import FlowWellConfig
+
+        well_cfg = FlowWellConfig.model_validate(dict(well_cfg))
+    location = getattr(well_cfg, "location", None)
+    kind = getattr(location, "kind", None)
+    if kind == "cell":
+        return "cell", {"cell": tuple(location.cell)}
+    if kind == "absolute_xy":
+        return "absolute_xy", {
+            "layer": int(location.layer),
+            "x": float(location.x),
+            "y": float(location.y),
+        }
+    if kind == "relative_xy":
+        return "relative_xy", {
+            "layer": int(location.layer),
+            "x_rel": float(location.x_rel),
+            "y_rel": float(location.y_rel),
+        }
+    raise ValueError(
+        f"flow.sinks_sources.wells.{well_id} requires either cell=[lay,row,col] "
+        "or coordinate-based location fields."
+    )
+
+
 def resolve_well_disv_cell(
     model,
     *,
@@ -33,19 +62,12 @@ def resolve_well_disv_cell(
     grid: object | None,
 ) -> tuple[int, int]:
     """Resolve one well payload to one DISV (layer, cell_id) tuple."""
-
-    def _value(name: str, default=None):
-        if isinstance(well_cfg, Mapping):
-            return well_cfg.get(name, default)
-        return getattr(well_cfg, name, default)
-
-    cell_payload = _value("cell")
-    location_mode = str(_value("location_mode", "") or "").strip().lower()
+    location_kind, fields = _resolve_well_location(well_id, well_cfg)
     solver_mesh = getattr(model, "solver_mesh", None)
     ncol = int(getattr(model, "ncol", 0) or 0)
 
-    if cell_payload is not None and location_mode in {"", "cell"}:
-        cell_seq = list(cell_payload)
+    if location_kind == "cell":
+        cell_seq = fields["cell"]
         if len(cell_seq) != 3:
             raise ValueError(
                 f"flow.sinks_sources.wells.{well_id}.cell must contain [lay, row, col]."
@@ -63,53 +85,40 @@ def resolve_well_disv_cell(
             col=col,
         )
 
-    if location_mode in {"", "cell"}:
-        raise ValueError(
-            f"flow.sinks_sources.wells.{well_id} requires either cell=[lay,row,col] "
-            "or coordinate-based location fields."
-        )
-
     if solver_mesh is None or getattr(solver_mesh, "is_structured", False):
         if grid is None:
             raise ValueError(
                 f"flow.sinks_sources.wells.{well_id} cannot resolve coordinate-based addressing "
                 "without one structured solver grid."
             )
-        if hasattr(well_cfg, "resolve_cell"):
-            lay, row, col = well_cfg.resolve_cell(grid)
+        layer = int(fields["layer"])
+        if location_kind == "absolute_xy":
+            x_m = float(fields["x"])
+            y_m = float(fields["y"])
+        elif location_kind == "relative_xy":
+            x_m = float(grid.xmin) + float(fields["x_rel"]) * (float(grid.xmax) - float(grid.xmin))
+            y_m = float(grid.ymin) + float(fields["y_rel"]) * (float(grid.ymax) - float(grid.ymin))
         else:
-            layer = int(_value("layer", 0) or 0)
-            if location_mode == "absolute_xy":
-                x_m = float(_value("x"))
-                y_m = float(_value("y"))
-            elif location_mode == "relative_xy":
-                x_m = float(grid.xmin) + float(_value("x_rel")) * (
-                    float(grid.xmax) - float(grid.xmin)
-                )
-                y_m = float(grid.ymin) + float(_value("y_rel")) * (
-                    float(grid.ymax) - float(grid.ymin)
-                )
-            else:
-                raise ValueError(
-                    f"Unsupported well location mode for flow.sinks_sources.wells.{well_id}: "
-                    f"{location_mode!r}."
-                )
-            xmin = float(grid.xmin)
-            xmax = float(grid.xmax)
-            ymin = float(grid.ymin)
-            ymax = float(grid.ymax)
-            if x_m < xmin or x_m > xmax or y_m < ymin or y_m > ymax:
-                raise ValueError(
-                    f"flow.sinks_sources.wells.{well_id} coordinates are outside "
-                    "the structured solver grid extent."
-                )
-            col = int((x_m - xmin) / float(grid.dx))
-            row = int((ymax - y_m) / float(grid.dy))
-            if col == int(grid.ncol) and x_m == xmax:
-                col = int(grid.ncol) - 1
-            if row == int(grid.nrow) and y_m == ymin:
-                row = int(grid.nrow) - 1
-            lay = layer
+            raise ValueError(
+                f"Unsupported well location mode for flow.sinks_sources.wells.{well_id}: "
+                f"{location_kind!r}."
+            )
+        xmin = float(grid.xmin)
+        xmax = float(grid.xmax)
+        ymin = float(grid.ymin)
+        ymax = float(grid.ymax)
+        if x_m < xmin or x_m > xmax or y_m < ymin or y_m > ymax:
+            raise ValueError(
+                f"flow.sinks_sources.wells.{well_id} coordinates are outside "
+                "the structured solver grid extent."
+            )
+        col = int((x_m - xmin) / float(grid.dx))
+        row = int((ymax - y_m) / float(grid.dy))
+        if col == int(grid.ncol) and x_m == xmax:
+            col = int(grid.ncol) - 1
+        if row == int(grid.nrow) and y_m == ymin:
+            row = int(grid.nrow) - 1
+        lay = layer
         return well_cell_to_disv(ncol=ncol, lay=int(lay), row=int(row), col=int(col))
 
     support = getattr(model, "runtime_mesh_support", None)
@@ -118,19 +127,19 @@ def resolve_well_disv_cell(
             f"flow.sinks_sources.wells.{well_id} requires runtime gmsh support metadata "
             "but mesh_support is unavailable."
         )
-    layer = int(_value("layer", 0) or 0)
-    if location_mode == "absolute_xy":
-        x_m = float(_value("x"))
-        y_m = float(_value("y"))
-    elif location_mode == "relative_xy":
-        x_rel = float(_value("x_rel"))
-        y_rel = float(_value("y_rel"))
+    layer = int(fields["layer"])
+    if location_kind == "absolute_xy":
+        x_m = float(fields["x"])
+        y_m = float(fields["y"])
+    elif location_kind == "relative_xy":
+        x_rel = float(fields["x_rel"])
+        y_rel = float(fields["y_rel"])
         x_m = float(support.x_min_m) + x_rel * (float(support.x_max_m) - float(support.x_min_m))
         y_m = float(support.y_min_m) + y_rel * (float(support.y_max_m) - float(support.y_min_m))
     else:
         raise ValueError(
             f"Unsupported well location mode for flow.sinks_sources.wells.{well_id}: "
-            f"{location_mode!r}."
+            f"{location_kind!r}."
         )
     cell_id = int(support.locate_cell_index_for_point(x_m, y_m, allow_nearest=False))
     return (layer, cell_id)

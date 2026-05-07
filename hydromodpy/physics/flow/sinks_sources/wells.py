@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from math import isfinite
 from numbers import Real
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias
 
 from pydantic import Field, field_validator, model_validator
 
@@ -88,50 +88,262 @@ FlowWellForcingConfig = Annotated[
 """Discriminated union of well-forcing payloads."""
 
 
+def _coerce_cell_indices(value: Any) -> tuple[int, int, int]:
+    """Normalize a ``cell`` payload into a strict ``(lay, row, col)`` tuple."""
+    if isinstance(value, Mapping):
+        try:
+            raw_seq = [value["lay"], value["row"], value["col"]]
+        except KeyError as exc:
+            raise ValueError("well.cell mapping must define lay, row, and col") from exc
+    elif isinstance(value, (list, tuple)):
+        raw_seq = list(value)
+    else:
+        raise TypeError("well.cell must be a mapping or a 3-item list [lay, row, col]")
+
+    if len(raw_seq) != 3:
+        raise ValueError("well.cell must contain exactly 3 values: [lay, row, col]")
+
+    parsed: list[int] = []
+    for axis, raw_item in zip(("lay", "row", "col"), raw_seq, strict=False):
+        if isinstance(raw_item, bool):
+            raise TypeError(f"well.cell.{axis} must be an integer")
+        if isinstance(raw_item, Real):
+            numeric = float(raw_item)
+            if not numeric.is_integer():
+                raise TypeError(f"well.cell.{axis} must be an integer")
+            index_value = int(numeric)
+        else:
+            raise TypeError(f"well.cell.{axis} must be an integer")
+        if index_value < 0:
+            raise ValueError(f"well.cell.{axis} must be >= 0")
+        parsed.append(index_value)
+    return tuple(parsed)
+
+
+def _coerce_layer(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError("well.layer must be an integer")
+    numeric = float(value)
+    if not numeric.is_integer():
+        raise TypeError("well.layer must be an integer")
+    layer = int(numeric)
+    if layer < 0:
+        raise ValueError("well.layer must be >= 0")
+    return layer
+
+
+def _coerce_absolute_coordinate(value: Any) -> float:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError("well absolute coordinates must be numeric")
+    numeric = float(value)
+    if not isfinite(numeric):
+        raise ValueError("well absolute coordinates must be finite")
+    return numeric
+
+
+def _coerce_relative_coordinate(value: Any) -> float:
+    if isinstance(value, bool) or not isinstance(value, Real):
+        raise TypeError("well relative coordinates must be numeric")
+    numeric = float(value)
+    if not isfinite(numeric):
+        raise ValueError("well relative coordinates must be finite")
+    if numeric < 0.0 or numeric > 1.0:
+        raise ValueError("well relative coordinates must be within [0, 1]")
+    return numeric
+
+
+class FlowWellLocationCell(HydroModelBase):
+    """Direct ``[lay, row, col]`` addressing on a structured solver grid."""
+
+    kind: Annotated[Literal["cell"], Profile.USER] = Field(
+        default="cell",
+        description="Discriminator tag for the cell-based well location.",
+    )
+    cell: Annotated[tuple[int, int, int], Profile.USER] = Field(
+        ...,
+        description="Direct cell indices as [lay, row, col] (0-based, FLOPY convention).",
+    )
+
+    @field_validator("cell", mode="before")
+    @classmethod
+    def _validate_cell(cls, value):
+        return _coerce_cell_indices(value)
+
+
+class FlowWellLocationAbsoluteXY(HydroModelBase):
+    """Projected ``(x, y)`` coordinates in solver units."""
+
+    kind: Annotated[Literal["absolute_xy"], Profile.USER] = Field(
+        default="absolute_xy",
+        description="Discriminator tag for the absolute-xy well location.",
+    )
+    layer: Annotated[int, Profile.DEV] = Field(
+        default=0,
+        description="Layer index (0-based) targeted by the well.",
+    )
+    x: Annotated[float, Profile.USER] = Field(
+        ..., description="Projected X coordinate in solver units."
+    )
+    y: Annotated[float, Profile.USER] = Field(
+        ..., description="Projected Y coordinate in solver units."
+    )
+
+    @field_validator("layer", mode="before")
+    @classmethod
+    def _validate_layer(cls, value):
+        return _coerce_layer(value)
+
+    @field_validator("x", "y", mode="before")
+    @classmethod
+    def _validate_coordinate(cls, value):
+        return _coerce_absolute_coordinate(value)
+
+
+class FlowWellLocationRelativeXY(HydroModelBase):
+    """Normalized ``(x_rel, y_rel)`` in ``[0, 1]`` over the domain extent."""
+
+    kind: Annotated[Literal["relative_xy"], Profile.USER] = Field(
+        default="relative_xy",
+        description="Discriminator tag for the relative-xy well location.",
+    )
+    layer: Annotated[int, Profile.DEV] = Field(
+        default=0,
+        description="Layer index (0-based) targeted by the well.",
+    )
+    x_rel: Annotated[float, Profile.USER] = Field(
+        ...,
+        description="Relative X position in [0, 1] from west to east.",
+    )
+    y_rel: Annotated[float, Profile.USER] = Field(
+        ...,
+        description="Relative Y position in [0, 1] from south to north.",
+    )
+
+    @field_validator("layer", mode="before")
+    @classmethod
+    def _validate_layer(cls, value):
+        return _coerce_layer(value)
+
+    @field_validator("x_rel", "y_rel", mode="before")
+    @classmethod
+    def _validate_coordinate(cls, value):
+        return _coerce_relative_coordinate(value)
+
+
+FlowWellLocation: TypeAlias = Annotated[
+    FlowWellLocationCell | FlowWellLocationAbsoluteXY | FlowWellLocationRelativeXY,
+    Field(
+        discriminator="kind",
+        description=(
+            "Discriminated union of well-location payloads (cell, absolute_xy, or relative_xy)."
+        ),
+    ),
+]
+"""Discriminated union of well-location payloads."""
+
+
+_LOCATION_KIND_BY_KEY: dict[str, str] = {
+    "cell": "cell",
+    "x": "absolute_xy",
+    "y": "absolute_xy",
+    "x_rel": "relative_xy",
+    "y_rel": "relative_xy",
+}
+
+
+_FLAT_LOCATION_KEYS: frozenset[str] = frozenset(
+    {"location_mode", "cell", "layer", "x", "y", "x_rel", "y_rel"}
+)
+
+
+def _normalize_location_kind(value: Any) -> str:
+    normalized = str(value).strip().lower()
+    if normalized not in {"cell", "absolute_xy", "relative_xy"}:
+        raise ValueError("well.location_mode must be one of: cell, absolute_xy, relative_xy")
+    return normalized
+
+
+def _build_location_from_flat_keys(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Translate a legacy flat well payload to the nested ``location`` mapping."""
+    raw_mode = payload.get("location_mode")
+    inferred_mode: str | None = None
+    if raw_mode is not None and str(raw_mode).strip() != "":
+        inferred_mode = _normalize_location_kind(raw_mode)
+    else:
+        for key, kind in _LOCATION_KIND_BY_KEY.items():
+            if payload.get(key) is not None:
+                inferred_mode = kind
+                break
+
+    if inferred_mode is None:
+        raise ValueError(
+            "well location requires either cell=[lay,row,col] or "
+            "location_mode with coordinate fields"
+        )
+
+    if inferred_mode == "cell":
+        cell_payload = payload.get("cell")
+        if cell_payload is None:
+            raise ValueError("well.location_mode='cell' requires cell=[lay,row,col]")
+        if any(payload.get(key) is not None for key in ("x", "y", "x_rel", "y_rel")):
+            raise ValueError(
+                "well.cell cannot be combined with layer/x/y/x_rel/y_rel; "
+                "use either cell or coordinate-based location fields"
+            )
+        if payload.get("layer") is not None:
+            raise ValueError(
+                "well.cell cannot be combined with layer/x/y/x_rel/y_rel; "
+                "use either cell or coordinate-based location fields"
+            )
+        return {"kind": "cell", "cell": cell_payload}
+
+    if payload.get("cell") is not None:
+        raise ValueError("well.cell cannot be combined with a non-'cell' location_mode")
+
+    layer = payload.get("layer")
+    if inferred_mode == "absolute_xy":
+        x = payload.get("x")
+        y = payload.get("y")
+        if x is None or y is None:
+            raise ValueError("well.location_mode='absolute_xy' requires x and y")
+        if payload.get("x_rel") is not None or payload.get("y_rel") is not None:
+            raise ValueError("well.location_mode='absolute_xy' cannot be combined with x_rel/y_rel")
+        nested: dict[str, Any] = {"kind": "absolute_xy", "x": x, "y": y}
+        if layer is not None:
+            nested["layer"] = layer
+        return nested
+
+    x_rel = payload.get("x_rel")
+    y_rel = payload.get("y_rel")
+    if x_rel is None or y_rel is None:
+        raise ValueError("well.location_mode='relative_xy' requires x_rel and y_rel")
+    if payload.get("x") is not None or payload.get("y") is not None:
+        raise ValueError("well.location_mode='relative_xy' cannot be combined with x/y")
+    nested = {"kind": "relative_xy", "x_rel": x_rel, "y_rel": y_rel}
+    if layer is not None:
+        nested["layer"] = layer
+    return nested
+
+
 class FlowWellConfig(HydroModelBase):
     """
     Typed payload for one pumping or injection well.
 
-    A well is defined by its location in the MODFLOW grid (``cell``) and its
-    flux schedule over time (``flux``). ``cell`` uses 0-based ``(lay, row,
-    col)`` indexing (FLOPY convention). ``flux`` follows the MODFLOW sign
-    convention: negative = pumping, positive = injection. ``flux`` may be a
-    scalar (constant rate) or a list with one value per stress period.
+    A well is defined by its location (``location``) and its flux schedule
+    over time (``flux``). ``location`` is a discriminated union with three
+    variants: ``cell`` for direct ``[lay, row, col]`` indexing, ``absolute_xy``
+    for projected coordinates, or ``relative_xy`` for normalized horizontal
+    coordinates. ``flux`` follows the MODFLOW sign convention: negative =
+    pumping, positive = injection. ``flux`` may be a scalar (constant rate)
+    or a list with one value per stress period.
     """
 
-    cell: Annotated[tuple[int, int, int] | None, Profile.USER] = Field(
-        default=None,
-        description="Direct cell indices as [lay, row, col] (0-based).",
-    )
-    location_mode: Annotated[Literal["cell", "absolute_xy", "relative_xy"] | None, Profile.USER] = (
-        Field(
-            default=None,
-            description=(
-                "Well location mode. Use 'cell' for direct [lay,row,col] indices, "
-                "'absolute_xy' for projected coordinates, or 'relative_xy' for "
-                "normalized horizontal coordinates in the domain extent."
-            ),
-        )
-    )
-    layer: Annotated[int | None, Profile.DEV] = Field(
-        default=None,
-        description="Layer index (0-based) used with absolute_xy or relative_xy modes.",
-    )
-    x: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        description="Projected X coordinate used when location_mode='absolute_xy'.",
-    )
-    y: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        description="Projected Y coordinate used when location_mode='absolute_xy'.",
-    )
-    x_rel: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        description="Relative X position in [0,1] from west to east when location_mode='relative_xy'.",
-    )
-    y_rel: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        description="Relative Y position in [0,1] from south to north when location_mode='relative_xy'.",
+    location: Annotated[FlowWellLocation, Profile.USER] = Field(
+        ...,
+        description=(
+            "Well location payload. Discriminated by 'kind': 'cell', "
+            "'absolute_xy', or 'relative_xy'."
+        ),
     )
     flux: Annotated[float | list[float] | None, Profile.USER] = Field(
         default=None,
@@ -155,104 +367,28 @@ class FlowWellConfig(HydroModelBase):
 
     @model_validator(mode="before")
     @classmethod
-    def _default_location_payload(cls, value):
+    def _coerce_legacy_flat_location(cls, value):
+        """Translate legacy flat ``location_mode`` payloads to nested ``location``."""
         if not isinstance(value, Mapping):
             return value
         payload = dict(value)
-        if payload.get("cell") is not None and payload.get("location_mode") is None:
-            payload["location_mode"] = "cell"
-        location_mode = str(payload.get("location_mode", "")).strip().lower()
-        if payload.get("cell") is None and location_mode in {"absolute_xy", "relative_xy"}:
-            payload.setdefault("layer", 0)
+        has_flat_keys = any(
+            key in payload and payload[key] is not None for key in _FLAT_LOCATION_KEYS
+        )
+        if "location" in payload and payload["location"] is not None:
+            if has_flat_keys:
+                raise ValueError(
+                    "well.location cannot be combined with legacy flat fields "
+                    "(location_mode, cell, layer, x, y, x_rel, y_rel)"
+                )
+            return payload
+        if not has_flat_keys:
+            return payload
+        nested = _build_location_from_flat_keys(payload)
+        for key in _FLAT_LOCATION_KEYS:
+            payload.pop(key, None)
+        payload["location"] = nested
         return payload
-
-    @field_validator("cell", mode="before")
-    @classmethod
-    def _validate_cell(cls, value):
-        """Normalize ``cell`` payload into a strict ``(lay, row, col)`` tuple."""
-        if value is None:
-            return None
-        if isinstance(value, Mapping):
-            try:
-                raw_seq = [value["lay"], value["row"], value["col"]]
-            except KeyError as exc:
-                raise ValueError("well.cell mapping must define lay, row, and col") from exc
-        elif isinstance(value, (list, tuple)):
-            raw_seq = list(value)
-        else:
-            raise TypeError("well.cell must be a mapping or a 3-item list [lay, row, col]")
-
-        if len(raw_seq) != 3:
-            raise ValueError("well.cell must contain exactly 3 values: [lay, row, col]")
-
-        parsed: list[int] = []
-        for axis, raw_item in zip(("lay", "row", "col"), raw_seq, strict=False):
-            if isinstance(raw_item, bool):
-                raise TypeError(f"well.cell.{axis} must be an integer")
-            if isinstance(raw_item, Real):
-                numeric = float(raw_item)
-                if not numeric.is_integer():
-                    raise TypeError(f"well.cell.{axis} must be an integer")
-                index_value = int(numeric)
-            else:
-                raise TypeError(f"well.cell.{axis} must be an integer")
-            if index_value < 0:
-                raise ValueError(f"well.cell.{axis} must be >= 0")
-            parsed.append(index_value)
-        return tuple(parsed)
-
-    @field_validator("location_mode", mode="before")
-    @classmethod
-    def _validate_location_mode(cls, value):
-        if value is None:
-            return None
-        normalized = str(value).strip().lower()
-        if normalized == "":
-            return None
-        if normalized not in {"cell", "absolute_xy", "relative_xy"}:
-            raise ValueError("well.location_mode must be one of: cell, absolute_xy, relative_xy")
-        return normalized
-
-    @field_validator("layer", mode="before")
-    @classmethod
-    def _validate_layer(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bool) or not isinstance(value, Real):
-            raise TypeError("well.layer must be an integer")
-        numeric = float(value)
-        if not numeric.is_integer():
-            raise TypeError("well.layer must be an integer")
-        layer = int(numeric)
-        if layer < 0:
-            raise ValueError("well.layer must be >= 0")
-        return layer
-
-    @field_validator("x", "y", mode="before")
-    @classmethod
-    def _validate_absolute_coordinate(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bool) or not isinstance(value, Real):
-            raise TypeError("well absolute coordinates must be numeric")
-        numeric = float(value)
-        if not isfinite(numeric):
-            raise ValueError("well absolute coordinates must be finite")
-        return numeric
-
-    @field_validator("x_rel", "y_rel", mode="before")
-    @classmethod
-    def _validate_relative_coordinate(cls, value):
-        if value is None:
-            return None
-        if isinstance(value, bool) or not isinstance(value, Real):
-            raise TypeError("well relative coordinates must be numeric")
-        numeric = float(value)
-        if not isfinite(numeric):
-            raise ValueError("well relative coordinates must be finite")
-        if numeric < 0.0 or numeric > 1.0:
-            raise ValueError("well relative coordinates must be within [0, 1]")
-        return numeric
 
     @field_validator("flux", mode="before")
     @classmethod
@@ -281,44 +417,8 @@ class FlowWellConfig(HydroModelBase):
         raise TypeError("well.flux must be numeric or a list of numeric values")
 
     @model_validator(mode="after")
-    def _validate_location_payload(self):
-        """Enforce one unambiguous location grammar for each well."""
-        if self.cell is not None:
-            if self.location_mode != "cell":
-                raise ValueError("well.cell cannot be combined with a non-'cell' location_mode")
-            if any(
-                value is not None for value in (self.layer, self.x, self.y, self.x_rel, self.y_rel)
-            ):
-                raise ValueError(
-                    "well.cell cannot be combined with layer/x/y/x_rel/y_rel; "
-                    "use either cell or coordinate-based location fields"
-                )
-        else:
-            if self.location_mode is None:
-                raise ValueError(
-                    "well location requires either cell=[lay,row,col] or "
-                    "location_mode with coordinate fields"
-                )
-
-            if self.location_mode == "cell":
-                raise ValueError("well.location_mode='cell' requires cell=[lay,row,col]")
-
-            if self.layer is None:
-                self.layer = 0
-
-            if self.location_mode == "absolute_xy":
-                if self.x is None or self.y is None:
-                    raise ValueError("well.location_mode='absolute_xy' requires x and y")
-                if self.x_rel is not None or self.y_rel is not None:
-                    raise ValueError(
-                        "well.location_mode='absolute_xy' cannot be combined with x_rel/y_rel"
-                    )
-            elif self.location_mode == "relative_xy":
-                if self.x_rel is None or self.y_rel is None:
-                    raise ValueError("well.location_mode='relative_xy' requires x_rel and y_rel")
-                if self.x is not None or self.y is not None:
-                    raise ValueError("well.location_mode='relative_xy' cannot be combined with x/y")
-
+    def _validate_flux_and_forcing(self):
+        """Enforce one consistent flux/forcing/units payload."""
         if self.flux is None and self.forcing is None:
             raise ValueError("well requires either flux or forcing")
         if self.flux is not None and self.forcing is not None:
@@ -350,15 +450,16 @@ class FlowWellConfig(HydroModelBase):
 
     def resolve_cell(self, grid: GridReference) -> tuple[int, int, int]:
         """Resolve this well location against one solver grid."""
-        if self.cell is not None:
-            return self.cell
+        location = self.location
+        if isinstance(location, FlowWellLocationCell):
+            return location.cell
 
-        if self.location_mode == "absolute_xy":
-            x = float(self.x)
-            y = float(self.y)
-        elif self.location_mode == "relative_xy":
-            x = float(grid.xmin) + float(self.x_rel) * (float(grid.xmax) - float(grid.xmin))
-            y = float(grid.ymin) + float(self.y_rel) * (float(grid.ymax) - float(grid.ymin))
+        if isinstance(location, FlowWellLocationAbsoluteXY):
+            x = float(location.x)
+            y = float(location.y)
+        elif isinstance(location, FlowWellLocationRelativeXY):
+            x = float(grid.xmin) + float(location.x_rel) * (float(grid.xmax) - float(grid.xmin))
+            y = float(grid.ymin) + float(location.y_rel) * (float(grid.ymax) - float(grid.ymin))
         else:
             raise ValueError("well location cannot be resolved without cell or coordinate mode")
 
@@ -379,4 +480,4 @@ class FlowWellConfig(HydroModelBase):
             row = int(grid.nrow) - 1
         if col < 0 or col >= int(grid.ncol) or row < 0 or row >= int(grid.nrow):
             raise ValueError("well coordinates could not be resolved to a structured grid cell.")
-        return (int(self.layer), row, col)
+        return (int(location.layer), row, col)

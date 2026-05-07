@@ -233,7 +233,7 @@ Fields
               <code class="hmp-field-toml">[[data.geology.sources]]</code>
             </div>
 
-         :bdg-primary:`list[GeologySourceConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L134>`__
+         :bdg-primary:`list[GeologySourceConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L140>`__
 
             At least one geology data source. Defaults to BRGM 1:1M.
 
@@ -252,7 +252,7 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'brgm_1m', 'brgm_50k']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L25>`__
+               :bdg-primary:`Literal['custom', 'brgm_1m', 'brgm_50k']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L31>`__
 
                   Data provider: 'custom' for user files (SHP/GPKG/TIF/CSV), 'brgm_1m' for the 1:1M national geological map, 'brgm_50k' for the 1:50K departmental geological maps.
 
@@ -266,7 +266,7 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L35>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L41>`__
 
                   Path to custom geology file or directory (SHP, GPKG, TIF, CSV).
 
@@ -280,7 +280,7 @@ Fields
                     <code class="hmp-field-name">code_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L43>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L49>`__
 
                   Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector sources. Ignored for BRGM sources (always CODE_LEG).
 
@@ -294,7 +294,7 @@ Fields
                     <code class="hmp-field-name">values_table_path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L51>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L57>`__
 
                   Optional CSV linking geology codes to descriptions. Columns: geology_code, description.
 
@@ -308,7 +308,7 @@ Fields
                     <code class="hmp-field-name">col_x</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L60>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L66>`__
 
                   Column for X coordinate in CSV.
 
@@ -322,7 +322,7 @@ Fields
                     <code class="hmp-field-name">col_y</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L64>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L70>`__
 
                   Column for Y coordinate in CSV.
 
@@ -336,7 +336,7 @@ Fields
                     <code class="hmp-field-name">col_code</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "geology_code"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L68>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "geology_code"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L74>`__
 
                   Column for geology code in CSV.
 
@@ -350,7 +350,7 @@ Fields
                     <code class="hmp-field-name">default_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L72>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L78>`__
 
                   Default CRS for CSV points.
 
@@ -364,7 +364,7 @@ Fields
                     <code class="hmp-field-name">mask_path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L78>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L84>`__
 
                   SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
@@ -378,7 +378,7 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L82>`__
+               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L88>`__
 
                   Use project extent for bbox-based data retrieval.
 
@@ -392,7 +392,7 @@ Fields
                     <code class="hmp-field-name">force_refresh</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L88>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L94>`__
 
                   Ignore cache and re-download from API.
 
@@ -408,7 +408,7 @@ Fields
               <code class="hmp-field-name">id</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "field_geology"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L140>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "field_geology"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L146>`__
 
             Identifier of the geology spatial field.
 
@@ -422,7 +422,7 @@ Fields
               <code class="hmp-field-name">cell_samples_per_axis</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L123>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L129>`__
 
             Sub-sampling density for GeologyField.on_mesh(). Higher = more precise geology interface, slower runtime.
 
@@ -631,7 +631,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L107>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L97>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -645,7 +645,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L108>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L98>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -661,7 +661,7 @@ Fields
               <code class="hmp-field-toml">[[data.hydrometry.sources]]</code>
             </div>
 
-         :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L84>`__
+         :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L74>`__
 
             At least one data source.
 
@@ -670,6 +670,20 @@ Fields
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-hydrometry-sources-fallback-search-radius-km
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.hydrometry.sources.fallback_search_radius_km">
+                    <code class="hmp-field-name">fallback_search_radius_km</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
+
+                  Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.
+
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-hydrometry-sources-station-ids
@@ -680,7 +694,7 @@ Fields
                     <code class="hmp-field-name">station_ids</code>
                   </div>
 
-               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Explicit station identifiers to load (custom source).
 
@@ -694,7 +708,7 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
 
@@ -708,9 +722,37 @@ Fields
                     <code class="hmp-field-name">force_refresh</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-hydrometry-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.hydrometry.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-hydrometry-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.hydrometry.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -722,7 +764,7 @@ Fields
                     <code class="hmp-field-name">col_id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Column name for the station identifier in location files.
 
@@ -736,7 +778,7 @@ Fields
                     <code class="hmp-field-name">col_x</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Column name for the X coordinate in location files.
 
@@ -750,7 +792,7 @@ Fields
                     <code class="hmp-field-name">col_y</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Column name for the Y coordinate in location files.
 
@@ -764,7 +806,7 @@ Fields
                     <code class="hmp-field-name">col_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Column name for the CRS in location files.
 
@@ -778,7 +820,7 @@ Fields
                     <code class="hmp-field-name">col_datetime</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Column name for timestamps in chronicle CSVs.
 
@@ -792,7 +834,7 @@ Fields
                     <code class="hmp-field-name">col_value</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Column name for numeric values in chronicle CSVs.
 
@@ -806,7 +848,7 @@ Fields
                     <code class="hmp-field-name">default_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L20>`__
 
                   Default CRS used when a location file omits the CRS column.
 
@@ -820,7 +862,7 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L28>`__
+               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L31>`__
 
                   Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
 
@@ -834,23 +876,9 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L33>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L36>`__
 
                   Directory containing location file and chronicle CSVs.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-hydrometry-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.hydrometry.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L40>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -862,7 +890,7 @@ Fields
                     <code class="hmp-field-name">product</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L45>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L43>`__
 
                   Hub'Eau variable code (e.g. 'QmnJ', 'QmM', 'HmnJ').
 
@@ -876,37 +904,9 @@ Fields
                     <code class="hmp-field-name">require_observations</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L49>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L47>`__
 
                   Only keep stations that have observations in the period.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-hydrometry-sources-fallback-search-radius-km
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.hydrometry.sources.fallback_search_radius_km">
-                    <code class="hmp-field-name">fallback_search_radius_km</code>
-                  </div>
-
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L52>`__
-
-                  If no station found in bbox, expand search by this radius (km).
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-hydrometry-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.hydrometry.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L56>`__
-
-                  Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.
 
 
 
@@ -943,7 +943,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L71>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L61>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -957,7 +957,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L71>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L61>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -973,7 +973,7 @@ Fields
               <code class="hmp-field-toml">[[data.intermittency.sources]]</code>
             </div>
 
-         :bdg-primary:`list[IntermittencySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L81>`__
+         :bdg-primary:`list[IntermittencySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L71>`__
 
             At least one data source.
 
@@ -982,6 +982,20 @@ Fields
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-intermittency-sources-fallback-search-radius-km
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.intermittency.sources.fallback_search_radius_km">
+                    <code class="hmp-field-name">fallback_search_radius_km</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
+
+                  Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.
+
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-intermittency-sources-station-ids
@@ -992,7 +1006,7 @@ Fields
                     <code class="hmp-field-name">station_ids</code>
                   </div>
 
-               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Explicit station identifiers to load (custom source).
 
@@ -1006,7 +1020,7 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
 
@@ -1020,9 +1034,37 @@ Fields
                     <code class="hmp-field-name">force_refresh</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-intermittency-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.intermittency.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-intermittency-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.intermittency.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1034,7 +1076,7 @@ Fields
                     <code class="hmp-field-name">col_id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Column name for the station identifier in location files.
 
@@ -1048,7 +1090,7 @@ Fields
                     <code class="hmp-field-name">col_x</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Column name for the X coordinate in location files.
 
@@ -1062,7 +1104,7 @@ Fields
                     <code class="hmp-field-name">col_y</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Column name for the Y coordinate in location files.
 
@@ -1076,7 +1118,7 @@ Fields
                     <code class="hmp-field-name">col_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Column name for the CRS in location files.
 
@@ -1090,7 +1132,7 @@ Fields
                     <code class="hmp-field-name">col_datetime</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Column name for timestamps in chronicle CSVs.
 
@@ -1104,7 +1146,7 @@ Fields
                     <code class="hmp-field-name">col_value</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Column name for numeric values in chronicle CSVs.
 
@@ -1118,7 +1160,7 @@ Fields
                     <code class="hmp-field-name">default_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L20>`__
 
                   Default CRS used when a location file omits the CRS column.
 
@@ -1132,7 +1174,7 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L27>`__
+               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L30>`__
 
                   Data provider: 'custom' for user files, 'hubeau' for Hub'Eau stream-flow API.
 
@@ -1146,23 +1188,9 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L33>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L36>`__
 
                   Directory containing location file and chronicle CSVs.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-intermittency-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.intermittency.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L40>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1174,7 +1202,7 @@ Fields
                     <code class="hmp-field-name">code_departement</code>
                   </div>
 
-               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L45>`__
+               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L43>`__
 
                   INSEE department codes to filter Hub'Eau station discovery.
 
@@ -1188,37 +1216,9 @@ Fields
                     <code class="hmp-field-name">require_observations</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L49>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L47>`__
 
                   Only keep stations that have observations in the period.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-intermittency-sources-fallback-search-radius-km
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.intermittency.sources.fallback_search_radius_km">
-                    <code class="hmp-field-name">fallback_search_radius_km</code>
-                  </div>
-
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L52>`__
-
-                  If no station found in bbox, expand search by this radius (km).
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-intermittency-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.intermittency.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L56>`__
-
-                  Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.
 
 
 
@@ -1255,7 +1255,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L85>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L74>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -1269,7 +1269,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L85>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L74>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -1285,7 +1285,7 @@ Fields
               <code class="hmp-field-toml">[[data.oceanic.sources]]</code>
             </div>
 
-         :bdg-primary:`list[OceanicSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L95>`__
+         :bdg-primary:`list[OceanicSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L84>`__
 
             At least one data source.
 
@@ -1294,6 +1294,20 @@ Fields
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-oceanic-sources-fallback-search-radius-km
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.oceanic.sources.fallback_search_radius_km">
+                    <code class="hmp-field-name">fallback_search_radius_km</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
+
+                  Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.
+
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-oceanic-sources-station-ids
@@ -1304,7 +1318,7 @@ Fields
                     <code class="hmp-field-name">station_ids</code>
                   </div>
 
-               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Explicit station identifiers to load (custom source).
 
@@ -1318,7 +1332,7 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
 
@@ -1332,9 +1346,37 @@ Fields
                     <code class="hmp-field-name">force_refresh</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-oceanic-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.oceanic.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-oceanic-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.oceanic.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1346,7 +1388,7 @@ Fields
                     <code class="hmp-field-name">col_id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Column name for the station identifier in location files.
 
@@ -1360,7 +1402,7 @@ Fields
                     <code class="hmp-field-name">col_x</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Column name for the X coordinate in location files.
 
@@ -1374,7 +1416,7 @@ Fields
                     <code class="hmp-field-name">col_y</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Column name for the Y coordinate in location files.
 
@@ -1388,7 +1430,7 @@ Fields
                     <code class="hmp-field-name">col_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Column name for the CRS in location files.
 
@@ -1402,7 +1444,7 @@ Fields
                     <code class="hmp-field-name">col_datetime</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Column name for timestamps in chronicle CSVs.
 
@@ -1416,7 +1458,7 @@ Fields
                     <code class="hmp-field-name">col_value</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Column name for numeric values in chronicle CSVs.
 
@@ -1430,7 +1472,7 @@ Fields
                     <code class="hmp-field-name">default_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L20>`__
 
                   Default CRS used when a location file omits the CRS column.
 
@@ -1444,7 +1486,7 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'shom', 'constant']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L27>`__
+               :bdg-primary:`Literal['custom', 'shom', 'constant']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L30>`__
 
                   Data provider: 'custom' for user CSV/NC/TIF files, 'shom' for SHOM API, 'constant' for fixed MSL.
 
@@ -1458,23 +1500,9 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L33>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L36>`__
 
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-oceanic-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.oceanic.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L41>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1486,7 +1514,7 @@ Fields
                     <code class="hmp-field-name">value</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L47>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L46>`__
 
                   Constant mean sea-level value in metres.
 
@@ -1500,23 +1528,9 @@ Fields
                     <code class="hmp-field-name">nearest</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L53>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L52>`__
 
                   Use nearest tide gauge to watershed centroid.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-oceanic-sources-fallback-search-radius-km
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.oceanic.sources.fallback_search_radius_km">
-                    <code class="hmp-field-name">fallback_search_radius_km</code>
-                  </div>
-
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L57>`__
-
-                  Maximum search radius (km) for nearest tide gauge.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1528,23 +1542,9 @@ Fields
                     <code class="hmp-field-name">require_observations</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L61>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L56>`__
 
                   Raise if SHOM returns no observations.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-oceanic-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.oceanic.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L67>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
 
 
 
@@ -1581,7 +1581,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L76>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L66>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -1595,7 +1595,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L76>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L66>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -1611,7 +1611,7 @@ Fields
               <code class="hmp-field-toml">[[data.piezometry.sources]]</code>
             </div>
 
-         :bdg-primary:`list[PiezometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L86>`__
+         :bdg-primary:`list[PiezometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L76>`__
 
             At least one data source.
 
@@ -1620,6 +1620,20 @@ Fields
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-piezometry-sources-fallback-search-radius-km
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.piezometry.sources.fallback_search_radius_km">
+                    <code class="hmp-field-name">fallback_search_radius_km</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
+
+                  Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.
+
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-piezometry-sources-station-ids
@@ -1630,7 +1644,7 @@ Fields
                     <code class="hmp-field-name">station_ids</code>
                   </div>
 
-               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Explicit station identifiers to load (custom source).
 
@@ -1644,7 +1658,7 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
 
@@ -1658,9 +1672,37 @@ Fields
                     <code class="hmp-field-name">force_refresh</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-piezometry-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.piezometry.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-piezometry-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.piezometry.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1672,7 +1714,7 @@ Fields
                     <code class="hmp-field-name">col_id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Column name for the station identifier in location files.
 
@@ -1686,7 +1728,7 @@ Fields
                     <code class="hmp-field-name">col_x</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Column name for the X coordinate in location files.
 
@@ -1700,7 +1742,7 @@ Fields
                     <code class="hmp-field-name">col_y</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Column name for the Y coordinate in location files.
 
@@ -1714,7 +1756,7 @@ Fields
                     <code class="hmp-field-name">col_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Column name for the CRS in location files.
 
@@ -1728,7 +1770,7 @@ Fields
                     <code class="hmp-field-name">col_datetime</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Column name for timestamps in chronicle CSVs.
 
@@ -1742,7 +1784,7 @@ Fields
                     <code class="hmp-field-name">col_value</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Column name for numeric values in chronicle CSVs.
 
@@ -1756,7 +1798,7 @@ Fields
                     <code class="hmp-field-name">default_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L20>`__
 
                   Default CRS used when a location file omits the CRS column.
 
@@ -1770,7 +1812,7 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L27>`__
+               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L30>`__
 
                   Data provider.
 
@@ -1784,23 +1826,9 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L32>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L35>`__
 
                   Directory containing location file and chronicle CSVs.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-piezometry-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.piezometry.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L39>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -1812,7 +1840,7 @@ Fields
                     <code class="hmp-field-name">product</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['level', 'depth']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L44>`__
+               :bdg-primary:`Optional[Literal['level', 'depth']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L42>`__
 
                   Hub'Eau measurement type: 'level' or 'depth'.
 
@@ -1826,23 +1854,9 @@ Fields
                     <code class="hmp-field-name">require_observations</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L47>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L45>`__
 
                   Only keep stations that have observations in the period.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-piezometry-sources-fallback-search-radius-km
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.piezometry.sources.fallback_search_radius_km">
-                    <code class="hmp-field-name">fallback_search_radius_km</code>
-                  </div>
-
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L50>`__
-
-                  If no station found in bbox, expand search by this radius (km).
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1854,23 +1868,9 @@ Fields
                     <code class="hmp-field-name">nearest</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L54>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L48>`__
 
                   Keep only the nearest piezometer to the extent centroid.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-piezometry-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.piezometry.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L58>`__
-
-                  Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.
 
 
 
@@ -1907,7 +1907,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L79>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L69>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -1921,7 +1921,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L79>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L69>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -1937,7 +1937,7 @@ Fields
               <code class="hmp-field-toml">[[data.water_quality.sources]]</code>
             </div>
 
-         :bdg-primary:`list[WaterQualitySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L89>`__
+         :bdg-primary:`list[WaterQualitySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L79>`__
 
             At least one data source.
 
@@ -1946,6 +1946,20 @@ Fields
             :animate: fade-in-slide-down
 
             .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: data-water-quality-sources-fallback-search-radius-km
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.water_quality.sources.fallback_search_radius_km">
+                    <code class="hmp-field-name">fallback_search_radius_km</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
+
+                  Maximum search radius (km) used to find a fallback station when no observation is available inside the requested bbox.
+
 
             .. container:: hmp-field hmp-field-level-user
                :name: data-water-quality-sources-station-ids
@@ -1956,7 +1970,7 @@ Fields
                     <code class="hmp-field-name">station_ids</code>
                   </div>
 
-               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Explicit station identifiers to load (custom source).
 
@@ -1970,7 +1984,7 @@ Fields
                     <code class="hmp-field-name">extent</code>
                   </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Enable bounding-box data retrieval using the project extent. ``watershed`` uses the delineated watershed, ``study_area`` uses the broader study bounding box.
 
@@ -1984,9 +1998,37 @@ Fields
                     <code class="hmp-field-name">force_refresh</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-water-quality-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.water_quality.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-water-quality-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.water_quality.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -1998,7 +2040,7 @@ Fields
                     <code class="hmp-field-name">col_id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "id"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Column name for the station identifier in location files.
 
@@ -2012,7 +2054,7 @@ Fields
                     <code class="hmp-field-name">col_x</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Column name for the X coordinate in location files.
 
@@ -2026,7 +2068,7 @@ Fields
                     <code class="hmp-field-name">col_y</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Column name for the Y coordinate in location files.
 
@@ -2040,7 +2082,7 @@ Fields
                     <code class="hmp-field-name">col_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "crs"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Column name for the CRS in location files.
 
@@ -2054,7 +2096,7 @@ Fields
                     <code class="hmp-field-name">col_datetime</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "datetime"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Column name for timestamps in chronicle CSVs.
 
@@ -2068,7 +2110,7 @@ Fields
                     <code class="hmp-field-name">col_value</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "value"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Column name for numeric values in chronicle CSVs.
 
@@ -2082,7 +2124,7 @@ Fields
                     <code class="hmp-field-name">default_crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L19>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:4326"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L20>`__
 
                   Default CRS used when a location file omits the CRS column.
 
@@ -2096,7 +2138,7 @@ Fields
                     <code class="hmp-field-name">source</code>
                   </div>
 
-               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L27>`__
+               :bdg-primary:`Literal['custom', 'hubeau']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L30>`__
 
                   Data provider: 'custom' for user files, 'hubeau' for Hub'Eau API.
 
@@ -2110,7 +2152,7 @@ Fields
                     <code class="hmp-field-name">site_type</code>
                   </div>
 
-               :bdg-primary:`Literal['river', 'piezometer']` :bdg-secondary:`default = "river"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L32>`__
+               :bdg-primary:`Literal['river', 'piezometer']` :bdg-secondary:`default = "river"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L35>`__
 
                   Type of site: 'river' (qualite_rivieres) or 'piezometer' (qualite_nappes).
 
@@ -2124,7 +2166,7 @@ Fields
                     <code class="hmp-field-name">parameters</code>
                   </div>
 
-               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L38>`__
+               :bdg-primary:`list[str] | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L41>`__
 
                   Parameters to keep (e.g. ['pH', 'Nitrates']). None = all parameters.
 
@@ -2138,37 +2180,9 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L44>`__
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L47>`__
 
                   Directory containing location file and chronicle CSVs.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-water-quality-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.water_quality.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L51>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-water-quality-sources-fallback-search-radius-km
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.water_quality.sources.fallback_search_radius_km">
-                    <code class="hmp-field-name">fallback_search_radius_km</code>
-                  </div>
-
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L56>`__
-
-                  If no station found in bbox, expand search by this radius (km).
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2180,23 +2194,9 @@ Fields
                     <code class="hmp-field-name">nearest</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L59>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L54>`__
 
                   Keep only the nearest station to the extent centroid.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-water-quality-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.water_quality.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L64>`__
-
-                  Source unit of custom data (e.g. 'L/s'). If None, inferred from LOC file or assumed same as internal unit.
 
 
 
@@ -2313,6 +2313,34 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/recharge/config.py#L19>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-recharge-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.recharge.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/recharge/config.py#L48>`__
+
+                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-recharge-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.recharge.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/recharge/config.py#L42>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2439,34 +2467,6 @@ Fields
                :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/recharge/config.py#L34>`__
 
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-recharge-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.recharge.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/recharge/config.py#L42>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-recharge-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.recharge.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/recharge/config.py#L48>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
 
 
             .. container:: hmp-field hmp-field-level-user
@@ -2615,7 +2615,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L52>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -2629,7 +2629,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -2645,7 +2645,7 @@ Fields
               <code class="hmp-field-toml">[[data.runoff.sources]]</code>
             </div>
 
-         :bdg-primary:`list[RunoffSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L72>`__
+         :bdg-primary:`list[RunoffSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L62>`__
 
             At least one data source.
 
@@ -2695,6 +2695,34 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L19>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-runoff-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.runoff.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L19>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-runoff-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.runoff.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L19>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -2823,34 +2851,6 @@ Fields
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-runoff-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.runoff.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L41>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-runoff-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.runoff.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L47>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-
-
 
 
 
@@ -2885,7 +2885,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L69>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L59>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -2899,7 +2899,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L69>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L59>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -2915,7 +2915,7 @@ Fields
               <code class="hmp-field-toml">[[data.precipitation.sources]]</code>
             </div>
 
-         :bdg-primary:`list[PrecipitationSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L79>`__
+         :bdg-primary:`list[PrecipitationSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L69>`__
 
             At least one data source.
 
@@ -2965,6 +2965,34 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L19>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-precipitation-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.precipitation.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L19>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-precipitation-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.precipitation.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L19>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3107,34 +3135,6 @@ Fields
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-precipitation-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.precipitation.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L48>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-precipitation-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.precipitation.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L54>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-
-
 
 
 
@@ -3169,7 +3169,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L52>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -3183,7 +3183,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -3199,7 +3199,7 @@ Fields
               <code class="hmp-field-toml">[[data.etp.sources]]</code>
             </div>
 
-         :bdg-primary:`list[EtpSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L72>`__
+         :bdg-primary:`list[EtpSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L62>`__
 
             At least one data source.
 
@@ -3249,6 +3249,34 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L19>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-etp-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.etp.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L19>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-etp-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.etp.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L19>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3377,34 +3405,6 @@ Fields
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-etp-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.etp.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L41>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-etp-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.etp.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L47>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-
-
 
 
 
@@ -3439,7 +3439,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L52>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -3453,7 +3453,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -3469,7 +3469,7 @@ Fields
               <code class="hmp-field-toml">[[data.temperature.sources]]</code>
             </div>
 
-         :bdg-primary:`list[TemperatureSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L72>`__
+         :bdg-primary:`list[TemperatureSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L62>`__
 
             At least one data source.
 
@@ -3519,6 +3519,34 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L19>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-temperature-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.temperature.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L19>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-temperature-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.temperature.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L19>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3647,34 +3675,6 @@ Fields
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-temperature-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.temperature.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L41>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-temperature-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.temperature.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L47>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-
-
 
 
 
@@ -3709,7 +3709,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L52>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -3723,7 +3723,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -3739,7 +3739,7 @@ Fields
               <code class="hmp-field-toml">[[data.wind.sources]]</code>
             </div>
 
-         :bdg-primary:`list[WindSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L71>`__
+         :bdg-primary:`list[WindSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L61>`__
 
             At least one data source.
 
@@ -3789,6 +3789,34 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L19>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-wind-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.wind.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L19>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-wind-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.wind.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L19>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -3917,34 +3945,6 @@ Fields
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-wind-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.wind.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L41>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-wind-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.wind.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L47>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-
-
 
 
 
@@ -3979,7 +3979,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L52>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -3993,7 +3993,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -4009,7 +4009,7 @@ Fields
               <code class="hmp-field-toml">[[data.humidity.sources]]</code>
             </div>
 
-         :bdg-primary:`list[HumiditySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L72>`__
+         :bdg-primary:`list[HumiditySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L62>`__
 
             At least one data source.
 
@@ -4059,6 +4059,34 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L19>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-humidity-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.humidity.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L19>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-humidity-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.humidity.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L19>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -4187,34 +4215,6 @@ Fields
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-humidity-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.humidity.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L41>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-humidity-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.humidity.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L47>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-
-
 
 
 
@@ -4249,7 +4249,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L69>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L59>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -4263,7 +4263,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L69>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L59>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -4279,7 +4279,7 @@ Fields
               <code class="hmp-field-toml">[[data.radiation.sources]]</code>
             </div>
 
-         :bdg-primary:`list[RadiationSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L79>`__
+         :bdg-primary:`list[RadiationSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L69>`__
 
             At least one data source.
 
@@ -4329,6 +4329,34 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L19>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-radiation-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.radiation.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L19>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-radiation-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.radiation.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L19>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -4471,34 +4499,6 @@ Fields
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-radiation-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.radiation.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L48>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-radiation-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.radiation.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L54>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
-
-
 
 
 
@@ -4533,7 +4533,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L52>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -4547,7 +4547,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L62>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -4563,7 +4563,7 @@ Fields
               <code class="hmp-field-toml">[[data.soil_moisture.sources]]</code>
             </div>
 
-         :bdg-primary:`list[SoilMoistureSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L72>`__
+         :bdg-primary:`list[SoilMoistureSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L62>`__
 
             At least one data source.
 
@@ -4613,6 +4613,34 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L19>`__
 
                   Ignore the cache and force a fresh download from the API.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-soil-moisture-sources-mask-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.soil_moisture.sources.mask_path">
+                    <code class="hmp-field-name">mask_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L19>`__
+
+                  Optional SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip gridded sources.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-soil-moisture-sources-source-unit
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.soil_moisture.sources.source_unit">
+                    <code class="hmp-field-name">source_unit</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L19>`__
+
+                  Optional source unit for custom gridded .nc/.tif inputs. When omitted for NetCDF, units are inferred from variable metadata.
 
 
             .. container:: hmp-field hmp-field-level-dev
@@ -4739,34 +4767,6 @@ Fields
                :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L33>`__
 
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-soil-moisture-sources-source-unit
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.soil_moisture.sources.source_unit">
-                    <code class="hmp-field-name">source_unit</code>
-                  </div>
-
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L41>`__
-
-                  Optional source unit for custom gridded .nc/.tif inputs. If omitted for NetCDF, units are inferred from variable metadata when available.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-soil-moisture-sources-mask-path
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.soil_moisture.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L47>`__
-
-                  SHP/GPKG/GeoJSON/TIF mask to spatially filter stations or clip grid.
 
 
 

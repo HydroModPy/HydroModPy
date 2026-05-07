@@ -10,9 +10,13 @@ Public surface:
 
 from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
+    CalibOutputBoundary,
+    CalibOutputCell,
     CalibOutputDecl,
+    CalibOutputPoint,
     CalibParameterDecl,
     CalibrationConfig,
+    validate_calib_output,
 )
 from hydromodpy.calibration.engine import CalibrationEngine, CalibrationSession
 from hydromodpy.calibration.materialize import materialize_candidate
@@ -50,7 +54,11 @@ __all__ = [
     "CalibrationConfig",
     "CalibParameterDecl",
     "CalibOutputDecl",
+    "CalibOutputPoint",
+    "CalibOutputBoundary",
+    "CalibOutputCell",
     "CalibObjectiveBlockDecl",
+    "validate_calib_output",
     "Optimizer",
     "Objective",
     "ObjectiveValue",

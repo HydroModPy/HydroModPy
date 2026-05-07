@@ -14,9 +14,15 @@ from collections.abc import Mapping
 
 from hydromodpy.core.units import parse_to_canonical_magnitude
 from hydromodpy.physics.flow.initial_conditions import (
-    FlowInitialCondition,
+    _FLOW_IC_ADAPTER,
+    FlowICBottom,
+    FlowICCustom,
+    FlowICTop,
+    FlowICTopOffset,
     FlowInitialConditions,
 )
+
+_FLOW_IC_VARIANT_TYPES = (FlowICTop, FlowICTopOffset, FlowICBottom, FlowICCustom)
 
 
 def normalize_flow_initial_conditions(
@@ -31,7 +37,7 @@ def normalize_flow_initial_conditions(
     ---------------------
     - `None` or `{}` -> `None`
     - `FlowInitialConditions` -> passthrough
-    - `FlowInitialCondition` -> wrapped as `{"h": ...}`
+    - any concrete `FlowInitialCondition` variant -> wrapped as `{"h": ...}`
     - flat mapping with keys `type`, `value`, `unit|units`, `description`
       where `value` can be numeric or a string like `"12.5 m"`
     """
@@ -39,7 +45,7 @@ def normalize_flow_initial_conditions(
         return None
     if isinstance(value, FlowInitialConditions):
         return value
-    if isinstance(value, FlowInitialCondition):
+    if isinstance(value, _FLOW_IC_VARIANT_TYPES):
         return FlowInitialConditions(h=value)
     if not isinstance(value, Mapping):
         raise TypeError(
@@ -64,7 +70,7 @@ def normalize_flow_initial_conditions(
         )
 
     normalized = _normalize_single_ic_payload(payload, location_prefix=location_prefix)
-    return FlowInitialConditions(h=FlowInitialCondition.model_validate(normalized))
+    return FlowInitialConditions(h=_FLOW_IC_ADAPTER.validate_python(normalized))
 
 
 def _normalize_single_ic_payload(
@@ -99,17 +105,8 @@ def _normalize_single_ic_payload(
         )
         payload_dict["units"] = "m"
     else:
-        if "value" in payload_dict:
-            payload_dict["value"] = parse_to_canonical_magnitude(
-                payload_dict["value"],
-                location=f"{location_prefix}.value",
-                canonical_unit="m",
-                explicit_unit=explicit_units,
-                length_label="length",
-            )
-            payload_dict["units"] = "m"
-        else:
-            payload_dict.pop("value", None)
+        # 'top' and 'bottom' variants do not carry a value field; drop it.
+        payload_dict.pop("value", None)
 
     # Normalize unit alias and apply process defaults.
     if "units" not in payload_dict and "unit" in payload_dict:

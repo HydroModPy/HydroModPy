@@ -516,11 +516,11 @@
 <polygon fill="none" stroke="black" points="819.75,-392.25 819.75,-414.75 886.5,-414.75 886.5,-392.25 819.75,-392.25"/>
 <text xml:space="preserve" text-anchor="start" x="846.38" y="-398.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nx</text>
 <polygon fill="none" stroke="black" points="886.5,-392.25 886.5,-414.75 1123.5,-414.75 1123.5,-392.25 886.5,-392.25"/>
-<text xml:space="preserve" text-anchor="start" x="978" y="-398.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int | None</text>
+<text xml:space="preserve" text-anchor="start" x="969.75" y="-398.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[int]</text>
 <polygon fill="none" stroke="black" points="819.75,-369.75 819.75,-392.25 886.5,-392.25 886.5,-369.75 819.75,-369.75"/>
 <text xml:space="preserve" text-anchor="start" x="846.38" y="-375.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ny</text>
 <polygon fill="none" stroke="black" points="886.5,-369.75 886.5,-392.25 1123.5,-392.25 1123.5,-369.75 886.5,-369.75"/>
-<text xml:space="preserve" text-anchor="start" x="978" y="-375.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int | None</text>
+<text xml:space="preserve" text-anchor="start" x="969.75" y="-375.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[int]</text>
 <polygon fill="none" stroke="black" points="819.75,-347.25 819.75,-369.75 886.5,-369.75 886.5,-347.25 819.75,-347.25"/>
 <text xml:space="preserve" text-anchor="start" x="822.75" y="-353.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">resampling</text>
 <polygon fill="none" stroke="black" points="886.5,-347.25 886.5,-369.75 1123.5,-369.75 1123.5,-347.25 886.5,-347.25"/>

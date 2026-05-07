@@ -14,7 +14,6 @@ nodata = -9999.0
 [synthetic_geographic.topography]
 kind = "flat"
 base_elevation = 20.0
-right_to_left_amplitude = 0.0
 
 # Preview of the next supported law:
 # [synthetic_geographic.topography]

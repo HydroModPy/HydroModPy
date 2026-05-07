@@ -5,9 +5,11 @@ from pathlib import Path
 import numpy as np
 
 from hydromodpy.spatial.geographic.synthetic import (
+    FlatTopography,
+    LinearTopography,
+    RadialIslandTopography,
     SyntheticGeographicConfig,
     SyntheticGridConfig,
-    SyntheticTopographyConfig,
     build_synthetic_geographic,
 )
 
@@ -23,11 +25,7 @@ def test_flat_surface_is_constant_at_requested_elevation(tmp_path: Path) -> None
             xmin=0.0,
             ymin=0.0,
         ),
-        topography=SyntheticTopographyConfig(
-            kind="flat",
-            base_elevation=20.0,
-            right_to_left_amplitude=0.0,
-        ),
+        topography=FlatTopography(base_elevation=20.0),
     )
 
     geographic = build_synthetic_geographic(config=config, output_dir=tmp_path / "flat")
@@ -50,8 +48,7 @@ def test_linear_surface_rises_from_right_to_left(tmp_path: Path) -> None:
             xmin=0.0,
             ymin=0.0,
         ),
-        topography=SyntheticTopographyConfig(
-            kind="linear",
+        topography=LinearTopography(
             base_elevation=20.0,
             right_to_left_amplitude=5.0,
         ),
@@ -75,7 +72,7 @@ def test_domain_context_is_uniform_and_uses_synthetic_surface(tmp_path: Path) ->
             xmin=100.0,
             ymin=200.0,
         ),
-        topography=SyntheticTopographyConfig(kind="flat", base_elevation=20.0),
+        topography=FlatTopography(base_elevation=20.0),
     )
 
     geographic = build_synthetic_geographic(config=config, output_dir=tmp_path / "context")
@@ -104,8 +101,7 @@ def test_radial_island_surface_is_emerged_at_center_and_submerged_offshore(tmp_p
             xmin=0.0,
             ymin=0.0,
         ),
-        topography=SyntheticTopographyConfig(
-            kind="radial_island",
+        topography=RadialIslandTopography(
             base_elevation=-1.0,
             crest_elevation=6.0,
             island_radius="35 m",

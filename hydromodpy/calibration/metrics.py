@@ -40,7 +40,13 @@ from hydromodpy.simulation.planning.plan import RunContext
 from hydromodpy.solver.base.registry import get_solver_adapter
 
 if TYPE_CHECKING:
-    from hydromodpy.calibration.config import CalibObjectiveBlockDecl, CalibOutputDecl
+    from hydromodpy.calibration.config import (
+        CalibObjectiveBlockDecl,
+        CalibOutputBoundary,
+        CalibOutputCell,
+        CalibOutputDecl,
+        CalibOutputPoint,
+    )
 
 logger = get_logger(__name__)
 
@@ -489,7 +495,7 @@ def _coerce_length_to_m(value: Any) -> float | None:
     return float(value)
 
 
-def _point_xy_from_output(output: CalibOutputDecl) -> tuple[float, float] | None:
+def _point_xy_from_output(output: CalibOutputPoint) -> tuple[float, float] | None:
     """Return planar point coordinates from an output declaration."""
     x_m = _coerce_length_to_m(output.x)
     y_m = _coerce_length_to_m(output.y)
@@ -560,7 +566,7 @@ def _slice_time(values: np.ndarray, time: Any, reducer: str) -> list[float]:
     return [float(v) for v in arr]
 
 
-def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
+def _extract_point(ctx: Any, output: CalibOutputPoint) -> list[float]:
     """Extract a head time series at the (x, y) point declared on ``output``.
 
     Resolves the closest cell in the structured MODFLOW-NWT grid (layer 0)
@@ -590,7 +596,7 @@ def _extract_point(ctx: Any, output: CalibOutputDecl) -> list[float]:
     return _slice_time(sim.values, output.time, output.reducer)
 
 
-def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
+def _extract_boundary(ctx: Any, output: CalibOutputBoundary) -> list[float]:
     """Extract a boundary time series filtered by ``boundary_id``."""
     resolved = _resolve_flow_adapter(ctx)
     if resolved is None:
@@ -609,7 +615,7 @@ def _extract_boundary(ctx: Any, output: CalibOutputDecl) -> list[float]:
     return _slice_time(sim.values, output.time, output.reducer)
 
 
-def _extract_cell(ctx: Any, output: CalibOutputDecl) -> list[float]:
+def _extract_cell(ctx: Any, output: CalibOutputCell) -> list[float]:
     """Extract a head time series at an explicit cell selector."""
     resolved = _resolve_flow_adapter(ctx)
     if resolved is None:
