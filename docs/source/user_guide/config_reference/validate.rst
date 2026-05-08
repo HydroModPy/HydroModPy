@@ -22,9 +22,13 @@ run:
        payload = tomllib.load(fh)
    HydroModPyConfig.model_validate(payload)
 
-3. **Browser**: paste a TOML payload below to run a structural
-   pre-flight against the JSON Schema. This is approximate; the
-   Python validator remains authoritative.
+3. **Browser**: paste a TOML payload below. The widget loads
+   `Ajv 2020 <https://ajv.js.org/json-schema.html#draft-2020-12>`_
+   and `smol-toml <https://github.com/squirrelchat/smol-toml>`_
+   from the jsdelivr CDN to run a real JSON Schema 2020-12
+   validation. When the CDN is unreachable the widget falls back
+   to a structural check (top-level sections only). The Python
+   validator remains authoritative for production launches.
 
 .. raw:: html
 

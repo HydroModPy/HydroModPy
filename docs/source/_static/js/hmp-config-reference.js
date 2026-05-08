@@ -98,10 +98,80 @@
         anchor.parentNode.insertBefore(crumb, anchor);
     }
 
+    function escapeHtml(text) {
+        return String(text)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+
+    function buildTomlChiplets() {
+        // Replace each <code class="hmp-field-toml">[a.b.<c>]</code> by a
+        // chiplet trail. Chips for static segments link back to the section
+        // page anchor; dynamic placeholders (<id>, <name>) keep a distinct
+        // style and no link.
+        var pageRoot = (document.body.dataset.pageRoot || "").trim();
+        document
+            .querySelectorAll("code.hmp-field-toml")
+            .forEach(function (codeEl) {
+                if (codeEl.dataset.chipped === "1") return;
+                var raw = (codeEl.textContent || "").trim();
+                var match = raw.match(/^(\[+)([^\]]+)(\]+)$/);
+                if (!match) return;
+                var openB = match[1];
+                var path = match[2];
+                var closeB = match[3];
+                var segments = path.split(".");
+                if (!segments.length) return;
+                if (!pageRoot) pageRoot = segments[0];
+
+                var anchorParts = [];
+                var html = '<span class="hmp-toml-chips">';
+                html +=
+                    '<span class="hmp-toml-bracket">' +
+                    escapeHtml(openB) +
+                    "</span>";
+                segments.forEach(function (seg, index) {
+                    var isDynamic = seg.indexOf("<") === 0;
+                    if (index > 0) {
+                        html +=
+                            '<span class="hmp-toml-sep" aria-hidden="true">›</span>';
+                    }
+                    if (isDynamic) {
+                        html +=
+                            '<span class="hmp-toml-chip hmp-toml-chip-dyn">' +
+                            escapeHtml(seg) +
+                            "</span>";
+                    } else {
+                        anchorParts.push(
+                            seg.toLowerCase().replace(/_/g, "-")
+                        );
+                        var anchor = anchorParts.join("-");
+                        var page = pageRoot + ".html";
+                        html +=
+                            '<a class="hmp-toml-chip" href="' +
+                            page +
+                            "#" +
+                            anchor +
+                            '">' +
+                            escapeHtml(seg) +
+                            "</a>";
+                    }
+                });
+                html +=
+                    '<span class="hmp-toml-bracket">' +
+                    escapeHtml(closeB) +
+                    "</span></span>";
+                codeEl.outerHTML = html;
+            });
+    }
+
     document.addEventListener("DOMContentLoaded", function () {
         applyLevel(initialLevel());
         bindLevelButtons();
         bindAnchorCopy();
         buildBreadcrumb();
+        buildTomlChiplets();
     });
 })();

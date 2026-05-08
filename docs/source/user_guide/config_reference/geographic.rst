@@ -5,10 +5,6 @@
 [geographic] GeographicConfig
 =============================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[geographic]``
 
 Pydantic model: ``GeographicConfig`` defined in ``hydromodpy.spatial.geographic.geographic_config``.
@@ -68,187 +64,189 @@ Fields
 
       Catchment definition payload used when source_mode='standard'. Discriminated by 'catch_def' on the nested table: 'dem' | 'txt' | 'from_outlet_coord' | 'from_polyg_shp'.
 
-      Set ``catch_def`` in your TOML to choose one of the schemas below.
+      Pick a tab below: setting ``catch_def`` selects the matching schema.
 
-   .. dropdown:: ``[geographic.catchment.dem]``  (DemCatchDef)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+   .. tab-set::
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+      .. tab-item:: dem
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-dem-dem-init-path
+         TOML: ``[geographic.catchment.dem]`` -- model ``DemCatchDef`` (set ``catch_def = "dem"``).
 
-         .. raw:: html
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.dem.dem_init_path">
-              <code class="hmp-field-name">dem_init_path</code>
-            </div>
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-dem-dem-init-path
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L74>`__
+               .. raw:: html
 
-            Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.dem.dem_init_path">
+                    <code class="hmp-field-name">dem_init_path</code>
+                  </div>
 
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L74>`__
 
+                  Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
 
-   .. dropdown:: ``[geographic.catchment.txt]``  (TxtCatchDef)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-txt-dem-init-path
+      .. tab-item:: txt
 
-         .. raw:: html
+         TOML: ``[geographic.catchment.txt]`` -- model ``TxtCatchDef`` (set ``catch_def = "txt"``).
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.txt.dem_init_path">
-              <code class="hmp-field-name">dem_init_path</code>
-            </div>
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L83>`__
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-txt-dem-init-path
 
-            Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
+               .. raw:: html
 
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.txt.dem_init_path">
+                    <code class="hmp-field-name">dem_init_path</code>
+                  </div>
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-txt-cell-size
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L83>`__
 
-         .. raw:: html
+                  Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.txt.cell_size">
-              <code class="hmp-field-name">cell_size</code>
-            </div>
 
-         :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L90>`__
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-txt-cell-size
 
-            Grid cell size in metres used to rasterise the XYZ point cloud.
+               .. raw:: html
 
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.txt.cell_size">
+                    <code class="hmp-field-name">cell_size</code>
+                  </div>
 
+               :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L90>`__
 
-   .. dropdown:: ``[geographic.catchment.from_outlet_coord]``  (OutletCatchDef)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+                  Grid cell size in metres used to rasterise the XYZ point cloud.
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-from-outlet-coord-dem-init-path
 
-         .. raw:: html
+      .. tab-item:: from_outlet_coord
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.dem_init_path">
-              <code class="hmp-field-name">dem_init_path</code>
-            </div>
+         TOML: ``[geographic.catchment.from_outlet_coord]`` -- model ``OutletCatchDef`` (set ``catch_def = "from_outlet_coord"``).
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L101>`__
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-            Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-from-outlet-coord-dem-init-path
 
+               .. raw:: html
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-from-outlet-coord-x-outlet
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.dem_init_path">
+                    <code class="hmp-field-name">dem_init_path</code>
+                  </div>
 
-         .. raw:: html
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L101>`__
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.x_outlet">
-              <code class="hmp-field-name">x_outlet</code>
-            </div>
+                  Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
 
-         :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L108>`__
 
-            X coordinate of the watershed outlet in the projected CRS.
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-from-outlet-coord-x-outlet
 
+               .. raw:: html
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-from-outlet-coord-y-outlet
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.x_outlet">
+                    <code class="hmp-field-name">x_outlet</code>
+                  </div>
 
-         .. raw:: html
+               :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L108>`__
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.y_outlet">
-              <code class="hmp-field-name">y_outlet</code>
-            </div>
+                  X coordinate of the watershed outlet in the projected CRS.
 
-         :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L111>`__
 
-            Y coordinate of the watershed outlet in the projected CRS.
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-from-outlet-coord-y-outlet
 
+               .. raw:: html
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-from-outlet-coord-snap-dist
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.y_outlet">
+                    <code class="hmp-field-name">y_outlet</code>
+                  </div>
 
-         .. raw:: html
+               :bdg-primary:`float` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L111>`__
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.snap_dist">
-              <code class="hmp-field-name">snap_dist</code>
-            </div>
+                  Y coordinate of the watershed outlet in the projected CRS.
 
-         :bdg-primary:`float | str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L114>`__
 
-            Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-friendly values (for example 50, '50 m', '0.05 km').
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-from-outlet-coord-snap-dist
 
+               .. raw:: html
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-from-outlet-coord-buff-area
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.snap_dist">
+                    <code class="hmp-field-name">snap_dist</code>
+                  </div>
 
-         .. raw:: html
+               :bdg-primary:`float | str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L114>`__
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.buff_area">
-              <code class="hmp-field-name">buff_area</code>
-            </div>
+                  Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-friendly values (for example 50, '50 m', '0.05 km').
 
-         :bdg-primary:`float | str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L120>`__
 
-            Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-from-outlet-coord-buff-area
 
+               .. raw:: html
 
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_outlet_coord.buff_area">
+                    <code class="hmp-field-name">buff_area</code>
+                  </div>
 
-   .. dropdown:: ``[geographic.catchment.from_polyg_shp]``  (PolygonCatchDef)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+               :bdg-primary:`float | str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L120>`__
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+                  Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-from-polyg-shp-dem-init-path
 
-         .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.from_polyg_shp.dem_init_path">
-              <code class="hmp-field-name">dem_init_path</code>
-            </div>
+      .. tab-item:: from_polyg_shp
 
-         :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L139>`__
+         TOML: ``[geographic.catchment.from_polyg_shp]`` -- model ``PolygonCatchDef`` (set ``catch_def = "from_polyg_shp"``).
 
-            Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-from-polyg-shp-dem-init-path
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-from-polyg-shp-polyg-shp-path
+               .. raw:: html
 
-         .. raw:: html
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_polyg_shp.dem_init_path">
+                    <code class="hmp-field-name">dem_init_path</code>
+                  </div>
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.from_polyg_shp.polyg_shp_path">
-              <code class="hmp-field-name">polyg_shp_path</code>
-            </div>
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L139>`__
 
-         :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L146>`__
+                  Path to the DEM raster used as input. For 'dem' and 'txt' modes: defines the model domain directly. For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis. May be left absent when [data.dem.sources] declares the DEM.
 
-            Path to the watershed polygon shapefile.
 
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-from-polyg-shp-polyg-shp-path
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: geographic-catchment-from-polyg-shp-buff-area
+               .. raw:: html
 
-         .. raw:: html
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_polyg_shp.polyg_shp_path">
+                    <code class="hmp-field-name">polyg_shp_path</code>
+                  </div>
 
-            <div class="hmp-field-header" data-toml-path="geographic.catchment.from_polyg_shp.buff_area">
-              <code class="hmp-field-name">buff_area</code>
-            </div>
+               :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L146>`__
 
-         :bdg-primary:`float | str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L153>`__
+                  Path to the watershed polygon shapefile.
 
-            Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: geographic-catchment-from-polyg-shp-buff-area
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="geographic.catchment.from_polyg_shp.buff_area">
+                    <code class="hmp-field-name">buff_area</code>
+                  </div>
+
+               :bdg-primary:`float | str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/geographic_config.py#L153>`__
+
+                  Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').
 
 
 
@@ -494,138 +492,140 @@ Fields
 
             Synthetic topography definition (shape, elevations, slope).
 
-            Set ``kind`` in your TOML to choose one of the schemas below.
+            Pick a tab below: setting ``kind`` selects the matching schema.
 
-         .. dropdown:: ``[geographic.synthetic.topography.flat]``  (FlatTopography)
-            :icon: list-unordered
-            :animate: fade-in-slide-down
+         .. tab-set::
 
-            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+            .. tab-item:: flat
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: geographic-synthetic-topography-flat-base-elevation
+               TOML: ``[geographic.synthetic.topography.flat]`` -- model ``FlatTopography`` (set ``kind = "flat"``).
 
-               .. raw:: html
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-                  <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.flat.base_elevation">
-                    <code class="hmp-field-name">base_elevation</code>
-                  </div>
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: geographic-synthetic-topography-flat-base-elevation
 
-               :bdg-primary:`float` :bdg-secondary:`default = 20.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L123>`__
+                     .. raw:: html
 
-                  Constant surface elevation (m).
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.flat.base_elevation">
+                          <code class="hmp-field-name">base_elevation</code>
+                        </div>
 
+                     :bdg-primary:`float` :bdg-secondary:`default = 20.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L123>`__
 
-
-         .. dropdown:: ``[geographic.synthetic.topography.linear]``  (LinearTopography)
-            :icon: list-unordered
-            :animate: fade-in-slide-down
-
-            .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: geographic-synthetic-topography-linear-base-elevation
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.linear.base_elevation">
-                    <code class="hmp-field-name">base_elevation</code>
-                  </div>
-
-               :bdg-primary:`float` :bdg-secondary:`default = 20.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L136>`__
-
-                  Reference elevation (m) on the right boundary.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: geographic-synthetic-topography-linear-right-to-left-amplitude
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.linear.right_to_left_amplitude">
-                    <code class="hmp-field-name">right_to_left_amplitude</code>
-                  </div>
-
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L140>`__
-
-                  Additional elevation reached on the left boundary relative to the right boundary. Positive values make the surface rise from right to left.
+                        Constant surface elevation (m).
 
 
 
-         .. dropdown:: ``[geographic.synthetic.topography.radial_island]``  (RadialIslandTopography)
-            :icon: list-unordered
-            :animate: fade-in-slide-down
+            .. tab-item:: linear
 
-            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+               TOML: ``[geographic.synthetic.topography.linear]`` -- model ``LinearTopography`` (set ``kind = "linear"``).
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: geographic-synthetic-topography-radial-island-base-elevation
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-               .. raw:: html
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: geographic-synthetic-topography-linear-base-elevation
 
-                  <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.base_elevation">
-                    <code class="hmp-field-name">base_elevation</code>
-                  </div>
+                     .. raw:: html
 
-               :bdg-primary:`float` :bdg-secondary:`default = -1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L160>`__
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.linear.base_elevation">
+                          <code class="hmp-field-name">base_elevation</code>
+                        </div>
 
-                  Submerged ocean-floor elevation (m). Must be < 0.
+                     :bdg-primary:`float` :bdg-secondary:`default = 20.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L136>`__
 
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: geographic-synthetic-topography-radial-island-island-radius
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.island_radius">
-                    <code class="hmp-field-name">island_radius</code>
-                  </div>
-
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L164>`__
-
-                  Circular shoreline radius (m). Defaults to 35% of the smallest domain length.
+                        Reference elevation (m) on the right boundary.
 
 
-            .. container:: hmp-field hmp-field-level-dev
-               :name: geographic-synthetic-topography-radial-island-crest-elevation
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: geographic-synthetic-topography-linear-right-to-left-amplitude
 
-               .. raw:: html
+                     .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.crest_elevation">
-                    <code class="hmp-field-name">crest_elevation</code>
-                  </div>
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.linear.right_to_left_amplitude">
+                          <code class="hmp-field-name">right_to_left_amplitude</code>
+                        </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 10.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L170>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L140>`__
 
-                  Central island elevation (m). The land surface decays nonlinearly to sea level at the shoreline.
-
-
-            .. container:: hmp-field hmp-field-level-dev
-               :name: geographic-synthetic-topography-radial-island-center-x
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.center_x">
-                    <code class="hmp-field-name">center_x</code>
-                  </div>
-
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L177>`__
-
-                  Optional x coordinate of the island center. Defaults to the grid midpoint.
+                        Additional elevation reached on the left boundary relative to the right boundary. Positive values make the surface rise from right to left.
 
 
-            .. container:: hmp-field hmp-field-level-dev
-               :name: geographic-synthetic-topography-radial-island-center-y
 
-               .. raw:: html
+            .. tab-item:: radial_island
 
-                  <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.center_y">
-                    <code class="hmp-field-name">center_y</code>
-                  </div>
+               TOML: ``[geographic.synthetic.topography.radial_island]`` -- model ``RadialIslandTopography`` (set ``kind = "radial_island"``).
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L181>`__
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-                  Optional y coordinate of the island center. Defaults to the grid midpoint.
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: geographic-synthetic-topography-radial-island-base-elevation
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.base_elevation">
+                          <code class="hmp-field-name">base_elevation</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-secondary:`default = -1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L160>`__
+
+                        Submerged ocean-floor elevation (m). Must be < 0.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: geographic-synthetic-topography-radial-island-island-radius
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.island_radius">
+                          <code class="hmp-field-name">island_radius</code>
+                        </div>
+
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L164>`__
+
+                        Circular shoreline radius (m). Defaults to 35% of the smallest domain length.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: geographic-synthetic-topography-radial-island-crest-elevation
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.crest_elevation">
+                          <code class="hmp-field-name">crest_elevation</code>
+                        </div>
+
+                     :bdg-primary:`float` :bdg-secondary:`default = 10.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L170>`__
+
+                        Central island elevation (m). The land surface decays nonlinearly to sea level at the shoreline.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: geographic-synthetic-topography-radial-island-center-x
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.center_x">
+                          <code class="hmp-field-name">center_x</code>
+                        </div>
+
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L177>`__
+
+                        Optional x coordinate of the island center. Defaults to the grid midpoint.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: geographic-synthetic-topography-radial-island-center-y
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="geographic.synthetic.topography.radial_island.center_y">
+                          <code class="hmp-field-name">center_y</code>
+                        </div>
+
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L181>`__
+
+                        Optional y coordinate of the island center. Defaults to the grid midpoint.
 
 
 
@@ -879,7 +879,7 @@ Validation gallery cases that reference fields from this section:
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/geographic.svg
       :alt: ER diagram for GeographicConfig

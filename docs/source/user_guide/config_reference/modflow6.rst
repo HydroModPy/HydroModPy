@@ -5,10 +5,6 @@
 [modflow6] Modflow6Config
 =========================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[modflow6]``
 
 Pydantic model: ``Modflow6Config`` defined in ``hydromodpy.solver.modflow6.modflow6_config``.
@@ -774,7 +770,7 @@ Validation gallery cases that reference fields from this section:
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/modflow6.svg
       :alt: ER diagram for Modflow6Config

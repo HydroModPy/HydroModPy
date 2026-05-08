@@ -21,7 +21,10 @@
     "anchor": "workspace-project-root",
     "page": "workspace.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L70",
-    "description": "Path to the project directory. Required in TOML configs."
+    "description": "Path to the project directory. Required in TOML configs.",
+    "examples": [
+      "\".\""
+    ]
   },
   {
     "path": "workspace.root",
@@ -33,7 +36,10 @@
     "anchor": "workspace-root",
     "page": "workspace.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L75",
-    "description": "Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default."
+    "description": "Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.",
+    "examples": [
+      "\"../..\""
+    ]
   },
   {
     "path": "workspace.catalog_path",
@@ -81,7 +87,10 @@
     "anchor": "workspace-output-root",
     "page": "workspace.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L105",
-    "description": "Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk."
+    "description": "Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.",
+    "examples": [
+      "\"outputs/run_a\""
+    ]
   },
   {
     "path": "geographic.source_mode",
@@ -1497,7 +1506,10 @@
     "anchor": "data-hydrometry-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L97",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.hydrometry.date_end",
@@ -1509,7 +1521,10 @@
     "anchor": "data-hydrometry-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L98",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.hydrometry.sources",
@@ -1749,7 +1764,10 @@
     "anchor": "data-intermittency-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L61",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.intermittency.date_end",
@@ -1761,7 +1779,10 @@
     "anchor": "data-intermittency-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L61",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.intermittency.sources",
@@ -2001,7 +2022,10 @@
     "anchor": "data-oceanic-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L74",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.oceanic.date_end",
@@ -2013,7 +2037,10 @@
     "anchor": "data-oceanic-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L74",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.oceanic.sources",
@@ -2265,7 +2292,10 @@
     "anchor": "data-piezometry-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L66",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.piezometry.date_end",
@@ -2277,7 +2307,10 @@
     "anchor": "data-piezometry-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L66",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.piezometry.sources",
@@ -2529,7 +2562,10 @@
     "anchor": "data-water-quality-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L69",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.water_quality.date_end",
@@ -2541,7 +2577,10 @@
     "anchor": "data-water-quality-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L69",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.water_quality.sources",
@@ -2793,7 +2832,10 @@
     "anchor": "data-recharge-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/recharge/config.py#L129",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.recharge.date_end",
@@ -2805,7 +2847,10 @@
     "anchor": "data-recharge-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/recharge/config.py#L130",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.recharge.sources",
@@ -3105,7 +3150,10 @@
     "anchor": "data-runoff-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.runoff.date_end",
@@ -3117,7 +3165,10 @@
     "anchor": "data-runoff-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.runoff.sources",
@@ -3321,7 +3372,10 @@
     "anchor": "data-precipitation-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L59",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.precipitation.date_end",
@@ -3333,7 +3387,10 @@
     "anchor": "data-precipitation-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L59",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.precipitation.sources",
@@ -3549,7 +3606,10 @@
     "anchor": "data-etp-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.etp.date_end",
@@ -3561,7 +3621,10 @@
     "anchor": "data-etp-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.etp.sources",
@@ -3765,7 +3828,10 @@
     "anchor": "data-temperature-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.temperature.date_end",
@@ -3777,7 +3843,10 @@
     "anchor": "data-temperature-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.temperature.sources",
@@ -3981,7 +4050,10 @@
     "anchor": "data-wind-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.wind.date_end",
@@ -3993,7 +4065,10 @@
     "anchor": "data-wind-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.wind.sources",
@@ -4197,7 +4272,10 @@
     "anchor": "data-humidity-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.humidity.date_end",
@@ -4209,7 +4287,10 @@
     "anchor": "data-humidity-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.humidity.sources",
@@ -4413,7 +4494,10 @@
     "anchor": "data-radiation-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L59",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.radiation.date_end",
@@ -4425,7 +4509,10 @@
     "anchor": "data-radiation-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L59",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.radiation.sources",
@@ -4641,7 +4728,10 @@
     "anchor": "data-soil-moisture-date-start",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L52",
-    "description": "Project start date (ISO format, e.g. '2019-01-01')."
+    "description": "Project start date (ISO format, e.g. '2019-01-01').",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "data.soil_moisture.date_end",
@@ -4653,7 +4743,10 @@
     "anchor": "data-soil-moisture-date-end",
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L52",
-    "description": "Project end date (ISO format, e.g. '2025-12-31')."
+    "description": "Project end date (ISO format, e.g. '2025-12-31').",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "data.soil_moisture.sources",
@@ -4845,7 +4938,10 @@
     "anchor": "flow-param-list",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L136",
-    "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy'])."
+    "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
+    "examples": [
+      "[\"K\", \"Sy\", \"Ss\"]"
+    ]
   },
   {
     "path": "flow.param",
@@ -6393,7 +6489,11 @@
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L193",
-    "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver."
+    "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
+    "examples": [
+      "[\"recharge\"]",
+      "[\"recharge\", \"wells\"]"
+    ]
   },
   {
     "path": "flow.active_bc",
@@ -6405,7 +6505,11 @@
     "anchor": "flow-active-bc",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L202",
-    "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver"
+    "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver",
+    "examples": [
+      "[\"ocean\"]",
+      "[\"west_side\", \"east_side\", \"drainage\"]"
+    ]
   },
   {
     "path": "flow.flow_regime",
@@ -6417,7 +6521,11 @@
     "anchor": "flow-flow-regime",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L65",
-    "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
+    "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
+    "examples": [
+      "\"steady\"",
+      "\"transient\""
+    ]
   },
   {
     "path": "flow.runtime_backend",
@@ -6429,7 +6537,11 @@
     "anchor": "flow-runtime-backend",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L81",
-    "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field."
+    "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.",
+    "examples": [
+      "\"local\"",
+      "\"scipy_sparse\""
+    ]
   },
   {
     "path": "flow.surface_interaction_model",
@@ -6441,7 +6553,11 @@
     "anchor": "flow-surface-interaction-model",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L92",
-    "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical b"
+    "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical b",
+    "examples": [
+      "\"auto\"",
+      "\"regularized_partition\""
+    ]
   },
   {
     "path": "flow.runtime_max_iterations",
@@ -6921,7 +7037,10 @@
     "anchor": "simulation-run-id",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L257",
-    "description": "Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt)."
+    "description": "Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).",
+    "examples": [
+      "\"steady_nwt\""
+    ]
   },
   {
     "path": "simulation.on_collision",
@@ -7041,7 +7160,10 @@
     "anchor": "simulation-time-start-datetime",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L56",
-    "description": "Simulation window lower datetime bound used by launcher-level time alignment and forcing checks."
+    "description": "Simulation window lower datetime bound used by launcher-level time alignment and forcing checks.",
+    "examples": [
+      "\"2019-01-01\""
+    ]
   },
   {
     "path": "simulation.time.end_datetime",
@@ -7053,7 +7175,10 @@
     "anchor": "simulation-time-end-datetime",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L64",
-    "description": "Simulation window upper datetime bound, interpreted as inclusive. Must be greater than or equal to start_datetime."
+    "description": "Simulation window upper datetime bound, interpreted as inclusive. Must be greater than or equal to start_datetime.",
+    "examples": [
+      "\"2025-12-31\""
+    ]
   },
   {
     "path": "simulation.time.step_value",
@@ -7065,7 +7190,11 @@
     "anchor": "simulation-time-step-value",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L72",
-    "description": "Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day'). This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods."
+    "description": "Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day'). This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods.",
+    "examples": [
+      "\"1 month\"",
+      "\"10 day\""
+    ]
   },
   {
     "path": "simulation.time.step_unit",
@@ -7125,7 +7254,10 @@
     "anchor": "simulation-process-id",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L156",
-    "description": "User-facing identifier for the process. This id is required and must be unique within the simulation."
+    "description": "User-facing identifier for the process. This id is required and must be unique within the simulation.",
+    "examples": [
+      "\"flow_main\""
+    ]
   },
   {
     "path": "simulation.process.type",

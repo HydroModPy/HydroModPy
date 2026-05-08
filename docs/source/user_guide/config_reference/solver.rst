@@ -5,10 +5,6 @@
 [solver] SolverConfig
 =====================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[solver]``
 
 Pydantic model: ``SolverConfig`` defined in ``hydromodpy.solver.base.solver_config``.
@@ -64,7 +60,7 @@ Starter TOML snippet
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/solver.svg
       :alt: ER diagram for SolverConfig

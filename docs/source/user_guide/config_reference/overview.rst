@@ -5,10 +5,6 @@
 [overview] OverviewConfig
 =========================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[overview]``
 
 Pydantic model: ``OverviewConfig`` defined in ``hydromodpy.display.overview.config``.
@@ -269,7 +265,7 @@ Starter TOML snippet
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/overview.svg
       :alt: ER diagram for OverviewConfig

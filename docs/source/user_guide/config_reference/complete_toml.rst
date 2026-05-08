@@ -9,9 +9,10 @@ Every TOML section with its direct fields, defaults and types.
 Sub-models are linked back to their per-section page.
 
 .. tip::
-   The blocks below produce **valid TOML** when copy-pasted.
+   The blocks below produce a **structurally valid TOML skeleton**.
    Required and factory fields are commented out: uncomment and
-   replace the placeholder before running the project.
+   replace the placeholder before running the project. Lines tagged
+   ``# example:`` come from ``Field(examples=...)`` declarations.
 
 .. dropdown:: ``[workflow]`` (WorkflowConfig)
    :icon: gear
@@ -33,8 +34,10 @@ Sub-models are linked back to their per-section page.
 
       [workspace]
       # Path to the project directory. Required in TOML configs.
+      # example: project_root = "."
       # project_root = ""  # REQUIRED
       # Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
+      # example: root = "../.."
       # root = ...  # default = None
       # Explicit path to the project hydromodpy.duckdb. Defaults to <project_root>/hydromodpy.duckdb.
       # catalog_path = ...  # default = None
@@ -43,6 +46,7 @@ Sub-models are linked back to their per-section page.
       # Explicit path to the simulations Zarr directory. Defaults to <project_root>/simulations.
       # simulations_dir = ...  # default = None
       # Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
+      # example: output_root = "outputs/run_a"
       # output_root = ...  # default = None
 
 .. dropdown:: ``[geographic]`` (GeographicConfig)
@@ -147,6 +151,7 @@ Sub-models are linked back to their per-section page.
 
       [flow]
       # Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).
+      # example: param_list = ["K", "Sy", "Ss"]
       # param_list = ...  # uses factory default
       # Mapping of flow-parameter identifiers to native FieldParamConfig payloads.
       # param = ...  # uses factory default
@@ -157,14 +162,24 @@ Sub-models are linked back to their per-section page.
       # Typed sinks/sources payload (for example pumping wells).
       # sinks_sources = ...  # uses factory default
       # Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.
+      # example: active_sinks_sources = ["recharge"]
+      # example: active_sinks_sources = ["recharge", "wells"]
       # active_sinks_sources = ...  # uses factory default
       # Explicitly activated boundary-condition ids for this flow run. Allowed values: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
+      # example: active_bc = ["ocean"]
+      # example: active_bc = ["west_side", "east_side", "drainage"]
       # active_bc = ...  # uses factory default
       # Global flow simulation regime used by solvers consuming [flow] (steady or transient).
+      # example: flow_regime = "steady"
+      # example: flow_regime = "transient"
       flow_regime = "transient"
       # Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.
+      # example: runtime_backend = "local"
+      # example: runtime_backend = "scipy_sparse"
       runtime_backend = "local"
       # Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical backend-dependent default.
+      # example: surface_interaction_model = "auto"
+      # example: surface_interaction_model = "regularized_partition"
       surface_interaction_model = "auto"
       # Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend.
       # runtime_max_iterations = ...  # default = None
@@ -203,6 +218,7 @@ Sub-models are linked back to their per-section page.
       # Human-readable simulation name.
       name = ""
       # Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).
+      # example: run_id = "steady_nwt"
       run_id = ""
       # Behavior when registering a simulation whose ``name`` already exists in this project. ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
       on_collision = "replace"
