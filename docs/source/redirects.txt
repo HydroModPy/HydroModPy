@@ -87,3 +87,7 @@ architecture/calibration/calibration-execution-flows architecture/calibration/ca
 architecture/calibration/calibration-core-classes architecture/calibration/calibration-architecture
 architecture/calibration/calibration-case-structure architecture/calibration/calibration-architecture
 architecture/calibration/calibration-uml-diagrams architecture/calibration/calibration-architecture
+architecture/data_loading/data-definition-transfer-activity-diagram architecture/data_loading/index
+architecture/data_loading/data-definition-transfer-class-diagram architecture/data_loading/index
+architecture/field/field-uml-diagrams architecture/field/index
+architecture/solver/boussinesq-mathematical-notes theory/boussinesq

@@ -55,5 +55,5 @@ Related diagrams
 ----------------
 
 - :doc:`structured-grid-class-diagram`
-- :doc:`../field/field-uml-diagrams`
+- :doc:`../field/index`
 - :doc:`../spatial_support/spatial-support-uml-diagrams`
