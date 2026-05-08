@@ -5,10 +5,6 @@
 [workflow] WorkflowConfig
 =========================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[workflow]``
 
 Pydantic model: ``WorkflowConfig`` defined in ``hydromodpy.config.hydromodpy_config``.
@@ -64,7 +60,7 @@ Starter TOML snippet
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/workflow.svg
       :alt: ER diagram for WorkflowConfig

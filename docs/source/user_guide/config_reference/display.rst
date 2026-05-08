@@ -5,10 +5,6 @@
 [display] DisplayConfig
 =======================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[display]``
 
 Pydantic model: ``DisplayConfig`` defined in ``hydromodpy.display.config``.
@@ -558,7 +554,7 @@ Starter TOML snippet
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/display.svg
       :alt: ER diagram for DisplayConfig

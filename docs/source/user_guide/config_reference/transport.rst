@@ -5,10 +5,6 @@
 [transport] TransportConfig
 ===========================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[transport]``
 
 Pydantic model: ``TransportConfig`` defined in ``hydromodpy.physics.transport.transport_config``.
@@ -604,7 +600,7 @@ Starter TOML snippet
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/transport.svg
       :alt: ER diagram for TransportConfig

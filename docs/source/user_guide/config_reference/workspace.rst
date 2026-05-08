@@ -5,10 +5,6 @@
 [workspace] WorkspaceConfig
 ===========================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[workspace]``
 
 Pydantic model: ``WorkspaceConfig`` defined in ``hydromodpy.core.workspace.config``.
@@ -74,6 +70,8 @@ Fields
 
       Path to the project directory. Required in TOML configs.
 
+   **Example:** ``"."``
+
 
 .. container:: hmp-field hmp-field-level-user
    :name: workspace-root
@@ -87,6 +85,8 @@ Fields
    :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/workspace/config.py#L75>`__
 
       Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
+
+   **Example:** ``"../.."``
 
 
 .. container:: hmp-field hmp-field-level-dev
@@ -144,6 +144,8 @@ Fields
 
       Root directory for per-project outputs (.solver_scratch/, figures/). Defaults to project_root when not set. Use this to redirect heavy outputs to a separate disk.
 
+   **Example:** ``"outputs/run_a"``
+
 
 Starter TOML snippet
 --------------------
@@ -166,7 +168,7 @@ Starter TOML snippet
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/workspace.svg
       :alt: ER diagram for WorkspaceConfig

@@ -5,10 +5,6 @@
 [domain] DomainConfig
 =====================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[domain]``
 
 Pydantic model: ``DomainConfig`` defined in ``hydromodpy.spatial.domain.domain_config``.
@@ -330,47 +326,49 @@ Fields
 
       Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
 
-      Set ``kind`` in your TOML to choose one of the schemas below.
+      Pick a tab below: setting ``kind`` selects the matching schema.
 
-   .. dropdown:: ``[domain.depth_model.constant_thickness]``  (ConstantThicknessDepthModel)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+   .. tab-set::
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+      .. tab-item:: constant_thickness
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: domain-depth-model-constant-thickness-thickness
+         TOML: ``[domain.depth_model.constant_thickness]`` -- model ``ConstantThicknessDepthModel`` (set ``kind = "constant_thickness"``).
 
-         .. raw:: html
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-            <div class="hmp-field-header" data-toml-path="domain.depth_model.constant_thickness.thickness">
-              <code class="hmp-field-name">thickness</code>
-            </div>
+            .. container:: hmp-field hmp-field-level-user
+               :name: domain-depth-model-constant-thickness-thickness
 
-         :bdg-primary:`float` :bdg-secondary:`default = 50.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/depth_model_config.py#L27>`__
+               .. raw:: html
 
-            Constant aquifer thickness (m) applied below topography.
+                  <div class="hmp-field-header" data-toml-path="domain.depth_model.constant_thickness.thickness">
+                    <code class="hmp-field-name">thickness</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-secondary:`default = 50.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/depth_model_config.py#L27>`__
+
+                  Constant aquifer thickness (m) applied below topography.
 
 
 
-   .. dropdown:: ``[domain.depth_model.flat_substratum]``  (FlatSubstratumDepthModel)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+      .. tab-item:: flat_substratum
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+         TOML: ``[domain.depth_model.flat_substratum]`` -- model ``FlatSubstratumDepthModel`` (set ``kind = "flat_substratum"``).
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: domain-depth-model-flat-substratum-substratum-elevation
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-         .. raw:: html
+            .. container:: hmp-field hmp-field-level-user
+               :name: domain-depth-model-flat-substratum-substratum-elevation
 
-            <div class="hmp-field-header" data-toml-path="domain.depth_model.flat_substratum.substratum_elevation">
-              <code class="hmp-field-name">substratum_elevation</code>
-            </div>
+               .. raw:: html
 
-         :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/depth_model_config.py#L58>`__
+                  <div class="hmp-field-header" data-toml-path="domain.depth_model.flat_substratum.substratum_elevation">
+                    <code class="hmp-field-name">substratum_elevation</code>
+                  </div>
 
-            Flat substratum elevation (m) applied over the full domain.
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/depth_model_config.py#L58>`__
+
+                  Flat substratum elevation (m) applied over the full domain.
 
 
 
@@ -426,7 +424,7 @@ Validation gallery cases that reference fields from this section:
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/domain.svg
       :alt: ER diagram for DomainConfig

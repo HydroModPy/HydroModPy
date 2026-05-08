@@ -5,10 +5,6 @@
 [analysis] AnalysisConfig
 =========================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[analysis]``
 
 Pydantic model: ``AnalysisConfig`` defined in ``hydromodpy.analysis.config``.
@@ -2112,7 +2108,7 @@ Starter TOML snippet
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/analysis.svg
       :alt: ER diagram for AnalysisConfig

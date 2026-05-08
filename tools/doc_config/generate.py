@@ -427,6 +427,35 @@ def _toml_placeholder(field: FieldInfo) -> str:
     return '""'
 
 
+def _format_example_value(value: Any) -> str:
+    """Render a Pydantic ``examples=`` entry as a TOML-flavoured literal."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, str):
+        return f'"{value}"'
+    if isinstance(value, Path):
+        return f'"{value.as_posix()}"'
+    if value is None:
+        return "null"
+    if isinstance(value, (list, tuple)):
+        inner_items = ", ".join(_format_example_value(item) for item in value)
+        return f"[{inner_items}]"
+    if isinstance(value, dict):
+        inner_items = ", ".join(
+            f"{key} = {_format_example_value(val)}" for key, val in value.items()
+        )
+        return "{ " + inner_items + " }"
+    return repr(value)
+
+
+def _field_examples(field: FieldInfo) -> list[Any]:
+    """Return the user-supplied ``examples`` list for ``field`` (empty if none)."""
+    examples = getattr(field, "examples", None)
+    if not examples:
+        return []
+    return list(examples)
+
+
 # ---------------------------------------------------------------------------
 # Field rendering
 # ---------------------------------------------------------------------------
@@ -540,27 +569,42 @@ def _render_field_block(
     if description_lines:
         lines.extend(description_lines)
         lines.append("")
+    examples = _field_examples(field)
+    if len(examples) == 1:
+        lines.append(f"{inner}**Example:** ``{_format_example_value(examples[0])}``")
+        lines.append("")
+    elif len(examples) > 1:
+        lines.append(f"{inner}.. admonition:: Examples")
+        lines.append(f"{inner}   :class: hmp-field-examples")
+        lines.append("")
+        for example in examples:
+            lines.append(f"{inner}   * ``{_format_example_value(example)}``")
+        lines.append("")
     if discriminator is not None:
         disc_name, _ = discriminator
         lines.append(
-            f"{inner}   Set ``{disc_name}`` in your TOML to choose one of the schemas below."
+            f"{inner}   Pick a tab below: setting ``{disc_name}`` selects the matching schema."
         )
         lines.append("")
 
     if depth < MAX_NESTED_DEPTH:
-        for inner_model in inner_models:
-            if id(inner_model) in seen:
-                continue
+        valid_models = [im for im in inner_models if id(im) not in seen]
+        use_tabs = discriminator is not None and len(valid_models) >= 2
+        if use_tabs:
+            lines.append(f"{inner}.. tab-set::")
+            lines.append("")
+        item_indent = inner + "   " if use_tabs else inner
+
+        for inner_model in valid_models:
             nested_seen = seen | {id(inner_model)}
             if discriminator is not None:
                 disc_name, disc_tags = discriminator
                 tag = disc_tags[inner_model]
                 hidden_field = disc_name
                 nested_path = _toml_path(full_path, tag, dynamic_key)
-                title = f"``[{nested_path}]``  ({inner_model.__name__})"
                 child_namespace = anchor_namespace
             else:
-                title = f"Fields of ``{inner_model.__name__}``"
+                tag = None
                 hidden_field = None
                 nested_path = _toml_path(full_path, dynamic_key)
                 if len(inner_models) > 1:
@@ -570,17 +614,37 @@ def _render_field_block(
                     )
                 else:
                     child_namespace = anchor_namespace
-            lines.extend(
-                [
-                    f"{inner}.. dropdown:: {title}",
-                    f"{inner}   :icon: list-unordered",
-                    f"{inner}   :animate: fade-in-slide-down",
-                    "",
-                    f"{inner}   .. rst-class:: hmp-config-fields hmp-config-fields-nested",
-                    "",
-                ]
-            )
-            sub_indent = inner + "   "
+
+            if use_tabs:
+                disc_name, _ = discriminator  # type: ignore[misc]
+                lines.append(f"{item_indent}.. tab-item:: {tag}")
+                lines.append("")
+                tab_body = item_indent + "   "
+                lines.append(
+                    f"{tab_body}TOML: ``[{nested_path}]`` -- model "
+                    f'``{inner_model.__name__}`` (set ``{disc_name} = "{tag}"``).'
+                )
+                lines.append("")
+                lines.append(f"{tab_body}.. rst-class:: hmp-config-fields hmp-config-fields-nested")
+                lines.append("")
+                sub_indent = tab_body + "   "
+            else:
+                if discriminator is not None:
+                    title = f"``[{nested_path}]``  ({inner_model.__name__})"
+                else:
+                    title = f"Fields of ``{inner_model.__name__}``"
+                lines.extend(
+                    [
+                        f"{item_indent}.. dropdown:: {title}",
+                        f"{item_indent}   :icon: list-unordered",
+                        f"{item_indent}   :animate: fade-in-slide-down",
+                        "",
+                        f"{item_indent}   .. rst-class:: hmp-config-fields hmp-config-fields-nested",
+                        "",
+                    ]
+                )
+                sub_indent = item_indent + "   "
+
             for sub_name, sub_field in inner_model.model_fields.items():
                 if getattr(sub_field, "exclude", False):
                     continue
@@ -783,10 +847,6 @@ def _render_couche2(
         f"{title}",
         "=" * len(title),
         "",
-        ".. contents:: On this page",
-        "   :local:",
-        "   :depth: 2",
-        "",
         f"TOML section: ``[{section_name}]``",
         "",
         f"Pydantic model: ``{model.__name__}`` defined in ``{model.__module__}``.",
@@ -849,7 +909,7 @@ def _render_couche2(
                 "Entity-relationship diagram",
                 "---------------------------",
                 "",
-                ".. container:: hmp-er-wrapper",
+                ".. container:: hmp-er-wrapper hmp-er-thumbnail",
                 "",
                 f"   .. image:: {diagram_rel}",
                 f"      :alt: ER diagram for {model.__name__}",
@@ -968,9 +1028,10 @@ def _render_couche4(top_fields: dict[str, FieldInfo]) -> str:
         "Sub-models are linked back to their per-section page.",
         "",
         ".. tip::",
-        "   The blocks below produce **valid TOML** when copy-pasted.",
+        "   The blocks below produce a **structurally valid TOML skeleton**.",
         "   Required and factory fields are commented out: uncomment and",
-        "   replace the placeholder before running the project.",
+        "   replace the placeholder before running the project. Lines tagged",
+        "   ``# example:`` come from ``Field(examples=...)`` declarations.",
         "",
     ]
     for name, field in top_fields.items():
@@ -990,6 +1051,8 @@ def _render_couche4(top_fields: dict[str, FieldInfo]) -> str:
                 continue
             description = (sub_field.description or "no description").replace("\n", " ").strip()
             lines.append(f"      # {description}")
+            for example in _field_examples(sub_field):
+                lines.append(f"      # example: {field_name} = {_format_example_value(example)}")
             if sub_field.is_required():
                 placeholder = _toml_placeholder(sub_field)
                 lines.append(f"      # {field_name} = {placeholder}  # REQUIRED")
@@ -1111,17 +1174,23 @@ def _render_couche5(top_fields: dict[str, FieldInfo]) -> str:
 
 
 def export_schema(output_path: Path | None = None) -> Path:
-    """Write the canonical JSON Schema to ``_static/hydromodpy-schema.json``."""
+    """Write the canonical JSON Schema to ``_static/hydromodpy-schema.json``.
+
+    The exported document declares JSON Schema 2020-12 dialect (``$schema``)
+    so external validators (Ajv, ajv-cli, IDE schema stores) pick the right
+    keyword set without guessing.
+    """
     target = (output_path or SCHEMA_OUTPUT).resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
     schema = HydroModPyConfig.model_json_schema()
+    schema = {"$schema": "https://json-schema.org/draft/2020-12/schema", **schema}
     _write_if_changed(target, json.dumps(schema, indent=2, sort_keys=False) + "\n")
     return target
 
 
 def export_search_index(top_fields: dict[str, FieldInfo], output_path: Path | None = None) -> Path:
     """Write a flat JSON index used by the in-page Ctrl+F search widget."""
-    entries: list[dict[str, str]] = []
+    entries: list[dict[str, Any]] = []
     for name, field in top_fields.items():
         model = _unwrap(field.annotation)
         if not (isinstance(model, type) and issubclass(model, BaseModel)):
@@ -1131,22 +1200,28 @@ def export_search_index(top_fields: dict[str, FieldInfo], output_path: Path | No
             field_name = full_path.rsplit(".", 1)[-1]
             field_info = _field_info_for_path(model, full_path[len(name) + 1 :])
             description = ""
-            if field_info is not None and field_info.description:
-                description = field_info.description.replace("\n", " ").strip()[:240]
-            entries.append(
-                {
-                    "path": full_path,
-                    "name": field_name,
-                    "type": type_str,
-                    "profile": profile,
-                    "stability": stability,
-                    "section": name,
-                    "anchor": anchor,
-                    "page": f"{name}.html",
-                    "source": source or "",
-                    "description": description,
-                }
-            )
+            examples_payload: list[str] = []
+            if field_info is not None:
+                if field_info.description:
+                    description = field_info.description.replace("\n", " ").strip()[:240]
+                examples_payload = [
+                    _format_example_value(value) for value in _field_examples(field_info)
+                ]
+            entry: dict[str, Any] = {
+                "path": full_path,
+                "name": field_name,
+                "type": type_str,
+                "profile": profile,
+                "stability": stability,
+                "section": name,
+                "anchor": anchor,
+                "page": f"{name}.html",
+                "source": source or "",
+                "description": description,
+            }
+            if examples_payload:
+                entry["examples"] = examples_payload
+            entries.append(entry)
     target = (output_path or SEARCH_INDEX_OUTPUT).resolve()
     target.parent.mkdir(parents=True, exist_ok=True)
     _write_if_changed(target, json.dumps(entries, indent=2, sort_keys=False) + "\n")
@@ -1261,9 +1336,13 @@ def _render_validate_page() -> str:
         "       payload = tomllib.load(fh)",
         "   HydroModPyConfig.model_validate(payload)",
         "",
-        "3. **Browser**: paste a TOML payload below to run a structural",
-        "   pre-flight against the JSON Schema. This is approximate; the",
-        "   Python validator remains authoritative.",
+        "3. **Browser**: paste a TOML payload below. The widget loads",
+        "   `Ajv 2020 <https://ajv.js.org/json-schema.html#draft-2020-12>`_",
+        "   and `smol-toml <https://github.com/squirrelchat/smol-toml>`_",
+        "   from the jsdelivr CDN to run a real JSON Schema 2020-12",
+        "   validation. When the CDN is unreachable the widget falls back",
+        "   to a structural check (top-level sections only). The Python",
+        "   validator remains authoritative for production launches.",
         "",
         ".. raw:: html",
         "",

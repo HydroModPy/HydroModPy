@@ -5,10 +5,6 @@
 [mesh_catchment] MeshCatchmentConfig
 ====================================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[mesh_catchment]``
 
 Pydantic model: ``MeshCatchmentConfig`` defined in ``hydromodpy.spatial.mesh.config.main``.
@@ -838,112 +834,114 @@ Fields
 
       Effective support domain to mesh. The default `geographic_box_buffer` mode reuses the catchment bounding box plus geographic buffer prepared during delineation, which is usually the right support for mono-catchment meshing.
 
-      Set ``kind`` in your TOML to choose one of the schemas below.
+      Pick a tab below: setting ``kind`` selects the matching schema.
 
-   .. dropdown:: ``[mesh_catchment.domain.bbox]``  (ZoneMeshingDomainBBox)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+   .. tab-set::
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+      .. tab-item:: bbox
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: mesh-catchment-domain-bbox-bbox
+         TOML: ``[mesh_catchment.domain.bbox]`` -- model ``ZoneMeshingDomainBBox`` (set ``kind = "bbox"``).
 
-         .. raw:: html
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-            <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.bbox.bbox">
-              <code class="hmp-field-name">bbox</code>
-            </div>
+            .. container:: hmp-field hmp-field-level-user
+               :name: mesh-catchment-domain-bbox-bbox
 
-         :bdg-primary:`list[float]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L26>`__
+               .. raw:: html
 
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.bbox.bbox">
+                    <code class="hmp-field-name">bbox</code>
+                  </div>
 
-
-   .. dropdown:: ``[mesh_catchment.domain.polygon]``  (ZoneMeshingDomainPolygon)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
-
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: mesh-catchment-domain-polygon-coordinates
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.polygon.coordinates">
-              <code class="hmp-field-name">coordinates</code>
-            </div>
-
-         :bdg-primary:`list[list[float]]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L46>`__
+               :bdg-primary:`list[float]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L26>`__
 
 
 
-   .. dropdown:: ``[mesh_catchment.domain.vector]``  (ZoneMeshingDomainVector)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+      .. tab-item:: polygon
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+         TOML: ``[mesh_catchment.domain.polygon]`` -- model ``ZoneMeshingDomainPolygon`` (set ``kind = "polygon"``).
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: mesh-catchment-domain-vector-path
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-         .. raw:: html
+            .. container:: hmp-field hmp-field-level-user
+               :name: mesh-catchment-domain-polygon-coordinates
 
-            <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.path">
-              <code class="hmp-field-name">path</code>
-            </div>
+               .. raw:: html
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L61>`__
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.polygon.coordinates">
+                    <code class="hmp-field-name">coordinates</code>
+                  </div>
 
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: mesh-catchment-domain-vector-id-field
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.id_field">
-              <code class="hmp-field-name">id_field</code>
-            </div>
-
-         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L62>`__
-
-            Optional vector attribute field name used to filter features.
-
-
-      .. container:: hmp-field hmp-field-level-user
-         :name: mesh-catchment-domain-vector-selected-id
-
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.selected_id">
-              <code class="hmp-field-name">selected_id</code>
-            </div>
-
-         :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L66>`__
-
-            Optional value of id_field that selects a single feature in the vector source.
+               :bdg-primary:`list[list[float]]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L46>`__
 
 
 
-   .. dropdown:: ``[mesh_catchment.domain.geographic_box_buffer]``  (ZoneMeshingDomainGeographicBoxBuffer)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+      .. tab-item:: vector
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+         TOML: ``[mesh_catchment.domain.vector]`` -- model ``ZoneMeshingDomainVector`` (set ``kind = "vector"``).
+
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: mesh-catchment-domain-vector-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.path">
+                    <code class="hmp-field-name">path</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L61>`__
 
 
-   .. dropdown:: ``[mesh_catchment.domain.geographic_watershed]``  (ZoneMeshingDomainGeographicWatershed)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+            .. container:: hmp-field hmp-field-level-user
+               :name: mesh-catchment-domain-vector-id-field
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.id_field">
+                    <code class="hmp-field-name">id_field</code>
+                  </div>
+
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L62>`__
+
+                  Optional vector attribute field name used to filter features.
 
 
-   .. dropdown:: ``[mesh_catchment.domain.geographic_watershed_box]``  (ZoneMeshingDomainGeographicWatershedBox)
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+            .. container:: hmp-field hmp-field-level-user
+               :name: mesh-catchment-domain-vector-selected-id
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="mesh_catchment.domain.vector.selected_id">
+                    <code class="hmp-field-name">selected_id</code>
+                  </div>
+
+               :bdg-primary:`Optional[str]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/_domain_schema.py#L66>`__
+
+                  Optional value of id_field that selects a single feature in the vector source.
+
+
+
+      .. tab-item:: geographic_box_buffer
+
+         TOML: ``[mesh_catchment.domain.geographic_box_buffer]`` -- model ``ZoneMeshingDomainGeographicBoxBuffer`` (set ``kind = "geographic_box_buffer"``).
+
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+
+      .. tab-item:: geographic_watershed
+
+         TOML: ``[mesh_catchment.domain.geographic_watershed]`` -- model ``ZoneMeshingDomainGeographicWatershed`` (set ``kind = "geographic_watershed"``).
+
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+
+      .. tab-item:: geographic_watershed_box
+
+         TOML: ``[mesh_catchment.domain.geographic_watershed_box]`` -- model ``ZoneMeshingDomainGeographicWatershedBox`` (set ``kind = "geographic_watershed_box"``).
+
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
 
 
@@ -1529,7 +1527,7 @@ Starter TOML snippet
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/mesh_catchment.svg
       :alt: ER diagram for MeshCatchmentConfig

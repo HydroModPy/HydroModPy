@@ -5,10 +5,6 @@
 [persistence] PersistenceConfig
 ===============================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[persistence]``
 
 Pydantic model: ``PersistenceConfig`` defined in ``hydromodpy.core.config_kit.persistence``.
@@ -142,7 +138,7 @@ Starter TOML snippet
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/persistence.svg
       :alt: ER diagram for PersistenceConfig

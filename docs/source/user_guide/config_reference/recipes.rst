@@ -61,8 +61,6 @@ data, no figures by default. Great as a smoke test.
    [flow.param.K.field]
    id = "K"
    kind = "homogeneous"
-
-   [flow.param.K.field]
    value = "1e-4 m/s"
 
    [flow.bc.dirichlet.west_side]

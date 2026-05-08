@@ -5,10 +5,6 @@
 [modflownwt] ModflowConfig
 ==========================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[modflownwt]``
 
 Pydantic model: ``ModflowConfig`` defined in ``hydromodpy.solver.modflow_nwt.nwt.nwt_config``.
@@ -1154,7 +1150,7 @@ Validation gallery cases that reference fields from this section:
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/modflownwt.svg
       :alt: ER diagram for ModflowConfig

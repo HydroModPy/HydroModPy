@@ -5,10 +5,6 @@
 [simulation] SimulationConfig
 =============================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[simulation]``
 
 Pydantic model: ``SimulationConfig`` defined in ``hydromodpy.simulation.planning.config``.
@@ -57,6 +53,8 @@ Fields
    :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L257>`__
 
       Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).
+
+   **Example:** ``"steady_nwt"``
 
 
 .. container:: hmp-field hmp-field-level-user
@@ -205,6 +203,8 @@ Fields
 
             Simulation window lower datetime bound used by launcher-level time alignment and forcing checks.
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-end-datetime
@@ -219,6 +219,8 @@ Fields
 
             Simulation window upper datetime bound, interpreted as inclusive. Must be greater than or equal to start_datetime.
 
+         **Example:** ``"2025-12-31"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: simulation-time-step-value
@@ -232,6 +234,12 @@ Fields
          :bdg-primary:`int | float | str` :bdg-secondary:`default = "1 month"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L72>`__
 
             Forcing/stress-period time-step scalar or inline token '<value> <unit>' (for example '30 day'). This controls the temporal aggregation step for forcing series (for example recharge/runoff) and the resulting stress periods.
+
+         .. admonition:: Examples
+            :class: hmp-field-examples
+
+            * ``"1 month"``
+            * ``"10 day"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -311,6 +319,8 @@ Fields
          :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L156>`__
 
             User-facing identifier for the process. This id is required and must be unique within the simulation.
+
+         **Example:** ``"flow_main"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -957,7 +967,7 @@ Validation gallery cases that reference fields from this section:
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/simulation.svg
       :alt: ER diagram for SimulationConfig

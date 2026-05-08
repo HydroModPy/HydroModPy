@@ -5,10 +5,6 @@
 [data] DataManagersConfig
 =========================
 
-.. contents:: On this page
-   :local:
-   :depth: 2
-
 TOML section: ``[data]``
 
 Pydantic model: ``DataManagersConfig`` defined in ``hydromodpy.data.data_managers_config``.
@@ -635,6 +631,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-hydrometry-date-end
@@ -648,6 +646,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/hydrometry/config.py#L98>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -947,6 +947,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-intermittency-date-end
@@ -960,6 +962,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/intermittency/config.py#L61>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -1259,6 +1263,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-oceanic-date-end
@@ -1272,6 +1278,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/oceanic/config.py#L74>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -1585,6 +1593,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-piezometry-date-end
@@ -1598,6 +1608,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/piezometry/config.py#L66>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -1911,6 +1923,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-water-quality-date-end
@@ -1924,6 +1938,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/water_quality/config.py#L69>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -2237,6 +2253,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-recharge-date-end
@@ -2250,6 +2268,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/recharge/config.py#L130>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -2619,6 +2639,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-runoff-date-end
@@ -2632,6 +2654,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/runoff/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -2889,6 +2913,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-precipitation-date-end
@@ -2902,6 +2928,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/precipitation/config.py#L59>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -3173,6 +3201,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-etp-date-end
@@ -3186,6 +3216,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/etp/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -3443,6 +3475,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-temperature-date-end
@@ -3456,6 +3490,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/temperature/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -3713,6 +3749,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-wind-date-end
@@ -3726,6 +3764,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/wind/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -3983,6 +4023,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-humidity-date-end
@@ -3996,6 +4038,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/humidity/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -4253,6 +4297,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-radiation-date-end
@@ -4266,6 +4312,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/radiation/config.py#L59>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -4537,6 +4585,8 @@ Fields
 
             Project start date (ISO format, e.g. '2019-01-01').
 
+         **Example:** ``"2019-01-01"``
+
 
       .. container:: hmp-field hmp-field-level-user
          :name: data-soil-moisture-date-end
@@ -4550,6 +4600,8 @@ Fields
          :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L52>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
+
+         **Example:** ``"2025-12-31"``
 
 
       .. container:: hmp-field hmp-field-level-user
@@ -4891,7 +4943,7 @@ Validation gallery cases that reference fields from this section:
 Entity-relationship diagram
 ---------------------------
 
-.. container:: hmp-er-wrapper
+.. container:: hmp-er-wrapper hmp-er-thumbnail
 
    .. image:: _diagrams/data.svg
       :alt: ER diagram for DataManagersConfig
