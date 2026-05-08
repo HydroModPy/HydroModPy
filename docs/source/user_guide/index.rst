@@ -32,13 +32,13 @@ Core concepts
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: ../seven-modes
+      :link: driving-hydromodpy
       :link-type: doc
 
-      **Usage modes**
+      **Driving HydroModPy**
       ^^^
-      CLI TOML, JSON payloads, Python configuration, notebooks, and low-level
-      primitives.
+      Workflow families and the seven driving modes: CLI TOML, JSON, Python,
+      notebooks, and low-level primitives.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -243,7 +243,7 @@ Use these pages once you have generated or opened result pages:
    :hidden:
 
    Configuration reference <config_reference/index>
-   Usage modes <../seven-modes>
+   Driving HydroModPy <driving-hydromodpy>
    Workflow families <workflows/index>
    Concepts <concepts/index>
    Cookbook <cookbook/index>

@@ -230,8 +230,8 @@ Where to look next
   variable, and the default ``~/hydromodpy/`` location.
 - :doc:`../user_guide/concepts/project-vs-run` explains the TOML inheritance contract between
   ``project.toml`` and the ``run_*.toml`` variants.
-- :doc:`../seven-modes` lists the seven supported user APIs (CLI,
-  TOML, Python, notebook).
+- :doc:`../user_guide/driving-hydromodpy` lists the seven supported
+  user APIs (CLI, TOML, Python, notebook).
 - ``CONTRIBUTING.md`` (repository root) holds the deep reference for
   the configuration system, the workspace catalog schema, and the
   Pydantic field declaration rules.

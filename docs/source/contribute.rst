@@ -209,5 +209,5 @@ Where to look next
   field).
 - :doc:`architecture/index` documents the package layout and the
   runtime handoff between modules.
-- :doc:`seven-modes` lists the supported user APIs (CLI, TOML, Python,
-  notebook).
+- :doc:`user_guide/driving-hydromodpy` lists the supported user APIs
+  (CLI, TOML, Python, notebook).
