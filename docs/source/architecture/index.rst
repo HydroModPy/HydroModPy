@@ -1,97 +1,161 @@
-Developer Guide
-===============
+Architecture and Developer Guide
+================================
 
-This section is the main entry point for HydroModPy technical
-documentation. It groups design-level diagrams, code-oriented reading
-guides, contributor notes, and the contributing handbook.
+This section is the developer-facing reference for HydroModPy. It
+documents the package architecture, the design patterns, the storage
+layout, the test layers, and the contributor recipes for extending the
+toolbox.
 
-Use this tab when you want:
+For user-facing documentation, see :doc:`/user_guide/index`. For
+scientific notes and equations, see :doc:`/theory/index`.
 
-- module and package boundaries,
-- class, component, activity, and sequence diagrams,
-- runtime orchestration and handoff views,
-- mental model, design patterns, storage, and schema-evolution notes,
-- guided entry points for reading the codebase package by package,
-- the contributing handbook (testing expectations, release process).
-
-For equations, modelling assumptions, and method documentation, see
-the :doc:`Theory section <../theory/index>` of the User Guide.
-
-Package layout
+Where to start
 --------------
 
-The Python package lives under ``hydromodpy/``. Each subpackage has one
-clear responsibility. The list below summarizes what each folder
-contains. Open the full reading guide in
-:doc:`overview/code-reading-guide` once you know which module you want
-to study.
+.. grid:: 1 2 2 2
+   :gutter: 2
 
-.. code-block:: text
+   .. grid-item-card:: New to the codebase?
+      :link: overview/mental-model-and-design-choices
+      :link-type: doc
 
-   hydromodpy/
-   |-- _cli/           Command-line entry point (hmp, hydromodpy aliases)
-   |-- analysis/       Comparison, batch, and capability gallery helpers
-   |-- calibration/    Optuna engine, objectives, optimizers, evaluators
-   |-- core/           Config contracts, workspace anchoring, registry
-   |-- data/           Data managers (BRGM, BD TOPAGE, Hub'Eau, SIM2, ...)
-   |-- display/        Solver-agnostic figures and figure catalog
-   |-- physics/        Process definitions (Flow, Transport, BCs, ICs)
-   |-- results/        Result catalog (DuckDB ledger + Zarr fields)
-   |-- schema/         JSON Schema export for frontend integrations
-   |-- simulation/     Run orchestration (planner, registry, context)
-   |-- solver/         Solver abstraction + MODFLOW-NWT/MF6/Boussinesq
-   |-- spatial/        Catchment delineation, DEM, mesh, field maps
-   `-- workflow/       Composable workflow steps and run state
+      Read the mental model first: how a TOML becomes a persisted run.
 
-Top-level helpers in ``hydromodpy/``:
+   .. grid-item-card:: Want to extend HydroModPy?
+      :link: how-to/index
+      :link-type: doc
 
-- ``project.py`` is the public ``Project`` facade that wires the workflow
-  end to end. Most user code only imports from here.
-- ``__init__.py`` re-exports the stable API surface (``Project``,
-  ``Config``, ``Geographic``, ``Domain``, ``Flow``, ``Sim``, etc.) and
-  bootstraps the PROJ database on import.
+      Step-by-step recipes: add a solver, a config field, a data
+      source, a figure, a test, a CLI command, a calibration method,
+      or build a frontend.
 
-Repository folders outside the package:
+   .. grid-item-card:: Looking for a subpackage?
+      :link: packages/index
+      :link-type: doc
 
-.. code-block:: text
+      One concise reference page per top-level subpackage of
+      ``hydromodpy/``.
 
-   HydroModPy/
-   |-- docs/      Sphinx documentation source (this site)
-   |-- examples/              Runnable example projects (TOML + Python)
-   |-- hydromodpy/            Python package (see layout above)
-   |-- hydromodpy_annex/      Project-specific tools that depend on the
-                              package but are not part of the core API
-   |-- install/               Conda environment files and WSL helpers
-   |-- tests/                 Unit, regression, and validation tiers
-   |-- tools/                 Doc gallery, PlantUML setup, CI helpers
-   `-- validation_cases/      Analytical and numerical reference cases
+   .. grid-item-card:: Need a precise contract?
+      :link: layered-architecture
+      :link-type: doc
 
-MODFLOW, MODPATH, and MT3D-USGS binaries are no longer shipped with the
-repository. They are downloaded on first use into a managed cache
-(``~/.cache/hydromodpy/bin/`` by default) by
-``hydromodpy.solver.modflow_common.binaries``. See :doc:`../install`
-for the ``hmp install-binaries`` command.
+      The 14-layer dependency matrix that every commit must respect.
 
-The dependency direction is one-way: ``hydromodpy_annex`` and tooling
-under ``tools/`` may import the core package, but the package itself
-must not import from them.
+Foundations
+-----------
+
+The pages below are the architectural backbone. Read them once before
+diving into a specific package.
+
+- :doc:`package-layout` -- the 14 subpackages and the top-level facade.
+- :doc:`layered-architecture` -- the strict layer matrix and the
+  one-way import rule.
+- :doc:`overview/mental-model-and-design-choices` -- how a configuration
+  becomes a persisted result, and why the layers are split that way.
+- :doc:`overview/design-patterns` -- the canonical patterns reused
+  across the codebase (SolverAdapter, Step, Figure, DataManager,
+  ProcessSpatial, etc.).
+- :doc:`overview/code-reading-guide` -- recommended package-by-package
+  reading paths.
+- :doc:`overview/two-databases` -- the workspace layout with one input
+  cache and one simulation catalog.
+- :doc:`storage-layout` -- the full DuckDB schema, Zarr stores,
+  Parquet tables, and the basename rule.
+- :doc:`overview/schema-evolution` -- the versioning policy applied to
+  future storage migrations.
+- :doc:`overview/frontend-hooks` -- the JSON Schema and partial-validator
+  contract that any UI integration consumes.
+- :doc:`overview/test-families-and-quality-roles` -- the test ladder
+  with role and command per family.
+
+Contributor recipes
+-------------------
+
+The :doc:`how-to/index` section answers prescriptive questions: "I
+need to add X, where does it go and what contract must I honour?".
+Read the matching recipe before opening files.
+
+.. grid:: 1 2 2 2
+   :gutter: 2
+
+   .. grid-item-card:: Add a solver
+      :link: how-to/add-a-solver
+      :link-type: doc
+
+      A new flow / transport / postprocess backend bound to a
+      ``(process_type, solver_name)`` pair.
+
+   .. grid-item-card:: Add a config field
+      :link: how-to/add-a-config-field
+      :link-type: doc
+
+      A new TOML knob backed by a Pydantic model with units and a
+      Profile annotation.
+
+   .. grid-item-card:: Add a data source
+      :link: how-to/add-a-data-source
+      :link-type: doc
+
+      A new public API or local-file source bound to an existing data
+      variable.
+
+   .. grid-item-card:: Add a figure
+      :link: how-to/add-a-figure
+      :link-type: doc
+
+      A new entry in the display registry consumable by ``Run.plot``
+      and the ``[display]`` section.
+
+Per-package reference
+---------------------
+
+The :doc:`packages/index` section gives one focused page per top-level
+subpackage. Each page covers the package role, its sub-modules, the
+key public symbols, and the recommended reading path inside the code.
+
+Detailed reference pages
+------------------------
+
+These pages remain as deep dives for specific subsystems. They
+complement the per-package summaries.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Architecture & code reading
+   :caption: Foundations
 
+   package-layout
+   layered-architecture
+   storage-layout
    overview/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: How-to (contributor recipes)
+
+   how-to/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Per-package reference
+
+   packages/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Detailed pages
+
    data_loading/index
    spatial_support/index
    field/index
    mesh/index
    mesh_pivot
    gmsh_meshing
-   calibration/index
+   modflow_contracts
    process/index
    solver/index
-   modflow_contracts
    simulation/index
+   calibration/index
 
 .. toctree::
    :maxdepth: 2
