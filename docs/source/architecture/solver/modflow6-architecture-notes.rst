@@ -68,6 +68,6 @@ and the newer runtime catchment-mesh workflow.
 See also
 --------
 
-- :doc:`../mesh/mesh-catchment-in-process-simulation-activity-diagram`
-- :doc:`../mesh/structured-grid-build-sequence-diagram`
+- :doc:`../mesh/catchment-mesh-architecture`
+- :doc:`../mesh/structured-grid-architecture`
 - :doc:`boussinesq-uml-diagrams`

@@ -212,7 +212,7 @@ See also
 --------
 
 - :doc:`solver/index` for the solver package architecture.
-- :doc:`mesh/structured-grid-class-diagram` for the grid object that
+- :doc:`mesh/structured-grid-architecture` for the grid object that
   feeds the DIS contract.
 - :doc:`overview/design-patterns` (item 1) for the adapter pattern that
   wraps these contracts.

@@ -101,4 +101,4 @@ Related diagrams
 
 - :doc:`support-selection-guide`
 - :doc:`../field/index`
-- :doc:`../mesh/sgrid-fieldparam-discretization-diagrams`
+- :doc:`../mesh/structured-grid-architecture`

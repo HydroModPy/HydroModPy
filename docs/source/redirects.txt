@@ -98,3 +98,11 @@ architecture/process/process-runtime-to-solver-sequence-diagram architecture/pro
 architecture/process/process-spatial-lifecycle-state-machine architecture/process/process-architecture
 architecture/process/process-layer-separation-component-diagram architecture/process/process-architecture
 architecture/process/process-extension-activity-diagram architecture/process/process-architecture
+architecture/mesh/catchment-conformal-meshing-diagrams architecture/mesh/catchment-mesh-architecture
+architecture/mesh/mesh-catchment-package-component-diagram architecture/mesh/catchment-mesh-architecture
+architecture/mesh/mesh-catchment-batch-activity-diagram architecture/mesh/catchment-mesh-architecture
+architecture/mesh/mesh-catchment-in-process-simulation-activity-diagram architecture/mesh/catchment-mesh-architecture
+architecture/mesh/mesh-catchment-output-layout-activity-diagram architecture/mesh/catchment-mesh-architecture
+architecture/mesh/structured-grid-class-diagram architecture/mesh/structured-grid-architecture
+architecture/mesh/structured-grid-build-sequence-diagram architecture/mesh/structured-grid-architecture
+architecture/mesh/sgrid-fieldparam-discretization-diagrams architecture/mesh/structured-grid-architecture

@@ -82,5 +82,5 @@ Related pages
 -------------
 
 - :doc:`../spatial_support/spatial-support-uml-diagrams`
-- :doc:`../mesh/sgrid-fieldparam-discretization-diagrams`
+- :doc:`../mesh/structured-grid-architecture`
 - :doc:`../mesh_pivot` for the cross-mesh pivot format.
