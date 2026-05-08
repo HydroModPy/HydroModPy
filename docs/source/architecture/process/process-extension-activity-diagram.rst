@@ -49,4 +49,4 @@ Related diagrams
 
 - :doc:`process-config-class-diagram`
 - :doc:`process-layer-separation-component-diagram`
-- :doc:`../overview/tests-and-validation`
+- :doc:`../overview/test-families-and-quality-roles`

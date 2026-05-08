@@ -165,17 +165,10 @@ Zarr/Parquet artefacts, and leftover ``*.parquet.tmp`` files.
 8. Run the test suite
 ---------------------
 
-The test runner ships with the package:
-
-.. code-block:: bash
-
-   hmp test unit                       # fastest tier
-   hmp test regression --fast          # reference outputs
-   hmp test regression --extensive     # full coverage
-   hmp test regression -j auto         # parallel
-   hmp test validation --fast          # scientific benchmarks
-
-Tier definitions and tags are documented in :doc:`../contribute`.
+``hmp test unit`` is the fastest local check. For the full ladder
+(unit, regression, validation, etc.) with role and entry point per
+family, use
+:doc:`../architecture/overview/test-families-and-quality-roles`.
 
 9. Share a simulation
 ---------------------

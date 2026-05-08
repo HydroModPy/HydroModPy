@@ -77,3 +77,13 @@ seven-modes user_guide/driving-hydromodpy
 user_guide/concepts/workflow-families user_guide/driving-hydromodpy
 examples/index user_guide/cookbook/index
 architecture/boussinesq_solver theory/boussinesq
+architecture/launchers/mesh-catchment-batch-activity-diagram architecture/mesh/mesh-catchment-batch-activity-diagram
+architecture/launchers/mesh-catchment-in-process-simulation-activity-diagram architecture/mesh/mesh-catchment-in-process-simulation-activity-diagram
+architecture/launchers/mesh-catchment-output-layout-activity-diagram architecture/mesh/mesh-catchment-output-layout-activity-diagram
+architecture/launchers/mesh-catchment-package-component-diagram architecture/mesh/mesh-catchment-package-component-diagram
+architecture/launchers/model-calibration-launcher-architecture architecture/calibration/calibration-guide
+architecture/calibration/calibration-overview architecture/calibration/calibration-architecture
+architecture/calibration/calibration-execution-flows architecture/calibration/calibration-architecture
+architecture/calibration/calibration-core-classes architecture/calibration/calibration-architecture
+architecture/calibration/calibration-case-structure architecture/calibration/calibration-architecture
+architecture/calibration/calibration-uml-diagrams architecture/calibration/calibration-architecture

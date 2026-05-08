@@ -31,7 +31,6 @@ They are deliberately complementary to the package-level sections in
    hydrographic-network-uml-diagrams
    hydrographic-network-simulated-active-inventory
    code-reading-guide
-   tests-and-validation
    data-managers-and-external-dependencies
    two-databases
    schema-evolution
