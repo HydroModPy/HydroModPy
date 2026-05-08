@@ -37,6 +37,7 @@ It separates four complementary views:
    :maxdepth: 2
 
    calibration-overview
+   calibration-guide
    calibration-execution-flows
    calibration-core-classes
    calibration-case-structure
