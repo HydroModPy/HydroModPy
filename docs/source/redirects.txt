@@ -91,3 +91,10 @@ architecture/data_loading/data-definition-transfer-activity-diagram architecture
 architecture/data_loading/data-definition-transfer-class-diagram architecture/data_loading/index
 architecture/field/field-uml-diagrams architecture/field/index
 architecture/solver/boussinesq-mathematical-notes theory/boussinesq
+architecture/process/process-package-map architecture/process/process-architecture
+architecture/process/process-runtime-class-diagram architecture/process/process-architecture
+architecture/process/process-config-class-diagram architecture/process/process-architecture
+architecture/process/process-runtime-to-solver-sequence-diagram architecture/process/process-architecture
+architecture/process/process-spatial-lifecycle-state-machine architecture/process/process-architecture
+architecture/process/process-layer-separation-component-diagram architecture/process/process-architecture
+architecture/process/process-extension-activity-diagram architecture/process/process-architecture

@@ -17,7 +17,7 @@ It focuses on:
 
 For higher-level runtime handoffs from process objects to solver
 adapters, see
-:doc:`../process/process-runtime-to-solver-sequence-diagram` and
+:doc:`../process/process-architecture` and
 :doc:`../simulation/simulation-orchestration-class-diagram`.
 
 .. toctree::
