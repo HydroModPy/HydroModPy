@@ -1,11 +1,9 @@
 Architecture des maillages
 ==========================
 
-Liens : :doc:`glossary <../developer/glossary>`,
-gmsh_mesh_integration_note,
+Liens :
 :doc:`gmsh_conformal_meshing <gmsh_meshing>`,
-:doc:`modflow_contracts <modflow_contracts>`,
-modflow6_gmsh_disv_development_perspective.
+:doc:`modflow_contracts <modflow_contracts>`.
 
 Code : ``hydromodpy/spatial/field/`` (coeur maillage) et
 ``hydromodpy/spatial/mesh/`` (intégration gmsh vers solveurs).

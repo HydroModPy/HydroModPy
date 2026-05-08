@@ -1,20 +1,21 @@
-Architecture & Code Reading
-===========================
+Developer Guide
+===============
 
 This section is the main entry point for HydroModPy technical
-documentation. It groups both design-level diagrams and code-oriented
-reading guides for the main HydroModPy modules.
+documentation. It groups design-level diagrams, code-oriented reading
+guides, contributor notes, and the contributing handbook.
 
 Use this tab when you want:
 
 - module and package boundaries,
 - class, component, activity, and sequence diagrams,
 - runtime orchestration and handoff views,
-- software-facing design notes separated from scientific method notes,
-- guided entry points for reading the codebase package by package.
+- mental model, design patterns, storage, and schema-evolution notes,
+- guided entry points for reading the codebase package by package,
+- the contributing handbook (testing expectations, release process).
 
 For equations, modelling assumptions, and method documentation, see
-:doc:`../theory/index`.
+the :doc:`Theory section <../theory/index>` of the User Guide.
 
 Package layout
 --------------
@@ -77,6 +78,7 @@ must not import from them.
 
 .. toctree::
    :maxdepth: 2
+   :caption: Architecture & code reading
 
    overview/index
    data_loading/index
@@ -91,3 +93,9 @@ must not import from them.
    boussinesq_solver
    modflow_contracts
    simulation/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contributing
+
+   Contributing handbook <../contribute>

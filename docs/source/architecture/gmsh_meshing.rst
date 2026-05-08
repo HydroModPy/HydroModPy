@@ -8,9 +8,7 @@ Note d'architecture : trois concepts coopèrent pour produire un maillage
 2. Exposition d'une trace rivière en mémoire pour le mailleur.
 3. Génération gmsh conforme aux interfaces.
 
-Liens : :doc:`glossary <../developer/glossary>`,
-:doc:`unified_mesh_pivot_architecture <mesh_pivot>`,
-gmsh_mesh_integration_note.
+Lien : :doc:`unified_mesh_pivot_architecture <mesh_pivot>`.
 
 1. Extraction du réseau hydrographique
 --------------------------------------

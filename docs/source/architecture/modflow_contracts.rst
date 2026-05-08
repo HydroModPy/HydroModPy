@@ -8,9 +8,6 @@ d'instancier les packages MODFLOW-NWT. Deux contrats sont couverts :
 2. Les conditions limites d'activation et d'initialisation (package BAS,
    tableaux ``ibound`` et ``strt``).
 
-Liens : :doc:`glossary <../developer/glossary>`, :doc:`design_patterns <../developer/design_patterns>`,
-nwt_sunset_plan.
-
 1. Contrat de discrétisation
 ----------------------------
 
