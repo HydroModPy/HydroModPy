@@ -31,21 +31,38 @@ Top-level entry points
    hydromodpy.bootstrap_proj
    hydromodpy.doctor
 
-Subpackages
------------
+Public subpackages
+------------------
+
+These subpackages expose stable, user-facing APIs (configuration root,
+run catalog, display registry, calibration helpers). Their listings are
+recursive: every public class, function, and submodule gets its own
+generated page.
 
 .. autosummary::
    :toctree: generated
    :recursive:
 
-   hydromodpy.analysis
-   hydromodpy.calibration
    hydromodpy.config
+   hydromodpy.results
+   hydromodpy.display
+   hydromodpy.calibration
+
+Internal subpackages
+--------------------
+
+These subpackages are exposed for contributors extending HydroModPy.
+They follow the strict layered architecture documented in
+:doc:`/architecture/index`. Listings are not recursive; click through
+to a module to read its direct members.
+
+.. autosummary::
+   :toctree: generated
+
+   hydromodpy.analysis
    hydromodpy.core
    hydromodpy.data
-   hydromodpy.display
    hydromodpy.physics
-   hydromodpy.results
    hydromodpy.schema
    hydromodpy.simulation
    hydromodpy.solver

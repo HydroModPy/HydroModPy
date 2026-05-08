@@ -1,12 +1,7 @@
 Architecture du solveur Boussinesq 2D
 =====================================
 
-Liens : :doc:`glossary <../developer/glossary>`,
-:doc:`design_patterns <../developer/design_patterns>`,
-boussinesq_linux_ci,
-boussinesq_petsc_vs_marcais_2017,
-boussinesq_petsc_headwater_100km2_diagnostic,
-:doc:`modflow_contracts <modflow_contracts>`.
+Lien : :doc:`modflow_contracts <modflow_contracts>`.
 
 Code : ``hydromodpy/solver/boussinesq/``.
 
@@ -20,7 +15,9 @@ Definir un solveur d'ecoulement libre 2D, independant de MODFLOW, qui :
 - reste compatible avec les memes conditions initiales, conditions aux limites et termes puits/sources que le backend MODFLOW,
 - gere explicitement la contrainte de surface et la production de ``saturation-excess``.
 
-L'objectif n'est donc pas de redefinir le processus ``Flow``, mais d'ajouter un nouveau solveur ``boussinesq`` compatible avec le contrat ``Flow`` deja en place dans le depot, avec des changements limites au strict necessaire.
+L'objectif n'est donc pas de redefinir le processus ``Flow``, mais d'ajouter
+un nouveau solveur ``boussinesq`` compatible avec le contrat ``Flow`` deja
+en place dans le depot, avec des changements limites au strict necessaire.
 
 2. Recentrage par rapport a l'existant HydroModPy
 -------------------------------------------------
@@ -111,7 +108,9 @@ Remarque importante :
 - dans le schema numerique detaille, l'inconnue assemblee est ``h`` ;
 - ``b``, ``T``, ``S`` et ``S_c`` sont reconstruits localement a partir de ``h`` ;
 - ``Sy`` reste le parametre cle du modele transient libre ;
-- ``Ss`` doit rester disponible si l'on veut que le solveur couvre naturellement les fonctions de stockage transitoire actuellement portees par MODFLOW ;
+- ``Ss`` doit rester disponible si l'on veut que le solveur couvre
+  naturellement les fonctions de stockage transitoire actuellement portees
+  par MODFLOW ;
 - en pratique, le stockage plan peut etre ecrit ``C(h) = Sy + Ss b(h)`` ;
 - ``S = f b(h)`` reste utile comme variable diagnostique pour les sorties et pour
   la regularisation ``S/S_c`` ;
@@ -1371,9 +1370,13 @@ verticale multicouche.
 Ce cadrage impose plusieurs choix :
 
 - il ne faut pas eliminer ``Ss`` de la theorie si l'on veut couvrir le meme champ fonctionnel que MODFLOW en transient ;
-- ``drainage``, ``stream``, ``ocean``, ET et ``saturation-excess`` doivent etre traites comme des operateurs distincts, meme s'ils vivent tous dans le meme bilan ;
-- les sorties de post-traitement doivent etre pensees des le depart comme des derives du bilan et des operateurs, pas comme des ajouts cosmetiques ;
-- l'independance vis-a-vis de MODFLOW ne signifie pas perdre ses capacites, mais les reexprimer dans une formulation 2D libre plus directe.
+- ``drainage``, ``stream``, ``ocean``, ET et ``saturation-excess`` doivent
+  etre traites comme des operateurs distincts, meme s'ils vivent tous dans le
+  meme bilan ;
+- les sorties de post-traitement doivent etre pensees des le depart comme des
+  derives du bilan et des operateurs, pas comme des ajouts cosmetiques ;
+- l'independance vis-a-vis de MODFLOW ne signifie pas perdre ses capacites,
+  mais les reexprimer dans une formulation 2D libre plus directe.
 
 13. Conclusion
 --------------
@@ -1391,4 +1394,6 @@ Le bon "autre solveur" pour HydroModPy n'est pas un clone conceptuel de MODFLOW,
   - ``flow.sinks_sources``,
   - ``simulation.time``.
 
-Autrement dit, la vraie independance vis-a-vis de MODFLOW doit se faire au niveau du backend numerique, pas au niveau du contrat metier expose aux autres briques d'HydroModPy.
+Autrement dit, la vraie independance vis-a-vis de MODFLOW doit se faire au
+niveau du backend numerique, pas au niveau du contrat metier expose aux
+autres briques d'HydroModPy.

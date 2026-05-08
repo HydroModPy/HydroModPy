@@ -13,7 +13,6 @@ Use it as a stable reading map once the quickstart in
 
    workspace-layout
    project-vs-run
-   workflow-families
    comparison-workflow
    comparison-output-reading-order
    reading-results-pages

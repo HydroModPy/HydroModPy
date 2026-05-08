@@ -140,15 +140,14 @@ Where to go next
 
    Most first-time users should follow this order:
 
-   1. :doc:`install`
-   2. :doc:`getting_started/index`
-   3. :doc:`user_guide/index`
-   4. :doc:`examples/index`
-   5. :doc:`capability_gallery/index`
+   1. :doc:`getting_started/index` (install + first run)
+   2. :doc:`user_guide/index` (workflows, configuration, theory)
+   3. :doc:`capability_gallery/index` (validated case studies)
 
 If you are looking for technical documentation, code-reading guides, module
 diagrams, or UML pages, use :doc:`architecture/index`. If you are looking for
-equations, modelling assumptions, or method notes, use :doc:`theory/index`.
+equations, modelling assumptions, or method notes, use
+:doc:`user_guide/index` and follow the Theory section.
 
 If you are specifically looking for streams, seepage, observed hydrography,
 or simulation-derived active networks, use the map
@@ -163,115 +162,78 @@ manual benchmark runs, start with
 Documentation map
 -----------------
 
-.. grid:: 1 1 2 2
+.. grid:: 1 2 3 3
    :gutter: 2 2 3 3
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: install
-      :link-type: doc
-
-      **Installation**
-      ^^^
-      Pip, conda, and offline installation paths plus verification steps.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: getting_started/index
       :link-type: doc
 
-      **Quickstart**
+      **Get started**
       ^^^
-      Short path from installation to a first project, a data overview, and one
-      end-to-end simulation.
+      Install HydroModPy, scaffold a workspace, and run a first end-to-end
+      simulation in five steps.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: user_guide/index
       :link-type: doc
 
-      **User guide**
+      **User Guide**
       ^^^
-      Usage modes, workflow families, workspace layout, project/run concepts,
-      comparison, calibration, meshes, and solver-choice routing.
+      Usage modes, workflow families, cookbook, and the theory backing
+      each solver.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: user_guide/config_reference/index
       :link-type: doc
 
-      **Configuration reference**
+      **Configuration**
       ^^^
-      All TOML sections validated by ``HydroModPyConfig``: fields, defaults,
-      types, plus the annotated complete TOML and the JSON Schema explorer.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: user_guide/cookbook/index
-      :link-type: doc
-
-      **Cookbook**
-      ^^^
-      Ten short TOML-first recipes covering the most common HydroModPy tasks.
+      Every TOML section validated by ``HydroModPyConfig``: fields,
+      defaults, types, plus the JSON Schema explorer.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: capability_gallery/index
       :link-type: doc
 
-      **Case studies**
+      **Gallery**
       ^^^
-      Static mesh illustrations, validation figures, and watershed diagnostics
-      curated for documentation and teaching.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: theory/index
-      :link-type: doc
-
-      **Theory**
-      ^^^
-      Method notes, solver equations, and modelling assumptions separated from
-      the software architecture.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: architecture/index
-      :link-type: doc
-
-      **Developer guide**
-      ^^^
-      Technical documentation, code-reading maps, component diagrams, class
-      diagrams, activity diagrams, and runtime handoff views.
+      Static mesh illustrations, validation figures, and watershed
+      diagnostics curated for documentation and teaching.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: api/index
       :link-type: doc
 
-      **API reference**
+      **API Reference**
       ^^^
       Auto-generated reference for every public class, function, and module
       under ``hydromodpy``.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: migration/index
+      :link: architecture/index
       :link-type: doc
 
-      **Migration**
+      **Developer**
       ^^^
-      Map every removed or renamed entry point from v0 to its 1.x
-      counterpart.
+      Architecture, code-reading maps, component and class diagrams,
+      developer notes, and contributing guidelines.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: contribute
+      :link: about/index
       :link-type: doc
 
-      **Contributors**
+      **About**
       ^^^
-      Development guidelines, testing expectations, and release process.
+      How to cite HydroModPy, papers using the toolbox, and field
+      applications across catchments.
 
 Install
 -------
@@ -297,21 +259,12 @@ For any question or collaboration request, contact:
    :titlesonly:
 
    Home <self>
-   install
-   Quickstart <getting_started/index>
-   user_guide/index
-   Configuration <user_guide/config_reference/index>
-   examples/index
-   Case Studies <capability_gallery/index>
-   Theory <theory/index>
-   Architecture <architecture/index>
-   Developer Notes <developer/index>
+   Get started <getting_started/index>
+   User Guide <user_guide/index>
+   Gallery <capability_gallery/index>
    API Reference <api/index>
-   How to cite <how_to_cite>
-   Papers using HydroModPy <usage_bibliography>
-   Applications <applications>
-   Migration <migration/index>
-   contribute
+   Developer <architecture/index>
+   About <about/index>
 
 .. # HTML helpers
 .. |br| raw:: html

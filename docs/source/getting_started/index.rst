@@ -97,7 +97,8 @@ Related sections
 - :doc:`read-real-basin-run` inventories what one committed real-basin run
   actually exposes through the Python API, and which outputs matter first when
   the question becomes ``EVT`` sensitivity rather than just page reading.
-- :doc:`../examples/index` lists the full notebook and script inventory.
+- :doc:`../user_guide/cookbook/index` lists short TOML-first recipes for
+  common tasks.
 - :doc:`../capability_gallery/index` shows static, versioned result pages built
   from reproducible cases.
 
@@ -105,6 +106,7 @@ Related sections
    :hidden:
    :maxdepth: 1
 
+   Installation <../install>
    concepts_in_5_min
    choose-your-first-workflow
    cli-quickstart

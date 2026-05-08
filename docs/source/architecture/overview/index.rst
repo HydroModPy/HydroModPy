@@ -26,6 +26,7 @@ They are deliberately complementary to the package-level sections in
 
    test-families-and-quality-roles
    mental-model-and-design-choices
+   design-patterns
    testbed-workflow-architecture
    hydrographic-network-uml-diagrams
    hydrographic-network-simulated-active-inventory
@@ -33,3 +34,5 @@ They are deliberately complementary to the package-level sections in
    tests-and-validation
    data-managers-and-external-dependencies
    two-databases
+   schema-evolution
+   frontend-hooks

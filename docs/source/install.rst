@@ -26,9 +26,45 @@ control when binaries arrive on disk:
 
 .. code-block:: bash
 
-   hmp install-binaries                # fetch everything now
-   hmp install-binaries --bindir <dir>  # fetch into a custom directory
-   hmp install-binaries --upgrade       # force re-download (rare)
+   hmp install-binaries                  # fetch everything now
+   hmp install-binaries --subset mf6,mfnwt   # restrict to a subset
+   hmp install-binaries --bindir <dir>   # fetch into a custom directory
+   hmp install-binaries --upgrade        # force re-download (rare)
+   hmp install-binaries --release 23.0   # pin a specific release tag
+
+The default release tag is ``23.0``. Binaries are pulled from the
+``MODFLOW-ORG/executables`` GitHub release by ``flopy.utils.get_modflow``;
+integrity is provided by GitHub TLS plus the release-tag pin, which is
+also the recommended reproducibility lever.
+
+Cache layout:
+
+.. code-block:: text
+
+   ~/.cache/hydromodpy/bin/
+   ├── mf6
+   ├── mfnwt
+   ├── mp6
+   ├── mp7
+   ├── mt3dusgs
+   └── .manifest.json
+
+The ``.manifest.json`` file records the active release tag and the
+download timestamp:
+
+.. code-block:: json
+
+   {
+     "release": "23.0",
+     "downloaded_at": "2026-04-29T12:34:56+00:00",
+     "solvers": ["mf6", "mfnwt", "mp6", "mp7", "mt3dusgs"]
+   }
+
+When ``HYDROMODPY_BIN`` (or ``--bindir``) points at a user-managed
+directory, HydroModPy never writes into it: missing binaries surface at
+solver execution time with a clear ``FileNotFoundError``. For air-gapped
+or CI deployments, run ``hmp install-binaries`` once during provisioning
+so subsequent runs are deterministic and offline-safe.
 
 Install with pip
 ----------------
@@ -372,8 +408,8 @@ Check the installation
    print(hydromodpy.__version__)
 
 Refer to :doc:`getting_started/index` for a guided first workflow once the
-import works. Use :doc:`examples/index` when you want the full notebook and script
-inventory.
+import works. Use :doc:`user_guide/cookbook/index` for short TOML-first
+recipes covering the most common HydroModPy tasks.
 
 Spyder note
 -----------
