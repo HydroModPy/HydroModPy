@@ -18,3 +18,4 @@ Use this section when you want:
    toml-to-solver-walkthrough
    simulation-orchestration-class-diagram
    simulation-time-cycle-diagrams
+   comparison-workflow
