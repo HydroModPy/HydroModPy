@@ -76,3 +76,4 @@ user_guide/data-sources user_guide/data/index
 seven-modes user_guide/driving-hydromodpy
 user_guide/concepts/workflow-families user_guide/driving-hydromodpy
 examples/index user_guide/cookbook/index
+architecture/boussinesq_solver theory/boussinesq

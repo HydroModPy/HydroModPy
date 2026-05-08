@@ -1,129 +1,125 @@
-Architecture des maillages
-==========================
+Mesh Architecture Pivot
+=======================
 
-Liens :
+Links:
 :doc:`gmsh_conformal_meshing <gmsh_meshing>`,
 :doc:`modflow_contracts <modflow_contracts>`.
 
-Code : ``hydromodpy/spatial/field/`` (coeur maillage) et
-``hydromodpy/spatial/mesh/`` (intégration gmsh vers solveurs).
+Code: ``hydromodpy/spatial/field/`` (mesh core) and
+``hydromodpy/spatial/mesh/`` (Gmsh integration toward solvers).
 
-1. Vue d'ensemble
------------------
+1. Overview
+-----------
 
-HydroModPy manipule plusieurs types de maillages 2D et 3D pour
-discrétiser des paramètres hydrogéologiques (conductivité,
-emmagasinement, recharge) et les transmettre aux solveurs (MODFLOW-NWT,
-MODFLOW 6, Boussinesq).
+HydroModPy manipulates several 2D and 3D mesh types to discretize
+hydrogeological parameters (conductivity, storage, recharge) and pass
+them to the solvers (MODFLOW-NWT, MODFLOW 6, Boussinesq).
 
-Ce document couvre :
+This page covers:
 
-- La hiérarchie de classes de maillage (``BaseFieldMesh`` et ses sous-classes).
-- Le format pivot ``HydroMesh`` qui unifie tous les types.
-- La pose de variables sur un maillage (``FieldParam``, ``FieldSpatial``).
-- L'extrusion 3D et les profils verticaux.
-- Le plotting unifié, l'I/O disque (VTU), les adaptateurs FloPy.
-- Le pipeline forcing (recharge, variables climatiques).
-- Les limitations actuelles et le périmètre du pivot.
+- the mesh class hierarchy (``BaseFieldMesh`` and subclasses);
+- the ``HydroMesh`` pivot format that unifies every type;
+- how variables are placed on a mesh (``FieldParam``,
+  ``FieldSpatial``);
+- 3D extrusion and vertical profiles;
+- unified plotting, disk I/O (VTU), and FloPy adapters;
+- the forcing pipeline (recharge, climate variables);
+- current limitations and the scope of the pivot.
 
-----
+2. Mesh types
+-------------
 
-2. Types de maillages
----------------------
-
-2.1 Hiérarchie de classes
-~~~~~~~~~~~~~~~~~~~~~~~~~
+2.1 Class hierarchy
+~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: text
 
    BaseFieldMesh (ABC)                      # hydromodpy/spatial/field/core/field_mesh.py
    ├── StructuredFieldMesh                  # hydromodpy/spatial/field/meshes/structured_field_mesh.py
-   │     _kind = "structured"               # Quadrilatères sur grille régulière
+   │     _kind = "structured"               # Quadrilaterals on a regular grid
    ├── TriangularStructuredFieldMesh        # hydromodpy/spatial/field/meshes/triangular_field_mesh.py
-   │     _kind = "triangular_structured"    # Triangles sur grille régulière
+   │     _kind = "triangular_structured"    # Triangles on a regular grid
    ├── TriangularUnstructuredFieldMesh      # hydromodpy/spatial/field/meshes/triangular_field_mesh.py
-   │     _kind = "triangular_unstructured"  # Triangles Delaunay aléatoires
+   │     _kind = "triangular_unstructured"  # Random Delaunay triangles
    ├── GeologyStructuredMesh                # hydromodpy/spatial/field/geology/geology_mesh.py
-   │     _kind = "structured_rect"          # Quadrilatères en coordonnées réelles
+   │     _kind = "structured_rect"          # Quadrilaterals in real coordinates
    └── GmshPlanarMesh2D                     # hydromodpy/spatial/mesh/gmsh_grid/gmsh_planar_mesh.py
-         _kind = "gmsh_2d"                  # Triangles ou quads depuis fichier .msh
+         _kind = "gmsh_2d"                  # Triangles or quads from a .msh file
 
    ExtrudedPrismMesh3D                      # hydromodpy/spatial/mesh/gmsh_grid/extruded_prism_mesh.py
-         # Prismes 3D par extrusion verticale d'un GmshPlanarMesh2D
+         # 3D prisms by vertical extrusion of a GmshPlanarMesh2D
 
-2.2 Contrat commun (``BaseFieldMesh``)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.2 Common contract (``BaseFieldMesh``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Toutes les sous-classes implémentent :
+Every subclass implements:
 
 .. list-table::
    :header-rows: 1
 
-   * - Propriété / Méthode
+   * - Property / Method
      - Description
    * - ``x_plot``, ``y_plot``
-     - Coordonnées des nœuds (1D ou 2D arrays)
+     - Node coordinates (1D or 2D arrays)
    * - ``shape``
-     - Forme du tableau de nœuds ``(ny, nx)`` ou ``(n_nodes,)``
+     - Node-array shape ``(ny, nx)`` or ``(n_nodes,)``
    * - ``n_nodes``
-     - Nombre total de nœuds
+     - Total number of nodes
    * - ``n_cells``
-     - Nombre total de cellules
+     - Total number of cells
    * - ``cells``
-     - Tuple de ``MeshCell`` (géométrie explicite par cellule)
+     - Tuple of ``MeshCell`` (explicit per-cell geometry)
    * - ``iter_cells()``
-     - Générateur de ``MeshCell``
+     - ``MeshCell`` generator
    * - ``cell_centroids()``
-     - Coordonnées des centres de cellules
+     - Cell-centroid coordinates
    * - ``to_cell_values(values)``
-     - Normalise un tableau brut en 1 valeur / cellule
+     - Normalize a raw array to one value per cell
    * - ``plot_cell_values(ax, values, ...)``
-     - Visualisation matplotlib
+     - Matplotlib visualisation
    * - ``to_hydro_mesh()``
-     - Conversion vers le format pivot ``HydroMesh``
+     - Conversion to the ``HydroMesh`` pivot format
    * - ``attach_cell_values(values, label)``
-     - Retourne un ``MeshWithValues``
+     - Returns a ``MeshWithValues``
 
-2.3 ``MeshCell``: une cellule individuelle
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.3 ``MeshCell``: a single cell
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    @dataclass(frozen=True)
    class MeshCell:
-       index: int                        # Indice global dans le maillage
+       index: int                        # Global index in the mesh
        kind: str                         # "triangle", "quadrilateral"
-       node_indices: tuple[int, ...]     # Indices des nœuds
-       vertices: np.ndarray              # Coordonnées (n_nodes_per_cell, 2)
-       centroid: tuple[float, float]     # Centre de la cellule
+       node_indices: tuple[int, ...]     # Node indices
+       vertices: np.ndarray              # Coordinates (n_nodes_per_cell, 2)
+       centroid: tuple[float, float]     # Cell centroid
 
-2.4 ``MeshWithValues``: maillage + données
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.4 ``MeshWithValues``: mesh plus data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    @dataclass(frozen=True)
    class MeshWithValues:
        mesh: BaseFieldMesh
-       cell_values: np.ndarray    # 1 valeur par cellule
+       cell_values: np.ndarray    # one value per cell
        label: str | None = None
 
-C'est le type de retour de ``FieldParam.to_mesh_field()``: le résultat de la
-discrétisation d'un paramètre sur un maillage.
+This is the return type of ``FieldParam.to_mesh_field()``: the result
+of discretizing a parameter on a mesh.
 
-----
+3. Building a mesh
+------------------
 
-3. Créer un maillage
---------------------
-
-3.1 Grille structurée (carré unitaire)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.1 Structured grid (unit square)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    from hydromodpy.spatial.field.cases.square.field_mesh_square import FieldMeshSquare
 
-   # Grille quadrilatérale 20×20 = 400 cellules
+   # 20x20 = 400 quadrilateral cells
    mesh = FieldMeshSquare.from_unit_square(
        target_n_cells=400,
        mesh_kind="structured",    # "structured" | "triangular_structured" | "triangular_unstructured"
@@ -131,10 +127,10 @@ discrétisation d'un paramètre sur un maillage.
    )
    # mesh.kind == "structured"
    # mesh.n_cells == 400
-   # mesh.shape == (21, 21)  # nœuds
+   # mesh.shape == (21, 21)  # nodes
 
-3.2 Grille triangulaire structurée
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.2 Structured triangular grid
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -143,33 +139,33 @@ discrétisation d'un paramètre sur un maillage.
        mesh_kind="triangular_structured",
    )
    # mesh.kind == "triangular_structured"
-   # mesh.n_cells == 800  # ~2× plus de cellules (chaque quad → 2 triangles)
+   # mesh.n_cells == 800  # ~2x more cells (each quad -> 2 triangles)
 
-3.3 Grille triangulaire non-structurée (Delaunay)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.3 Unstructured Delaunay grid
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    mesh = FieldMeshSquare.from_unit_square(
        target_n_cells=400,
        mesh_kind="triangular_unstructured",
-       seed=42,  # reproductibilité des points aléatoires
+       seed=42,  # reproducibility of random points
    )
 
-3.4 Maillage Gmsh depuis fichier ``.msh``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.4 Gmsh mesh from ``.msh``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    from hydromodpy.spatial.mesh.gmsh_grid.gmsh_planar_mesh import GmshPlanarMesh2D
 
    planar = GmshPlanarMesh2D.from_file("domain.msh")
-   # planar.points_xy → ndarray (n_nodes, 2)
-   # planar.connectivity → ndarray (n_cells, 3)  ou (n_cells, 4)
-   # planar.cell_type → "triangle" ou "quadrilateral"
+   # planar.points_xy -> ndarray (n_nodes, 2)
+   # planar.connectivity -> ndarray (n_cells, 3) or (n_cells, 4)
+   # planar.cell_type -> "triangle" or "quadrilateral"
 
-3.5 Maillage géologique en coordonnées réelles
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.5 Geology mesh in real coordinates
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -181,8 +177,8 @@ discrétisation d'un paramètre sur un maillage.
    )
    # mesh.kind == "structured_rect"
 
-3.6 Maillage 3D extrudé (prismes)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.6 Extruded 3D mesh (prisms)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -190,13 +186,13 @@ discrétisation d'un paramètre sur un maillage.
 
    mesh_3d = ExtrudedPrismMesh3D.from_planar_mesh(
        planar,
-       z_interfaces=[0.0, -5.0, -15.0, -50.0],  # 3 couches
+       z_interfaces=[0.0, -5.0, -15.0, -50.0],  # 3 layers
    )
    # mesh_3d.n_layers == 3
-   # mesh_3d.n_prisms == n_cells_2d × n_layers
-   # mesh_3d.cell_type_3d → "triangular_prism" ou "quadrilateral_prism"
+   # mesh_3d.n_prisms == n_cells_2d * n_layers
+   # mesh_3d.cell_type_3d -> "triangular_prism" or "quadrilateral_prism"
 
-Alternative avec épaisseurs :
+Alternative with thicknesses:
 
 .. code-block:: python
 
@@ -206,14 +202,14 @@ Alternative avec épaisseurs :
        layer_thicknesses=[5.0, 10.0, 35.0],
    )
 
-3.7 Depuis la configuration TOML
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+3.7 From TOML configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    mesh = FieldMeshSquare.from_toml("config.toml", section="mesh")
 
-Avec un TOML contenant :
+with a TOML containing:
 
 .. code-block:: toml
 
@@ -222,27 +218,27 @@ Avec un TOML contenant :
    mesh_kind = "structured"
    seed = 42
 
-----
+4. Placing variables on a mesh
+------------------------------
 
-4. Poser des variables sur un maillage
---------------------------------------
-
-Le pipeline de discrétisation utilise trois objets :
+The discretization pipeline uses three objects:
 
 .. list-table::
    :header-rows: 1
 
-   * - Objet
-     - Rôle
-   * - ``Field`` (ou ``FieldSpatial``)
-     - Géométrie spatiale : définit les zones (ex : granite / micaschistes)
+   * - Object
+     - Role
+   * - ``Field`` (or ``FieldSpatial``)
+     - Spatial geometry: defines zones (for example granite vs
+       micaschists)
    * - ``FieldParam``
-     - Valeur du paramètre : scalaire ou par zone, avec unité et profil vertical
+     - Parameter value: scalar or per-zone, with unit and vertical
+       profile
    * - ``BaseFieldMesh``
-     - Support géométrique : les cellules sur lesquelles discrétiser
+     - Geometric support: cells on which to discretize
 
-4.1 Cas homogène (valeur unique)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4.1 Homogeneous case (single value)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -255,19 +251,19 @@ Le pipeline de discrétisation utilise trois objets :
        value=1e-4,
    )
 
-   # Discrétiser sur un maillage :
+   # Discretize on a mesh:
    result = K.to_mesh_field(mesh=mesh)
-   # result.cell_values → ndarray, toutes les cellules = 1e-4
+   # result.cell_values -> ndarray, every cell = 1e-4
    # result.mesh == mesh
 
-4.2 Cas hétérogène (plusieurs zones)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4.2 Heterogeneous case (several zones)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Trois étapes :
+Three steps:
 
 .. code-block:: python
 
-   # 1) Définir la géométrie spatiale (zones)
+   # 1) Define the spatial geometry (zones)
    from hydromodpy.spatial.field.cases.square.field_spatial_square import FieldSquare
 
    field = FieldSquare(
@@ -278,12 +274,12 @@ Trois étapes :
        zone2_name="micaschists",
    )
 
-   # 2) Projeter les zones sur le maillage
-   #    → calcule la fraction de chaque zone dans chaque cellule
+   # 2) Project the zones on the mesh
+   #    -> compute the fraction of each zone in every cell
    field_discretization = field.on_mesh(mesh, cell_samples_per_axis=10)
-   # field_discretization.weighted_components() → (zone_keys, fractions_by_zone)
+   # field_discretization.weighted_components() -> (zone_keys, fractions_by_zone)
 
-   # 3) Discrétiser le paramètre avec la répartition des zones
+   # 3) Discretize the parameter with the zone distribution
    K = FieldParam(
        identifier="K",
        kind="heterogeneous",
@@ -293,14 +289,14 @@ Trois étapes :
    )
 
    result = K.to_mesh_field(field_discretization)
-   # result.cell_values → moyenne pondérée par zone dans chaque cellule
-   # Cellule 100% granite → 1e-4
-   # Cellule 60% granite / 40% micaschistes → 0.6 × 1e-4 + 0.4 × 1e-6
+   # result.cell_values -> zone-weighted average per cell
+   # 100% granite cell -> 1e-4
+   # 60% granite / 40% micaschists -> 0.6 * 1e-4 + 0.4 * 1e-6
 
-4.3 Profil vertical (variation avec la profondeur)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4.3 Vertical profile (depth dependence)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Le ``FieldParam`` peut porter un profil vertical multiplicatif :
+A ``FieldParam`` can carry a multiplicative vertical profile:
 
 .. code-block:: python
 
@@ -311,18 +307,18 @@ Le ``FieldParam`` peut porter un profil vertical multiplicatif :
        value=1e-4,
        vertical_profile={
            "mode": "exponential",     # "none" | "exponential" | "tabulated"
-           "decay_length": 30.0,      # K(z) = K_ref × exp(-z/30)
-           "min_factor": 0.01,        # plancher à 1% de K_ref
+           "decay_length": 30.0,      # K(z) = K_ref * exp(-z/30)
+           "min_factor": 0.01,        # floor at 1% of K_ref
        },
    )
 
-   # Facteur à 10 m de profondeur :
-   factor = K.vertical_factor(depth=10.0)  # ≈ 0.716
+   # Factor at 10 m depth:
+   factor = K.vertical_factor(depth=10.0)  # ~ 0.716
 
-   # Facteur à 100 m :
-   factor = K.vertical_factor(depth=100.0)  # ≈ 0.036
+   # Factor at 100 m:
+   factor = K.vertical_factor(depth=100.0)  # ~ 0.036
 
-Mode tabulé :
+Tabulated mode:
 
 .. code-block:: python
 
@@ -332,10 +328,10 @@ Mode tabulé :
        "factors": [1.0, 0.8, 0.3, 0.05],
    }
 
-4.4 Discrétisation 3D sur grille structurée (SGrid)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4.4 3D discretization on a structured grid (SGrid)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Pour le pipeline MODFLOW (grille flopy ``StructuredGrid``) :
+For the MODFLOW pipeline (FloPy ``StructuredGrid``):
 
 .. code-block:: python
 
@@ -344,17 +340,17 @@ Pour le pipeline MODFLOW (grille flopy ``StructuredGrid``) :
    )
 
    result = discretize_fieldparam_on_sgrid(
-       support_field=field,     # Field (zones spatiales), ou None si homogène
+       support_field=field,     # Field (spatial zones), or None if homogeneous
        field_param=K,           # FieldParam
-       sgrid=model.modelgrid,   # flopy StructuredGrid (nrow, ncol, nlay)
+       sgrid=model.modelgrid,   # FloPy StructuredGrid (nrow, ncol, nlay)
    )
-   # result.values_3d → (nlay, nrow, ncol) : valeur par cellule avec profil vertical
-   # result.values_2d → (nrow, ncol)       : valeur de référence en surface
+   # result.values_3d -> (nlay, nrow, ncol): per-cell value with vertical profile
+   # result.values_2d -> (nrow, ncol)      : reference surface value
 
-4.5 Discrétisation 3D sur maillage extrudé (Gmsh)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+4.5 3D discretization on an extruded mesh (Gmsh)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Pour les maillages non-structurés :
+For unstructured meshes:
 
 .. code-block:: python
 
@@ -367,41 +363,39 @@ Pour les maillages non-structurés :
        field_param=K,
        mesh_3d=mesh_3d,           # ExtrudedPrismMesh3D
    )
-   # result.values_3d → (n_layers, n_cells_2d)
-   # result.prism_center_depths → (n_layers, n_cells_2d)
+   # result.values_3d -> (n_layers, n_cells_2d)
+   # result.prism_center_depths -> (n_layers, n_cells_2d)
 
-4.6 Unités
-~~~~~~~~~~
+4.6 Units
+~~~~~~~~~
 
-Les valeurs sont **toujours stockées en SI** dans ``FieldParam``. La conversion
-depuis l'unité d'entrée est automatique à la construction :
+Values are **always stored in SI units** inside ``FieldParam``.
+Conversion from the input unit happens automatically at construction:
 
 .. list-table::
    :header-rows: 1
 
-   * - Paramètre
-     - Unités acceptées
-     - Stockage interne
-   * - K (conductivité)
+   * - Parameter
+     - Accepted units
+     - Internal storage
+   * - K (conductivity)
      - m/s, m/day, cm/s, cm/day, m/min, cm/min
      - m/s
-   * - Sy (porosité efficace)
-     - - (sans dimension)
-     - -
-   * - Ss (emmagasinement spécifique)
-     - m⁻¹, cm⁻¹
-     - m⁻¹
+   * - Sy (specific yield)
+     - dimensionless
+     - dimensionless
+   * - Ss (specific storage)
+     - 1/m, 1/cm
+     - 1/m
 
-----
-
-5. Format pivot ``HydroMesh``
+5. ``HydroMesh`` pivot format
 -----------------------------
 
-5.1 Principe
-~~~~~~~~~~~~
+5.1 Principle
+~~~~~~~~~~~~~
 
-``HydroMesh`` est un **conteneur de données immuable** qui représente n'importe
-quel maillage 2D ou 3D de façon uniforme :
+``HydroMesh`` is an **immutable data container** that represents any 2D
+or 3D mesh in a uniform way:
 
 .. code-block:: python
 
@@ -409,21 +403,21 @@ quel maillage 2D ou 3D de façon uniforme :
 
    mesh = HydroMesh(
        vertices=points_xy,                              # ndarray (n_nodes, 2|3)
-       cell_blocks=(CellBlock(CellType.TRIANGLE, conn),),  # connectivité
-       cell_data={"K": conductivity_array},              # scalaires par cellule
-       point_data={},                                    # scalaires par nœud
-       structured_shape=(nrow, ncol),                    # hint optionnel
+       cell_blocks=(CellBlock(CellType.TRIANGLE, conn),),  # connectivity
+       cell_data={"K": conductivity_array},              # per-cell scalars
+       point_data={},                                    # per-node scalars
+       structured_shape=(nrow, ncol),                    # optional hint
    )
 
-5.2 Pourquoi un format pivot ?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+5.2 Why a pivot format
+~~~~~~~~~~~~~~~~~~~~~~
 
-Avant ``HydroMesh``, chaque type de maillage avait son propre modèle de données
-et ses propres routines de plotting. Écrire du code générique (ex : un
-post-traitement qui marche sur structuré ET non-structuré) était impossible
-sans coupler au type concret.
+Before ``HydroMesh``, every mesh type had its own data model and
+plotting routines. Generic code (for example a post-processing that
+works on structured *and* unstructured) was impossible to write
+without coupling to a concrete type.
 
-``HydroMesh`` résout cela :
+``HydroMesh`` solves this:
 
 .. code-block:: text
 
@@ -433,17 +427,17 @@ sans coupler au type concret.
    ExtrudedPrismMesh3D ─┤                  ├── to_flopy_disv_args()
    FloPy StructuredGrid ┘                  └── to_meshio()
 
-5.3 Types de cellules (``CellType``)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+5.3 Cell types (``CellType``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: text
 
-   TRIANGLE        3 nœuds   2D   aliases: "tri", "triangle", "triangles"
-   QUADRILATERAL   4 nœuds   2D   aliases: "quad", "quads", "quadrilateral"
-   WEDGE           6 nœuds   3D   aliases: "wedge", "triangular_prism"
-   HEXAHEDRON      8 nœuds   3D   aliases: "hex", "hexahedron", "quadrilateral_prism"
+   TRIANGLE        3 nodes   2D   aliases: "tri", "triangle", "triangles"
+   QUADRILATERAL   4 nodes   2D   aliases: "quad", "quads", "quadrilateral"
+   WEDGE           6 nodes   3D   aliases: "wedge", "triangular_prism"
+   HEXAHEDRON      8 nodes   3D   aliases: "hex", "hexahedron", "quadrilateral_prism"
 
-Propriétés utiles :
+Useful properties:
 
 .. code-block:: python
 
@@ -452,86 +446,86 @@ Propriétés utiles :
    CellType.TRIANGLE.meshio_name     # "triangle"
    CellType.from_string("tri")       # CellType.TRIANGLE
 
-5.4 Propriétés de ``HydroMesh``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+5.4 ``HydroMesh`` properties
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
 
-   * - Propriété
+   * - Property
      - Type
      - Description
    * - ``ndim``
      - int
-     - 2 ou 3 (dimension spatiale)
+     - 2 or 3 (spatial dimension)
    * - ``n_nodes``
      - int
-     - Nombre de sommets
+     - Number of vertices
    * - ``n_cells``
      - int
-     - Nombre total de cellules
+     - Total number of cells
    * - ``is_structured``
      - bool
-     - ``True`` si ``structured_shape`` est défini
+     - ``True`` if ``structured_shape`` is set
    * - ``cell_types``
      - tuple[CellType]
-     - Types de cellules par bloc
+     - Cell types per block
    * - ``single_cell_type``
      - CellType
-     - Type unique (lève si mélange)
+     - Unique type (raises if mixed)
    * - ``flat_connectivity``
      - ndarray
-     - Connectivité concaténée de tous les blocs
+     - Concatenated connectivity across blocks
    * - ``bounds()``
      - tuple
      - ``(xmin, ymin, [zmin,] xmax, ymax, [zmax])``
 
-5.5 Immuabilité
-~~~~~~~~~~~~~~~
+5.5 Immutability
+~~~~~~~~~~~~~~~~
 
-``HydroMesh`` est une ``frozen dataclass``. Pour ajouter des données :
+``HydroMesh`` is a frozen dataclass. To add data:
 
 .. code-block:: python
 
-   # Ajouter des données par cellule :
+   # Add per-cell data:
    mesh2 = mesh.with_cell_data(K=conductivity, Sy=porosity)
 
-   # Ajouter des données par nœud :
+   # Add per-node data:
    mesh2 = mesh.with_point_data(head=head_values)
 
-Ces méthodes retournent une **nouvelle instance** sans modifier l'originale.
+These methods return a **new instance** without mutating the original.
 
 5.6 Conversions
 ~~~~~~~~~~~~~~~
 
-Toutes les classes de maillage exposent ``.to_hydro_mesh()`` :
+All mesh classes expose ``.to_hydro_mesh()``:
 
 .. code-block:: python
 
-   # Depuis n'importe quel BaseFieldMesh :
+   # From any BaseFieldMesh:
    hm = structured_mesh.to_hydro_mesh()
    hm = triangular_mesh.to_hydro_mesh()
 
-   # Depuis GmshPlanarMesh2D (override optimisé) :
+   # From GmshPlanarMesh2D (optimised override):
    hm = planar.to_hydro_mesh()
 
-   # Depuis ExtrudedPrismMesh3D :
+   # From ExtrudedPrismMesh3D:
    hm = mesh_3d.to_hydro_mesh()
-   # → préserve cell_data["layer_index"] et cell_data["source_cell_index"]
+   # -> preserves cell_data["layer_index"] and cell_data["source_cell_index"]
 
-   # Depuis flopy StructuredGrid :
+   # From FloPy StructuredGrid:
    from hydromodpy.spatial.mesh.adapters import from_flopy_structured
    hm = from_flopy_structured(model.modelgrid)
 
-   # Retour vers GmshPlanarMesh2D :
+   # Back to GmshPlanarMesh2D:
    planar_bis = GmshPlanarMesh2D.from_hydro_mesh(hm)
 
-5.7 Le hint ``structured_shape``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+5.7 The ``structured_shape`` hint
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Quand un maillage provient d'une grille régulière, ``structured_shape`` conserve
-``(nrow, ncol)``. Cela permet au plotting d'utiliser ``pcolormesh`` (plus rapide
-que ``PolyCollection``) et aux exports d'utiliser le format DIS au lieu de DISV.
+When a mesh comes from a regular grid, ``structured_shape`` keeps
+``(nrow, ncol)``. This lets plotting use ``pcolormesh`` (faster than
+``PolyCollection``) and exports use the DIS format instead of DISV.
 
 .. code-block:: python
 
@@ -539,12 +533,10 @@ que ``PolyCollection``) et aux exports d'utiliser le format DIS au lieu de DISV.
    hm.is_structured          # True
    hm.structured_shape       # (20, 20)
 
-----
+6. Unified plotting
+-------------------
 
-6. Plotting unifié
-------------------
-
-6.1 Fonction unique
+6.1 Single function
 ~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
@@ -555,42 +547,42 @@ que ``PolyCollection``) et aux exports d'utiliser le format DIS au lieu de DISV.
    mappable = plot_cell_values(ax, hydro_mesh, values, cmap="coolwarm")
    fig.colorbar(mappable)
 
-6.2 Dispatch automatique
-~~~~~~~~~~~~~~~~~~~~~~~~
+6.2 Automatic dispatch
+~~~~~~~~~~~~~~~~~~~~~~
 
-La fonction détecte la stratégie de rendu à partir de la topologie :
+The function picks the rendering strategy from the topology:
 
 .. list-table::
    :header-rows: 1
 
    * - Condition
-     - Stratégie
+     - Strategy
      - Performance
    * - ``is_structured`` + QUADRILATERAL
      - ``pcolormesh``
-     - Très rapide
+     - Very fast
    * - TRIANGLE
      - ``tripcolor``
-     - Rapide
-   * - Tout autre (QUAD non-structuré, mixte)
+     - Fast
+   * - Anything else (unstructured QUAD, mixed)
      - ``PolyCollection``
-     - Plus lent
+     - Slower
 
-6.3 Depuis les classes existantes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+6.3 From existing classes
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Les méthodes ``plot_cell_values()`` des classes existantes **délèguent** toutes
-au plotter unifié en interne :
+The ``plot_cell_values()`` methods on existing classes all delegate to
+the unified plotter internally:
 
 .. code-block:: python
 
-   # Ces 3 appels font la même chose en interne :
+   # These two calls produce the same result internally:
    structured_mesh.plot_cell_values(ax, values)
-   structured_mesh.to_hydro_mesh()  # → puis plot_cell_values(ax, hm, values)
+   plot_cell_values(ax, structured_mesh.to_hydro_mesh(), values)
 
-   # L'interface publique ne change pas: le code appelant n'a rien à modifier.
+   # The public interface does not change: caller code needs no edit.
 
-Classes concernées :
+Affected classes:
 
 - ``StructuredFieldMesh.plot_cell_values()``
 - ``TriangularStructuredFieldMesh.plot_cell_values()``
@@ -599,95 +591,92 @@ Classes concernées :
 - ``GeologyStructuredMesh.plot_cell_values()``
 - ``extruded_mesh_visualization.plot_planar_cell_values()``
 
-----
+7. Disk I/O
+-----------
 
-7. I/O disque
--------------
+7.1 VTU format (recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-7.1 Format VTU (recommandé)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-VTU (VTK Unstructured Grid XML) est le format de sérialisation recommandé :
+VTU (VTK Unstructured Grid XML) is the recommended serialisation
+format:
 
 .. code-block:: python
 
    from hydromodpy.spatial.mesh.io import write_vtu, read_vtu
 
-   # Écriture :
+   # Write:
    write_vtu("output.vtu", hydro_mesh)
 
-   # Lecture :
+   # Read:
    mesh = read_vtu("output.vtu")
 
-Avantages du VTU :
+VTU advantages:
 
-- Auto-descriptif (sommets, connectivité, types de cellules, données)
-- Supporté par ParaView, PyVista, meshio, QGIS
-- Agnostique 2D/3D et structuré/non-structuré
-- Round-trip garanti avec ``HydroMesh``
+- Self-describing (vertices, connectivity, cell types, data).
+- Supported by ParaView, PyVista, meshio, QGIS.
+- Agnostic 2D/3D and structured/unstructured.
+- Round-trip guaranteed with ``HydroMesh``.
 
-Dépendance : ``meshio`` (optionnel, importé à la demande).
+Dependency: ``meshio`` (optional, imported on demand).
 
-7.2 Format Gmsh (``.msh``)
+7.2 Gmsh format (``.msh``)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Pour les maillages Gmsh :
+For Gmsh meshes:
 
 .. code-block:: python
 
-   # Lecture :
+   # Read:
    planar = GmshPlanarMesh2D.from_file("domain.msh")
 
-   # Écriture :
+   # Write:
    planar.to_file("output.msh")
 
-7.3 API publique d'échange (exchange_api)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+7.3 Public exchange API
+~~~~~~~~~~~~~~~~~~~~~~~
 
-L'API publique dans ``hydromodpy.spatial.mesh.gmsh_grid.exchange_api`` :
+The public API in ``hydromodpy.spatial.mesh.gmsh_grid.exchange_api``:
 
 .. code-block:: python
 
    from hydromodpy.spatial.mesh.gmsh_grid.exchange_api import (
-       load_planar_as_hydro_mesh,     # .msh → HydroMesh 2D
-       load_extruded_as_hydro_mesh,   # .vtu → HydroMesh 3D
-       save_hydro_mesh_vtu,           # HydroMesh → .vtu
-       load_hydro_mesh_vtu,           # .vtu → HydroMesh
+       load_planar_as_hydro_mesh,     # .msh -> HydroMesh 2D
+       load_extruded_as_hydro_mesh,   # .vtu -> HydroMesh 3D
+       save_hydro_mesh_vtu,           # HydroMesh -> .vtu
+       load_hydro_mesh_vtu,           # .vtu -> HydroMesh
    )
 
-7.4 Conversion meshio round-trip
+7.4 meshio round-trip conversion
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    from hydromodpy.spatial.mesh.adapters import from_meshio, to_meshio
 
-   # HydroMesh → meshio.Mesh :
+   # HydroMesh -> meshio.Mesh:
    meshio_mesh = to_meshio(hydro_mesh)
 
-   # meshio.Mesh → HydroMesh :
+   # meshio.Mesh -> HydroMesh:
    hydro_mesh = from_meshio(meshio_mesh)
 
-----
+8. FloPy adapters
+-----------------
 
-8. Adaptateurs FloPy
---------------------
-
-8.1 Import depuis flopy (DIS → HydroMesh)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+8.1 Import from FloPy (DIS -> HydroMesh)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
    from hydromodpy.spatial.mesh.adapters import from_flopy_structured
 
-   sgrid = model.modelgrid  # flopy StructuredGrid
+   sgrid = model.modelgrid  # FloPy StructuredGrid
    hm = from_flopy_structured(sgrid)
    # hm.is_structured == True
    # hm.structured_shape == (nrow, ncol)
    # hm.single_cell_type == CellType.QUADRILATERAL
 
-8.2 Export vers MODFLOW 6 DISV
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+8.2 Export to MODFLOW 6 DISV
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -702,19 +691,17 @@ L'API publique dans ``hydromodpy.spatial.mesh.gmsh_grid.exchange_api`` :
 
    flopy.mf6.ModflowGwfdisv(gwf, **disv_kwargs)
 
-----
+9. Forcing pipeline (recharge and climate variables)
+----------------------------------------------------
 
-9. Pipeline forcing (recharge et variables climatiques)
--------------------------------------------------------
+9.1 Context
+~~~~~~~~~~~
 
-9.1 Contexte
-~~~~~~~~~~~~
+Climate variables (recharge, precipitation, ETP, etc.) flow through
+``LoadResult`` -> ``ForcingBridge`` -> ``Flow``.
 
-Les variables climatiques (recharge, précipitations, ETP, etc.) transitent
-par le système ``LoadResult`` → ``ForcingBridge`` → ``Flow``.
-
-9.2 Chaîne de traitement
-~~~~~~~~~~~~~~~~~~~~~~~~
+9.2 Processing chain
+~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: text
 
@@ -724,16 +711,16 @@ par le système ``LoadResult`` → ``ForcingBridge`` → ``Flow``.
       LoadResult          # points: list[PointRecord], fields: list[FieldRecord]
           │
           ▼
-   resolve_forcing()      # → ResolvedForcing (homogène ou hétérogène)
+   resolve_forcing()      # -> ResolvedForcing (homogeneous or heterogeneous)
           │
           ▼
-   apply_recharge_load_result_to_flow()   # → FlowRechargeConfig → Flow
+   apply_recharge_load_result_to_flow()   # -> FlowRechargeConfig -> Flow
           │
           ▼
-   SolverAdapter          # FlowModflowInputs → MODFLOW packages
+   SolverAdapter          # FlowModflowInputs -> MODFLOW packages
 
-9.3 Modes spatiaux
-~~~~~~~~~~~~~~~~~~
+9.3 Spatial modes
+~~~~~~~~~~~~~~~~~
 
 .. list-table::
    :header-rows: 1
@@ -741,84 +728,81 @@ par le système ``LoadResult`` → ``ForcingBridge`` → ``Flow``.
    * - Mode
      - Description
      - Pipeline
-   * - Homogène
-     - Valeur unique par pas de temps
+   * - Homogeneous
+     - One value per timestep
      - ``series: pd.Series`` (m/s)
-   * - Hétérogène
-     - Valeur par cellule par pas de temps
-     - ``LoadResult.fields`` → interpolation sur grille
+   * - Heterogeneous
+     - One value per cell per timestep
+     - ``LoadResult.fields`` -> grid interpolation
 
-9.4 Limitation actuelle
-~~~~~~~~~~~~~~~~~~~~~~~
+9.4 Current limitation
+~~~~~~~~~~~~~~~~~~~~~~
 
-**Le pipeline forcing est actuellement câblé sur les grilles structurées.**
-La discrétisation hétérogène utilise ``sgrid.nrow`` / ``sgrid.ncol`` pour
-construire les tableaux 2D. Le support des maillages non-structurés (DISV)
-nécessiterait d'adapter la discrétisation spatiale des ``FieldRecord`` sur
-les cellules d'un ``HydroMesh`` au lieu d'une grille ``(nrow, ncol)``.
+**The forcing pipeline is currently wired to structured grids.**
+Heterogeneous discretization uses ``sgrid.nrow`` / ``sgrid.ncol`` to
+build 2D arrays. Supporting unstructured meshes (DISV) requires
+adapting the spatial discretization of ``FieldRecord`` to the cells of
+a ``HydroMesh`` instead of a ``(nrow, ncol)`` grid.
 
-----
-
-10. Architecture du module ``hydromodpy/mesh/``
------------------------------------------------
+10. Module layout
+-----------------
 
 .. code-block:: text
 
    hydromodpy/mesh/
-   ├── __init__.py              # Exports : CellType, CellBlock, HydroMesh
-   ├── cell_types.py            # Enum CellType + aliases + propriétés
+   ├── __init__.py              # Exports: CellType, CellBlock, HydroMesh
+   ├── cell_types.py            # CellType enum + aliases + properties
    ├── hydro_mesh.py            # CellBlock + HydroMesh (frozen dataclasses)
-   ├── plotting.py              # plot_cell_values(): dispatch unifié
+   ├── plotting.py              # plot_cell_values(): unified dispatch
    ├── adapters/
-   │   ├── __init__.py          # Re-exports de tous les adaptateurs
+   │   ├── __init__.py          # re-exports of every adapter
    │   ├── meshio_adapter.py    # from_meshio() / to_meshio()
    │   ├── field_mesh_adapter.py   # from_field_mesh() / from_gmsh_planar() / from_extruded_prism()
    │   └── flopy_adapter.py     # from_flopy_structured() / to_flopy_disv_args()
    └── io/
        └── vtu_io.py            # write_vtu() / read_vtu()
 
-10.1 Dépendances
-~~~~~~~~~~~~~~~~
+10.1 Dependencies
+~~~~~~~~~~~~~~~~~
 
-Le cœur (``cell_types.py``, ``hydro_mesh.py``) ne dépend que de **numpy**.
+The core (``cell_types.py``, ``hydro_mesh.py``) only depends on
+**numpy**.
 
 .. list-table::
    :header-rows: 1
 
    * - Module
-     - Dépendances supplémentaires
+     - Extra dependencies
    * - ``plotting.py``
      - matplotlib
    * - ``meshio_adapter.py``
-     - meshio (optionnel)
+     - meshio (optional)
    * - ``vtu_io.py``
-     - meshio (optionnel)
+     - meshio (optional)
    * - ``flopy_adapter.py``
-     - flopy (import lazy de ``sgrid_mesh_adapter``)
+     - flopy (lazy import of ``sgrid_mesh_adapter``)
    * - ``field_mesh_adapter.py``
-     - Aucune (duck-typing sur ``BaseFieldMesh``)
+     - none (duck-typed against ``BaseFieldMesh``)
 
-----
-
-11. Flux de données complet
----------------------------
+11. End-to-end data flow
+------------------------
 
 .. code-block:: text
 
                ┌──────────────────────────────────────┐
-               │         Configuration TOML            │
+               │         TOML configuration            │
                │  [field] [mesh] [field_param]         │
                └──────┬───────────┬───────────────────┘
                       │           │
                       ▼           ▼
                FieldSquare    FieldParam
-               (géométrie)    (K=1e-4 m/s, zones, profil vertical)
+               (geometry)     (K=1e-4 m/s, zones, vertical profile)
                       │           │
                       ▼           │
                field.on_mesh()    │
                       │           │
                       ▼           ▼
-               FieldDiscretization    ←── field_param.to_mesh_field()
+               FieldDiscretization    <- field_param.to_mesh_field()
                (zone_keys, fractions)           │
                                                 ▼
                                          MeshWithValues
@@ -834,123 +818,124 @@ Le cœur (``cell_types.py``, ``hydro_mesh.py``) ne dépend que de **numpy**.
    values_3d (nlay,nrow,ncol)   values_3d (nlay,n2d)         │
                │                                │       ┌────┼────┐
                ▼                                ▼       │    │    │
-        MODFLOW NWT/6                    export VTU   plot  VTU  DISV
+        MODFLOW NWT/6                    VTU export   plot  VTU  DISV
 
-----
-
-12. Méthodes ajoutées aux classes existantes
---------------------------------------------
+12. Methods added on existing classes
+-------------------------------------
 
 .. list-table::
    :header-rows: 1
 
-   * - Classe
-     - Méthode
+   * - Class
+     - Method
      - Notes
    * - ``BaseFieldMesh``
      - ``to_hydro_mesh()``
-     - Hérité par toutes les sous-classes
+     - Inherited by every subclass
    * - ``GmshPlanarMesh2D``
      - ``to_hydro_mesh()``
-     - Override optimisé (accès direct aux arrays)
+     - Optimised override (direct array access)
    * - ``GmshPlanarMesh2D``
      - ``from_hydro_mesh(hm)``
-     - Classmethod, reconstruit depuis HydroMesh 2D
+     - Classmethod, rebuilds from a 2D HydroMesh
    * - ``ExtrudedPrismMesh3D``
      - ``to_hydro_mesh()``
-     - Préserve ``layer_index`` et ``source_cell_index``
+     - Preserves ``layer_index`` and ``source_cell_index``
 
-----
+13. Relation to existing classes
+--------------------------------
 
-13. Relation avec les classes existantes
-----------------------------------------
+The existing classes (``GmshPlanarMesh2D``,
+``StructuredFieldMesh``, etc.) **stay in place**. ``HydroMesh`` does
+not replace them: it serves as an exchange format between them.
 
-Les classes existantes (``GmshPlanarMesh2D``, ``StructuredFieldMesh``, etc.)
-**restent en place**. ``HydroMesh`` ne les remplace pas: il sert de format
-d'échange entre elles.
+Each class keeps its own business logic (generation, validation,
+``FieldParam`` association) and can produce or consume a
+``HydroMesh`` through ``.to_hydro_mesh()``.
 
-Chaque classe conserve sa logique métier (génération, validation,
-association avec ``FieldParam``) et peut produire ou consommer un ``HydroMesh``
-via ``.to_hydro_mesh()``.
+New modules should prefer ``HydroMesh`` as the input/output type
+rather than depending directly on a concrete implementation.
 
-À terme, les nouveaux modules devraient préférer ``HydroMesh`` comme type
-d'entrée/sortie plutôt que de dépendre directement d'une implémentation
-concrète.
-
-----
-
-14. Limitations actuelles et périmètre
---------------------------------------
+14. Current limitations and scope
+---------------------------------
 
 .. list-table::
    :header-rows: 1
 
-   * - Fonctionnalité
-     - Structuré (DIS)
-     - Non-structuré (DISV)
-   * - FieldParam → discrétisation 2D
-     - Oui
-     - Oui
-   * - FieldParam → discrétisation 3D
-     - Oui (``sgrid``)
-     - Oui (``extruded_mesh``)
-   * - Plotting unifié
-     - Oui
-     - Oui
-   * - I/O VTU
-     - Oui
-     - Oui
-   * - MODFLOW NWT solver
-     - Oui (DIS)
-     - Non (DIS uniquement)
+   * - Feature
+     - Structured (DIS)
+     - Unstructured (DISV)
+   * - FieldParam -> 2D discretization
+     - Yes
+     - Yes
+   * - FieldParam -> 3D discretization
+     - Yes (``sgrid``)
+     - Yes (``extruded_mesh``)
+   * - Unified plotting
+     - Yes
+     - Yes
+   * - VTU I/O
+     - Yes
+     - Yes
+   * - MODFLOW-NWT solver
+     - Yes (DIS)
+     - No (DIS only)
    * - MODFLOW 6 solver
-     - Oui (DIS)
-     - Non (DISV pas câblé)
-   * - Pipeline recharge/forcing
-     - Oui
-     - Non (hardcodé ``nrow×ncol``)
-   * - Export DISV vers flopy
-     - Disponible (``to_flopy_disv_args``)
-     - Non câblé au solver
+     - Yes (DIS)
+     - No (DISV not wired)
+   * - Recharge/forcing pipeline
+     - Yes
+     - No (hardcoded ``nrow x ncol``)
+   * - DISV export to FloPy
+     - Available (``to_flopy_disv_args``)
+     - Not wired to the solver
 
-**En résumé :** le pivot ``HydroMesh`` unifie le plotting, l'I/O et les
-conversions entre types de maillages. La discrétisation des paramètres
-(``FieldParam``) fonctionne sur tous les types. Mais le pipeline
-solver (MODFLOW NWT / MF6) et le pipeline forcing restent structurés
-uniquement. L'adaptateur ``to_flopy_disv_args()`` existe pour DISV mais
-n'est pas encore branché dans le runner de simulation.
+**Summary.** The ``HydroMesh`` pivot unifies plotting, I/O, and
+conversions across mesh types. Parameter discretization
+(``FieldParam``) works on every mesh type. But the solver pipeline
+(MODFLOW-NWT / MF6) and the forcing pipeline are still
+structured-only. The ``to_flopy_disv_args()`` adapter exists for DISV
+but is not yet wired into the simulation runner.
 
-----
+15. Design choices
+------------------
 
-15. Choix de conception
------------------------
+15.1 Why not xugrid / UGRID NetCDF?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-15.1 Pourquoi pas xugrid / UGRID NetCDF ?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- **xugrid** is excellent for 2D plus pseudo-3D layered (UGRID2D),
+  but it does not support fully 3D unstructured.
+- For temporal result storage (per-cell time series), UGRID NetCDF
+  remains relevant via xugrid as an *output* format.
+- As an *internal pivot*, vertices plus connectivity is simpler, more
+  general, and dependency-free.
 
-- **xugrid** est excellent pour le 2D + pseudo-3D layered (UGRID2D), mais ne
-  supporte pas le fully 3D unstructured.
-- Pour le stockage de résultats temporels (time series par cellule), UGRID
-  NetCDF reste pertinent via xugrid comme format de *sortie*.
-- Mais comme format *pivot interne*, vertices + connectivity est plus simple,
-  plus général, et sans dépendance lourde.
+15.2 Why not meshio directly?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-15.2 Pourquoi pas meshio directement ?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+meshio is an optional I/O dependency, not a pivot type:
 
-meshio est une dépendance optionnelle (I/O), pas un type pivot :
+- ``meshio.Mesh`` is not frozen / immutable.
+- It supports ~30 cell types, most of which we do not need.
+- The ``cell_data`` mapping is a list of lists per block, not flat
+  arrays.
 
-- ``meshio.Mesh`` n'est pas frozen/immutable
-- Il supporte ~30 types de cellules dont la plupart ne nous concernent pas
-- Le mapping ``cell_data`` est en listes de listes (par block), pas en arrays plats
+``HydroMesh`` is a strict, normalised subset of the meshio model with
+guaranteed round-trip conversions through the adapters.
 
-``HydroMesh`` est un sous-ensemble strict et normalisé du modèle meshio,
-avec des conversions round-trip garanties par les adaptateurs.
+15.3 Why frozen dataclass?
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-15.3 Pourquoi frozen dataclass ?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Immutability guarantees that a ``HydroMesh`` cannot be modified after
+construction. This simplifies reasoning about data flow and avoids
+bugs from accidental mutation. The ``with_cell_data()`` /
+``with_point_data()`` methods return copies.
 
-L'immuabilité garantit qu'un ``HydroMesh`` ne peut pas être modifié après
-construction. Cela simplifie le raisonnement sur le flux de données et
-évite les bugs liés à des mutations accidentelles. Les méthodes
-``with_cell_data()`` / ``with_point_data()`` retournent des copies.
+See also
+--------
+
+- :doc:`gmsh_meshing` for the conformal Gmsh pipeline.
+- :doc:`mesh/index` for the broader mesh architecture and the
+  catchment-mesh workflow.
+- :doc:`modflow_contracts` for the DIS / BAS contract that consumes
+  the structured pivot.

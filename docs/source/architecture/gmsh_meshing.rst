@@ -1,131 +1,136 @@
-Maillage conforme gmsh
+Conformal Gmsh Meshing
 ======================
 
-Note d'architecture : trois concepts coopèrent pour produire un maillage
-2D conforme aux zones géologiques et au réseau hydrographique.
+Architecture note: three concepts cooperate to produce a 2D mesh that
+conforms to geological zones and the hydrographic network.
 
-1. Extraction du réseau hydrographique depuis le DEM (backend whitebox).
-2. Exposition d'une trace rivière en mémoire pour le mailleur.
-3. Génération gmsh conforme aux interfaces.
+1. Hydrographic-network extraction from the DEM (Whitebox backend).
+2. In-memory river trace exposed to the mesher.
+3. Conformal Gmsh generation against the interfaces.
 
-Lien : :doc:`unified_mesh_pivot_architecture <mesh_pivot>`.
+For the data structures shared by every mesh type, see
+:doc:`mesh_pivot`.
 
-1. Extraction du réseau hydrographique
---------------------------------------
+1. Hydrographic-network extraction
+----------------------------------
 
-Module : ``hydromodpy/spatial/geographic/core/river_network.py``.
+Module: ``hydromodpy/spatial/geographic/core/river_network.py``.
 
-Déclenchement : ``geographic.river_network.enabled = true``. Le pipeline
-géographique produit alors un réseau généré qui alimente ensuite le
-concept canonique ``HydrographicNetwork(role="generated")``. Les fichiers
-écrits dans
-``results_stable/geographic/`` :
+Trigger: ``geographic.river_network.enabled = true``. The geographic
+pipeline then produces a generated network that feeds the canonical
+``HydrographicNetwork(role="generated")`` concept. Files written under
+``results_stable/geographic/``:
 
-- ``river_streams.tif`` : raster des cellules de cours d'eau.
-- ``river_streams_pruned.tif`` : idem, après élagage optionnel.
-- ``river_stream_order_strahler.tif`` : ordre de Strahler.
-- ``river_stream_link_id.tif`` : identifiant de tronçon.
-- ``river_network.shp`` : version vectorielle clippée au bassin versant
-  (nom de fichier legacy conservé).
-- ``river_network_summary.json`` : métriques de reproductibilité
-  (nom de fichier legacy conservé).
+- ``river_streams.tif``: raster of stream cells.
+- ``river_streams_pruned.tif``: same, after optional pruning.
+- ``river_stream_order_strahler.tif``: Strahler order.
+- ``river_stream_link_id.tif``: stream-link identifier.
+- ``river_network.shp``: vector version clipped to the catchment
+  (legacy filename kept).
+- ``river_network_summary.json``: reproducibility metrics (legacy
+  filename kept).
 
-Contrats à distinguer :
+Contracts to keep distinct:
 
-- ``HydrographicNetwork`` : concept partagé entre stockage, affichage et comparaison.
-- ``RiverNetworkProducts`` : bundle technique produit par le prétraitement géographique.
-- ``RiverMeshTrace`` : projection réduite consommée par le mailleur.
+- ``HydrographicNetwork``: shared concept across storage, display, and
+  comparison.
+- ``RiverNetworkProducts``: technical bundle produced by the geographic
+  preprocessing.
+- ``RiverMeshTrace``: reduced projection consumed by the mesher.
 
-Entrées requises :
+Required inputs:
 
-- DEM (corrigé via ``fill`` ou ``breach``).
-- Exutoire, snap à l'accumulation.
-- Direction et accumulation D8.
+- DEM (corrected via ``fill`` or ``breach``).
+- Outlet, snapped on accumulation.
+- D8 direction and accumulation rasters.
 
-Backend : ``WhiteboxWorkflowsBackend``
-(``hydromodpy/spatial/delineation/whitebox_workflows_backend.py``). Les
-autres backends doivent etre enregistres explicitement via
-``register_backend()``.
+Backend: ``WhiteboxWorkflowsBackend``
+(``hydromodpy/spatial/delineation/whitebox_workflows_backend.py``).
+Other backends must register explicitly through ``register_backend()``.
 
-Paramètres TOML :
+TOML parameters:
 
 .. code-block:: toml
 
    [geographic.river_network]
    enabled = true
-   threshold_mode = "area_km2"      # ou "cells"
+   threshold_mode = "area_km2"      # or "cells"
    threshold_area_km2 = 0.5
    prune_short_streams = false
    min_stream_length_m = 0.0
    compute_strahler_order = true
    compute_stream_links = true
 
-Conversion interne : ``threshold_cells = threshold_area_km2 * 1e6 / dem_res_m**2``.
+Internal conversion:
+``threshold_cells = threshold_area_km2 * 1e6 / dem_res_m**2``.
 
-2. Trace rivière en mémoire
----------------------------
+2. In-memory river trace
+------------------------
 
-Classe : ``RiverMeshTrace``
+Class: ``RiverMeshTrace``
 (``hydromodpy/spatial/geographic/core/river_mesh_trace.py``).
 
-Exposée comme attribut de ``DomainGeographicContext.river_mesh_trace``. La
-trace est déjà reprojetée dans le CRS du domaine et clippée au bassin
-versant. Aucune relecture disque ne survient au moment du maillage.
+Exposed as the attribute
+``DomainGeographicContext.river_mesh_trace``. The trace is already
+reprojected into the domain CRS and clipped to the catchment. No disk
+re-read happens during meshing.
 
-Champs :
+Fields:
 
-- ``source_kind`` : ``geographic_generated``, ``hydrography_loaded``, ``file``.
-- ``crs_wkt`` : CRS cible.
-- ``lines`` : tuple de ``LineString`` Shapely.
-- ``segment_count`` et ``total_length_m`` : métriques de contrôle.
+- ``source_kind``: ``geographic_generated``, ``hydrography_loaded``,
+  ``file``.
+- ``crs_wkt``: target CRS.
+- ``lines``: tuple of Shapely ``LineString``.
+- ``segment_count`` and ``total_length_m``: control metrics.
 
-Règle de structuration : le réseau hydrographique n'est pas une zone du
-domaine. La génération du maillage reste dans ``zone_meshing``, la logique
-métier du domaine reste dans ``spatial/domain/``, et le concept central à
-partager entre couches reste ``HydrographicNetwork``.
+Structuring rule: the hydrographic network is not a domain zone. Mesh
+generation stays in ``zone_meshing``, the domain business logic stays
+in ``spatial/domain/``, and the central concept shared across layers
+remains ``HydrographicNetwork``.
 
-3. Génération gmsh conforme
----------------------------
+3. Conformal Gmsh generation
+----------------------------
 
-Module : ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/``.
+Module: ``hydromodpy/spatial/mesh/gmsh_grid/zone_meshing/``.
 
-Point d'entrée principal : ``conformal.py``. Pipeline :
+Main entry point: ``conformal.py``. Pipeline:
 
-1. Chargement des polygones de zones et du domaine.
-2. Nettoyage géométrique (``_geometry_cleaning.py``, ``_polygon_cleaning.py``) :
-   ``make_valid``, simplification, snapping, élimination des slivers.
-3. Partition planaire non chevauchante (``_partition_builder.py``,
-   ``_partition_split.py``), avec résolution d'éventuels recouvrements
-   par champ de priorité.
-4. Traduction en géométrie OCC gmsh (``_gmsh_occ.py``), avec points,
-   courbes, boucles et surfaces.
-5. Champs de taille (``_gmsh_fields.py``) : global, raffinement autour des
-   interfaces, autour des petites zones, autour des rivières.
-6. Export ``.msh`` (``_gmsh_export.py``) et sidecar de métadonnées
+1. Load the zone polygons and the domain.
+2. Geometric cleaning (``_geometry_cleaning.py``,
+   ``_polygon_cleaning.py``): ``make_valid``, simplification, snapping,
+   sliver removal.
+3. Non-overlapping planar partition (``_partition_builder.py``,
+   ``_partition_split.py``), with overlap resolution through a
+   priority field.
+4. Translation to Gmsh OCC geometry (``_gmsh_occ.py``): points, curves,
+   loops, surfaces.
+5. Size fields (``_gmsh_fields.py``): global, refinement around
+   interfaces, around small zones, around rivers.
+6. ``.msh`` export (``_gmsh_export.py``) and metadata sidecar
    (``_summary_sidecar.py``).
 
-Groupes physiques créés :
+Physical groups created:
 
-- ``zone::<zone_key>`` sur les surfaces.
-- ``interface::<zone_a>::<zone_b>`` sur les lignes internes.
-- ``boundary::<name>`` sur les contours externes.
+- ``zone::<zone_key>`` on surfaces.
+- ``interface::<zone_a>::<zone_b>`` on internal lines.
+- ``boundary::<name>`` on external contours.
 
-Modes disponibles :
+Available modes:
 
-- ``river_only`` : conformité au réseau hydrographique, pas de contrainte
-  lithologique.
-- ``river_plus_lithology`` : conformité simultanée aux interfaces
-  lithologiques et aux rivières.
+- ``river_only``: hydrographic-network conformity, no lithology
+  constraint.
+- ``river_plus_lithology``: simultaneous conformity to lithology
+  interfaces and rivers.
 
-4. Contrat TOML de maillage
----------------------------
+4. TOML mesh contract
+---------------------
 
-.. code-block:: text
+.. code-block:: toml
 
    [mesh]
    enabled = true
    backend = "gmsh"
-   mode = "river_conformal"          # ou "river_lithology_conformal"
+   mode = "river_conformal"          # or "river_lithology_conformal"
 
    [mesh.domain]
    kind = "vector"                    # "bbox" | "polygon" | "vector"
@@ -135,7 +140,7 @@ Modes disponibles :
 
    [mesh.river.source]
    origin = "geographic_generated"    # "hydrography_loaded" | "file"
-   path = null                        # requis si origin="file"
+   path = null                        # required if origin="file"
 
    [mesh.gmsh]
    algorithm = "delaunay"
@@ -157,56 +162,62 @@ Modes disponibles :
    enabled = false
    source_mode = "geology_data_manager"
 
-5. Lecture et projection
-------------------------
+5. Reading and projection
+-------------------------
 
-Le maillage produit reste lu via ``GmshPlanarMesh2D.from_file(...)``. La
-projection de ``Field`` et ``FieldParam`` reste dans les modules existants
-(``Field.on_mesh``, ``FieldParam.to_mesh_field``). Sur un maillage conforme,
-le nombre de cellules mixtes chute nettement ; la logique de projection
-reste cependant inchangée pour couvrir les supports non strictement
-conformes.
+The produced mesh is read through ``GmshPlanarMesh2D.from_file(...)``.
+``Field`` and ``FieldParam`` projection stays in the existing modules
+(``Field.on_mesh``, ``FieldParam.to_mesh_field``). On a conformal mesh
+the number of mixed cells drops sharply; the projection logic remains
+unchanged so it can also handle non-strictly-conformal supports.
 
-6. Critères qualité
+6. Quality criteria
 -------------------
 
-Sortie ``*_summary.json`` avec :
+Output ``*_summary.json`` with:
 
-- Conformité rivière : fraction de longueur de rivière coïncidente avec
-  des arêtes du maillage.
-- Gradient de raffinement : taille médiane dans un buffer proche rivière
-  comparée à la taille hors buffer.
-- Couverture du domaine : ``|aire_maillage - aire_domaine|`` sous
-  tolérance.
-- Stabilité numérique : nombre total de cellules dans la plage attendue.
-- Conformité lithologique si activée : chute du nombre de cellules
-  mixtes.
-- Reproductibilité : signature stable entre runs identiques.
+- River conformity: fraction of river length coincident with mesh
+  edges.
+- Refinement gradient: median size in a near-river buffer compared to
+  the size outside.
+- Domain coverage: ``|mesh_area - domain_area|`` under tolerance.
+- Numerical stability: total cell count within the expected range.
+- Lithology conformity, if enabled: drop in mixed-cell count.
+- Reproducibility: stable signature across identical runs.
 
-7. Validation et tests
-----------------------
+7. Validation and tests
+-----------------------
 
-Tests de non-régression :
+Non-regression tests:
 
-- ``tests/unit/backends/test_whitebox_workflows_backend.py`` pour
+- ``tests/unit/backends/test_whitebox_workflows_backend.py`` for
   ``extract_streams``, ``raster_streams_to_vector``,
-  ``strahler_stream_order``, ``stream_link_identifier``, ``remove_short_streams``.
-- ``tests/unit/geographic/test_river_network_*.py`` pour la couche core
-  et le golden de signatures.
-- ``tests/regression/extensive/`` pour les cas de bout en bout.
+  ``strahler_stream_order``, ``stream_link_identifier``,
+  ``remove_short_streams``.
+- ``tests/unit/geographic/test_river_network_*.py`` for the core
+  layer and the signature golden.
+- ``tests/regression/extensive/`` for end-to-end cases.
 
-Helper déterministe : ``tests/support/whitebox.py::configure_whitebox_single_thread``
-pour stabiliser les runs CI.
+Deterministic helper:
+``tests/support/whitebox.py::configure_whitebox_single_thread`` to
+stabilise CI runs.
 
-8. Décisions structurantes
---------------------------
+8. Structuring decisions
+------------------------
 
-- Le réseau hydrographique est produit par ``geographic``, exposé par
-  ``DomainGeographicContext``, consommé par ``zone_meshing``.
-- ``Domain`` ne porte pas la logique de maillage ; il reste le support
-  métier des paramètres (``FieldParam``).
-- Les deux chemins (lire un maillage existant, générer un maillage
-  conforme) convergent sur ``GmshPlanarMesh2D`` plus un sidecar de
-  métadonnées.
-- Les triangles sont la cible de la première itération ; la recombination
-  quadrilatérale viendra ensuite si besoin.
+- The hydrographic network is produced by ``geographic``, exposed by
+  ``DomainGeographicContext``, and consumed by ``zone_meshing``.
+- ``Domain`` does not carry meshing logic; it remains the business
+  support for parameters (``FieldParam``).
+- The two paths (read an existing mesh, generate a conformal mesh)
+  converge on ``GmshPlanarMesh2D`` plus a metadata sidecar.
+- Triangles are the target of the first iteration; quadrilateral
+  recombination will follow if needed.
+
+See also
+--------
+
+- :doc:`mesh_pivot` for the mesh-pivot architecture and the
+  cross-mesh data structures.
+- :doc:`mesh/index` for the broader mesh architecture and the
+  catchment-mesh workflow.

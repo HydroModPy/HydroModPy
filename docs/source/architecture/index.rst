@@ -90,7 +90,6 @@ must not import from them.
    calibration/index
    process/index
    solver/index
-   boussinesq_solver
    modflow_contracts
    simulation/index
 
