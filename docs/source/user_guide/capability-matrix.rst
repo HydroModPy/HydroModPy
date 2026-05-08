@@ -151,7 +151,7 @@ Recommended reading order
 -------------------------
 
 1. Use :doc:`workflows/index` to choose the workflow family.
-2. Use :doc:`data-sources` to decide which inputs can be loaded directly.
+2. Use :doc:`data/index` to decide which inputs can be loaded directly.
 3. Use :doc:`results-and-exports` to understand persisted outputs.
 4. Use :doc:`figures` to choose report figures.
 5. Use :doc:`../api/index` when scripting against the Python API.

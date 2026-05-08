@@ -20,6 +20,17 @@ Core concepts
    :gutter: 2 2 3 3
 
    .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 hmp-cta-card
+      :link: config_reference/index
+      :link-type: doc
+
+      **Configuration reference**
+      ^^^
+      The TOML-first public API of HydroModPy. Every section validated by
+      ``HydroModPyConfig`` with fields, defaults, types, and the JSON
+      Schema explorer.
+
+   .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: ../seven-modes
       :link-type: doc
@@ -207,6 +218,16 @@ Capability and API-oriented guides
       Python lifecycle for workspace setup, geographic preprocessing, data,
       mesh, run execution, comparison, calibration, and cleanup.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: ../theory/index
+      :link-type: doc
+
+      **Theory**
+      ^^^
+      Method notes, solver equations, and modelling assumptions backing each
+      workflow: foundations, hydrology, mesh, calibration, and solvers.
+
 Reading outputs
 ---------------
 
@@ -221,18 +242,18 @@ Use these pages once you have generated or opened result pages:
    :maxdepth: 2
    :hidden:
 
+   Configuration reference <config_reference/index>
    Usage modes <../seven-modes>
    Workflow families <workflows/index>
    Concepts <concepts/index>
-   Configuration reference <config_reference/index>
    Cookbook <cookbook/index>
+   Theory <../theory/index>
    mesh
    comparison
    calibration
    cli-reference
    capability-matrix
    Data loading <data/index>
-   data-sources
    results-and-exports
    figures
    project-api
