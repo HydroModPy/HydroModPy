@@ -42,10 +42,6 @@ meshing case.
 
 .. uml:: diagrams/mesh_catchment_package_components.wsd
 
-.. literalinclude:: diagrams/mesh_catchment_package_components.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - mesh-catchment package components
-
 Notes:
 
 - ``runtime.py`` is intentionally thin. It validates the public
@@ -73,25 +69,13 @@ Activity:
 
 .. uml:: diagrams/catchment_conformal_meshing_activity.wsd
 
-.. literalinclude:: diagrams/catchment_conformal_meshing_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - catchment conformal meshing activity
-
 Sequence (mesh facade to Gmsh):
 
 .. uml:: diagrams/catchment_conformal_meshing_sequence.wsd
 
-.. literalinclude:: diagrams/catchment_conformal_meshing_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - catchment conformal meshing sequence
-
 Components:
 
 .. uml:: diagrams/catchment_conformal_meshing_components.wsd
-
-.. literalinclude:: diagrams/catchment_conformal_meshing_components.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - catchment conformal meshing components
 
 Notes:
 
@@ -112,10 +96,6 @@ coordinates, incremental manifest updates, and the
 keeps running.
 
 .. uml:: diagrams/mesh_catchment_batch_activity.wsd
-
-.. literalinclude:: diagrams/mesh_catchment_batch_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - mesh-catchment batch activity
 
 Notes:
 
@@ -139,10 +119,6 @@ state before solver execution.
 
 .. uml:: diagrams/mesh_catchment_in_process_simulation_activity.wsd
 
-.. literalinclude:: diagrams/mesh_catchment_in_process_simulation_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - mesh-catchment in process_simulation
-
 Notes:
 
 - The simulation workflow can embed one mono-catchment mesh phase or
@@ -161,10 +137,6 @@ intermediate geographic artifacts, and extra naming and manifest
 rules in batch mode.
 
 .. uml:: diagrams/mesh_catchment_output_layout_activity.wsd
-
-.. literalinclude:: diagrams/mesh_catchment_output_layout_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - mesh-catchment output layout activity
 
 Notes:
 

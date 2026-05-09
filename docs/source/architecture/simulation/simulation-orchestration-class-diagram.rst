@@ -52,10 +52,6 @@ Diagram source
 
 .. uml:: diagrams/simulation_orchestration_class.wsd
 
-.. literalinclude:: diagrams/simulation_orchestration_class.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - simulation orchestration class diagram
-
 Notes
 -----
 

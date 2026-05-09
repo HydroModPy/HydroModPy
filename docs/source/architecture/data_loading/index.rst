@@ -55,10 +55,6 @@ It focuses on:
 
 .. uml:: diagrams/data_definition_transfer_class.wsd
 
-.. literalinclude:: diagrams/data_definition_transfer_class.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - data definition and transfer class diagram
-
 Notes:
 
 - ``DataLoadPlan`` defines **which** data families are active.
@@ -85,10 +81,6 @@ It focuses on:
   complete.
 
 .. uml:: diagrams/data_definition_transfer_activity.wsd
-
-.. literalinclude:: diagrams/data_definition_transfer_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - data definition and transfer activity diagram
 
 Notes:
 
