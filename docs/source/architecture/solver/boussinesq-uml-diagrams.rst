@@ -59,36 +59,20 @@ Diagram 1: Package Context
 
 .. uml:: diagrams/boussinesq_context.wsd
 
-.. literalinclude:: diagrams/boussinesq_context.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - Boussinesq package context
-
 Diagram 2: Core Classes
 -----------------------
 
 .. uml:: diagrams/boussinesq_core_classes.wsd
-
-.. literalinclude:: diagrams/boussinesq_core_classes.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - Boussinesq core classes
 
 Diagram 3: Process To Backend Sequence
 --------------------------------------
 
 .. uml:: diagrams/boussinesq_process_to_backend_sequence.wsd
 
-.. literalinclude:: diagrams/boussinesq_process_to_backend_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - Boussinesq process to backend sequence
-
 Diagram 4: Transient Step Activity
 ----------------------------------
 
 .. uml:: diagrams/boussinesq_transient_step_activity.wsd
-
-.. literalinclude:: diagrams/boussinesq_transient_step_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - Boussinesq transient step activity
 
 Notes
 -----

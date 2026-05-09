@@ -54,10 +54,6 @@ Reading guide:
 
 .. uml:: diagrams/structured_grid_class.wsd
 
-.. literalinclude:: diagrams/structured_grid_class.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - StructuredGrid class diagram
-
 Notes:
 
 - ``StructuredGrid`` itself belongs to FloPy. The diagram focuses on
@@ -84,10 +80,6 @@ Reading guide:
 
 .. uml:: diagrams/structured_grid_build_sequence.wsd
 
-.. literalinclude:: diagrams/structured_grid_build_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - StructuredGrid build sequence diagram
-
 Notes:
 
 - ``build_sgrid_from_config(...)`` owns config resolution and surface
@@ -107,17 +99,9 @@ Class view:
 
 .. uml:: diagrams/sgrid_fieldparam_discretization_class.wsd
 
-.. literalinclude:: diagrams/sgrid_fieldparam_discretization_class.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - SGrid/FieldParam discretization class diagram
-
 Activity view:
 
 .. uml:: diagrams/sgrid_fieldparam_discretization_activity.wsd
-
-.. literalinclude:: diagrams/sgrid_fieldparam_discretization_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - SGrid/FieldParam discretization activity diagram
 
 See also
 --------

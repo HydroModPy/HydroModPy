@@ -79,10 +79,6 @@ backends.
 
 .. uml:: diagrams/process_layered_components.wsd
 
-.. literalinclude:: diagrams/process_layered_components.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - process layer separation component diagram
-
 Notes:
 
 - Config parsing and validation are isolated from solver-specific
@@ -102,10 +98,6 @@ specialisations, flow-specific initial conditions, boundary
 conditions, and sink/source configs.
 
 .. uml:: diagrams/process_config_class.wsd
-
-.. literalinclude:: diagrams/process_config_class.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - process config class diagram
 
 Notes:
 
@@ -129,10 +121,6 @@ conditions, boundary conditions, and sink/source containers.
 
 .. uml:: diagrams/process_runtime_class.wsd
 
-.. literalinclude:: diagrams/process_runtime_class.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - process runtime class diagram
-
 Notes:
 
 - ``Flow`` and ``Transport`` both inherit from ``ProcessSpatial``.
@@ -154,10 +142,6 @@ from creation to solver execution and post-processing.
 
 .. uml:: diagrams/process_spatial_lifecycle_state.wsd
 
-.. literalinclude:: diagrams/process_spatial_lifecycle_state.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - ProcessSpatial lifecycle state machine
-
 Notes:
 
 - ``RuntimeHydrated`` means parameters, IC, BC, and sinks/sources are
@@ -176,10 +160,6 @@ chronicle preparation before solver assembly, adapter-level
 transformation into solver payloads, and backend-specific execution.
 
 .. uml:: diagrams/runtime_to_solver_sequence.wsd
-
-.. literalinclude:: diagrams/runtime_to_solver_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - process runtime to solver sequence
 
 Notes:
 
@@ -210,10 +190,6 @@ Reading path before extending:
 5. ``hydromodpy/solver/compatibility.py``
 
 .. uml:: diagrams/process_extension_activity.wsd
-
-.. literalinclude:: diagrams/process_extension_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - process extension activity diagram
 
 See also
 --------

@@ -44,10 +44,6 @@ abstractions.
 
 .. uml:: diagrams/field_classes.wsd
 
-.. literalinclude:: diagrams/field_classes.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - field core class diagram
-
 Square case relation diagram
 ----------------------------
 
@@ -56,27 +52,15 @@ abstractions and which concrete mesh implementations it reuses.
 
 .. uml:: diagrams/field_spatial_cases_classes.wsd
 
-.. literalinclude:: diagrams/field_spatial_cases_classes.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - field square case relation diagram
-
 Activity diagram
 ----------------
 
 .. uml:: diagrams/field_activity.wsd
 
-.. literalinclude:: diagrams/field_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - field activity diagram
-
 Sequence diagram
 ----------------
 
 .. uml:: diagrams/field_sequence.wsd
-
-.. literalinclude:: diagrams/field_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - field sequence diagram
 
 Related pages
 -------------

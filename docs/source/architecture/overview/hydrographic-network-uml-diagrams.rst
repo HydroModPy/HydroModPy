@@ -54,10 +54,6 @@ comparison result?"
 
 .. uml:: diagrams/hydrographic_network_class_map.wsd
 
-.. literalinclude:: diagrams/hydrographic_network_class_map.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - hydrographic-network class responsibilities
-
 Runtime Component Diagram
 -------------------------
 
@@ -65,10 +61,6 @@ Use this diagram when the main question is:
 "where does the network come from, how is it persisted, and who consumes it?"
 
 .. uml:: diagrams/hydrographic_network_runtime_components.wsd
-
-.. literalinclude:: diagrams/hydrographic_network_runtime_components.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - hydrographic-network runtime component diagram
 
 End-to-End Sequence Diagram
 ---------------------------
@@ -78,10 +70,6 @@ Use this diagram when the main question is:
 
 .. uml:: diagrams/hydrographic_network_runtime_sequence.wsd
 
-.. literalinclude:: diagrams/hydrographic_network_runtime_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - hydrographic-network runtime sequence diagram
-
 Availability Activity Diagram
 -----------------------------
 
@@ -89,10 +77,6 @@ Use this diagram when the main question is:
 "what happens when only one role exists, or when neither role exists?"
 
 .. uml:: diagrams/hydrographic_network_availability_activity.wsd
-
-.. literalinclude:: diagrams/hydrographic_network_availability_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - hydrographic-network availability activity diagram
 
 Persistence And Run API Sequence Diagram
 ----------------------------------------
@@ -102,10 +86,6 @@ Use this diagram when the main question is:
 developer expect when a role is missing?"
 
 .. uml:: diagrams/hydrographic_network_persistence_run_sequence.wsd
-
-.. literalinclude:: diagrams/hydrographic_network_persistence_run_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - hydrographic-network persistence and Run API sequence diagram
 
 Persistence And Run API Notes
 -----------------------------

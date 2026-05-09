@@ -54,10 +54,6 @@ objects.
 
 .. uml:: diagrams/core_classes_config.wsd
 
-.. literalinclude:: diagrams/core_classes_config.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - core classes config
-
 Core classes (main runtime)
 ---------------------------
 
@@ -65,10 +61,6 @@ This diagram focuses on the reusable runtime objects exchanged during
 one calibration session.
 
 .. uml:: diagrams/core_classes_main.wsd
-
-.. literalinclude:: diagrams/core_classes_main.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - core classes main runtime
 
 Calibration activity
 --------------------
@@ -78,10 +70,6 @@ The high-level activity view of one calibration session driven by
 
 .. uml:: diagrams/calibration_activity.wsd
 
-.. literalinclude:: diagrams/calibration_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - calibration activity
-
 Calibration sequence
 --------------------
 
@@ -90,20 +78,12 @@ engine.
 
 .. uml:: diagrams/calibration_sequence.wsd
 
-.. literalinclude:: diagrams/calibration_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - calibration sequence
-
 Reservoir sequence (case example)
 ---------------------------------
 
 How one runnable calibration case plugs into the shared core.
 
 .. uml:: diagrams/reservoir_sequence.wsd
-
-.. literalinclude:: diagrams/reservoir_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - reservoir sequence
 
 Devkit sequence
 ---------------
@@ -113,10 +93,6 @@ cases.
 
 .. uml:: diagrams/devkit_sequence.wsd
 
-.. literalinclude:: diagrams/devkit_sequence.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - devkit sequence
-
 Case / core structure
 ---------------------
 
@@ -124,10 +100,6 @@ How runnable calibration cases are organized around the shared
 calibration core: where ``core/`` ends and ``cases/`` begins.
 
 .. uml:: diagrams/case_core_structure.wsd
-
-.. literalinclude:: diagrams/case_core_structure.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - case/core structure
 
 Notes:
 

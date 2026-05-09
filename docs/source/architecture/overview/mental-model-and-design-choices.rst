@@ -55,10 +55,6 @@ The diagram below is the compact visual version of those two paths.
 
 .. uml:: diagrams/overview_toml_to_run_components.wsd
 
-.. literalinclude:: diagrams/overview_toml_to_run_components.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - overview TOML to Run component diagram
-
 What this diagram explains:
 
 - the user-facing entry points,
@@ -189,10 +185,6 @@ The hydrographic-network stack is intentionally split across several classes
 because they do not answer the same question.
 
 .. uml:: diagrams/hydrographic_network_class_map.wsd
-
-.. literalinclude:: diagrams/hydrographic_network_class_map.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - hydrographic-network class responsibilities
 
 The key distinction is:
 

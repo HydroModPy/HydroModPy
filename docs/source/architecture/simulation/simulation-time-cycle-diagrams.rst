@@ -56,27 +56,15 @@ Class Diagram
 
 .. uml:: diagrams/simulation_time_cycle_class.wsd
 
-.. literalinclude:: diagrams/simulation_time_cycle_class.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - simulation time cycle class diagram
-
 Structure Diagram
 -----------------
 
 .. uml:: diagrams/simulation_time_cycle_structure.wsd
 
-.. literalinclude:: diagrams/simulation_time_cycle_structure.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - simulation time cycle structure diagram
-
 Activity Diagram
 ----------------
 
 .. uml:: diagrams/simulation_time_cycle_activity.wsd
-
-.. literalinclude:: diagrams/simulation_time_cycle_activity.wsd
-   :language: text
-   :caption: PlantUML (.wsd) source - simulation time cycle activity diagram
 
 Related diagrams
 ----------------
