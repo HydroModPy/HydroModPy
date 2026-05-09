@@ -302,8 +302,12 @@ Common Numerical Setup
      - Homogeneous `Sy` value used by the benchmark.
      - 0.10 -
      - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml``
+   * - ``flow.ic.type``
+     - Initial-condition policy used to start the benchmark.
+     - custom
+     - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml``
    * - ``flow.ic.value``
-     - Initial hydraulic head used to start the benchmark.
+     - Scalar initial head or top offset used by the initial-condition policy.
      - 50.0 m
      - ``validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_common.toml``
    * - ``flow.bc.dirichlet.east_side.forcing.mode``

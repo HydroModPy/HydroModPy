@@ -12,6 +12,11 @@ from hydromodpy.core.units import (
     factor_to_m2_per_s,
     normalize_length_unit,
 )
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    active_side_dirichlet_boundary_ids,
+    boundary_conditions_mapping_from_flow,
+    is_boundary_condition_active,
+)
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
 
 
@@ -22,10 +27,7 @@ def is_scalar_number(value: object) -> bool:
 
 
 def boundary_conditions_mapping(model) -> Mapping[str, object]:
-    boundary_conditions = getattr(model.flow, "boundary_conditions", {})
-    if not isinstance(boundary_conditions, Mapping):
-        raise TypeError("flow.boundary_conditions must be a mapping")
-    return boundary_conditions
+    return boundary_conditions_mapping_from_flow(model.flow)
 
 
 def boundary_attr(boundary: object, name: str, default=None):
@@ -36,8 +38,7 @@ def boundary_attr(boundary: object, name: str, default=None):
 
 
 def is_bc_active(model, bc_id: str) -> bool:
-    active = getattr(model.flow, "active_bc", [])
-    return bc_id in active
+    return is_boundary_condition_active(model.flow, bc_id)
 
 
 def boundary_period_series(model, *, value: object, label: str) -> np.ndarray:
@@ -179,7 +180,7 @@ def iter_side_boundary_cells(model, bc_id: str):
 def apply_side_boundary_start_heads(model, strt: np.ndarray) -> np.ndarray:
     """Apply side boundary start heads on flat (nlay, ncpl) strt array."""
     bc = boundary_conditions_mapping(model)
-    for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+    for bc_id in active_side_dirichlet_boundary_ids(model.flow):
         if not is_bc_active(model, bc_id):
             continue
         boundary = bc.get(bc_id)
@@ -340,7 +341,7 @@ def build_side_boundary_chd_spd(model) -> dict[int, list[list[float]]]:
     spd: dict[int, dict[tuple[int, int], list[float]]] = {
         kper: {} for kper in range(int(model.nper))
     }
-    for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+    for bc_id in active_side_dirichlet_boundary_ids(model.flow):
         if not is_bc_active(model, bc_id):
             continue
         boundary = bc.get(bc_id)

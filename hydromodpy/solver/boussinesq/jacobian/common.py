@@ -35,7 +35,11 @@ def drainage_diagonal_derivative(
     *,
     drainage_conductance_m2_s: np.ndarray | float | None,
 ) -> np.ndarray:
-    """Return the diagonal derivative of the top-drainage operator."""
+    """Return the diagonal derivative of the top-drainage operator.
+
+    At the ``h == z_top`` kink, choose the active Cauchy branch. This gives
+    Newton a non-singular drainage tangent when no lateral head boundary exists.
+    """
     if drainage_conductance_m2_s is None:
         return np.zeros(mesh.n_cells, dtype=float)
     conductance = as_cell_vector(
@@ -45,7 +49,7 @@ def drainage_diagonal_derivative(
     auto_conductance = mesh.hydraulic_conductivity_m_s * mesh.cell_area_m2
     effective_conductance = np.where(conductance > 0.0, conductance, auto_conductance)
     head = np.asarray(head_m, dtype=float)
-    active = head > mesh.z_top_m
+    active = head >= mesh.z_top_m
     return np.where(active, effective_conductance, 0.0).astype(float, copy=False)
 
 

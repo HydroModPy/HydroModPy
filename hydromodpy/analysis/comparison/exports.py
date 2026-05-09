@@ -1372,6 +1372,51 @@ def _history_matrix(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
     return None
 
 
+def _budget_field_total_series(payload: Mapping[str, Any], key: str) -> np.ndarray | None:
+    """Return a total m3/s series from a persisted budget field.
+
+    Boussinesq stores canonical budget fields in the Zarr ``budget`` group as
+    volumetric fluxes.  The first dimension is time; all other dimensions are
+    spatial/support dimensions that can be summed for a basin-scale balance.
+    """
+    if key not in payload:
+        return None
+    values = np.asarray(payload[key], dtype=float)
+    if values.ndim == 0:
+        return None
+    if values.ndim == 1:
+        return values.reshape(-1)
+    matrix = values.reshape(int(values.shape[0]), -1)
+    return np.nansum(matrix, axis=1, dtype=float)
+
+
+def _all_finite_zero(values: np.ndarray | None) -> bool:
+    if values is None:
+        return False
+    arr = np.asarray(values, dtype=float)
+    finite = arr[np.isfinite(arr)]
+    return bool(finite.size > 0 and np.allclose(finite, 0.0))
+
+
+def _saturated_thickness_from_head_history(
+    *,
+    head_history_m: np.ndarray | None,
+    z_top_m: np.ndarray | None,
+    z_bottom_m: np.ndarray | None,
+) -> np.ndarray | None:
+    if head_history_m is None or z_top_m is None or z_bottom_m is None:
+        return None
+    head = np.asarray(head_history_m, dtype=float)
+    if head.ndim != 2:
+        return None
+    z_top = np.asarray(z_top_m, dtype=float).reshape(-1)
+    z_bottom = np.asarray(z_bottom_m, dtype=float).reshape(-1)
+    if not (head.shape[1] == z_top.size == z_bottom.size):
+        return None
+    aquifer_thickness = np.maximum(z_top - z_bottom, 0.0)
+    return np.clip(head - z_bottom[None, :], 0.0, aquifer_thickness[None, :])
+
+
 def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np.ndarray:
     if n_snapshots <= 0:
         return np.asarray([], dtype=float)
@@ -1383,6 +1428,31 @@ def _elapsed_seconds_axis(period_lengths: np.ndarray, *, n_snapshots: int) -> np
     if period_lengths.size == n_snapshots:
         return np.asarray(np.cumsum(period_lengths, dtype=float), dtype=float)
     return np.arange(n_snapshots, dtype=float)
+
+
+def _is_degenerate_time_axis(values: np.ndarray) -> bool:
+    return int(values.size) > 1 and bool(np.allclose(values, values[0]))
+
+
+def _period_lengths_from_root_time(
+    payload: Mapping[str, Any],
+    *,
+    n_snapshots: int,
+) -> np.ndarray | None:
+    if "time" not in payload:
+        return None
+    try:
+        root_time = np.asarray(payload["time"], dtype=float).reshape(-1)
+    except Exception:
+        return None
+    if root_time.size != int(n_snapshots) or _is_degenerate_time_axis(root_time):
+        return None
+    lengths = np.diff(root_time)
+    if lengths.size != int(n_snapshots) - 1:
+        return None
+    if not np.all(np.isfinite(lengths)) or np.any(lengths <= 0.0):
+        return None
+    return np.asarray(lengths, dtype=float)
 
 
 def _budget_period_metadata(
@@ -1594,6 +1664,19 @@ def _load_boussinesq_state_from_store(
         result: dict[str, np.ndarray] = {}
         for key in state_grp:
             result[key] = np.asarray(state_grp[key][:])
+        if "time" in grp:
+            result["time"] = np.asarray(grp["time"][:])
+        budget_grp = grp.get("budget")
+        if budget_grp is not None:
+            budget_field_names = {
+                "recharge": "budget_recharge_m3_s",
+                "well": "budget_well_m3_s",
+                "drain": "budget_drainage_m3_s",
+                "surface_excess": "budget_surface_excess_m3_s",
+            }
+            for source_name, target_name in budget_field_names.items():
+                if source_name in budget_grp:
+                    result[target_name] = np.asarray(budget_grp[source_name][:])
     except Exception:
         return None
     finally:
@@ -1637,6 +1720,13 @@ def _load_boussinesq_budget_rows(
     prescribed_head_history = _history_matrix(payload, "prescribed_head_flux_history_m3_s")
     head_history = _history_matrix(payload, "head_history_m")
     saturated_thickness_history = _history_matrix(payload, "saturated_thickness_history_m")
+    budget_recharge_total = _budget_field_total_series(payload, "budget_recharge_m3_s")
+    budget_well_total = _budget_field_total_series(payload, "budget_well_m3_s")
+    budget_drainage_total = _budget_field_total_series(payload, "budget_drainage_m3_s")
+    budget_surface_excess_total = _budget_field_total_series(
+        payload,
+        "budget_surface_excess_m3_s",
+    )
 
     n_snapshots = max(
         (
@@ -1650,6 +1740,10 @@ def _load_boussinesq_budget_rows(
                 prescribed_head_history,
                 head_history,
                 saturated_thickness_history,
+                budget_recharge_total,
+                budget_well_total,
+                budget_drainage_total,
+                budget_surface_excess_total,
             )
             if matrix is not None
         ),
@@ -1701,13 +1795,22 @@ def _load_boussinesq_budget_rows(
         if "period_lengths_seconds" in payload
         else np.asarray([], dtype=float)
     )
+    if _is_degenerate_time_axis(period_lengths):
+        fallback_lengths = _period_lengths_from_root_time(
+            payload,
+            n_snapshots=n_snapshots,
+        )
+        if fallback_lengths is not None:
+            period_lengths = fallback_lengths
     elapsed_seconds = _elapsed_seconds_axis(
         period_lengths,
         n_snapshots=n_snapshots,
     )
 
     component_series: dict[str, np.ndarray] = {}
-    if (
+    if budget_recharge_total is not None and budget_recharge_total.size == n_snapshots:
+        component_series["recharge_total_m3_s"] = budget_recharge_total
+    elif (
         recharge_history is not None
         and area_m2 is not None
         and recharge_history.shape[1] == area_m2.size
@@ -1717,15 +1820,27 @@ def _load_boussinesq_budget_rows(
             axis=1,
             dtype=float,
         )
-    if well_history is not None:
+    if budget_well_total is not None and budget_well_total.size == n_snapshots:
+        component_series["well_total_m3_s"] = budget_well_total
+    elif well_history is not None:
         component_series["well_total_m3_s"] = np.sum(well_history, axis=1, dtype=float)
-    if drainage_history is not None:
+    if budget_drainage_total is not None and budget_drainage_total.size == n_snapshots:
+        component_series["drainage_total_m3_s"] = budget_drainage_total
+    elif drainage_history is not None:
         component_series["drainage_total_m3_s"] = np.sum(
             drainage_history,
             axis=1,
             dtype=float,
         )
     if (
+        budget_surface_excess_total is not None
+        and budget_surface_excess_total.size == n_snapshots
+    ):
+        component_series["surface_excess_total_m3_s"] = np.maximum(
+            budget_surface_excess_total,
+            0.0,
+        )
+    elif (
         surface_history is not None
         and area_m2 is not None
         and surface_history.shape[1] == area_m2.size
@@ -1752,6 +1867,12 @@ def _load_boussinesq_budget_rows(
             dtype=float,
         )
 
+    if _all_finite_zero(saturated_thickness_history):
+        saturated_thickness_history = _saturated_thickness_from_head_history(
+            head_history_m=head_history,
+            z_top_m=payload.get("z_top_m"),
+            z_bottom_m=payload.get("z_bottom_m"),
+        )
     storage_change = _storage_change_series_m3_s(
         head_history_m=head_history,
         saturated_thickness_history_m=saturated_thickness_history,
@@ -1785,6 +1906,11 @@ def _load_boussinesq_budget_rows(
             - prescribed_out
             - component_series["storage_change_total_m3_s"]
         )
+        if _all_finite_zero(prescribed_out):
+            component_series["balance_implied_outflow_total_m3_s"] = np.maximum(
+                component_series["closure_residual_m3_s"],
+                0.0,
+            )
 
     time_labels = [
         (f"{elapsed / 86400.0:.1f} d" if math.isfinite(float(elapsed)) else str(index))

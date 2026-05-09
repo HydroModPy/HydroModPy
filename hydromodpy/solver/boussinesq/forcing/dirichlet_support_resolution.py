@@ -7,6 +7,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    active_side_dirichlet_boundary_ids,
+)
+
 if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.forcing_resolution import BoussinesqForcingResolver
 
@@ -166,9 +170,7 @@ class DirichletSupportResolutionMixin:
                     )
                 )
 
-        for bc_id in ("west_side", "east_side", "south_side", "north_side"):
-            if not self.is_bc_active(bc_id):
-                continue
+        for bc_id in active_side_dirichlet_boundary_ids(self.flow):
             boundary = self.require_active_dirichlet_boundary(
                 boundary_conditions=boundary_conditions,
                 bc_id=bc_id,

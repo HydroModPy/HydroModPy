@@ -1,0 +1,63 @@
+base_config = "compare_synthetic_patchy_mf6_bouss.toml"
+workflow = "comparison"
+
+[comparison]
+comparison_id = "synthetic_small_domain_mf6_vs_bouss"
+base_simulation_config = "base_synthetic_small_domain.toml"
+output_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_small_domain_mf6_vs_bouss"
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 small-domain reference"
+
+[comparison.simulation.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_small_domain_mf6_vs_bouss/workspace_mf6"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_small_domain_mf6_vs_bouss/workspace_mf6"
+
+[[comparison.simulation]]
+id = "bouss_candidate"
+label = "Boussinesq small-domain candidate"
+
+[comparison.simulation.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_small_domain_mf6_vs_bouss/workspace_bouss"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_small_domain_mf6_vs_bouss/workspace_bouss"
+
+[[comparison.observable]]
+name = "head_map_initial"
+
+[[comparison.observable]]
+name = "head_map_wet_year1"
+
+[[comparison.observable]]
+name = "head_map_drought_year2"
+
+[[comparison.observable]]
+name = "head_map_extreme_recharge"
+
+[[comparison.observable]]
+name = "head_map_last"
+
+[[comparison.observable]]
+name = "head_west_low_k_series"
+x = 140462.4562
+y = 6845741.9651
+
+[[comparison.observable]]
+name = "head_west_interface_series"
+x = 140962.4562
+y = 6845741.9651
+
+[[comparison.observable]]
+name = "head_central_high_k_series"
+x = 141262.4562
+y = 6845741.9651
+
+[[comparison.observable]]
+name = "head_east_interface_series"
+x = 141712.4562
+y = 6845741.9651
+
+[[comparison.observable]]
+name = "head_east_medium_k_series"
+x = 142112.4562
+y = 6845741.9651

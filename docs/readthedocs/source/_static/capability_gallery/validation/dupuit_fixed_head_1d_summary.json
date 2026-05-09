@@ -557,8 +557,14 @@
         "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
       },
       {
+        "field": "flow.ic.type",
+        "meaning": "Initial-condition policy used to start the benchmark.",
+        "value": "custom",
+        "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
+      },
+      {
         "field": "flow.ic.value",
-        "meaning": "Initial hydraulic head used to start the benchmark.",
+        "meaning": "Scalar initial head or top offset used by the initial-condition policy.",
         "value": "7.5 m",
         "source": "validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml"
       },

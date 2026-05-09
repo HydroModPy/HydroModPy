@@ -1,11 +1,14 @@
 """Experimental PETSc TS + SNESVI runtime for a head-only obstacle problem.
 
 The PETSc state vector contains only hydraulic head ``h``. PETSc SNESVI bounds
-that state with ``z_bottom <= h <= z_top`` and PETSc TS performs fixed
+that state with ``z_bottom <= h <= z_top`` by default and PETSc TS performs fixed
 Backward-Euler steps inside the HydroModPy stress period. Surface and bottom
 rates are reconstructed after convergence from the remaining implicit residual;
 ``q_ex`` and ``q_dry`` are not primary unknowns and no Fischer-Burmeister
 equations are assembled here.
+
+When an explicit positive Cauchy drainage conductance is supplied, the upper
+obstacle is relaxed so the drainage flux term carries the top boundary exchange.
 """
 
 from __future__ import annotations
@@ -39,6 +42,9 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
     _require_petsc,
     _snes_reason_label,
 )
+from hydromodpy.solver.boussinesq.runtimes.vi_bounds import (
+    variable_bounds as _variable_bounds,
+)
 
 _DEFAULT_PC_FACTOR_SHIFT_TYPE = "nonzero"
 _DEFAULT_PC_FACTOR_SHIFT_AMOUNT = 1.0e-10
@@ -61,12 +67,13 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     dt_period = float(inputs.dt_seconds)
     dt_initial = dt_period / float(ts_steps)
     prescribed = _prescribed_head_cells(inputs.prescribed_head_m_by_cell)
-    lower, upper, prescribed_mask = _variable_bounds(inputs.mesh, prescribed)
-    physical_lower = np.asarray(inputs.mesh.z_bottom_m, dtype=float).reshape(-1)
-    physical_upper = np.maximum(
-        np.asarray(inputs.mesh.z_top_m, dtype=float).reshape(-1),
-        physical_lower,
+    lower, upper, prescribed_mask = _variable_bounds(
+        inputs.mesh,
+        prescribed,
+        drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
     )
+    physical_lower = np.asarray(inputs.mesh.z_bottom_m, dtype=float).reshape(-1)
+    physical_upper = upper.copy()
     head_start = _clip_head_to_bounds(
         np.asarray(inputs.head_prev_m, dtype=float),
         lower=lower,
@@ -390,21 +397,6 @@ def _configure_ts_vi_snes(PETSc, snes, *, snes_type: str, tol_residual_inf: floa
 
 def _prescribed_head_cells(prescribed_head_m_by_cell: np.ndarray | None) -> np.ndarray | None:
     return None if prescribed_head_m_by_cell is None else np.asarray(prescribed_head_m_by_cell, dtype=float).reshape(-1)
-
-
-def _variable_bounds(mesh: BoussinesqMesh, prescribed_head_m_by_cell: np.ndarray | None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    lower = np.asarray(mesh.z_bottom_m, dtype=float).reshape(-1).copy()
-    upper = np.maximum(np.asarray(mesh.z_top_m, dtype=float).reshape(-1), lower)
-    prescribed = (
-        np.full(int(mesh.n_cells), np.nan, dtype=float)
-        if prescribed_head_m_by_cell is None
-        else np.asarray(prescribed_head_m_by_cell, dtype=float).reshape(-1)
-    )
-    prescribed_mask = np.isfinite(prescribed)
-    if np.any(prescribed_mask):
-        lower[prescribed_mask] = prescribed[prescribed_mask]
-        upper[prescribed_mask] = prescribed[prescribed_mask]
-    return lower, upper, prescribed_mask
 
 
 def _clip_head_to_bounds(head_m: np.ndarray, *, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:

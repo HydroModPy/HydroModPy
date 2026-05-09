@@ -303,8 +303,12 @@ Common Numerical Setup
      - Support identifier used to distribute the heterogeneous `K` field.
      - k_bands
      - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml``
+   * - ``flow.ic.type``
+     - Initial-condition policy used to start the benchmark.
+     - custom
+     - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml``
    * - ``flow.ic.value``
-     - Initial hydraulic head used to start the benchmark.
+     - Scalar initial head or top offset used by the initial-condition policy.
      - 6.0 m
      - ``validation_cases/analytical/steady/boussinesq_uniform_recharge_piecewise_k_1d/config_modflownwt.toml``
    * - ``flow.bc.dirichlet.west_side.value``

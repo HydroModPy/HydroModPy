@@ -1,0 +1,53 @@
+@startuml
+title Flow Boundary Conditions - Component View
+
+package "physics.flow" {
+  component "TOML [flow.bc]" as Toml
+  component "normalize_flow_boundary_conditions" as Normalizer
+  component "FlowBoundaryConditionConfig" as BoundaryConfig
+  component "FLOW_BOUNDARY_DEFINITIONS" as Registry
+  component "BoundaryConditionBundle" as Bundle
+  component "Flow" as FlowRuntime
+}
+
+package "solver.modflow6" {
+  component "CHD builder" as Mf6Chd
+  component "DRN builder" as Mf6Drn
+}
+
+package "solver.modflow_nwt" {
+  component "BAS/CHD payloads" as NwtChd
+  component "DRN payloads" as NwtDrn
+}
+
+package "solver.boussinesq" {
+  component "Dirichlet support resolver" as BoussDirichlet
+  component "Drainage resolver" as BoussDrainage
+}
+
+Toml --> Normalizer
+Normalizer --> BoundaryConfig
+BoundaryConfig --> FlowRuntime
+Registry --> Bundle
+FlowRuntime --> Bundle
+
+Bundle --> Mf6Chd : dirichlet ids
+Bundle --> Mf6Drn : drainage
+Bundle --> NwtChd : side/ocean ids
+Bundle --> NwtDrn : drainage
+Bundle --> BoussDirichlet : prescribed heads
+Bundle --> BoussDrainage : top drainage
+
+note right of Registry
+  Central inventory:
+  id, family, units,
+  support kind,
+  backend support.
+end note
+
+note bottom of Bundle
+  Runtime view:
+  configured boundaries
+  plus active ids.
+end note
+@enduml

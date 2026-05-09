@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-
 import numpy as np
 
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
@@ -13,23 +11,11 @@ from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     resolve_stream_boundary_series,
     stream_chd_support_mask,
 )
-
-
-def resolve_head_initial_condition(model):
-    """Return the head initial-condition payload from the flow configuration."""
-    initial_conditions = getattr(model.flow, "initial_conditions", None)
-    if initial_conditions is None:
-        return None
-    if isinstance(initial_conditions, Mapping):
-        return initial_conditions.get("h")
-    return getattr(initial_conditions, "h", None)
-
-
-def initial_condition_field(initial_condition, field_name: str, default=None):
-    """Read one field from either a mapping payload or a typed IC object."""
-    if isinstance(initial_condition, Mapping):
-        return initial_condition.get(field_name, default)
-    return getattr(initial_condition, field_name, default)
+from hydromodpy.solver.initial_conditions import (
+    build_head_initial_condition_array,
+    initial_condition_field,
+    resolve_head_initial_condition,
+)
 
 
 def rewet_is_enabled(model) -> bool:
@@ -50,32 +36,13 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
     ncpl = solver_mesh.n_cells
     top_flat = solver_mesh.top  # (ncpl,)
     botm_flat = solver_mesh.botm  # (nlay, ncpl)
-    initial_type = str(initial_condition_field(h_ic, "type", "")).strip().lower()
-    if initial_type in {"top", "steady_state"}:
-        strt = np.tile(top_flat, (model.nlay, 1))
-    elif initial_type == "top_offset":
-        head_value = initial_condition_field(h_ic, "value")
-        if head_value is None:
-            raise ValueError(
-                "flow.initial_conditions.h.value is required for top_offset"
-            )
-        offset_m = float(getattr(head_value, "magnitude", head_value))
-        strt = np.tile(top_flat - offset_m, (model.nlay, 1))
-    elif initial_type in {"bot", "bottom"}:
-        strt = np.tile(botm_flat[-1], (model.nlay, 1))
-    elif initial_type == "custom":
-        head_value = initial_condition_field(h_ic, "value")
-        head_magnitude = getattr(head_value, "magnitude", head_value)
-        strt = np.full(
-            (model.nlay, ncpl),
-            float(head_magnitude),
-            dtype=float,
-        )
-    else:
-        raise ValueError(
-            "flow.initial_conditions.h.type must be one of: top, top_offset, bottom, "
-            "custom, steady_state"
-        )
+    strt = build_head_initial_condition_array(
+        h_ic,
+        top=top_flat,
+        bottom=botm_flat[-1],
+        target_shape=(int(model.nlay), int(ncpl)),
+        location_prefix="flow.ic",
+    )
     ocean_series = resolve_ocean_boundary_series(model)
     ocean_mask = ocean_chd_support_mask(model, ocean_series)
     if np.any(ocean_mask):

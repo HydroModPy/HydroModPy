@@ -103,7 +103,13 @@ def _figure_items(*, root: Path, manifest: Mapping[str, Any]) -> list[dict[str, 
                 path = Path(str(item["path"]))
                 if not path.is_absolute():
                     path = root / path
-                if path.is_file():
+                if path.is_file() and path.suffix.lower() in {
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".webp",
+                    ".svg",
+                }:
                     payload = dict(item)
                     payload["path"] = str(path)
                     items.append(payload)
@@ -120,16 +126,16 @@ def _figure_items(*, root: Path, manifest: Mapping[str, Any]) -> list[dict[str, 
 def _select_key_figures(figures: list[dict[str, Any]]) -> list[dict[str, Any]]:
     priority = (
         "case_configuration.png",
-        "comparable_outflow_dashboard.png",
-        "flux_overview.png",
-        "head_points_dashboard.png",
         "head_map_after_first_month__triptych",
+        "head_map_after_first_month__difference",
         "head_map_wet_period__triptych",
+        "head_map_wet_period__difference",
         "head_map_dry_period__triptych",
+        "head_map_dry_period__difference",
         "head_map_last__triptych",
-        "mf6_ref__budget_diagnostics.png",
-        "bouss_candidate__budget_diagnostics.png",
-        "execution_time_comparison.png",
+        "head_map_last__difference",
+        "storage_comparison_dashboard.png",
+        "total_inputs_outputs_dashboard.png",
     )
 
     def score(item: Mapping[str, Any]) -> tuple[int, str]:
@@ -139,7 +145,7 @@ def _select_key_figures(figures: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 return (index, name)
         return (len(priority), name)
 
-    return sorted(figures, key=score)[:18]
+    return sorted(figures, key=score)[:12]
 
 
 def _data_links(root: Path) -> list[Path]:

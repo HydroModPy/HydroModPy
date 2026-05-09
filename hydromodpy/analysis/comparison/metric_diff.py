@@ -17,10 +17,18 @@ SUMMARY_METRIC_FIELDS = [
     "observable",
     "unit",
     "n_pairs",
+    "reference_mean",
+    "reference_min",
+    "reference_max",
+    "reference_range",
+    "normalization_scale",
     "bias",
     "mae",
     "rmse",
     "max_abs_error",
+    "mae_normalized_percent",
+    "rmse_normalized_percent",
+    "max_abs_error_normalized_percent",
     "mean_relative_error",
 ]
 
@@ -275,9 +283,43 @@ def build_comparison_metrics(
     summary_rows: list[dict[str, Any]] = []
     for (simulation_id, observable, unit), group in sorted(grouped.items()):
         signed = np.asarray([row["signed_error"] for row in group], dtype=float)
+        reference_values = np.asarray([row["reference_value"] for row in group], dtype=float)
         abs_err = np.abs(signed)
         rel_err = np.asarray([row["relative_error"] for row in group], dtype=float)
         finite_rel = rel_err[np.isfinite(rel_err)]
+        finite_reference = reference_values[np.isfinite(reference_values)]
+        if finite_reference.size:
+            reference_mean = float(np.nanmean(finite_reference))
+            reference_min = float(np.nanmin(finite_reference))
+            reference_max = float(np.nanmax(finite_reference))
+            reference_range = float(reference_max - reference_min)
+            reference_mean_abs = float(np.nanmean(np.abs(finite_reference)))
+        else:
+            reference_mean = math.nan
+            reference_min = math.nan
+            reference_max = math.nan
+            reference_range = math.nan
+            reference_mean_abs = math.nan
+        normalization_scale = (
+            reference_range
+            if math.isfinite(reference_range) and reference_range > 1.0e-12
+            else (
+                reference_mean_abs
+                if math.isfinite(reference_mean_abs) and reference_mean_abs > 1.0e-12
+                else math.nan
+            )
+        )
+        mae = float(np.nanmean(abs_err))
+        rmse = float(np.sqrt(np.nanmean(signed**2)))
+        max_abs_error = float(np.nanmax(abs_err))
+        if math.isfinite(normalization_scale):
+            mae_normalized_percent = 100.0 * mae / normalization_scale
+            rmse_normalized_percent = 100.0 * rmse / normalization_scale
+            max_abs_error_normalized_percent = 100.0 * max_abs_error / normalization_scale
+        else:
+            mae_normalized_percent = math.nan
+            rmse_normalized_percent = math.nan
+            max_abs_error_normalized_percent = math.nan
         summary_rows.append(
             {
                 "simulation_id": simulation_id,
@@ -285,10 +327,18 @@ def build_comparison_metrics(
                 "observable": observable,
                 "unit": unit,
                 "n_pairs": int(signed.size),
+                "reference_mean": reference_mean,
+                "reference_min": reference_min,
+                "reference_max": reference_max,
+                "reference_range": reference_range,
+                "normalization_scale": normalization_scale,
                 "bias": float(np.nanmean(signed)),
-                "mae": float(np.nanmean(abs_err)),
-                "rmse": float(np.sqrt(np.nanmean(signed**2))),
-                "max_abs_error": float(np.nanmax(abs_err)),
+                "mae": mae,
+                "rmse": rmse,
+                "max_abs_error": max_abs_error,
+                "mae_normalized_percent": mae_normalized_percent,
+                "rmse_normalized_percent": rmse_normalized_percent,
+                "max_abs_error_normalized_percent": max_abs_error_normalized_percent,
                 "mean_relative_error": (
                     float(np.nanmean(finite_rel)) if finite_rel.size else math.nan
                 ),

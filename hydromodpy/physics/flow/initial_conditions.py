@@ -31,7 +31,7 @@ from hydromodpy.physics.base import InitialCondition as BaseInitialCondition
 
 class FlowInitialCondition(BaseInitialCondition):
     """
-    Flow initial condition used by MODFLOW head initialization.
+    Flow initial condition used by flow solver head initialization.
 
     Semantics
     ---------
@@ -53,7 +53,7 @@ class FlowInitialCondition(BaseInitialCondition):
     type: Annotated[
         Literal["top", "top_offset", "bottom", "custom", "steady_state"], Profile.USER
     ] = Field(
-        "custom",
+        "top",
         description=(
             "Type of initial condition ('top', 'top_offset', 'bottom', 'custom', "
             "or 'steady_state'). "
@@ -66,7 +66,8 @@ class FlowInitialCondition(BaseInitialCondition):
         None,
         description=(
             "Initial hydraulic-head value. Required when type='custom'; "
-            "vertical offset below top when type='top_offset'."
+            "vertical offset below top when type='top_offset'; not accepted "
+            "for top, bottom, or steady_state."
         ),
     )
     source: Annotated[Literal["recharge", "mean_recharge"] | None, Profile.USER] = (
@@ -99,6 +100,11 @@ class FlowInitialCondition(BaseInitialCondition):
         if self.type in {"custom", "top_offset"} and self.value is None:
             raise ValueError(
                 f"flow.ic.value is required when flow.ic.type='{self.type}'"
+            )
+        if self.type in {"top", "bottom"} and self.value is not None:
+            raise ValueError(
+                "flow.ic.value is only supported when flow.ic.type is "
+                "'custom' or 'top_offset'"
             )
         if self.type != "steady_state":
             if self.source is not None:

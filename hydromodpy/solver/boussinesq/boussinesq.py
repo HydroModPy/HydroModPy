@@ -28,7 +28,11 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.physics.flow.boundary_conditions import SIDE_DIRICHLET_BC_IDS
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    boundary_condition_bundle_from_flow,
+    boundary_conditions_mapping_from_flow,
+    is_boundary_condition_active,
+)
 from hydromodpy.solver.base.solver import Solver
 from hydromodpy.solver.boussinesq.assembly import (
     saturated_thickness_from_head,
@@ -53,18 +57,27 @@ from hydromodpy.solver.boussinesq.runtime_selection import (
     BoussinesqRuntimeBackend,
     resolve_runtime_backend,
 )
-from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
-    write_vi_obstacle_diagnostic_files,
+from hydromodpy.solver.boussinesq.runtime_summary import (
+    record_surface_threshold_summary,
 )
 from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
     write_ts_vi_obstacle_diagnostic_files,
 )
-from hydromodpy.solver.boussinesq.runtime_summary import (
-    record_surface_threshold_summary,
+from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
+    write_vi_obstacle_diagnostic_files,
 )
 from hydromodpy.solver.boussinesq.solver_contract import (
     BoussinesqSolverContract,
     resolve_solver_contract,
+)
+from hydromodpy.solver.initial_conditions import (
+    summarize_head_initial_condition_bounds,
+)
+from hydromodpy.solver.steady_initial_conditions import (
+    apply_steady_state_initial_condition_strategy,
+    flow_uses_steady_state_initial_condition,
+    steady_state_initial_condition_strategy,
+    steady_state_initialization_surface_interaction_model,
 )
 from hydromodpy.solver.utils.temporal.steady_initialization import (
     single_period_mean_forcing_time_grid,
@@ -73,9 +86,6 @@ from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
 )
 
-_SUPPORTED_BC_IDS = frozenset(
-    set(SIDE_DIRICHLET_BC_IDS) | {"stream", "ocean", "drainage"}
-)
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 _DEFAULT_SATURATION_EXCESS_REGULARIZATION = 0.05
 
@@ -270,12 +280,13 @@ class Boussinesq(Solver):
 
     def _assert_supported_runtime_subset(self) -> None:
         """Fail fast when the requested problem exceeds the implemented slice."""
-        active_bc = tuple(getattr(self.flow, "active_bc", ()) or ())
+        boundary_bundle = boundary_condition_bundle_from_flow(self.flow)
         active_sinks_sources = tuple(
             getattr(self.flow, "active_sinks_sources", ()) or ()
         )
         unsupported_bc = sorted(
-            str(item) for item in active_bc if str(item) not in _SUPPORTED_BC_IDS
+            set(boundary_bundle.unknown_active_ids())
+            | set(boundary_bundle.unsupported_active_ids("boussinesq"))
         )
         unsupported_sinks_sources = sorted(
             str(item)
@@ -405,27 +416,33 @@ class Boussinesq(Solver):
 
     def _uses_steady_state_initial_condition(self) -> bool:
         """Return whether `[flow.ic]` requests same-solver steady initialization."""
-        initial_conditions = getattr(self.flow, "initial_conditions", None)
-        head_ic = (
-            None
-            if initial_conditions is None
-            else getattr(initial_conditions, "h", None)
-        )
-        return str(getattr(head_ic, "type", "")).strip().lower() == "steady_state"
+        return flow_uses_steady_state_initial_condition(self.flow)
 
     def _run_steady_state_initialization(self) -> bool:
         """Materialize a same-solver steady-state initial condition."""
+        strategy = steady_state_initial_condition_strategy(self.flow)
         original_regime = getattr(self.flow, "flow_regime", None)
         original_time_grid = self.time_grid
+        original_surface_model = getattr(self.flow, "surface_interaction_model", None)
+        original_config = getattr(self.flow, "config", None)
+        steady_surface_model = steady_state_initialization_surface_interaction_model(
+            self.flow
+        )
         sinks_sources = getattr(self.flow, "sinks_sources", None)
+        had_recharge = False
         original_recharge = None
         if isinstance(sinks_sources, dict) and "recharge" in sinks_sources:
+            had_recharge = True
             original_recharge = sinks_sources.get("recharge")
-            if original_recharge is not None and hasattr(
-                original_recharge, "model_copy"
-            ):
-                sinks_sources["recharge"] = original_recharge.model_copy(
-                    update={"first_clim": "mean"}
+            apply_steady_state_initial_condition_strategy(
+                self.flow,
+                strategy=strategy,
+            )
+        if steady_surface_model is not None:
+            self.flow.surface_interaction_model = steady_surface_model
+            if original_config is not None and hasattr(original_config, "model_copy"):
+                self.flow.config = original_config.model_copy(
+                    update={"surface_interaction_model": steady_surface_model}
                 )
         self.flow.flow_regime = "steady"
         self.time_grid = single_period_mean_forcing_time_grid(original_time_grid)
@@ -434,7 +451,17 @@ class Boussinesq(Solver):
         finally:
             self.flow.flow_regime = original_regime
             self.time_grid = original_time_grid
-            if isinstance(sinks_sources, dict) and original_recharge is not None:
+            if steady_surface_model is not None:
+                if original_surface_model is None:
+                    try:
+                        delattr(self.flow, "surface_interaction_model")
+                    except AttributeError:
+                        pass
+                else:
+                    self.flow.surface_interaction_model = original_surface_model
+                if original_config is not None:
+                    self.flow.config = original_config
+            if isinstance(sinks_sources, dict) and had_recharge:
                 sinks_sources["recharge"] = original_recharge
         self.runtime_summary["steady_state_initialization"] = bool(success)
         self.runtime_summary["steady_state_initialization_solver"] = "boussinesq"
@@ -445,6 +472,14 @@ class Boussinesq(Solver):
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before initializing the state.")
         head_m = self._resolve_initial_head_field()
+        self.runtime_summary["initial_head_bounds"] = (
+            summarize_head_initial_condition_bounds(
+                head=head_m,
+                top=self.mesh.z_top_m,
+                bottom=self.mesh.z_bottom_m,
+                location_prefix="flow.ic",
+            )
+        )
         saturated_thickness_m = saturated_thickness_from_head(self.mesh, head_m)
         return BoussinesqState(
             head_m=head_m,
@@ -479,15 +514,11 @@ class Boussinesq(Solver):
 
     def _boundary_conditions_mapping(self) -> Mapping[str, object]:
         """Return the boundary-condition mapping from the flow contract."""
-        boundary_conditions = getattr(self.flow, "boundary_conditions", {})
-        if not isinstance(boundary_conditions, Mapping):
-            raise TypeError("flow.boundary_conditions must be a mapping")
-        return boundary_conditions
+        return boundary_conditions_mapping_from_flow(self.flow)
 
     def _is_bc_active(self, bc_id: str) -> bool:
         """Return whether one boundary id is active in the current flow setup."""
-        active = getattr(self.flow, "active_bc", ())
-        return bc_id in active
+        return is_boundary_condition_active(self.flow, bc_id)
 
 
 __all__ = ["Boussinesq", "BoussinesqState"]

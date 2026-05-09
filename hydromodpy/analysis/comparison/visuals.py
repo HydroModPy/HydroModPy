@@ -35,9 +35,29 @@ from hydromodpy.analysis.comparison.visuals_render_series import (
     _write_native_flux_panel,
     _write_point_dashboard,
     _write_runtime_bar_figure,
+    _write_storage_comparison_dashboard,
     _write_timeseries_figure,
+    _write_total_input_output_dashboard,
 )
 from hydromodpy.analysis.comparison.visuals_style import _is_flux_like_name, _slug
+
+
+def _representative_map_observable_names(observables: list[Any]) -> set[str]:
+    """Keep the comparison report focused by selecting one map observable."""
+    map_observables = [item for item in observables if getattr(item, "support", "") == "map"]
+    if not map_observables:
+        return set()
+    priority = (
+        "head_map_wet_year1",
+        "head_map_extreme_recharge",
+        "head_map_last",
+        "head_map_initial",
+    )
+    by_name = {str(item.name): item for item in map_observables}
+    for name in priority:
+        if name in by_name:
+            return {name}
+    return {str(map_observables[0].name)}
 
 
 def generate_comparison_figures(
@@ -93,8 +113,13 @@ def generate_comparison_figures(
                 }
             )
 
+    representative_map_names = _representative_map_observable_names(
+        list(cfg.comparison.observable)
+    )
     for observable in cfg.comparison.observable:
         if observable.support != "map":
+            continue
+        if observable.name not in representative_map_names:
             continue
         payloads: list[MapPayload] = []
         for simulation_id, simulation in simulations.items():
@@ -411,6 +436,32 @@ def generate_comparison_figures(
                 "kind": "comparable_outflow_dashboard",
                 "observable": "comparable_outflow_total_m3_s",
                 "path": str(comparable_outflow_path),
+            }
+        )
+
+    storage_path = figure_root / "storage_comparison_dashboard.png"
+    if _write_storage_comparison_dashboard(
+        path=storage_path,
+        budget_rows=budget_long,
+    ):
+        artifacts.append(
+            {
+                "kind": "storage_comparison_dashboard",
+                "observable": "storage_change_total_m3_s",
+                "path": str(storage_path),
+            }
+        )
+
+    totals_path = figure_root / "total_inputs_outputs_dashboard.png"
+    if _write_total_input_output_dashboard(
+        path=totals_path,
+        budget_rows=budget_long,
+    ):
+        artifacts.append(
+            {
+                "kind": "total_inputs_outputs_dashboard",
+                "observable": "total_inputs_outputs_m3_s",
+                "path": str(totals_path),
             }
         )
 

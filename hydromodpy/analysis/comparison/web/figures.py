@@ -27,17 +27,22 @@ _CATEGORY_META: dict[str, tuple[str, str, int]] = {
     ),
     "heads": (
         "Charges hydrauliques",
-        "Cartes, triptyques, differences et series temporelles de charge.",
+        "Un champ de charge representatif et les chroniques ponctuelles.",
         20,
     ),
-    "fluxes": (
-        "Flux, drainage et suintement",
-        "Flux de sortie, drainage, surface excess, seepage et cartes associees.",
+    "water_balance": (
+        "Stockage et bilan externe",
+        "Stockage global et sommes d'entrees/sorties externes.",
         30,
     ),
+    "fluxes": (
+        "Flux agrege et chroniques",
+        "Flux ramenes a un observable commun quand la semantique physique a ete verifiee.",
+        35,
+    ),
     "budgets": (
-        "Bilans et budgets",
-        "Diagnostics de budget et bilans par solveur.",
+        "Diagnostics de budget",
+        "Bilans natifs par solveur. Ils servent a l'audit numerique et ne sont pas toujours comparables terme a terme.",
         40,
     ),
     "networks": (
@@ -88,6 +93,16 @@ def _figure_category_id(item: Mapping[str, Any]) -> str:
     text = _figure_text(item)
     if any(token in text for token in ("case_configuration", "configuration")):
         return "configuration"
+    if any(
+        token in text
+        for token in (
+            "storage_comparison",
+            "total_inputs_outputs",
+            "total_inputs",
+            "total_outputs",
+        )
+    ):
+        return "water_balance"
     if any(
         token in text
         for token in (
@@ -155,6 +170,8 @@ def _figure_sort_key(item: Mapping[str, Any]) -> tuple[int, str]:
         score = 0
     elif "dashboard" in name:
         score = 5
+    elif "comparable_outflow" in name:
+        score = 8
     elif "fine_raster_triptych" in name:
         score = 10
     elif "triptych" in name:

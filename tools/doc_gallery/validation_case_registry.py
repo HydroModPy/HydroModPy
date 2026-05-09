@@ -874,8 +874,10 @@ def _meaning_for_config_field(field: str) -> str:
             zone_name = tokens[-1]
             return f"Heterogeneous `{parameter_name}` value applied on support zone `{zone_name}`."
 
+    if field == "flow.ic.type":
+        return "Initial-condition policy used to start the benchmark."
     if field == "flow.ic.value":
-        return "Initial hydraulic head used to start the benchmark."
+        return "Scalar initial head or top offset used by the initial-condition policy."
 
     if len(tokens) >= 5 and tokens[:3] == ["flow", "bc", "dirichlet"]:
         boundary_name = _humanize_name(tokens[3])
@@ -1016,7 +1018,6 @@ def _should_include_common_config_field(field: str) -> bool:
         "data.inference_mode",
         "display.enabled",
         "simulation.time.coverage_policy",
-        "flow.ic.type",
         "flow.sinks_sources.recharge.first_clim",
     }
     if field in excluded_fields:

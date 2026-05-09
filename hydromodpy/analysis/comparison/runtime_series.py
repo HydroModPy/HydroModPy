@@ -58,6 +58,68 @@ def _elapsed_seconds_from_period_lengths(
     return [None for _ in range(n_snapshots)]
 
 
+def _is_degenerate_time_axis(values: np.ndarray) -> bool:
+    """Return True for repeated time axes that cannot distinguish slices."""
+    return int(values.size) > 1 and bool(np.allclose(values, values[0]))
+
+
+def _read_1d_array(group: Any, name: str) -> np.ndarray | None:
+    if group is None or name not in group:
+        return None
+    try:
+        values = np.asarray(group[name][:], dtype=float).reshape(-1)
+    except Exception:
+        return None
+    return values if values.size > 0 else None
+
+
+def _time_axis_from_store_root(
+    grp: Any,
+    *,
+    n_slices: int,
+) -> tuple[list[float | None], bool]:
+    """Resolve elapsed seconds for a stored field using root/state metadata."""
+    state_grp = grp.get("boussinesq_state") if grp is not None else None
+    periods = _read_1d_array(state_grp, "period_lengths_seconds")
+    snapshots = _read_1d_array(state_grp, "snapshot_elapsed_seconds")
+    if (
+        snapshots is not None
+        and snapshots.size == int(n_slices)
+        and not _is_degenerate_time_axis(snapshots)
+    ):
+        return [float(value) for value in snapshots.tolist()], True
+
+    step_ends = _read_1d_array(state_grp, "step_end_elapsed_seconds")
+    if (
+        step_ends is not None
+        and step_ends.size == int(n_slices)
+        and not _is_degenerate_time_axis(step_ends)
+    ):
+        return [float(value) for value in step_ends.tolist()], False
+
+    if periods is not None and not _is_degenerate_time_axis(periods):
+        return (
+            _elapsed_seconds_from_period_lengths(
+                n_snapshots=int(n_slices),
+                period_lengths=periods,
+            ),
+            periods.size == int(n_slices) - 1,
+        )
+
+    root_time = _read_1d_array(grp, "time")
+    if (
+        root_time is not None
+        and root_time.size == int(n_slices)
+        and not _is_degenerate_time_axis(root_time)
+    ):
+        return (
+            [float(value) for value in root_time.tolist()],
+            periods is not None and periods.size == int(n_slices) - 1,
+        )
+
+    return [None for _ in range(max(int(n_slices), 0))], False
+
+
 def _store_variable_mapping(variable_name: str) -> str | None:
     """Map a postprocess variable name to its SimulationCatalog field name.
 
@@ -112,12 +174,16 @@ def _load_store_series(
             data = arr[:]
         except Exception:
             return None
+        if data.ndim == 0:
+            return None
+        n_slices = 1 if data.ndim == 1 else int(data.shape[0])
+        elapsed_by_index, has_initial_state = _time_axis_from_store_root(
+            grp,
+            n_slices=n_slices,
+        )
     finally:
         if sz is not None:
             sz.close()
-
-    if data.ndim == 0:
-        return None
 
     if data.ndim == 1:
         slices = (
@@ -125,6 +191,8 @@ def _load_store_series(
                 time_key=0,
                 time_index=0,
                 values=np.asarray(data, dtype=float).ravel(),
+                elapsed_seconds=elapsed_by_index[0] if elapsed_by_index else None,
+                is_initial_state=has_initial_state,
             ),
         )
     else:
@@ -133,6 +201,8 @@ def _load_store_series(
                 time_key=t,
                 time_index=t,
                 values=np.asarray(data[t], dtype=float).ravel(),
+                elapsed_seconds=elapsed_by_index[t] if t < len(elapsed_by_index) else None,
+                is_initial_state=has_initial_state and t == 0,
             )
             for t in range(data.shape[0])
         )
@@ -176,17 +246,14 @@ def _load_store_boussinesq_state_series(
         except Exception:
             return None
 
-        period_lengths = np.asarray([], dtype=float)
-        if "period_lengths_seconds" in state_grp:
-            try:
-                period_lengths = np.asarray(
-                    state_grp["period_lengths_seconds"][:], dtype=float
-                ).ravel()
-            except Exception:
-                pass
+        period_lengths = _read_1d_array(state_grp, "period_lengths_seconds")
+        root_time = _read_1d_array(grp, "time")
     finally:
         if sz is not None:
             sz.close()
+
+    if period_lengths is None:
+        period_lengths = np.asarray([], dtype=float)
 
     if values.ndim <= 1:
         elapsed = float(np.nansum(period_lengths)) if period_lengths.size > 0 else None
@@ -199,17 +266,29 @@ def _load_store_boussinesq_state_series(
             ),
         )
     else:
-        elapsed_by_index = _elapsed_seconds_from_period_lengths(
-            n_snapshots=int(values.shape[0]),
-            period_lengths=period_lengths,
+        elapsed_by_index, has_initial_state = _time_axis_from_store_root(
+            {"time": root_time} if root_time is not None else {},
+            n_slices=int(values.shape[0]),
         )
+        if (
+            root_time is not None
+            and period_lengths.size == values.shape[0] - 1
+            and not _is_degenerate_time_axis(root_time)
+        ):
+            has_initial_state = True
+        if all(value is None for value in elapsed_by_index):
+            elapsed_by_index = _elapsed_seconds_from_period_lengths(
+                n_snapshots=int(values.shape[0]),
+                period_lengths=period_lengths,
+            )
+            has_initial_state = period_lengths.size == values.shape[0] - 1
         slices = tuple(
             TimeSlice(
                 time_key=index,
                 time_index=index,
                 values=values[index].ravel(),
                 elapsed_seconds=elapsed_by_index[index],
-                is_initial_state=period_lengths.size == values.shape[0] - 1 and index == 0,
+                is_initial_state=has_initial_state and index == 0,
             )
             for index in range(values.shape[0])
         )

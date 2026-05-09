@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -21,6 +22,54 @@ if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 
 
+def _duration_seconds(value: object) -> float:
+    """Return one duration in seconds from common Python/pandas/numpy payloads."""
+    total_seconds = getattr(value, "total_seconds", None)
+    if callable(total_seconds):
+        return float(total_seconds())
+    if isinstance(value, np.timedelta64):
+        return float(value / np.timedelta64(1, "s"))
+    if isinstance(value, timedelta):
+        return float(value.total_seconds())
+    return float(value)
+
+
+def _period_lengths_from_boundaries(boundaries: object) -> tuple[float, ...]:
+    """Derive positive period lengths from explicit time boundaries."""
+    if boundaries is None:
+        return ()
+    items = tuple(boundaries)
+    if len(items) < 2:
+        return ()
+    lengths: list[float] = []
+    for start, end in zip(items[:-1], items[1:], strict=False):
+        seconds = _duration_seconds(end - start)
+        if seconds <= 0.0:
+            return ()
+        lengths.append(float(seconds))
+    return tuple(lengths)
+
+
+def _resolve_period_lengths_seconds(time_grid: object) -> tuple[float, ...]:
+    """Resolve robust Boussinesq stress-period lengths from the launcher time grid."""
+    raw_lengths = tuple(
+        float(value) for value in (getattr(time_grid, "period_lengths_seconds", ()) or ())
+    )
+    if raw_lengths and all(value > 0.0 for value in raw_lengths):
+        return raw_lengths
+
+    from_boundaries = _period_lengths_from_boundaries(getattr(time_grid, "boundaries", None))
+    if from_boundaries:
+        return from_boundaries
+
+    if raw_lengths:
+        raise ValueError(
+            "Boussinesq transient time grid contains non-positive period lengths "
+            "and no valid boundaries fallback."
+        )
+    return ()
+
+
 def run_transient_runtime(solver: Boussinesq) -> bool:
     """Advance the head state over all launcher stress periods."""
     if solver.mesh is None:
@@ -32,9 +81,7 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     record_runtime_backend_summary(solver, contract)
     solver._assert_runtime_mesh_size_supported(runtime_backend)
 
-    period_lengths = tuple(
-        float(value) for value in (getattr(solver.time_grid, "period_lengths_seconds", ()) or ())
-    )
+    period_lengths = _resolve_period_lengths_seconds(solver.time_grid)
     if not period_lengths:
         return True
 

@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.physics.flow.boundary_condition_registry import is_boundary_condition_active
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.property_mapping import (
@@ -104,8 +105,7 @@ def _has_any_flow_parameter(*, flow: object, canonical_name: str) -> bool:
 
 def _flow_uses_stream_bc(flow: object) -> bool:
     """Tell whether the current Flow run activates the stream boundary condition."""
-    active_bc = getattr(flow, "active_bc", ())
-    return any(str(bc_id).strip().lower() == "stream" for bc_id in active_bc or ())
+    return is_boundary_condition_active(flow, "stream")
 
 
 def resolve_runtime_solver_mesh(setup_state: object) -> BoussinesqMesh | None:

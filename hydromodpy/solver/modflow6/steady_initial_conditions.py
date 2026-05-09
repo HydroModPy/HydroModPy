@@ -60,8 +60,10 @@ def run_modflow6_steady_state_initialization(
     model: object, *, verbose: bool
 ) -> np.ndarray:
     """Run one auxiliary steady MF6 model and return heads for the transient IC."""
-    init_root = Path(str(model.full_path)) / "_steady_state_initialization"
-    init_name = f"{model.model_name}_steady_ic"
+    # Keep the auxiliary workspace short. On Windows, MF6 still fails on long
+    # nested paths when writing DISV binary grid files.
+    init_root = Path(str(model.full_path)) / "_ssic"
+    init_name = "ssic"
     steady_model = model.__class__(
         geographic=model.geographic,
         modflow_config=_modflow_config_with_same_executable(model),

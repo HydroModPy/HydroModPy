@@ -16,10 +16,10 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.base import ProcessSpatialConfig
-from hydromodpy.physics.flow.boundary_conditions import (
-    DIRICHLET_BC_CANONICAL_DOMAINS,
-    FlowBoundaryConditionConfig,
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    SUPPORTED_FLOW_BOUNDARY_IDS,
 )
+from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.boundary_conditions_config import (
     normalize_flow_boundary_conditions,
 )
@@ -329,8 +329,9 @@ class FlowConfig(ProcessSpatialConfig):
         default_factory=list,
         description=(
             "Explicitly activated boundary-condition ids for this flow run. "
-            "Allowed values: 'ocean', 'stream', 'north_side', 'south_side', "
-            "'east_side', 'west_side', 'drainage'. "
+            "Allowed values are the canonical ids declared in the flow "
+            "boundary-condition registry: 'ocean', 'stream', 'north_side', "
+            "'south_side', 'east_side', 'west_side', 'drainage'. "
             "An empty list means no boundary-condition package is assembled by the solver."
         ),
     )
@@ -389,7 +390,7 @@ class FlowConfig(ProcessSpatialConfig):
 
     @model_validator(mode="after")
     def _validate_param_consistency(self):
-        """Enforce one-to-one consistency between `param_list` and `param` keys."""
+        """Enforce cross-field consistency on the flow configuration."""
         missing = [param_id for param_id in self.param_list if param_id not in self.param]
         if missing:
             missing_text = ", ".join(missing)
@@ -401,6 +402,13 @@ class FlowConfig(ProcessSpatialConfig):
             extra_text = ", ".join(extra)
             raise ValueError(
                 f"flow.param contains ids not declared in flow.param_list: {extra_text}"
+            )
+        head_ic = getattr(self.ic, "h", None)
+        head_ic_type = str(getattr(head_ic, "type", "")).strip().lower()
+        if head_ic_type == "steady_state" and self.flow_regime != "transient":
+            raise ValueError(
+                "flow.ic.type='steady_state' is only supported when "
+                "flow.flow_regime='transient'"
             )
         return self
 
@@ -608,12 +616,11 @@ class FlowConfig(ProcessSpatialConfig):
         """
         Validate that ``active_bc`` only contains allowed boundary-condition ids.
 
-        For ``Flow``, permitted ids are those declared in
-        ``DIRICHLET_BC_CANONICAL_DOMAINS`` (ocean, stream, north_side,
-        south_side, east_side, west_side) plus ``'drainage'``.
+        For ``Flow``, permitted ids are the canonical ids declared in the
+        flow boundary-condition registry.
         Duplicates are rejected to keep the list unambiguous.
         """
-        _ALLOWED = set(DIRICHLET_BC_CANONICAL_DOMAINS.keys()) | {"drainage"}
+        _ALLOWED = SUPPORTED_FLOW_BOUNDARY_IDS
         if value is None:
             return []
         if not isinstance(value, (list, tuple)):

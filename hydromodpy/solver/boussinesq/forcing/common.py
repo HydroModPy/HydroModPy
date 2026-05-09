@@ -8,6 +8,10 @@ from numbers import Real
 import numpy as np
 
 from hydromodpy.core.time import validate_recharge_coverage
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    boundary_conditions_mapping_from_flow,
+    is_boundary_condition_active,
+)
 from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
@@ -289,15 +293,11 @@ class ForcingCommonMixin:
 
     def boundary_conditions_mapping(self) -> Mapping[str, object]:
         """Return the boundary-condition mapping from the flow contract."""
-        boundary_conditions = getattr(self.flow, "boundary_conditions", {})
-        if not isinstance(boundary_conditions, Mapping):
-            raise TypeError("flow.boundary_conditions must be a mapping")
-        return boundary_conditions
+        return boundary_conditions_mapping_from_flow(self.flow)
 
     def is_bc_active(self, bc_id: str) -> bool:
         """Return whether one boundary id is active in the current flow setup."""
-        active = getattr(self.flow, "active_bc", ())
-        return bc_id in active
+        return is_boundary_condition_active(self.flow, bc_id)
 
 
 __all__ = ["ForcingCommonMixin"]

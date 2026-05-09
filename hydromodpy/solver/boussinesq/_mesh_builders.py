@@ -97,6 +97,12 @@ def build_runtime_bundle_from_planar_mesh(
         node_indices = tuple(int(node_id) for node_id in cell.node_indices)
         cell_node_z_top = node_z_top[np.asarray(node_indices, dtype=int)]
         cell_node_z_bottom = node_z_bottom[np.asarray(node_indices, dtype=int)]
+        z_top_centroid = optional_finite_float(float(centroid_z_top[cell_index]))
+        if z_top_centroid is None:
+            z_top_centroid = optional_finite_nanmean(cell_node_z_top)
+        z_bottom_centroid = optional_finite_float(float(centroid_z_bottom[cell_index]))
+        if z_bottom_centroid is None:
+            z_bottom_centroid = optional_finite_nanmean(cell_node_z_bottom)
         cells.append(
             CatchmentMeshBundleCell(
                 cell_id=cell_index,
@@ -105,9 +111,9 @@ def build_runtime_bundle_from_planar_mesh(
                 centroid_x=float(cell.centroid[0]),
                 centroid_y=float(cell.centroid[1]),
                 area_m2=polygon_area(np.asarray(cell.vertices, dtype=float)),
-                z_top_centroid=optional_finite_float(float(centroid_z_top[cell_index])),
+                z_top_centroid=z_top_centroid,
                 z_top_mean=optional_finite_nanmean(cell_node_z_top),
-                z_bottom_centroid=optional_finite_float(float(centroid_z_bottom[cell_index])),
+                z_bottom_centroid=z_bottom_centroid,
                 z_bottom_mean=optional_finite_nanmean(cell_node_z_bottom),
                 geology_code=None,
                 geology_key="",
