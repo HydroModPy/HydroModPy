@@ -28,16 +28,22 @@ class InitialConditionResolutionMixin:
             return np.asarray(self.mesh.z_top_m, dtype=float)
         if ic_type == "top_offset":
             if head_ic.value is None:
-                raise ValueError("flow.ic.value is required when flow.ic.type='top_offset'.")
+                raise ValueError(
+                    "flow.ic.value is required when flow.ic.type='top_offset'."
+                )
             offset_m = float(getattr(head_ic.value, "magnitude", head_ic.value))
             return np.asarray(self.mesh.z_top_m, dtype=float) - offset_m
         if ic_type == "bottom":
             return np.asarray(self.mesh.z_bottom_m, dtype=float)
         if ic_type == "custom":
             if head_ic.value is None:
-                raise ValueError("flow.ic.value is required when flow.ic.type='custom'.")
+                raise ValueError(
+                    "flow.ic.value is required when flow.ic.type='custom'."
+                )
             head_magnitude = getattr(head_ic.value, "magnitude", head_ic.value)
             return np.full(self.mesh.n_cells, float(head_magnitude), dtype=float)
+        if ic_type == "steady_state":
+            return np.asarray(self.mesh.z_top_m, dtype=float)
         raise ValueError(f"Unsupported flow.ic.type for boussinesq: '{head_ic.type}'.")
 
 

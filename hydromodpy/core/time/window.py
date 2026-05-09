@@ -134,7 +134,9 @@ def _normalize_policy(raw_policy: Any) -> Literal["error", "warn", "ignore"]:
     """Normalize coverage-policy token and validate allowed values."""
     policy = str(raw_policy).strip().lower()
     if policy not in _VALID_POLICIES:
-        raise ValueError("simulation.time.coverage_policy must be one of: error, warn, ignore.")
+        raise ValueError(
+            "simulation.time.coverage_policy must be one of: error, warn, ignore."
+        )
     return policy  # type: ignore[return-value]
 
 
@@ -157,7 +159,9 @@ def _normalize_step_value(raw_step_value: Any) -> int:
     try:
         step_value = float(raw_step_value)
     except Exception as exc:
-        raise ValueError("simulation.time.step_value must be a positive integer.") from exc
+        raise ValueError(
+            "simulation.time.step_value must be a positive integer."
+        ) from exc
     if not step_value.is_integer() or step_value <= 0:
         raise ValueError("simulation.time.step_value must be a positive integer.")
     return int(step_value)
@@ -181,7 +185,9 @@ def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", 
     }
     step_unit = token_map.get(canonical)
     if step_unit is None:
-        raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
+        raise ValueError(
+            "simulation.time.step_unit must be one of: hour, day, month, year."
+        )
     return step_unit  # type: ignore[return-value]
 
 
@@ -212,7 +218,9 @@ def _parse_step_spec(
     return step_value, step_unit
 
 
-def _time_step_offset(*, step_value: int, step_unit: str) -> pd.DateOffset | pd.Timedelta:
+def _time_step_offset(
+    *, step_value: int, step_unit: str
+) -> pd.DateOffset | pd.Timedelta:
     """Build a pandas offset from one canonical step specification."""
     if step_unit == "hour":
         return pd.to_timedelta(step_value, unit="h")
@@ -287,7 +295,9 @@ def _period_lengths_in_seconds_from_boundaries(
         delta = boundaries[idx + 1] - boundaries[idx]
         seconds = timedelta_to_seconds(delta)
         if seconds <= 0:
-            raise ValueError("Computed non-positive stress-period length from simulation.time.")
+            raise ValueError(
+                "Computed non-positive stress-period length from simulation.time."
+            )
         out.append(float(seconds))
     if not out:
         raise ValueError("simulation.time resolved to an empty stress-period sequence.")
@@ -329,7 +339,9 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
 def _iter_simulation_processes(cfg: Any) -> tuple[Any, ...]:
     """Return declared simulation processes as a stable tuple."""
     simulation_cfg = getattr(cfg, "simulation", None)
-    processes = getattr(simulation_cfg, "process", None) if simulation_cfg is not None else None
+    processes = (
+        getattr(simulation_cfg, "process", None) if simulation_cfg is not None else None
+    )
     if processes is None:
         return ()
     if isinstance(processes, tuple):
@@ -351,7 +363,8 @@ def _process_type(process_cfg: Any) -> str:
 def has_flow_simulation_process(cfg: Any) -> bool:
     """Return ``True`` when the simulation plan declares at least one flow process."""
     return any(
-        _process_type(process_cfg) == "flow" for process_cfg in _iter_simulation_processes(cfg)
+        _process_type(process_cfg) == "flow"
+        for process_cfg in _iter_simulation_processes(cfg)
     )
 
 
@@ -403,6 +416,19 @@ def build_simulation_time_boundaries(
     window: ResolvedSimulationTimeWindow,
 ) -> list[pd.Timestamp]:
     """Return half-open simulation boundaries [t0, ..., tN] from one window."""
+    explicit_bounds = getattr(window, "period_bounds", None)
+    if explicit_bounds is not None:
+        boundaries: list[pd.Timestamp] = []
+        for raw_start, raw_end in tuple(explicit_bounds):
+            start = pd.Timestamp(raw_start)
+            end = pd.Timestamp(raw_end)
+            if not boundaries:
+                boundaries.append(start)
+            elif boundaries[-1] != start:
+                boundaries.append(start)
+            boundaries.append(end)
+        if len(boundaries) >= 2:
+            return boundaries
     return _build_time_boundaries(window)
 
 
@@ -466,7 +492,9 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
     )
 
 
-def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWindow | None:
+def apply_explicit_time_window_to_tgrids(
+    cfg: Any,
+) -> ResolvedSimulationTimeWindow | None:
     """Apply resolved ``simulation.time`` to flow-solver ``tgrid`` sections.
 
     The launcher keeps temporal authority in ``[simulation.time]`` and writes
@@ -489,7 +517,9 @@ def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWind
 
     for solver_section_name in ("modflownwt", "modflow6"):
         solver_cfg = getattr(cfg, solver_section_name, None)
-        tgrid_cfg = getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
+        tgrid_cfg = (
+            getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
+        )
         if tgrid_cfg is None:
             continue
         # Persist the same canonical window in each active flow solver section.
@@ -599,7 +629,7 @@ def validate_recharge_coverage(
         return
 
     # Exact period-start alignment is the strongest/cleanest contract.
-    boundaries = _build_time_boundaries(window)
+    boundaries = build_simulation_time_boundaries(window)
     period_starts = pd.DatetimeIndex(boundaries[:-1])
     index = pd.DatetimeIndex(series.index)
     is_period_aligned = len(index) == len(period_starts) and index.equals(period_starts)

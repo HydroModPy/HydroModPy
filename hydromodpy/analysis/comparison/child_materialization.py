@@ -45,6 +45,7 @@ ALLOWED_SIMULATION_OVERLAY_KEYS = {
 
 ALLOWED_FLOW_OVERLAY_KEYS = {
     "bc",
+    "ic",
     "param",
     "runtime_backend",
     "surface_interaction_model",
@@ -82,11 +83,15 @@ def validate_numeric_overlay(overlay: Mapping[str, Any]) -> None:
     unknown_top_keys = sorted(set(overlay) - ALLOWED_TOP_LEVEL_OVERLAY_KEYS)
     if unknown_top_keys:
         keys = ", ".join(unknown_top_keys)
-        raise ValueError(f"comparison.simulation.overlay contains forbidden sections: {keys}")
+        raise ValueError(
+            f"comparison.simulation.overlay contains forbidden sections: {keys}"
+        )
 
     simulation = overlay.get("simulation")
     if isinstance(simulation, Mapping):
-        unknown_simulation_keys = sorted(set(simulation) - ALLOWED_SIMULATION_OVERLAY_KEYS)
+        unknown_simulation_keys = sorted(
+            set(simulation) - ALLOWED_SIMULATION_OVERLAY_KEYS
+        )
         if unknown_simulation_keys:
             keys = ", ".join(unknown_simulation_keys)
             raise ValueError(
@@ -98,7 +103,9 @@ def validate_numeric_overlay(overlay: Mapping[str, Any]) -> None:
         unknown_flow_keys = sorted(set(flow) - ALLOWED_FLOW_OVERLAY_KEYS)
         if unknown_flow_keys:
             keys = ", ".join(unknown_flow_keys)
-            raise ValueError(f"comparison.simulation.overlay.flow contains forbidden keys: {keys}")
+            raise ValueError(
+                f"comparison.simulation.overlay.flow contains forbidden keys: {keys}"
+            )
 
 
 def _child_run_name(*, comparison_id: str, simulation_id: str) -> str:
@@ -122,7 +129,9 @@ def _payload_workspace_root(payload: Mapping[str, Any], *, fallback: Path) -> Pa
     return fallback
 
 
-def _absolutize_relative_path_values(value: Any, *, source_dir: Path, key: str = "") -> Any:
+def _absolutize_relative_path_values(
+    value: Any, *, source_dir: Path, key: str = ""
+) -> Any:
     if isinstance(value, Mapping):
         return {
             str(child_key): _absolutize_relative_path_values(
@@ -134,7 +143,8 @@ def _absolutize_relative_path_values(value: Any, *, source_dir: Path, key: str =
         }
     if isinstance(value, list):
         return [
-            _absolutize_relative_path_values(item, source_dir=source_dir, key=key) for item in value
+            _absolutize_relative_path_values(item, source_dir=source_dir, key=key)
+            for item in value
         ]
     if not isinstance(value, str) or not _looks_like_path_key(key):
         return value

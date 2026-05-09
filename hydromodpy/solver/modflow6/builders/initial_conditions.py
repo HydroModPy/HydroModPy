@@ -43,18 +43,22 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
     """Build MF6 starting heads as flat (nlay, ncpl) for DISV."""
     h_ic = resolve_head_initial_condition(model)
     if h_ic is None:
-        raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
+        raise ValueError(
+            "flow.initial_conditions.h is required for Modflow6 pre_processing"
+        )
 
     ncpl = solver_mesh.n_cells
     top_flat = solver_mesh.top  # (ncpl,)
     botm_flat = solver_mesh.botm  # (nlay, ncpl)
     initial_type = str(initial_condition_field(h_ic, "type", "")).strip().lower()
-    if initial_type == "top":
+    if initial_type in {"top", "steady_state"}:
         strt = np.tile(top_flat, (model.nlay, 1))
     elif initial_type == "top_offset":
         head_value = initial_condition_field(h_ic, "value")
         if head_value is None:
-            raise ValueError("flow.initial_conditions.h.value is required for top_offset")
+            raise ValueError(
+                "flow.initial_conditions.h.value is required for top_offset"
+            )
         offset_m = float(getattr(head_value, "magnitude", head_value))
         strt = np.tile(top_flat - offset_m, (model.nlay, 1))
     elif initial_type in {"bot", "bottom"}:
@@ -69,7 +73,8 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
         )
     else:
         raise ValueError(
-            "flow.initial_conditions.h.type must be one of: top, top_offset, bottom, custom"
+            "flow.initial_conditions.h.type must be one of: top, top_offset, bottom, "
+            "custom, steady_state"
         )
     ocean_series = resolve_ocean_boundary_series(model)
     ocean_mask = ocean_chd_support_mask(model, ocean_series)
@@ -95,7 +100,9 @@ def resolve_rewet_npf_options(
 
     wetdry_value = abs(float(getattr(runtime, "mf6_rewet_wetdry", 0.1)))
     if wetdry_value <= 0.0:
-        raise ValueError("modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled.")
+        raise ValueError(
+            "modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled."
+        )
 
     # FloPy injects the REWET keyword itself and expects only the labeled payload.
     rewet_record = [

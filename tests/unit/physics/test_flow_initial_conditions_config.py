@@ -41,6 +41,35 @@ def test_normalize_flow_initial_conditions_accepts_top_offset() -> None:
     assert initial_conditions.h.value.to("m").magnitude == pytest.approx(10.0)
 
 
+def test_normalize_flow_initial_conditions_accepts_steady_state_strategy() -> None:
+    initial_conditions = normalize_flow_initial_conditions(
+        {
+            "type": "steady_state",
+            "source": "mean_recharge",
+            "recharge_statistic": "time_mean",
+            "boundary_condition_policy": "first_period",
+        }
+    )
+    assert initial_conditions is not None
+    assert initial_conditions.h.type == "steady_state"
+    assert initial_conditions.h.source == "mean_recharge"
+    assert initial_conditions.h.recharge_statistic == "time_mean"
+    assert initial_conditions.h.boundary_condition_policy == "first_period"
+
+
+def test_normalize_flow_initial_conditions_defaults_steady_state_strategy() -> None:
+    initial_conditions = normalize_flow_initial_conditions({"type": "steady_state"})
+    assert initial_conditions is not None
+    assert initial_conditions.h.source == "mean_recharge"
+    assert initial_conditions.h.recharge_statistic == "time_mean"
+    assert initial_conditions.h.boundary_condition_policy == "first_period"
+
+
+def test_normalize_flow_initial_conditions_rejects_steady_state_value() -> None:
+    with pytest.raises(ValueError, match="value is not supported"):
+        normalize_flow_initial_conditions({"type": "steady_state", "value": "1 m"})
+
+
 def test_normalize_flow_initial_conditions_rejects_conflicting_units() -> None:
     with pytest.raises(ValueError, match="conflicting units"):
         normalize_flow_initial_conditions(
