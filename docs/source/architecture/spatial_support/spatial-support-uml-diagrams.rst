@@ -100,5 +100,5 @@ Related diagrams
 ----------------
 
 - :doc:`support-selection-guide`
-- :doc:`../field/field-uml-diagrams`
-- :doc:`../mesh/sgrid-fieldparam-discretization-diagrams`
+- :doc:`../field/index`
+- :doc:`../mesh/structured-grid-architecture`

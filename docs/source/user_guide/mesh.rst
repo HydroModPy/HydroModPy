@@ -33,9 +33,9 @@ Decision matrix
    * - Where are stable mesh examples I can browse?
      - :doc:`../capability_gallery/mesh`
    * - How does a catchment mesh become a solver input?
-     - :doc:`../architecture/mesh/mesh-catchment-in-process-simulation-activity-diagram`
+     - :doc:`../architecture/mesh/catchment-mesh-architecture`
    * - How are structured grids represented internally?
-     - :doc:`../architecture/mesh/structured-grid-class-diagram`
+     - :doc:`../architecture/mesh/structured-grid-architecture`
    * - How is the Gmsh-backed conformal mesh built?
      - :doc:`../architecture/gmsh_meshing`
 

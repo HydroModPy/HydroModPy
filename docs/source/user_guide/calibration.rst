@@ -39,9 +39,9 @@ Decision matrix
    * - Where can I inspect calibration benchmark outputs?
      - :doc:`../capability_gallery/calibration`
    * - How does the calibration engine run, step by step?
-     - :doc:`../architecture/calibration/calibration-execution-flows`
+     - :doc:`../architecture/calibration/calibration-architecture`
    * - Which classes hold calibration configuration and runtime state?
-     - :doc:`../architecture/calibration/calibration-core-classes`
+     - :doc:`../architecture/calibration/calibration-architecture`
    * - Which method should I pick for my parameter count?
      - See "Pick a method" below
 

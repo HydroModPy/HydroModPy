@@ -920,9 +920,8 @@ See also
 --------
 
 - :doc:`index` for the calibration architecture root.
-- :doc:`calibration-execution-flows` for the runtime sequence of an
-  ask/tell loop.
-- :doc:`calibration-core-classes` for the runtime data model.
+- :doc:`calibration-architecture` for the package map and every UML
+  diagram (config, runtime, execution flows, case structure).
 - :doc:`../../user_guide/calibration` for the user-facing hub.
 - :doc:`../../theory/calibration/index` for the inverse-problem
   formulation and methods.

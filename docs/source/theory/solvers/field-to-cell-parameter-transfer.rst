@@ -183,7 +183,7 @@ This page stays at scientific level. For implementation details and diagrams,
 continue with:
 
 - :doc:`../../architecture/field/index`
-- :doc:`../../architecture/mesh/sgrid-fieldparam-discretization-diagrams`
+- :doc:`../../architecture/mesh/structured-grid-architecture`
 - :doc:`../../architecture/spatial_support/spatial-support-uml-diagrams`
 - ``hydromodpy/spatial/field/README.md``
 - ``hydromodpy/spatial/mesh/cartesian_grid/README.md``

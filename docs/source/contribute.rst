@@ -98,50 +98,24 @@ Coding style
 Run the tests
 -------------
 
-HydroModPy uses several test families because they do not validate the same
-thing:
+The fastest local check is ``hmp test unit``. Before merging
+workflow-facing changes, also run ``hmp test regression --fast``.
 
-- ``tests/unit/`` covers API and behaviour checks on isolated
-  components.
-- ``tests/integration/`` covers cross-module workflows without golden
-  references.
-- ``tests/e2e/`` covers complete user-facing scenarios.
-- ``tests/regression/`` checks reference outputs and full workflows.
-- ``tests/validation/`` runs scientific benchmarks against analytical or
-  trusted physical references.
-
-Quick command ladder:
-
-.. code-block:: bash
-
-   hmp test unit
-   pytest tests/integration -q
-   pytest tests/e2e -q
-   hmp test regression --fast -j 2
-   hmp test regression --extensive
-   hmp test validation --fast
-   hmp test validation --steady
-   hmp test validation --transient
-   pytest -m solver_sanity -q
-   pytest -m petsc -q
-   python -m validation_cases.run_cases --solver modflownwt --regime both --no-show
-
-For the detailed role of each family, and for guidance on how to interpret one
-failure, use
+For the full ladder (unit, integration, e2e, regression, validation,
+MMS, solver-sanity, calibration twins) with the role of each family
+and how to read a failure, use
 :doc:`architecture/overview/test-families-and-quality-roles`.
 
-The PETSc Boussinesq backend is Linux only. Tests tagged
-``pytest.mark.petsc`` are skipped on Windows by design.
-
-On a Windows workstation with WSL configured, keep the numerical and
-documentation environments separate. Run PETSc-backed simulations in WSL:
+The PETSc Boussinesq backend is Linux only. On a Windows workstation
+with WSL configured, run PETSc-backed simulations in WSL and keep the
+Windows environment for documentation builds:
 
 .. code-block:: powershell
 
    wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
 
-and keep the Windows environment for documentation builds. This avoids adding
-PETSc, MPI, or ``petsc4py`` as implicit requirements of the Sphinx build.
+This avoids adding PETSc, MPI, or ``petsc4py`` as implicit
+requirements of the Sphinx build.
 
 Build the documentation
 -----------------------

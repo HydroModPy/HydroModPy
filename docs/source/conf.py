@@ -42,7 +42,7 @@ warnings.filterwarnings(
     message="The frontend.OptionParser class will be replaced",
 )
 
-package_path = Path(__file__).resolve().parents[3]
+package_path = Path(__file__).resolve().parents[2]
 os.environ["PYTHONPATH"] = ":".join((str(package_path), os.environ.get("PYTHONPATH", "")))
 _DOC_REQUIRED_EXTENSIONS = [
     "nbsphinx",

@@ -65,6 +65,6 @@ backend, so ``[mesh_catchment]`` and ``[mesh_input]`` must be paired with
 See also
 --------
 
-- :doc:`../mesh/structured-grid-build-sequence-diagram`
-- :doc:`../mesh/mesh-catchment-in-process-simulation-activity-diagram`
+- :doc:`../mesh/structured-grid-architecture`
+- :doc:`../mesh/catchment-mesh-architecture`
 - :doc:`modflow6-architecture-notes`
