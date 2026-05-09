@@ -8,6 +8,7 @@ import numpy as np
 
 from hydromodpy.solver.modflow6.builders import build_drain_stress_period_data
 from hydromodpy.solver.modflow6.property_mapping import (
+    fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
@@ -85,6 +86,11 @@ def refresh_reused_runtime_property_packages(
         required_properties=resolve_required_flow_properties(flow_regime=model.flow_regime),
         optional_fill_values={"Sy": 0.0, "Ss": 0.0},
         runtime_property_overrides=flow_runtime_overrides,
+    )
+    flow_params = fill_missing_flow_properties_from_mesh_support(
+        flow_params,
+        mesh_support=model.runtime_mesh_support,
+        solver_mesh=model.solver_mesh,
     )
     model.hk = model.solver_mesh.flatten_from_grid(flow_params["hk"])
     model.sy = model.solver_mesh.flatten_from_grid(flow_params["sy"])

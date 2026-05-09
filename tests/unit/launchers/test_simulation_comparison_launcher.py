@@ -210,7 +210,9 @@ def test_simulation_comparison_accepts_existing_run_folders_without_base_config(
         run_a.resolve(),
         run_b.resolve(),
     ]
-    assert not (tmp_path / "comparison" / "existing_runs" / "_generated_configs").exists()
+    assert not (
+        tmp_path / "comparison" / "existing_runs" / "_generated_configs"
+    ).exists()
 
 
 def test_simulation_comparison_launcher_reuses_existing_run_folders(
@@ -266,11 +268,15 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
             None,
             None,
         ]
-        assert [Path(str(summary["run_folder"])).name for summary in simulation_summaries] == [
+        assert [
+            Path(str(summary["run_folder"])).name for summary in simulation_summaries
+        ] == [
             "mf6",
             "bouss",
         ]
-        assert [simulation.id for simulation in comparison_cfg.comparison.simulation] == [
+        assert [
+            simulation.id for simulation in comparison_cfg.comparison.simulation
+        ] == [
             "mf6_ref",
             "bouss_candidate",
         ]
@@ -320,7 +326,9 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
             "issues": [],
         },
     )
-    monkeypatch.setattr(output_pipeline_module, "generate_comparison_figures", lambda **kwargs: [])
+    monkeypatch.setattr(
+        output_pipeline_module, "generate_comparison_figures", lambda **kwargs: []
+    )
 
     manifest = SimulationComparisonLauncher(config_path).run()
 
@@ -483,7 +491,9 @@ def test_simulation_comparison_requires_existing_base_config(tmp_path: Path) -> 
     config_path = tmp_path / "compare.toml"
     _write_comparison_config(config_path)
 
-    with pytest.raises(FileNotFoundError, match="comparison.base_simulation_config not found"):
+    with pytest.raises(
+        FileNotFoundError, match="comparison.base_simulation_config not found"
+    ):
         _load_comparison_cfg(config_path)
 
 
@@ -574,7 +584,10 @@ def test_cli_resolves_comparison_workflow(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    assert resolve_workflow(config_path, cli_workflow=None, require_toml_field=True) == "comparison"
+    assert (
+        resolve_workflow(config_path, cli_workflow=None, require_toml_field=True)
+        == "comparison"
+    )
     assert _infer_workflow_from_sections({"comparison": {}}) == "comparison"
 
 
@@ -709,7 +722,9 @@ def test_equivalence_audit_flags_physical_config_mismatch(
         sim_id = preferred_sim_id or "sim"
         return FakeStore(sim_id), sim_id
 
-    monkeypatch.setattr(audit_module, "discover_result_store", fake_discover_result_store)
+    monkeypatch.setattr(
+        audit_module, "discover_result_store", fake_discover_result_store
+    )
 
     audit = build_equivalence_audit(
         simulation_summaries=[
@@ -765,12 +780,16 @@ def test_equivalence_audit_treats_missing_disabled_recharge_budget_as_zero(
         on_mismatch="warn",
     )
 
-    candidate = next(subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate")
+    candidate = next(
+        subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate"
+    )
     recharge_check = candidate["budget_checks"][audit_module.RECHARGE_COMPONENT]
     assert audit["status"] == "pass"
     assert recharge_check["status"] == "pass"
     assert recharge_check["n_pairs"] == 1
-    assert not any(issue["kind"] == "recharge_budget_mismatch" for issue in audit["issues"])
+    assert not any(
+        issue["kind"] == "recharge_budget_mismatch" for issue in audit["issues"]
+    )
 
 
 def test_equivalence_audit_warns_when_configured_recharge_budget_is_missing(
@@ -801,7 +820,9 @@ def test_equivalence_audit_warns_when_configured_recharge_budget_is_missing(
         on_mismatch="warn",
     )
 
-    candidate = next(subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate")
+    candidate = next(
+        subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate"
+    )
     recharge_check = candidate["budget_checks"][audit_module.RECHARGE_COMPONENT]
     assert audit["status"] == "warn"
     assert recharge_check["status"] == "missing_overlap"
@@ -819,7 +840,9 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
             "parameters": [],
             "physical_config": {"fingerprints": {}},
             "budget_components": {
-                audit_module.RECHARGE_COMPONENT: {"series": {"elapsed_seconds:86400": 1.0}}
+                audit_module.RECHARGE_COMPONENT: {
+                    "series": {"elapsed_seconds:86400": 1.0}
+                }
             },
         }
 
@@ -865,7 +888,9 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
 
     assert audit["status"] == "warn"
     assert audit["initial_state_policy"][0]["severity"] == "warning"
-    assert any(issue["kind"] == "initial_state_policy_mismatch" for issue in audit["issues"])
+    assert any(
+        issue["kind"] == "initial_state_policy_mismatch" for issue in audit["issues"]
+    )
 
 
 def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
@@ -970,7 +995,9 @@ def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
             {
                 "kind": "mock_figure",
                 "observable": "head_mid",
-                "path": str(kwargs["comparison_root"] / "comparison_figures" / "mock.png"),
+                "path": str(
+                    kwargs["comparison_root"] / "comparison_figures" / "mock.png"
+                ),
             }
         ],
     )
@@ -986,7 +1013,9 @@ def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
     assert Path(persisted["observables_csv"]).exists()
     assert Path(persisted["comparison_metrics_csv"]).exists()
     assert persisted["generated_configs_kept"] is True
-    assert (tmp_path / "comparison_outputs" / "_generated_configs" / "mf6_ref.toml").exists()
+    assert (
+        tmp_path / "comparison_outputs" / "_generated_configs" / "mf6_ref.toml"
+    ).exists()
 
 
 def test_simulation_comparison_child_failure_includes_output_tail(
@@ -1120,7 +1149,9 @@ def test_simulation_comparison_launcher_can_remove_generated_child_tomls(
             "issues": [],
         },
     )
-    monkeypatch.setattr(output_pipeline_module, "generate_comparison_figures", lambda **kwargs: [])
+    monkeypatch.setattr(
+        output_pipeline_module, "generate_comparison_figures", lambda **kwargs: []
+    )
 
     manifest = SimulationComparisonLauncher(config_path).run()
 

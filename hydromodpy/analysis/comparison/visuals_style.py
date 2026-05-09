@@ -65,9 +65,10 @@ def _legend_ncols(n_items: int) -> int:
 def _solver_color(solver: str) -> str:
     """Return a stable color for ``solver``.
 
-    Colors are pulled from matplotlib's ``tab10`` cycle and indexed by a
-    deterministic hash of the solver name, so each name gets a consistent
-    color across plots without requiring a per-solver registry.
+    Common solver families use fixed colors so comparison pages keep the same
+    visual identity even when figures are keyed by simulation id instead of by
+    solver name. Unknown names fall back to matplotlib's ``tab10`` cycle and a
+    deterministic hash.
     """
     import hashlib
 
@@ -76,6 +77,21 @@ def _solver_color(solver: str) -> str:
     key = str(solver).strip().lower()
     if not key:
         return "#6b7280"
+    normalized = re.sub(r"[^a-z0-9]+", "_", key).strip("_")
+    fixed_palette = {
+        "boussinesq": "#ff7f0e",
+        "modflow6": "#1f77b4",
+        "mf6": "#1f77b4",
+        "modflow_nwt": "#2ca02c",
+        "nwt": "#2ca02c",
+    }
+    tokens = set(filter(None, normalized.split("_")))
+    if "boussinesq" in tokens or "bouss" in tokens:
+        return fixed_palette["boussinesq"]
+    if "modflow6" in tokens or "mf6" in tokens:
+        return fixed_palette["modflow6"]
+    if normalized in fixed_palette:
+        return fixed_palette[normalized]
     cmap = colormaps.get_cmap("tab10")
     digest = hashlib.md5(key.encode("utf-8")).digest()
     index = digest[0] % cmap.N
@@ -204,6 +220,7 @@ def _budget_component_label(component: str) -> str:
         "drainage_total_m3_s": "Drainage",
         "surface_excess_total_m3_s": "Surface excess",
         "comparable_outflow_total_m3_s": "Comparable outflow",
+        "balance_implied_outflow_total_m3_s": "Balance-implied outflow",
         "storage_change_total_m3_s": "Storage change",
         "closure_residual_m3_s": "Closure residual",
     }
@@ -217,6 +234,7 @@ def _budget_component_color(component: str) -> str:
         "drainage_total_m3_s": "#ff7f0e",
         "surface_excess_total_m3_s": "#d62728",
         "comparable_outflow_total_m3_s": "#111827",
+        "balance_implied_outflow_total_m3_s": "#4b5563",
         "storage_change_total_m3_s": "#2ca02c",
         "closure_residual_m3_s": "#6b7280",
         "outlet_flux_series": "#4b5563",

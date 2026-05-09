@@ -1228,28 +1228,11 @@ flow_regime = "transient"
 
 # Hydraulic-head initial condition payload.
 
-[flow.ic.h]
-# id of the initial condition (ex: h0, etc.).
-# Type: string | REQUIRED
-id = ""
-
-# Initial hydraulic-head value.
-# Required when type='custom'.
-# Type: float (optional) | Optional
-value = 0.0
-
-# Description of the initial condition.
-# Type: string | Default: ""
-description = ""
-
-# Units of the initial condition.
-# Type: string | Default: ""
-units = ""
-
-# Type of initial condition ('top', 'bottom', or 'custom').
-# 'top' means a full aquifer, 'bottom' means an empty aquifer.
-# Type: Literal['top', 'bottom', 'custom'] | one of: "top", "bottom", "custom" | Default: "custom"
-type = "custom"
+[flow.ic]
+# Type of initial condition.
+# Supported values: "top", "top_offset", "bottom", "custom", "steady_state".
+# `value` is required only for "custom" and "top_offset".
+type = "top"
 
 
 # Typed sinks/sources payload (for example pumping wells).

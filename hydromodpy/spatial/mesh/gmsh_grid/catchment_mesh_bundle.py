@@ -83,6 +83,17 @@ def _normalize_optional_float(value: float | None) -> str | float:
     return _NODATA_SENTINEL if value is None or not np.isfinite(float(value)) else float(value)
 
 
+def _finite_or_nanmean(value: float, fallback_values: np.ndarray) -> float:
+    """Return ``value`` when finite, otherwise a finite mean from fallback samples."""
+    if np.isfinite(float(value)):
+        return float(value)
+    array = np.asarray(fallback_values, dtype=float).reshape(-1)
+    finite = np.isfinite(array)
+    if not np.any(finite):
+        return np.nan
+    return float(np.nanmean(array[finite]))
+
+
 def _normalize_optional_int(value: int | None) -> str | int:
     """Serialize optional integers using the bundle missing-value convention."""
     return _NODATA_SENTINEL if value is None else int(value)
@@ -410,13 +421,19 @@ def export_catchment_mesh_bundle(
         cell_node_indices = tuple(int(node_idx) for node_idx in cell.node_indices)
         cell_node_z = node_z[np.asarray(cell_node_indices, dtype=int)]
         cell_node_z_bottom = node_z_bottom[np.asarray(cell_node_indices, dtype=int)]
-        centroid_z = float(centroid_z_top_all[cell_index])
-        centroid_z_bottom = float(centroid_z_bottom_all[cell_index])
         mean_z = float(np.nanmean(cell_node_z)) if np.any(np.isfinite(cell_node_z)) else np.nan
         mean_z_bottom = (
             float(np.nanmean(cell_node_z_bottom))
             if np.any(np.isfinite(cell_node_z_bottom))
             else np.nan
+        )
+        centroid_z = _finite_or_nanmean(
+            float(centroid_z_top_all[cell_index]),
+            cell_node_z,
+        )
+        centroid_z_bottom = _finite_or_nanmean(
+            float(centroid_z_bottom_all[cell_index]),
+            cell_node_z_bottom,
         )
         n3_value: str | int = _NODATA_SENTINEL
         if len(cell_node_indices) > 3:

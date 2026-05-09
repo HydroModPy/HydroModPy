@@ -20,4 +20,5 @@ firstpersteady = true
 # offset avoids that false convergence and restores the expected recharge
 # balance during the warm-up period.
 [flow.ic]
+type = "custom"
 value = "50.1 m"

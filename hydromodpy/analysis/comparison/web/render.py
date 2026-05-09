@@ -9,6 +9,7 @@ from typing import Any
 from hydromodpy.analysis.comparison.web.context import load_comparison_web_context
 from hydromodpy.analysis.comparison.web.html_utils import safe
 from hydromodpy.analysis.comparison.web.sections import (
+    report_title,
     render_facts,
     render_header,
     render_sections,
@@ -33,7 +34,7 @@ def write_comparison_web_report(
 
 
 def _render_page(ctx: Any) -> str:
-    title = ctx.manifest.get("comparison_id", "Comparison report")
+    title = report_title(ctx)
     return f"""<!doctype html>
 <html lang="fr">
 <head>
@@ -67,22 +68,18 @@ _STYLE = """    :root {
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      background: linear-gradient(135deg, #edf7f4 0%, #f7f1e6 42%, #eef3fb 100%);
+      background: #f7f8fa;
       color: var(--ink);
       font-family: "Aptos", "Segoe UI", sans-serif;
       line-height: 1.48;
     }
     main { max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
     header {
-      padding: 28px;
-      border: 1px solid rgba(22, 32, 51, 0.12);
-      border-radius: 26px;
-      background: rgba(255, 255, 255, 0.78);
-      box-shadow: 0 18px 60px rgba(22, 32, 51, 0.11);
-      backdrop-filter: blur(6px);
+      padding: 0 0 18px;
+      border-bottom: 1px solid var(--line);
     }
-    h1 { margin: 0 0 8px; font-size: clamp(2rem, 4vw, 4rem); letter-spacing: -0.05em; }
-    h2 { margin: 0 0 14px; font-size: 1.35rem; letter-spacing: -0.02em; }
+    h1 { margin: 0 0 8px; font-size: 2rem; letter-spacing: 0; }
+    h2 { margin: 0 0 14px; font-size: 1.25rem; letter-spacing: 0; }
     h3 { margin: 0 0 8px; font-size: 1.0rem; }
     p { margin: 0 0 10px; }
     a { color: var(--accent); text-decoration: none; }
@@ -98,27 +95,49 @@ _STYLE = """    :root {
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
     .card, .fact {
-      background: rgba(255, 255, 255, 0.86);
-      border: 1px solid rgba(22, 32, 51, 0.11);
-      border-radius: 18px; padding: 16px;
-      box-shadow: 0 10px 28px rgba(22, 32, 51, 0.07);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px; padding: 16px;
     }
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 14px;
+      margin: 14px 0 12px;
+    }
+    .info-grid > div {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #fbfcfd;
+    }
+    .kv-label {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 3px;
+    }
+    .info-grid strong { font-size: 0.94rem; font-weight: 600; }
     .fact span { display: block; color: var(--muted); font-size: 0.82rem; }
     .fact strong { display: block; margin-top: 4px; font-size: 1.08rem; }
     .figure-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
     .figure-grid.compact { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .context-figure-grid { grid-template-columns: 1fr; }
+    .context-figure-grid figure { padding: 14px; }
     .figure-category { margin-top: 14px; }
     .figure-category h3 { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
-    figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 12px; }
-    figure img { width: 100%; display: block; border-radius: 12px; background: var(--soft); }
+    figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+    figure img { width: 100%; display: block; border-radius: 6px; background: var(--soft); }
     figcaption { margin-top: 9px; color: var(--muted); font-size: 0.9rem; }
-    table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 14px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; background: var(--panel); border-radius: 8px; overflow: hidden; }
     th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; font-size: 0.9rem; }
     th { background: #edf4f2; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
     code { background: rgba(15, 118, 110, 0.1); padding: 2px 5px; border-radius: 5px; }
     .warning { color: var(--warn); font-weight: 700; }
     @media (max-width: 880px) {
-      .grid, .facts, .figure-grid, .figure-grid.compact { grid-template-columns: 1fr; }
+      .grid, .facts, .figure-grid, .figure-grid.compact, .info-grid { grid-template-columns: 1fr; }
       main { padding: 18px 12px 42px; }
     }"""
 

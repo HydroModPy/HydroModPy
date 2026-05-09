@@ -3,8 +3,10 @@
 This backend is intentionally separate from ``petsc_mixed``. It does not put
 ``q_ex`` or ``q_dry`` in the PETSc state vector and it does not use
 Fischer-Burmeister residuals. PETSc solves only for ``h`` with explicit bounds
-``z_bottom <= h <= z_top``; after convergence the remaining groundwater balance
-residual on active bounds is reconstructed as a surface or bottom reaction.
+``z_bottom <= h <= z_top`` by default; after convergence the remaining
+groundwater balance residual on active bounds is reconstructed as a surface or
+bottom reaction. With an explicit positive Cauchy drainage conductance, the
+upper obstacle is relaxed and the drainage flux term carries the top exchange.
 """
 
 from __future__ import annotations
@@ -39,6 +41,9 @@ from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
     _coo_to_csr,
     _require_petsc,
     _snes_reason_label,
+)
+from hydromodpy.solver.boussinesq.runtimes.vi_bounds import (
+    variable_bounds as _variable_bounds,
 )
 
 
@@ -259,12 +264,13 @@ def _restored_transient_failure_result(
         drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
         regularization_radius=float(inputs.options.regularization_radius),
     )
-    _, _, prescribed_mask = _variable_bounds(inputs.mesh, prescribed_head_m_by_cell)
-    physical_lower = np.asarray(inputs.mesh.z_bottom_m, dtype=float).reshape(-1)
-    physical_upper = np.maximum(
-        np.asarray(inputs.mesh.z_top_m, dtype=float).reshape(-1),
-        physical_lower,
+    _, upper_bound, prescribed_mask = _variable_bounds(
+        inputs.mesh,
+        prescribed_head_m_by_cell,
+        drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
     )
+    physical_lower = np.asarray(inputs.mesh.z_bottom_m, dtype=float).reshape(-1)
+    physical_upper = upper_bound.copy()
     assembly, _ = _reconstruct_obstacle_reactions(
         mesh=inputs.mesh,
         assembly=raw_assembly,
@@ -489,9 +495,10 @@ def _solve_vi_obstacle_problem(
     lower_bound, upper_bound, prescribed_mask = _variable_bounds(
         mesh,
         prescribed_head_m_by_cell,
+        drainage_conductance_m2_s=drainage_conductance_m2_s,
     )
     physical_lower = np.asarray(mesh.z_bottom_m, dtype=float).reshape(-1)
-    physical_upper = np.maximum(np.asarray(mesh.z_top_m, dtype=float).reshape(-1), physical_lower)
+    physical_upper = upper_bound.copy()
     head0 = _clip_head_to_bounds(head_initial_guess_m, lower=lower_bound, upper=upper_bound)
 
     solution = PETSc.Vec().createSeq(n_cells, comm=PETSc.COMM_SELF)
@@ -650,30 +657,6 @@ def _prescribed_head_cells(
     if prescribed_head_m_by_cell is None:
         return None
     return np.asarray(prescribed_head_m_by_cell, dtype=float).reshape(-1)
-
-
-def _variable_bounds(
-    mesh: BoussinesqMesh,
-    prescribed_head_m_by_cell: np.ndarray | None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return PETSc VI lower/upper vectors and the prescribed-cell mask."""
-    lower = np.asarray(mesh.z_bottom_m, dtype=float).reshape(-1).copy()
-    upper = np.maximum(np.asarray(mesh.z_top_m, dtype=float).reshape(-1), lower)
-    prescribed = (
-        np.full(int(mesh.n_cells), np.nan, dtype=float)
-        if prescribed_head_m_by_cell is None
-        else np.asarray(prescribed_head_m_by_cell, dtype=float).reshape(-1)
-    )
-    if prescribed.size != int(mesh.n_cells):
-        raise ValueError(
-            "prescribed_head_m_by_cell must have length "
-            f"{int(mesh.n_cells)}; got {int(prescribed.size)}."
-        )
-    prescribed_mask = np.isfinite(prescribed)
-    if np.any(prescribed_mask):
-        lower[prescribed_mask] = prescribed[prescribed_mask]
-        upper[prescribed_mask] = prescribed[prescribed_mask]
-    return lower, upper, prescribed_mask
 
 
 def _clip_head_to_bounds(

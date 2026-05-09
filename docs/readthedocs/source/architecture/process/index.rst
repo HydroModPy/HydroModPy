@@ -17,6 +17,7 @@ Use it when you want:
    :maxdepth: 2
 
    process-package-map
+   flow-boundary-conditions
    process-runtime-class-diagram
    process-config-class-diagram
    process-runtime-to-solver-sequence-diagram

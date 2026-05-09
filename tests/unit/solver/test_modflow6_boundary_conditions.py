@@ -118,9 +118,11 @@ def _build_unstructured_runtime(
         ),
         geology_a_key=("", "", "", "", ""),
         geology_b_key=("", "", "", "", ""),
-        boundary_labels_by_edge_id={}
-        if boundary_labels_by_edge_id is None
-        else dict(boundary_labels_by_edge_id),
+        boundary_labels_by_edge_id=(
+            {}
+            if boundary_labels_by_edge_id is None
+            else dict(boundary_labels_by_edge_id)
+        ),
     )
     return solver_mesh, support
 
@@ -260,8 +262,12 @@ def test_build_gmsh_support_metadata_from_bundle_like_payload() -> None:
     assert support is not None
     assert support.locate_cell_index_for_point(0.75, 0.25) == 0
     assert support.boundary_cell_indices_for_side("west_side").tolist() == [1]
-    np.testing.assert_allclose(support.cell_z_top_m, np.asarray([30.0, 40.0], dtype=float))
-    np.testing.assert_allclose(support.cell_z_bottom_m, np.asarray([10.0, 20.0], dtype=float))
+    np.testing.assert_allclose(
+        support.cell_z_top_m, np.asarray([30.0, 40.0], dtype=float)
+    )
+    np.testing.assert_allclose(
+        support.cell_z_bottom_m, np.asarray([10.0, 20.0], dtype=float)
+    )
 
 
 def test_gmsh_support_metadata_collects_cells_from_internal_river_edge() -> None:
@@ -271,7 +277,9 @@ def test_gmsh_support_metadata_collects_cells_from_internal_river_edge() -> None
 
 
 def test_gmsh_support_metadata_resolves_cells_from_explicit_label() -> None:
-    _, support = _build_unstructured_runtime(boundary_labels_by_edge_id={1: "east_custom"})
+    _, support = _build_unstructured_runtime(
+        boundary_labels_by_edge_id={1: "east_custom"}
+    )
 
     assert support.cell_indices_for_label("east_custom").tolist() == [0]
 
@@ -464,7 +472,9 @@ def test_modflow6_builds_side_boundary_chd_on_unstructured_runtime_mesh() -> Non
     assert period1 == [[0, 0, pytest.approx(21.0)], [0, 1, pytest.approx(10.0)]]
 
 
-def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh() -> None:
+def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh() -> (
+    None
+):
     model = _build_unstructured_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
@@ -513,7 +523,9 @@ def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> N
     assert np.allclose(strt[0], [7.0, 7.0])
 
 
-def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_mesh() -> None:
+def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_mesh() -> (
+    None
+):
     model = _build_unstructured_model(boundary_labels_by_edge_id={1: "east_custom"})
     model.flow = SimpleNamespace(
         boundary_conditions={
@@ -536,7 +548,9 @@ def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_m
     assert chd_spd[1] == [[0, 0, pytest.approx(6.0)]]
 
 
-def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime_mesh() -> None:
+def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime_mesh() -> (
+    None
+):
     model = _build_unstructured_model(boundary_labels_by_edge_id={0: "ditch_custom"})
     model.flow = SimpleNamespace(
         boundary_conditions={
@@ -562,7 +576,9 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
 def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(h=FlowInitialCondition(id="h", type="top")),
+        initial_conditions=FlowInitialConditions(
+            h=FlowInitialCondition(id="h", type="top")
+        ),
         boundary_conditions={},
         active_bc=[],
     )
@@ -609,7 +625,9 @@ def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> No
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(h=FlowInitialCondition(id="h", type="bottom")),
+        initial_conditions=FlowInitialConditions(
+            h=FlowInitialCondition(id="h", type="bottom")
+        ),
         boundary_conditions={},
         active_bc=[],
     )
@@ -665,6 +683,17 @@ def test_modflow6_rejects_bad_recharge_flat_shape() -> None:
 
     with pytest.raises(ValueError, match="sequence length"):
         recharge_to_spd(model)
+
+
+def test_modflow6_single_period_recharge_sequence_uses_first_clim() -> None:
+    model = _build_model()
+    model.nper = 1
+    model.first_clim = "mean"
+    model.recharge = np.asarray([1.0e-8, 2.0e-8, 3.0e-8], dtype=float)
+
+    spd = recharge_to_spd(model)
+
+    assert np.allclose(spd[0], 2.0e-8)
 
 
 def test_modflow6_rejects_missing_recharge_mapping_period() -> None:
@@ -749,7 +778,13 @@ def test_modflow6_builds_evt_stress_period_data_from_routed_payload() -> None:
     assert evt_spd is not None
     assert evt_spd[0] == []
     assert len(evt_spd[1]) == 6
-    assert evt_spd[1][0] == [0, 0, pytest.approx(10.0), pytest.approx(1.0e-6), pytest.approx(1.0)]
+    assert evt_spd[1][0] == [
+        0,
+        0,
+        pytest.approx(10.0),
+        pytest.approx(1.0e-6),
+        pytest.approx(1.0),
+    ]
 
 
 def test_modflow6_keeps_rewet_disabled_by_default() -> None:
@@ -775,7 +810,9 @@ def test_modflow6_enables_rewet_when_requested() -> None:
     model.flow_regime = "transient"
     model.modflow_config = model.modflow_config.model_copy(
         update={
-            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_rewet": True})
+            "runtime": model.modflow_config.runtime.model_copy(
+                update={"mf6_enable_rewet": True}
+            )
         }
     )
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
@@ -812,7 +849,9 @@ def test_modflow6_enables_xt3d_when_requested() -> None:
     model = _build_model()
     model.modflow_config = model.modflow_config.model_copy(
         update={
-            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": True})
+            "runtime": model.modflow_config.runtime.model_copy(
+                update={"mf6_enable_xt3d": True}
+            )
         }
     )
 
@@ -833,7 +872,9 @@ def test_modflow6_explicit_false_disables_xt3d_on_unstructured_mesh() -> None:
     model = _build_unstructured_model()
     model.modflow_config = model.modflow_config.model_copy(
         update={
-            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": False})
+            "runtime": model.modflow_config.runtime.model_copy(
+                update={"mf6_enable_xt3d": False}
+            )
         }
     )
 

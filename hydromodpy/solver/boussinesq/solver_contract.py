@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from hydromodpy.physics.flow.boundary_conditions import SIDE_DIRICHLET_BC_IDS
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    boundary_condition_bundle_from_flow,
+)
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.boussinesq.methods import (
     resolve_surface_interaction_model_token,
@@ -17,7 +19,6 @@ from hydromodpy.solver.boussinesq.runtime_selection import (
     resolve_runtime_backend,
 )
 
-_SUPPORTED_BC_IDS = frozenset(set(SIDE_DIRICHLET_BC_IDS) | {"stream", "ocean", "drainage"})
 _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 
 
@@ -133,9 +134,12 @@ def build_runtime_options(
 
 def assert_supported_runtime_subset(flow: object) -> None:
     """Fail fast when the requested problem exceeds the implemented slice."""
-    active_bc = tuple(getattr(flow, "active_bc", ()) or ())
+    boundary_bundle = boundary_condition_bundle_from_flow(flow)
     active_sinks_sources = tuple(getattr(flow, "active_sinks_sources", ()) or ())
-    unsupported_bc = sorted(str(item) for item in active_bc if str(item) not in _SUPPORTED_BC_IDS)
+    unsupported_bc = sorted(
+        set(boundary_bundle.unknown_active_ids())
+        | set(boundary_bundle.unsupported_active_ids("boussinesq"))
+    )
     unsupported_sinks_sources = sorted(
         str(item) for item in active_sinks_sources if str(item) not in _SUPPORTED_SINK_SOURCE_IDS
     )

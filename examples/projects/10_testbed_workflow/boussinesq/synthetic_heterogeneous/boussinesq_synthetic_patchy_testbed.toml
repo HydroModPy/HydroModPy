@@ -1,0 +1,105 @@
+workflow = "testbed"
+
+[testbed]
+id = "boussinesq_synthetic_patchy_long_recharge"
+subject = "flow"
+purpose = "boussinesq_mesh_resolution_and_long_recharge_response"
+base_config = "base_synthetic_patchy_mf6_bouss_transient.toml"
+output_root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge"
+execute = true
+continue_on_error = false
+
+[testbed.runner]
+type = "simulation"
+no_display = true
+
+[[testbed.variant]]
+id = "bouss_patchy_coarse_mesh"
+label = "Boussinesq patchy long-recharge coarse mesh"
+axis = "mesh_resolution"
+
+[testbed.variant.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_coarse_mesh_workspace"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_coarse_mesh_workspace"
+
+[testbed.variant.overlay.simulation]
+name = "bouss_patchy_coarse_mesh"
+run_id = "bouss_patchy_coarse_mesh"
+
+[[testbed.variant.overlay.simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["boussinesq"]
+
+[testbed.variant.overlay.mesh_catchment.zone_meshing]
+global_size = 650.0
+min_size = 250.0
+max_size = 1100.0
+interface_size = 320.0
+interface_distance = 700.0
+
+[[testbed.variant]]
+id = "bouss_patchy_reference_mesh"
+label = "Boussinesq patchy long-recharge reference mesh"
+axis = "mesh_resolution"
+
+[testbed.variant.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_reference_mesh_workspace"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_reference_mesh_workspace"
+
+[testbed.variant.overlay.simulation]
+name = "bouss_patchy_reference_mesh"
+run_id = "bouss_patchy_reference_mesh"
+
+[[testbed.variant.overlay.simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["boussinesq"]
+
+[testbed.variant.overlay.mesh_catchment.zone_meshing]
+global_size = 450.0
+min_size = 180.0
+max_size = 800.0
+interface_size = 220.0
+interface_distance = 550.0
+
+[[testbed.variant]]
+id = "bouss_patchy_fine_mesh"
+label = "Boussinesq patchy long-recharge fine mesh"
+axis = "mesh_resolution"
+
+[testbed.variant.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_fine_mesh_workspace"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_fine_mesh_workspace"
+
+[testbed.variant.overlay.simulation]
+name = "bouss_patchy_fine_mesh"
+run_id = "bouss_patchy_fine_mesh"
+
+[[testbed.variant.overlay.simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["boussinesq"]
+
+[testbed.variant.overlay.mesh_catchment.zone_meshing]
+global_size = 320.0
+min_size = 140.0
+max_size = 650.0
+interface_size = 180.0
+interface_distance = 450.0
+
+[[testbed.metric]]
+name = "duration_s"
+source = "flow_metrics.duration_s"
+
+[[testbed.metric]]
+name = "n_cells"
+source = "flow_metrics.n_cells"
+
+[[testbed.metric]]
+name = "head_range_m"
+source = "flow_metrics.head_range_m"
+
+[[testbed.metric]]
+name = "max_abs_mass_balance_percent_error"
+source = "flow_metrics.max_abs_mass_balance_percent_error"

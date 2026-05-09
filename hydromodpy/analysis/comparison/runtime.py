@@ -1605,23 +1605,46 @@ def _elapsed_axis_from_boussinesq_state_group(
             return None
         return values if values.size > 0 else None
 
+    def _is_degenerate_axis(values: np.ndarray) -> bool:
+        return int(values.size) > 1 and bool(np.allclose(values, values[0]))
+
     snapshots = _read_1d("snapshot_elapsed_seconds")
-    if snapshots is not None and snapshots.size == int(n_slices):
+    if (
+        snapshots is not None
+        and snapshots.size == int(n_slices)
+        and not _is_degenerate_axis(snapshots)
+    ):
         return ([float(value) for value in snapshots.tolist()], True)
 
     step_ends = _read_1d("step_end_elapsed_seconds")
-    if step_ends is not None and step_ends.size == int(n_slices):
+    if (
+        step_ends is not None
+        and step_ends.size == int(n_slices)
+        and not _is_degenerate_axis(step_ends)
+    ):
         return ([float(value) for value in step_ends.tolist()], False)
 
     periods = _read_1d("period_lengths_seconds")
     if periods is not None:
-        return (
-            _elapsed_seconds_from_period_lengths(
-                n_snapshots=int(n_slices),
-                period_lengths=periods,
-            ),
-            periods.size == int(n_slices) - 1,
-        )
+        if not _is_degenerate_axis(periods):
+            return (
+                _elapsed_seconds_from_period_lengths(
+                    n_snapshots=int(n_slices),
+                    period_lengths=periods,
+                ),
+                periods.size == int(n_slices) - 1,
+            )
+
+    if "time" in grp:
+        try:
+            root_time = np.asarray(grp["time"][:], dtype=float).reshape(-1)
+        except Exception:
+            root_time = np.asarray([], dtype=float)
+        if root_time.size == int(n_slices) and not _is_degenerate_axis(root_time):
+            return (
+                [float(value) for value in root_time.tolist()],
+                periods is not None and periods.size == int(n_slices) - 1,
+            )
     return None
 
 

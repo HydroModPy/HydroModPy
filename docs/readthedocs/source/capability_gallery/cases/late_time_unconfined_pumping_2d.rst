@@ -319,8 +319,12 @@ Common Numerical Setup
      - Homogeneous `Sy` value used by the benchmark.
      - 0.15 -
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.ic.type``
+     - Initial-condition policy used to start the benchmark.
+     - custom
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
    * - ``flow.ic.value``
-     - Initial hydraulic head used to start the benchmark.
+     - Scalar initial head or top offset used by the initial-condition policy.
      - 30.0 m
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
    * - ``flow.bc.dirichlet.west_side.value``

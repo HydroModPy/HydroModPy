@@ -223,7 +223,6 @@ flow_regime = "transient"
 # `top` is the safe transient warm-up start.
 type = "top"
 description = "Watertable initialised at the topographic surface."
-units = "m"
 
 
 # K (hydraulic conductivity).

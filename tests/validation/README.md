@@ -27,7 +27,9 @@ At the moment:
 
 - validation cases are analytical,
 - launcher-backed cases run through `tests/regression/fixtures/launcher_simulation`,
-- current scientific coverage is centered on `modflownwt`,
+- current scientific coverage is shared across `modflownwt`, `modflow6`,
+  `modflow6_irregular_tri`, and the local `boussinesq` backend where the
+  benchmark physics remains comparable,
 - current validation tests do not require `MODPATH` or `MT3DMS`.
 
 ## Directory Layout

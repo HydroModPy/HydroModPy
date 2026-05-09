@@ -395,8 +395,12 @@ Common Numerical Setup
      - Support identifier used to distribute the heterogeneous `K` field.
      - k_rings
      - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml``
+   * - ``flow.ic.type``
+     - Initial-condition policy used to start the benchmark.
+     - custom
+     - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml``
    * - ``flow.ic.value``
-     - Initial hydraulic head used to start the benchmark.
+     - Scalar initial head or top offset used by the initial-condition policy.
      - 1.0 m
      - ``validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml``
    * - ``flow.bc.dirichlet.ocean.value``

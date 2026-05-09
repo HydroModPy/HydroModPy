@@ -63,7 +63,48 @@ def _path_has_suffix_parts(path: Path, suffix_parts: tuple[str, ...]) -> bool:
     return len(parts) >= len(suffix_parts) and tuple(parts[-len(suffix_parts) :]) == suffix_parts
 
 
+def _session_owner_pid(session_name: str) -> int | None:
+    """Return the owning process id encoded in a managed scratch-session name."""
+    if session_name.startswith("cli_"):
+        token = session_name.split("_", 2)[1] if "_" in session_name else ""
+    else:
+        token = session_name.split("-", 1)[0]
+    if not token.isdigit():
+        return None
+    return int(token)
+
+
+def _process_is_running(pid: int) -> bool:
+    """Return True when *pid* still appears to own a live process."""
+    if pid <= 0 or pid == os.getpid():
+        return True
+    try:
+        os.kill(pid, 0)
+    except PermissionError:
+        return True
+    except SystemError:
+        return False
+    except OSError:
+        return False
+    return True
+
+
+def _cleanup_stale_test_scratch_sessions(scratch_root: Path, current_token: str) -> None:
+    """Remove managed scratch sessions whose owning process is no longer alive."""
+    sessions_root = scratch_root / "sessions"
+    if not sessions_root.is_dir():
+        return
+    for session_dir in sessions_root.iterdir():
+        if not session_dir.is_dir() or session_dir.name == current_token:
+            continue
+        owner_pid = _session_owner_pid(session_dir.name)
+        if owner_pid is None or _process_is_running(owner_pid):
+            continue
+        shutil.rmtree(session_dir, ignore_errors=True)
+
+
 _TEST_SCRATCH_ROOT = _resolve_test_scratch_root()
+_cleanup_stale_test_scratch_sessions(_TEST_SCRATCH_ROOT, _SCRATCH_OWNER_TOKEN)
 _TEST_SESSION_ROOT = _resolve_test_session_root(_TEST_SCRATCH_ROOT)
 _TEST_TMP_ROOT = _TEST_SESSION_ROOT / "tmp"
 _TEST_PYTEST_ROOT = _TEST_SESSION_ROOT / "pytest"

@@ -15,6 +15,9 @@ from hydromodpy.core.units.volumetric_flow import (
     normalize_m3_per_s_unit,
 )
 from hydromodpy.physics.contracts import LoadResultProto
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    boundary_conditions_mapping_from_flow,
+)
 from hydromodpy.physics.flow.sinks_sources import (
     FlowEtpConfig,
     FlowRechargeConfig,
@@ -37,7 +40,7 @@ def apply_oceanic_to_flow(
     """Inject mean sea-level value into the active ocean boundary condition."""
     if oceanic is None:
         return
-    ocean_bc = flow.boundary_conditions.get("ocean")
+    ocean_bc = boundary_conditions_mapping_from_flow(flow).get("ocean")
     if ocean_bc is None:
         return
     # Priority 1: constant MSL record
@@ -260,8 +263,8 @@ def apply_simulation_time_to_flow_boundary_conditions(
     if simulation_window is None:
         return
 
-    boundary_conditions = getattr(flow, "boundary_conditions", {})
-    if not isinstance(boundary_conditions, Mapping) or not boundary_conditions:
+    boundary_conditions = boundary_conditions_mapping_from_flow(flow)
+    if not boundary_conditions:
         return
 
     updated_boundaries: dict[str, object] = {}

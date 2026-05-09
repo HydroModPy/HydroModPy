@@ -29,6 +29,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.grid_reference import GridReference
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    boundary_conditions_mapping_from_flow,
+    is_boundary_condition_active,
+)
 from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
@@ -149,15 +153,11 @@ class FlowToModflowAdapter:
     @property
     def _boundary_conditions(self) -> Mapping[str, object]:
         """Return flow boundary-condition mapping with a strict runtime check."""
-        boundary_conditions = getattr(self.flow, "boundary_conditions", {})
-        if not isinstance(boundary_conditions, Mapping):
-            raise TypeError("flow.boundary_conditions must be a mapping")
-        return boundary_conditions
+        return boundary_conditions_mapping_from_flow(self.flow)
 
     def _is_bc_active(self, bc_id: str) -> bool:
         """Return True when ``bc_id`` is explicitly declared in ``flow.active_bc``."""
-        active = getattr(self.flow, "active_bc", [])
-        return bc_id in active
+        return is_boundary_condition_active(self.flow, bc_id)
 
     def _build_initial_heads_and_sides(
         self,

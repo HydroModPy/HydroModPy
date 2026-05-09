@@ -258,8 +258,12 @@ Common Numerical Setup
      - Homogeneous `K` value used by the benchmark.
      - 1e-4 m/s
      - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml``
+   * - ``flow.ic.type``
+     - Initial-condition policy used to start the benchmark.
+     - custom
+     - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml``
    * - ``flow.ic.value``
-     - Initial hydraulic head used to start the benchmark.
+     - Scalar initial head or top offset used by the initial-condition policy.
      - 7.5 m
      - ``validation_cases/analytical/steady/dupuit_fixed_head_1d/config_common.toml``
    * - ``flow.bc.dirichlet.west_side.value``

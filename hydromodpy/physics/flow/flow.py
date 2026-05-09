@@ -85,6 +85,7 @@ from hydromodpy.core.units.volumetric_flow import (
     normalize_m3_per_s_unit,
 )
 from hydromodpy.physics.base import BoundaryCondition, ProcessSpatial, SinkSource
+from hydromodpy.physics.flow.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.initial_conditions import (
@@ -205,6 +206,10 @@ class Flow(ProcessSpatial):
         self.ts_vi_snes_type: str
         self.initial_conditions: FlowInitialConditions | None
         self.boundary_condition_application_domains: dict[str, str] = {}
+        self.boundary_condition_bundle: BoundaryConditionBundle = BoundaryConditionBundle(
+            conditions={},
+            active_ids=(),
+        )
         self.initial_condition_types: dict[str, str] = {}
         self.set_config(config)
 
@@ -225,13 +230,11 @@ class Flow(ProcessSpatial):
         3. ``initial_conditions`` are built from ``config.ic`` via the
            process-specific normalizer (delegates to
            ``normalize_flow_initial_conditions``).
-        4. ``boundary_conditions`` and ``boundary_condition_application_domains``
-           are built from ``config.bc`` (typed objects + optional domain map).
+        4. ``active_*`` lists are copied from config, then
+           ``boundary_conditions`` and ``boundary_condition_bundle`` are built
+           from ``config.bc``.
         5. ``sinks_sources`` is populated from ``config.sinks_sources``
            (wells dict + recharge config).
-        6. ``active_sinks_sources`` and ``active_bc`` are copied from config
-           as plain lists; they control which items the solver adapter
-           actually processes.
         """
         if not isinstance(config, FlowConfig):
             raise TypeError("config must be a FlowConfig instance")
@@ -260,6 +263,9 @@ class Flow(ProcessSpatial):
         )
         # Flow has one typed IC structure (`FlowInitialConditions`).
         self.set_initial_conditions(config.ic)
+        # active_* lists control which declared items solver adapters process.
+        self.active_sinks_sources = list(config.active_sinks_sources)
+        self.active_bc = list(config.active_bc)
         # Boundary conditions are normalized as typed objects + domain hints.
         bc, application_domains = self._build_boundary_conditions(config.bc)
         self.set_boundary_conditions(
@@ -268,10 +274,6 @@ class Flow(ProcessSpatial):
         )
         # Sinks/sources are stored in a process-level dictionary namespace.
         self.set_sinks_sources(config.sinks_sources)
-        # active_* lists control which items the solver adapter will process;
-        # items absent from these lists are silently ignored downstream.
-        self.active_sinks_sources = list(config.active_sinks_sources)
-        self.active_bc = list(config.active_bc)
 
     def build_initial_conditions(
         self,
@@ -294,18 +296,18 @@ class Flow(ProcessSpatial):
 
         Each entry in ``boundary_conditions_cfg`` is either:
 
-        - an already-typed ``BoundaryCondition`` (passed through as-is), or
-        - a raw mapping, validated via ``BoundaryCondition.model_validate``.
+        - an already-typed ``FlowBoundaryConditionConfig``;
+        - a legacy base ``BoundaryCondition`` converted to the flow model; or
+        - a raw mapping validated via ``FlowBoundaryConditionConfig``.
 
         For mapping payloads, ``id`` is always forced to the TOML section key
         (e.g. ``"ocean"``, ``"west_side"``). This prevents the ``id`` field
         in the TOML from diverging from the key actually used to look up the
         BC at runtime, which would cause silent mismatches in the adapter.
 
-        The ``application_domain`` key, if present, is extracted from the
-        payload before Pydantic validation and stored separately in
-        ``boundary_condition_application_domains``. This keeps the domain
-        hint available to spatial adapters without polluting the BC model.
+        ``application_domain`` is stored on the typed BC model. A legacy
+        ``boundary_condition_application_domains`` mirror is still populated
+        for spatial adapters that have not moved to the typed payload yet.
 
         Returns
         -------
@@ -320,6 +322,8 @@ class Flow(ProcessSpatial):
             # Allow already-instantiated typed payloads.
             if isinstance(raw_payload, FlowBoundaryConditionConfig):
                 parsed[bc_id] = raw_payload
+                if raw_payload.application_domain is not None:
+                    application_domains[bc_id] = raw_payload.application_domain
                 continue
             if isinstance(raw_payload, BoundaryCondition):
                 parsed[bc_id] = FlowBoundaryConditionConfig.model_validate(
@@ -389,6 +393,11 @@ class Flow(ProcessSpatial):
             self.boundary_condition_application_domains = {}
         else:
             self.boundary_condition_application_domains = dict(application_domains)
+        self._refresh_boundary_condition_bundle()
+
+    def _refresh_boundary_condition_bundle(self) -> None:
+        """Rebuild the compact runtime view over active and configured BCs."""
+        self.boundary_condition_bundle = BoundaryConditionBundle.from_flow(self)
 
     def set_sinks_sources(
         self,

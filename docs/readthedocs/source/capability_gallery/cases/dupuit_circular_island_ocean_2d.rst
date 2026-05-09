@@ -363,8 +363,12 @@ Common Numerical Setup
      - Homogeneous `K` value used by the benchmark.
      - 5e-6 m/s
      - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.ic.type``
+     - Initial-condition policy used to start the benchmark.
+     - custom
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
    * - ``flow.ic.value``
-     - Initial hydraulic head used to start the benchmark.
+     - Scalar initial head or top offset used by the initial-condition policy.
      - 1.0 m
      - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
    * - ``flow.bc.dirichlet.ocean.value``

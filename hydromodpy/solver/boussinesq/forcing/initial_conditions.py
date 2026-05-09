@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import numpy as np
-
 from hydromodpy.physics.flow.initial_conditions import FlowInitialConditions
+from hydromodpy.solver.initial_conditions import build_head_initial_condition_array
 
 
 class InitialConditionResolutionMixin:
@@ -22,29 +21,13 @@ class InitialConditionResolutionMixin:
                 "FlowInitialConditions instance."
             )
 
-        head_ic = initial_conditions.h
-        ic_type = str(head_ic.type).strip().lower()
-        if ic_type == "top":
-            return np.asarray(self.mesh.z_top_m, dtype=float)
-        if ic_type == "top_offset":
-            if head_ic.value is None:
-                raise ValueError(
-                    "flow.ic.value is required when flow.ic.type='top_offset'."
-                )
-            offset_m = float(getattr(head_ic.value, "magnitude", head_ic.value))
-            return np.asarray(self.mesh.z_top_m, dtype=float) - offset_m
-        if ic_type == "bottom":
-            return np.asarray(self.mesh.z_bottom_m, dtype=float)
-        if ic_type == "custom":
-            if head_ic.value is None:
-                raise ValueError(
-                    "flow.ic.value is required when flow.ic.type='custom'."
-                )
-            head_magnitude = getattr(head_ic.value, "magnitude", head_ic.value)
-            return np.full(self.mesh.n_cells, float(head_magnitude), dtype=float)
-        if ic_type == "steady_state":
-            return np.asarray(self.mesh.z_top_m, dtype=float)
-        raise ValueError(f"Unsupported flow.ic.type for boussinesq: '{head_ic.type}'.")
+        return build_head_initial_condition_array(
+            initial_conditions.h,
+            top=self.mesh.z_top_m,
+            bottom=self.mesh.z_bottom_m,
+            target_shape=(int(self.mesh.n_cells),),
+            location_prefix="flow.ic",
+        )
 
 
 __all__ = ["InitialConditionResolutionMixin"]
