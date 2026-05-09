@@ -98,10 +98,12 @@ Payload resolution:
 
 `[flow.ic]` is a single payload with direct keys:
 
-- `type`: `top`, `bottom`, or `custom`
+- `type`: `top`, `top_offset`, `bottom`, `custom`, or `steady_state`
 - `value`: required when `type = "custom"`, accepts numeric or `"<value> <unit>"`
 - `unit` or `units`: optional fallback when `value` has no inline unit (default `m`)
 - `description`: optional
+- `source`, `recharge_statistic`, `boundary_condition_policy`: strategy keys for
+  `type = "steady_state"`
 
 Important behavior:
 
@@ -113,8 +115,11 @@ Important behavior:
 Semantics:
 
 - `top`: initialize head from top surface.
+- `top_offset`: initialize head from top surface minus `value`.
 - `bottom`: initialize head from bottom surface.
 - `custom`: initialize head from provided scalar value.
+- `steady_state`: initialize a transient run from a same-solver steady solve
+  using the declared recharge statistic and boundary-condition policy.
 
 
 ## 5. Boundary Conditions (`[flow.bc]`)

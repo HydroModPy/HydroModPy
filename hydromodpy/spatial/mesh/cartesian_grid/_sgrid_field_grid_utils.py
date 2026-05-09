@@ -58,6 +58,13 @@ def stress_period_bounds(
     if simulation_window is None:
         return None
 
+    explicit_bounds = getattr(simulation_window, "period_bounds", None)
+    if explicit_bounds is not None:
+        bounds = []
+        for raw_start, raw_end in tuple(explicit_bounds)[: int(nper)]:
+            bounds.append((pd.Timestamp(raw_start), pd.Timestamp(raw_end)))
+        return bounds or None
+
     from hydromodpy.core.time import build_simulation_time_boundaries
 
     boundaries = build_simulation_time_boundaries(simulation_window)
@@ -96,7 +103,9 @@ def find_xy_dims(da: object) -> tuple[str, str]:
     if y_dim is None and len(spatial_dims) >= 2:
         y_dim = spatial_dims[-2]
     if x_dim is None or y_dim is None:
-        raise ValueError(f"Cannot identify X/Y dimensions in DataArray with dims={dims}")
+        raise ValueError(
+            f"Cannot identify X/Y dimensions in DataArray with dims={dims}"
+        )
     return x_dim, y_dim
 
 

@@ -582,6 +582,30 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
     assert np.allclose(strt[0], top.ravel())
 
 
+def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        initial_conditions=FlowInitialConditions(
+            h=FlowInitialCondition(id="h", type="steady_state")
+        ),
+        boundary_conditions={},
+        active_bc=[],
+    )
+    top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
+    botm_2d = np.ones_like(top)
+    solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=2,
+        ncol=3,
+        top=top,
+        botm=np.stack([botm_2d]),
+    )
+
+    strt = build_start_heads(model, solver_mesh)
+
+    assert strt.shape == (1, 6)
+    assert np.allclose(strt[0], top.ravel())
+
+
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(

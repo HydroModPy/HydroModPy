@@ -54,6 +54,11 @@ from hydromodpy.solver.modflow6.runtime_reuse import (
     refresh_reused_runtime_property_packages,
     runtime_reuse_signature,
 )
+from hydromodpy.solver.modflow6.steady_initial_conditions import (
+    apply_modflow6_steady_state_initial_heads,
+    flow_uses_steady_state_initial_condition,
+    run_modflow6_steady_state_initialization,
+)
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
     ModflowPreprocessOptions,
@@ -292,6 +297,7 @@ class Modflow6(Solver):
         self.domain = domain
         self.runtime_mesh_planar = mesh_planar
         self.runtime_mesh_support = mesh_support
+        self._flow_runtime_overrides = flow_runtime_overrides
         active_options = self.preprocess_options if options is None else options
         self._apply_preprocess_options(active_options)
         self._validate_pre_processing_inputs()
@@ -545,6 +551,19 @@ class Modflow6(Solver):
         elif not isinstance(options, ModflowRunOptions):
             raise TypeError("processing options must be ModflowRunOptions")
 
+        steady_initial_heads_applied = False
+        if (
+            options.run_model
+            and self.flow_regime == "transient"
+            and flow_uses_steady_state_initial_condition(self.flow)
+        ):
+            steady_heads = run_modflow6_steady_state_initialization(
+                self,
+                verbose=bool(options.verbose),
+            )
+            apply_modflow6_steady_state_initial_heads(self, steady_heads)
+            steady_initial_heads_applied = True
+
         if options.write_model:
             dirty_packages = tuple(getattr(self, "_runtime_dirty_packages", ()) or ())
             if dirty_packages:
@@ -553,9 +572,13 @@ class Modflow6(Solver):
                     if package is None:
                         continue
                     package.write()
+                if steady_initial_heads_applied:
+                    self.ic.write()
                 self._runtime_dirty_packages = ()
             else:
                 self.sim.write_simulation(silent=not options.verbose)
+        elif steady_initial_heads_applied:
+            self.ic.write()
 
         success_model = False
         if options.run_model:

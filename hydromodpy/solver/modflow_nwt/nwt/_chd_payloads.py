@@ -24,7 +24,9 @@ if TYPE_CHECKING:
 
 def is_scalar_number(value: object) -> bool:
     """Return True for numeric scalar values (excluding booleans)."""
-    return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool)
+    return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(
+        value, bool
+    )
 
 
 def normalize_boundary_series(
@@ -44,8 +46,12 @@ def normalize_boundary_series(
         raise ValueError(f"{label} cannot be empty when using time series")
     if series.size == 1:
         return np.full(nper, float(series[0]), dtype=float)
+    if int(nper) == 1:
+        return np.asarray([float(series[0])], dtype=float)
     if series.size != nper:
-        raise ValueError(f"{label} length ({series.size}) must be 1 or match nper ({nper})")
+        raise ValueError(
+            f"{label} length ({series.size}) must be 1 or match nper ({nper})"
+        )
     return series.astype(float)
 
 
@@ -132,19 +138,25 @@ def build_initial_heads_and_sides(
         raise ValueError("flow.initial_conditions.h is required for MODFLOW startup")
 
     initial_type = str(getattr(initial_condition, "type", "")).strip().lower()
-    if initial_type == "top":
-        strt = np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * adapter.dem
+    if initial_type in {"top", "steady_state"}:
+        strt = (
+            np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float)
+            * adapter.dem
+        )
     elif initial_type == "top_offset":
         head_value = initial_condition.value
         if head_value is None:
-            raise ValueError("flow.initial_conditions.h.value is required for top_offset")
+            raise ValueError(
+                "flow.initial_conditions.h.value is required for top_offset"
+            )
         offset_m = float(getattr(head_value, "magnitude", head_value))
         strt = np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * (
             adapter.dem - offset_m
         )
     elif initial_type == "bottom":
         strt = (
-            np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * adapter.bottom_layer
+            np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float)
+            * adapter.bottom_layer
         )
     elif initial_type == "custom":
         head_value = initial_condition.value
@@ -154,26 +166,41 @@ def build_initial_heads_and_sides(
         )
     else:
         raise ValueError(
-            "flow.initial_conditions.h.type must be one of: top, top_offset, bottom, custom"
+            "flow.initial_conditions.h.type must be one of: top, top_offset, "
+            "bottom, custom, steady_state"
         )
 
     boundary_conditions = adapter._boundary_conditions
-    west_side = boundary_conditions.get("west_side") if adapter._is_bc_active("west_side") else None
+    west_side = (
+        boundary_conditions.get("west_side")
+        if adapter._is_bc_active("west_side")
+        else None
+    )
     if west_side is not None:
-        west_series = resolve_side_boundary_series(adapter, boundary=west_side, bc_id="west_side")
+        west_series = resolve_side_boundary_series(
+            adapter, boundary=west_side, bc_id="west_side"
+        )
         if side_boundary_is_static(west_side):
             ibound[:, :, 0] = -1
         strt[:, :, 0] = float(west_series[0])
 
-    east_side = boundary_conditions.get("east_side") if adapter._is_bc_active("east_side") else None
+    east_side = (
+        boundary_conditions.get("east_side")
+        if adapter._is_bc_active("east_side")
+        else None
+    )
     if east_side is not None:
-        east_series = resolve_side_boundary_series(adapter, boundary=east_side, bc_id="east_side")
+        east_series = resolve_side_boundary_series(
+            adapter, boundary=east_side, bc_id="east_side"
+        )
         if side_boundary_is_static(east_side):
             ibound[:, :, -1] = -1
         strt[:, :, -1] = float(east_series[0])
 
     north_side = (
-        boundary_conditions.get("north_side") if adapter._is_bc_active("north_side") else None
+        boundary_conditions.get("north_side")
+        if adapter._is_bc_active("north_side")
+        else None
     )
     if north_side is not None:
         north_series = resolve_side_boundary_series(
@@ -184,7 +211,9 @@ def build_initial_heads_and_sides(
         strt[:, 0, :] = float(north_series[0])
 
     south_side = (
-        boundary_conditions.get("south_side") if adapter._is_bc_active("south_side") else None
+        boundary_conditions.get("south_side")
+        if adapter._is_bc_active("south_side")
+        else None
     )
     if south_side is not None:
         south_series = resolve_side_boundary_series(
@@ -365,9 +394,13 @@ def validate_ibound_strt_contract(
     expected_2d = (nrow, ncol)
 
     if ibound.shape != expected_3d:
-        raise ValueError(f"ibound shape mismatch: expected {expected_3d}, got {ibound.shape}")
+        raise ValueError(
+            f"ibound shape mismatch: expected {expected_3d}, got {ibound.shape}"
+        )
     if strt.shape != expected_3d:
-        raise ValueError(f"strt shape mismatch: expected {expected_3d}, got {strt.shape}")
+        raise ValueError(
+            f"strt shape mismatch: expected {expected_3d}, got {strt.shape}"
+        )
     if drain_array.shape != expected_2d:
         raise ValueError(
             f"drain_array shape mismatch: expected {expected_2d}, got {drain_array.shape}"
@@ -382,7 +415,9 @@ def validate_ibound_strt_contract(
 
     drain_unique = np.unique(drain_array)
     if not np.isin(drain_unique, [0.0, 1.0]).all():
-        raise ValueError("drain_array must only contain binary activation values {0, 1}")
+        raise ValueError(
+            "drain_array must only contain binary activation values {0, 1}"
+        )
 
 
 __all__ = [

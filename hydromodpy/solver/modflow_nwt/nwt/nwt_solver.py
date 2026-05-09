@@ -49,6 +49,11 @@ from .nwt_config import (
     ModflowSpecifParams,
 )
 from .postprocess import NODATA
+from .steady_initial_conditions import (
+    apply_nwt_steady_state_initial_heads,
+    flow_uses_steady_state_initial_condition,
+    run_nwt_steady_state_initialization,
+)
 
 logger = get_logger(__name__)
 MODFLOW_LENUNI_METERS = 2
@@ -153,12 +158,16 @@ class ModflowNwt(Solver):
         self.nrow = int(dem.shape[0])
         self.ncol = int(dem.shape[1])
 
-    def _apply_preprocess_options(self, options: ModflowPreprocessOptions | None = None) -> None:
+    def _apply_preprocess_options(
+        self, options: ModflowPreprocessOptions | None = None
+    ) -> None:
         """Apply pre-processing options on model state."""
         if options is None:
             options = self.preprocess_options
         if not isinstance(options, ModflowPreprocessOptions):
-            raise TypeError("pre_processing options must be a ModflowPreprocessOptions instance.")
+            raise TypeError(
+                "pre_processing options must be a ModflowPreprocessOptions instance."
+            )
 
         self.preprocess_options = options
         self.sink_fill = bool(options.sink_fill)
@@ -268,7 +277,9 @@ class ModflowNwt(Solver):
             raise ValueError("MODFLOW NWT requires a structured grid")
         self.solver_mesh = self.grid_ctx.solver_mesh
         self.top_elevation = self.solver_mesh.reshape_to_grid(self.solver_mesh.top)
-        self.inactive_mask = self.solver_mesh.reshape_to_grid(self.solver_mesh.inactive_mask[0])
+        self.inactive_mask = self.solver_mesh.reshape_to_grid(
+            self.solver_mesh.inactive_mask[0]
+        )
         self.nlay = self.solver_mesh.nlay
         self.nrow = self.solver_mesh.nrow
         self.ncol = self.solver_mesh.ncol
@@ -282,7 +293,9 @@ class ModflowNwt(Solver):
     def _write_solver_grid_template(self) -> str:
         """Persist one solver-grid-aligned raster template used by exports."""
         if self.grid_ctx is None:
-            raise ValueError("grid_ctx must exist before writing a solver grid template")
+            raise ValueError(
+                "grid_ctx must exist before writing a solver grid template"
+            )
         os.makedirs(self.full_path, exist_ok=True)
         template_path = os.path.join(self.full_path, "_solver_grid_template.tif")
         top_flat = np.asarray(self.grid_ctx.top_elevation, dtype=float)
@@ -301,7 +314,9 @@ class ModflowNwt(Solver):
         if self.routing_ctx is not None:
             return self.routing_ctx
         if self.grid_ctx is None:
-            raise ValueError("grid_ctx must exist before building solver routing products")
+            raise ValueError(
+                "grid_ctx must exist before building solver routing products"
+            )
 
         self.routing_ctx = build_solver_routing_context(
             dem_path=self.dem_watershed_path,
@@ -311,7 +326,9 @@ class ModflowNwt(Solver):
         )
         return self.routing_ctx
 
-    def _build_dis_package(self, solver_mesh, temporal_dis: Mapping[str, object]) -> None:
+    def _build_dis_package(
+        self, solver_mesh, temporal_dis: Mapping[str, object]
+    ) -> None:
         """Create the FLOPY DIS package from spatial and temporal discretization."""
         dis_kwargs = solver_mesh.to_dis_kwargs()
         verts = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)
@@ -416,8 +433,23 @@ class ModflowNwt(Solver):
                 unitnumber=None,
             )
 
+        steady_initial_heads_applied = False
+        if (
+            options.run_model
+            and self.flow_regime == "transient"
+            and flow_uses_steady_state_initial_condition(self.flow)
+        ):
+            steady_heads = run_nwt_steady_state_initialization(
+                self,
+                verbose=bool(options.verbose),
+            )
+            apply_nwt_steady_state_initial_heads(self, steady_heads)
+            steady_initial_heads_applied = True
+
         if options.write_model:
             self.mf.write_input()
+        elif steady_initial_heads_applied:
+            self.bas.write_file()
 
         success_model = False
         if options.run_model:
@@ -445,6 +477,8 @@ class ModflowNwt(Solver):
         if options is None:
             options = ModflowPostprocessOptions()
         elif not isinstance(options, ModflowPostprocessOptions):
-            raise TypeError("post_processing options must be a ModflowPostprocessOptions instance.")
+            raise TypeError(
+                "post_processing options must be a ModflowPostprocessOptions instance."
+            )
 
         run_post_processing(self, options)
