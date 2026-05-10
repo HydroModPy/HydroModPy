@@ -212,8 +212,23 @@ Run the PETSc smoke suite from PowerShell through WSL:
 
    wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
 
-The documentation build never depends on PETSc; it consumes existing
-figures and reports.
+For the Boussinesq lower-obstacle drying case only, run the dedicated
+pytest target instead:
+
+.. code-block:: powershell
+
+   wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- python -m pytest tests/validation/numerical/transient/test_boussinesq_drying_petsc.py -q"
+
+The corresponding Windows documentation build stays independent from
+PETSc and only needs the Sphinx stack plus the already materialized
+documentation assets:
+
+.. code-block:: powershell
+
+   conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -j auto -b html docs/source docs/build/html
+
+PETSc, MPI, and Linux solver dependencies stay in the WSL environment,
+while the Windows documentation environment only needs the Sphinx stack.
 
 Coding style
 ------------

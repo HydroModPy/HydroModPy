@@ -11,6 +11,9 @@ getting_started/reading-results-pages user_guide/concepts/reading-results-pages
 getting_started/read-real-basin-run user_guide/concepts/reading-results-pages
 user_guide/solver-choice user_guide/solvers
 user_guide/solver-process-map user_guide/solvers
+user_guide/comparison user_guide/workflows/comparison
+user_guide/calibration user_guide/workflows/calibration
+user_guide/mesh user_guide/workflows/testbed
 getting_started/workflow-families user_guide/concepts/workflow-families
 getting_started/workspace-layout user_guide/concepts/workspace-layout
 scientific/calibration/calibration-methods theory/calibration/calibration-methods

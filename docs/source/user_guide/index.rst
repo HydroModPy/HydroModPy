@@ -77,9 +77,11 @@ Read the documentation in this order when you want to avoid duplicates:
    overview for data identity cards, simulation for one persisted run, testbed
    for controlled variants, calibration for repeated candidate runs, batch for
    regional campaigns, and comparison for shared-case solver contrasts.
-3. Topic guides such as :doc:`mesh`, :doc:`comparison`, and :doc:`calibration`
-   should only route users to scientific, gallery, and architecture details;
-   they should not duplicate the workflow walkthroughs.
+3. Topic guides such as :doc:`workflows/testbed`,
+   :doc:`workflows/comparison`, and :doc:`workflows/calibration` are the
+   single source of truth for each workflow family. They link out to
+   theory, gallery, and architecture rather than re-describing the
+   workflow walkthroughs.
 4. The capability gallery should remain the evidence layer: stable figures,
    metrics, and reproducible examples that illustrate the workspace artifacts.
 

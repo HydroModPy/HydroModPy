@@ -74,6 +74,42 @@ Representative Results
    distribution. Its posterior figure shows the complete retained sample, not
    only the posterior mode or the best-fit candidate.
 
+Pick A Method
+-------------
+
+The ``[calibration].method`` field selects the optimizer. ``save_runs``
+controls disk cost; ``best_n`` keeps every trial in the DuckDB trace but
+only promotes the top trials to full Zarr / Parquet stores.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 16 16 46
+
+   * - Method
+     - Typical budget
+     - Determinism
+     - When to pick it
+   * - ``grid``
+     - product of ``n_points``
+     - yes
+     - 1-2 parameters, exhaustive sweep
+   * - ``optuna`` (TPE default)
+     - 50-200
+     - seed-dependent
+     - General default, adapts as it explores
+   * - ``optuna`` (CMA-ES sampler)
+     - 100-500
+     - seed-dependent
+     - 3+ continuous parameters
+   * - ``scipy_de``
+     - 100-500
+     - seed-dependent
+     - Robust evolutionary alternative
+   * - ``scipy_nelder_mead``
+     - 50-100
+     - partial
+     - Local refinement near a known optimum
+
 Minimal Shape
 -------------
 
@@ -213,7 +249,13 @@ After a calibration run, inspect:
 Next Pages
 ----------
 
-- :doc:`../calibration`
-- :doc:`../../theory/calibration/index`
-- :doc:`../../architecture/calibration/index`
-- :doc:`../../capability_gallery/calibration`
+- :doc:`../../theory/calibration/index` for the inverse-problem
+  formulation and method notes.
+- :doc:`../../theory/calibration/inverse-problem-formulation`
+- :doc:`../../theory/calibration/calibration-methods`
+- :doc:`../../architecture/calibration/calibration-architecture`
+  for the engine internals and runtime classes.
+- :doc:`../../capability_gallery/calibration` for stable benchmark
+  pages with posteriors, traces, and objective landscapes.
+- :doc:`../concepts/reading-results-pages` for reading the generated
+  result pages.
