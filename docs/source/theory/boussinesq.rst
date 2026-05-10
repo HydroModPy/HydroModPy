@@ -1721,7 +1721,7 @@ Related Pages
 - :doc:`solvers/solver-capability-matrix`
 - :doc:`../architecture/solver/index`
 - :doc:`../architecture/solver/boussinesq-uml-diagrams`
-- :doc:`../user_guide/solver-process-map`
+- :doc:`../user_guide/solvers`
 - :doc:`../capability_gallery/cases/surface_interaction_ramp_code_comparison`
 - :doc:`../capability_gallery/cases/surface_interaction_no_seepage_code_comparison`
 - :doc:`../user_guide/concepts/comparison-workflow`

@@ -32,23 +32,14 @@ Core concepts
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: driving-hydromodpy
-      :link-type: doc
-
-      **Driving HydroModPy**
-      ^^^
-      Workflow families and the seven driving modes: CLI TOML, JSON, Python,
-      notebooks, and low-level primitives.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: workflows/index
       :link-type: doc
 
-      **Workflow families**
+      **Workflow families and driving modes**
       ^^^
       Overview, simulation, testbed, calibration, batch, and comparison
-      workflows.
+      workflows, plus the seven driving modes (CLI TOML, JSON, Python,
+      notebooks, and low-level primitives).
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -134,23 +125,14 @@ Topic guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: solver-process-map
+      :link: solvers
       :link-type: doc
 
-      **Solvers by process**
+      **Solvers**
       ^^^
-      Process-first map of flow, transport, postprocess, and display solver
-      families.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: solver-choice
-      :link-type: doc
-
-      **Solver choice**
-      ^^^
-      Where to compare MODFLOW-NWT, MODFLOW 6, Boussinesq, meshes, and XT3D
-      options.
+      Process-first map of flow, transport, postprocess, and display
+      solvers, with the trade-offs between MODFLOW-NWT, MODFLOW 6,
+      Boussinesq, mesh families, and the XT3D option.
 
 Capability and API-oriented guides
 ----------------------------------
@@ -243,8 +225,7 @@ Use these pages once you have generated or opened result pages:
    :hidden:
 
    Configuration reference <config_reference/index>
-   Driving HydroModPy <driving-hydromodpy>
-   Workflow families <workflows/index>
+   Workflow families and modes <workflows/index>
    Concepts <concepts/index>
    Cookbook <cookbook/index>
    Theory <../theory/index>
@@ -257,6 +238,5 @@ Use these pages once you have generated or opened result pages:
    results-and-exports
    figures
    project-api
-   solver-process-map
-   solver-choice
+   solvers
    troubleshooting

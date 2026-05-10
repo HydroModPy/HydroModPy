@@ -48,5 +48,5 @@ Related Pages
 
 - :doc:`../../boussinesq`
 - :doc:`../solver-capability-matrix`
-- :doc:`../../../user_guide/solver-process-map`
+- :doc:`../../../user_guide/solvers`
 - :doc:`../../../architecture/solver/index`
