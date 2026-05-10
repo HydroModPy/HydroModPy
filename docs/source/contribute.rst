@@ -50,7 +50,7 @@ the recipe that matches your platform.
    .. tab-item:: pip + venv (Linux / macOS / Windows)
       :sync: dev-pip
 
-      Lightweight setup, no conda required. Works on Python 3.11-3.13.
+      Lightweight setup, no conda required. Works on Python 3.11 or newer.
 
       .. code-block:: bash
 
@@ -312,6 +312,31 @@ artifacts before committing:
 
    python -m tools.doc_gallery
    python -m tools.doc_gallery --check
+
+Auto-regenerated artifacts
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Two ``builder-inited`` hooks run at every Sphinx build:
+
+- ``tools.doc_config`` regenerates ``docs/source/user_guide/config_reference/``
+  (one page per top-level TOML section plus the JSON Schema and
+  OpenAPI exports under ``_static/``).
+- ``tools.doc_figures`` regenerates
+  ``docs/source/user_guide/figures_inventory.partial.rst`` from the
+  registered figure catalog in ``hydromodpy.display``.
+
+Both regenerators use ``_write_if_changed`` (idempotent), so the
+output mtime stays stable when the content has not changed and
+``sphinx-autobuild`` does not loop on the regenerated files.
+
+For tight iteration loops on RST that is not config-related, skip the
+heavy regeneration with:
+
+.. code-block:: bash
+
+   HMP_SKIP_CONFIG_REFERENCE_GEN=1 make -C docs html
+
+``tools.doc_figures`` remains active in that mode (its run is cheap).
 
 Submit a pull request
 ---------------------

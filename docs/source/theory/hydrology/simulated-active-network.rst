@@ -293,5 +293,5 @@ Related Reading
 - :doc:`stream-ocean-and-drainage-semantics`
 - :doc:`../solvers/flow/modflow-family`
 - :doc:`../solvers/modflow-package-semantics-and-boundary-conditions`
-- :doc:`../../architecture/overview/hydrographic-network-simulated-active-inventory`
+- :doc:`../../architecture/spatial_support/hydrographic-network-simulated-active-inventory`
 - :doc:`../../user_guide/concepts/comparison-workflow`

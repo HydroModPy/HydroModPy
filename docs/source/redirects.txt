@@ -126,3 +126,11 @@ architecture/mesh/mesh-catchment-output-layout-activity-diagram architecture/mes
 architecture/mesh/structured-grid-class-diagram architecture/mesh/structured-grid-architecture
 architecture/mesh/structured-grid-build-sequence-diagram architecture/mesh/structured-grid-architecture
 architecture/mesh/sgrid-fieldparam-discretization-diagrams architecture/mesh/structured-grid-architecture
+architecture/mesh_pivot architecture/mesh/mesh-pivot
+architecture/gmsh_meshing architecture/mesh/gmsh-meshing
+architecture/modflow_contracts architecture/solver/modflow-contracts
+architecture/overview/hydrographic-network-uml-diagrams architecture/spatial_support/hydrographic-network-uml-diagrams
+architecture/overview/hydrographic-network-simulated-active-inventory architecture/spatial_support/hydrographic-network-simulated-active-inventory
+architecture/overview/testbed-workflow-architecture architecture/simulation/testbed-workflow-architecture
+architecture/overview/data-managers-and-external-dependencies architecture/data_loading/data-managers-and-external-dependencies
+architecture/process/index architecture/process/process-architecture

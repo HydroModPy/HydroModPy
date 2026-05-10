@@ -253,7 +253,7 @@ the following routing when a question about discretization comes up:
    * - How are structured grids represented internally?
      - :doc:`../../architecture/mesh/structured-grid-architecture`
    * - How is the Gmsh-backed conformal mesh built?
-     - :doc:`../../architecture/gmsh_meshing`
+     - :doc:`../../architecture/mesh/gmsh-meshing`
 
 Mesh-Only Minimal Shape
 ~~~~~~~~~~~~~~~~~~~~~~~

@@ -95,7 +95,13 @@ Notes:
 Related pages
 -------------
 
-- :doc:`../overview/data-managers-and-external-dependencies` for the
+- :doc:`data-managers-and-external-dependencies` for the
   external-dependency policy of every data manager.
 - :doc:`../simulation/simulation-orchestration-class-diagram` for the
   simulation-side consumer of the data layer.
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+
+   data-managers-and-external-dependencies

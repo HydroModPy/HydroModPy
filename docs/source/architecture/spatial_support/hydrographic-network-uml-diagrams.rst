@@ -152,6 +152,6 @@ package-level component diagram focused only on:
 Related reading
 ---------------
 
-- :doc:`mental-model-and-design-choices`
-- :doc:`code-reading-guide`
+- :doc:`../overview/mental-model-and-design-choices`
+- :doc:`../overview/code-reading-guide`
 - :doc:`../../user_guide/concepts/comparison-workflow`

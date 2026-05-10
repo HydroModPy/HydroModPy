@@ -2,8 +2,8 @@ Mesh Architecture Pivot
 =======================
 
 Links:
-:doc:`gmsh_conformal_meshing <gmsh_meshing>`,
-:doc:`modflow_contracts <modflow_contracts>`.
+:doc:`Gmsh conformal meshing <gmsh-meshing>`,
+:doc:`MODFLOW contracts <../solver/modflow-contracts>`.
 
 Code: ``hydromodpy/spatial/field/`` (mesh core) and
 ``hydromodpy/spatial/mesh/`` (Gmsh integration toward solvers).
@@ -934,8 +934,8 @@ bugs from accidental mutation. The ``with_cell_data()`` /
 See also
 --------
 
-- :doc:`gmsh_meshing` for the conformal Gmsh pipeline.
-- :doc:`mesh/index` for the broader mesh architecture and the
+- :doc:`gmsh-meshing` for the conformal Gmsh pipeline.
+- :doc:`index` for the broader mesh architecture and the
   catchment-mesh workflow.
-- :doc:`modflow_contracts` for the DIS / BAS contract that consumes
+- :doc:`../solver/modflow-contracts` for the DIS / BAS contract that consumes
   the structured pivot.

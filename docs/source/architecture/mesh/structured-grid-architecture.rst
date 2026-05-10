@@ -112,6 +112,6 @@ See also
   here.
 - :doc:`../spatial_support/spatial-support-uml-diagrams` for the
   parameter support layer above.
-- :doc:`../mesh_pivot` for the cross-mesh pivot format.
-- :doc:`../modflow_contracts` for the DIS / BAS contract that
+- :doc:`../mesh/mesh-pivot` for the cross-mesh pivot format.
+- :doc:`../solver/modflow-contracts` for the DIS / BAS contract that
   consumes the structured grid.

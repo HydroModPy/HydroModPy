@@ -123,7 +123,7 @@ See also
 --------
 
 - :doc:`/architecture/how-to/add-a-solver` -- step-by-step recipe.
-- :doc:`/architecture/modflow_contracts` -- DIS / BAS contract.
+- :doc:`/architecture/solver/modflow-contracts` -- DIS / BAS contract.
 - :doc:`/architecture/solver/index` -- per-backend deep dives
   (MODFLOW 6, MODFLOW-NWT, Boussinesq).
 - :doc:`/theory/solvers/index` -- scientific solver notes.

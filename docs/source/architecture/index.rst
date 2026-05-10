@@ -1,127 +1,178 @@
+:html_theme.sidebar_secondary.remove:
+
 Architecture and Developer Guide
 ================================
 
-This section is the developer-facing reference for HydroModPy. It
-documents the package architecture, the design patterns, the storage
-layout, the test layers, and the contributor recipes for extending the
-toolbox.
+.. raw:: html
+
+   <p class="lead">
+   The developer-facing reference for HydroModPy. Documents the package
+   architecture, design patterns, storage layout, test layers, and the
+   contributor recipes for extending the toolbox.
+   </p>
 
 For user-facing documentation, see :doc:`/user_guide/index`. For
 scientific notes and equations, see :doc:`/theory/index`.
 
-Where to start
---------------
+Get started as a contributor
+----------------------------
 
-.. grid:: 1 2 2 2
-   :gutter: 2
+.. grid:: 1 1 1 1
+   :gutter: 2 2 3 3
 
-   .. grid-item-card:: New to the codebase?
-      :link: overview/mental-model-and-design-choices
+   .. grid-item-card:: Contributor handbook
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4 hmp-cta-card
+      :link: ../contribute
       :link-type: doc
 
-      Read the mental model first: how a TOML becomes a persisted run.
-
-   .. grid-item-card:: Want to extend HydroModPy?
-      :link: how-to/index
-      :link-type: doc
-
-      Step-by-step recipes: add a solver, a config field, a data
-      source, a figure, a test, a CLI command, a calibration method,
-      or build a frontend.
-
-   .. grid-item-card:: Looking for a subpackage?
-      :link: packages/index
-      :link-type: doc
-
-      One concise reference page per top-level subpackage of
-      ``hydromodpy/``.
-
-   .. grid-item-card:: Need a precise contract?
-      :link: layered-architecture
-      :link-type: doc
-
-      The 14-layer dependency matrix that every commit must respect.
+      Editable clone, pre-commit hooks, ``[dev,test,docs]`` extras,
+      WSL/PETSc helpers, ``ruff`` workflow, test ladder, Sphinx build
+      with ``-j auto`` and PlantUML setup, and the pull-request
+      conventions. Start here on day one.
 
 Foundations
 -----------
 
-The pages below are the architectural backbone. Read them once before
-diving into a specific package.
-
-- :doc:`package-layout` -- the 14 subpackages and the top-level facade.
-- :doc:`layered-architecture` -- the strict layer matrix and the
-  one-way import rule.
-- :doc:`overview/mental-model-and-design-choices` -- how a configuration
-  becomes a persisted result, and why the layers are split that way.
-- :doc:`overview/design-patterns` -- the canonical patterns reused
-  across the codebase (SolverAdapter, Step, Figure, DataManager,
-  ProcessSpatial, etc.).
-- :doc:`overview/code-reading-guide` -- recommended package-by-package
-  reading paths.
-- :doc:`overview/two-databases` -- the workspace layout with one input
-  cache and one simulation catalog.
-- :doc:`storage-layout` -- the full DuckDB schema, Zarr stores,
-  Parquet tables, and the basename rule.
-- :doc:`overview/schema-evolution` -- the versioning policy applied to
-  future storage migrations.
-- :doc:`overview/frontend-hooks` -- the JSON Schema and partial-validator
-  contract that any UI integration consumes.
-- :doc:`overview/test-families-and-quality-roles` -- the test ladder
-  with role and command per family.
-
-Contributor recipes
--------------------
-
-The :doc:`how-to/index` section answers prescriptive questions: "I
-need to add X, where does it go and what contract must I honour?".
-Read the matching recipe before opening files.
-
 .. grid:: 1 2 2 2
-   :gutter: 2
+   :gutter: 2 2 3 3
 
-   .. grid-item-card:: Add a solver
-      :link: how-to/add-a-solver
+   .. grid-item-card:: Mental model
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: overview/mental-model-and-design-choices
       :link-type: doc
 
-      A new flow / transport / postprocess backend bound to a
-      ``(process_type, solver_name)`` pair.
+      How a TOML becomes a persisted run. Read this once before
+      diving into any package.
 
-   .. grid-item-card:: Add a config field
-      :link: how-to/add-a-config-field
+   .. grid-item-card:: Design patterns
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: overview/design-patterns
       :link-type: doc
 
-      A new TOML knob backed by a Pydantic model with units and a
-      Profile annotation.
+      Canonical patterns reused across the codebase: SolverAdapter,
+      Step, Figure, DataManager, ProcessSpatial.
 
-   .. grid-item-card:: Add a data source
-      :link: how-to/add-a-data-source
+   .. grid-item-card:: Package layout
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: package-layout
       :link-type: doc
 
-      A new public API or local-file source bound to an existing data
-      variable.
+      The 14 subpackages, the top-level facade, and the public-symbol
+      contract.
 
-   .. grid-item-card:: Add a figure
-      :link: how-to/add-a-figure
+   .. grid-item-card:: Layered architecture
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: layered-architecture
       :link-type: doc
 
-      A new entry in the display registry consumable by ``Run.plot``
-      and the ``[display]`` section.
+      The strict 14-layer dependency matrix and the one-way import
+      rule that every commit must respect.
+
+   .. grid-item-card:: Storage layout
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: storage-layout
+      :link-type: doc
+
+      DuckDB schema, Zarr stores, Parquet tables, and the basename
+      rule that ties them together.
+
+   .. grid-item-card:: Code reading guide
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: overview/code-reading-guide
+      :link-type: doc
+
+      Recommended package-by-package reading paths through the
+      source tree.
 
 Per-package reference
 ---------------------
 
-The :doc:`packages/index` section gives one focused page per top-level
-subpackage. Each page covers the package role, its sub-modules, the
-key public symbols, and the recommended reading path inside the code.
+.. grid:: 1 1 1 1
+   :gutter: 2 2 3 3
 
-Detailed reference pages
-------------------------
+   .. grid-item-card:: All 14 subpackages
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: packages/index
+      :link-type: doc
 
-These pages remain as deep dives for specific subsystems. They
-complement the per-package summaries.
+      One focused page per top-level subpackage. Each page covers
+      the package role, its sub-modules, the key public symbols,
+      and the recommended reading path through the code.
+
+Contributor recipes
+-------------------
+
+.. grid:: 1 1 1 1
+   :gutter: 2 2 3 3
+
+   .. grid-item-card:: How-to index
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: how-to/index
+      :link-type: doc
+
+      Prescriptive recipes: add a solver, a config field, a data
+      source, a figure, a test, a CLI command, a calibration method,
+      an exporter, or build a frontend. Start here when extending
+      HydroModPy.
+
+Subsystem deep dives
+--------------------
+
+.. grid:: 1 2 3 3
+   :gutter: 2 2 3 3
+
+   .. grid-item-card:: Simulation
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: simulation/index
+      :link-type: doc
+
+      Orchestration walkthrough, class diagrams, time-cycle
+      diagrams, the comparison-workflow internals, and the testbed
+      workflow.
+
+   .. grid-item-card:: Solver backends
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: solver/index
+      :link-type: doc
+
+      MODFLOW 6, MODFLOW-NWT, Boussinesq architecture notes, plus
+      the MODFLOW DIS and BAS contracts honoured by HydroModPy.
+
+   .. grid-item-card:: Mesh architecture
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: mesh/index
+      :link-type: doc
+
+      Catchment-conformal Gmsh meshing, structured-grid path, and
+      the cross-mesh pivot format used by every backend.
+
+   .. grid-item-card:: Calibration internals
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: calibration/index
+      :link-type: doc
+
+      Code-oriented architecture map plus the full operational
+      calibration guide for adding methods and objectives.
+
+   .. grid-item-card:: Data and field
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: data_loading/index
+      :link-type: doc
+
+      Data planning and runtime loading, the field abstraction
+      shared by every solver, and the external data-source policy.
+
+   .. grid-item-card:: Spatial support and hydrography
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: spatial_support/index
+      :link-type: doc
+
+      Support selection, hydrography UML, and the simulated active
+      network inventory for stream and seepage diagnostics.
 
 .. toctree::
-   :maxdepth: 2
+   :hidden:
+   :maxdepth: 1
    :caption: Foundations
 
    package-layout
@@ -130,35 +181,36 @@ complement the per-package summaries.
    overview/index
 
 .. toctree::
-   :maxdepth: 2
-   :caption: How-to (contributor recipes)
+   :hidden:
+   :maxdepth: 1
+   :caption: How-to
 
    how-to/index
 
 .. toctree::
-   :maxdepth: 2
+   :hidden:
+   :maxdepth: 1
    :caption: Per-package reference
 
    packages/index
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Detailed pages
+   :hidden:
+   :maxdepth: 1
+   :caption: Subsystem deep dives
 
+   simulation/index
+   solver/index
+   mesh/index
+   calibration/index
    data_loading/index
    spatial_support/index
    field/index
-   mesh/index
-   mesh_pivot
-   gmsh_meshing
-   modflow_contracts
-   process/index
-   solver/index
-   simulation/index
-   calibration/index
+   process/process-architecture
 
 .. toctree::
-   :maxdepth: 2
+   :hidden:
+   :maxdepth: 1
    :caption: Contributing
 
    Contributing handbook <../contribute>
