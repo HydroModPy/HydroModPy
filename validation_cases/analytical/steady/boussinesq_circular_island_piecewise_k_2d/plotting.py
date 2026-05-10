@@ -10,6 +10,8 @@ from matplotlib.colors import ListedColormap
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
+from validation_cases.shared.boussinesq_plotting import with_boussinesq_method_line
+
 from .comparison import BoussinesqCircularIslandPiecewiseKComparison
 
 
@@ -242,10 +244,14 @@ def plot_boussinesq_circular_island_piecewise_k_comparison(
         f"ocean head error={comparison.ocean_head_max_error:.2e} m   "
         f"min freeboard={comparison.land_clearance_min:.4f} m"
     )
+    footer_lines = with_boussinesq_method_line(
+        comparison.result,
+        (params_line, metrics_line),
+    )
     fig.text(
         0.5,
         0.01,
-        f"{params_line}\n{metrics_line}",
+        "\n".join(footer_lines),
         ha="center",
         va="bottom",
         fontsize=sizes["metrics"],

@@ -1,0 +1,257 @@
+workflow = "simulation"
+
+[workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/base_workspace"
+root = "../../../.."
+data_dir = "../../outputs/boussinesq_synthetic_heterogeneous/data_cache"
+
+[simulation]
+name = "synthetic_patchy_mf6_bouss_shared_case"
+description = "Shared synthetic patchy 2D recharge-response case for MF6 versus Boussinesq comparison."
+on_collision = "replace"
+
+[simulation.time]
+start_datetime = "2020-09-01"
+end_datetime = "2023-08-31"
+step_value = "1 month"
+coverage_policy = "warn"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[simulation.results]
+keep_solver_files = false
+
+[simulation.results.derived]
+outflow_drain = true
+accumulation_flux = true
+watertable_depth = true
+watertable_elevation = true
+
+[simulation.results.budget]
+spatial_fields = true
+
+[geographic]
+source_mode = "synthetic"
+reuse_existing_outputs = false
+
+[geographic.synthetic]
+case_id = "synthetic_patchy_2d"
+
+[geographic.synthetic.grid]
+length_x = "5025.0 m"
+length_y = "5025.0 m"
+nx = 67
+ny = 67
+xmin = 140024.9124
+ymin = 6844483.9302
+crs = "EPSG:2154"
+
+[geographic.synthetic.topography]
+kind = "linear"
+base_elevation = 20.0
+right_to_left_amplitude = 20.0
+
+[domain]
+zone_ids = ["geology"]
+
+[domain.supports.field_geology]
+provider = "geology"
+
+[domain.depth_model]
+type = "constant_thickness"
+thickness = "80.0 m"
+
+[data]
+project_crs = "EPSG:2154"
+types = ["geology", "recharge"]
+inference_mode = "warn"
+
+[data.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[[data.geology.sources]]
+source = "custom"
+path = "synthetic_geology_zones.geojson"
+code_field = "ZONE"
+
+[data.recharge]
+date_start = "2020-09-01"
+date_end = "2023-08-31"
+
+[[data.recharge.sources]]
+source = "synthetic"
+freq = "MS"
+start_date = "2020-09-01"
+periods = 36
+values = [
+  0.05, 0.15, 0.60, 1.40, 2.40, 2.80, 1.80, 0.80, 0.25, 0.05, 0.00, 0.02,
+  0.02, 0.05, 0.20, 0.70, 1.50, 2.20, 1.00, 0.25, 0.05, 0.00, 0.00, 0.01,
+  0.05, 0.20, 0.90, 2.20, 3.50, 2.70, 1.30, 0.45, 0.10, 0.02, 0.00, 0.03,
+]
+runoff_ratio = 0.0
+
+[flow]
+flow_regime = "transient"
+runtime_backend = "petsc"
+surface_interaction_model = "ts_vi_obstacle"
+ts_vi_steps_per_period = 4
+ts_vi_adapt = false
+ts_vi_type = "beuler"
+ts_vi_snes_type = "vinewtonrsls"
+active_sinks_sources = ["recharge"]
+active_bc = ["drainage"]
+param_list = ["K", "Ss", "Sy"]
+runtime_max_iterations = 320
+runtime_tol_residual_inf = 1.0e-6
+runtime_tol_state_update_inf = 1.0e-8
+
+[flow.param.K.field]
+id = "K"
+kind = "heterogeneous"
+unit = "m/s"
+
+[flow.param.K.field_heterogeneous]
+values_source = "inline"
+values = { west_low_k = "1e-5 m/s", central_high_k = "8e-5 m/s", east_medium_k = "3e-5 m/s" }
+field_spatial_id = "field_geology"
+
+[flow.param.Ss.field]
+id = "Ss"
+kind = "homogeneous"
+unit = "m-1"
+
+[flow.param.Ss.field_homogeneous]
+value = "1e-5 m-1"
+
+[flow.param.Sy.field]
+id = "Sy"
+kind = "heterogeneous"
+unit = "-"
+
+[flow.param.Sy.field_heterogeneous]
+values_source = "inline"
+values = { west_low_k = "0.04 -", central_high_k = "0.08 -", east_medium_k = "0.06 -" }
+field_spatial_id = "field_geology"
+
+[flow.ic]
+type = "steady_state"
+source = "mean_recharge"
+recharge_statistic = "time_mean"
+boundary_condition_policy = "first_period"
+
+[flow.bc.cauchy.drainage]
+id = "drainage"
+type = "cauchy"
+application_domain = "top"
+description = "Synthetic top drainage without imposed lateral head."
+value = "0.2 m2/s"
+
+[flow.sinks_sources.recharge]
+first_clim = "first"
+negative_to_evt = true
+
+[mesh_catchment]
+constraints_mode = "geology_only"
+output_layout = "flat"
+figures_enabled = true
+figure_dpi = 220
+figure_regional_dpi = 180
+
+[mesh_catchment.watershed_boundary]
+enabled = true
+boundary_refinement_distance = 300.0
+
+[mesh_catchment.watershed_boundary.smoothing]
+enabled = true
+distance = 75.0
+outer_bias_distance = 5.0
+
+[mesh_catchment.watershed_boundary.outside_coarsening]
+enabled = true
+size_factor = 2.0
+transition_distance = 450.0
+grid_resolution = 450.0
+
+[mesh_catchment.watershed_boundary.geology_conformity]
+mode = "full_domain"
+
+[mesh_catchment.geology]
+id = "field_geology"
+cell_samples_per_axis = 8
+
+[mesh_catchment.geology.source]
+path = "synthetic_geology_zones.geojson"
+kind = "vector"
+code_field = "ZONE"
+reference_raster_path = "../../../../data/dem/conceptual_dem.tif"
+
+[mesh_catchment.hydraulic_properties.conductivity]
+values_source = "inline"
+values = { west_low_k = "1e-5", central_high_k = "8e-5", east_medium_k = "3e-5" }
+
+[mesh_catchment.hydraulic_properties.storage_coefficient]
+values_source = "inline"
+values = { west_low_k = 0.04, central_high_k = 0.08, east_medium_k = 0.06 }
+
+[mesh_catchment.zone_meshing]
+global_size = 450.0
+min_size = 180.0
+max_size = 800.0
+min_polygon_area = 1.0
+refine_interfaces = true
+interface_size = 220.0
+interface_distance = 550.0
+interface_sampling = 72
+
+[mesh_catchment.zone_meshing.refinement_policy]
+enabled = true
+mode = "grid_local_budget"
+
+[mesh_catchment.zone_meshing.refinement_policy.grid]
+neighborhood_rings = 1
+enable_exact_gap_check = false
+max_exact_gap_candidates = 128
+
+[mesh_catchment.zone_meshing.refinement_policy.hotspot]
+radius = 550.0
+max_curve_count = 120
+max_family_count = 2
+min_gap = 120.0
+max_node_degree = 4
+short_segment_length = 200.0
+max_short_segment_count = 8
+
+[mesh_catchment.zone_meshing.refinement_policy.families.geology_interface]
+enabled = true
+priority = 200
+
+[mesh_catchment.zone_meshing.refinement_policy.families.watershed_boundary]
+enabled = true
+priority = 100
+
+[display]
+enabled = false
+
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf_verbose = false
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.tgrid]
+firstpersteady = false
+
+[modflow6.sgrid.vertical]
+genmtd_lay = "decay"
+nlay = 1
+lay_decay = 1.2

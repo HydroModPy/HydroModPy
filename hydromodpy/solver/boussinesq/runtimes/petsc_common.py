@@ -92,6 +92,7 @@ def _configure_default_snes(
     prefer_direct_linear_solve: bool = False,
 ) -> None:
     """Apply the default PETSc nonlinear and linear solver settings."""
+    PETSc = _require_petsc()
     snes.setType("newtonls")
     snes.setTolerances(
         atol=float(tol_residual_inf),
@@ -114,6 +115,9 @@ def _configure_default_snes(
         pc = ksp.getPC()
         if pc is not None:
             pc.setType("lu" if prefer_direct_linear_solve else "ilu")
+            # Active-set complementarity Jacobians can expose numerical zero
+            # pivots on large meshes; shifting keeps the factorization defined.
+            pc.setFactorShift(PETSc.Mat.FactorShiftType.NONZERO, 1.0e-10)
             pc.setFromOptions()
         ksp.setFromOptions()
     snes.setFromOptions()

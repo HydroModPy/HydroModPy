@@ -8,12 +8,21 @@ Public exports for the flow process layer:
 - typed payload models (IC, BC, sinks/sources).
 """
 
+from .boundary_condition_registry import (
+    FLOW_BOUNDARY_DEFINITIONS,
+    SUPPORTED_FLOW_BOUNDARY_IDS,
+    BoundaryConditionBundle,
+    FlowBoundaryDefinition,
+    boundary_definition,
+    supported_boundary_ids_for_backend,
+)
 from .boundary_conditions import CauchyBC, DirichletBC, FlowBoundaryConditionConfig, RobinBC
 from .flow import Flow
 from .flow_config import FlowConfig, FlowParam
 from .initial_conditions import (
     FlowICBottom,
     FlowICCustom,
+    FlowICSteadyState,
     FlowICTop,
     FlowICTopOffset,
     FlowInitialCondition,
@@ -28,6 +37,7 @@ __all__ = [
     "FlowRegime",
     "FlowICBottom",
     "FlowICCustom",
+    "FlowICSteadyState",
     "FlowICTop",
     "FlowICTopOffset",
     "FlowInitialCondition",
@@ -36,6 +46,12 @@ __all__ = [
     "CauchyBC",
     "RobinBC",
     "FlowBoundaryConditionConfig",
+    "BoundaryConditionBundle",
+    "FlowBoundaryDefinition",
+    "FLOW_BOUNDARY_DEFINITIONS",
+    "SUPPORTED_FLOW_BOUNDARY_IDS",
+    "boundary_definition",
+    "supported_boundary_ids_for_backend",
     "FlowWellConfig",
     "FlowSinksSourcesConfig",
     "FlowParam",

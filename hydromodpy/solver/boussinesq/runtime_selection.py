@@ -32,7 +32,13 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
 
 RuntimeBackendName = Literal["local", "scipy", "scipy_sparse", "petsc"]
 LinearSystemLayout = Literal["dense", "sparse", "matrix_free"]
-SurfaceInteractionModel = Literal["auto", "regularized_partition", "complementarity"]
+SurfaceInteractionModel = Literal[
+    "auto",
+    "regularized_partition",
+    "complementarity",
+    "vi_obstacle",
+    "ts_vi_obstacle",
+]
 
 
 @runtime_checkable

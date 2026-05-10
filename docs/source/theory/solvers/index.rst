@@ -205,3 +205,4 @@ Worked cases and reference matrix
    worked-modflow-case-linearized-unconfined-recharge-periodic-1d
    worked-modflow-case-nancon-transient-nwt-etp-evt
    solver-capability-matrix
+   boussinesq-petsc-validation-results

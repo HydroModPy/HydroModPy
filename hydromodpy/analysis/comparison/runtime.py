@@ -7,7 +7,8 @@ import json
 import math
 import numbers
 import os
-from collections.abc import Mapping
+import textwrap
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,21 +16,35 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from hydromodpy.analysis.comparison._solver_protocol import (
+    get_solver_registry_provider,
+)
 from hydromodpy.analysis.comparison.config import (
     ComparisonObservable,
     ComparisonSimulation,
     RuntimeComparisonConfig,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.solver_diagnostics import (
+    TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV,
+    VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
+    VI_OBSTACLE_RUNTIME_SUMMARY_JSON,
+    VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV,
+)
 from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
 )
 from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
+    history_has_initial_snapshot,
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
 )
+
+TomlDescriptionProvider = Callable[[tuple[str, ...]], str | None]
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
@@ -59,6 +74,13 @@ _PERIOD_VALUE_VARIABLES = {
     "surface_excess_rate",
     "surface_excess_total_m3_s",
     "well_flux_history_m3_s",
+}
+_INITIAL_STATE_SELECTORS = {"initial", "initial_state", "t0"}
+_FIRST_COMPUTED_SELECTORS = {
+    "first_computed",
+    "first_non_initial",
+    "first_step",
+    "first_period_end",
 }
 
 
@@ -147,30 +169,17 @@ def _finite_array_value(values: np.ndarray | None, index: int) -> float | None:
 def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...]:
     """Return candidate TOML section names for a structured flow solver.
 
-    Sections are pulled from the solver registry filtered by the
-    ``distributed`` category — the only backends that expose a structured
-    ``(nrow, ncol)`` shape via their TOML config. ``solver_name``, when
-    given, is tried first.
+    Sections are resolved through the bootstrap-registered solver-registry
+    provider so analysis stays decoupled from concrete solver modules.
+    ``solver_name``, when given, is tried first.
     """
-    from hydromodpy.solver.base.registry import (
-        get_extractor,
-        list_extractor_solvers,
-        pairs_for_process,
-    )
-
     sections: list[str] = []
     if solver_name:
         sections.append(str(solver_name).strip().lower())
 
-    flow_solvers = {name for _, name in pairs_for_process("flow")}
-    for name in list_extractor_solvers():
-        if name not in flow_solvers:
-            continue
-        try:
-            if getattr(get_extractor(name), "category", None) == "distributed":
-                sections.append(name)
-        except KeyError:
-            continue
+    provider = get_solver_registry_provider()
+    if provider is not None:
+        sections.extend(provider.distributed_flow_solver_sections())
 
     return tuple(dict.fromkeys(section for section in sections if section))
 
@@ -411,10 +420,26 @@ def _is_mapping_list(value: Any) -> bool:
     return isinstance(value, list) and all(isinstance(item, Mapping) for item in value)
 
 
+def _append_toml_description(
+    lines: list[str],
+    *,
+    path: tuple[str, ...],
+    description_provider: TomlDescriptionProvider | None,
+) -> None:
+    if description_provider is None:
+        return
+    description = description_provider(path)
+    if not description:
+        return
+    for line in textwrap.wrap(str(description), width=96):
+        lines.append(f"# {line}")
+
+
 def _render_toml_mapping(
     mapping: Mapping[str, Any],
     *,
     prefix: tuple[str, ...] = (),
+    description_provider: TomlDescriptionProvider | None = None,
 ) -> list[str]:
     """Render one nested TOML mapping with array-of-table support."""
     lines: list[str] = []
@@ -432,28 +457,60 @@ def _render_toml_mapping(
             scalar_items.append((key, value))
 
     for key, value in scalar_items:
+        _append_toml_description(
+            lines,
+            path=(*prefix, key),
+            description_provider=description_provider,
+        )
         lines.append(f"{key} = {_toml_scalar(value)}")
 
     for key, value in nested_items:
         if lines and lines[-1] != "":
             lines.append("")
         section = ".".join((*prefix, key))
+        _append_toml_description(
+            lines,
+            path=(*prefix, key),
+            description_provider=description_provider,
+        )
         lines.append(f"[{section}]")
-        lines.extend(_render_toml_mapping(value, prefix=(*prefix, key)))
+        lines.extend(
+            _render_toml_mapping(
+                value,
+                prefix=(*prefix, key),
+                description_provider=description_provider,
+            )
+        )
 
     for key, items in array_items:
         section = ".".join((*prefix, key))
         for item in items:
             if lines and lines[-1] != "":
                 lines.append("")
+            _append_toml_description(
+                lines,
+                path=(*prefix, key),
+                description_provider=description_provider,
+            )
             lines.append(f"[[{section}]]")
-            lines.extend(_render_toml_mapping(item, prefix=(*prefix, key)))
+            lines.extend(
+                _render_toml_mapping(
+                    item,
+                    prefix=(*prefix, key),
+                    description_provider=description_provider,
+                )
+            )
     return lines
 
 
 def write_toml_payload(path: Path, payload: Mapping[str, Any]) -> None:
     """Write a small generated TOML payload."""
-    lines = _render_toml_mapping(payload)
+    from hydromodpy.core.toml_io.descriptions import root_config_description_for_path
+
+    lines = _render_toml_mapping(
+        payload,
+        description_provider=root_config_description_for_path,
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
@@ -762,6 +819,52 @@ def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     return {key: metrics.get(key) for key in keys if key in metrics}
 
 
+def discover_vi_obstacle_diagnostics(run_folder: Path) -> dict[str, str]:
+    """Return stable VI obstacle diagnostic files under one run folder."""
+    exported_runtime_paths = run_folder.glob(
+        f"exports/*/solver_diagnostics/{VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
+    )
+    candidates = [
+        run_folder,
+        *(path.parent for path in exported_runtime_paths),
+    ]
+    for directory in candidates:
+        runtime_path = directory / VI_OBSTACLE_RUNTIME_SUMMARY_JSON
+        period_path = directory / VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV
+        substep_path = directory / VI_OBSTACLE_SUBSTEP_DIAGNOSTICS_CSV
+        if runtime_path.exists():
+            payload = {"runtime_summary": str(runtime_path)}
+            if period_path.exists():
+                payload["period_diagnostics"] = str(period_path)
+            if substep_path.exists():
+                payload["substep_diagnostics"] = str(substep_path)
+            return payload
+    return {}
+
+
+def discover_ts_vi_obstacle_diagnostics(run_folder: Path) -> dict[str, str]:
+    """Return stable TS VI obstacle diagnostic files under one run folder."""
+    exported_runtime_paths = run_folder.glob(
+        f"exports/*/solver_diagnostics/{TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON}"
+    )
+    candidates = [
+        run_folder,
+        *(path.parent for path in exported_runtime_paths),
+    ]
+    for directory in candidates:
+        runtime_path = directory / TS_VI_OBSTACLE_RUNTIME_SUMMARY_JSON
+        period_path = directory / TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV
+        step_path = directory / TS_VI_OBSTACLE_STEP_DIAGNOSTICS_CSV
+        if runtime_path.exists():
+            payload = {"runtime_summary": str(runtime_path)}
+            if period_path.exists():
+                payload["period_diagnostics"] = str(period_path)
+            if step_path.exists():
+                payload["step_diagnostics"] = str(step_path)
+            return payload
+    return {}
+
+
 def read_simulation_run_metadata(run_folder: Path) -> dict[str, Any]:
     """Collect lightweight run metadata useful in comparison manifests."""
     metrics = read_json_file(run_folder / "_metrics.json")
@@ -792,6 +895,13 @@ def read_simulation_run_metadata(run_folder: Path) -> dict[str, Any]:
         for key in ("n_cells", "n_edges", "n_nodes"):
             if key in boussinesq_summary:
                 payload[key] = boussinesq_summary.get(key)
+
+    vi_diagnostics = discover_vi_obstacle_diagnostics(run_folder)
+    if vi_diagnostics:
+        payload["vi_obstacle_diagnostics"] = vi_diagnostics
+    ts_vi_diagnostics = discover_ts_vi_obstacle_diagnostics(run_folder)
+    if ts_vi_diagnostics:
+        payload["ts_vi_obstacle_diagnostics"] = ts_vi_diagnostics
 
     bundle_dir_raw = metrics.get("mesh_output_exchange_bundle_dir") or boussinesq_summary.get(
         "bundle_dir"
@@ -1322,7 +1432,7 @@ def _load_boussinesq_npz_series(
             payload,
             n_snapshots=int(values.shape[0]),
         )
-        is_snapshot_series = elapsed_seconds is not None
+        is_snapshot_series = elapsed_seconds is not None and int(values.shape[0]) > 1
         if elapsed_seconds is None:
             elapsed_seconds = step_end_elapsed_seconds_from_payload(
                 payload,
@@ -1555,23 +1665,59 @@ def _elapsed_axis_from_boussinesq_state_group(
             return None
         return values if values.size > 0 else None
 
+    def _is_degenerate_axis(values: np.ndarray) -> bool:
+        return int(values.size) > 1 and bool(np.allclose(values, values[0]))
+
     snapshots = _read_1d("snapshot_elapsed_seconds")
-    if snapshots is not None and snapshots.size == int(n_slices):
-        return ([float(value) for value in snapshots.tolist()], True)
+    if (
+        snapshots is not None
+        and snapshots.size == int(n_slices)
+        and not _is_degenerate_axis(snapshots)
+    ):
+        return (
+            [float(value) for value in snapshots.tolist()],
+            history_has_initial_snapshot(
+                n_slices=n_slices,
+                period_lengths_seconds=None,
+            ),
+        )
 
     step_ends = _read_1d("step_end_elapsed_seconds")
-    if step_ends is not None and step_ends.size == int(n_slices):
+    if (
+        step_ends is not None
+        and step_ends.size == int(n_slices)
+        and not _is_degenerate_axis(step_ends)
+    ):
         return ([float(value) for value in step_ends.tolist()], False)
 
     periods = _read_1d("period_lengths_seconds")
     if periods is not None:
-        return (
-            _elapsed_seconds_from_period_lengths(
-                n_snapshots=int(n_slices),
-                period_lengths=periods,
-            ),
-            periods.size == int(n_slices) - 1,
-        )
+        if not _is_degenerate_axis(periods):
+            return (
+                _elapsed_seconds_from_period_lengths(
+                    n_snapshots=int(n_slices),
+                    period_lengths=periods,
+                ),
+                history_has_initial_snapshot(
+                    n_slices=n_slices,
+                    period_lengths_seconds=periods,
+                ),
+            )
+
+    if "time" in grp:
+        try:
+            root_time = np.asarray(grp["time"][:], dtype=float).reshape(-1)
+        except Exception:
+            root_time = np.asarray([], dtype=float)
+        if root_time.size == int(n_slices) and not _is_degenerate_axis(root_time):
+            return (
+                [float(value) for value in root_time.tolist()],
+                periods is not None
+                and history_has_initial_snapshot(
+                    n_slices=n_slices,
+                    period_lengths_seconds=periods,
+                ),
+            )
     return None
 
 
@@ -1776,7 +1922,13 @@ def _load_store_boussinesq_state_series(
                 time_index=index,
                 values=values[index].ravel(),
                 elapsed_seconds=elapsed_by_index[index],
-                is_initial_state=period_lengths.size == values.shape[0] - 1 and index == 0,
+                is_initial_state=(
+                    history_has_initial_snapshot(
+                        n_slices=int(values.shape[0]),
+                        period_lengths_seconds=period_lengths,
+                    )
+                    and index == 0
+                ),
             )
             for index in range(values.shape[0])
         )
@@ -1854,7 +2006,13 @@ def _load_store_rate_total_series(
             time_index=index,
             values=np.asarray([float(total)], dtype=float),
             elapsed_seconds=elapsed_by_index[index],
-            is_initial_state=period_lengths.size == totals_m3_s.size - 1 and index == 0,
+            is_initial_state=(
+                history_has_initial_snapshot(
+                    n_slices=int(totals_m3_s.size),
+                    period_lengths_seconds=period_lengths,
+                )
+                and index == 0
+            ),
         )
         for index, total in enumerate(totals_m3_s.tolist())
     )
@@ -2102,6 +2260,22 @@ def _select_time_slices(
     if time_selector is None or str(time_selector).strip().lower() == "all":
         return series.slices
     selector_text = str(time_selector).strip().lower()
+    if selector_text in _INITIAL_STATE_SELECTORS:
+        for item in series.slices:
+            if item.is_initial_state:
+                return (item,)
+        raise KeyError(
+            f"Initial-state selector {time_selector!r} requested for variable "
+            f"'{series.variable_name}', but the series exposes no initial-state slice"
+        )
+    if selector_text in _FIRST_COMPUTED_SELECTORS:
+        for item in series.slices:
+            if not item.is_initial_state:
+                return (item,)
+        raise KeyError(
+            f"First-computed selector {time_selector!r} requested for variable "
+            f"'{series.variable_name}', but the series exposes no computed slice"
+        )
     if selector_text == "last":
         return (series.slices[-1],)
     if selector_text == "first":
@@ -2335,8 +2509,14 @@ def _fallback_time_key(
         return f"time_reducer:{reducer_key}"
 
     selector_key = str(observable.time or "all").strip().lower()
-    if selector_key in {"last", "first"}:
-        return f"time_selector:{selector_key}"
+    if selector_key in _INITIAL_STATE_SELECTORS:
+        return "initial_state"
+    if selector_key in _FIRST_COMPUTED_SELECTORS:
+        return "first_computed_state"
+    if selector_key == "first":
+        return "initial_state" if time_slice.is_initial_state else "first_computed_state"
+    if selector_key == "last":
+        return "time_selector:last"
 
     if observable.time_window is not None:
         if time_slice.is_initial_state:
@@ -2642,6 +2822,8 @@ __all__ = (
     "TimeSlice",
     "VariableSeries",
     "discover_result_store",
+    "discover_ts_vi_obstacle_diagnostics",
+    "discover_vi_obstacle_diagnostics",
     "extract_observable_rows",
     "load_variable_series",
     "materialize_simulation_config",

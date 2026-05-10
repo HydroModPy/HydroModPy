@@ -1,4 +1,4 @@
-# The dense-runtime `flow/boussinesq` validation variant is executed directly from
+# The PETSc `flow/boussinesq` validation variant is executed directly from
 # `runtime_boussinesq.py` and does not use a launcher TOML at runtime.
 #
 # This placeholder keeps the metadata inventory explicit so:

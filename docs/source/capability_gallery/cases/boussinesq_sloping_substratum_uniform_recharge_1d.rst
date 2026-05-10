@@ -132,9 +132,9 @@ Solver Coverage
          Boussinesq Sloping-Substratum Uniform-Recharge 1D rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Head-profile RMSE: 0.2121 m
-      - Head-profile max abs error: 0.2882 m
-      - Cross-row head spread: 6.43e-12 m
+      - Head-profile RMSE: 0.0542 m
+      - Head-profile max abs error: 0.1421 m
+      - Cross-row head spread: 1.78e-15 m
       - Reference west discharge per width: 1.734e-05 m2/s
       - Reference east discharge per width: 2.196e-05 m2/s
 
@@ -299,8 +299,12 @@ Common Numerical Setup
      - Homogeneous `K` value used by the benchmark.
      - 1e-4 m/s
      - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_common.toml``
+   * - ``flow.ic.type``
+     - Initial-condition policy used to start the benchmark.
+     - custom
+     - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_common.toml``
    * - ``flow.ic.value``
-     - Initial hydraulic head used to start the benchmark.
+     - Scalar initial head or top offset used by the initial-condition policy.
      - 10.0 m
      - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_common.toml``
    * - ``flow.bc.dirichlet.west_side.value``
@@ -454,7 +458,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/steady/boussinesq_sloping_substratum_uniform_recharge_1d/config_boussinesq.toml``
 
 Acceptance Criteria

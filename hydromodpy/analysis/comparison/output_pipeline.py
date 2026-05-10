@@ -18,10 +18,14 @@ from hydromodpy.analysis.comparison.exports import (
     write_hydrographic_network_metrics_export,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
+    write_release_flux_network_distance_metrics_export,
+    write_release_flux_network_overlap_metrics_export,
     write_simulated_active_network_distance_metrics_export,
     write_simulated_active_network_metrics_export,
     write_simulated_active_network_overlap_metrics_export,
     write_simulated_active_network_reference_figure_export,
+    write_ts_vi_obstacle_runtime_diagnostics_export,
+    write_vi_obstacle_runtime_diagnostics_export,
 )
 from hydromodpy.analysis.comparison.metric_diff import (
     DETAIL_METRIC_FIELDS,
@@ -29,6 +33,9 @@ from hydromodpy.analysis.comparison.metric_diff import (
     build_comparison_metrics,
     write_metrics_csv,
     write_metrics_json,
+)
+from hydromodpy.analysis.comparison.numerical_closure import (
+    write_numerical_closure_exports,
 )
 from hydromodpy.analysis.comparison.reporting import build_comparison_report
 from hydromodpy.analysis.comparison.runtime import write_observables_csv
@@ -48,6 +55,8 @@ class ComparisonOutputBundle:
     data_artifacts: list[dict[str, Any]]
     detail_metrics: list[dict[str, Any]]
     summary_metrics: list[dict[str, Any]]
+    closure_detail_rows: list[dict[str, Any]]
+    closure_summary_rows: list[dict[str, Any]]
 
 
 def write_comparison_output_bundle(
@@ -113,46 +122,49 @@ def write_comparison_output_bundle(
         )
     )
     data_artifacts.extend(native_artifacts)
-    hydrographic_artifacts, _hydrographic_rows = write_hydrographic_network_metrics_export(
-        comparison_id=comparison_id,
-        comparison_root=comparison_root,
-        simulation_summaries=summaries,
+    network_metric_exports = (
+        write_hydrographic_network_metrics_export,
+        write_simulated_active_network_metrics_export,
+        write_simulated_active_network_overlap_metrics_export,
+        write_simulated_active_network_distance_metrics_export,
+        write_release_flux_network_overlap_metrics_export,
+        write_release_flux_network_distance_metrics_export,
     )
-    data_artifacts.extend(hydrographic_artifacts)
-    simulated_active_artifacts, _simulated_active_rows = (
-        write_simulated_active_network_metrics_export(
+    for write_network_metric_export in network_metric_exports:
+        network_artifacts, _network_rows = write_network_metric_export(
             comparison_id=comparison_id,
             comparison_root=comparison_root,
             simulation_summaries=summaries,
         )
-    )
-    data_artifacts.extend(simulated_active_artifacts)
-    simulated_active_overlap_artifacts, _simulated_active_overlap_rows = (
-        write_simulated_active_network_overlap_metrics_export(
-            comparison_id=comparison_id,
-            comparison_root=comparison_root,
-            simulation_summaries=summaries,
-        )
-    )
-    data_artifacts.extend(simulated_active_overlap_artifacts)
-    simulated_active_distance_artifacts, _simulated_active_distance_rows = (
-        write_simulated_active_network_distance_metrics_export(
-            comparison_id=comparison_id,
-            comparison_root=comparison_root,
-            simulation_summaries=summaries,
-        )
-    )
-    data_artifacts.extend(simulated_active_distance_artifacts)
+        data_artifacts.extend(network_artifacts)
     budget_artifacts, budget_rows = write_budget_exports(
         comparison_root=comparison_root,
         simulation_summaries=summaries,
     )
     data_artifacts.extend(budget_artifacts)
+    closure_artifacts, closure_detail_rows, closure_summary_rows = write_numerical_closure_exports(
+        comparison_root=comparison_root,
+        budget_rows=budget_rows,
+        simulation_summaries=summaries,
+    )
+    data_artifacts.extend(closure_artifacts)
     obstacle_artifacts, _obstacle_rows = write_boussinesq_obstacle_diagnostics_export(
         comparison_root=comparison_root,
         simulation_summaries=summaries,
     )
     data_artifacts.extend(obstacle_artifacts)
+    vi_diagnostic_artifacts, _vi_diagnostic_rows = write_vi_obstacle_runtime_diagnostics_export(
+        comparison_root=comparison_root,
+        simulation_summaries=summaries,
+    )
+    data_artifacts.extend(vi_diagnostic_artifacts)
+    ts_vi_diagnostic_artifacts, _ts_vi_diagnostic_rows = (
+        write_ts_vi_obstacle_runtime_diagnostics_export(
+            comparison_root=comparison_root,
+            simulation_summaries=summaries,
+        )
+    )
+    data_artifacts.extend(ts_vi_diagnostic_artifacts)
     execution_artifacts, execution_rows = write_execution_summary_csv(
         comparison_root=comparison_root,
         simulation_summaries=summaries,
@@ -206,6 +218,8 @@ def write_comparison_output_bundle(
         data_artifacts=data_artifacts,
         detail_metrics=detail_metrics,
         summary_metrics=summary_metrics,
+        closure_detail_rows=closure_detail_rows,
+        closure_summary_rows=closure_summary_rows,
     )
 
 

@@ -313,6 +313,11 @@ def test_solver_color_distinct_for_distinct_names() -> None:
     assert _solver_color("modflow6") != _solver_color("modflow_nwt")
 
 
+def test_solver_color_uses_method_family_aliases() -> None:
+    assert _solver_color("mf6_ref") == _solver_color("modflow6")
+    assert _solver_color("bouss_candidate") == _solver_color("boussinesq")
+
+
 def test_rgba_to_hex_basic() -> None:
     assert _rgba_to_hex((0.0, 0.5, 1.0, 1.0)) == "#0080ff"
 

@@ -56,6 +56,7 @@ def build_state_history_export_payload(
         "boundary_edge_flux_history_m3_s": as_export_array(state.boundary_edge_flux_history_m3_s),
         "drainage_flux_m3_s": as_export_array(state.drainage_flux_m3_s),
         "drainage_flux_history_m3_s": as_export_array(state.drainage_flux_history_m3_s),
+        "residual_history_m3_s": as_export_array(state.residual_history_m3_s),
         "period_lengths_seconds": np.asarray(
             state.period_lengths_seconds,
             dtype=float,

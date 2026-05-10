@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Mapping
 
 import flopy
@@ -49,6 +50,11 @@ from .nwt_config import (
     ModflowSpecifParams,
 )
 from .postprocess import NODATA
+from .steady_initial_conditions import (
+    apply_nwt_steady_state_initial_heads,
+    flow_uses_steady_state_initial_condition,
+    run_nwt_steady_state_initialization,
+)
 
 logger = get_logger(__name__)
 MODFLOW_LENUNI_METERS = 2
@@ -107,6 +113,7 @@ class ModflowNwt(Solver):
         self.flow = None
         self.domain = None
         self.flow_regime: str | None = None
+        self.last_flow_solve_time_seconds: float | None = None
 
         self.resolution = geographic.dem_res
         self.xul = geographic.xmin
@@ -416,18 +423,41 @@ class ModflowNwt(Solver):
                 unitnumber=None,
             )
 
+        steady_initial_heads_applied = False
+        if (
+            options.run_model
+            and self.flow_regime == "transient"
+            and flow_uses_steady_state_initial_condition(self.flow)
+        ):
+            steady_heads = run_nwt_steady_state_initialization(
+                self,
+                verbose=bool(options.verbose),
+            )
+            apply_nwt_steady_state_initial_heads(self, steady_heads)
+            steady_initial_heads_applied = True
+
         if options.write_model:
             self.mf.write_input()
+        elif steady_initial_heads_applied:
+            self.bas.write_file()
 
         success_model = False
+        self.last_flow_solve_time_seconds = None
         if options.run_model:
+            solve_start = time.perf_counter()
             if options.verbose:
-                success_model, _ = run_model_with_progress(
-                    self.mf,
-                    int(self.nper),
-                )
+                try:
+                    success_model, _ = run_model_with_progress(
+                        self.mf,
+                        int(self.nper),
+                    )
+                finally:
+                    self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
             else:
-                success_model, _ = self.mf.run_model(silent=True)
+                try:
+                    success_model, _ = self.mf.run_model(silent=True)
+                finally:
+                    self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
 
         return success_model
 

@@ -207,6 +207,7 @@ Subsystem deep dives
    spatial_support/index
    field/index
    process/process-architecture
+   process/flow-boundary-conditions
 
 .. toctree::
    :hidden:

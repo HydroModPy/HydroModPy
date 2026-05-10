@@ -1,6 +1,6 @@
-# This case keeps the dense local backend because its custom steady initial
-# guess and relaxed residual acceptance currently validate better than the
-# SciPy root solve for the seepage-onset position benchmark.
+# Analytical Boussinesq validation runs on the steady PETSc VI obstacle backend.
+# The runtime helper also injects these defaults for direct Python execution.
 
 [flow]
-runtime_backend = "local"
+runtime_backend = "petsc"
+surface_interaction_model = "vi_obstacle"

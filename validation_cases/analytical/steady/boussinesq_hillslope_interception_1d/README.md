@@ -1,6 +1,6 @@
 # Boussinesq Hillslope Interception 1D
 
-Steady synthetic groundwater-flow case used to validate the dense local
+Steady synthetic groundwater-flow case used to validate the PETSc VI obstacle
 `flow/boussinesq` runtime on a sloping hillslope where the water table reaches
 the land surface near the outlet.
 
@@ -8,7 +8,7 @@ Intent:
 
 - validate the emergence/interception position on a topographic slope,
 - keep a closed-form inland Boussinesq profile on the dry part of the hillslope,
-- benchmark the current saturation-excess regularization with a metric that is
+- benchmark the hard surface-obstacle closure with a metric that remains
   physically meaningful for seepage onset.
 
 Numerical setup:
@@ -34,10 +34,13 @@ Comparison:
 Important limitation:
 
 - this case is intentionally exposed only for `solver=boussinesq`;
-- the current `config_boussinesq.toml` keeps `runtime_backend = "local"` because
-  the seepage-onset metric is still more stable there than on the SciPy path;
-- the analytical target is an interception-position approximation, not a full
-  free-boundary seepage-face solution;
+- `solver=boussinesq` runs with `runtime_backend = "petsc"` and
+  `surface_interaction_model = "vi_obstacle"`;
+- the analytical target is an interception-position approximation inherited
+  from the no-drain profile, not a full free-boundary seepage-face solution;
+- the PETSc VI obstacle result is numerically clean but shifts the interception
+  position relative to that no-drain diagnostic; see
+  `docs/developers/boussinesq_petsc_vi_hillslope_interception_analysis.md`;
 - dry-zone profile metrics are reported for diagnosis, but the asserted
   benchmark remains the emergence position itself.
 

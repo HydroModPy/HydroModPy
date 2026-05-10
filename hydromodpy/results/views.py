@@ -17,15 +17,18 @@ thin lazy wrappers for notebook ergonomics.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
+    from shapely.geometry.base import BaseGeometry
+
     from hydromodpy.results.run import Run
 
-SimulatedActiveNetworkMode = Literal[
+CellFieldActiveMode = Literal[
     "last",
     "any",
     "persistent",
@@ -33,17 +36,29 @@ SimulatedActiveNetworkMode = Literal[
     "perennial",
     "persistence",
 ]
+SimulatedActiveNetworkMode = CellFieldActiveMode
 
 
 __all__ = [
+    "CellFieldActiveMode",
+    "SimulatedActiveNetworkMode",
     "saturated_fraction",
     "drainage_density",
     "persistence",
+    "resolve_cell_field_active_mode",
     "resolve_simulated_active_network_mode",
+    "cell_field_active_mode_label",
     "simulated_active_network_mode_label",
+    "cell_field_active_mask",
     "simulated_active_network_mask",
+    "cell_field_active_metrics",
     "simulated_active_network_metrics",
+    "cell_field_network_overlap_metrics",
+    "cell_field_network_distance_metrics",
     "simulated_active_network_overlap_metrics",
+    "simulated_active_network_distance_metrics",
+    "release_flux_network_overlap_metrics",
+    "release_flux_network_distance_metrics",
     "catchment_mean",
     "recharge_forcing",
 ]
@@ -93,7 +108,7 @@ def _stack_field_with_mask(sim: Run, variable: str) -> tuple[np.ndarray, np.ndar
         mask = np.asarray(mask, dtype=bool).ravel()
     if mask.size != stack.shape[1]:
         raise ValueError(
-            "Catchment mask size does not match simulated active-network field size: "
+            "Catchment mask size does not match cell-field size: "
             f"mask={mask.size}, field={stack.shape[1]}."
         )
     return stack, mask
@@ -142,6 +157,102 @@ def _network_cell_mask(sim: Run, network_gdf, *, buffer_m: float = 0.0) -> np.nd
     return mask
 
 
+def _flatten_geometries(geometries: Iterable[BaseGeometry]) -> list[BaseGeometry]:
+    """Flatten geometry collections into concrete Shapely geometries."""
+    flattened: list[BaseGeometry] = []
+    for geometry in geometries:
+        if geometry is None or geometry.is_empty:
+            continue
+        parts = getattr(geometry, "geoms", None)
+        if parts is None:
+            flattened.append(geometry)
+        else:
+            flattened.extend(_flatten_geometries(parts))
+    return flattened
+
+
+def _network_geometries(network_gdf, *, buffer_m: float = 0.0) -> list[BaseGeometry]:
+    """Return vector-network geometries, optionally buffered in model units."""
+    if network_gdf is None or network_gdf.empty:
+        return []
+    geometries = network_gdf.geometry.dropna()
+    if geometries.empty:
+        return []
+    if buffer_m > 0.0:
+        geometries = geometries.buffer(float(buffer_m))
+    return _flatten_geometries(geometries)
+
+
+def _intersecting_cell_mask(
+    polygons: np.ndarray,
+    geometries: list[BaseGeometry],
+) -> np.ndarray:
+    """Return cells whose polygon intersects any of ``geometries``."""
+    from shapely.strtree import STRtree
+
+    mask = np.zeros(polygons.shape[0], dtype=bool)
+    if not geometries:
+        return mask
+    tree = STRtree(geometries)
+    for idx, polygon in enumerate(polygons):
+        if polygon is None:
+            continue
+        if tree.query(polygon, predicate="intersects").size:
+            mask[idx] = True
+    return mask
+
+
+def _nearest_distances(
+    sources: Iterable[BaseGeometry],
+    targets: list[BaseGeometry],
+) -> list[float]:
+    """Return distance from each source geometry to its nearest target."""
+    from shapely.strtree import STRtree
+
+    target_geometries = [target for target in targets if target is not None and not target.is_empty]
+    if not target_geometries:
+        return []
+    tree = STRtree(target_geometries)
+    distances: list[float] = []
+    for source in sources:
+        if source is None or source.is_empty:
+            continue
+        nearest = tree.nearest(source)
+        if nearest is None:
+            continue
+        target = target_geometries[int(nearest)]
+        distances.append(float(source.distance(target)))
+    return distances
+
+
+def _distance_stats(distances: list[float], *, prefix: str) -> dict[str, float | int | None]:
+    """Return stable summary statistics for one directed distance sample."""
+    if not distances:
+        return {
+            f"{prefix}_sample_count": 0,
+            f"{prefix}_distance_mean_m": None,
+            f"{prefix}_distance_median_m": None,
+            f"{prefix}_distance_p95_m": None,
+            f"{prefix}_distance_max_m": None,
+        }
+    values = np.asarray(distances, dtype="float64")
+    return {
+        f"{prefix}_sample_count": int(values.size),
+        f"{prefix}_distance_mean_m": float(np.mean(values)),
+        f"{prefix}_distance_median_m": float(np.median(values)),
+        f"{prefix}_distance_p95_m": float(np.percentile(values, 95.0)),
+        f"{prefix}_distance_max_m": float(np.max(values)),
+    }
+
+
+def _finite_mean(value: object) -> float | None:
+    """Return a finite float or ``None``."""
+    if value is None:
+        return None
+    parsed = float(value)
+    return parsed if np.isfinite(parsed) else None
+
+
 def _safe_ratio(numerator: int, denominator: int) -> float:
     return float(numerator / denominator) if denominator else 0.0
 
@@ -161,10 +272,8 @@ def _flow_regime(sim: Run) -> str:
     return value.lower() if isinstance(value, str) and value else "unknown"
 
 
-def resolve_simulated_active_network_mode(
-    sim: Run, mode: SimulatedActiveNetworkMode | None = None
-) -> str:
-    """Resolve the active-network mode from an optional user override."""
+def resolve_cell_field_active_mode(sim: Run, mode: CellFieldActiveMode | None = None) -> str:
+    """Resolve how a time-varying cell field is reduced to active cells."""
     if mode is None:
         return "last" if _flow_regime(sim) == "steady" else "persistent"
     if mode == "perennial":
@@ -172,19 +281,26 @@ def resolve_simulated_active_network_mode(
     if mode in {"last", "any", "persistent", "always_active", "persistence"}:
         return mode
     raise ValueError(
-        "Unknown simulated active-network mode. Expected one of: "
+        "Unknown cell-field active mode. Expected one of: "
         "last, any, persistent, always_active, perennial, persistence."
     )
 
 
-def simulated_active_network_mode_label(
+def resolve_simulated_active_network_mode(
+    sim: Run, mode: SimulatedActiveNetworkMode | None = None
+) -> str:
+    """Backward-compatible alias for ``resolve_cell_field_active_mode``."""
+    return resolve_cell_field_active_mode(sim, mode)
+
+
+def cell_field_active_mode_label(
     sim: Run,
     *,
-    mode: SimulatedActiveNetworkMode | None = None,
+    mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
 ) -> str:
-    """Return a display label for an active-network mode."""
-    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
+    """Return a display label for a cell-field active mode."""
+    resolved_mode = resolve_cell_field_active_mode(sim, mode)
     if resolved_mode == "last":
         return "steady active cells" if _flow_regime(sim) == "steady" else "last active step"
     if resolved_mode == "any":
@@ -194,6 +310,20 @@ def simulated_active_network_mode_label(
     if resolved_mode == "always_active":
         return "always active cells"
     return f"persistence >= {persistence_threshold:g}"
+
+
+def simulated_active_network_mode_label(
+    sim: Run,
+    *,
+    mode: SimulatedActiveNetworkMode | None = None,
+    persistence_threshold: float = 0.5,
+) -> str:
+    """Backward-compatible alias for ``cell_field_active_mode_label``."""
+    return cell_field_active_mode_label(
+        sim,
+        mode=mode,
+        persistence_threshold=persistence_threshold,
+    )
 
 
 # --------------------------------------------------------------------------
@@ -274,16 +404,16 @@ def persistence(
     raise ValueError(f"Unknown window '{window}'")
 
 
-def simulated_active_network_mask(
+def cell_field_active_mask(
     sim: Run,
     *,
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode | None = None,
+    mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
 ) -> np.ndarray:
-    """Return a per-cell simulated active-network view.
+    """Return a per-cell active mask view for a scalar cell field.
 
     The default mode is regime-aware: steady simulations use the last active
     step, transient or unknown simulations use persistent active cells.
@@ -291,7 +421,7 @@ def simulated_active_network_mask(
     persistence_threshold = float(persistence_threshold)
     if not 0.0 <= persistence_threshold <= 1.0:
         raise ValueError("persistence_threshold must be between 0 and 1.")
-    normalized_mode = resolve_simulated_active_network_mode(sim, mode)
+    normalized_mode = resolve_cell_field_active_mode(sim, mode)
 
     stack, mask = _stack_field_with_mask(sim, variable)
     n_timesteps = stack.shape[0]
@@ -305,7 +435,7 @@ def simulated_active_network_mask(
             ts = n_timesteps + ts
         if ts < 0 or ts >= n_timesteps:
             raise IndexError(
-                f"timestep {timestep} is outside the simulated active-network range "
+                f"timestep {timestep} is outside the active cell-field range "
                 f"[0, {n_timesteps - 1}]."
             )
         values = active[ts].astype("float64")
@@ -319,7 +449,7 @@ def simulated_active_network_mask(
         values = active.mean(axis=0).astype("float64")
     else:
         raise ValueError(
-            "Unknown simulated active-network mode. Expected one of: "
+            "Unknown cell-field active mode. Expected one of: "
             "last, any, persistent, always_active, perennial, persistence."
         )
 
@@ -327,14 +457,34 @@ def simulated_active_network_mask(
     return values
 
 
-def simulated_active_network_metrics(
+def simulated_active_network_mask(
+    sim: Run,
+    *,
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: SimulatedActiveNetworkMode | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+) -> np.ndarray:
+    """Backward-compatible alias for ``cell_field_active_mask``."""
+    return cell_field_active_mask(
+        sim,
+        variable=variable,
+        threshold=threshold,
+        mode=mode,
+        persistence_threshold=persistence_threshold,
+        timestep=timestep,
+    )
+
+
+def cell_field_active_metrics(
     sim: Run,
     *,
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
     persistence_threshold: float = 0.5,
 ) -> dict[str, float | int | str]:
-    """Return scalar metrics for the simulated active drainage network."""
+    """Return scalar active-cell metrics for a time-varying cell field."""
     if not 0.0 <= float(persistence_threshold) <= 1.0:
         raise ValueError("persistence_threshold must be between 0 and 1.")
 
@@ -399,20 +549,34 @@ def simulated_active_network_metrics(
     }
 
 
-def simulated_active_network_overlap_metrics(
+def simulated_active_network_metrics(
     sim: Run,
     *,
-    network_role: str = "reference",
     variable: str = "accumulation_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode | None = None,
+    persistence_threshold: float = 0.5,
+) -> dict[str, float | int | str]:
+    """Backward-compatible alias for ``cell_field_active_metrics``."""
+    return cell_field_active_metrics(
+        sim,
+        variable=variable,
+        threshold=threshold,
+        persistence_threshold=persistence_threshold,
+    )
+
+
+def _cell_field_active_state(
+    sim: Run,
+    *,
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
-    buffer_m: float = 0.0,
-) -> dict[str, float | int | str]:
-    """Compare simulated active cells with an existing vector network role."""
-    resolved_mode = resolve_simulated_active_network_mode(sim, mode)
-    values = simulated_active_network_mask(
+) -> tuple[str, np.ndarray, np.ndarray, np.ndarray]:
+    """Return ``(mode, values, valid_mask, active_mask)`` for a cell field."""
+    resolved_mode = resolve_cell_field_active_mode(sim, mode)
+    values = cell_field_active_mask(
         sim,
         variable=variable,
         threshold=threshold,
@@ -425,13 +589,35 @@ def simulated_active_network_overlap_metrics(
         active = values >= float(persistence_threshold)
     else:
         active = values > 0.5
-    active = active & valid
+    return resolved_mode, values, valid, active & valid
+
+
+def cell_field_network_overlap_metrics(
+    sim: Run,
+    *,
+    network_role: str = "reference",
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: CellFieldActiveMode | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    buffer_m: float = 0.0,
+) -> dict[str, float | int | str]:
+    """Compare active cells from any scalar field with a vector network role."""
+    resolved_mode, values, valid, active = _cell_field_active_state(
+        sim,
+        variable=variable,
+        threshold=threshold,
+        mode=mode,
+        persistence_threshold=persistence_threshold,
+        timestep=timestep,
+    )
 
     network_gdf = sim.hydrographic_network(network_role)
     network_cells = _network_cell_mask(sim, network_gdf, buffer_m=float(buffer_m))
     if network_cells.size != values.size:
         raise ValueError(
-            "Vector-network cell mask size does not match simulated active-network field size: "
+            "Vector-network cell mask size does not match cell-field size: "
             f"network={network_cells.size}, field={values.size}."
         )
     network_cells = network_cells & valid
@@ -467,6 +653,226 @@ def simulated_active_network_overlap_metrics(
         "cell_f1_ratio": float(f1),
         "cell_jaccard_ratio": _safe_ratio(overlap_count, union_count),
     }
+
+
+def cell_field_network_distance_metrics(
+    sim: Run,
+    *,
+    network_role: str = "reference",
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: CellFieldActiveMode | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    network_buffer_m: float = 0.0,
+    distance_method: str = "planar_cell_centroid_to_network",
+) -> dict[str, float | int | str | None]:
+    """Return planar bidirectional distances between active cells and a network.
+
+    Distances are computed in model/map units as follows:
+
+    - field-to-network: centroid distance from each active cell to
+      the selected vector hydrographic network;
+    - network-to-field: centroid distance from each mesh cell intersected by
+      the selected vector network to the union of active cell polygons.
+
+    This is a lazy result view: it reads persisted fields and vector features
+    from ``sim`` and does not mutate the catalog.
+    """
+    resolved_mode, values, valid, active = _cell_field_active_state(
+        sim,
+        variable=variable,
+        threshold=threshold,
+        mode=mode,
+        persistence_threshold=persistence_threshold,
+        timestep=timestep,
+    )
+
+    polygons = _mesh_face_polygons(sim)
+    if polygons.size != values.size:
+        raise ValueError(
+            "Mesh polygon count does not match cell-field size: "
+            f"mesh={polygons.size}, field={values.size}."
+        )
+
+    network_gdf = sim.hydrographic_network(network_role)
+    network_geometries = _network_geometries(
+        network_gdf,
+        buffer_m=float(network_buffer_m),
+    )
+    network_cells = _intersecting_cell_mask(polygons, network_geometries) & valid
+
+    active_polygons = [
+        polygon for polygon, is_active in zip(polygons, active, strict=True) if is_active
+    ]
+    active_polygons = [polygon for polygon in active_polygons if polygon is not None]
+    active_centroids = [polygon.centroid for polygon in active_polygons]
+    network_centroids = [
+        polygon.centroid
+        for polygon, is_network in zip(polygons, network_cells, strict=True)
+        if is_network and polygon is not None
+    ]
+
+    sim_to_network_distances = _nearest_distances(
+        active_centroids,
+        network_geometries,
+    )
+    network_to_sim_distances = _nearest_distances(
+        network_centroids,
+        active_polygons,
+    )
+
+    sim_to_network = _distance_stats(
+        sim_to_network_distances,
+        prefix="sim_to_network",
+    )
+    network_to_sim = _distance_stats(
+        network_to_sim_distances,
+        prefix="network_to_sim",
+    )
+    sim_mean = _finite_mean(sim_to_network["sim_to_network_distance_mean_m"])
+    network_mean = _finite_mean(network_to_sim["network_to_sim_distance_mean_m"])
+    if sim_mean is None or network_mean is None:
+        bidirectional_mean = None
+        bidirectional_quadratic_mean = None
+        bidirectional_absolute_difference_m = None
+        distance_ratio = None
+        distance_log10_ratio = None
+    else:
+        bidirectional_mean = float(0.5 * (sim_mean + network_mean))
+        bidirectional_quadratic_mean = float(np.hypot(sim_mean, network_mean))
+        bidirectional_absolute_difference_m = float(abs(sim_mean - network_mean))
+        if sim_mean == 0.0 and network_mean == 0.0:
+            distance_ratio = 1.0
+            distance_log10_ratio = 0.0
+        elif network_mean > 0.0 and sim_mean > 0.0:
+            distance_ratio = float(sim_mean / network_mean)
+            distance_log10_ratio = float(np.log10(distance_ratio))
+        else:
+            distance_ratio = None
+            distance_log10_ratio = None
+
+    return {
+        "network_role": network_role,
+        "source_variable": variable,
+        "threshold": float(threshold),
+        "mode": resolved_mode,
+        "persistence_threshold": float(persistence_threshold),
+        "timestep": int(timestep) if timestep is not None else -1,
+        "network_buffer_m": float(network_buffer_m),
+        "distance_method": distance_method,
+        "catchment_cell_count": int(valid.sum()),
+        "active_cell_count": int(active.sum()),
+        "network_cell_count": int(network_cells.sum()),
+        **sim_to_network,
+        **network_to_sim,
+        "bidirectional_distance_mean_m": bidirectional_mean,
+        "bidirectional_distance_quadratic_mean_m": bidirectional_quadratic_mean,
+        "bidirectional_distance_absolute_difference_m": bidirectional_absolute_difference_m,
+        "planar_distance_ratio": distance_ratio,
+        "planar_distance_log10_ratio": distance_log10_ratio,
+    }
+
+
+def simulated_active_network_overlap_metrics(
+    sim: Run,
+    *,
+    network_role: str = "reference",
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: SimulatedActiveNetworkMode | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    buffer_m: float = 0.0,
+) -> dict[str, float | int | str]:
+    """Compare simulated active cells with an existing vector network role."""
+    return cell_field_network_overlap_metrics(
+        sim,
+        network_role=network_role,
+        variable=variable,
+        threshold=threshold,
+        mode=mode,
+        persistence_threshold=persistence_threshold,
+        timestep=timestep,
+        buffer_m=buffer_m,
+    )
+
+
+def simulated_active_network_distance_metrics(
+    sim: Run,
+    *,
+    network_role: str = "reference",
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: SimulatedActiveNetworkMode | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    network_buffer_m: float = 0.0,
+) -> dict[str, float | int | str | None]:
+    """Return planar bidirectional distances between active cells and a network."""
+    return cell_field_network_distance_metrics(
+        sim,
+        network_role=network_role,
+        variable=variable,
+        threshold=threshold,
+        mode=mode,
+        persistence_threshold=persistence_threshold,
+        timestep=timestep,
+        network_buffer_m=network_buffer_m,
+    )
+
+
+def release_flux_network_overlap_metrics(
+    sim: Run,
+    *,
+    network_role: str = "reference",
+    variable: str = "release_flux",
+    threshold: float = 0.0,
+    mode: SimulatedActiveNetworkMode | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    buffer_m: float = 0.0,
+) -> dict[str, float | int | str]:
+    """Compare direct groundwater-release cells with a vector network role."""
+    return cell_field_network_overlap_metrics(
+        sim,
+        network_role=network_role,
+        variable=variable,
+        threshold=threshold,
+        mode=mode,
+        persistence_threshold=persistence_threshold,
+        timestep=timestep,
+        buffer_m=buffer_m,
+    )
+
+
+def release_flux_network_distance_metrics(
+    sim: Run,
+    *,
+    network_role: str = "reference",
+    variable: str = "release_flux",
+    threshold: float = 0.0,
+    mode: SimulatedActiveNetworkMode | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+) -> dict[str, float | int | str | None]:
+    """Return raw planar distances between release cells and a vector network.
+
+    Unlike the overlap metric, this diagnostic intentionally has no network
+    buffer parameter: distances remain continuous geometric distances to the
+    observed linework and to the calculated active-cell polygons.
+    """
+    return cell_field_network_distance_metrics(
+        sim,
+        network_role=network_role,
+        variable=variable,
+        threshold=threshold,
+        mode=mode,
+        persistence_threshold=persistence_threshold,
+        timestep=timestep,
+        network_buffer_m=0.0,
+        distance_method="raw_planar_cell_centroid_to_network",
+    )
 
 
 def catchment_mean(

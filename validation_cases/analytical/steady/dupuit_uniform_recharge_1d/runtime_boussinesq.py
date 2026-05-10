@@ -1,4 +1,4 @@
-"""Local ``flow/boussinesq`` runtime for the steady Dupuit recharge case."""
+"""PETSc ``flow/boussinesq`` runtime for the steady Dupuit recharge case."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def run_boussinesq_dupuit_uniform_recharge_case(
     caller_file: str | Path,
     timeout: int = 1800,
 ) -> object:
-    """Run the steady Dupuit recharge case through the local Boussinesq backend."""
+    """Run the steady Dupuit recharge case through the PETSc VI backend."""
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))
     aquifer_thickness_m = float(reference_cfg["aquifer_thickness_m"])

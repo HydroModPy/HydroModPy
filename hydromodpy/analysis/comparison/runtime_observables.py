@@ -54,6 +54,13 @@ _PERIOD_VALUE_VARIABLES = {
     "surface_excess_total_m3_s",
     "well_flux_history_m3_s",
 }
+_INITIAL_STATE_SELECTORS = {"initial", "initial_state", "t0"}
+_FIRST_COMPUTED_SELECTORS = {
+    "first_computed",
+    "first_non_initial",
+    "first_step",
+    "first_period_end",
+}
 
 
 def _observable_time_role(
@@ -252,6 +259,22 @@ def _select_time_slices(
     if time_selector is None or str(time_selector).strip().lower() == "all":
         return series.slices
     selector_text = str(time_selector).strip().lower()
+    if selector_text in _INITIAL_STATE_SELECTORS:
+        for item in series.slices:
+            if item.is_initial_state:
+                return (item,)
+        raise KeyError(
+            f"Initial-state selector {time_selector!r} requested for variable "
+            f"'{series.variable_name}', but the series exposes no initial-state slice"
+        )
+    if selector_text in _FIRST_COMPUTED_SELECTORS:
+        for item in series.slices:
+            if not item.is_initial_state:
+                return (item,)
+        raise KeyError(
+            f"First-computed selector {time_selector!r} requested for variable "
+            f"'{series.variable_name}', but the series exposes no computed slice"
+        )
     if selector_text == "last":
         return (series.slices[-1],)
     if selector_text == "first":
@@ -465,8 +488,14 @@ def _fallback_time_key(
         return f"time_reducer:{reducer_key}"
 
     selector_key = str(observable.time or "all").strip().lower()
-    if selector_key in {"last", "first"}:
-        return f"time_selector:{selector_key}"
+    if selector_key in _INITIAL_STATE_SELECTORS:
+        return "initial_state"
+    if selector_key in _FIRST_COMPUTED_SELECTORS:
+        return "first_computed_state"
+    if selector_key == "first":
+        return "initial_state" if time_slice.is_initial_state else "first_computed_state"
+    if selector_key == "last":
+        return "time_selector:last"
 
     if observable.time_window is not None:
         if time_slice.is_initial_state:

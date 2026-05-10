@@ -127,9 +127,9 @@ Solver Coverage
          Late-Time Unconfined Pumping 2D rendered with Boussinesq for the analytical gallery.
 
       **Metrics**
-      - Space-time RMSE: 0.0640 m
-      - Space-time max abs error: 0.0989 m
-      - Final-time RMSE: 0.0705 m
+      - Space-time RMSE: 0.0645 m
+      - Space-time max abs error: 0.0973 m
+      - Final-time RMSE: 0.0706 m
       - Azimuthal spread: 1.36e-01 m
 
       - Config file: ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml``
@@ -321,8 +321,12 @@ Common Numerical Setup
      - Homogeneous `Sy` value used by the benchmark.
      - 0.15 -
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
+   * - ``flow.ic.type``
+     - Initial-condition policy used to start the benchmark.
+     - custom
+     - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
    * - ``flow.ic.value``
-     - Initial hydraulic head used to start the benchmark.
+     - Scalar initial head or top offset used by the initial-condition policy.
      - 30.0 m
      - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml``
    * - ``flow.bc.dirichlet.west_side.value``
@@ -496,7 +500,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_boussinesq.toml``
 
 Acceptance Criteria

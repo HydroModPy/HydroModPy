@@ -446,6 +446,13 @@ _KNOWN_METRIC_NAMES = (
     "pbias",
     "mae",
     "mse",
+    "closure_n_periods",
+    "closure_max_abs_m3_s",
+    "closure_mean_abs_m3_s",
+    "closure_rmse_m3_s",
+    "closure_max_abs_mm_d",
+    "closure_relative_error_p95",
+    "closure_status_code",
 )
 
 _V_METRICS_WIDE_DDL = f"""

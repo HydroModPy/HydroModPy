@@ -71,6 +71,10 @@ def run_steady_runtime(solver: Boussinesq) -> bool:
     solver.runtime_summary["steady_residual_norm_inf"] = float(steady.residual_norm_inf)
     solver.runtime_summary["steady_nonlinear_iterations"] = int(steady.iterations)
     solver.runtime_summary["steady_termination_reason"] = str(steady.termination_reason)
+    if steady.diagnostics:
+        for key, value in steady.diagnostics.items():
+            solver.runtime_summary[f"steady_{key}"] = value
+            solver.runtime_summary[f"last_{key}"] = value
     solver.runtime_summary["active_recharge"] = bool(runtime_forcing.active_recharge)
     solver.runtime_summary["active_wells"] = bool(np.any(well_flux_m3_s != 0.0))
     solver.runtime_summary["active_prescribed_head_bc"] = bool(len(dirichlet_supports) > 0)

@@ -441,6 +441,44 @@ def test_simulation_comparison_allows_flow_boundary_sweep_overlay(
     assert raw["flow"]["bc"]["cauchy"]["drainage"]["value"] == "3e-3 m2/s"
 
 
+def test_simulation_comparison_allows_flow_initial_condition_overlay(
+    tmp_path: Path,
+) -> None:
+    _write_base_simulation_config(tmp_path / "base.toml")
+    config_path = tmp_path / "compare.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "comparison"',
+                "",
+                "[comparison]",
+                'base_simulation_config = "base.toml"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "steady_ic"',
+                'solver = "modflow6"',
+                "",
+                "[comparison.simulation.overlay.flow.ic]",
+                'type = "steady_state"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head_mid"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = _load_comparison_cfg(config_path)
+    children = materialize_child_configs(cfg)
+    raw = load_toml_with_base_config(children[0].config_path)
+
+    assert raw["flow"]["ic"]["type"] == "steady_state"
+
+
 def test_simulation_comparison_requires_existing_base_config(tmp_path: Path) -> None:
     config_path = tmp_path / "compare.toml"
     _write_comparison_config(config_path)
@@ -799,7 +837,7 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
                 "simulation_id": "mf6_ref",
                 "observable": "head_point_series",
                 "support": "point",
-                "requested_time": "all",
+                "requested_time": "first",
                 "resolved_variable": "watertable_elevation",
                 "elapsed_seconds": 86400.0,
                 "is_initial_state": False,
@@ -808,7 +846,7 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
                 "simulation_id": "bouss_candidate",
                 "observable": "head_point_series",
                 "support": "point",
-                "requested_time": "all",
+                "requested_time": "first",
                 "resolved_variable": "watertable_elevation",
                 "elapsed_seconds": 0.0,
                 "is_initial_state": True,
@@ -817,7 +855,7 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
                 "simulation_id": "bouss_candidate",
                 "observable": "head_point_series",
                 "support": "point",
-                "requested_time": "all",
+                "requested_time": "first",
                 "resolved_variable": "watertable_elevation",
                 "elapsed_seconds": 86400.0,
                 "is_initial_state": False,

@@ -131,6 +131,132 @@ def test_compute_derived_writes_positive_outflow_and_local_accumulation(
     np.testing.assert_allclose(catalog.query_field(sim_id, "accumulation_flux", 0), expected)
 
 
+def test_compute_derived_prefers_surface_excess_for_seepage_mask(
+    catalog: SimulationCatalog,
+) -> None:
+    sim_id = _register_catalog_run(catalog, n_cells=3)
+    sz = catalog.open_zarr(sim_id)
+    try:
+        mesh = sz.root.require_group("mesh")
+        mesh.create_array("surface_top", data=np.array([0.0, 0.0, 0.0]), overwrite=True)
+    finally:
+        sz.close()
+    catalog.write_field(
+        sim_id,
+        "head",
+        0,
+        np.array([[5.0, 5.0, 5.0]]),
+        n_timesteps=1,
+    )
+    catalog.write_field(
+        sim_id,
+        "surface_excess",
+        0,
+        np.array([0.0, 2.0, -1.0]),
+        n_timesteps=1,
+        subgroup="budget",
+    )
+
+    compute_derived(sim_id, catalog, _disabled_derived_flags(seepage_areas=True))
+
+    np.testing.assert_allclose(
+        catalog.query_field(sim_id, "seepage_mask", 0),
+        np.array([0.0, 1.0, 0.0]),
+    )
+
+
+def test_compute_derived_writes_release_flux_from_drain_and_surface_excess(
+    catalog: SimulationCatalog,
+) -> None:
+    sim_id = _register_catalog_run(catalog, n_cells=3, n_layers=1)
+    catalog.write_field(
+        sim_id,
+        "drain",
+        0,
+        np.array([[0.5, -2.0, 1.0]], dtype="float64"),
+        n_timesteps=1,
+        subgroup="budget",
+    )
+    catalog.write_field(
+        sim_id,
+        "surface_excess",
+        0,
+        np.array([1.0, -3.0, 4.0], dtype="float64"),
+        n_timesteps=1,
+        subgroup="budget",
+    )
+
+    compute_derived(sim_id, catalog, _disabled_derived_flags(release_flux=True))
+
+    np.testing.assert_allclose(
+        catalog.query_field(sim_id, "release_flux", 0),
+        np.array([1.0, 2.0, 4.0], dtype="float64"),
+    )
+
+
+def test_compute_derived_routes_release_accumulation_on_unstructured_mesh(
+    catalog: SimulationCatalog,
+) -> None:
+    sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="disv")
+    vertices = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [2.0, 1.0, 0.0],
+        ],
+        dtype="float64",
+    )
+    face_node_connectivity = np.array(
+        [
+            [0, 1, 4, 3],
+            [1, 2, 5, 4],
+        ],
+        dtype="int32",
+    )
+    catalog.write_mesh(
+        sim_id,
+        vertices,
+        face_node_connectivity,
+        np.array([10.0, 0.0], dtype="float64"),
+    )
+    sz = catalog.open_zarr(sim_id)
+    try:
+        mesh = sz.root["mesh"]
+        mesh.create_array(
+            "surface_top",
+            data=np.array([10.0, 5.0], dtype="float64"),
+            overwrite=True,
+        )
+    finally:
+        sz.close()
+    catalog.write_field(
+        sim_id,
+        "surface_excess",
+        0,
+        np.array([2.5, 0.0], dtype="float64"),
+        n_timesteps=1,
+        subgroup="budget",
+    )
+
+    compute_derived(
+        sim_id,
+        catalog,
+        _disabled_derived_flags(release_accumulation_flux=True),
+    )
+
+    np.testing.assert_allclose(
+        catalog.query_field(sim_id, "release_flux", 0),
+        np.array([2.5, 0.0]),
+    )
+    np.testing.assert_allclose(
+        catalog.query_field(sim_id, "release_accumulation_flux", 0),
+        np.array([2.5, 2.5]),
+    )
+
+
 def test_compute_derived_routes_accumulation_on_unstructured_mesh(
     catalog: SimulationCatalog,
 ) -> None:

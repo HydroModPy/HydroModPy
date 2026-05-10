@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -21,6 +22,54 @@ if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
 
 
+def _duration_seconds(value: object) -> float:
+    """Return one duration in seconds from common Python/pandas/numpy payloads."""
+    total_seconds = getattr(value, "total_seconds", None)
+    if callable(total_seconds):
+        return float(total_seconds())
+    if isinstance(value, np.timedelta64):
+        return float(value / np.timedelta64(1, "s"))
+    if isinstance(value, timedelta):
+        return float(value.total_seconds())
+    return float(value)
+
+
+def _period_lengths_from_boundaries(boundaries: object) -> tuple[float, ...]:
+    """Derive positive period lengths from explicit time boundaries."""
+    if boundaries is None:
+        return ()
+    items = tuple(boundaries)
+    if len(items) < 2:
+        return ()
+    lengths: list[float] = []
+    for start, end in zip(items[:-1], items[1:], strict=False):
+        seconds = _duration_seconds(end - start)
+        if seconds <= 0.0:
+            return ()
+        lengths.append(float(seconds))
+    return tuple(lengths)
+
+
+def _resolve_period_lengths_seconds(time_grid: object) -> tuple[float, ...]:
+    """Resolve robust Boussinesq stress-period lengths from the launcher time grid."""
+    raw_lengths = tuple(
+        float(value) for value in (getattr(time_grid, "period_lengths_seconds", ()) or ())
+    )
+    if raw_lengths and all(value > 0.0 for value in raw_lengths):
+        return raw_lengths
+
+    from_boundaries = _period_lengths_from_boundaries(getattr(time_grid, "boundaries", None))
+    if from_boundaries:
+        return from_boundaries
+
+    if raw_lengths:
+        raise ValueError(
+            "Boussinesq transient time grid contains non-positive period lengths "
+            "and no valid boundaries fallback."
+        )
+    return ()
+
+
 def run_transient_runtime(solver: Boussinesq) -> bool:
     """Advance the head state over all launcher stress periods."""
     if solver.mesh is None:
@@ -32,9 +81,7 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     record_runtime_backend_summary(solver, contract)
     solver._assert_runtime_mesh_size_supported(runtime_backend)
 
-    period_lengths = tuple(
-        float(value) for value in (getattr(solver.time_grid, "period_lengths_seconds", ()) or ())
-    )
+    period_lengths = _resolve_period_lengths_seconds(solver.time_grid)
     if not period_lengths:
         return True
 
@@ -60,6 +107,9 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     )
     nonlinear_iterations: list[int] = []
     converged_by_period: list[bool] = []
+    runtime_period_diagnostics: list[dict[str, object]] = []
+    runtime_substep_diagnostics: list[dict[str, object]] = []
+    runtime_ts_step_diagnostics: list[dict[str, object]] = []
     last_residual_norm = 0.0
 
     for kper, dt_seconds in enumerate(period_lengths):
@@ -90,6 +140,26 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
         head_prev = np.asarray(step.head_m, dtype=float)
         last_residual_norm = float(step.residual_norm_inf)
         solver.runtime_summary["last_termination_reason"] = str(step.termination_reason)
+        if step.diagnostics:
+            period_diagnostics = dict(step.diagnostics)
+            period_diagnostics["period_index"] = int(kper)
+            runtime_period_diagnostics.append(period_diagnostics)
+            raw_substeps = step.diagnostics.get("vi_substep_details")
+            if isinstance(raw_substeps, list):
+                for item in raw_substeps:
+                    if isinstance(item, dict):
+                        substep_diagnostics = dict(item)
+                        substep_diagnostics["period_index"] = int(kper)
+                        runtime_substep_diagnostics.append(substep_diagnostics)
+            raw_ts_steps = step.diagnostics.get("ts_vi_step_details")
+            if isinstance(raw_ts_steps, list):
+                for item in raw_ts_steps:
+                    if isinstance(item, dict):
+                        ts_step_diagnostics = dict(item)
+                        ts_step_diagnostics["period_index"] = int(kper)
+                        runtime_ts_step_diagnostics.append(ts_step_diagnostics)
+            for key, value in step.diagnostics.items():
+                solver.runtime_summary[f"last_{key}"] = value
         history.append_step(
             mesh=solver.mesh,
             head_m=head_prev,
@@ -111,6 +181,12 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
             )
             solver.runtime_summary["last_residual_norm_inf"] = last_residual_norm
             solver.runtime_summary["n_periods"] = nper
+            if runtime_period_diagnostics:
+                solver.runtime_summary["runtime_period_diagnostics"] = runtime_period_diagnostics
+            if runtime_substep_diagnostics:
+                solver.runtime_summary["runtime_substep_diagnostics"] = runtime_substep_diagnostics
+            if runtime_ts_step_diagnostics:
+                solver.runtime_summary["runtime_ts_step_diagnostics"] = runtime_ts_step_diagnostics
             solver.runtime_summary.update(
                 build_transient_activity_flags(
                     recharge_series_m_s=recharge_series_m_s,
@@ -130,6 +206,12 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
     )
     solver.runtime_summary["n_periods"] = nper
     solver.runtime_summary["last_residual_norm_inf"] = last_residual_norm
+    if runtime_period_diagnostics:
+        solver.runtime_summary["runtime_period_diagnostics"] = runtime_period_diagnostics
+    if runtime_substep_diagnostics:
+        solver.runtime_summary["runtime_substep_diagnostics"] = runtime_substep_diagnostics
+    if runtime_ts_step_diagnostics:
+        solver.runtime_summary["runtime_ts_step_diagnostics"] = runtime_ts_step_diagnostics
     solver.runtime_summary.update(
         build_transient_activity_flags(
             recharge_series_m_s=recharge_series_m_s,

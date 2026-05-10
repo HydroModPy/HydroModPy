@@ -1,3 +1,4 @@
 [flow]
-runtime_backend = "scipy_sparse"
+runtime_backend = "petsc"
+surface_interaction_model = "vi_obstacle"
 

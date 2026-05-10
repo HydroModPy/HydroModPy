@@ -90,6 +90,15 @@ def record_runtime_backend_summary(
     solver.runtime_summary["runtime_iteration_counter"] = runtime_backend.iteration_counter_label
     solver.runtime_summary["runtime_tol_residual_inf"] = float(options.tol_residual_inf)
     solver.runtime_summary["runtime_tol_state_update_inf"] = float(options.tol_state_update_inf)
+    solver.runtime_summary["vi_substeps_per_period"] = int(options.vi_substeps_per_period)
+    solver.runtime_summary["vi_substep_on_failure"] = bool(options.vi_substep_on_failure)
+    solver.runtime_summary["vi_max_adaptive_substeps"] = int(options.vi_max_adaptive_substeps)
+    solver.runtime_summary["ts_vi_steps_per_period"] = int(options.ts_vi_steps_per_period)
+    solver.runtime_summary["ts_vi_adapt"] = bool(options.ts_vi_adapt)
+    solver.runtime_summary["ts_vi_dt_min_fraction"] = float(options.ts_vi_dt_min_fraction)
+    solver.runtime_summary["ts_vi_dt_max_fraction"] = float(options.ts_vi_dt_max_fraction)
+    solver.runtime_summary["ts_vi_type"] = str(options.ts_vi_type)
+    solver.runtime_summary["ts_vi_snes_type"] = str(options.ts_vi_snes_type)
     solver.runtime_summary["runtime_formulation"] = runtime_backend.method.id
     solver.runtime_summary["runtime_unknown_layout"] = runtime_backend.method.unknown_layout
     solver.runtime_summary["runtime_space_scheme"] = runtime_backend.method.space_scheme_id

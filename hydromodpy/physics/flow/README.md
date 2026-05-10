@@ -98,23 +98,29 @@ Payload resolution:
 
 `[flow.ic]` is a single payload with direct keys:
 
-- `type`: `top`, `bottom`, or `custom`
-- `value`: required when `type = "custom"`, accepts numeric or `"<value> <unit>"`
-- `unit` or `units`: optional fallback when `value` has no inline unit (default `m`)
+- `type`: `top`, `top_offset`, `bottom`, `custom`, or `steady_state`
+- `value`: required when `type = "custom"` or `type = "top_offset"`, accepts numeric or `"<value> <unit>"`
+- `unit` or `units`: optional fallback for `custom` and `top_offset` when `value` has no inline unit (default `m`)
 - `description`: optional
+- `source`, `recharge_statistic`, `boundary_condition_policy`: strategy keys for
+  `type = "steady_state"`
 
 Important behavior:
 
+- `type` is required whenever `[flow.ic]` is present and non-empty.
 - no nested shape (`[flow.ic.h]`) is supported.
-- no scalar shorthand (`flow.ic = 10.0`) is supported.
+- no scalar or value-only shorthand (`flow.ic = 10.0`, or `[flow.ic] value = "10 m"`) is supported.
 - normalized runtime object is:
   `FlowInitialConditions(h=FlowInitialCondition(...))`.
 
 Semantics:
 
 - `top`: initialize head from top surface.
+- `top_offset`: initialize head from top surface minus `value`.
 - `bottom`: initialize head from bottom surface.
 - `custom`: initialize head from provided scalar value.
+- `steady_state`: initialize a transient run from a same-solver steady solve
+  using the declared recharge statistic and boundary-condition policy.
 
 
 ## 5. Boundary Conditions (`[flow.bc]`)
@@ -294,11 +300,17 @@ value = -500.0
 - `flow.param_list declares ids without payload in flow.param`
   - `param_list` and `param` are out of sync.
 
-- `flow.ic accepts only direct keys [type, value, unit, units, description]`
+- `flow.ic accepts only direct keys [type, value, unit, units, description, source, recharge_statistic, boundary_condition_policy]`
   - unsupported keys were provided in `[flow.ic]`.
+
+- `flow.ic.type is required when flow.ic is not empty`
+  - add `type = "custom"` for an explicit scalar head, or choose another supported initial-condition type.
 
 - `flow.ic.value is required when type='custom'`
   - add `value` for custom initial condition.
+
+- `flow.ic.value is only supported when type='custom' or type='top_offset'`
+  - remove `value` from `top` and `bottom` initial conditions.
 
 - `...application_domain contains an invalid value`
   - use exactly one of:

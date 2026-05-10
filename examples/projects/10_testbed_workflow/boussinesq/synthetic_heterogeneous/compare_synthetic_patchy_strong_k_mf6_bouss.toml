@@ -1,0 +1,23 @@
+base_config = "compare_synthetic_patchy_mf6_bouss.toml"
+workflow = "comparison"
+
+[comparison]
+comparison_id = "synthetic_patchy_strong_k_mf6_vs_bouss"
+base_simulation_config = "base_synthetic_patchy_strong_k.toml"
+output_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_strong_k_mf6_vs_bouss"
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 strong-K-contrast reference"
+
+[comparison.simulation.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_strong_k_mf6_vs_bouss/workspace_mf6"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_strong_k_mf6_vs_bouss/workspace_mf6"
+
+[[comparison.simulation]]
+id = "bouss_candidate"
+label = "Boussinesq strong-K-contrast candidate"
+
+[comparison.simulation.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_strong_k_mf6_vs_bouss/workspace_bouss"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_patchy_strong_k_mf6_vs_bouss/workspace_bouss"

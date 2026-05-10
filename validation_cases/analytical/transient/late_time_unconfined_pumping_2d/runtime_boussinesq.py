@@ -18,6 +18,9 @@ from hydromodpy.simulation.planning.plan import (
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared import load_case_metadata
 from validation_cases.shared.loaders import merge_case_flow_section
+from validation_cases.shared.boussinesq_analytical_runtime import (
+    apply_analytical_boussinesq_runtime_defaults,
+)
 from validation_cases.shared.runtime import (
     ValidationRunResult,
     materialize_postprocess_fields_to_store,
@@ -312,31 +315,34 @@ def run_boussinesq_late_time_unconfined_pumping_case(
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
                 _build_flow_config(
-                    {
-                        "flow_regime": "transient",
-                        "ic": {"type": "custom", "value": base_head_m},
-                        "active_sinks_sources": ["wells"],
-                        "active_bc": ["west_side", "east_side", "north_side", "south_side"],
-                        "sinks_sources": {
-                            "wells": {
-                                "P1": {
-                                    "location_mode": "absolute_xy",
-                                    "x": float(reference_cfg["center_x_m"]),
-                                    "y": float(reference_cfg["center_y_m"]),
-                                    "flux": -float(reference_cfg["pumping_rate_m3_day"]),
-                                    "units": "m3/day",
+                    apply_analytical_boussinesq_runtime_defaults(
+                        {
+                            "flow_regime": "transient",
+                            "ic": {"type": "custom", "value": base_head_m},
+                            "active_sinks_sources": ["wells"],
+                            "active_bc": ["west_side", "east_side", "north_side", "south_side"],
+                            "sinks_sources": {
+                                "wells": {
+                                    "P1": {
+                                        "location_mode": "absolute_xy",
+                                        "x": float(reference_cfg["center_x_m"]),
+                                        "y": float(reference_cfg["center_y_m"]),
+                                        "flux": -float(reference_cfg["pumping_rate_m3_day"]),
+                                        "units": "m3/day",
+                                    }
                                 }
-                            }
+                            },
+                            "bc": {
+                                "dirichlet": {
+                                    "west_side": {"value": base_head_m},
+                                    "east_side": {"value": base_head_m},
+                                    "north_side": {"value": base_head_m},
+                                    "south_side": {"value": base_head_m},
+                                }
+                            },
                         },
-                        "bc": {
-                            "dirichlet": {
-                                "west_side": {"value": base_head_m},
-                                "east_side": {"value": base_head_m},
-                                "north_side": {"value": base_head_m},
-                                "south_side": {"value": base_head_m},
-                            }
-                        },
-                    }
+                        flow_regime="transient",
+                    )
                 )
             ),
             domain=None,

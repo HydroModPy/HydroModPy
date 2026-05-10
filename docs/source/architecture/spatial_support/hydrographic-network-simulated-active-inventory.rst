@@ -157,13 +157,16 @@ Lazy result views already built on top of those fields
   between the simulated active cells and the observed ``reference`` vector
   network.
 
-``hydromodpy/analysis/stream_networks/metrics.py`` now exposes a comparison
-analysis that combines the active mask, mesh geometry, and the persisted
-``reference`` network:
+``hydromodpy/results/views.py`` now exposes the lazy distance view that
+combines the active mask, mesh geometry, and the persisted ``reference``
+network:
 
 - ``run.simulated_active_network_distance_metrics()``: planar bidirectional
   cell-centroid distances between active simulated cells and the selected
   vector role, usually ``reference``.
+
+``hydromodpy.analysis.stream_networks`` remains as a compatibility import path
+for older callers.
 
 Those views are already scientifically meaningful, but they remain scalar or
 raster-like summaries, not one canonical stored network object.

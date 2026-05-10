@@ -47,6 +47,7 @@ def build_runtime_result(
     residual_norm_inf_value: float,
     backend_name: str,
     termination_reason: str,
+    diagnostics: dict | None = None,
 ) -> RuntimeSolveResult:
     """Build the canonical runtime result payload."""
     return RuntimeSolveResult(
@@ -57,6 +58,7 @@ def build_runtime_result(
         residual_norm_inf=float(residual_norm_inf_value),
         backend_name=str(backend_name),
         termination_reason=str(termination_reason),
+        diagnostics=None if diagnostics is None else dict(diagnostics),
     )
 
 

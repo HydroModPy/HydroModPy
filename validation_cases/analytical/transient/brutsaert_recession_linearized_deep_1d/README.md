@@ -1,7 +1,7 @@
 # Brutsaert Recession Validation: Deep Linearized Aquifer
 
 This transient validation case checks that the available `modflownwt`,
-`modflow6`, and local `boussinesq` backends reproduce the linearized
+`modflow6`, and PETSc `boussinesq` backends reproduce the linearized
 Brutsaert recession law on a deep aquifer.
 
 Numerical setup:

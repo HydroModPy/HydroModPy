@@ -88,6 +88,35 @@ _ENGINE_SPECS = (
         supported_method_ids=frozenset({"mixed_complementarity"}),
         description="PETSc SNES solve on the mixed head-plus-q_ex complementarity system.",
     ),
+    BoussinesqEngineSpec(
+        id="petsc_vi_obstacle_snes",
+        name="petsc",
+        module_name="hydromodpy.solver.boussinesq.runtimes.petsc_vi_obstacle",
+        nonlinear_solver_kind="petsc_snesvi_vinewtonrsls_sparse_head_only_obstacle",
+        linear_system_layout="sparse",
+        jacobian_strategy="semianalytic_sparse_base",
+        linear_solver_kind="petsc_ksp_direct_default",
+        convergence_policy="projected_vi_residual_inf <= tol_residual_inf",
+        iteration_counter_label="nonlinear_iterations",
+        supported_method_ids=frozenset({"head_only_vi_obstacle"}),
+        description="Experimental PETSc SNESVI solve on a bounded head-only obstacle system.",
+    ),
+    BoussinesqEngineSpec(
+        id="petsc_ts_vi_obstacle",
+        name="petsc",
+        module_name="hydromodpy.solver.boussinesq.runtimes.petsc_ts_vi_obstacle",
+        nonlinear_solver_kind="petsc_ts_beuler_snesvi_sparse_head_only_obstacle",
+        linear_system_layout="sparse",
+        jacobian_strategy="semianalytic_sparse_ifunction_ijacobian",
+        linear_solver_kind="petsc_ksp_lu_shifted_default",
+        convergence_policy="projected_vi_residual_inf <= tol_residual_inf",
+        iteration_counter_label="ts_snes_iterations",
+        supported_method_ids=frozenset({"head_only_ts_vi_obstacle"}),
+        description=(
+            "Experimental PETSc TS Backward-Euler integration with SNESVI "
+            "bounds on the head-only obstacle system."
+        ),
+    ),
 )
 
 

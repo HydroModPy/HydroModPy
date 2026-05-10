@@ -377,6 +377,10 @@ def resolve_bundle_cells(
         bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=run_folder)
         if bundle_dir is not None and (cells := _bundle_cells_from_dir(bundle_dir)) is not None:
             return cells
+    generated_bundle_dir = run_folder / "mesh" / "mesh_catchment_bundle"
+    if (cells := _bundle_cells_from_dir(generated_bundle_dir)) is not None:
+        if expected_size is None or cells.cell_ids.size == int(expected_size):
+            return cells
 
     if config_path is None:
         return _structured_cells_from_run_folder(

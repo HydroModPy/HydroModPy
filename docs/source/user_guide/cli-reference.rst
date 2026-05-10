@@ -37,8 +37,8 @@ Command inventory
      - Export JSON Schema and companion metadata for UI integrations.
    * - ``hmp run``
      - Workflow execution
-     - Execute ``simulation``, ``overview``, ``mesh``, ``calibration``,
-       ``batch``, ``comparison``, or ``testbed`` TOML workflows, or run a
+     - Execute ``simulation``, ``overview``, ``calibration``,
+       ``comparison``, or ``testbed`` TOML workflows, or run a
        Python prototype script.
    * - ``hmp dev``
      - Developer diagnostics

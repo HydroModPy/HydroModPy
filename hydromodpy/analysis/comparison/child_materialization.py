@@ -45,8 +45,19 @@ ALLOWED_SIMULATION_OVERLAY_KEYS = {
 
 ALLOWED_FLOW_OVERLAY_KEYS = {
     "bc",
+    "ic",
     "param",
     "runtime_backend",
+    "surface_interaction_model",
+    "vi_substeps_per_period",
+    "vi_substep_on_failure",
+    "vi_max_adaptive_substeps",
+    "ts_vi_steps_per_period",
+    "ts_vi_adapt",
+    "ts_vi_dt_min_fraction",
+    "ts_vi_dt_max_fraction",
+    "ts_vi_type",
+    "ts_vi_snes_type",
 }
 
 PATH_KEY_HINTS = ("path", "root", "dir", "folder", "file", "mask")
@@ -97,7 +108,7 @@ def _child_run_name(*, comparison_id: str, simulation_id: str) -> str:
 
 def _looks_like_path_key(key: str) -> bool:
     token = str(key).strip().strip("'\"").split(".")[-1].lower()
-    if token == "base_config":
+    if token in {"anchors_file", "base_config", "base_simulation_config"}:
         return True
     return any(hint in token for hint in PATH_KEY_HINTS)
 
@@ -146,6 +157,33 @@ def _load_self_contained_base_payload(base_config_path: Path) -> dict[str, Any]:
     )
 
 
+def _apply_default_workspace_overlay(
+    overlay: dict[str, Any],
+    *,
+    comparison_root: Path,
+    simulation_id: str,
+) -> None:
+    """Ensure generated children do not inherit a shared base workspace."""
+    default_root = (comparison_root / "workspaces" / simulation_id).resolve().as_posix()
+    workspace = overlay.get("workspace")
+    if workspace is None:
+        overlay["workspace"] = {
+            "project_root": default_root,
+            "root": default_root,
+        }
+        return
+    if not isinstance(workspace, dict):
+        raise ValueError("comparison.simulation.overlay.workspace must be a mapping")
+
+    declared_root = workspace.get("root") or workspace.get("project_root")
+    if isinstance(declared_root, str) and declared_root.strip():
+        workspace.setdefault("project_root", declared_root)
+        workspace.setdefault("root", declared_root)
+    else:
+        workspace.setdefault("project_root", default_root)
+        workspace.setdefault("root", default_root)
+
+
 def build_child_payload(
     *,
     cfg: SimulationComparisonConfig,
@@ -160,6 +198,11 @@ def build_child_payload(
         source_dir=cfg.base_dir,
     )
     validate_numeric_overlay(overlay)
+    _apply_default_workspace_overlay(
+        overlay,
+        comparison_root=cfg.comparison_root,
+        simulation_id=simulation.id,
+    )
 
     simulation_overlay = overlay.setdefault("simulation", {})
     if not isinstance(simulation_overlay, dict):
@@ -187,6 +230,13 @@ def build_child_payload(
     if cfg.base_simulation_config_path is None:
         raise ValueError("comparison.base_simulation_config is required")
     base_payload = _load_self_contained_base_payload(cfg.base_simulation_config_path)
+    common_overlay = _absolutize_relative_path_values(
+        _deepcopy_jsonlike(cfg.comparison.base_simulation_overlay),
+        source_dir=cfg.base_dir,
+    )
+    if not isinstance(common_overlay, dict):
+        raise ValueError("comparison.base_simulation_overlay must be a mapping")
+    base_payload = merge_toml_payloads(base_payload, common_overlay)
     base_payload["workflow"] = {"mode": "simulation"}
     payload = merge_toml_payloads(base_payload, overlay)
     return payload, run_name

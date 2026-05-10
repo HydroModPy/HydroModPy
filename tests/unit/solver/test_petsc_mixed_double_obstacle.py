@@ -88,6 +88,8 @@ def test_dry_deficit_reduces_only_free_cell_balance_residual() -> None:
     )
 
     np.testing.assert_allclose(with_dry.residual_m3_s, np.asarray([2.0, 7.0]))
+    np.testing.assert_allclose(with_dry.flow_residual_m3_s, np.asarray([2.0, 7.0]))
+    np.testing.assert_allclose(with_dry.solver_residual, np.asarray([2.0, 7.0]))
     np.testing.assert_allclose(assembly.residual_m3_s, np.asarray([5.0, 7.0]))
 
 

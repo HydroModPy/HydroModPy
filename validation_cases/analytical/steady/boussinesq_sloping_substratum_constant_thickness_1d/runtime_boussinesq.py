@@ -1,4 +1,4 @@
-"""Local ``flow/boussinesq`` runtime for the sloping constant-thickness case."""
+"""PETSc ``flow/boussinesq`` runtime for the sloping constant-thickness case."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def run_boussinesq_sloping_substratum_constant_thickness_case(
     caller_file: str | Path,
     timeout: int = 1800,
 ) -> object:
-    """Run the steady sloping-substratum constant-thickness case locally."""
+    """Run the steady sloping-substratum constant-thickness case with PETSc VI."""
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))
 
@@ -49,7 +49,8 @@ def run_boussinesq_sloping_substratum_constant_thickness_case(
         storage_coefficient=0.1,
         flow_section={
             "flow_regime": "steady",
-            "runtime_backend": "scipy_sparse",
+            "runtime_backend": "petsc",
+            "surface_interaction_model": "vi_obstacle",
             "ic": {
                 "type": "custom",
                 "value": 0.5

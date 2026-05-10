@@ -203,7 +203,14 @@ def _solve_mixed_problem(
         assembly=assembly_for(head_initial, q_ex_initial),
         prescribed_mask=prescribed_mask,
     )
-    state0 = _stack_double_obstacle_state(head_initial, q_ex_initial, q_dry_initial)
+    rate_scale = float(rate_scale_m_s)
+    # PETSc solves dimensionless complementarity rates so the q columns remain
+    # comparable to head columns; physical assembly converts back to m/s.
+    state0 = _stack_double_obstacle_state(
+        head_initial,
+        q_ex_initial / rate_scale,
+        q_dry_initial / rate_scale,
+    )
     solution = PETSc.Vec().createSeq(n_unknowns, comm=PETSc.COMM_SELF)
     residual_template = PETSc.Vec().createSeq(n_unknowns, comm=PETSc.COMM_SELF)
     jacobian = PETSc.Mat().createAIJ(
@@ -226,10 +233,12 @@ def _solve_mixed_problem(
     def _residual(_snes, state_vec, residual_vec) -> None:
         nonlocal current_assembly
         state = np.asarray(state_vec.getArray(readonly=True), dtype=float)
-        head_m, q_ex_rate_m_s, q_dry_rate_m_s = _split_double_obstacle_state(
+        head_m, q_ex_scaled, q_dry_scaled = _split_double_obstacle_state(
             state,
             n_cells=n_cells,
         )
+        q_ex_rate_m_s = q_ex_scaled * rate_scale
+        q_dry_rate_m_s = q_dry_scaled * rate_scale
         current_assembly = _assembly_with_dry_deficit(
             mesh,
             assembly_for(head_m, q_ex_rate_m_s),
@@ -251,18 +260,20 @@ def _solve_mixed_problem(
             rate_scale_m_s=float(rate_scale_m_s),
         )
         residual = np.asarray(residual_vec.getArray(), dtype=float)
-        residual[:n_cells] = np.asarray(current_assembly.residual_m3_s, dtype=float)
+        residual[:n_cells] = np.asarray(current_assembly.solver_residual, dtype=float)
         residual[n_cells : 2 * n_cells] = surface_residual
         residual[2 * n_cells :] = bottom_residual
-        residual[n_cells : 2 * n_cells][prescribed_mask] = q_ex_rate_m_s[prescribed_mask]
-        residual[2 * n_cells :][prescribed_mask] = q_dry_rate_m_s[prescribed_mask]
+        residual[n_cells : 2 * n_cells][prescribed_mask] = q_ex_scaled[prescribed_mask]
+        residual[2 * n_cells :][prescribed_mask] = q_dry_scaled[prescribed_mask]
 
     def _jacobian(_snes, state_vec, jac, preconditioner) -> None:
         state = np.asarray(state_vec.getArray(readonly=True), dtype=float)
-        head_m, q_ex_rate_m_s, q_dry_rate_m_s = _split_double_obstacle_state(
+        head_m, q_ex_scaled, q_dry_scaled = _split_double_obstacle_state(
             state,
             n_cells=n_cells,
         )
+        q_ex_rate_m_s = q_ex_scaled * rate_scale
+        q_dry_rate_m_s = q_dry_scaled * rate_scale
         surface_gap_m = np.asarray(mesh.z_top_m, dtype=float) - head_m
         bottom_gap_m = head_m - np.asarray(mesh.z_bottom_m, dtype=float)
         _, dphi_surface_dh, dphi_surface_dq = _fischer_burmeister_residual_and_derivatives(
@@ -289,22 +300,22 @@ def _solve_mixed_problem(
         area = np.asarray(mesh.cell_area_m2, dtype=float)
         balance_q_ex_rows = free_rows
         balance_q_ex_cols = free_rows + n_cells
-        balance_q_ex_data = area[free_rows]
+        balance_q_ex_data = area[free_rows] * rate_scale
         balance_q_dry_rows = free_rows
         balance_q_dry_cols = free_rows + 2 * n_cells
-        balance_q_dry_data = -area[free_rows]
+        balance_q_dry_data = -area[free_rows] * rate_scale
         surface_h_rows = free_rows + n_cells
         surface_h_cols = free_rows
         surface_h_data = np.asarray(dphi_surface_dh, dtype=float)[free_rows]
         surface_q_rows = np.arange(n_cells, dtype=int) + n_cells
         surface_q_cols = np.arange(n_cells, dtype=int) + n_cells
-        surface_q_data = np.asarray(dphi_surface_dq, dtype=float)
+        surface_q_data = np.asarray(dphi_surface_dq, dtype=float) * rate_scale
         dry_h_rows = free_rows + 2 * n_cells
         dry_h_cols = free_rows
         dry_h_data = np.asarray(dphi_bottom_dh, dtype=float)[free_rows]
         dry_q_rows = np.arange(n_cells, dtype=int) + 2 * n_cells
         dry_q_cols = np.arange(n_cells, dtype=int) + 2 * n_cells
-        dry_q_data = np.asarray(dphi_bottom_dq, dtype=float)
+        dry_q_data = np.asarray(dphi_bottom_dq, dtype=float) * rate_scale
         if np.any(prescribed_mask):
             surface_q_data = surface_q_data.copy()
             surface_q_data[prescribed_mask] = 1.0
@@ -365,14 +376,19 @@ def _solve_mixed_problem(
         snes,
         tol_residual_inf=float(tol_residual_inf),
         max_iterations=int(max_iterations),
+        # The Nancon complementarity active set was fragile with GMRES/ILU;
+        # direct LU plus the common factor shift is intentional here.
+        prefer_direct_linear_solve=True,
     )
 
     snes.solve(None, solution)
     state = np.asarray(solution.getArray(readonly=True), dtype=float).copy()
-    head_m, q_ex_rate_m_s, q_dry_rate_m_s = _split_double_obstacle_state(
+    head_m, q_ex_scaled, q_dry_scaled = _split_double_obstacle_state(
         state,
         n_cells=n_cells,
     )
+    q_ex_rate_m_s = q_ex_scaled * rate_scale
+    q_dry_rate_m_s = q_dry_scaled * rate_scale
     if np.any(prescribed_mask):
         head_m, q_ex_rate_m_s = _apply_prescribed_head_constraints(
             head_m,
@@ -409,7 +425,7 @@ def _solve_mixed_problem(
         bottom_residual[prescribed_mask] = 0.0
     full_residual = np.concatenate(
         (
-            np.asarray(current_assembly.residual_m3_s, dtype=float),
+            np.asarray(current_assembly.solver_residual, dtype=float),
             np.asarray(surface_residual, dtype=float),
             np.asarray(bottom_residual, dtype=float),
         )
@@ -511,9 +527,20 @@ def _assembly_with_dry_deficit(
     """Add the lower-obstacle correction to the balance residual only."""
     q_dry = np.asarray(q_dry_rate_m_s, dtype=float).reshape(-1).copy()
     q_dry[np.asarray(prescribed_mask, dtype=bool).reshape(-1)] = 0.0
+    correction = np.asarray(mesh.cell_area_m2, dtype=float).reshape(-1) * q_dry
     residual = np.asarray(assembly.residual_m3_s, dtype=float).reshape(-1).copy()
-    residual -= np.asarray(mesh.cell_area_m2, dtype=float).reshape(-1) * q_dry
-    return replace(assembly, residual_m3_s=residual, dry_deficit_rate_m_s=q_dry)
+    flow_residual = np.asarray(assembly.flow_residual_m3_s, dtype=float).reshape(-1).copy()
+    solver_residual = np.asarray(assembly.solver_residual, dtype=float).reshape(-1).copy()
+    residual -= correction
+    flow_residual -= correction
+    solver_residual -= correction
+    return replace(
+        assembly,
+        residual_m3_s=residual,
+        flow_residual_m3_s=flow_residual,
+        solver_residual=solver_residual,
+        dry_deficit_rate_m_s=q_dry,
+    )
 
 
 def _stack_double_obstacle_state(

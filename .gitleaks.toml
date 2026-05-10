@@ -20,3 +20,9 @@ regexes = [
     '''^\s*"case_family_key":\s*"[A-Za-z0-9_.:-]+",?\s*$''',
     '''^\s*key="[A-Za-z0-9_.:-]+",?\s*$''',
 ]
+
+[[rules.allowlists]]
+description = "Testbed reporting scripts use key= and x/y_key= for figure axes, not credentials."
+paths = [
+    '''(^|/)examples/projects/10_testbed_workflow/.*\.py$''',
+]

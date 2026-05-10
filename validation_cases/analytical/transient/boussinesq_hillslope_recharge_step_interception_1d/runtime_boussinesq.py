@@ -23,6 +23,9 @@ from validation_cases.analytical.steady.boussinesq_piecewise import mm_day_to_m_
 from validation_cases.analytical.transient.runtime_boussinesq_1d import (
     aggregate_triangle_history_to_structured_grids,
 )
+from validation_cases.shared.boussinesq_analytical_runtime import (
+    apply_analytical_boussinesq_runtime_defaults,
+)
 from validation_cases.shared.runtime import (
     ValidationRunResult,
     materialize_postprocess_fields_to_store,
@@ -40,7 +43,7 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
     caller_file: str | Path,
     timeout: int = 1800,
 ) -> ValidationRunResult:
-    """Run the transient recharge-step hillslope case through the local Boussinesq adapter."""
+    """Run the transient recharge-step hillslope case through PETSc TS VI."""
     del timeout
 
     out_path = resolve_validation_results_dir(
@@ -58,24 +61,27 @@ def run_boussinesq_hillslope_recharge_step_interception_case(
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
                 _build_flow_config(
-                    {
-                        "flow_regime": "transient",
-                        "ic": {"type": "custom", "value": EAST_HEAD_M},
-                        "active_sinks_sources": ["recharge"],
-                        "active_bc": ["east_side"],
-                        "sinks_sources": {
-                            "recharge": {
-                                "values": mm_day_to_m_s(RECHARGE_MM_DAY),
-                                "first_clim": "mean",
-                                "units": "m/s",
-                            }
+                    apply_analytical_boussinesq_runtime_defaults(
+                        {
+                            "flow_regime": "transient",
+                            "ic": {"type": "custom", "value": EAST_HEAD_M},
+                            "active_sinks_sources": ["recharge"],
+                            "active_bc": ["east_side"],
+                            "sinks_sources": {
+                                "recharge": {
+                                    "values": mm_day_to_m_s(RECHARGE_MM_DAY),
+                                    "first_clim": "mean",
+                                    "units": "m/s",
+                                }
+                            },
+                            "bc": {
+                                "dirichlet": {
+                                    "east_side": {"value": EAST_HEAD_M},
+                                }
+                            },
                         },
-                        "bc": {
-                            "dirichlet": {
-                                "east_side": {"value": EAST_HEAD_M},
-                            }
-                        },
-                    }
+                        flow_regime="transient",
+                    )
                 )
             ),
             domain=None,

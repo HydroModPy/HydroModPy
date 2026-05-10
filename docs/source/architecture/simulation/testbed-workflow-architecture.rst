@@ -39,7 +39,7 @@ The implementation is intentionally narrow:
    * - ``hydromodpy.analysis.testbed.runtime``
      - Load the base TOML, materialize generated child TOMLs, delegate child
        execution, extract metrics, and persist evidence files.
-   * - ``hydromodpy.workflow.dispatch``
+   * - ``hydromodpy.workflow_dispatch``
      - Expose ``run_testbed`` as the CLI adapter.
    * - Child runner packages
      - Keep ownership of mesh generation, simulation execution, solver
@@ -67,6 +67,10 @@ The current contract accepts only explicit subject/runner pairs:
      - ``[workflow].mode = "simulation"``
      - Parameter sensitivity, boundary-condition variants, solver-option
        robustness.
+   * - ``flow``
+     - ``comparison``
+     - ``workflow = "comparison"``
+     - Pairwise comparison campaigns and method-comparison subsets.
 
 Generated children never contain ``[testbed]``. They are ordinary child
 workflow TOMLs that can be opened, inspected, and in many cases run directly.
@@ -132,6 +136,11 @@ mass-balance percent error in the extracted catalog metrics. The observed
 ``head_range_m`` decreased from the low-K case to the high-K case, which is
 the expected direction for this controlled hydraulic-conductivity sensitivity
 test.
+
+Comparison children are deliberately thinner: the testbed consumes the summary
+returned by the comparison runner and can expose those fields through
+``[[testbed.metric]]``. The comparison workflow keeps ownership of its HTML,
+metrics, figures, and child simulation details.
 
 .. list-table::
    :header-rows: 1

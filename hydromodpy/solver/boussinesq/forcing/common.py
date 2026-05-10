@@ -8,6 +8,10 @@ from numbers import Real
 import numpy as np
 
 from hydromodpy.core.time import validate_recharge_coverage
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    boundary_conditions_mapping_from_flow,
+    is_boundary_condition_active,
+)
 from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
@@ -130,9 +134,11 @@ class ForcingCommonMixin:
             return np.asarray(
                 resolve_period_values_from_forcing(
                     forcing=forcing,
-                    simulation_window=getattr(self.time_grid, "window", None)
-                    if self.time_grid is not None
-                    else None,
+                    simulation_window=(
+                        getattr(self.time_grid, "window", None)
+                        if self.time_grid is not None
+                        else None
+                    ),
                     nper=int(nper),
                     label=f"flow.bc.{bc_id}.forcing",
                 ),
@@ -160,7 +166,7 @@ class ForcingCommonMixin:
         if has_temporal_index(payload):
             validate_recharge_coverage(
                 payload,
-                getattr(self.time_grid, "window", None) if self.time_grid is not None else None,
+                (getattr(self.time_grid, "window", None) if self.time_grid is not None else None),
             )
         ensure_non_negative_numeric_payload(payload, label=label)
         if isinstance(payload, Mapping):
@@ -182,9 +188,10 @@ class ForcingCommonMixin:
         if sequence.size == 1:
             return np.full(nper, float(sequence[0]), dtype=float)
         if sequence.size != int(nper):
-            raise ValueError(
-                f"{label} length ({int(sequence.size)}) must be 1 or match nper ({int(nper)})."
-            )
+            if int(nper) != 1:
+                raise ValueError(
+                    f"{label} length ({int(sequence.size)}) must be 1 or match nper ({int(nper)})."
+                )
 
         series = np.zeros(nper, dtype=float)
         if first_clim == "mean":
@@ -220,6 +227,8 @@ class ForcingCommonMixin:
         sequence = ForcingCommonMixin.payload_to_sequence(payload, label=label)
         if sequence.size == 1:
             return np.full(nper, float(sequence[0]), dtype=float)
+        if int(nper) == 1:
+            return np.asarray([float(sequence[0])], dtype=float)
         if sequence.size != int(nper):
             raise ValueError(
                 f"{label} length ({int(sequence.size)}) must be 1 or match nper ({int(nper)})."
@@ -270,15 +279,11 @@ class ForcingCommonMixin:
 
     def boundary_conditions_mapping(self) -> Mapping[str, object]:
         """Return the boundary-condition mapping from the flow contract."""
-        boundary_conditions = getattr(self.flow, "boundary_conditions", {})
-        if not isinstance(boundary_conditions, Mapping):
-            raise TypeError("flow.boundary_conditions must be a mapping")
-        return boundary_conditions
+        return boundary_conditions_mapping_from_flow(self.flow)
 
     def is_bc_active(self, bc_id: str) -> bool:
         """Return whether one boundary id is active in the current flow setup."""
-        active = getattr(self.flow, "active_bc", ())
-        return bc_id in active
+        return is_boundary_condition_active(self.flow, bc_id)
 
 
 __all__ = ["ForcingCommonMixin"]

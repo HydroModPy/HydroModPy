@@ -74,9 +74,7 @@ from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 WorkflowMode = Literal[
     "simulation",
     "calibration",
-    "batch",
     "overview",
-    "mesh",
     "comparison",
     "testbed",
 ]
@@ -122,6 +120,7 @@ _KNOWN_TOP_LEVEL_KEYS = frozenset(
         "mesh_catchment",
         "mesh_input",
         "testbed",
+        "regional_lab",
         "calibration",
     }
 )
@@ -141,7 +140,7 @@ class HydroModPyConfig(HydroModelBase):
     workflow: Annotated[WorkflowConfig, Profile.USER] = Field(
         description=(
             "Workflow configuration. `workflow.mode` must be one of "
-            "'simulation', 'calibration', 'batch', 'overview', 'mesh', "
+            "'simulation', 'calibration', 'overview', "
             "'comparison', 'testbed'. "
             "Drives dispatch in `hmp run <toml>` and in API-driven callers "
             "that instantiate `HydroModPyConfig` from a frontend form."
@@ -234,7 +233,6 @@ class HydroModPyConfig(HydroModelBase):
         default=None,
         description=(
             "Optional analysis hub loaded from [analysis]. Aggregates "
-            "[analysis.batch] (regional-lab launcher), "
             "[analysis.capability_gallery] (figure publication), and "
             "[analysis.comparison] (simulation-comparison launcher)."
         ),
@@ -253,8 +251,9 @@ class HydroModPyConfig(HydroModelBase):
         default=None,
         description=(
             "Optional mesh-only settings loaded from the [mesh_catchment] "
-            "section.  When present without [simulation], triggers the "
-            "mesh-only workflow."
+            "section. Mesh-only public runs should use [simulation.process] "
+            "with type='mesh'; the standalone mesh API can still consume this "
+            "section directly."
         ),
     )
     calibration: Annotated[CalibrationConfig | None, Profile.USER] = Field(
@@ -444,7 +443,8 @@ class HydroModPyConfig(HydroModelBase):
             )
         if "batch" in raw:
             raise ValueError(
-                "Section [batch] is no longer supported. Use [analysis.batch] instead."
+                "Section [batch] is no longer supported. Use workflow='testbed' "
+                "with [testbed].profile = 'regional_lab' and [regional_lab] instead."
             )
         unknown = sorted(set(raw) - _KNOWN_TOP_LEVEL_KEYS)
         if unknown:

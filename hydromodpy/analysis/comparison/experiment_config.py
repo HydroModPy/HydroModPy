@@ -74,7 +74,15 @@ class ComparisonSimulationConfig(HydroModelBase):
     ] = "unknown"
     overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,
-        description="Free-form TOML overlay merged into the base simulation config when this child runs.",
+        description=(
+            "Child-specific TOML overlay merged after comparison.base_simulation_overlay "
+            "and after the shared base simulation config. Use it for solver-specific "
+            "settings, child labels, child process selection, or deliberately varied "
+            "method parameters. Site-wide inputs that must be identical for every "
+            "child in one comparison, such as outlet coordinates, recharge forcing, "
+            "mesh generation settings, or reference data paths, should be placed in "
+            "comparison.base_simulation_overlay instead."
+        ),
     )
 
     @field_validator("mesh_label")
@@ -109,6 +117,20 @@ class ComparisonSection(HydroModelBase):
 
     comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
     base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    base_simulation_overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
+        default_factory=dict,
+        description=(
+            "Shared TOML overlay applied to the base simulation config before any "
+            "child-specific comparison.simulation.overlay. This is the preferred hook "
+            "for catalog-driven site loops: a testbed can render one comparison per "
+            "catalog row and inject the row values here, for example geographic outlet "
+            "coordinates, target basin area, recharge chronicle path, geology/K-table "
+            "paths, mesh-catchment options, initial-condition policy, or common "
+            "workspace/data roots. The overlay is intentionally broad because it "
+            "describes the physical case shared by all methods being compared; solver "
+            "or method differences remain in each comparison.simulation.overlay."
+        ),
+    )
     anchors_file: Annotated[OptionalText, Profile.EXPERT] = None
     output_root: Annotated[OptionalText, Profile.EXPERT] = None
     reference_simulation: Annotated[IdentifierStr | None, Profile.EXPERT] = None
@@ -138,6 +160,15 @@ class ComparisonSection(HydroModelBase):
             return None
         text = str(value).strip()
         return text or None
+
+    @field_validator("base_simulation_overlay")
+    @classmethod
+    def _validate_base_simulation_overlay(cls, value: object) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("comparison.base_simulation_overlay must be a mapping")
+        return dict(value)
 
     @model_validator(mode="after")
     def _validate_lists(self) -> ComparisonSection:

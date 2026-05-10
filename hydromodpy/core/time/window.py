@@ -404,6 +404,19 @@ def build_simulation_time_boundaries(
     window: ResolvedSimulationTimeWindow,
 ) -> list[pd.Timestamp]:
     """Return half-open simulation boundaries [t0, ..., tN] from one window."""
+    explicit_bounds = getattr(window, "period_bounds", None)
+    if explicit_bounds is not None:
+        boundaries: list[pd.Timestamp] = []
+        for raw_start, raw_end in tuple(explicit_bounds):
+            start = pd.Timestamp(raw_start)
+            end = pd.Timestamp(raw_end)
+            if not boundaries:
+                boundaries.append(start)
+            elif boundaries[-1] != start:
+                boundaries.append(start)
+            boundaries.append(end)
+        if len(boundaries) >= 2:
+            return boundaries
     return _build_time_boundaries(window)
 
 
@@ -467,7 +480,9 @@ def resolve_simulation_time_window(cfg: Any) -> ResolvedSimulationTimeWindow | N
     )
 
 
-def apply_explicit_time_window_to_tgrids(cfg: Any) -> ResolvedSimulationTimeWindow | None:
+def apply_explicit_time_window_to_tgrids(
+    cfg: Any,
+) -> ResolvedSimulationTimeWindow | None:
     """Apply resolved ``simulation.time`` to flow-solver ``tgrid`` sections.
 
     The launcher keeps temporal authority in ``[simulation.time]`` and writes
@@ -600,7 +615,7 @@ def validate_recharge_coverage(
         return
 
     # Exact period-start alignment is the strongest/cleanest contract.
-    boundaries = _build_time_boundaries(window)
+    boundaries = build_simulation_time_boundaries(window)
     period_starts = pd.DatetimeIndex(boundaries[:-1])
     index = pd.DatetimeIndex(series.index)
     is_period_aligned = len(index) == len(period_starts) and index.equals(period_starts)

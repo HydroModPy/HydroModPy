@@ -1,0 +1,23 @@
+base_config = "compare_synthetic_patchy_mf6_bouss.toml"
+workflow = "comparison"
+
+[comparison]
+comparison_id = "synthetic_drainage_high_mf6_vs_bouss"
+base_simulation_config = "base_synthetic_drainage_high.toml"
+output_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_drainage_high_mf6_vs_bouss"
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 high-drainage reference"
+
+[comparison.simulation.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_drainage_high_mf6_vs_bouss/workspace_mf6"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_drainage_high_mf6_vs_bouss/workspace_mf6"
+
+[[comparison.simulation]]
+id = "bouss_candidate"
+label = "Boussinesq strict free-surface candidate"
+
+[comparison.simulation.overlay.workspace]
+project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_drainage_high_mf6_vs_bouss/workspace_bouss"
+root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_drainage_high_mf6_vs_bouss/workspace_bouss"

@@ -122,19 +122,33 @@ def run_dupuit_fixed_head_comparison(
     metadata = load_case_metadata(CASE_DIR)
     tolerances = load_case_tolerances(CASE_DIR, solver=solver)
     normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver in {"boussinesq", "petsc", "petsc_partition"}:
-        runtime_backend = "scipy_sparse"
-        surface_interaction_model = None
+    if normalized_solver in {
+        "boussinesq",
+        "petsc",
+        "petsc_partition",
+        "petsc_vi_obstacle",
+        "petsc_ts_vi_obstacle",
+    }:
+        runtime_backend = "petsc"
+        surface_interaction_model = "vi_obstacle"
         if normalized_solver == "petsc":
             runtime_backend = "petsc"
+            surface_interaction_model = "complementarity"
         elif normalized_solver == "petsc_partition":
             runtime_backend = "petsc"
             surface_interaction_model = "regularized_partition"
+        elif normalized_solver == "petsc_vi_obstacle":
+            runtime_backend = "petsc"
+            surface_interaction_model = "vi_obstacle"
+        elif normalized_solver == "petsc_ts_vi_obstacle":
+            runtime_backend = "petsc"
+            surface_interaction_model = "ts_vi_obstacle"
         result = run_boussinesq_dupuit_fixed_head_case(
             caller_file=caller_file,
             timeout=timeout,
             runtime_backend=runtime_backend,
             surface_interaction_model=surface_interaction_model,
+            public_solver_label=str(normalized_solver),
         )
     else:
         result = run_launcher_validation_case(

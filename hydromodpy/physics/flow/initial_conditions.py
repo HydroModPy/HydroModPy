@@ -6,10 +6,11 @@ Typed initial-condition structures for the flow process.
 
 This module defines:
 
-- `FlowICTop`, `FlowICTopOffset`, `FlowICBottom`, `FlowICCustom`: the four
-  discriminated variants describing how head values are initialized.
+- `FlowICTop`, `FlowICTopOffset`, `FlowICBottom`, `FlowICCustom`,
+  `FlowICSteadyState`: the five discriminated variants describing how head
+  values are initialized.
 - `FlowInitialCondition`: discriminated union (on the `type` field) over the
-  four variants above.
+  five variants above.
 - `FlowInitialConditions`: the runtime container currently exposing the `h`
   initial condition consumed by the flow process and solver adapters.
 
@@ -102,8 +103,39 @@ class FlowICCustom(_FlowICBase):
     )
 
 
+class FlowICSteadyState(_FlowICBase):
+    """Initialize a transient run from a same-solver steady solve."""
+
+    type: Annotated[Literal["steady_state"], Profile.USER] = Field(
+        "steady_state",
+        description=(
+            "Initialize a transient run from a same-solver steady solve using "
+            "a documented forcing strategy."
+        ),
+    )
+    source: Annotated[Literal["recharge", "mean_recharge"] | None, Profile.USER] = Field(
+        None,
+        description=(
+            "Forcing source used by the initialization solve. "
+            "'mean_recharge' is an alias for source='recharge' with "
+            "recharge_statistic='time_mean'."
+        ),
+    )
+    recharge_statistic: Annotated[Literal["time_mean"] | None, Profile.USER] = Field(
+        None,
+        description="Statistic applied to the recharge chronicle.",
+    )
+    boundary_condition_policy: Annotated[Literal["first_period"] | None, Profile.USER] = Field(
+        None,
+        description=(
+            "Policy used for transient boundary-condition chronicles during "
+            "the steady initialization solve."
+        ),
+    )
+
+
 FlowInitialCondition: TypeAlias = Annotated[
-    FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom,
+    FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom | FlowICSteadyState,
     Field(discriminator="type"),
 ]
 """Discriminated union of flow initial-condition variants."""
@@ -162,6 +194,7 @@ class FlowInitialConditions(HydroModelBase):
 __all__ = [
     "FlowICBottom",
     "FlowICCustom",
+    "FlowICSteadyState",
     "FlowICTop",
     "FlowICTopOffset",
     "FlowInitialCondition",

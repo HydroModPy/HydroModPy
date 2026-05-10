@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-from hydromodpy.simulation.planning.plan import SimulationPlan
+from hydromodpy.simulation.planning.plan import ProcessRun, RunExecutionResult, SimulationPlan
 
 
 @runtime_checkable
@@ -36,7 +36,7 @@ class Launcher(Protocol):
         state: Any,
         *,
         callbacks: Any | None = None,
-    ) -> None:
+    ) -> tuple[tuple[ProcessRun, RunExecutionResult], ...] | None:
         """Execute every planned run in order against ``state``.
 
         ``state`` is typed as ``Any`` because the workflow context is

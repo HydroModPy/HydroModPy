@@ -14,7 +14,11 @@ import numpy as np
 import pandas as pd
 
 from hydromodpy.core.units import convert_payload_to_m, normalize_length_unit
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    active_side_dirichlet_boundary_ids,
+)
 from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forcing
+from hydromodpy.solver.initial_conditions import build_head_initial_condition_array
 
 if TYPE_CHECKING:
     from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (
@@ -44,6 +48,8 @@ def normalize_boundary_series(
         raise ValueError(f"{label} cannot be empty when using time series")
     if series.size == 1:
         return np.full(nper, float(series[0]), dtype=float)
+    if int(nper) == 1:
+        return np.asarray([float(series[0])], dtype=float)
     if series.size != nper:
         raise ValueError(f"{label} length ({series.size}) must be 1 or match nper ({nper})")
     return series.astype(float)
@@ -131,68 +137,37 @@ def build_initial_heads_and_sides(
     if initial_condition is None:
         raise ValueError("flow.initial_conditions.h is required for MODFLOW startup")
 
-    initial_type = str(getattr(initial_condition, "type", "")).strip().lower()
-    if initial_type == "top":
-        strt = np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * adapter.dem
-    elif initial_type == "top_offset":
-        head_value = initial_condition.value
-        if head_value is None:
-            raise ValueError("flow.initial_conditions.h.value is required for top_offset")
-        offset_m = float(getattr(head_value, "magnitude", head_value))
-        strt = np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * (
-            adapter.dem - offset_m
-        )
-    elif initial_type == "bottom":
-        strt = (
-            np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * adapter.bottom_layer
-        )
-    elif initial_type == "custom":
-        head_value = initial_condition.value
-        head_magnitude = getattr(head_value, "magnitude", head_value)
-        strt = np.ones((adapter.nlay, adapter.nrow, adapter.ncol), dtype=float) * float(
-            head_magnitude
-        )
-    else:
-        raise ValueError(
-            "flow.initial_conditions.h.type must be one of: top, top_offset, bottom, custom"
-        )
+    strt = build_head_initial_condition_array(
+        initial_condition,
+        top=adapter.dem,
+        bottom=adapter.bottom_layer,
+        target_shape=(int(adapter.nlay), int(adapter.nrow), int(adapter.ncol)),
+        location_prefix="flow.ic",
+    )
 
     boundary_conditions = adapter._boundary_conditions
-    west_side = boundary_conditions.get("west_side") if adapter._is_bc_active("west_side") else None
-    if west_side is not None:
-        west_series = resolve_side_boundary_series(adapter, boundary=west_side, bc_id="west_side")
-        if side_boundary_is_static(west_side):
-            ibound[:, :, 0] = -1
-        strt[:, :, 0] = float(west_series[0])
-
-    east_side = boundary_conditions.get("east_side") if adapter._is_bc_active("east_side") else None
-    if east_side is not None:
-        east_series = resolve_side_boundary_series(adapter, boundary=east_side, bc_id="east_side")
-        if side_boundary_is_static(east_side):
-            ibound[:, :, -1] = -1
-        strt[:, :, -1] = float(east_series[0])
-
-    north_side = (
-        boundary_conditions.get("north_side") if adapter._is_bc_active("north_side") else None
-    )
-    if north_side is not None:
-        north_series = resolve_side_boundary_series(
-            adapter, boundary=north_side, bc_id="north_side"
-        )
-        if side_boundary_is_static(north_side):
-            ibound[:, 0, :] = -1
-        strt[:, 0, :] = float(north_series[0])
-
-    south_side = (
-        boundary_conditions.get("south_side") if adapter._is_bc_active("south_side") else None
-    )
-    if south_side is not None:
-        south_series = resolve_side_boundary_series(
-            adapter, boundary=south_side, bc_id="south_side"
-        )
-        if side_boundary_is_static(south_side):
-            ibound[:, -1, :] = -1
-        strt[:, -1, :] = float(south_series[0])
+    for bc_id in active_side_dirichlet_boundary_ids(adapter.flow):
+        boundary = boundary_conditions.get(bc_id)
+        if boundary is None:
+            continue
+        side_head = float(resolve_side_boundary_series(adapter, boundary=boundary, bc_id=bc_id)[0])
+        static_boundary = side_boundary_is_static(boundary)
+        if bc_id == "west_side":
+            if static_boundary:
+                ibound[:, :, 0] = -1
+            strt[:, :, 0] = side_head
+        elif bc_id == "east_side":
+            if static_boundary:
+                ibound[:, :, -1] = -1
+            strt[:, :, -1] = side_head
+        elif bc_id == "north_side":
+            if static_boundary:
+                ibound[:, 0, :] = -1
+            strt[:, 0, :] = side_head
+        elif bc_id == "south_side":
+            if static_boundary:
+                ibound[:, -1, :] = -1
+            strt[:, -1, :] = side_head
 
     for ilay in range(adapter.nlay):
         ibound[ilay][adapter.inactive_mask] = 0
@@ -295,9 +270,7 @@ def build_side_chd(
     }
     has_entries = False
 
-    for bc_id in ("west_side", "east_side", "north_side", "south_side"):
-        if not adapter._is_bc_active(bc_id):
-            continue
+    for bc_id in active_side_dirichlet_boundary_ids(adapter.flow):
         boundary = adapter._boundary_conditions.get(bc_id)
         if boundary is None:
             continue

@@ -171,6 +171,34 @@ def test_resolve_validation_results_dir_uses_deterministic_solver_specific_names
     )
 
 
+def test_resolve_validation_results_dir_reuses_existing_run_dir(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    out_root = tmp_path / "validation_root"
+    monkeypatch.setenv("HYDROMODPY_OUT_PATH", str(out_root))
+
+    out_dir = resolve_validation_results_dir(
+        test_file=tmp_path / "test_dupuit_fixed_head_1d.py",
+        run_name="case_demo",
+    )
+    out_dir.mkdir(parents=True)
+    stale_file = out_dir / "stale-output.txt"
+    stale_file.write_text("stale", encoding="utf-8")
+    legacy_out_dir = out_dir.with_name(f"{out_dir.name}_deadbeef")
+    legacy_out_dir.mkdir()
+    (legacy_out_dir / "old-output.txt").write_text("old", encoding="utf-8")
+
+    resolved_again = resolve_validation_results_dir(
+        test_file=tmp_path / "test_dupuit_fixed_head_1d.py",
+        run_name="case_demo",
+    )
+
+    assert resolved_again == out_dir
+    assert not stale_file.exists()
+    assert not legacy_out_dir.exists()
+
+
 def test_load_case_tolerances_prefers_solver_specific_file(tmp_path: Path) -> None:
     case_dir = tmp_path / "case"
     case_dir.mkdir()

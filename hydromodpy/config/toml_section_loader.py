@@ -285,9 +285,9 @@ def _load_optional_analysis_section(
     if not isinstance(section_data, Mapping):
         raise ValueError("[analysis] must be a mapping")
 
-    from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.analysis.comparison.experiment_config import ComparisonSection
+    from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
 
     parsed: dict[str, Any] = {}
 

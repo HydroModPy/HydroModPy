@@ -2,7 +2,7 @@
 
 Single CLI entry point. The TOML must carry a top-level
 ``[workflow] mode = "..."`` field (one of ``simulation``, ``calibration``,
-``batch``, ``overview``, ``mesh``, ``comparison``, ``testbed``). Absence
+``overview``, ``comparison``, ``testbed``). Absence
 raises ``WorkflowMissingError``.
 
 Overrides are merged as defaults < base_config < --overlay < --set < env.
@@ -142,10 +142,10 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     """
     from hydromodpy.display.banner import print_hydromodpy
     from hydromodpy.workflow.dispatch import (
-        DISPATCH,
         WorkflowError,
         resolve_workflow,
     )
+    from hydromodpy.workflow_dispatch import DISPATCH
 
     print_hydromodpy()
     auto_scan_workspace(config_path)
@@ -365,18 +365,14 @@ def _assign_dotted_value(payload: dict[str, Any], dotted_path: str, value: Any) 
 def _infer_workflow_from_sections(raw_toml: dict) -> str:
     """Infer the workflow from the TOML sections present.
 
-    Mirrors the dispatch table in :mod:`hydromodpy.workflow.dispatch` - used
+    Mirrors the dispatch table in :mod:`hydromodpy.workflow_dispatch` - used
     only when ``--dry-run`` is set and the user has not declared
     ``[workflow] mode = "..."``.
     """
     if "calibration" in raw_toml:
         return "calibration"
-    if "batch" in raw_toml:
-        return "batch"
     if "overview" in raw_toml and "simulation" not in raw_toml:
         return "overview"
-    if "mesh_catchment" in raw_toml and "simulation" not in raw_toml:
-        return "mesh"
     if "comparison" in raw_toml:
         return "comparison"
     if "testbed" in raw_toml:

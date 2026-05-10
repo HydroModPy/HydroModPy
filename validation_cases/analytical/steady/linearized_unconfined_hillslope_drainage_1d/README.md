@@ -33,7 +33,7 @@ Solver variants:
 - `modflownwt` and `modflow6` use the historical launcher-backed structured grid.
 - `modflow6_irregular_tri` runs the same benchmark on one shared irregular-triangle strip.
 
-This case is not exposed yet for the local `boussinesq` backend. In that
+This case is not exposed yet for the `boussinesq` backend. In that
 backend, the current saturation-excess regularization turns the problem into a
 different seepage/interception regime, so the right validation target should be
 an emergence position / integrated-discharge benchmark rather than this head

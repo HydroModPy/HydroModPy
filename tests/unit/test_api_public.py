@@ -19,7 +19,6 @@ EXPECTED_TOP_LEVEL = [
     "run",
     "calibrate",
     "overview",
-    "batch",
     "compare_pair",
     "testbed",
     "doctor",
@@ -47,6 +46,11 @@ def test_public_symbol_available(symbol: str) -> None:
 def test_catalog_alias_is_not_exposed() -> None:
     with pytest.raises(AttributeError):
         hmp.Catalog  # noqa: B018
+
+
+def test_removed_batch_api_is_not_exposed() -> None:
+    with pytest.raises(AttributeError):
+        hmp.batch  # noqa: B018
 
 
 def test_open_returns_simulation_catalog() -> None:

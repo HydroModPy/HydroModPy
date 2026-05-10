@@ -58,6 +58,13 @@ def stress_period_bounds(
     if simulation_window is None:
         return None
 
+    explicit_bounds = getattr(simulation_window, "period_bounds", None)
+    if explicit_bounds is not None:
+        bounds = []
+        for raw_start, raw_end in tuple(explicit_bounds)[: int(nper)]:
+            bounds.append((pd.Timestamp(raw_start), pd.Timestamp(raw_end)))
+        return bounds or None
+
     from hydromodpy.core.time import build_simulation_time_boundaries
 
     boundaries = build_simulation_time_boundaries(simulation_window)

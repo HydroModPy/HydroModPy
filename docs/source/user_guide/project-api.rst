@@ -84,8 +84,6 @@ Workflow helpers
      - Run a standard simulation workflow.
    * - ``compare()``
      - Launch pairwise or workflow-level comparison logic.
-   * - ``batch()``
-     - Run regional or multi-case batches.
    * - ``calibrate()``
      - Run calibration from the project configuration.
    * - ``sweep()``

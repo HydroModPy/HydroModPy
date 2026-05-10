@@ -412,13 +412,22 @@ class ProjectRunner:
                     proc_type, solver_name = entry, project._solver
                 else:
                     proc_type, solver_name = entry
-                resolved.append(
-                    SimulationProcessConfig(
-                        id=f"{proc_type}_{idx}",
-                        type=proc_type,
-                        solvers=[solver_name],
+                if str(proc_type).strip().lower() == "mesh":
+                    resolved.append(
+                        SimulationProcessConfig(
+                            id=f"{proc_type}_{idx}",
+                            type=proc_type,
+                            backend=str(solver_name or "catchment"),
+                        )
                     )
-                )
+                else:
+                    resolved.append(
+                        SimulationProcessConfig(
+                            id=f"{proc_type}_{idx}",
+                            type=proc_type,
+                            solvers=[solver_name],
+                        )
+                    )
             project.cfg.simulation.process = resolved
 
         return self.run(name=name, **overrides)
