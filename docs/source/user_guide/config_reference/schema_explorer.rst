@@ -6,11 +6,15 @@ Schema Explorer
 ===============
 
 This page renders the canonical JSON Schema of ``HydroModPyConfig`` with
-the Stoplight Elements viewer. The same schema is downloadable as a
-single artifact for use in editors, CI validators, or API tooling that
-consumes JSON Schema directly.
+the Stoplight Elements viewer. The viewer expects an OpenAPI document,
+so the schema is also exported as an OpenAPI 3.1 wrapper that promotes
+``$defs`` to ``components.schemas``. Both files are downloadable for
+external validators, IDE schema stores, or API tooling.
 
-Download: :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`
+Downloads:
+
+- :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>` (raw JSON Schema 2020-12, recommended for Ajv and ajv-cli)
+- :download:`hydromodpy-openapi.json </_static/hydromodpy-openapi.json>` (OpenAPI 3.1 wrapper used by the viewer below)
 
 .. note::
    The viewer loads the Stoplight Elements bundle from the unpkg CDN at
@@ -23,7 +27,7 @@ Download: :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`
    <script src="https://unpkg.com/@stoplight/elements/web-components.min.js" type="module"></script>
    <div class="hmp-schema-explorer">
      <elements-api
-       apiDescriptionUrl="../../_static/hydromodpy-schema.json"
+       apiDescriptionUrl="../../_static/hydromodpy-openapi.json"
        router="hash"
        layout="sidebar"
        hideExport="true">

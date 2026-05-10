@@ -44,6 +44,7 @@ DIAGRAM_DIR = REFERENCE_DIR / "_diagrams"
 GALLERY_VALIDATION_DIR = Path("docs/source/_static/capability_gallery/validation")
 GALLERY_CASES_DIR = "capability_gallery/cases"
 SCHEMA_OUTPUT = Path("docs/source/_static/hydromodpy-schema.json")
+OPENAPI_OUTPUT = Path("docs/source/_static/hydromodpy-openapi.json")
 SEARCH_INDEX_OUTPUT = Path("docs/source/_static/hmp-config-search.json")
 
 GITHUB_REPO = "HydroModPy/HydroModPy"
@@ -977,11 +978,17 @@ def _render_couche3() -> str:
         "===============",
         "",
         "This page renders the canonical JSON Schema of ``HydroModPyConfig`` with",
-        "the Stoplight Elements viewer. The same schema is downloadable as a",
-        "single artifact for use in editors, CI validators, or API tooling that",
-        "consumes JSON Schema directly.",
+        "the Stoplight Elements viewer. The viewer expects an OpenAPI document,",
+        "so the schema is also exported as an OpenAPI 3.1 wrapper that promotes",
+        "``$defs`` to ``components.schemas``. Both files are downloadable for",
+        "external validators, IDE schema stores, or API tooling.",
         "",
-        "Download: :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`",
+        "Downloads:",
+        "",
+        "- :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`"
+        " (raw JSON Schema 2020-12, recommended for Ajv and ajv-cli)",
+        "- :download:`hydromodpy-openapi.json </_static/hydromodpy-openapi.json>`"
+        " (OpenAPI 3.1 wrapper used by the viewer below)",
         "",
         ".. note::",
         "   The viewer loads the Stoplight Elements bundle from the unpkg CDN at",
@@ -995,7 +1002,7 @@ def _render_couche3() -> str:
         ' type="module"></script>',
         '   <div class="hmp-schema-explorer">',
         "     <elements-api",
-        '       apiDescriptionUrl="../../_static/hydromodpy-schema.json"',
+        '       apiDescriptionUrl="../../_static/hydromodpy-openapi.json"',
         '       router="hash"',
         '       layout="sidebar"',
         '       hideExport="true">',
@@ -1188,6 +1195,63 @@ def export_schema(output_path: Path | None = None) -> Path:
     return target
 
 
+def _rewrite_defs_to_components(node: Any) -> None:
+    """Rewrite ``$ref`` pointing into ``$defs`` so they resolve under
+    ``components.schemas`` in the wrapped OpenAPI document."""
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/$defs/"):
+            node["$ref"] = ref.replace("#/$defs/", "#/components/schemas/", 1)
+        for value in node.values():
+            _rewrite_defs_to_components(value)
+    elif isinstance(node, list):
+        for value in node:
+            _rewrite_defs_to_components(value)
+
+
+def export_openapi_wrapper(output_path: Path | None = None) -> Path:
+    """Write an OpenAPI 3.1 wrapper around the JSON Schema export.
+
+    Stoplight Elements (the viewer used on ``schema_explorer.rst``) accepts
+    OpenAPI 3.x and Swagger 2.0 only. The raw JSON Schema is rejected with a
+    "failed to parse openapi file" message. This wrapper exposes the same
+    Pydantic schema as ``components.schemas`` so the explorer can render it.
+    The ``$defs`` are promoted to ``components.schemas`` and every internal
+    ``$ref`` is rewritten accordingly.
+    """
+    target = (output_path or OPENAPI_OUTPUT).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    schema = HydroModPyConfig.model_json_schema()
+    schema.pop("$schema", None)
+    defs = schema.pop("$defs", {}) or {}
+
+    _rewrite_defs_to_components(schema)
+    components_schemas: dict[str, Any] = {"HydroModPyConfig": schema}
+    for name, sub_schema in defs.items():
+        _rewrite_defs_to_components(sub_schema)
+        components_schemas[name] = sub_schema
+
+    document = {
+        "openapi": "3.1.0",
+        "info": {
+            "title": "HydroModPy configuration schema",
+            "version": "1.0",
+            "description": (
+                "Pydantic-validated schema for the HydroModPy TOML root "
+                "configuration. Generated from ``HydroModPyConfig`` and wrapped "
+                "into an OpenAPI document so it can be rendered by the "
+                "Stoplight Elements viewer on ``schema_explorer.rst``."
+            ),
+        },
+        "paths": {},
+        "components": {"schemas": components_schemas},
+    }
+
+    _write_if_changed(target, json.dumps(document, indent=2, sort_keys=False) + "\n")
+    return target
+
+
 def export_search_index(top_fields: dict[str, FieldInfo], output_path: Path | None = None) -> Path:
     """Write a flat JSON index used by the in-page Ctrl+F search widget."""
     entries: list[dict[str, Any]] = []
@@ -1271,6 +1335,8 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
 
     schema_path = export_schema()
     written.append(schema_path)
+    openapi_path = export_openapi_wrapper()
+    written.append(openapi_path)
     explorer_path = out / "schema_explorer.rst"
     _write_if_changed(explorer_path, _render_couche3())
     written.append(explorer_path)
@@ -1387,4 +1453,9 @@ def _report_uncovered_opaque_fields() -> None:
     )
 
 
-__all__ = ["generate_all", "export_schema", "export_search_index"]
+__all__ = [
+    "generate_all",
+    "export_schema",
+    "export_openapi_wrapper",
+    "export_search_index",
+]
