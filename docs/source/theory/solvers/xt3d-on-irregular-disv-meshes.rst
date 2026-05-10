@@ -170,5 +170,5 @@ Related Pages
 
 - :doc:`mesh-and-discretization-strategies`
 - :doc:`modflow-package-semantics-and-boundary-conditions`
-- :doc:`modflow-family-methods`
+- :doc:`flow/modflow-family`
 - :doc:`../../user_guide/concepts/comparison-workflow`

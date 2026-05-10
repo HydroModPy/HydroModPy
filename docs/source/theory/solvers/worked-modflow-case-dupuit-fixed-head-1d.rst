@@ -21,6 +21,6 @@ conventions:
 
 See also:
 
-- :doc:`flow/modflow/common-concepts`
+- :doc:`modflow-governing-equation-and-cvfd-formulation`
 - :doc:`flow/modflow/comparison-and-method-choice`
 - :doc:`/user_guide/concepts/comparison-output-reading-order`

@@ -167,9 +167,5 @@ Conventions
 - Sign convention: ``Q > 0`` and ``R > 0`` represent flux into the
   aquifer.
 
-This page replaces what would have been a tools-comparison page. Per
-the v1 documentation refactor plan, comparing HydroModPy with other
-toolboxes (FloPy, ParFlow, PFLOTRAN) was deliberately dropped; the
-solver capability matrix at
-:doc:`solvers/solver-capability-matrix` documents the in-scope
-backends instead.
+For the in-scope backends and what each one represents, see
+:doc:`solvers/solver-capability-matrix`.

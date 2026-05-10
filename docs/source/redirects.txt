@@ -17,6 +17,16 @@ user_guide/mesh user_guide/workflows/testbed
 user_guide/capability-matrix user_guide/index
 user_guide/data/provider-matrix user_guide/data/index
 user_guide/config_reference/validate user_guide/cli-reference
+theory/hydrology/streams-and-seepage theory/streams_and_seepage/index
+theory/solvers/flow/shared-flow-numerics theory/solvers/flow/index
+theory/solvers/meshes-and-numerical-methods theory/solvers/mesh-and-discretization-strategies
+theory/solvers/modflow-family-methods theory/solvers/flow/modflow-family
+theory/solvers/flow/modflow/index theory/solvers/flow/modflow-family
+theory/solvers/flow/modflow/common/index theory/solvers/flow/modflow-family
+theory/solvers/flow/modflow/common-concepts theory/solvers/modflow-governing-equation-and-cvfd-formulation
+theory/solvers/flow/modflow/cross-cutting/index theory/solvers/flow/modflow-family
+theory/solvers/flow/modflow/modflow6-version/index theory/solvers/flow/modflow/modflow6
+theory/solvers/flow/modflow/modflownwt-version/index theory/solvers/flow/modflow/modflownwt
 getting_started/workflow-families user_guide/concepts/workflow-families
 getting_started/workspace-layout user_guide/concepts/workspace-layout
 scientific/calibration/calibration-methods theory/calibration/calibration-methods

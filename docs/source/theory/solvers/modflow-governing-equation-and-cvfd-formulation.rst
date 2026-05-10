@@ -236,7 +236,7 @@ This page should stay near the top of the MODFLOW scientific reading order.
 Then readers should continue with:
 
 - :doc:`modflow6-vs-modflownwt-scientific-comparison`
-- :doc:`modflow-family-methods`
+- :doc:`flow/modflow-family`
 - :doc:`modflow-package-semantics-and-boundary-conditions`
 - :doc:`vertical-representation-and-storage-assumptions`
 - :doc:`xt3d-on-irregular-disv-meshes`

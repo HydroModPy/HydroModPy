@@ -387,5 +387,5 @@ The most relevant anchors for the current version are:
 - :doc:`../hydrology/hydrological-forcing-chain`
 - :doc:`../hydrology/recharge-and-surface-exchange-semantics`
 - :doc:`../hydrology/stream-ocean-and-drainage-semantics`
-- :doc:`../solvers/modflow-family-methods`
+- :doc:`../solvers/flow/modflow-family`
 - :doc:`../boussinesq`

@@ -12,26 +12,26 @@ This page groups the scientific notes for MODFLOW-family ``flow`` solvers.
    This avoids mixing backend-specific details before the common groundwater
    balance and package vocabulary are clear.
 
-Read this family as three explicit sub-categories:
+Read this family as three explicit blocks:
 
 .. list-table::
    :header-rows: 1
    :widths: 24 34 42
 
-   * - Sub-category
+   * - Block
      - Main page
      - Purpose
    * - Common MODFLOW part
-     - :doc:`modflow/common/index`
+     - :doc:`../modflow-governing-equation-and-cvfd-formulation`
      - Shared groundwater-flow vocabulary: governing equation, package
        semantics, boundary mapping, stress periods, vertical assumptions, and
        comparison discipline.
    * - MODFLOW 6 version
-     - :doc:`modflow/modflow6-version/index`
+     - :doc:`modflow/modflow6`
      - Modern MODFLOW 6 GWF route for ``flow/modflow6``: structured and
        runtime DISV-style supports, XT3D choices, and MODFLOW 6 GWT coupling.
    * - MODFLOW-NWT version
-     - :doc:`modflow/modflownwt-version/index`
+     - :doc:`modflow/modflownwt`
      - Legacy MODFLOW-NWT route for ``flow/modflownwt``: structured ``sgrid``
        support, continuity with historical studies, MODPATH, and MT3DMS.
 
@@ -68,36 +68,31 @@ two examples below are useful first anchors:
          A MODFLOW-NWT basin run can be read through outlet response and budget
          diagnostics before more specialized spatial overlays are interpreted.
 
-Hierarchical Internal Structure
--------------------------------
-
-The left navigation exposes only four MODFLOW categories. Detailed notes remain
-inside those category pages instead of appearing directly under the family:
+Internal pages
+--------------
 
 .. toctree::
-   :caption: MODFLOW categories
+   :caption: MODFLOW pages
    :maxdepth: 1
 
-   modflow/common/index
-   modflow/common-concepts
-   modflow/modflow6-version/index
-   modflow/modflownwt-version/index
-   modflow/cross-cutting/index
+   modflow/modflow6
+   modflow/modflownwt
    modflow/comparison-and-method-choice
    modflow/worked-cases
    modflow/transport-coupling
 
-Quick Reading Order
+Quick reading order
 -------------------
 
-If you do not know where to start, read the internal pages in this order:
+If you do not know where to start:
 
-1. :doc:`modflow/common/index`,
-2. :doc:`modflow/modflow6-version/index` if you use the modern MODFLOW 6 path,
-3. :doc:`modflow/modflownwt-version/index` if you use the legacy MODFLOW-NWT
-   path,
-4. :doc:`modflow/cross-cutting/index` for comparison, worked cases, and
-   transport coupling.
+1. :doc:`../modflow-governing-equation-and-cvfd-formulation` for the
+   shared groundwater balance.
+2. :doc:`modflow/modflow6` if you use the modern MODFLOW 6 path, or
+   :doc:`modflow/modflownwt` if you use the legacy MODFLOW-NWT path.
+3. :doc:`modflow/comparison-and-method-choice` and
+   :doc:`modflow/transport-coupling` once the chosen backend is clear.
+4. :doc:`modflow/worked-cases` to anchor everything in a concrete run.
 
 Surface Exchange And Active-Network Reading
 -------------------------------------------

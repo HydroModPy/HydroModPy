@@ -95,5 +95,5 @@ Related Reading
   once a comparison output folder is available.
 - :doc:`reading-results-pages` for the difference between gallery,
   comparison, and validation pages.
-- :doc:`../../theory/solvers/meshes-and-numerical-methods` for the
-  numerical-method context behind discretization choices.
+- :doc:`../../theory/solvers/mesh-and-discretization-strategies` for
+  the numerical-method context behind discretization choices.

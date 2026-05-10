@@ -1,18 +1,52 @@
 Scientific Foundations
 ======================
 
-This section is the missing high-level scientific entry point for HydroModPy.
+.. raw:: html
 
-Use it when the question is not yet "which solver file should I read?" but
-rather:
+   <p class="lead">
+   The high-level scientific entry point: what physical system HydroModPy
+   models, the assumptions shared across every workflow, and the
+   solver-agnostic form of the groundwater problem before backend
+   translation.
+   </p>
 
-- what physical system HydroModPy is meant to represent,
-- which modelling assumptions are shared across workflows,
-- what the solver-agnostic groundwater problem looks like before backend
-  translation.
+Use this section before reading any solver-specific page. It defines the
+common vocabulary that the rest of the theory documentation assumes.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card:: System scope and assumptions
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: system-scope-and-assumptions
+      :link-type: doc
+
+      What HydroModPy claims to represent and what it deliberately
+      leaves out: shallow unconfined aquifers, catchment scale,
+      decoupling from atmospheric and subsurface processes outside
+      the project scope.
+
+   .. grid-item-card:: Groundwater flow problem definition
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: groundwater-flow-problem-definition
+      :link-type: doc
+
+      The solver-agnostic statement of the problem: state variable,
+      governing equation, boundary conditions, forcing terms, and
+      the regime split (steady versus transient).
+
+See also
+--------
+
+- :doc:`/theory/notation` for the symbol table and units.
+- :doc:`/theory/mesh/index` to see how the problem becomes a
+  discrete one once the support is chosen.
+- :doc:`/theory/solvers/index` for backend-specific interpretations
+  of the equations defined here.
 
 .. toctree::
-   :maxdepth: 2
+   :hidden:
+   :maxdepth: 1
 
    system-scope-and-assumptions
    groundwater-flow-problem-definition

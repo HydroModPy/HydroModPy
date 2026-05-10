@@ -25,23 +25,23 @@ Current Flow Solver Families
    * - MODFLOW family
      - ``modflownwt``, ``modflow6``
      - Structured-grid and MODFLOW 6 groundwater-flow backends. Internal
-       structure: common MODFLOW part, :doc:`MODFLOW 6 version
-       <modflow/modflow6-version/index>`, and :doc:`MODFLOW-NWT version
-       <modflow/modflownwt-version/index>`.
+       structure: :doc:`MODFLOW 6 <modflow/modflow6>` and
+       :doc:`MODFLOW-NWT <modflow/modflownwt>` pages, plus the
+       cross-cutting comparison, worked cases, and transport coupling.
    * - Boussinesq family
      - ``boussinesq``
      - In-house shallow-groundwater finite-volume backend. Consolidated theory
        page: :doc:`../../boussinesq`.
    * - Shared flow numerics
      - Applies to several flow solvers.
-     - Mesh, discretization, vertical representation, and field-to-cell
-       parameter transfer notes.
+     - See :doc:`../mesh-and-discretization-strategies`,
+       :doc:`../vertical-representation-and-storage-assumptions`,
+       and :doc:`../field-to-cell-parameter-transfer`.
 
 .. toctree::
    :maxdepth: 1
 
    modflow-family
-   shared-flow-numerics
 
 Related Pages
 -------------
