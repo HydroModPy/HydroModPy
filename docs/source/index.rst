@@ -126,7 +126,14 @@ repository" button.
 
    @software{hydromodpy_software,
      title   = {HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models},
-     author  = {Gauvain, A. and Abherv\'e, R. and Boivin, B. and Roques, C. and others},
+     author  = {Gauvain, A. and Abherv\'e, R. and Boivin, B. and Roques, C. and
+                Le Mesnil, M. and Coche, A. and Babey, T. and Mar\c{c}ais, J. and
+                Bouchez, C. and Leray, S. and Marti, E. and Bresciani, E. and
+                Figueroa, R. and P\'elissier, M. and Guillaumot, L. and
+                Touzeau, T. and Issolah, I. and Maugan, E. and Bagagnan, R. S. and
+                Vautier, C. and Sallou, J. and Bourcier, J. and Combemale, B. and
+                Brunner, P. and Longuevergne, L. and Aquilina, L. and
+                de Dreuzy, J.-R.},
      year    = {2026},
      url     = {https://github.com/HydroModPy/HydroModPy},
      license = {EPL-2.0}
@@ -134,7 +141,14 @@ repository" button.
 
    @article{egusphere-2026-868,
      title   = {Technical note: HydroModPy -- a Python toolbox for deploying catchment-scale shallow groundwater models},
-     author  = {Gauvain, A. and Abherv\'e, R. and Boivin, B. and Roques, C. and others},
+     author  = {Gauvain, A. and Abherv\'e, R. and Boivin, B. and Roques, C. and
+                Le Mesnil, M. and Coche, A. and Babey, T. and Mar\c{c}ais, J. and
+                Bouchez, C. and Leray, S. and Marti, E. and Bresciani, E. and
+                Figueroa, R. and P\'elissier, M. and Guillaumot, L. and
+                Touzeau, T. and Issolah, I. and Maugan, E. and Bagagnan, R. S. and
+                Vautier, C. and Sallou, J. and Bourcier, J. and Combemale, B. and
+                Brunner, P. and Longuevergne, L. and Aquilina, L. and
+                de Dreuzy, J.-R.},
      journal = {EGUsphere},
      year    = {2026},
      volume  = {2026},
@@ -256,6 +270,32 @@ Install
 
 For detailed instructions see the :doc:`installation guide <install>`.
 If you plan to add new features, check the :doc:`contributor setup <contribute>`.
+
+Authors and affiliations
+------------------------
+
+A. Gauvain\ :sup:`1,2`, R. Abhervé\ :sup:`1,3,4`, B. Boivin\ :sup:`1`,
+C. Roques\ :sup:`3`, M. Le Mesnil\ :sup:`1`, A. Coche\ :sup:`1`,
+T. Babey\ :sup:`1`, J. Marçais\ :sup:`5`, C. Bouchez\ :sup:`1`,
+S. Leray\ :sup:`6`, E. Marti\ :sup:`6`, E. Bresciani\ :sup:`7`,
+R. Figueroa\ :sup:`3`, M. Pélissier\ :sup:`3`, L. Guillaumot\ :sup:`8`,
+T. Touzeau\ :sup:`1`, I. Issolah\ :sup:`11`, E. Maugan\ :sup:`1`,
+R. S. Bagagnan\ :sup:`1`, C. Vautier\ :sup:`1`, J. Sallou\ :sup:`9`,
+J. Bourcier\ :sup:`10`, B. Combemale\ :sup:`11`, P. Brunner\ :sup:`3`,
+L. Longuevergne\ :sup:`1`, L. Aquilina\ :sup:`1`,
+J.-R. de Dreuzy\ :sup:`1`.
+
+- :sup:`1` Geosciences Rennes - UMR 6118, CNRS, Université de Rennes, Rennes, France
+- :sup:`2` Laboratoire de Météorologie Dynamique (LMD), CNRS, Sorbonne Université, Paris, France
+- :sup:`3` Centre for Hydrogeology and Geothermics (CHYN), Université de Neuchâtel, Neuchâtel, Switzerland
+- :sup:`4` UMR SAS 1069, INRAE, Centre Bretagne-Normandie, Rennes, France
+- :sup:`5` UR RiverLy, INRAE, Centre Lyon-Grenoble Auvergne-Rhône-Alpes, Villeurbanne, France
+- :sup:`6` Pontificia Universidad Católica de Chile, Santiago, Chile
+- :sup:`7` Instituto de Ciencias de la Ingeniería, Universidad de O'Higgins, Rancagua, Chile
+- :sup:`8` BRGM, F-45060 Orléans, France
+- :sup:`9` INF, Wageningen University & Research, Wageningen, Netherlands
+- :sup:`10` ISA/LIUPPA, Université de Pau et des Pays de l'Adour, Pau, France
+- :sup:`11` Inria, IRISA, CNRS, Université de Rennes, Rennes, France
 
 Corresponding authors
 ---------------------
