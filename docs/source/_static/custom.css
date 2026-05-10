@@ -59,6 +59,40 @@ p.lead {
     margin-bottom: 1.5rem;
 }
 
+/* Landing page badge row: align shields.io / RTD badges horizontally with
+   wrap, drop the default <p> wrapping that Sphinx adds around images. */
+.hmp-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 0.5rem;
+    align-items: center;
+    margin: 1rem 0 1.75rem 0;
+}
+
+.hmp-badges p {
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 0;
+}
+
+.hmp-badges img {
+    height: 22px;
+    margin: 0 !important;
+    vertical-align: middle;
+    transition: transform 0.15s ease-in-out, filter 0.15s ease-in-out;
+}
+
+.hmp-badges a {
+    display: inline-flex;
+    align-items: center;
+    line-height: 0;
+}
+
+.hmp-badges a:hover img {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+}
+
 /* Landing CTAs. */
 .hmp-landing-cta {
     margin-top: 1.5rem;

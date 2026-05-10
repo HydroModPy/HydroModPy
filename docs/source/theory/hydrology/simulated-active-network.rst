@@ -291,7 +291,7 @@ Related Reading
 - :doc:`../streams_and_seepage/conceptual-model`
 - :doc:`../streams_and_seepage/status-and-limitations`
 - :doc:`stream-ocean-and-drainage-semantics`
-- :doc:`../solvers/modflow-family-methods`
+- :doc:`../solvers/flow/modflow-family`
 - :doc:`../solvers/modflow-package-semantics-and-boundary-conditions`
 - :doc:`../../architecture/overview/hydrographic-network-simulated-active-inventory`
 - :doc:`../../user_guide/concepts/comparison-workflow`

@@ -132,5 +132,4 @@ See also
   :doc:`/architecture/how-to/add-a-data-source` for contributor
   recipes.
 - :doc:`/user_guide/data/index` for the user-facing data loading
-  guide.
-- :doc:`/user_guide/data/provider-matrix` for the provider matrix.
+  guide and provider matrix.

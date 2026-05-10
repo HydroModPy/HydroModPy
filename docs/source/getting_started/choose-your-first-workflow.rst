@@ -9,7 +9,7 @@ Use this page when you know what you want to learn, but not which HydroModPy
 entry point to open first.
 
 If you already know the CLI keyword you are looking for and want the full map
-of ``[workflow].mode = "..."`` families, use :doc:`../user_guide/driving-hydromodpy`.
+of ``[workflow].mode = "..."`` families, use :doc:`../user_guide/workflows/index`.
 
 .. important::
 
@@ -20,34 +20,47 @@ of ``[workflow].mode = "..."`` families, use :doc:`../user_guide/driving-hydromo
 Match your goal to a first page
 -------------------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 24 26 28 22
+Inspect one basin before any solve
+   Start with :doc:`data-overview-walkthrough`. Watershed extraction,
+   domain setup, and data loading, without touching any solver.
 
-   * - Goal
-     - Start here
-     - Why this is the right first step
-     - Primary command
-   * - Inspect one basin before any solve
-     - :doc:`data-overview-walkthrough`
-     - You only work with watershed extraction, domain setup, and data loading.
-     - ``hmp run examples/projects/04_data_overview/project.toml``
-   * - Run one complete example end to end
-     - :doc:`simulation-walkthrough`
-     - You see how geographic setup, meshing, and flow fit together.
-     - ``hmp run examples/projects/06_vire_selune/run_vire_mf6_irregular.toml``
-   * - Compare two numerical methods on the same support
-     - :doc:`../user_guide/concepts/comparison-workflow`
-     - You want a dedicated run workflow that generates child simulations, metrics, and difference figures.
-     - ``hmp run examples/projects/09_comparison_workflow/compare_dupuit_mf6_bouss.toml``
-   * - Check numerical credibility against a reference
-     - :doc:`../user_guide/concepts/reading-results-pages`
-     - Validation pages explain analytical targets, solver coverage, and tolerance-based metrics.
-     - ``python -m validation_cases.run_cases --solver modflow6 --regime both --no-show``
-   * - Browse the full static inventory first
-     - :doc:`../capability_gallery/index`
-     - The capability gallery lets you scan curated figures quickly before running anything locally.
-     - ``python -m tools.doc_gallery``
+   .. code-block:: bash
+
+      hmp run examples/projects/04_data_overview/project.toml
+
+Run one complete example end to end
+   Start with :doc:`simulation-walkthrough`. See how geographic setup,
+   meshing, and flow fit together in a single run.
+
+   .. code-block:: bash
+
+      hmp run examples/projects/06_vire_selune/run_vire_mf6_irregular.toml
+
+Compare two numerical methods on the same support
+   Start with :doc:`../user_guide/concepts/comparison-workflow`. A
+   dedicated run workflow that generates child simulations, metrics,
+   and difference figures.
+
+   .. code-block:: bash
+
+      hmp run examples/projects/09_comparison_workflow/compare_dupuit_mf6_bouss.toml
+
+Check numerical credibility against a reference
+   Start with :doc:`../user_guide/concepts/reading-results-pages`.
+   Validation pages explain analytical targets, solver coverage, and
+   tolerance-based metrics.
+
+   .. code-block:: bash
+
+      python -m validation_cases.run_cases --solver modflow6 --regime both --no-show
+
+Browse the full static inventory first
+   Start with :doc:`../capability_gallery/index`. A visual inventory:
+   scan curated figures quickly before running anything locally.
+
+   .. code-block:: bash
+
+      python -m tools.doc_gallery
 
 Default path for most users
 ---------------------------

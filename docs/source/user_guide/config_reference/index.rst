@@ -14,7 +14,6 @@ Click a card to open the section detail page.
 - :doc:`complete_toml` -- full annotated TOML reference
 - :doc:`schema_explorer` -- interactive JSON Schema viewer
 - :doc:`recipes` -- task-oriented cookbook
-- :doc:`validate` -- pre-flight your project.toml in the browser
 
 Quick search across every TOML path
 -----------------------------------
@@ -192,7 +191,6 @@ Sections
    complete_toml
    schema_explorer
    recipes
-   validate
    workflow
    workspace
    geographic

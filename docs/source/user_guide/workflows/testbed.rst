@@ -226,6 +226,67 @@ This means:
 - keep future transport subjects inside the same testbed contract instead of
   creating a new workflow name for each method family.
 
+Mesh Decision Matrix
+~~~~~~~~~~~~~~~~~~~~
+
+The mesh controls numerical sensitivity, solver compatibility (structured
+``sgrid`` vs unstructured DISV), local refinement around stream networks and
+zone interfaces, and the cell budget that calibration loops will pay for. Use
+the following routing when a question about discretization comes up:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 38 62
+
+   * - Question
+     - Best entry point
+   * - Which mesh styles does HydroModPy support?
+     - :doc:`../solvers`
+   * - When should I prefer structured over unstructured?
+     - :doc:`../../theory/solvers/mesh-quality-and-acceptance-criteria`
+   * - Which mesh diagnostics matter before any physics?
+     - :doc:`../concepts/reading-results-pages`
+   * - Where are stable mesh examples I can browse?
+     - :doc:`../../capability_gallery/mesh`
+   * - How does a catchment mesh become a solver input?
+     - :doc:`../../architecture/mesh/catchment-mesh-architecture`
+   * - How are structured grids represented internally?
+     - :doc:`../../architecture/mesh/structured-grid-architecture`
+   * - How is the Gmsh-backed conformal mesh built?
+     - :doc:`../../architecture/gmsh_meshing`
+
+Mesh-Only Minimal Shape
+~~~~~~~~~~~~~~~~~~~~~~~
+
+When iterating on refinement policy, geology constraints, or river-network
+conformity without invoking any flow solver, declare a single mesh build
+through the same ``testbed`` workflow with one variant (or use a one-shot
+mesh-only TOML):
+
+.. code-block:: toml
+
+   [workflow]
+   mode = "mesh"
+
+   [workspace]
+   project_root = "./my_basin"
+
+   [geographic]
+   catch_def = "from_polyg_shp"
+   dem_init_path = "data/regional_dem.tif"
+   polyg_shp_path = "data/basin.shp"
+   buff_area = "500 m"
+
+   [mesh_catchment]
+   constraints_mode = "geology_rivers"
+
+   [mesh_catchment.geology]
+   path = "data/geology.shp"
+
+.. code-block:: bash
+
+   hmp run mesh_only.toml
+
 Output Files
 ------------
 

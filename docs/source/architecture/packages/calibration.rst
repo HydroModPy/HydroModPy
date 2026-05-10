@@ -119,4 +119,4 @@ See also
   operational reference.
 - :doc:`/architecture/how-to/add-a-calibration-method` --
   step-by-step recipe.
-- :doc:`/user_guide/calibration` -- user-facing hub.
+- :doc:`/user_guide/workflows/calibration` -- user-facing hub.

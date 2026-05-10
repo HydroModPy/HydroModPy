@@ -32,23 +32,14 @@ Core concepts
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: driving-hydromodpy
-      :link-type: doc
-
-      **Driving HydroModPy**
-      ^^^
-      Workflow families and the seven driving modes: CLI TOML, JSON, Python,
-      notebooks, and low-level primitives.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: workflows/index
       :link-type: doc
 
-      **Workflow families**
+      **Workflow families and driving modes**
       ^^^
       Overview, simulation, testbed, calibration, batch, and comparison
-      workflows.
+      workflows, plus the seven driving modes (CLI TOML, JSON, Python,
+      notebooks, and low-level primitives).
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -86,9 +77,11 @@ Read the documentation in this order when you want to avoid duplicates:
    overview for data identity cards, simulation for one persisted run, testbed
    for controlled variants, calibration for repeated candidate runs, batch for
    regional campaigns, and comparison for shared-case solver contrasts.
-3. Topic guides such as :doc:`mesh`, :doc:`comparison`, and :doc:`calibration`
-   should only route users to scientific, gallery, and architecture details;
-   they should not duplicate the workflow walkthroughs.
+3. Topic guides such as :doc:`workflows/testbed`,
+   :doc:`workflows/comparison`, and :doc:`workflows/calibration` are the
+   single source of truth for each workflow family. They link out to
+   theory, gallery, and architecture rather than re-describing the
+   workflow walkthroughs.
 4. The capability gallery should remain the evidence layer: stable figures,
    metrics, and reproducible examples that illustrate the workspace artifacts.
 
@@ -104,17 +97,17 @@ Topic guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: mesh
+      :link: workflows/testbed
       :link-type: doc
 
       **Mesh diagnostics**
       ^^^
-      User-facing route through mesh examples, testbed-based discretization
-      studies, scientific notes, and mesh architecture pages.
+      Mesh-only workflows, testbed-based discretization studies, refinement
+      policies, and the route to mesh scientific and architecture pages.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: comparison
+      :link: workflows/comparison
       :link-type: doc
 
       **Comparison workflows**
@@ -124,7 +117,7 @@ Topic guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: calibration
+      :link: workflows/calibration
       :link-type: doc
 
       **Calibration workflows**
@@ -134,23 +127,14 @@ Topic guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: solver-process-map
+      :link: solvers
       :link-type: doc
 
-      **Solvers by process**
+      **Solvers**
       ^^^
-      Process-first map of flow, transport, postprocess, and display solver
-      families.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: solver-choice
-      :link-type: doc
-
-      **Solver choice**
-      ^^^
-      Where to compare MODFLOW-NWT, MODFLOW 6, Boussinesq, meshes, and XT3D
-      options.
+      Process-first map of flow, transport, postprocess, and display
+      solvers, with the trade-offs between MODFLOW-NWT, MODFLOW 6,
+      Boussinesq, mesh families, and the XT3D option.
 
 Capability and API-oriented guides
 ----------------------------------
@@ -167,16 +151,6 @@ Capability and API-oriented guides
       ^^^
       Registered top-level commands, workflow flags, and nested command
       families.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: capability-matrix
-      :link-type: doc
-
-      **Capability matrix**
-      ^^^
-      What is supported, validated, demonstrated, and documented across
-      workflows, solvers, data, figures, and exports.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -243,20 +217,14 @@ Use these pages once you have generated or opened result pages:
    :hidden:
 
    Configuration reference <config_reference/index>
-   Driving HydroModPy <driving-hydromodpy>
-   Workflow families <workflows/index>
+   Workflow families and modes <workflows/index>
    Concepts <concepts/index>
    Cookbook <cookbook/index>
    Theory <../theory/index>
-   mesh
-   comparison
-   calibration
    cli-reference
-   capability-matrix
    Data loading <data/index>
    results-and-exports
    figures
    project-api
-   solver-process-map
-   solver-choice
+   solvers
    troubleshooting

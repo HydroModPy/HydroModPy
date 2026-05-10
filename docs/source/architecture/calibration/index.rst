@@ -10,7 +10,7 @@ stack.
 - :doc:`calibration-guide` is the operational reference: TOML
   sections, optimizer catalogue, storage rules, pitfalls, Python API.
 
-For the user-facing hub, see :doc:`../../user_guide/calibration`.
+For the user-facing hub, see :doc:`../../user_guide/workflows/calibration`.
 
 .. toctree::
    :maxdepth: 2

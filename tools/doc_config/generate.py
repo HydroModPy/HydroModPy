@@ -44,6 +44,7 @@ DIAGRAM_DIR = REFERENCE_DIR / "_diagrams"
 GALLERY_VALIDATION_DIR = Path("docs/source/_static/capability_gallery/validation")
 GALLERY_CASES_DIR = "capability_gallery/cases"
 SCHEMA_OUTPUT = Path("docs/source/_static/hydromodpy-schema.json")
+OPENAPI_OUTPUT = Path("docs/source/_static/hydromodpy-openapi.json")
 SEARCH_INDEX_OUTPUT = Path("docs/source/_static/hmp-config-search.json")
 
 GITHUB_REPO = "HydroModPy/HydroModPy"
@@ -770,7 +771,6 @@ def _render_couche1(top_fields: dict[str, FieldInfo]) -> str:
         "- :doc:`complete_toml` -- full annotated TOML reference",
         "- :doc:`schema_explorer` -- interactive JSON Schema viewer",
         "- :doc:`recipes` -- task-oriented cookbook",
-        "- :doc:`validate` -- pre-flight your project.toml in the browser",
         "",
         "Quick search across every TOML path",
         "-----------------------------------",
@@ -818,7 +818,6 @@ def _render_couche1(top_fields: dict[str, FieldInfo]) -> str:
             "   complete_toml",
             "   schema_explorer",
             "   recipes",
-            "   validate",
         ]
     )
     for name, field in top_fields.items():
@@ -973,15 +972,23 @@ def _render_level_toggle(section_name: str) -> list[str]:
 def _render_couche3() -> str:
     lines = [
         GENERATED_HEADER,
+        ":html_theme.sidebar_secondary.remove:",
+        "",
         "Schema Explorer",
         "===============",
         "",
         "This page renders the canonical JSON Schema of ``HydroModPyConfig`` with",
-        "the Stoplight Elements viewer. The same schema is downloadable as a",
-        "single artifact for use in editors, CI validators, or API tooling that",
-        "consumes JSON Schema directly.",
+        "the Stoplight Elements viewer. The viewer expects an OpenAPI document,",
+        "so the schema is also exported as an OpenAPI 3.1 wrapper that promotes",
+        "``$defs`` to ``components.schemas``. Both files are downloadable for",
+        "external validators, IDE schema stores, or API tooling.",
         "",
-        "Download: :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`",
+        "Downloads:",
+        "",
+        "- :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`"
+        " (raw JSON Schema 2020-12, recommended for Ajv and ajv-cli)",
+        "- :download:`hydromodpy-openapi.json </_static/hydromodpy-openapi.json>`"
+        " (OpenAPI 3.1 wrapper used by the viewer below)",
         "",
         ".. note::",
         "   The viewer loads the Stoplight Elements bundle from the unpkg CDN at",
@@ -993,9 +1000,16 @@ def _render_couche3() -> str:
         '   <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements/styles.min.css">',
         '   <script src="https://unpkg.com/@stoplight/elements/web-components.min.js"'
         ' type="module"></script>',
+        "   <style>",
+        "     /* Full-width viewer: override the 80rem article cap and give",
+        "        the Stoplight panel a tall viewport-relative height. */",
+        "     .bd-main .bd-content .bd-article-container { max-width: none; }",
+        "     .hmp-schema-explorer { width: 100%; min-height: 80vh; }",
+        "     .hmp-schema-explorer elements-api { display: block; height: 80vh; width: 100%; }",
+        "   </style>",
         '   <div class="hmp-schema-explorer">',
         "     <elements-api",
-        '       apiDescriptionUrl="../../_static/hydromodpy-schema.json"',
+        '       apiDescriptionUrl="../../_static/hydromodpy-openapi.json"',
         '       router="hash"',
         '       layout="sidebar"',
         '       hideExport="true">',
@@ -1188,6 +1202,63 @@ def export_schema(output_path: Path | None = None) -> Path:
     return target
 
 
+def _rewrite_defs_to_components(node: Any) -> None:
+    """Rewrite ``$ref`` pointing into ``$defs`` so they resolve under
+    ``components.schemas`` in the wrapped OpenAPI document."""
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/$defs/"):
+            node["$ref"] = ref.replace("#/$defs/", "#/components/schemas/", 1)
+        for value in node.values():
+            _rewrite_defs_to_components(value)
+    elif isinstance(node, list):
+        for value in node:
+            _rewrite_defs_to_components(value)
+
+
+def export_openapi_wrapper(output_path: Path | None = None) -> Path:
+    """Write an OpenAPI 3.1 wrapper around the JSON Schema export.
+
+    Stoplight Elements (the viewer used on ``schema_explorer.rst``) accepts
+    OpenAPI 3.x and Swagger 2.0 only. The raw JSON Schema is rejected with a
+    "failed to parse openapi file" message. This wrapper exposes the same
+    Pydantic schema as ``components.schemas`` so the explorer can render it.
+    The ``$defs`` are promoted to ``components.schemas`` and every internal
+    ``$ref`` is rewritten accordingly.
+    """
+    target = (output_path or OPENAPI_OUTPUT).resolve()
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    schema = HydroModPyConfig.model_json_schema()
+    schema.pop("$schema", None)
+    defs = schema.pop("$defs", {}) or {}
+
+    _rewrite_defs_to_components(schema)
+    components_schemas: dict[str, Any] = {"HydroModPyConfig": schema}
+    for name, sub_schema in defs.items():
+        _rewrite_defs_to_components(sub_schema)
+        components_schemas[name] = sub_schema
+
+    document = {
+        "openapi": "3.1.0",
+        "info": {
+            "title": "HydroModPy configuration schema",
+            "version": "1.0",
+            "description": (
+                "Pydantic-validated schema for the HydroModPy TOML root "
+                "configuration. Generated from ``HydroModPyConfig`` and wrapped "
+                "into an OpenAPI document so it can be rendered by the "
+                "Stoplight Elements viewer on ``schema_explorer.rst``."
+            ),
+        },
+        "paths": {},
+        "components": {"schemas": components_schemas},
+    }
+
+    _write_if_changed(target, json.dumps(document, indent=2, sort_keys=False) + "\n")
+    return target
+
+
 def export_search_index(top_fields: dict[str, FieldInfo], output_path: Path | None = None) -> Path:
     """Write a flat JSON index used by the in-page Ctrl+F search widget."""
     entries: list[dict[str, Any]] = []
@@ -1271,6 +1342,8 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
 
     schema_path = export_schema()
     written.append(schema_path)
+    openapi_path = export_openapi_wrapper()
+    written.append(openapi_path)
     explorer_path = out / "schema_explorer.rst"
     _write_if_changed(explorer_path, _render_couche3())
     written.append(explorer_path)
@@ -1285,10 +1358,6 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
 
     search_index_path = export_search_index(top_fields)
     written.append(search_index_path)
-
-    validate_path = out / "validate.rst"
-    _write_if_changed(validate_path, _render_validate_page())
-    written.append(validate_path)
 
     diagram_root = out / "_diagrams"
     diagram_root.mkdir(parents=True, exist_ok=True)
@@ -1313,62 +1382,6 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
     return written
 
 
-def _render_validate_page() -> str:
-    lines = [
-        GENERATED_HEADER,
-        "Validate your project.toml",
-        "==========================",
-        "",
-        "HydroModPy validates configuration through Pydantic v2. There are",
-        "three ways to validate a ``project.toml`` before launching a long",
-        "run:",
-        "",
-        "1. **CLI**: ``hmp validate path/to/project.toml`` (recommended).",
-        "2. **Python**: load and validate explicitly:",
-        "",
-        ".. code-block:: python",
-        "   :class: no-codeautolink",
-        "",
-        "   from hydromodpy.config import HydroModPyConfig",
-        "   import tomllib",
-        "",
-        "   with open('project.toml', 'rb') as fh:",
-        "       payload = tomllib.load(fh)",
-        "   HydroModPyConfig.model_validate(payload)",
-        "",
-        "3. **Browser**: paste a TOML payload below. The widget loads",
-        "   `Ajv 2020 <https://ajv.js.org/json-schema.html#draft-2020-12>`_",
-        "   and `smol-toml <https://github.com/squirrelchat/smol-toml>`_",
-        "   from the jsdelivr CDN to run a real JSON Schema 2020-12",
-        "   validation. When the CDN is unreachable the widget falls back",
-        "   to a structural check (top-level sections only). The Python",
-        "   validator remains authoritative for production launches.",
-        "",
-        ".. raw:: html",
-        "",
-        '   <div class="hmp-validate-widget">',
-        '     <textarea id="hmp-validate-input" rows="18" '
-        'placeholder="workflow = &quot;simulation&quot;&#10;&#10;[workspace]&#10;'
-        'project_root = &quot;.&quot;&#10;&#10;# paste the rest of your TOML here..."'
-        "></textarea>",
-        '     <div class="hmp-validate-actions">',
-        '       <button type="button" id="hmp-validate-run">Validate structure</button>',
-        '       <button type="button" id="hmp-validate-clear">Clear</button>',
-        "     </div>",
-        '     <pre id="hmp-validate-output" class="hmp-validate-output"></pre>',
-        "   </div>",
-        "",
-        "Schema and CLI",
-        "--------------",
-        "",
-        "- :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`",
-        "- See also :doc:`schema_explorer` for the interactive viewer",
-        "- ``hmp install-binaries`` if MODFLOW binaries are missing on first run",
-        "",
-    ]
-    return "\n".join(lines)
-
-
 def _report_uncovered_opaque_fields() -> None:
     """Emit a clear warning when an opaque dict[...] field remains in the schema."""
     try:
@@ -1387,4 +1400,9 @@ def _report_uncovered_opaque_fields() -> None:
     )
 
 
-__all__ = ["generate_all", "export_schema", "export_search_index"]
+__all__ = [
+    "generate_all",
+    "export_schema",
+    "export_openapi_wrapper",
+    "export_search_index",
+]

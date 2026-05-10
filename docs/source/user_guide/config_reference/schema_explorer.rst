@@ -2,15 +2,21 @@
 .. Run ``python -m tools.doc_config`` to refresh.
 
 
+:html_theme.sidebar_secondary.remove:
+
 Schema Explorer
 ===============
 
 This page renders the canonical JSON Schema of ``HydroModPyConfig`` with
-the Stoplight Elements viewer. The same schema is downloadable as a
-single artifact for use in editors, CI validators, or API tooling that
-consumes JSON Schema directly.
+the Stoplight Elements viewer. The viewer expects an OpenAPI document,
+so the schema is also exported as an OpenAPI 3.1 wrapper that promotes
+``$defs`` to ``components.schemas``. Both files are downloadable for
+external validators, IDE schema stores, or API tooling.
 
-Download: :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`
+Downloads:
+
+- :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>` (raw JSON Schema 2020-12, recommended for Ajv and ajv-cli)
+- :download:`hydromodpy-openapi.json </_static/hydromodpy-openapi.json>` (OpenAPI 3.1 wrapper used by the viewer below)
 
 .. note::
    The viewer loads the Stoplight Elements bundle from the unpkg CDN at
@@ -21,9 +27,16 @@ Download: :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`
 
    <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements/styles.min.css">
    <script src="https://unpkg.com/@stoplight/elements/web-components.min.js" type="module"></script>
+   <style>
+     /* Full-width viewer: override the 80rem article cap and give
+        the Stoplight panel a tall viewport-relative height. */
+     .bd-main .bd-content .bd-article-container { max-width: none; }
+     .hmp-schema-explorer { width: 100%; min-height: 80vh; }
+     .hmp-schema-explorer elements-api { display: block; height: 80vh; width: 100%; }
+   </style>
    <div class="hmp-schema-explorer">
      <elements-api
-       apiDescriptionUrl="../../_static/hydromodpy-schema.json"
+       apiDescriptionUrl="../../_static/hydromodpy-openapi.json"
        router="hash"
        layout="sidebar"
        hideExport="true">

@@ -16,8 +16,8 @@ and writes:
 | `complete_toml.rst` | Annotated copy-pasteable TOML reference |
 | `config_index.rst` | Flat global index of every TOML path |
 | `schema_explorer.rst` | Stoplight Elements viewer over the JSON Schema |
-| `validate.rst` | In-browser TOML structural pre-flight |
 | `_static/hydromodpy-schema.json` | Canonical JSON Schema export |
+| `_static/hydromodpy-openapi.json` | OpenAPI 3.1 wrapper consumed by the viewer |
 | `_static/hmp-config-search.json` | Search index used by the index page |
 
 `recipes.rst` is **not** auto-generated and lives next to the others.

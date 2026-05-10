@@ -11,7 +11,7 @@ Nancon Transient NWT Basin Diagnostics
 This case publishes one real Nancon watershed run from the standard `02_nancon_watershed` example project. Unlike the more synthetic launcher demonstrations, it stays close to one observed basin and uses stable figures to connect simulated groundwater response with reference hydrography and catchment-scale discharge diagnostics.
 
 .. seealso::
-   Read :doc:`the real-basin reading guide </getting_started/read-real-basin-run>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`the results-pages reading guide </user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. gallery-figure:: /_static/capability_gallery/simulation/nancon_transient_nwt_hydrographic_network_comparison.png
    :alt: Hydrographic network comparison on the Nancon basin
@@ -68,7 +68,7 @@ How To Read It
 Next Steps
 ----------
 
-- Read :doc:`the real-basin reading guide </getting_started/read-real-basin-run>` for a stricter interpretation order across committed basin-result pages.
+- Read :doc:`the results-pages reading guide </user_guide/concepts/reading-results-pages>` for a stricter interpretation order across committed basin-result pages.
 - Read :doc:`the Nancon scientific worked case </theory/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt>` if you want the exact `ETP -> EVT` package path and the MODFLOW-NWT option rationale behind this run.
 
 Reproduce
