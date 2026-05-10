@@ -3,8 +3,8 @@ workflow = "simulation"
 
 [simulation]
 name = "synthetic_patchy_drainage_low_mf6_bouss_shared_case"
-description = "Synthetic patchy 2D case with low top-drainage conductance for MF6 versus Boussinesq comparison."
+description = "Legacy synthetic patchy 2D drainage-sensitivity case; drainage is currently disabled by zero conductance."
 
 [flow.bc.cauchy.drainage]
-value = "0.02 m2/s"
-description = "Low-conductance synthetic top drainage without imposed lateral head."
+value = "0.0 m2/s"
+description = "Disabled synthetic top drainage; retained only as an explicit zero-conductance placeholder."

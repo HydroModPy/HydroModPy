@@ -16,7 +16,7 @@ root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_d
 
 [[comparison.simulation]]
 id = "bouss_candidate"
-label = "Boussinesq low-drainage candidate"
+label = "Boussinesq strict free-surface candidate"
 
 [comparison.simulation.overlay.workspace]
 project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_drainage_low_mf6_vs_bouss/workspace_bouss"

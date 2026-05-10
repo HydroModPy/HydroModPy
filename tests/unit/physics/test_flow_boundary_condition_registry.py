@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.physics.flow import Flow, FlowConfig
+from hydromodpy.physics.flow import (
+    FLOW_BOUNDARY_DEFINITIONS,
+    SUPPORTED_FLOW_BOUNDARY_IDS,
+    Flow,
+    FlowConfig,
+)
 from hydromodpy.physics.flow.boundary_condition_registry import (
     BoundaryConditionBundle,
     active_side_dirichlet_boundary_ids,
@@ -26,9 +31,11 @@ def test_boundary_registry_keeps_solver_side_order_and_capabilities() -> None:
     assert stream.default_type == "dirichlet"
     assert stream.support_kind == "stream"
     assert stream.backend_packages["modflow6"] == "CHD"
+    assert stream.package_for_backend("modflow6") == "CHD"
 
     assert "stream" in supported_boundary_ids_for_backend("boussinesq")
     assert "stream" not in supported_boundary_ids_for_backend("modflow_nwt")
+    assert SUPPORTED_FLOW_BOUNDARY_IDS == frozenset(FLOW_BOUNDARY_DEFINITIONS)
 
 
 def test_boundary_bundle_exposes_active_defined_and_missing_ids() -> None:

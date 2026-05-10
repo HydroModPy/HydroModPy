@@ -73,11 +73,15 @@ ts_vi_adapt = false
 ts_vi_type = "beuler"
 ts_vi_snes_type = "vinewtonrsls"
 
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
+
 [[comparison.observable]]
-name = "head_map_initial"
+name = "head_map_first_computed"
 variable = "watertable_elevation"
 support = "map"
-time = "first"
+time = "first_computed"
 unit = "m"
 
 [[comparison.observable]]

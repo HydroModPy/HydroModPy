@@ -9,11 +9,11 @@ from typing import Any
 
 import numpy as np
 
-_TITLE_FONT_SIZE = 11
-_PANEL_TITLE_FONT_SIZE = 9
-_LABEL_FONT_SIZE = 9
-_TICK_FONT_SIZE = 8
-_LEGEND_FONT_SIZE = 9
+_TITLE_FONT_SIZE = 16
+_PANEL_TITLE_FONT_SIZE = 13
+_LABEL_FONT_SIZE = 12
+_TICK_FONT_SIZE = 11
+_LEGEND_FONT_SIZE = 12
 
 
 def _slug(value: str) -> str:

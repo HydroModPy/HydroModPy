@@ -1,3 +1,5 @@
+.. _flow-boundary-conditions-runtime-contract:
+
 Flow Boundary Conditions
 ========================
 
@@ -19,6 +21,38 @@ The runtime architecture now adds one explicit middle layer:
 This keeps the user-facing contract stable while making backend support and
 future extensions easier to inspect.
 
+Quick Access
+------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 38 34
+
+   * - Question
+     - Primary code location
+     - What to look for
+   * - Which ids can appear in ``flow.active_bc``?
+     - ``hydromodpy.physics.flow.FLOW_BOUNDARY_DEFINITIONS``
+     - Canonical id, family, support kind, and backend support.
+   * - How is TOML normalized?
+     - ``hydromodpy.physics.flow.boundary_conditions_config``
+     - Accepted ``[flow.bc]`` shapes before typed validation.
+   * - What does a solver adapter consume?
+     - ``hydromodpy.physics.flow.BoundaryConditionBundle``
+     - Configured boundary payloads plus explicit active ids.
+   * - Where is MF6 assembly handled?
+     - ``hydromodpy.solver.modflow6.builders.boundary_conditions``
+     - ``CHD`` and ``DRN`` package payload construction.
+   * - Where is MODFLOW-NWT assembly handled?
+     - ``hydromodpy.solver.modflow_nwt.nwt._chd_payloads``
+     - ``BAS`` / ``CHD`` boundary-head payloads.
+   * - Where is Boussinesq assembly handled?
+     - ``hydromodpy.solver.boussinesq.forcing``
+     - Prescribed-head support and drainage operator resolution.
+   * - Which tests cover the registry contract?
+     - ``tests/unit/physics/test_flow_boundary_condition_registry.py``
+     - Registry ids, backend support, bundle behavior, and Flow integration.
+
 Code Map
 --------
 
@@ -37,6 +71,46 @@ Code Map
   MODFLOW-NWT ``BAS`` / ``CHD`` / ``DRN`` translation.
 - ``hydromodpy.solver.boussinesq.forcing``:
   prescribed-head and drainage operator resolution.
+
+Current Boundary Ids
+--------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 24 22 36
+
+   * - Id
+     - Family
+     - Support kind
+     - Backend package/operator
+   * - ``west_side``
+     - ``dirichlet``
+     - ``side``
+     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
+   * - ``east_side``
+     - ``dirichlet``
+     - ``side``
+     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
+   * - ``north_side``
+     - ``dirichlet``
+     - ``side``
+     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
+   * - ``south_side``
+     - ``dirichlet``
+     - ``side``
+     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
+   * - ``stream``
+     - ``dirichlet``
+     - ``stream``
+     - MF6 ``CHD``; Boussinesq ``prescribed_head``. Not implemented for NWT.
+   * - ``ocean``
+     - ``dirichlet``
+     - ``ocean_stage``
+     - MF6 ``CHD``; NWT ``BAS/CHD``; Boussinesq ``prescribed_head``.
+   * - ``drainage``
+     - ``head_dependent_exchange``
+     - ``top``
+     - MF6 ``DRN``; NWT ``DRN``; Boussinesq ``top_drainage``.
 
 Diagram 1: Component View
 -------------------------

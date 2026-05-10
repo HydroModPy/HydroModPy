@@ -16,8 +16,6 @@ else
     compare_synthetic_patchy_mf6_bouss.toml
     compare_synthetic_homogeneous_control_mf6_bouss.toml
     compare_synthetic_patchy_strong_k_mf6_bouss.toml
-    compare_synthetic_drainage_low_mf6_bouss.toml
-    compare_synthetic_drainage_high_mf6_bouss.toml
     compare_synthetic_recharge_pulse_mf6_bouss.toml
     compare_synthetic_small_domain_mf6_bouss.toml
     compare_synthetic_large_domain_mf6_bouss.toml

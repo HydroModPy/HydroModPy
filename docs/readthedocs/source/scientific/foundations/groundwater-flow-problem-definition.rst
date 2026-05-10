@@ -449,8 +449,10 @@ The most relevant anchors for the current version are:
 - ``hydromodpy.physics.flow.flow``
 - ``hydromodpy.physics.flow.flow_config``
 - ``hydromodpy.physics.flow.boundary_conditions``
+- ``hydromodpy.physics.flow.boundary_condition_registry``
 - ``hydromodpy.physics.flow.sinks_sources``
 - ``hydromodpy.physics.flow.initial_conditions``
+- :doc:`../../architecture/process/flow-boundary-conditions`
 - :doc:`../hydrology/hydrological-forcing-chain`
 - :doc:`../hydrology/recharge-and-surface-exchange-semantics`
 - :doc:`../hydrology/stream-ocean-and-drainage-semantics`

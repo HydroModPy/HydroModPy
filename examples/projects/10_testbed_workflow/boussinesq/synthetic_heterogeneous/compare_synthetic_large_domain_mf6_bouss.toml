@@ -23,7 +23,7 @@ project_root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/syn
 root = "../../outputs/boussinesq_synthetic_heterogeneous/comparisons/synthetic_large_domain_mf6_vs_bouss/workspace_bouss"
 
 [[comparison.observable]]
-name = "head_map_initial"
+name = "head_map_first_computed"
 
 [[comparison.observable]]
 name = "head_map_wet_year1"

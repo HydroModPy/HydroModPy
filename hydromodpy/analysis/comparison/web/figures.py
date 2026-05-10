@@ -35,16 +35,6 @@ _CATEGORY_META: dict[str, tuple[str, str, int]] = {
         "Stockage global et sommes d'entrees/sorties externes.",
         30,
     ),
-    "fluxes": (
-        "Flux agrege et chroniques",
-        "Flux ramenes a un observable commun quand la semantique physique a ete verifiee.",
-        35,
-    ),
-    "budgets": (
-        "Diagnostics de budget",
-        "Bilans natifs par solveur. Ils servent a l'audit numerique et ne sont pas toujours comparables terme a terme.",
-        40,
-    ),
     "networks": (
         "Reseaux et diagnostics spatiaux",
         "Hydrographie, reseau actif simule et diagnostics geometriques.",
@@ -67,6 +57,8 @@ def categorize_figures(figures: list[dict[str, Any]]) -> list[FigureCategory]:
     """Group figures into stable semantic categories for the HTML report."""
     grouped: dict[str, list[dict[str, Any]]] = {}
     for item in sorted(figures, key=_figure_sort_key):
+        if not include_in_comparison_report(item):
+            continue
         category_id = _figure_category_id(item)
         grouped.setdefault(category_id, []).append(item)
     categories: list[FigureCategory] = []
@@ -86,7 +78,41 @@ def categorize_figures(figures: list[dict[str, Any]]) -> list[FigureCategory]:
 
 def configuration_figures(figures: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return figures that describe the case setup rather than solver results."""
-    return [item for item in figures if _figure_category_id(item) == "configuration"]
+    return [
+        item
+        for item in figures
+        if include_in_comparison_report(item) and _figure_category_id(item) == "configuration"
+    ]
+
+
+def include_in_comparison_report(item: Mapping[str, Any]) -> bool:
+    """Return whether a figure belongs in the compact comparison HTML view."""
+    text = _figure_text(item)
+    kind = str(item.get("kind", "")).lower()
+    observable = str(item.get("observable", "")).lower()
+    if "case_configuration" in text:
+        return True
+    if (
+        kind == "fine_raster_map_comparison" and observable == "head_map_wet_year1"
+    ) or (
+        "head_map_wet_year1" in text and "fine_raster_map_comparison" in text
+    ):
+        return True
+    if (kind == "timeseries" and observable.startswith("head_") and observable.endswith("_series")) or (
+        name := Path(str(item.get("path", ""))).name.lower()
+    ).startswith("head_") and name.endswith("__timeseries.png"):
+        return True
+    if kind in {"storage_comparison_dashboard", "total_inputs_outputs_dashboard"}:
+        return True
+    if any(
+        token in text
+        for token in (
+            "storage_comparison_dashboard",
+            "total_inputs_outputs_dashboard",
+        )
+    ):
+        return True
+    return False
 
 
 def _figure_category_id(item: Mapping[str, Any]) -> str:
@@ -103,30 +129,6 @@ def _figure_category_id(item: Mapping[str, Any]) -> str:
         )
     ):
         return "water_balance"
-    if any(
-        token in text
-        for token in (
-            "budget",
-            "mass_balance",
-            "storage",
-            "water_balance",
-        )
-    ):
-        return "budgets"
-    if any(
-        token in text
-        for token in (
-            "comparable_outflow",
-            "flux",
-            "outflow",
-            "drain",
-            "seepage",
-            "surface_excess",
-            "recharge",
-            "discharge",
-        )
-    ):
-        return "fluxes"
     if any(
         token in text
         for token in (
@@ -187,4 +189,9 @@ def _figure_sort_key(item: Mapping[str, Any]) -> tuple[int, str]:
     return score, name
 
 
-__all__ = ("FigureCategory", "categorize_figures", "configuration_figures")
+__all__ = (
+    "FigureCategory",
+    "categorize_figures",
+    "configuration_figures",
+    "include_in_comparison_report",
+)

@@ -38,20 +38,6 @@ CASE_DEFINITIONS = [
         "comparison_root": "synthetic_patchy_strong_k_mf6_vs_bouss",
     },
     {
-        "variant_id": "synthetic_drainage_low_mf6_vs_bouss",
-        "variant_label": "Low drainage conductance",
-        "axis": "drainage_conductance",
-        "config": "base_synthetic_drainage_low.toml",
-        "comparison_root": "synthetic_drainage_low_mf6_vs_bouss",
-    },
-    {
-        "variant_id": "synthetic_drainage_high_mf6_vs_bouss",
-        "variant_label": "High drainage conductance",
-        "axis": "drainage_conductance",
-        "config": "base_synthetic_drainage_high.toml",
-        "comparison_root": "synthetic_drainage_high_mf6_vs_bouss",
-    },
-    {
         "variant_id": "synthetic_recharge_pulse_48m_mf6_vs_bouss",
         "variant_label": "48-month recharge pulse",
         "axis": "recharge_chronicle",
@@ -117,7 +103,8 @@ def main() -> int:
     report_args: list[str] = [
         str(campaign_root),
         "--title",
-        "Boussinesq synthetic comparison campaign",
+        "Boussinesq/MODFLOW 6 synthetic comparison campaign",
+        "--comparison-index-only",
     ]
     for case in CASE_DEFINITIONS:
         report_args.extend(
@@ -126,7 +113,10 @@ def main() -> int:
                 str((comparisons_root / str(case["comparison_root"])).resolve()),
             ]
         )
-    return int(render_report(report_args))
+    status = int(render_report(report_args))
+    if status == 0:
+        _remove_stale_case_pages(campaign_root)
+    return status
 
 
 def _build_rows(
@@ -223,7 +213,7 @@ def _write_campaign_contract(
 def _write_markdown_report(path: Path, *, case_rows: list[dict[str, Any]]) -> None:
     successful_count = sum(1 for row in case_rows if row["status"] == "ok")
     lines = [
-        "# Boussinesq synthetic comparison campaign",
+        "# Boussinesq/MODFLOW 6 synthetic comparison campaign",
         "",
         (
             f"Cases: {len(case_rows)}; successful: {successful_count}; "
@@ -243,6 +233,16 @@ def _write_markdown_report(path: Path, *, case_rows: list[dict[str, Any]]) -> No
             )
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _remove_stale_case_pages(campaign_root: Path) -> None:
+    cases_dir = campaign_root / "web_synthesis" / "cases"
+    if not cases_dir.is_dir():
+        return
+    active_names = {f"{case['variant_id']}.html" for case in CASE_DEFINITIONS}
+    for html_path in cases_dir.glob("*.html"):
+        if html_path.name not in active_names:
+            html_path.unlink()
 
 
 def _read_json(path: Path) -> dict[str, Any]:

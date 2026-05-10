@@ -580,6 +580,8 @@ def _solve_vi_obstacle_problem(
         tol_h=tol_h,
     )
     residual_norm = residual_norm_inf(projected_residual)
+    max_violation_lower_m = float(np.max(np.maximum(physical_lower - head, 0.0)))
+    max_violation_upper_m = float(np.max(np.maximum(head - physical_upper, 0.0)))
     converged_reason = int(snes.getConvergedReason())
     reason_label = _snes_reason_label(converged_reason)
     termination_reason_base = (
@@ -587,8 +589,22 @@ def _solve_vi_obstacle_problem(
         if converged_reason > 0
         else f"petsc SNESVI failed reason {converged_reason} ({reason_label})"
     )
+    accepted_by_projected_tolerance = _accept_failed_snes_by_projected_tolerance(
+        converged_reason=converged_reason,
+        residual_norm_inf_value=residual_norm,
+        tol_residual_inf=tol_residual_inf,
+        max_violation_lower_m=max_violation_lower_m,
+        max_violation_upper_m=max_violation_upper_m,
+        tol_h=tol_h,
+    )
+    if accepted_by_projected_tolerance:
+        termination_reason_base = (
+            f"{termination_reason_base}; accepted because projected_vi_residual_inf="
+            f"{residual_norm:.3e} <= tol_residual_inf={float(tol_residual_inf):.3e} "
+            "and VI bounds are satisfied"
+        )
     converged, termination_reason = apply_residual_tolerance(
-        success=converged_reason > 0,
+        success=converged_reason > 0 or accepted_by_projected_tolerance,
         residual_norm_inf_value=residual_norm,
         tol_residual_inf=float(tol_residual_inf),
         termination_reason=termination_reason_base,
@@ -607,11 +623,12 @@ def _solve_vi_obstacle_problem(
             prescribed_mask=prescribed_mask,
             tol_h=tol_h,
         ),
-        max_violation_lower_m=float(np.max(np.maximum(physical_lower - head, 0.0))),
-        max_violation_upper_m=float(np.max(np.maximum(head - physical_upper, 0.0))),
+        max_violation_lower_m=max_violation_lower_m,
+        max_violation_upper_m=max_violation_upper_m,
         reaction_diagnostics=reaction_diagnostics,
         dt_seconds=dt_seconds,
     )
+    diagnostics["accepted_by_projected_tolerance"] = bool(accepted_by_projected_tolerance)
     return build_runtime_result(
         head_m=head,
         assembly=reacted_assembly,
@@ -632,12 +649,14 @@ def _configure_vi_snes(
 ) -> None:
     """Apply experimental PETSc VI defaults while keeping options overrideable."""
     snes.setType("vinewtonrsls")
+    max_iteration_count = int(max_iterations)
     snes.setTolerances(
         atol=float(tol_residual_inf),
         rtol=0.0,
         stol=0.0,
-        max_it=int(max_iterations),
+        max_it=max_iteration_count,
     )
+    snes.setMaxFunctionEvaluations(max(10000, max_iteration_count * 20))
     ksp = snes.getKSP()
     if ksp is not None:
         ksp.setType("preonly")
@@ -648,6 +667,24 @@ def _configure_vi_snes(
             pc.setFromOptions()
         ksp.setFromOptions()
     snes.setFromOptions()
+
+
+def _accept_failed_snes_by_projected_tolerance(
+    *,
+    converged_reason: int,
+    residual_norm_inf_value: float,
+    tol_residual_inf: float,
+    max_violation_lower_m: float,
+    max_violation_upper_m: float,
+    tol_h: float,
+) -> bool:
+    """Accept a failed PETSc SNESVI stop only when the VI policy is satisfied."""
+    return (
+        int(converged_reason) <= 0
+        and float(residual_norm_inf_value) <= float(tol_residual_inf)
+        and float(max_violation_lower_m) <= float(tol_h)
+        and float(max_violation_upper_m) <= float(tol_h)
+    )
 
 
 def _prescribed_head_cells(

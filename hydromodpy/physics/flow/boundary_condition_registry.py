@@ -9,7 +9,7 @@ how to translate them.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import Literal
 
@@ -32,7 +32,12 @@ SIDE_DIRICHLET_BC_IDS_ORDERED: tuple[str, ...] = (
 
 @dataclass(frozen=True)
 class FlowBoundaryDefinition:
-    """One canonical flow boundary-condition definition."""
+    """One canonical flow boundary-condition definition.
+
+    The definition is intentionally descriptive. It does not assemble solver
+    payloads; it tells adapters which process-level id they are handling, which
+    physical family it belongs to, and which backend slices claim support.
+    """
 
     id: str
     family: FlowBoundaryFamily
@@ -47,6 +52,10 @@ class FlowBoundaryDefinition:
     def supports_backend(self, backend: str) -> bool:
         """Return whether one backend advertises support for this boundary."""
         return str(backend) in self.supported_backends
+
+    def package_for_backend(self, backend: str) -> str | None:
+        """Return the backend package/operator name used for this boundary."""
+        return self.backend_packages.get(str(backend).strip())
 
 
 FLOW_BOUNDARY_DEFINITIONS: dict[str, FlowBoundaryDefinition] = {
@@ -238,7 +247,7 @@ class BoundaryConditionBundle:
             raise ValueError(f"Active boundary '{normalized_id}' is missing from flow.bc.")
         return boundary
 
-    def active_defined_items(self):
+    def active_defined_items(self) -> Iterator[tuple[str, object]]:
         """Yield ``(id, boundary)`` pairs for active boundaries that are defined."""
         for bc_id in self.active_ids:
             boundary = self.conditions.get(bc_id)
@@ -250,7 +259,7 @@ class BoundaryConditionBundle:
         *,
         family: FlowBoundaryFamily | None = None,
         backend: FlowBoundaryBackend | str | None = None,
-    ):
+    ) -> Iterator[tuple[str, object, FlowBoundaryDefinition]]:
         """Yield active defined boundaries with their canonical definition."""
         for bc_id, boundary in self.active_defined_items():
             definition = boundary_definition(bc_id)
