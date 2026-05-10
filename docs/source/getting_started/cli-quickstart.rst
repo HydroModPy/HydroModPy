@@ -225,6 +225,6 @@ Where to look next
   ``project.toml`` and the ``run_*.toml`` variants.
 - :doc:`../user_guide/driving-hydromodpy` lists the seven supported
   user APIs (CLI, TOML, Python, notebook).
-- ``CONTRIBUTING.md`` (repository root) holds the deep reference for
+- :doc:`../user_guide/config_reference/index` is the deep reference for
   the configuration system, the workspace catalog schema, and the
   Pydantic field declaration rules.

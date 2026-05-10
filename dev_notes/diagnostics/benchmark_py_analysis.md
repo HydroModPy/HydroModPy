@@ -126,7 +126,7 @@ Fonctions publiques effectivement utilisées :
 ### 4.4 Nettoyage
 
 7. Supprimer `hydromodpy/calibration/benchmark.py` (-1794 lignes).
-8. Supprimer l'entrée correspondante dans `LEGACY_REMAINING.md`.
+8. Supprimer l'entrée correspondante dans `docs/_internal/notes/dev/legacy_remaining.md`.
 
 ---
 
@@ -166,7 +166,8 @@ Refactor à fort impact mais à fort risque. Hors périmètre d'une passe
 de nettoyage automatisé. Trois options raisonnables :
 
 - **Option A — laisser en l'état** : documenté dans
-  `LEGACY_REMAINING.md`, coût d'entretien réel mais pas urgent.
+  `docs/_internal/notes/dev/legacy_remaining.md`, coût d'entretien réel
+  mais pas urgent.
 - **Option B — portage complet** : ~2 à 5 jours de travail, exige
   une phase de recalibration des goldens avec supervision scientifique
   (et probablement pair review par un domain expert).

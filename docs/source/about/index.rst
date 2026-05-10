@@ -53,6 +53,16 @@ publications that rely on HydroModPy.
       ^^^
       Themes in progress and how to influence the next steps.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: release_policy
+      :link-type: doc
+
+      **Release policy**
+      ^^^
+      SemVer rules, deprecation cycle, tagging discipline, and the
+      PyPI publication flow.
+
 .. toctree::
    :hidden:
    :maxdepth: 1
@@ -62,3 +72,4 @@ publications that rely on HydroModPy.
    Applications <../applications>
    changelog
    roadmap
+   release_policy
