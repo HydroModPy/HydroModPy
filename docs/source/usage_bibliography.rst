@@ -36,10 +36,13 @@ How HydroModPy was used in each paper
 Companion papers and software citation
 --------------------------------------
 
-The companion paper for HydroModPy itself is in preparation for
-*Hydrology and Earth System Sciences*. The DOI will be added here
-when the manuscript is published. In the meantime, please cite the
-software via :doc:`how_to_cite`.
+The companion paper for HydroModPy is available as a preprint in
+*EGUsphere* (under review at *Hydrology and Earth System Sciences*):
+Gauvain et al. (2026), *Technical note: HydroModPy – a Python toolbox
+for deploying catchment-scale shallow groundwater models*,
+`doi:10.5194/egusphere-2026-868
+<https://doi.org/10.5194/egusphere-2026-868>`_. Full BibTeX, RIS and
+plain-text entries live on :doc:`how_to_cite`.
 
 Related curated outputs
 -----------------------

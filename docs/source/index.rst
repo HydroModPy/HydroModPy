@@ -114,20 +114,32 @@ Recent changes from the public ``CHANGELOG.md``:
 How to cite HydroModPy
 ----------------------
 
-If HydroModPy supports your work, please cite the software (BibTeX below)
-and the companion paper currently in preparation. Full BibTeX, RIS and
-plain-text variants live on the :doc:`how_to_cite` page; ``CITATION.cff`` at
-the repository root is what GitHub renders behind the "Cite this repository"
-button.
+If HydroModPy supports your work, please cite both the software and the
+companion preprint (Gauvain et al., 2026, EGUsphere,
+`doi:10.5194/egusphere-2026-868
+<https://doi.org/10.5194/egusphere-2026-868>`_). Full BibTeX, RIS and
+plain-text variants live on the :doc:`how_to_cite` page; ``CITATION.cff``
+at the repository root is what GitHub renders behind the "Cite this
+repository" button.
 
 .. code-block:: bibtex
 
    @software{hydromodpy_software,
-     title  = {HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models},
-     author = {Gauvain, A. and Abherv\'e, R. and de Dreuzy, J.-R. and others},
-     year   = {2025},
-     url    = {https://github.com/HydroModPy/HydroModPy},
+     title   = {HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models},
+     author  = {Gauvain, A. and Abherv\'e, R. and Boivin, B. and Roques, C. and others},
+     year    = {2026},
+     url     = {https://github.com/HydroModPy/HydroModPy},
      license = {EPL-2.0}
+   }
+
+   @article{egusphere-2026-868,
+     title   = {Technical note: HydroModPy -- a Python toolbox for deploying catchment-scale shallow groundwater models},
+     author  = {Gauvain, A. and Abherv\'e, R. and Boivin, B. and Roques, C. and others},
+     journal = {EGUsphere},
+     year    = {2026},
+     volume  = {2026},
+     pages   = {1--31},
+     doi     = {10.5194/egusphere-2026-868}
    }
 
 Linked publications and a registry of catchments where HydroModPy has been

@@ -19,38 +19,65 @@ authors:
   - family-names: Gauvain
     given-names: Alexandre
     email: alexandre.gauvain.ag@gmail.com
+    orcid: "https://orcid.org/0000-0002-9473-1108"
   - family-names: Abhervé
     given-names: Ronan
     email: ronan.abherve@gmail.com
-  - family-names: Coche
-    given-names: Antoine
-  - family-names: Le Mesnil
-    given-names: Martin
-  - family-names: Roques
-    given-names: Clément
-  - family-names: Bouchez
-    given-names: Camille
-  - family-names: Marçais
-    given-names: Jean
-  - family-names: Leray
-    given-names: Sarah
-  - family-names: Marti
-    given-names: Eliana
-  - family-names: Figueroa
-    given-names: Rodrigo
-  - family-names: Bresciani
-    given-names: Etienne
-  - family-names: Vautier
-    given-names: Camille
+    orcid: "https://orcid.org/0000-0001-7085-5272"
   - family-names: Boivin
     given-names: Bastien
     email: bastien.boivin@proton.me
+    orcid: "https://orcid.org/0009-0001-5738-3503"
+  - family-names: Roques
+    given-names: Clément
+    orcid: "https://orcid.org/0000-0002-5021-6008"
+  - family-names: Le Mesnil
+    given-names: Martin
+  - family-names: Coche
+    given-names: Alexandre
+  - family-names: Babey
+    given-names: Tristan
+  - family-names: Marçais
+    given-names: Jean
+    orcid: "https://orcid.org/0000-0002-1729-9964"
+  - family-names: Bouchez
+    given-names: Camille
+  - family-names: Leray
+    given-names: Sarah
+  - family-names: Marti
+    given-names: Etienne
+    orcid: "https://orcid.org/0000-0002-6007-3282"
+  - family-names: Bresciani
+    given-names: Etienne
+    orcid: "https://orcid.org/0000-0002-6295-2176"
+  - family-names: Figueroa
+    given-names: Ronny
+  - family-names: Pélissier
+    given-names: Mathias
+  - family-names: Guillaumot
+    given-names: Luca
+  - family-names: Touzeau
+    given-names: Théa
+  - family-names: Issolah
+    given-names: Imene
+    orcid: "https://orcid.org/0009-0001-2903-4971"
+  - family-names: Maugan
+    given-names: Enzo
+  - family-names: Bagagnan
+    given-names: Rock S.
+  - family-names: Vautier
+    given-names: Camille
+    orcid: "https://orcid.org/0000-0002-9358-7271"
   - family-names: Sallou
     given-names: June
   - family-names: Bourcier
-    given-names: Johann
+    given-names: Johan
+    orcid: "https://orcid.org/0000-0003-2947-9150"
   - family-names: Combemale
     given-names: Benoit
+  - family-names: Brunner
+    given-names: Philip
+    orcid: "https://orcid.org/0000-0001-6304-6274"
   - family-names: Longuevergne
     given-names: Laurent
   - family-names: Aquilina
@@ -60,43 +87,63 @@ authors:
     email: jean-raynald.de-dreuzy@univ-rennes.fr
 preferred-citation:
   type: article
-  status: in-preparation
-  title: "HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models"
-  year: 2025
-  journal: "Hydrology and Earth System Sciences"
+  title: "Technical note: HydroModPy – a Python toolbox for deploying catchment-scale shallow groundwater models"
+  doi: "10.5194/egusphere-2026-868"
+  url: "https://egusphere.copernicus.org/preprints/2026/egusphere-2026-868/"
+  journal: "EGUsphere [preprint]"
+  year: 2026
+  volume: "2026"
+  start: 1
+  end: 31
   authors:
     - family-names: Gauvain
       given-names: Alexandre
     - family-names: Abhervé
       given-names: Ronan
-    - family-names: Coche
-      given-names: Antoine
-    - family-names: Le Mesnil
-      given-names: Martin
+    - family-names: Boivin
+      given-names: Bastien
     - family-names: Roques
       given-names: Clément
-    - family-names: Bouchez
-      given-names: Camille
+    - family-names: Le Mesnil
+      given-names: Martin
+    - family-names: Coche
+      given-names: Alexandre
+    - family-names: Babey
+      given-names: Tristan
     - family-names: Marçais
       given-names: Jean
+    - family-names: Bouchez
+      given-names: Camille
     - family-names: Leray
       given-names: Sarah
     - family-names: Marti
-      given-names: Eliana
-    - family-names: Figueroa
-      given-names: Rodrigo
+      given-names: Etienne
     - family-names: Bresciani
       given-names: Etienne
+    - family-names: Figueroa
+      given-names: Ronny
+    - family-names: Pélissier
+      given-names: Mathias
+    - family-names: Guillaumot
+      given-names: Luca
+    - family-names: Touzeau
+      given-names: Théa
+    - family-names: Issolah
+      given-names: Imene
+    - family-names: Maugan
+      given-names: Enzo
+    - family-names: Bagagnan
+      given-names: Rock S.
     - family-names: Vautier
       given-names: Camille
-    - family-names: Boivin
-      given-names: Bastien
     - family-names: Sallou
       given-names: June
     - family-names: Bourcier
-      given-names: Johann
+      given-names: Johan
     - family-names: Combemale
       given-names: Benoit
+    - family-names: Brunner
+      given-names: Philip
     - family-names: Longuevergne
       given-names: Laurent
     - family-names: Aquilina

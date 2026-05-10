@@ -100,12 +100,14 @@ paper. Full BibTeX, RIS and plain-text entries are on the
 GitHub renders the "Cite this repository" button from
 [`CITATION.cff`](CITATION.cff).
 
-> Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C.,
-> Marçais, J., Leray, S., Marti, E., Figueroa, R., Bresciani, E., Vautier, C.,
-> Boivin, B., Sallou, J., Bourcier, J., Combemale, B., Longuevergne, L.,
-> Aquilina, L., & de Dreuzy, J.-R. (2025). HydroModPy: a Python toolbox for
-> deploying catchment-scale shallow groundwater models. *Hydrology and Earth
-> System Sciences*. In preparation.
+> Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A.,
+> Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E.,
+> Figueroa, R., Pélissier, M., Guillaumot, L., Touzeau, T., Issolah, I.,
+> Maugan, E., Bagagnan, R. S., Vautier, C., Sallou, J., Bourcier, J.,
+> Combemale, B., Brunner, P., Longuevergne, L., Aquilina, L., & de Dreuzy, J.-R.
+> (2026). Technical note: HydroModPy – a Python toolbox for deploying
+> catchment-scale shallow groundwater models. *EGUsphere* [preprint], 1–31.
+> <https://doi.org/10.5194/egusphere-2026-868>
 
 ## Authors and contact
 
