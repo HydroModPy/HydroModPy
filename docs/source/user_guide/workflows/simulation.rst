@@ -163,7 +163,8 @@ Important Parameters
        results.
    * - ``[[simulation.process]]``
      - Declares process type and active solvers.
-     - For flow-only runs, use one process with ``type = "flow"``.
+     - Use ``type = "mesh"`` for mesh-only preparation, ``type = "flow"``
+       for flow solves, and ``type = "transport"`` for transport solves.
    * - ``[flow]``
      - Declares flow process parameters and boundary conditions.
      - This is where physical assumptions become runtime parameters.
@@ -203,6 +204,19 @@ Process Example
 
 The process declaration says what HydroModPy is asked to solve. The backend
 sections say how a given solver family should solve it.
+
+Mesh-only preparation is also represented as a simulation process, not as a
+solver:
+
+.. code-block:: toml
+
+   [[simulation.process]]
+   id = "mesh_main"
+   type = "mesh"
+   backend = "catchment"
+
+This delegates to the ``[mesh_catchment]`` runtime and stops before any flow
+or transport solver.
 
 Outputs To Inspect
 ------------------

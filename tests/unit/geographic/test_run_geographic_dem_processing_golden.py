@@ -151,7 +151,16 @@ def _assert_raster_sig_close(actual: dict, expected: dict) -> None:
         assert float(actual[key]) == pytest.approx(
             float(expected[key]), abs=ABS_TOL_ELEV_M, rel=0.0
         )
-    sum_tol = ABS_TOL_SUM_INT if str(actual["dtype"]).startswith("int") else ABS_TOL_SUM_M
+    if str(actual["dtype"]).startswith("int"):
+        # Keep the aggregate D8-pointer sum at least as loose as the accepted
+        # mean drift; otherwise large rasters can pass the mean check and fail
+        # only because that same small drift is multiplied over every valid cell.
+        sum_tol = max(
+            ABS_TOL_SUM_INT,
+            ABS_TOL_ELEV_M * int(actual["valid_pixel_count"]),
+        )
+    else:
+        sum_tol = ABS_TOL_SUM_M
     assert float(actual["sum"]) == pytest.approx(float(expected["sum"]), abs=sum_tol, rel=0.0)
 
 

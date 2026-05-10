@@ -83,6 +83,63 @@ def _normalize_optional_float(value: float | None) -> str | float:
     return _NODATA_SENTINEL if value is None or not np.isfinite(float(value)) else float(value)
 
 
+def _finite_or_nanmean(value: float, fallback_values: np.ndarray) -> float:
+    """Return ``value`` when finite, otherwise a finite mean from fallback samples."""
+    if np.isfinite(float(value)):
+        return float(value)
+    array = np.asarray(fallback_values, dtype=float).reshape(-1)
+    finite = np.isfinite(array)
+    if not np.any(finite):
+        return np.nan
+    return float(np.nanmean(array[finite]))
+
+
+def _fill_missing_samples_from_nearest_raster(
+    sampler: PreparedSurfaceSampler,
+    points_xy: np.ndarray,
+    sampled_values: np.ndarray,
+) -> np.ndarray:
+    """Fill missing point samples from the nearest finite raster cell."""
+    values = np.asarray(sampler.values, dtype=float)
+    if values.ndim != 2 or not getattr(sampler, "has_complete_support", False):
+        return np.asarray(sampled_values, dtype=float)
+
+    filled = np.asarray(sampled_values, dtype=float).reshape(-1).copy()
+    missing = ~np.isfinite(filled)
+    if not np.any(missing):
+        return filled
+
+    finite = np.isfinite(values)
+    if not np.any(finite):
+        return filled
+
+    try:
+        from scipy.ndimage import distance_transform_edt
+    except Exception:  # pragma: no cover - scipy is part of the normal runtime env
+        return filled
+
+    nearest_indices = distance_transform_edt(
+        ~finite,
+        return_distances=False,
+        return_indices=True,
+    )
+    coords = np.asarray(points_xy, dtype=float)
+    if coords.ndim != 2 or coords.shape[1] != 2:
+        return filled
+
+    col = np.rint((coords[:, 0] - float(sampler.xmin)) / float(sampler.dx) - 0.5).astype(int)
+    row = np.rint((float(sampler.ymax) - coords[:, 1]) / float(sampler.dy) - 0.5).astype(int)
+    row = np.clip(row, 0, int(sampler.nrows) - 1)
+    col = np.clip(col, 0, int(sampler.ncols) - 1)
+    nearest_row = nearest_indices[0, row, col]
+    nearest_col = nearest_indices[1, row, col]
+    replacement = values[nearest_row, nearest_col]
+    finite_replacement = np.isfinite(replacement)
+    replace_mask = missing & finite_replacement
+    filled[replace_mask] = replacement[replace_mask]
+    return filled
+
+
 def _normalize_optional_int(value: int | None) -> str | int:
     """Serialize optional integers using the bundle missing-value convention."""
     return _NODATA_SENTINEL if value is None else int(value)
@@ -380,11 +437,36 @@ def export_catchment_mesh_bundle(
     substratum_sampler = PreparedSurfaceSampler.from_surface(substratum)
     point_xy = np.asarray(mesh.points_xy, dtype=float)
     node_z = surface_sampler.sample_points_xy(point_xy)
-    node_z_bottom = substratum_sampler.sample_points_xy(point_xy)
     cells = mesh.cells
     centroid_xy = np.asarray([cell.centroid for cell in cells], dtype=float)
     centroid_z_top_all = surface_sampler.sample_points_xy(centroid_xy)
+    node_z = _fill_missing_samples_from_nearest_raster(surface_sampler, point_xy, node_z)
+    centroid_z_top_all = _fill_missing_samples_from_nearest_raster(
+        surface_sampler,
+        centroid_xy,
+        centroid_z_top_all,
+    )
+    node_z_bottom = substratum_sampler.sample_points_xy(point_xy)
     centroid_z_bottom_all = substratum_sampler.sample_points_xy(centroid_xy)
+    if isinstance(domain.config.depth_model, ConstantThicknessDepthModel):
+        thickness = float(domain.config.depth_model.thickness)
+        node_z_bottom = np.where(np.isfinite(node_z), node_z - thickness, node_z_bottom)
+        centroid_z_bottom_all = np.where(
+            np.isfinite(centroid_z_top_all),
+            centroid_z_top_all - thickness,
+            centroid_z_bottom_all,
+        )
+    else:
+        node_z_bottom = _fill_missing_samples_from_nearest_raster(
+            substratum_sampler,
+            point_xy,
+            node_z_bottom,
+        )
+        centroid_z_bottom_all = _fill_missing_samples_from_nearest_raster(
+            substratum_sampler,
+            centroid_xy,
+            centroid_z_bottom_all,
+        )
     # Build the optional thematic payloads that enrich the raw geometry export.
     geology_payload = _compute_geology_payload(
         mesh=mesh,
@@ -410,13 +492,19 @@ def export_catchment_mesh_bundle(
         cell_node_indices = tuple(int(node_idx) for node_idx in cell.node_indices)
         cell_node_z = node_z[np.asarray(cell_node_indices, dtype=int)]
         cell_node_z_bottom = node_z_bottom[np.asarray(cell_node_indices, dtype=int)]
-        centroid_z = float(centroid_z_top_all[cell_index])
-        centroid_z_bottom = float(centroid_z_bottom_all[cell_index])
         mean_z = float(np.nanmean(cell_node_z)) if np.any(np.isfinite(cell_node_z)) else np.nan
         mean_z_bottom = (
             float(np.nanmean(cell_node_z_bottom))
             if np.any(np.isfinite(cell_node_z_bottom))
             else np.nan
+        )
+        centroid_z = _finite_or_nanmean(
+            float(centroid_z_top_all[cell_index]),
+            cell_node_z,
+        )
+        centroid_z_bottom = _finite_or_nanmean(
+            float(centroid_z_bottom_all[cell_index]),
+            cell_node_z_bottom,
         )
         n3_value: str | int = _NODATA_SENTINEL
         if len(cell_node_indices) > 3:

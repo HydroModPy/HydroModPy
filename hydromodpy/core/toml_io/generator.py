@@ -85,8 +85,8 @@ def generate_toml(
     if modules is None:
         # Default auto-selection: drop opt-in workflow-only sections that are
         # Optional at the aggregator level and would require more targeted
-        # inputs to validate out-of-the-box (mesh-only, calibration, batch).
-        _OPT_IN = {"mesh_catchment", "calibration", "batch"}
+        # inputs to validate out-of-the-box (mesh-only and calibration).
+        _OPT_IN = {"mesh_catchment", "calibration"}
         selected = {k: v for k, v in registry.items() if k not in _OPT_IN}
     else:
         unknown = set(modules) - set(registry)

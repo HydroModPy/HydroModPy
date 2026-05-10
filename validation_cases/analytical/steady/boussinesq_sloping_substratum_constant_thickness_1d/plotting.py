@@ -6,6 +6,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
+from validation_cases.shared.boussinesq_plotting import with_boussinesq_method_line
+
 from .comparison import BoussinesqSlopingSubstratumConstantThicknessComparison
 
 
@@ -146,10 +148,14 @@ def plot_boussinesq_sloping_substratum_constant_thickness_comparison(
         f"cross-row spread={comparison.row_spread:.2e} m   "
         f"q_ref={comparison.reference_discharge_per_width_m2_s:.3e} m2/s"
     )
+    footer_lines = with_boussinesq_method_line(
+        comparison.result,
+        (params_line, metrics_line),
+    )
     fig.text(
         0.5,
         0.01,
-        f"{params_line}\n{metrics_line}",
+        "\n".join(footer_lines),
         ha="center",
         va="bottom",
         fontsize=9,

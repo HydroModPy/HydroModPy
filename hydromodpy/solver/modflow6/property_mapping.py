@@ -212,6 +212,76 @@ def _zero_property_arrays(*, solver_mesh) -> tuple[np.ndarray, np.ndarray]:
     )
 
 
+def _support_cell_vector(
+    mesh_support: object | None,
+    attr_name: str,
+    *,
+    n_cells: int,
+    positive: bool,
+) -> np.ndarray | None:
+    if mesh_support is None:
+        return None
+    values = getattr(mesh_support, attr_name, None)
+    if values is None:
+        return None
+    arr = np.asarray(values, dtype=float).reshape(-1)
+    if arr.size != int(n_cells):
+        return None
+    valid = np.isfinite(arr)
+    if positive:
+        valid &= arr > 0.0
+    if not np.any(valid):
+        return None
+    return np.where(valid, arr, np.nan)
+
+
+def fill_missing_flow_properties_from_mesh_support(
+    flow_params: dict[str, np.ndarray],
+    *,
+    mesh_support: object | None,
+    solver_mesh: object,
+) -> dict[str, np.ndarray]:
+    """Complete invalid unstructured MF6 properties from mesh-bundle metadata."""
+    if getattr(solver_mesh, "is_structured", False):
+        return flow_params
+
+    n_cells = int(solver_mesh.n_cells)
+    support_k = _support_cell_vector(
+        mesh_support,
+        "cell_hydraulic_conductivity_m_s",
+        n_cells=n_cells,
+        positive=True,
+    )
+    if support_k is None:
+        return flow_params
+
+    out = dict(flow_params)
+    for key in ("hk", "hk_value"):
+        if key not in out:
+            continue
+        arr = np.asarray(out[key], dtype=float).copy()
+        invalid = ~np.isfinite(arr) | (arr <= 0.0)
+        if not np.any(invalid):
+            continue
+        if arr.ndim == 1:
+            replacement = np.broadcast_to(support_k, arr.shape)
+        elif arr.ndim == 2 and arr.shape[1] == n_cells:
+            replacement = np.broadcast_to(support_k.reshape(1, -1), arr.shape)
+        else:
+            continue
+        replace_mask = invalid & np.isfinite(replacement) & (replacement > 0.0)
+        if not np.any(replace_mask):
+            continue
+        arr[replace_mask] = replacement[replace_mask]
+        out[key] = arr
+        logger.info(
+            "Completed %s for %d unstructured cell value(s) from mesh bundle conductivity.",
+            key,
+            int(np.count_nonzero(replace_mask)),
+        )
+    return out
+
+
 def resolve_flow_property_arrays(
     *,
     flow: object,
@@ -301,6 +371,7 @@ def resolve_flow_property_arrays(
 
 
 __all__ = [
+    "fill_missing_flow_properties_from_mesh_support",
     "resolve_flow_property_arrays",
     "resolve_required_flow_properties",
 ]

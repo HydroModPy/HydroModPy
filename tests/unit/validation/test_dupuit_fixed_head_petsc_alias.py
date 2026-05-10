@@ -22,11 +22,13 @@ def test_dupuit_fixed_head_comparison_routes_solver_petsc_to_boussinesq_runtime(
         timeout,
         runtime_backend,
         surface_interaction_model=None,
+        public_solver_label="boussinesq",
     ):
         captured["caller_file"] = caller_file
         captured["timeout"] = timeout
         captured["runtime_backend"] = runtime_backend
         captured["surface_interaction_model"] = surface_interaction_model
+        captured["public_solver_label"] = public_solver_label
         return SimpleNamespace(solver_name="boussinesq")
 
     def _fake_build_comparison(*, result, metadata=None, tolerances=None):
@@ -46,7 +48,8 @@ def test_dupuit_fixed_head_comparison_routes_solver_petsc_to_boussinesq_runtime(
     )
 
     assert captured["runtime_backend"] == "petsc"
-    assert captured["surface_interaction_model"] is None
+    assert captured["surface_interaction_model"] == "complementarity"
+    assert captured["public_solver_label"] == "petsc"
     assert captured["timeout"] == 123
     assert comparison.tolerances == {"solver": "petsc"}
 
@@ -62,11 +65,13 @@ def test_dupuit_fixed_head_comparison_routes_solver_petsc_partition_to_boussines
         timeout,
         runtime_backend,
         surface_interaction_model=None,
+        public_solver_label="boussinesq",
     ):
         captured["caller_file"] = caller_file
         captured["timeout"] = timeout
         captured["runtime_backend"] = runtime_backend
         captured["surface_interaction_model"] = surface_interaction_model
+        captured["public_solver_label"] = public_solver_label
         return SimpleNamespace(solver_name="boussinesq")
 
     def _fake_build_comparison(*, result, metadata=None, tolerances=None):
@@ -87,6 +92,7 @@ def test_dupuit_fixed_head_comparison_routes_solver_petsc_partition_to_boussines
 
     assert captured["runtime_backend"] == "petsc"
     assert captured["surface_interaction_model"] == "regularized_partition"
+    assert captured["public_solver_label"] == "petsc_partition"
     assert captured["timeout"] == 456
     assert comparison.tolerances == {"solver": "petsc_partition"}
 
@@ -123,11 +129,13 @@ def test_dupuit_fixed_head_runtime_reports_requested_petsc_solver_name(monkeypat
         caller_file=Path("dummy_test.py"),
         runtime_backend="petsc",
         surface_interaction_model="regularized_partition",
+        public_solver_label="petsc_partition",
     )
     petsc = runtime_module.run_boussinesq_dupuit_fixed_head_case(
         caller_file=Path("dummy_test.py"),
         runtime_backend="petsc",
-        surface_interaction_model=None,
+        surface_interaction_model="complementarity",
+        public_solver_label="petsc",
     )
 
     assert petsc_partition.solver_name == "petsc_partition"

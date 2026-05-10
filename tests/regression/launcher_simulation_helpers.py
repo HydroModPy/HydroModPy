@@ -284,6 +284,8 @@ def run_launcher_simulation_boussinesq_regression(
         east_head_m=east_head_m,
         recharge_rate_m_s=(None if recharge_mm_day is None else mm_day_to_m_s(recharge_mm_day)),
         runtime_backend="scipy_sparse",
+        surface_interaction_model="regularized_partition",
+        apply_runtime_defaults=False,
     )
 
     run_hmp_cli(

@@ -43,7 +43,11 @@ class ComparisonSimulation(HydroModelBase):
     ] = "unknown"
     overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,
-        description="Free-form TOML overlay merged into the base simulation config when this child runs.",
+        description=(
+            "Child-specific TOML overlay merged after the shared base simulation "
+            "payload. Use it for solver- or method-specific changes; site-wide "
+            "inputs shared by all methods belong in comparison.base_simulation_overlay."
+        ),
     )
 
     @field_validator("mesh_label")
@@ -170,6 +174,15 @@ class RuntimeComparisonSection(HydroModelBase):
 
     comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
     base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    base_simulation_overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
+        default_factory=dict,
+        description=(
+            "Shared TOML overlay applied to the base simulation config before each "
+            "child-specific comparison.simulation.overlay. It carries the physical "
+            "case definition common to all compared simulations, especially in "
+            "catalog-driven testbeds."
+        ),
+    )
     anchors_file: Annotated[OptionalText, Profile.EXPERT] = None
     output_root: Annotated[OptionalText, Profile.EXPERT] = None
     run_simulations: Annotated[bool, Profile.DEV] = True
@@ -192,6 +205,15 @@ class RuntimeComparisonSection(HydroModelBase):
             return None
         text = str(value).strip()
         return text or None
+
+    @field_validator("base_simulation_overlay")
+    @classmethod
+    def _validate_base_simulation_overlay(cls, value: object) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("comparison.base_simulation_overlay must be a mapping")
+        return dict(value)
 
     @model_validator(mode="after")
     def _validate_non_empty_lists(self) -> RuntimeComparisonSection:

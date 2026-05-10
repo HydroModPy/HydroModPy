@@ -132,6 +132,8 @@ class ExtractStep:
 
         extracted = 0
         for run in plan.runs:
+            if not run.is_solver_backed:
+                continue
             extract_run_outputs(
                 ctx=RunContext(plan=plan, run=run, state=ctx),
                 sim_id=ctx.sim_id,

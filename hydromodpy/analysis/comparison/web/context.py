@@ -13,6 +13,7 @@ from hydromodpy.analysis.comparison.web.figures import (
     FigureCategory,
     categorize_figures,
     configuration_figures,
+    include_in_comparison_report,
 )
 
 
@@ -26,6 +27,7 @@ class ComparisonWebContext:
     manifest: dict[str, Any]
     audit: dict[str, Any]
     metrics_rows: list[dict[str, str]]
+    numerical_closure_rows: list[dict[str, str]]
     budget_rows: list[dict[str, str]]
     figure_items: list[dict[str, Any]]
     key_figures: list[dict[str, Any]]
@@ -48,6 +50,7 @@ def load_comparison_web_context(
     out = output_path or (web_dir / "index.html")
     payload = dict(manifest or _load_json(root / "comparison_manifest.json"))
     metrics_rows = _load_csv(root / "comparison_metrics.csv")
+    numerical_closure_rows = _load_csv(root / "numerical_closure_summary.csv")
     budget_rows = _load_csv(root / "budget_timeseries_wide.csv")
     audit = _load_json(root / "comparison_audit.json")
     figure_items = _figure_items(root=root, manifest=payload)
@@ -66,6 +69,7 @@ def load_comparison_web_context(
         manifest=payload,
         audit=audit,
         metrics_rows=metrics_rows,
+        numerical_closure_rows=numerical_closure_rows,
         budget_rows=budget_rows,
         figure_items=figure_items,
         key_figures=_select_key_figures(figure_items),
@@ -103,33 +107,40 @@ def _figure_items(*, root: Path, manifest: Mapping[str, Any]) -> list[dict[str, 
                 path = Path(str(item["path"]))
                 if not path.is_absolute():
                     path = root / path
-                if path.is_file():
+                if path.is_file() and path.suffix.lower() in {
+                    ".png",
+                    ".jpg",
+                    ".jpeg",
+                    ".webp",
+                    ".svg",
+                }:
                     payload = dict(item)
                     payload["path"] = str(path)
-                    items.append(payload)
+                    if include_in_comparison_report(payload):
+                        items.append(payload)
     known = {str(Path(str(item.get("path", ""))).resolve()) for item in items}
     figure_root = root / "comparison_figures"
     if figure_root.is_dir():
         for path in sorted(figure_root.glob("*.png")):
             key = str(path.resolve())
             if key not in known:
-                items.append({"kind": "figure", "observable": path.stem, "path": str(path)})
+                payload = {"kind": "figure", "observable": path.stem, "path": str(path)}
+                if include_in_comparison_report(payload):
+                    items.append(payload)
     return items
 
 
 def _select_key_figures(figures: list[dict[str, Any]]) -> list[dict[str, Any]]:
     priority = (
         "case_configuration.png",
-        "comparable_outflow_dashboard.png",
-        "flux_overview.png",
-        "head_points_dashboard.png",
-        "head_map_after_first_month__triptych",
-        "head_map_wet_period__triptych",
-        "head_map_dry_period__triptych",
-        "head_map_last__triptych",
-        "mf6_ref__budget_diagnostics.png",
-        "bouss_candidate__budget_diagnostics.png",
-        "execution_time_comparison.png",
+        "head_map_wet_year1__fine_raster_map_comparison",
+        "head_central_high_k_series__timeseries",
+        "head_west_low_k_series__timeseries",
+        "head_west_interface_series__timeseries",
+        "head_east_interface_series__timeseries",
+        "head_east_medium_k_series__timeseries",
+        "storage_comparison_dashboard.png",
+        "total_inputs_outputs_dashboard.png",
     )
 
     def score(item: Mapping[str, Any]) -> tuple[int, str]:
@@ -139,7 +150,7 @@ def _select_key_figures(figures: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 return (index, name)
         return (len(priority), name)
 
-    return sorted(figures, key=score)[:18]
+    return sorted(figures, key=score)[:12]
 
 
 def _data_links(root: Path) -> list[Path]:
@@ -149,6 +160,8 @@ def _data_links(root: Path) -> list[Path]:
         "comparison_manifest.json",
         "comparison_metrics.csv",
         "comparison_differences.csv",
+        "numerical_closure_summary.csv",
+        "numerical_closure_by_period.csv",
         "observables.csv",
         "budget_timeseries_wide.csv",
         "budget_timeseries_long.csv",

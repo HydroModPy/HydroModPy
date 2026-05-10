@@ -164,10 +164,19 @@ class SimulationProcessConfig(HydroModelBase):
         description="Requested process family executed by the launcher.",
     )
     solvers: Annotated[list[str], Profile.USER] = Field(
-        min_length=1,
+        default_factory=list,
         description=(
             "Ordered list of active solver names for this process. Each listed "
-            "solver is executed in order."
+            "solver is executed in order. Required for solver-backed processes "
+            "such as flow and transport."
+        ),
+    )
+    backend: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Backend used by non-solver orchestration processes. Currently only "
+            "used by type='mesh', where backend='catchment' delegates to the "
+            "[mesh_catchment] runtime."
         ),
     )
 
@@ -181,20 +190,55 @@ class SimulationProcessConfig(HydroModelBase):
 
     def model_post_init(self, context: object) -> None:
         super().model_post_init(context)
+        if self.type == "mesh":
+            return
         registered = get_solver_registry_provider().known_process_types()
         if self.type not in registered:
             raise ValueError(
                 f"Unknown process type '{self.type}'. "
-                f"Registered types: {', '.join(sorted(registered))}."
+                f"Registered types: {', '.join(sorted((*registered, 'mesh')))}."
             )
 
     @field_validator("solvers")
     @classmethod
     def _validate_solvers(cls, value: list[str]) -> list[str]:
         cleaned = [solver.strip() for solver in value if solver and solver.strip()]
-        if not cleaned:
-            raise ValueError("At least one non-empty solver name is required.")
         return cleaned
+
+    @field_validator("backend")
+    @classmethod
+    def _validate_backend(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip().lower()
+        if not cleaned:
+            raise ValueError("Process backend cannot be empty.")
+        return cleaned
+
+    @model_validator(mode="after")
+    def _validate_process_execution_contract(self):
+        if self.type == "mesh":
+            if self.solvers:
+                raise ValueError(
+                    "simulation.process entries with type='mesh' must use backend, not solvers."
+                )
+            backend = self.backend or "catchment"
+            if backend != "catchment":
+                raise ValueError(
+                    "simulation.process entries with type='mesh' currently "
+                    "support only backend='catchment'."
+                )
+            object.__setattr__(self, "backend", backend)
+            return self
+
+        if self.backend is not None:
+            raise ValueError("simulation.process.backend is only supported for type='mesh'.")
+        if not self.solvers:
+            raise ValueError(
+                f"simulation.process entries with type='{self.type}' require "
+                "at least one solver in solvers."
+            )
+        return self
 
 
 class SimulationConfig(HydroModelBase):

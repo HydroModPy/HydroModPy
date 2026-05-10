@@ -63,7 +63,7 @@ RECHARGE_REL_TOL = 1.0e-2
 RECHARGE_ABS_TOL_M3_S = 1.0e-6
 HEAD_ABOVE_TOP_FRACTION_TOL = 5.0e-2
 HEAD_ABOVE_TOP_TOL_M = 0.1
-INITIAL_STATE_MISMATCH_SELECTORS = {"", "all", "first"}
+INITIAL_STATE_MISMATCH_SELECTORS = {"first", "initial", "initial_state"}
 
 
 def _jsonable(value: Any) -> Any:

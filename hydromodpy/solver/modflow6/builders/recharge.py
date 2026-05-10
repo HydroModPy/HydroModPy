@@ -451,6 +451,10 @@ def recharge_to_spd(model) -> dict[int, np.ndarray]:
             for kper in range(model.nper):
                 spd[kper] = scalar_to_flat(model, float(arr[kper]))
             return spd
+        if int(model.nper) == 1:
+            scalar = series_payload_value(model.recharge, 0, first_clim=model.first_clim)
+            spd[0] = scalar_to_flat(model, float(scalar))
+            return spd
         raise ValueError(
             "model.recharge sequence length must be 1, nper "
             f"({int(model.nper)}), or ncpl ({int(model.ncpl)}); got {int(arr.size)}."

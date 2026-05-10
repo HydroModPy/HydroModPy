@@ -20,9 +20,9 @@ def _rebuild_forward_refs() -> None:
     written into the canonical root-config module globals.
     """
     from hydromodpy.analysis import config as analysis_module
-    from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.analysis.comparison.experiment_config import ComparisonSection
+    from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
     from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.config import hydromodpy_config as cfg_module
     from hydromodpy.data.data_managers_config import DataManagersConfig
@@ -105,11 +105,16 @@ def _register_calibration_contracts() -> None:
     structural binders through ``TrialPipelineProvider`` so the
     calibration package never imports the workflow package.
     """
+    from hydromodpy.calibration.runners.contracts import (
+        register_trial_promotion_provider,
+    )
+    from hydromodpy.calibration_dispatch import ProjectTrialPromotionProvider
     from hydromodpy.workflow.steps.calibration import (
         register_default_trial_pipeline_provider,
     )
 
     register_default_trial_pipeline_provider()
+    register_trial_promotion_provider(ProjectTrialPromotionProvider())
 
 
 def _register_analysis_contracts() -> None:
@@ -126,7 +131,11 @@ def _register_analysis_contracts() -> None:
     """
     from hydromodpy.analysis.comparison import _solver_protocol
     from hydromodpy.solver.base import registry as _registry
-    from hydromodpy.workflow.testbed import register_default_testbed_runner_provider
+    from hydromodpy.workflow.testbed import (
+        register_default_testbed_runner_provider,
+        set_default_testbed_runner_provider_factory,
+    )
+    from hydromodpy.workflow_dispatch import ProjectTestbedRunnerProvider
 
     class _RegistryProvider:
         def distributed_flow_solver_sections(self) -> tuple[str, ...]:
@@ -144,6 +153,7 @@ def _register_analysis_contracts() -> None:
             return tuple(sections)
 
     _solver_protocol.set_solver_registry_provider(_RegistryProvider())
+    set_default_testbed_runner_provider_factory(ProjectTestbedRunnerProvider)
     register_default_testbed_runner_provider()
 
 

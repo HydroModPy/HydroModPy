@@ -96,7 +96,11 @@ def test_single_cell_pumping_activates_lower_obstacle() -> None:
             head_initial_guess_m=np.asarray([0.1], dtype=float),
             recharge_rate_m_s=0.0,
             well_flux_m3_s=np.asarray([-0.01], dtype=float),
-            options=NonlinearRuntimeOptions(max_iterations=30, tol_residual_inf=1.0e-10),
+            options=NonlinearRuntimeOptions(
+                regularization_radius=0.05,
+                max_iterations=30,
+                tol_residual_inf=1.0e-10,
+            ),
         )
     )
 

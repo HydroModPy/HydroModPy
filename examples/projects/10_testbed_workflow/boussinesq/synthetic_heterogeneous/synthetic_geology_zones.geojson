@@ -1,0 +1,75 @@
+{
+  "type": "FeatureCollection",
+  "name": "synthetic_geology_zones",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "EPSG:2154"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "ZONE": "west_low_k",
+        "NAME": "Western low-conductivity block",
+        "K_M_S": 1.0e-5,
+        "SY": 0.04
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [140024.9124, 6844483.9302],
+            [141700.0000, 6844483.9302],
+            [141700.0000, 6849508.9302],
+            [140024.9124, 6849508.9302],
+            [140024.9124, 6844483.9302]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ZONE": "central_high_k",
+        "NAME": "Central high-conductivity corridor",
+        "K_M_S": 8.0e-5,
+        "SY": 0.08
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [141700.0000, 6844483.9302],
+            [143350.0000, 6844483.9302],
+            [143350.0000, 6849508.9302],
+            [141700.0000, 6849508.9302],
+            [141700.0000, 6844483.9302]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "ZONE": "east_medium_k",
+        "NAME": "Eastern medium-conductivity block",
+        "K_M_S": 3.0e-5,
+        "SY": 0.06
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [143350.0000, 6844483.9302],
+            [145049.9124, 6844483.9302],
+            [145049.9124, 6849508.9302],
+            [143350.0000, 6849508.9302],
+            [143350.0000, 6844483.9302]
+          ]
+        ]
+      }
+    }
+  ]
+}

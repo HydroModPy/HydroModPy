@@ -30,9 +30,17 @@ class DerivedConfig(HydroModelBase):
         default=False,
         description="Magnitude of inter-cell flow (right/front/lower face). Volumetric.",
     )
+    release_flux: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description="Positive total groundwater release flux from drains and surface excess.",
+    )
     accumulation_flux: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description="Drain flux routed on the drainage network.",
+    )
+    release_accumulation_flux: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Release flux routed on surface drainage paths.",
     )
     outflow_drain: Annotated[bool, Profile.DEV] = Field(
         default=True,

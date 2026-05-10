@@ -17,12 +17,19 @@ from hydromodpy.physics.flow.initial_conditions import (
     _FLOW_IC_ADAPTER,
     FlowICBottom,
     FlowICCustom,
+    FlowICSteadyState,
     FlowICTop,
     FlowICTopOffset,
     FlowInitialConditions,
 )
 
-_FLOW_IC_VARIANT_TYPES = (FlowICTop, FlowICTopOffset, FlowICBottom, FlowICCustom)
+_FLOW_IC_VARIANT_TYPES = (
+    FlowICTop,
+    FlowICTopOffset,
+    FlowICBottom,
+    FlowICCustom,
+    FlowICSteadyState,
+)
 
 
 def normalize_flow_initial_conditions(
@@ -38,8 +45,11 @@ def normalize_flow_initial_conditions(
     - `None` or `{}` -> `None`
     - `FlowInitialConditions` -> passthrough
     - any concrete `FlowInitialCondition` variant -> wrapped as `{"h": ...}`
-    - flat mapping with keys `type`, `value`, `unit|units`, `description`
-      where `value` can be numeric or a string like `"12.5 m"`
+    - flat mapping with keys `type`, `value`, `unit|units`, `description`,
+      `source`, `recharge_statistic`, `boundary_condition_policy`;
+      `type` is required for any non-empty mapping;
+      `value` and `unit|units` are accepted only for `custom` and
+      `top_offset`, and `value` can be numeric or a string like `"12.5 m"`
     """
     if value is None:
         return None
@@ -60,13 +70,23 @@ def normalize_flow_initial_conditions(
 
     # Flow IC is intentionally kept flat in TOML (`[flow.ic]`), hence only
     # direct keys are accepted here.
-    direct_keys = {"type", "value", "unit", "units", "description"}
+    direct_keys = {
+        "type",
+        "value",
+        "unit",
+        "units",
+        "description",
+        "source",
+        "recharge_statistic",
+        "boundary_condition_policy",
+    }
     unknown_keys = [str(key).strip() for key in payload if str(key).strip() not in direct_keys]
     if unknown_keys:
         unknown_text = ", ".join(unknown_keys)
         raise ValueError(
             f"{location_prefix} accepts only direct keys "
-            f"[type, value, unit, units, description]. Unknown keys: {unknown_text}"
+            "[type, value, unit, units, description, source, "
+            f"recharge_statistic, boundary_condition_policy]. Unknown keys: {unknown_text}"
         )
 
     normalized = _normalize_single_ic_payload(payload, location_prefix=location_prefix)
@@ -85,11 +105,14 @@ def _normalize_single_ic_payload(
     """
     payload_dict = dict(payload)
 
-    raw_type = payload_dict.get("type", "custom")
+    if "type" not in payload_dict:
+        raise ValueError(f"{location_prefix}.type is required when {location_prefix} is not empty")
+    raw_type = payload_dict.get("type")
     ic_type = str(raw_type).strip().lower()
-    if ic_type not in {"top", "top_offset", "bottom", "custom"}:
+    if ic_type not in {"top", "top_offset", "bottom", "custom", "steady_state"}:
         raise ValueError(
-            f"{location_prefix}.type must be one of: 'top', 'top_offset', 'bottom', 'custom'"
+            f"{location_prefix}.type must be one of: 'top', 'top_offset', 'bottom', "
+            "'custom', 'steady_state'"
         )
 
     explicit_units = _extract_explicit_units(payload_dict)
@@ -104,9 +127,40 @@ def _normalize_single_ic_payload(
             length_label="length",
         )
         payload_dict["units"] = "m"
+    elif ic_type == "steady_state":
+        if "value" in payload_dict:
+            raise ValueError(f"{location_prefix}.value is not supported when type='steady_state'")
+        if explicit_units is not None:
+            raise ValueError(
+                f"{location_prefix}.unit/units is not supported when type='steady_state'"
+            )
+        payload_dict.pop("unit", None)
+        payload_dict.pop("units", None)
+        payload_dict.setdefault("source", "mean_recharge")
+        payload_dict.setdefault("recharge_statistic", "time_mean")
+        payload_dict.setdefault("boundary_condition_policy", "first_period")
     else:
-        # 'top' and 'bottom' variants do not carry a value field; drop it.
+        if "value" in payload_dict:
+            raise ValueError(
+                f"{location_prefix}.value is only supported when type='custom' or type='top_offset'"
+            )
+        if explicit_units is not None:
+            raise ValueError(
+                f"{location_prefix}.unit/units is only supported when type='custom' "
+                "or type='top_offset'"
+            )
         payload_dict.pop("value", None)
+        payload_dict.pop("unit", None)
+        payload_dict.pop("units", None)
+        for strategy_key in (
+            "source",
+            "recharge_statistic",
+            "boundary_condition_policy",
+        ):
+            if strategy_key in payload_dict:
+                raise ValueError(
+                    f"{location_prefix}.{strategy_key} is only supported when type='steady_state'"
+                )
 
     # Normalize unit alias and apply process defaults.
     if "units" not in payload_dict and "unit" in payload_dict:

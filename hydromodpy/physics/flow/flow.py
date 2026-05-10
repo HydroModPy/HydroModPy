@@ -18,9 +18,14 @@ runtime attributes after ``set_config(...)`` is called:
   ``scipy_sparse``, ``petsc``).
 - ``surface_interaction_model`` : optional Boussinesq closure selector for the
   groundwater/surface interaction (``auto``, ``regularized_partition``,
-  ``complementarity``).
+  ``complementarity``, ``vi_obstacle``, ``ts_vi_obstacle``).
 - ``runtime_max_iterations`` / ``runtime_tol_*`` : optional nonlinear runtime
   overrides forwarded to the Boussinesq backend.
+- ``vi_substeps_per_period`` / ``vi_substep_on_failure`` /
+  ``vi_max_adaptive_substeps`` : optional substepping controls for the
+  experimental PETSc VI obstacle Boussinesq runtime.
+- ``ts_vi_steps_per_period`` / ``ts_vi_adapt`` : optional PETSc TS controls
+  for the experimental TS VI obstacle Boussinesq runtime.
 - ``parameters`` : normalized hydraulic property dict (K, Sy, Ss, …),
   keyed by parameter id and containing ``FieldParam`` objects.
 - ``initial_conditions`` : one ``FlowInitialConditions`` instance grouping
@@ -80,6 +85,7 @@ from hydromodpy.core.units.volumetric_flow import (
     normalize_m3_per_s_unit,
 )
 from hydromodpy.physics.base import BoundaryCondition, ProcessSpatial, SinkSource
+from hydromodpy.physics.flow.boundary_condition_registry import BoundaryConditionBundle
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.initial_conditions import (
@@ -134,6 +140,16 @@ class Flow(ProcessSpatial):
         Optional residual-tolerance override forwarded to Boussinesq.
     runtime_tol_state_update_inf : float | None
         Optional state-update-tolerance override forwarded to Boussinesq.
+    vi_substeps_per_period : int
+        Fixed substeps per stress period for PETSc VI obstacle.
+    vi_substep_on_failure : bool
+        Whether PETSc VI obstacle retries failed periods with more substeps.
+    vi_max_adaptive_substeps : int | None
+        Maximum PETSc VI obstacle adaptive substep count.
+    ts_vi_steps_per_period : int
+        Fixed PETSc TS steps per stress period for TS VI obstacle.
+    ts_vi_adapt : bool
+        Whether PETSc TS adaptivity is enabled for TS VI obstacle.
     config : FlowConfig
         Reference to the last validated config applied via ``set_config``.
     parameters : dict[str, FieldParam | object]
@@ -179,8 +195,21 @@ class Flow(ProcessSpatial):
         self.runtime_max_iterations: int | None
         self.runtime_tol_residual_inf: float | None
         self.runtime_tol_state_update_inf: float | None
+        self.vi_substeps_per_period: int
+        self.vi_substep_on_failure: bool
+        self.vi_max_adaptive_substeps: int | None
+        self.ts_vi_steps_per_period: int
+        self.ts_vi_adapt: bool
+        self.ts_vi_dt_min_fraction: float
+        self.ts_vi_dt_max_fraction: float
+        self.ts_vi_type: str
+        self.ts_vi_snes_type: str
         self.initial_conditions: FlowInitialConditions | None
         self.boundary_condition_application_domains: dict[str, str] = {}
+        self.boundary_condition_bundle: BoundaryConditionBundle = BoundaryConditionBundle(
+            conditions={},
+            active_ids=(),
+        )
         self.initial_condition_types: dict[str, str] = {}
         self.set_config(config)
 
@@ -201,13 +230,11 @@ class Flow(ProcessSpatial):
         3. ``initial_conditions`` are built from ``config.ic`` via the
            process-specific normalizer (delegates to
            ``normalize_flow_initial_conditions``).
-        4. ``boundary_conditions`` and ``boundary_condition_application_domains``
-           are built from ``config.bc`` (typed objects + optional domain map).
+        4. ``active_*`` lists are copied from config, then
+           ``boundary_conditions`` and ``boundary_condition_bundle`` are built
+           from ``config.bc``.
         5. ``sinks_sources`` is populated from ``config.sinks_sources``
            (wells dict + recharge config).
-        6. ``active_sinks_sources`` and ``active_bc`` are copied from config
-           as plain lists; they control which items the solver adapter
-           actually processes.
         """
         if not isinstance(config, FlowConfig):
             raise TypeError("config must be a FlowConfig instance")
@@ -219,6 +246,15 @@ class Flow(ProcessSpatial):
         self.runtime_max_iterations = config.runtime_max_iterations
         self.runtime_tol_residual_inf = config.runtime_tol_residual_inf
         self.runtime_tol_state_update_inf = config.runtime_tol_state_update_inf
+        self.vi_substeps_per_period = config.vi_substeps_per_period
+        self.vi_substep_on_failure = config.vi_substep_on_failure
+        self.vi_max_adaptive_substeps = config.vi_max_adaptive_substeps
+        self.ts_vi_steps_per_period = config.ts_vi_steps_per_period
+        self.ts_vi_adapt = config.ts_vi_adapt
+        self.ts_vi_dt_min_fraction = config.ts_vi_dt_min_fraction
+        self.ts_vi_dt_max_fraction = config.ts_vi_dt_max_fraction
+        self.ts_vi_type = config.ts_vi_type
+        self.ts_vi_snes_type = config.ts_vi_snes_type
         # Parameters are resolved in the declared order from `flow.param_list`.
         self.set_parameters_from_config(
             self._runtime_parameter_payloads(config),
@@ -227,6 +263,9 @@ class Flow(ProcessSpatial):
         )
         # Flow has one typed IC structure (`FlowInitialConditions`).
         self.set_initial_conditions(config.ic)
+        # active_* lists control which declared items solver adapters process.
+        self.active_sinks_sources = list(config.active_sinks_sources)
+        self.active_bc = list(config.active_bc)
         # Boundary conditions are normalized as typed objects + domain hints.
         bc, application_domains = self._build_boundary_conditions(config.bc)
         self.set_boundary_conditions(
@@ -235,10 +274,6 @@ class Flow(ProcessSpatial):
         )
         # Sinks/sources are stored in a process-level dictionary namespace.
         self.set_sinks_sources(config.sinks_sources)
-        # active_* lists control which items the solver adapter will process;
-        # items absent from these lists are silently ignored downstream.
-        self.active_sinks_sources = list(config.active_sinks_sources)
-        self.active_bc = list(config.active_bc)
 
     @staticmethod
     def _runtime_parameter_payloads(config: FlowConfig) -> dict[str, object]:
@@ -276,18 +311,18 @@ class Flow(ProcessSpatial):
 
         Each entry in ``boundary_conditions_cfg`` is either:
 
-        - an already-typed ``BoundaryCondition`` (passed through as-is), or
-        - a raw mapping, validated via ``BoundaryCondition.model_validate``.
+        - an already-typed ``FlowBoundaryConditionConfig``;
+        - a legacy base ``BoundaryCondition`` converted to the flow model; or
+        - a raw mapping validated via ``FlowBoundaryConditionConfig``.
 
         For mapping payloads, ``id`` is always forced to the TOML section key
         (e.g. ``"ocean"``, ``"west_side"``). This prevents the ``id`` field
         in the TOML from diverging from the key actually used to look up the
         BC at runtime, which would cause silent mismatches in the adapter.
 
-        The ``application_domain`` key, if present, is extracted from the
-        payload before Pydantic validation and stored separately in
-        ``boundary_condition_application_domains``. This keeps the domain
-        hint available to spatial adapters without polluting the BC model.
+        ``application_domain`` is stored on the typed BC model. A legacy
+        ``boundary_condition_application_domains`` mirror is still populated
+        for spatial adapters that have not moved to the typed payload yet.
 
         Returns
         -------
@@ -374,6 +409,11 @@ class Flow(ProcessSpatial):
             self.boundary_condition_application_domains = {}
         else:
             self.boundary_condition_application_domains = dict(application_domains)
+        self._refresh_boundary_condition_bundle()
+
+    def _refresh_boundary_condition_bundle(self) -> None:
+        """Rebuild the compact runtime view over active and configured BCs."""
+        self.boundary_condition_bundle = BoundaryConditionBundle.from_flow(self)
 
     def set_sinks_sources(
         self,

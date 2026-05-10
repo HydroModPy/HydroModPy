@@ -365,11 +365,22 @@ def resolve_validation_results_dir(*, test_file: str | Path, run_name: str) -> P
     safe_run_name = _short_validation_name(run_name)
     parent_dir = results_root / test_stem
     out_dir = parent_dir / safe_run_name
+    if parent_dir.is_dir():
+        legacy_prefix = f"{safe_run_name}_"
+        for sibling in parent_dir.iterdir():
+            if (
+                sibling == out_dir
+                or not sibling.is_dir()
+                or not sibling.name.startswith(legacy_prefix)
+            ):
+                continue
+            legacy_suffix = sibling.name[len(legacy_prefix) :]
+            if len(legacy_suffix) == 8 and all(
+                char in "0123456789abcdef" for char in legacy_suffix.lower()
+            ):
+                remove_tree_with_retry(sibling)
     if out_dir.exists():
-        unique_suffix = hashlib.sha1(
-            f"{safe_run_name}-{os.getpid()}-{time.time_ns()}".encode()
-        ).hexdigest()[:8]
-        out_dir = parent_dir / f"{safe_run_name}_{unique_suffix}"
+        remove_tree_with_retry(out_dir)
     parent_dir.mkdir(parents=True, exist_ok=True)
     return out_dir
 

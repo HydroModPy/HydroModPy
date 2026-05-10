@@ -446,7 +446,12 @@ def _write_native_timeseries_csv(
     )
 
 
-def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> _FakeCatalog:
+def _write_boussinesq_run_folder(
+    run_folder: Path,
+    bundle_dir: Path,
+    *,
+    residual_history_m3_s: np.ndarray | None = None,
+) -> _FakeCatalog:
     run_folder.mkdir(parents=True, exist_ok=True)
     bundle_dir.mkdir(parents=True, exist_ok=True)
     (bundle_dir / "cells.csv").write_text(
@@ -494,6 +499,8 @@ def _write_boussinesq_run_folder(run_folder: Path, bundle_dir: Path) -> _FakeCat
         ),
         "period_lengths_seconds": np.asarray([3600.0], dtype=float),
     }
+    if residual_history_m3_s is not None:
+        state["residual_history_m3_s"] = np.asarray(residual_history_m3_s, dtype=float)
     (run_folder / "_boussinesq_summary.json").write_text(
         json.dumps({"bundle_dir": str(bundle_dir)}),
         encoding="utf-8",
@@ -654,6 +661,63 @@ def test_materialize_simulation_config_writes_base_overlay(tmp_path: Path) -> No
         raw["mesh_input"]["bundle_dir"]
         == (tmp_path / "results_stable" / "mesh" / "bundle").resolve().as_posix()
     )
+
+
+def test_materialize_simulation_config_applies_shared_base_overlay_and_default_workspace(
+    tmp_path: Path,
+) -> None:
+    base_config = tmp_path / "run_flow_common.toml"
+    _write_base_simulation_config(base_config)
+    config_path = tmp_path / "config_comparison.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[comparison]",
+                'comparison_id = "site_01_compare"',
+                'base_simulation_config = "run_flow_common.toml"',
+                'output_root = "comparison_outputs/site_01"',
+                "[comparison.base_simulation_overlay.geographic]",
+                "x_outlet = 131189.1",
+                "y_outlet = 6833784.4",
+                "target_area_km2 = 10.0",
+                "",
+                "[comparison.base_simulation_overlay.flow.param.K.field_homogeneous]",
+                'value = "2e-5 m/s"',
+                "",
+                "[comparison.execution]",
+                "run_simulations = false",
+                "",
+                "[[comparison.simulation]]",
+                'id = "mf6_demo"',
+                'solver = "modflow6"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head_cell"',
+                'variable = "watertable_elevation"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    cfg = SimulationComparisonConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        config_path=config_path,
+    )
+
+    generated = materialize_child_configs(cfg)[0].config_path
+
+    assert generated is not None
+    generated_text = generated.read_text(encoding="utf-8")
+    assert "# Human-readable simulation name." in generated_text
+    assert "# X coordinate of the watershed outlet" in generated_text
+    raw = load_toml_with_base_config(generated)
+    assert raw["geographic"]["x_outlet"] == 131189.1
+    assert raw["geographic"]["target_area_km2"] == 10.0
+    assert raw["flow"]["param"]["K"]["field_homogeneous"]["value"] == "2e-5 m/s"
+    assert raw["workspace"]["root"].endswith("comparison_outputs/site_01/workspaces/mf6_demo")
+    assert raw["workspace"]["project_root"] == raw["workspace"]["root"]
 
 
 def test_extract_observable_rows_reads_point_and_strict_outlet(tmp_path: Path) -> None:
@@ -1132,6 +1196,45 @@ def test_write_budget_exports_derives_boussinesq_budget_timeseries(
     )
 
 
+def test_write_budget_exports_prefers_boussinesq_solver_residual_history(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_folder = tmp_path / "run_bouss_budget"
+    bundle_dir = tmp_path / "bundle_bouss_budget"
+    store = _write_boussinesq_run_folder(
+        run_folder,
+        bundle_dir,
+        residual_history_m3_s=np.asarray([[0.0, 0.0, 0.0], [0.2, -0.03, 0.01]]),
+    )
+
+    comparison_root = tmp_path / "comparison"
+    config_path = tmp_path / "run_bouss_budget.toml"
+    config_path.write_text('[workspace]\nproject_root = "."\n', encoding="utf-8")
+    _patch_result_store(monkeypatch, {config_path.resolve(): store})
+    _, rows = write_budget_exports(
+        comparison_root=comparison_root,
+        simulation_summaries=[
+            {
+                "id": "bouss_demo",
+                "label": "Bouss demo",
+                "solver": "boussinesq",
+                "mesh_mode": "mesh_input",
+                "status": "completed",
+                "run_folder": str(run_folder),
+                "config_path": str(config_path),
+            }
+        ],
+    )
+
+    residual_row = next(
+        row
+        for row in rows
+        if row["component"] == "closure_residual_m3_s" and int(row["period_index"]) == 0
+    )
+    assert float(residual_row["value"]) == pytest.approx(0.18)
+
+
 def test_write_budget_exports_uses_child_config_bundle_when_run_folder_has_no_mesh_metadata(
     tmp_path: Path,
 ) -> None:
@@ -1540,11 +1643,7 @@ def test_simulation_comparison_launcher_generates_visual_figures(
     assert summary["comparison_figures_dir"]
     assert {item["kind"] for item in figures} == {
         "case_configuration",
-        "map_comparison",
-        "difference_map",
-        "map_triptych",
         "timeseries",
-        "point_dashboard",
         "simulated_active_network_figures_skipped_json",
     }
     for item in figures:
@@ -1635,9 +1734,9 @@ def test_simulation_comparison_launcher_writes_chronicles_native_flux_and_runtim
     assert "execution_times_csv" in artifact_kinds
 
     figure_kinds = {item["kind"] for item in summary["comparison_figures"]}
-    assert "native_flux_panel" in figure_kinds
-    assert "execution_time_bars" in figure_kinds
-    assert "point_dashboard" in figure_kinds
+    assert "native_flux_panel" not in figure_kinds
+    assert "execution_time_bars" not in figure_kinds
+    assert "point_dashboard" not in figure_kinds
 
 
 def test_simulation_comparison_launcher_generates_structured_figures_from_run_folder_template(
@@ -1727,9 +1826,6 @@ def test_simulation_comparison_launcher_generates_structured_figures_from_run_fo
     figures = summary["comparison_figures"]
     assert {item["kind"] for item in figures} == {
         "case_configuration",
-        "map_comparison",
-        "difference_map",
-        "map_triptych",
         "simulated_active_network_figures_skipped_json",
     }
     for item in figures:
@@ -2010,6 +2106,52 @@ def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unm
     ]
 
 
+def test_build_comparison_metrics_does_not_match_incompatible_time_roles() -> None:
+    rows = [
+        {
+            "comparison_id": "demo_compare",
+            "simulation_id": "reference",
+            "observable": "head_map_first",
+            "comparison_time_key": "elapsed_seconds:86400",
+            "match_fallback_key": "time_selector:first",
+            "time_role": "state_snapshot",
+            "value_index": 0,
+            "value": 2.0,
+            "unit": "m",
+            "selection": "map",
+            "is_nodata": False,
+        },
+        {
+            "comparison_id": "demo_compare",
+            "simulation_id": "candidate",
+            "observable": "head_map_first",
+            "comparison_time_key": "elapsed_seconds:0",
+            "match_fallback_key": "time_selector:first",
+            "time_role": "initial_state",
+            "value_index": 0,
+            "value": 1.0,
+            "unit": "m",
+            "selection": "map",
+            "is_nodata": False,
+        },
+    ]
+
+    detail, summary = build_comparison_metrics(rows, reference_simulation="reference")
+    unmatched = build_unmatched_groups(rows, reference_simulation="reference")
+
+    assert detail == []
+    assert summary == []
+    assert unmatched == [
+        {
+            "simulation_id": "candidate",
+            "observable": "head_map_first",
+            "unit": "m",
+            "n_rows": 1,
+            "reason": "missing aligned reference row or unit mismatch",
+        }
+    ]
+
+
 def test_runtime_observables_integer_time_selects_non_initial_snapshot() -> None:
     series = VariableSeries(
         variable_name="watertable_elevation",
@@ -2050,3 +2192,50 @@ def test_runtime_observables_integer_time_selects_non_initial_snapshot() -> None
     assert len(selected) == 1
     assert selected[0].time_index == 1
     assert not selected[0].is_initial_state
+
+
+def test_runtime_observables_supports_explicit_initial_and_first_computed_selectors() -> None:
+    series = VariableSeries(
+        variable_name="watertable_elevation",
+        source_path=Path("memory"),
+        slices=(
+            TimeSlice(
+                time_key=0,
+                time_index=0,
+                values=np.array([10.0]),
+                elapsed_seconds=0.0,
+                is_initial_state=True,
+            ),
+            TimeSlice(
+                time_key=1,
+                time_index=1,
+                values=np.array([11.0]),
+                elapsed_seconds=86400.0,
+                is_initial_state=False,
+            ),
+        ),
+    )
+
+    initial = select_time_slices(
+        series,
+        ComparisonObservable(
+            name="head_initial",
+            variable="watertable_elevation",
+            support="map",
+            time="initial_state",
+        ),
+    )
+    first_computed = select_time_slices(
+        series,
+        ComparisonObservable(
+            name="head_first_computed",
+            variable="watertable_elevation",
+            support="map",
+            time="first_computed",
+        ),
+    )
+
+    assert initial[0].time_index == 0
+    assert initial[0].is_initial_state
+    assert first_computed[0].time_index == 1
+    assert not first_computed[0].is_initial_state

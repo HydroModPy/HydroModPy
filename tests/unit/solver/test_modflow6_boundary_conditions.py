@@ -15,6 +15,7 @@ from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionCon
 from hydromodpy.physics.flow.initial_conditions import (
     FlowICBottom,
     FlowICCustom,
+    FlowICSteadyState,
     FlowICTop,
     FlowInitialConditions,
 )
@@ -120,9 +121,9 @@ def _build_unstructured_runtime(
         ),
         geology_a_key=("", "", "", "", ""),
         geology_b_key=("", "", "", "", ""),
-        boundary_labels_by_edge_id={}
-        if boundary_labels_by_edge_id is None
-        else dict(boundary_labels_by_edge_id),
+        boundary_labels_by_edge_id=(
+            {} if boundary_labels_by_edge_id is None else dict(boundary_labels_by_edge_id)
+        ),
     )
     return solver_mesh, support
 
@@ -581,6 +582,28 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
     assert np.allclose(strt[0], top.ravel())
 
 
+def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> None:
+    model = _build_model()
+    model.flow = SimpleNamespace(
+        initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")),
+        boundary_conditions={},
+        active_bc=[],
+    )
+    top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
+    botm_2d = np.ones_like(top)
+    solver_mesh = SolverMesh.from_structured_arrays(
+        nrow=2,
+        ncol=3,
+        top=top,
+        botm=np.stack([botm_2d]),
+    )
+
+    strt = build_start_heads(model, solver_mesh)
+
+    assert strt.shape == (1, 6)
+    assert np.allclose(strt[0], top.ravel())
+
+
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
@@ -640,6 +663,17 @@ def test_modflow6_rejects_bad_recharge_flat_shape() -> None:
 
     with pytest.raises(ValueError, match="sequence length"):
         recharge_to_spd(model)
+
+
+def test_modflow6_single_period_recharge_sequence_uses_first_clim() -> None:
+    model = _build_model()
+    model.nper = 1
+    model.first_clim = "mean"
+    model.recharge = np.asarray([1.0e-8, 2.0e-8, 3.0e-8], dtype=float)
+
+    spd = recharge_to_spd(model)
+
+    assert np.allclose(spd[0], 2.0e-8)
 
 
 def test_modflow6_rejects_missing_recharge_mapping_period() -> None:
@@ -724,7 +758,13 @@ def test_modflow6_builds_evt_stress_period_data_from_routed_payload() -> None:
     assert evt_spd is not None
     assert evt_spd[0] == []
     assert len(evt_spd[1]) == 6
-    assert evt_spd[1][0] == [0, 0, pytest.approx(10.0), pytest.approx(1.0e-6), pytest.approx(1.0)]
+    assert evt_spd[1][0] == [
+        0,
+        0,
+        pytest.approx(10.0),
+        pytest.approx(1.0e-6),
+        pytest.approx(1.0),
+    ]
 
 
 def test_modflow6_keeps_rewet_disabled_by_default() -> None:

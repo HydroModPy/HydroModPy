@@ -8,12 +8,28 @@ from collections.abc import Iterable
 from typing import Any
 
 import numpy as np
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 
-_TITLE_FONT_SIZE = 11
-_PANEL_TITLE_FONT_SIZE = 9
-_LABEL_FONT_SIZE = 9
-_TICK_FONT_SIZE = 8
-_LEGEND_FONT_SIZE = 9
+_TITLE_FONT_SIZE = 16
+_PANEL_TITLE_FONT_SIZE = 13
+_LABEL_FONT_SIZE = 12
+_TICK_FONT_SIZE = 11
+_LEGEND_FONT_SIZE = 12
+
+
+def _format_two_significant(value: float) -> str:
+    """Compact numeric label with two significant digits for axes and colorbars."""
+    numeric = float(value)
+    if not math.isfinite(numeric):
+        return ""
+    if math.isclose(numeric, 0.0, abs_tol=1e-12):
+        return "0"
+    abs_value = abs(numeric)
+    if 1e-3 <= abs_value < 1e4:
+        decimals = max(0, 1 - int(math.floor(math.log10(abs_value))))
+        text = f"{numeric:.{decimals}f}"
+        return text.rstrip("0").rstrip(".") if "." in text else text
+    return f"{numeric:.2g}"
 
 
 def _slug(value: str) -> str:
@@ -45,13 +61,34 @@ def _simulation_panel_title(*, simulation_id: str, simulation_label: str, solver
 
 
 def _style_map_axes(ax: Any) -> None:
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_xlabel("")
-    ax.set_ylabel("")
+    x_min, x_max = sorted(float(value) for value in ax.get_xlim())
+    y_min, y_max = sorted(float(value) for value in ax.get_ylim())
+    span = max(abs(x_max - x_min), abs(y_max - y_min))
+    if math.isfinite(span) and span >= 1000.0:
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.xaxis.set_major_formatter(
+            FuncFormatter(lambda value, _pos: _format_two_significant((value - x_min) / 1000.0))
+        )
+        ax.yaxis.set_major_formatter(
+            FuncFormatter(lambda value, _pos: _format_two_significant((value - y_min) / 1000.0))
+        )
+        ax.set_xlabel("x relative [km]", fontsize=_LABEL_FONT_SIZE)
+        ax.set_ylabel("y relative [km]", fontsize=_LABEL_FONT_SIZE)
+    else:
+        ax.set_xlabel("x", fontsize=_LABEL_FONT_SIZE)
+        ax.set_ylabel("y", fontsize=_LABEL_FONT_SIZE)
+    ax.tick_params(labelsize=_TICK_FONT_SIZE)
     for spine in ax.spines.values():
         spine.set_linewidth(0.6)
         spine.set_color("#9ca3af")
+
+
+def _style_colorbar(colorbar: Any, *, nbins: int = 5) -> None:
+    colorbar.locator = MaxNLocator(nbins=nbins)
+    colorbar.formatter = FuncFormatter(lambda value, _pos: _format_two_significant(value))
+    colorbar.update_ticks()
+    colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
 
 
 def _legend_ncols(n_items: int) -> int:
@@ -65,9 +102,10 @@ def _legend_ncols(n_items: int) -> int:
 def _solver_color(solver: str) -> str:
     """Return a stable color for ``solver``.
 
-    Colors are pulled from matplotlib's ``tab10`` cycle and indexed by a
-    deterministic hash of the solver name, so each name gets a consistent
-    color across plots without requiring a per-solver registry.
+    Common solver families use fixed colors so comparison pages keep the same
+    visual identity even when figures are keyed by simulation id instead of by
+    solver name. Unknown names fall back to matplotlib's ``tab10`` cycle and a
+    deterministic hash.
     """
     import hashlib
 
@@ -76,6 +114,21 @@ def _solver_color(solver: str) -> str:
     key = str(solver).strip().lower()
     if not key:
         return "#6b7280"
+    normalized = re.sub(r"[^a-z0-9]+", "_", key).strip("_")
+    fixed_palette = {
+        "boussinesq": "#ff7f0e",
+        "modflow6": "#1f77b4",
+        "mf6": "#1f77b4",
+        "modflow_nwt": "#2ca02c",
+        "nwt": "#2ca02c",
+    }
+    tokens = set(filter(None, normalized.split("_")))
+    if "boussinesq" in tokens or "bouss" in tokens:
+        return fixed_palette["boussinesq"]
+    if "modflow6" in tokens or "mf6" in tokens:
+        return fixed_palette["modflow6"]
+    if normalized in fixed_palette:
+        return fixed_palette[normalized]
     cmap = colormaps.get_cmap("tab10")
     digest = hashlib.md5(key.encode("utf-8")).digest()
     index = digest[0] % cmap.N
@@ -204,6 +257,7 @@ def _budget_component_label(component: str) -> str:
         "drainage_total_m3_s": "Drainage",
         "surface_excess_total_m3_s": "Surface excess",
         "comparable_outflow_total_m3_s": "Comparable outflow",
+        "balance_implied_outflow_total_m3_s": "Balance-implied outflow",
         "storage_change_total_m3_s": "Storage change",
         "closure_residual_m3_s": "Closure residual",
     }
@@ -217,6 +271,7 @@ def _budget_component_color(component: str) -> str:
         "drainage_total_m3_s": "#ff7f0e",
         "surface_excess_total_m3_s": "#d62728",
         "comparable_outflow_total_m3_s": "#111827",
+        "balance_implied_outflow_total_m3_s": "#4b5563",
         "storage_change_total_m3_s": "#2ca02c",
         "closure_residual_m3_s": "#6b7280",
         "outlet_flux_series": "#4b5563",

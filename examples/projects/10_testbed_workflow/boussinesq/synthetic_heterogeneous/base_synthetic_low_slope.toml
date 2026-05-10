@@ -1,0 +1,9 @@
+base_config = "base_synthetic_patchy_mf6_bouss_transient.toml"
+workflow = "simulation"
+
+[simulation]
+name = "synthetic_patchy_low_slope_mf6_bouss_shared_case"
+description = "Synthetic patchy 2D case with a weak regional topographic gradient for MF6 versus Boussinesq comparison."
+
+[geographic.synthetic.topography]
+right_to_left_amplitude = 5.0

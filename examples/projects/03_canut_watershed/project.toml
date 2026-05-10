@@ -296,8 +296,6 @@ characteristic_depth = "20.0 m"
 
 [flow.ic]
 type = "top"
-value = 1.0
-unit = "m"
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"

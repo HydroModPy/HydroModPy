@@ -11,33 +11,43 @@ from hydromodpy.analysis.comparison.config import RuntimeComparisonConfig
 from hydromodpy.analysis.comparison.visuals_payloads import (
     MapPayload,
     _build_case_configuration_payload,
-    _build_difference_payload,
     _build_fine_grid,
     _build_map_payload,
     _regrid_payload,
     _resolve_fine_grid_bounds,
     griddata,
+    observable_point_label_map,
 )
 from hydromodpy.analysis.comparison.visuals_render_maps import (
     _write_case_configuration_figure,
-    _write_difference_figure,
     _write_geotiff,
-    _write_map_comparison_figure,
-    _write_map_triptych_figure,
-    _write_regridded_difference_figure,
     _write_regridded_map_figure,
-    _write_regridded_triptych_figure,
 )
 from hydromodpy.analysis.comparison.visuals_render_series import (
-    _write_budget_diagnostic_figure,
-    _write_comparable_outflow_dashboard,
-    _write_flux_dashboard,
-    _write_native_flux_panel,
-    _write_point_dashboard,
-    _write_runtime_bar_figure,
+    _write_storage_comparison_dashboard,
     _write_timeseries_figure,
+    _write_total_input_output_dashboard,
 )
-from hydromodpy.analysis.comparison.visuals_style import _is_flux_like_name, _slug
+from hydromodpy.analysis.comparison.visuals_style import _slug
+
+
+def _representative_map_observable_names(observables: list[Any]) -> set[str]:
+    """Keep the comparison report focused by selecting one map observable."""
+    map_observables = [item for item in observables if getattr(item, "support", "") == "map"]
+    if not map_observables:
+        return set()
+    priority = (
+        "head_map_wet_year1",
+        "head_map_extreme_recharge",
+        "head_map_last",
+        "head_map_first_computed",
+        "head_map_initial",
+    )
+    by_name = {str(item.name): item for item in map_observables}
+    for name in priority:
+        if name in by_name:
+            return {name}
+    return {str(map_observables[0].name)}
 
 
 def generate_comparison_figures(
@@ -93,8 +103,12 @@ def generate_comparison_figures(
                 }
             )
 
+    representative_map_names = _representative_map_observable_names(list(cfg.comparison.observable))
+    point_labels = observable_point_label_map(tuple(cfg.comparison.observable))
     for observable in cfg.comparison.observable:
         if observable.support != "map":
+            continue
+        if observable.name not in representative_map_names:
             continue
         payloads: list[MapPayload] = []
         for simulation_id, simulation in simulations.items():
@@ -114,22 +128,6 @@ def generate_comparison_figures(
             if payload is not None:
                 payloads.append(payload)
 
-        if len(payloads) >= 1:
-            map_path = figure_root / f"{_slug(observable.name)}__map_comparison.png"
-            _write_map_comparison_figure(
-                path=map_path,
-                observable_name=observable.name,
-                payloads=payloads,
-            )
-            if map_path.exists():
-                artifacts.append(
-                    {
-                        "kind": "map_comparison",
-                        "observable": observable.name,
-                        "path": str(map_path),
-                    }
-                )
-
         if reference_simulation is None:
             continue
         reference_payload = next(
@@ -138,49 +136,6 @@ def generate_comparison_figures(
         )
         if reference_payload is None:
             continue
-        for candidate in payloads:
-            if candidate.simulation_id == reference_simulation:
-                continue
-            difference = _build_difference_payload(
-                reference=reference_payload,
-                candidate=candidate,
-            )
-            if difference is None:
-                continue
-            diff_path = figure_root / (
-                f"{_slug(observable.name)}__difference__"
-                f"{_slug(reference_simulation)}__vs__{_slug(candidate.simulation_id)}.png"
-            )
-            _write_difference_figure(path=diff_path, payload=difference)
-            if diff_path.exists():
-                artifacts.append(
-                    {
-                        "kind": "difference_map",
-                        "observable": observable.name,
-                        "reference_simulation": reference_simulation,
-                        "candidate_simulation": candidate.simulation_id,
-                        "path": str(diff_path),
-                    }
-                )
-            triptych_path = figure_root / (
-                f"{_slug(observable.name)}__triptych__"
-                f"{_slug(reference_simulation)}__vs__{_slug(candidate.simulation_id)}.png"
-            )
-            if _write_map_triptych_figure(
-                path=triptych_path,
-                reference=reference_payload,
-                candidate=candidate,
-                difference=difference,
-            ):
-                artifacts.append(
-                    {
-                        "kind": "map_triptych",
-                        "observable": observable.name,
-                        "reference_simulation": reference_simulation,
-                        "candidate_simulation": candidate.simulation_id,
-                        "path": str(triptych_path),
-                    }
-                )
 
         if fine_raster is not None and fine_raster.enabled and griddata is not None:
             bounds = _resolve_fine_grid_bounds(
@@ -237,91 +192,6 @@ def generate_comparison_figures(
                                     "path": str(fine_map_path),
                                 }
                             )
-                    if reference_simulation is not None:
-                        reference_array = next(
-                            (
-                                array
-                                for payload, array in regridded
-                                if payload.simulation_id == reference_simulation
-                            ),
-                            None,
-                        )
-                        reference_payload = next(
-                            (
-                                payload
-                                for payload, _array in regridded
-                                if payload.simulation_id == reference_simulation
-                            ),
-                            None,
-                        )
-                        if reference_array is not None and reference_payload is not None:
-                            for payload, array in regridded:
-                                if payload.simulation_id == reference_simulation:
-                                    continue
-                                difference_array = np.asarray(array - reference_array, dtype=float)
-                                triptych_path = figure_root / (
-                                    f"{_slug(observable.name)}__fine_raster_triptych__"
-                                    f"{_slug(reference_simulation)}__vs__{_slug(payload.simulation_id)}.png"
-                                )
-                                if _write_regridded_triptych_figure(
-                                    path=triptych_path,
-                                    observable_name=observable.name,
-                                    reference_payload=reference_payload,
-                                    candidate_payload=payload,
-                                    reference_array=reference_array,
-                                    candidate_array=array,
-                                    extent=grid_extent,
-                                ):
-                                    artifacts.append(
-                                        {
-                                            "kind": "fine_raster_triptych",
-                                            "observable": observable.name,
-                                            "reference_simulation": reference_simulation,
-                                            "candidate_simulation": payload.simulation_id,
-                                            "path": str(triptych_path),
-                                        }
-                                    )
-                                diff_path = figure_root / (
-                                    f"{_slug(observable.name)}__fine_raster_difference__"
-                                    f"{_slug(reference_simulation)}__vs__{_slug(payload.simulation_id)}.png"
-                                )
-                                if _write_regridded_difference_figure(
-                                    path=diff_path,
-                                    observable_name=observable.name,
-                                    candidate_simulation=payload.simulation_id,
-                                    reference_simulation=reference_simulation,
-                                    array=difference_array,
-                                    unit=payload.unit,
-                                    extent=grid_extent,
-                                ):
-                                    artifacts.append(
-                                        {
-                                            "kind": "fine_raster_difference_map",
-                                            "observable": observable.name,
-                                            "reference_simulation": reference_simulation,
-                                            "candidate_simulation": payload.simulation_id,
-                                            "path": str(diff_path),
-                                        }
-                                    )
-                                if fine_raster.write_geotiff:
-                                    raster_path = figure_root / (
-                                        f"{_slug(observable.name)}__fine_raster_difference__"
-                                        f"{_slug(reference_simulation)}__vs__{_slug(payload.simulation_id)}.tif"
-                                    )
-                                    if _write_geotiff(
-                                        path=raster_path,
-                                        array=difference_array,
-                                        extent=grid_extent,
-                                    ):
-                                        artifacts.append(
-                                            {
-                                                "kind": "fine_raster_difference_geotiff",
-                                                "observable": observable.name,
-                                                "reference_simulation": reference_simulation,
-                                                "candidate_simulation": payload.simulation_id,
-                                                "path": str(raster_path),
-                                            }
-                                        )
 
     grouped_rows: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for row in rows:
@@ -334,128 +204,54 @@ def generate_comparison_figures(
 
     for (observable_name, unit), grouped in sorted(grouped_rows.items()):
         series_path = figure_root / f"{_slug(observable_name)}__timeseries.png"
+        point_label = point_labels.get(observable_name, "")
         if _write_timeseries_figure(
             path=series_path,
             observable_name=observable_name,
             unit=unit,
             grouped_rows=grouped,
+            point_label=point_label,
         ):
             artifacts.append(
                 {
                     "kind": "timeseries",
                     "observable": observable_name,
                     "unit": unit,
+                    "point_label": point_label,
                     "path": str(series_path),
                 }
             )
 
     native_long = list(native_timeseries_rows or [])
-    native_delta = list(native_timeseries_delta_rows or [])
-
-    point_dashboard_path = figure_root / "head_points_dashboard.png"
-    if _write_point_dashboard(path=point_dashboard_path, rows=rows):
-        artifacts.append(
-            {
-                "kind": "point_dashboard",
-                "observable": "head_points",
-                "path": str(point_dashboard_path),
-            }
-        )
-
-    native_variables = sorted(
-        {
-            str(row.get("variable", ""))
-            for row in native_long
-            if _is_flux_like_name(str(row.get("variable", "")))
-        }
-    )
-    for variable in native_variables:
-        flux_path = figure_root / f"native_{_slug(variable)}__hydrograph.png"
-        if _write_native_flux_panel(
-            path=flux_path,
-            variable=variable,
-            long_rows=native_long,
-            delta_rows=native_delta,
-        ):
-            artifacts.append(
-                {
-                    "kind": "native_flux_panel",
-                    "observable": variable,
-                    "path": str(flux_path),
-                }
-            )
-
-    flux_dashboard_path = figure_root / "flux_overview.png"
-    if _write_flux_dashboard(
-        path=flux_dashboard_path,
-        rows=rows,
-        native_long_rows=native_long,
-    ):
-        artifacts.append(
-            {
-                "kind": "flux_dashboard",
-                "observable": "flux_overview",
-                "path": str(flux_dashboard_path),
-            }
-        )
+    del native_long, native_timeseries_delta_rows
 
     budget_long = list(budget_rows or [])
-    comparable_outflow_path = figure_root / "comparable_outflow_dashboard.png"
-    if _write_comparable_outflow_dashboard(
-        path=comparable_outflow_path,
+    storage_path = figure_root / "storage_comparison_dashboard.png"
+    if _write_storage_comparison_dashboard(
+        path=storage_path,
         budget_rows=budget_long,
-        rows=rows,
     ):
         artifacts.append(
             {
-                "kind": "comparable_outflow_dashboard",
-                "observable": "comparable_outflow_total_m3_s",
-                "path": str(comparable_outflow_path),
+                "kind": "storage_comparison_dashboard",
+                "observable": "storage_change_total_m3_s",
+                "path": str(storage_path),
             }
         )
 
-    budget_simulations = sorted(
-        {
-            (
-                str(row.get("simulation_id", "")),
-                str(row.get("simulation_label", row.get("simulation_id", ""))),
-            )
-            for row in budget_long
-            if str(row.get("simulation_id", "")) != ""
-        }
-    )
-    for simulation_id, simulation_label in budget_simulations:
-        budget_path = figure_root / f"{_slug(simulation_id)}__budget_diagnostics.png"
-        if _write_budget_diagnostic_figure(
-            path=budget_path,
-            simulation_id=simulation_id,
-            simulation_label=simulation_label,
-            budget_rows=budget_long,
-            rows=rows,
-        ):
-            artifacts.append(
-                {
-                    "kind": "budget_diagnostics",
-                    "observable": "budget",
-                    "simulation_id": simulation_id,
-                    "path": str(budget_path),
-                }
-            )
-
-    if execution_rows:
-        runtime_path = figure_root / "execution_time_comparison.png"
-        if _write_runtime_bar_figure(
-            path=runtime_path,
-            execution_rows=execution_rows,
-            reference_simulation=reference_simulation,
-        ):
-            artifacts.append(
-                {
-                    "kind": "execution_time_bars",
-                    "observable": "execution_time",
-                    "path": str(runtime_path),
-                }
-            )
+    totals_path = figure_root / "total_inputs_outputs_dashboard.png"
+    if _write_total_input_output_dashboard(
+        path=totals_path,
+        budget_rows=budget_long,
+    ):
+        artifacts.append(
+            {
+                "kind": "total_inputs_outputs_dashboard",
+                "observable": "total_inputs_outputs_m3_s",
+                "path": str(totals_path),
+            }
+        )
+    del execution_rows
 
     return artifacts
 

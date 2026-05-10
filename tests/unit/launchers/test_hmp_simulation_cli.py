@@ -11,9 +11,9 @@ from types import SimpleNamespace
 
 import pytest
 
+import hydromodpy.workflow_dispatch as workflow_dispatch
 from hydromodpy.cli import main
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
-from hydromodpy.workflow import dispatch as workflow_dispatch
 
 
 def _write_toml(path: Path, content: str) -> Path:
@@ -177,8 +177,8 @@ def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
     assert captured["run_called"] is True
 
 
-def test_hmp_run_dispatches_mesh_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run`` with workflow=mesh dispatches to run_mesh."""
+def test_hmp_run_rejects_removed_mesh_workflow(monkeypatch, tmp_path) -> None:
+    """``hmp run`` no longer accepts the removed workflow=mesh value."""
     config = _write_toml(
         tmp_path / "mesh.toml",
         '[workflow]\nmode = "mesh"\n'
@@ -186,20 +186,11 @@ def test_hmp_run_dispatches_mesh_workflow(monkeypatch, tmp_path) -> None:
         "[mesh_catchment]\nelement_size = 200\n",
     )
 
-    captured: dict = {}
-
-    def fake_run(config_path):
-        captured["config_path"] = Path(config_path)
-        captured["run_called"] = True
-        return {"mode": "mesh"}
-
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "mesh", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
-    main()
-
-    assert captured["config_path"] == config.resolve()
-    assert captured["run_called"] is True
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == EXIT_CONFIG
 
 
 def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
@@ -225,27 +216,18 @@ def test_hmp_run_dispatches_calibration_workflow(monkeypatch, tmp_path) -> None:
     assert captured["run_called"] is True
 
 
-def test_hmp_run_dispatches_batch_workflow(monkeypatch, tmp_path) -> None:
-    """``hmp run`` with workflow=batch dispatches to run_batch."""
+def test_hmp_run_rejects_removed_batch_workflow(monkeypatch, tmp_path) -> None:
+    """``hmp run`` no longer accepts the removed workflow=batch value."""
     config = _write_toml(
         tmp_path / "batch.toml",
         '[workflow]\nmode = "batch"\n[batch]\ncatalog_path = "sites.csv"\n',
     )
 
-    captured: dict = {}
-
-    def fake_run(config_path):
-        captured["config_path"] = Path(config_path)
-        captured["run_called"] = True
-        return {"mode": "batch"}
-
-    monkeypatch.setitem(workflow_dispatch.DISPATCH, "batch", fake_run)
     monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
 
-    main()
-
-    assert captured["config_path"] == config.resolve()
-    assert captured["run_called"] is True
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == EXIT_CONFIG
 
 
 def test_hmp_run_crashes_when_workflow_field_missing(monkeypatch, tmp_path) -> None:

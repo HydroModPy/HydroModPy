@@ -13,12 +13,17 @@ to audit the experiment.
 | File | Responsibility |
 | --- | --- |
 | `config.py` | Validates the `[testbed]` TOML contract and resolves paths. |
+| `catalog_variants.py` | Expands optional catalog rows into concrete testbed variants. |
+| `profiles.py` | Resolves `[testbed].profile` and routes specialized profiles. |
+| `regional_lab_adapter.py` | Projects regional site x recipe cases onto testbed cases. |
+| `regional_lab.py` | Runs the regional catalog profile backed by `[regional_lab]`. |
+| `regional_lab_*.py` | Regional profile config, catalog, planning, reporting, and bootstrap helpers. |
 | `runtime.py` | Materializes child configs, runs child workflows, extracts metrics, and writes evidence files. |
 | `__init__.py` | Public imports for `TestbedConfig` and `TestbedLauncher`. |
 
 The CLI entry point lives outside this package:
 
-- `hydromodpy/workflow/dispatch.py::run_testbed`
+- `hydromodpy/workflow_dispatch.py::run_testbed`
 - `hydromodpy/cli/commands/run.py`
 
 ## Design Contract
@@ -28,19 +33,33 @@ The workflow is intentionally small and explicit.
 1. A testbed owns an experimental matrix, not physics.
 2. Every enabled variant becomes one child TOML under
    `<output_root>/_generated_configs/`.
-3. Generated children are ordinary workflow files:
-   `[workflow].mode = "mesh"` for `mesh_catchment`, or `[workflow].mode = "simulation"` for
-   flow children.
-4. Generated children never contain `[testbed]`.
-5. Evidence files are always written, including dry plans with
+3. Variants may be explicit `[[testbed.variant]]` blocks or generated from a
+   CSV/JSONL `[testbed.catalog]` plus `[[testbed.variant_from_catalog]]`
+   overlay templates.
+4. Generated children are ordinary workflow files:
+   `[workflow].mode = "simulation"` for mesh, flow, and transport children, or
+   `[workflow].mode = "comparison"` for comparison children. Mesh-only children
+   use `[[simulation.process]]` with `type = "mesh"` and `backend = "catchment"`.
+5. Generated children never contain `[testbed]`.
+6. Evidence files are always written, including dry plans with
    `execute = false`.
+
+`regional_lab` is the regional catalog profile of this general campaign model.
+New regional campaigns can enter through `[workflow].mode = "testbed"` with
+`[testbed].profile = "regional_lab"`. The profile keeps regional concepts such
+as site selection, cluster rules, status/maturity fields, coverage gaps, and
+recipes, but shares the common catalog loader in `hydromodpy.analysis.catalog`
+and the child-runner contract used by generic testbeds.
 
 Supported pairs are currently:
 
 | Subject | Runner | Generated child workflow |
 | --- | --- | --- |
-| `mesh` | `mesh_catchment` | `mesh` |
+| `mesh` | `simulation` | `simulation` |
 | `flow` | `simulation` | `simulation` |
+| `flow` | `comparison` | `comparison` |
+| `transport` | `simulation` | `simulation` |
+| `transport` | `comparison` | `comparison` |
 
 ## TOML Shape
 
@@ -73,9 +92,22 @@ source = "flow_metrics.head_range_m"
 required = true
 ```
 
-For `subject = "flow"`, `testbed.base_config` is mandatory. Keep `[testbed]`
-outside the base simulation TOML so the base remains reusable by normal
-simulation runs.
+For `subject = "flow"`, `testbed.base_config` is mandatory when the runner is
+`simulation` or `comparison`. Keep `[testbed]` outside the base child TOML so
+the base remains reusable by normal simulation or comparison runs.
+
+With `runner.type = "comparison"`, the base config is a normal
+`[workflow].mode = "comparison"` TOML. A catalog-backed variant typically renders
+`comparison.comparison_id`, `comparison.output_root`, and
+`comparison.base_simulation_overlay`. The comparison launcher then applies that
+shared base overlay to every generated child simulation before applying each
+solver-specific `comparison.simulation.overlay`.
+
+When no `[[testbed.metric]]` block is declared for `runner.type = "comparison"`,
+the testbed writes a small default comparison summary to `testbed_metrics.csv`:
+comparison id, audit status, row counts, and numerical-closure diagnostics when
+the comparison produced them. Use explicit `[[testbed.metric]]` blocks only when
+a campaign needs a non-default metric set.
 
 For `subject = "mesh"`, `base_config` is optional. Without it, the testbed TOML
 itself is used as the base payload after removing `[testbed]`.
@@ -155,8 +187,8 @@ Targeted checks:
 
 ```powershell
 python -m pytest tests/unit/launchers/test_testbed_launcher.py tests/unit/launchers/test_hmp_simulation_cli.py -q
-python -m ruff check hydromodpy/analysis/testbed hydromodpy/workflow/dispatch.py hydromodpy/cli/commands/run.py tests/unit/launchers/test_testbed_launcher.py tests/unit/launchers/test_hmp_simulation_cli.py
-python -m compileall -q hydromodpy/analysis/testbed hydromodpy/workflow/dispatch.py hydromodpy/cli/commands/run.py
+python -m ruff check hydromodpy/analysis/testbed hydromodpy/workflow_dispatch.py hydromodpy/workflow/dispatch.py hydromodpy/cli/commands/run.py tests/unit/launchers/test_testbed_launcher.py tests/unit/launchers/test_hmp_simulation_cli.py
+python -m compileall -q hydromodpy/analysis/testbed hydromodpy/workflow_dispatch.py hydromodpy/workflow/dispatch.py hydromodpy/cli/commands/run.py
 ```
 
 Example dry plans:

@@ -15,14 +15,15 @@ Comparison:
 - simulated observable: `watertable_elevation`
 - compared quantity: domain-averaged head profile along `x`
 - reference: Dupuit steady fixed-head solution
-- configured solver variants: `modflownwt` (default) and `modflow6`
-  plus local `boussinesq` helpers for `scipy_sparse`, Linux-only `petsc`
+- configured solver variants: `modflownwt` (default), `modflow6`,
+  Linux-only PETSc `boussinesq` VI obstacle, Linux-only `petsc`
   complementarity, and Linux-only `petsc_partition` regularized partition.
 
 Solver-specific tolerances are stored in:
 
 - `tolerances.toml` for the historical `modflownwt` baseline,
 - `tolerances_modflow6.toml` for the `modflow6` variant,
+- `tolerances_petsc_vi_obstacle.toml` for the PETSc Boussinesq VI obstacle variant,
 - `tolerances_petsc.toml` for the Linux PETSc Boussinesq complementarity variant,
 - `tolerances_petsc_partition.toml` for the Linux PETSc regularized partition variant.
 
@@ -36,7 +37,8 @@ python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --sol
 python -m validation_cases.analytical.steady.dupuit_fixed_head_1d.run_case --solver petsc_partition --no-show
 ```
 
-The `petsc` and `petsc_partition` variants require Linux with `petsc4py` installed.
+The PETSc-backed `boussinesq`, `petsc`, and `petsc_partition` variants require
+Linux with `petsc4py` installed.
 
 The runner saves a PNG figure with:
 

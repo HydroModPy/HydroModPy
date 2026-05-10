@@ -16,7 +16,7 @@ from validation_cases.analytical.transient.boussinesq_hillslope_recharge_step_in
 @pytest.mark.transient
 @pytest.mark.slow
 def test_boussinesq_hillslope_recharge_step_interception_1d_matches_onset_approximation() -> None:
-    """Run the local Boussinesq case and compare the interception onset diagnostics."""
+    """Run the PETSc TS VI Boussinesq case and compare the onset diagnostics."""
     assert_required_executables(
         require_modflow=False,
         require_modflow6=False,

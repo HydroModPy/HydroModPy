@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import os
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -13,6 +14,9 @@ import numpy as np
 
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    active_side_dirichlet_boundary_ids,
+)
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver import Solver
 from hydromodpy.solver.modflow6.builders import (
@@ -46,6 +50,7 @@ from hydromodpy.solver.modflow6.postprocess import (
     run_flow_post_processing,
 )
 from hydromodpy.solver.modflow6.property_mapping import (
+    fill_missing_flow_properties_from_mesh_support,
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
 )
@@ -53,6 +58,11 @@ from hydromodpy.solver.modflow6.runtime_reuse import (
     can_refresh_runtime_reuse,
     refresh_reused_runtime_property_packages,
     runtime_reuse_signature,
+)
+from hydromodpy.solver.modflow6.steady_initial_conditions import (
+    apply_modflow6_steady_state_initial_heads,
+    flow_uses_steady_state_initial_condition,
+    run_modflow6_steady_state_initialization,
 )
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
@@ -130,6 +140,7 @@ class Modflow6(Solver):
         self.flow = None
         self.domain = None
         self.flow_regime: str | None = None
+        self.last_flow_solve_time_seconds: float | None = None
         self.prob_cells = 0
 
         self.full_path = os.path.join(model_folder, model_name)
@@ -292,6 +303,7 @@ class Modflow6(Solver):
         self.domain = domain
         self.runtime_mesh_planar = mesh_planar
         self.runtime_mesh_support = mesh_support
+        self._flow_runtime_overrides = flow_runtime_overrides
         active_options = self.preprocess_options if options is None else options
         self._apply_preprocess_options(active_options)
         self._validate_pre_processing_inputs()
@@ -370,6 +382,11 @@ class Modflow6(Solver):
             optional_fill_values={"Sy": 0.0, "Ss": 0.0},
             runtime_property_overrides=flow_runtime_overrides,
         )
+        flow_params = fill_missing_flow_properties_from_mesh_support(
+            flow_params,
+            mesh_support=self.runtime_mesh_support,
+            solver_mesh=solver_mesh,
+        )
         # Flatten property arrays to (nlay, ncpl).
         self.hk = solver_mesh.flatten_from_grid(flow_params["hk"])
         self.sy = solver_mesh.flatten_from_grid(flow_params["sy"])
@@ -443,7 +460,11 @@ class Modflow6(Solver):
             k33=self.hk
             / max(
                 float(
-                    getattr(getattr(self.modflow_config, "process_specific", object()), "vka", 1.0)
+                    getattr(
+                        getattr(self.modflow_config, "process_specific", object()),
+                        "vka",
+                        1.0,
+                    )
                 ),
                 1e-12,
             ),
@@ -545,6 +566,19 @@ class Modflow6(Solver):
         elif not isinstance(options, ModflowRunOptions):
             raise TypeError("processing options must be ModflowRunOptions")
 
+        steady_initial_heads_applied = False
+        if (
+            options.run_model
+            and getattr(self, "flow_regime", None) == "transient"
+            and flow_uses_steady_state_initial_condition(getattr(self, "flow", None))
+        ):
+            steady_heads = run_modflow6_steady_state_initialization(
+                self,
+                verbose=bool(options.verbose),
+            )
+            apply_modflow6_steady_state_initial_heads(self, steady_heads)
+            steady_initial_heads_applied = True
+
         if options.write_model:
             dirty_packages = tuple(getattr(self, "_runtime_dirty_packages", ()) or ())
             if dirty_packages:
@@ -553,13 +587,22 @@ class Modflow6(Solver):
                     if package is None:
                         continue
                     package.write()
+                if steady_initial_heads_applied:
+                    self.ic.write()
                 self._runtime_dirty_packages = ()
             else:
                 self.sim.write_simulation(silent=not options.verbose)
+        elif steady_initial_heads_applied:
+            self.ic.write()
 
         success_model = False
+        self.last_flow_solve_time_seconds = None
         if options.run_model:
-            success_model, _ = self.sim.run_simulation(silent=not options.verbose)
+            solve_start = time.perf_counter()
+            try:
+                success_model, _ = self.sim.run_simulation(silent=not options.verbose)
+            finally:
+                self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
         return success_model
 
     @staticmethod
@@ -828,10 +871,22 @@ class Modflow6(Solver):
                 "watertable_depth": ("Water-table depth", "Top - h [m]", "Blues"),
                 "seepage_areas": ("Seepage areas", "Seepage [m/day]", "Reds"),
                 "outflow_drain": ("Drain discharge", "Discharge [m/day]", "magma"),
-                "accumulation_flux": ("Accumulation flux", "Accumulated flow [m/day]", "plasma"),
-                "concentration_seepage": ("Seepage concentration", "Concentration [-]", "viridis"),
+                "accumulation_flux": (
+                    "Accumulation flux",
+                    "Accumulated flow [m/day]",
+                    "plasma",
+                ),
+                "concentration_seepage": (
+                    "Seepage concentration",
+                    "Concentration [-]",
+                    "viridis",
+                ),
                 "mass_seepage": ("Seepage mass", "Mass [-]", "cividis"),
-                "mass_accumulated": ("Accumulated mass", "Accumulated mass [-]", "inferno"),
+                "mass_accumulated": (
+                    "Accumulated mass",
+                    "Accumulated mass [-]",
+                    "inferno",
+                ),
             }
 
             for name, values in cell_series.items():
@@ -965,7 +1020,7 @@ class Modflow6(Solver):
             "ocean": "#2ca02c",
         }
         boundary_conditions = self._boundary_conditions_mapping()
-        for bc_id in ("west_side", "east_side", "north_side", "south_side"):
+        for bc_id in active_side_dirichlet_boundary_ids(self.flow):
             if not self._is_bc_active(bc_id):
                 continue
             boundary = boundary_conditions.get(bc_id)
@@ -1220,7 +1275,12 @@ class Modflow6(Solver):
                 color=color,
                 ha="center",
                 va="center",
-                bbox={"facecolor": "white", "edgecolor": color, "alpha": 0.75, "pad": 1.5},
+                bbox={
+                    "facecolor": "white",
+                    "edgecolor": color,
+                    "alpha": 0.75,
+                    "pad": 1.5,
+                },
                 zorder=4,
             )
             label_handles.append(Line2D([0], [0], color=color, lw=2.4, label=label))

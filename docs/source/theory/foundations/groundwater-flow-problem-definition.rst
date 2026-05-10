@@ -162,15 +162,86 @@ The runtime layer normalizes them into solver-independent scientific families.
 Initial Conditions
 ------------------
 
-The current project-level initial-condition policy is simple by design. Head
-can be initialized from:
+Initial conditions are declared in the flat ``[flow.ic]`` section. They define
+the initial hydraulic head ``h`` for the flow process before any backend
+translation takes place.
 
-- ``top``: start close to a full aquifer,
-- ``bottom``: start close to an empty aquifer,
-- ``custom``: start from one explicit scalar head.
+They are scientific choices about the starting state, not solver options. The
+same ``[flow.ic]`` contract is consumed by MODFLOW 6, MODFLOW-NWT, and the
+Boussinesq backend.
 
-Those policies are stored in normalized SI form before backend translation.
-They are scientific choices about the starting state, not solver options.
+The supported ``type`` values are:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 42 40
+
+   * - ``type``
+     - Meaning
+     - Required / related keys
+   * - ``top``
+     - Initialize head from the aquifer top surface. This is close to a full
+       aquifer initial state.
+     - No ``value``, ``unit``, or ``units``.
+   * - ``top_offset``
+     - Initialize head from top surface minus a vertical offset.
+     - ``value`` is required and is a length.
+   * - ``bottom``
+     - Initialize head from the aquifer bottom surface. This is close to an
+       empty aquifer initial state.
+     - No ``value``, ``unit``, or ``units``.
+   * - ``custom``
+     - Initialize all cells from one explicit scalar head.
+     - ``value`` is required and is a length.
+   * - ``steady_state``
+     - Initialize a transient run from an auxiliary permanent solve performed
+       by the same solver backend.
+     - Strategy keys only: ``source``, ``recharge_statistic``,
+       ``boundary_condition_policy``. No ``value``, ``unit``, or ``units``.
+
+Examples:
+
+.. code-block:: toml
+
+   [flow.ic]
+   type = "top"
+
+.. code-block:: toml
+
+   [flow.ic]
+   type = "top_offset"
+   value = "2 m"
+
+.. code-block:: toml
+
+   [flow.ic]
+   type = "custom"
+   value = "125 m"
+
+.. code-block:: toml
+
+   [flow.ic]
+   type = "steady_state"
+   source = "mean_recharge"
+   recharge_statistic = "time_mean"
+   boundary_condition_policy = "first_period"
+
+For ``steady_state``, HydroModPy first builds a one-period permanent problem
+from the transient setup. Recharge is represented by its time mean over the
+transient simulation window. Time-varying boundary-condition values are reduced
+with the documented ``first_period`` policy. The resulting permanent head field
+is then injected as the initial head of the transient run.
+
+This initialization is same-solver by construction: MODFLOW 6 initializes
+MODFLOW 6, MODFLOW-NWT initializes MODFLOW-NWT, and Boussinesq initializes
+Boussinesq. HydroModPy does not mix head fields across solver backends.
+
+All length values are normalized to meters before backend translation. A
+non-empty ``[flow.ic]`` section must declare ``type`` explicitly. The
+``[flow.ic]`` section is intentionally flat; nested forms such as
+``[flow.ic.h]``, scalar shorthand forms such as ``flow.ic = 125.0``, and
+value-only payloads such as ``[flow.ic] value = "125 m"`` are not part of the
+public contract.
 
 Canonical Families Of Inputs
 ----------------------------
@@ -181,8 +252,10 @@ families.
 Initial conditions:
 
 - head initialized from top,
+- head initialized from top minus an offset,
 - head initialized from bottom,
-- custom scalar head.
+- custom scalar head,
+- same-solver steady-state initialization for transient runs.
 
 Boundary conditions:
 
@@ -382,8 +455,10 @@ The most relevant anchors for the current version are:
 - ``hydromodpy.physics.flow.flow``
 - ``hydromodpy.physics.flow.flow_config``
 - ``hydromodpy.physics.flow.boundary_conditions``
+- ``hydromodpy.physics.flow.boundary_condition_registry``
 - ``hydromodpy.physics.flow.sinks_sources``
 - ``hydromodpy.physics.flow.initial_conditions``
+- :doc:`../../architecture/process/flow-boundary-conditions`
 - :doc:`../hydrology/hydrological-forcing-chain`
 - :doc:`../hydrology/recharge-and-surface-exchange-semantics`
 - :doc:`../hydrology/stream-ocean-and-drainage-semantics`

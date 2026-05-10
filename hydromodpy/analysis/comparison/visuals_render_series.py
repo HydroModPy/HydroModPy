@@ -112,6 +112,7 @@ def _write_timeseries_figure(
     observable_name: str,
     unit: str,
     grouped_rows: list[dict[str, Any]],
+    point_label: str = "",
 ) -> bool:
     use_elapsed_seconds = all(
         _safe_float(row.get("elapsed_seconds")) is not None for row in grouped_rows
@@ -169,7 +170,10 @@ def _write_timeseries_figure(
     _plot_surface_reference_lines(ax, grouped_rows)
     ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
     ax.set_ylabel(unit or "value", fontsize=_LABEL_FONT_SIZE)
-    ax.set_title(_pretty_label(observable_name), fontsize=_TITLE_FONT_SIZE, pad=8)
+    title = _pretty_label(observable_name)
+    if point_label:
+        title = f"Point {point_label} - {title}"
+    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, pad=8)
     ax.tick_params(labelsize=_TICK_FONT_SIZE)
     ax.grid(True, alpha=0.18, linewidth=0.6)
     ax.margins(x=0.03, y=0.08)
@@ -213,16 +217,29 @@ def _write_runtime_bar_figure(
     ]
     runtimes = [float(row["runtime_seconds"]) for row in ordered]
     colors = [_solver_color(str(row.get("solver", ""))) for row in ordered]
+    time_scopes = {
+        str(row.get("time_scope", "") or "").strip().lower()
+        for row in ordered
+        if str(row.get("time_scope", "") or "").strip()
+    }
+    is_flow_solve_time = time_scopes == {"flow_solve"}
 
     figure_height = max(2.8, 0.72 * len(ordered) + 1.1)
     figure, ax = plt.subplots(1, 1, figsize=(7.4, figure_height))
     positions = np.arange(len(ordered))
     bars = ax.barh(positions, runtimes, color=colors, edgecolor="none", height=0.58)
     ax.set_yticks(positions, labels=labels, fontsize=_LABEL_FONT_SIZE)
-    ax.set_xlabel("Runtime [s]", fontsize=_LABEL_FONT_SIZE)
+    ax.set_xlabel(
+        "Flow solve time [s]" if is_flow_solve_time else "Runtime [s]",
+        fontsize=_LABEL_FONT_SIZE,
+    )
     ax.tick_params(axis="x", labelsize=_TICK_FONT_SIZE)
     ax.grid(axis="x", alpha=0.22, linewidth=0.6)
-    ax.set_title("Execution time comparison", fontsize=_TITLE_FONT_SIZE, pad=8)
+    ax.set_title(
+        "Flow solve time comparison" if is_flow_solve_time else "Execution time comparison",
+        fontsize=_TITLE_FONT_SIZE,
+        pad=8,
+    )
 
     reference_runtime = None
     if reference_simulation is not None:
@@ -806,6 +823,225 @@ def _write_comparable_outflow_dashboard(
         _apply_time_ticks(component_ax, tick_positions=tick_positions, tick_labels=tick_labels)
     figure.suptitle("Comparable outflow diagnostics", fontsize=_TITLE_FONT_SIZE, y=0.98)
     figure.subplots_adjust(left=0.11, right=0.98, top=0.84, bottom=0.2, hspace=0.38)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
+def _budget_time_field(rows: list[Mapping[str, Any]]) -> tuple[bool, str, str]:
+    use_elapsed_seconds = all(_safe_float(row.get("elapsed_seconds")) is not None for row in rows)
+    x_field = "elapsed_seconds" if use_elapsed_seconds else "time_index"
+    return use_elapsed_seconds, x_field, _time_axis_label(use_elapsed_seconds=use_elapsed_seconds)
+
+
+def _budget_component_points(
+    budget_rows: list[Mapping[str, Any]],
+    *,
+    component: str,
+    x_field: str,
+    use_elapsed_seconds: bool,
+) -> dict[tuple[str, str], list[tuple[float, float, float | None]]]:
+    grouped: dict[tuple[str, str], list[tuple[float, float, float | None]]] = {}
+    for row in budget_rows:
+        if str(row.get("component", "")) != component:
+            continue
+        x_value = _safe_float(row.get(x_field))
+        if x_value is not None and use_elapsed_seconds:
+            x_value = x_value / _SECONDS_PER_DAY
+        value = _safe_float(row.get("value"))
+        if x_value is None or value is None:
+            continue
+        dt_seconds = None
+        period_start = _safe_float(row.get("period_start_seconds"))
+        period_end = _safe_float(row.get("period_end_seconds"))
+        if period_start is not None and period_end is not None and period_end > period_start:
+            dt_seconds = period_end - period_start
+        simulation_id = str(row.get("simulation_id", ""))
+        simulation_label = str(row.get("simulation_label", simulation_id))
+        grouped.setdefault((simulation_id, simulation_label), []).append(
+            (x_value, value, dt_seconds)
+        )
+    return grouped
+
+
+def _write_storage_comparison_dashboard(
+    *,
+    path: Path,
+    budget_rows: list[Mapping[str, Any]],
+) -> bool:
+    """Write a global storage-rate comparison figure across simulations."""
+    storage_rows = [
+        row for row in budget_rows if str(row.get("component", "")) == "storage_change_total_m3_s"
+    ]
+    if not storage_rows:
+        return False
+    use_elapsed_seconds, x_field, x_label = _budget_time_field(storage_rows)
+    grouped = _budget_component_points(
+        storage_rows,
+        component="storage_change_total_m3_s",
+        x_field=x_field,
+        use_elapsed_seconds=use_elapsed_seconds,
+    )
+    if not any(len(points) >= 2 for points in grouped.values()):
+        return False
+
+    figure, ax = plt.subplots(figsize=(8.1, 4.5))
+    tick_positions: list[float] = []
+
+    for (simulation_id, simulation_label), points in sorted(grouped.items()):
+        ordered = sorted(points, key=lambda item: item[0])
+        x_values = [item[0] for item in ordered]
+        y_values = [item[1] for item in ordered]
+        tick_positions.extend(x_values)
+        label = _display_simulation_label(
+            simulation_id=simulation_id,
+            simulation_label=simulation_label,
+        )
+        ax.step(
+            x_values,
+            y_values,
+            where="post",
+            linewidth=2.0,
+            color=_solver_color(simulation_id),
+            label=label,
+        )
+
+    ax.set_title("Global storage change rate", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
+    ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
+    ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
+    ax.grid(True, alpha=0.18, linewidth=0.6)
+    ax.axhline(0.0, color="#9ca3af", linewidth=0.8, alpha=0.8)
+    ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    handles, labels = ax.get_legend_handles_labels()
+    if labels:
+        ax.legend(
+            handles,
+            labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.18),
+            ncol=_legend_ncols(len(labels)),
+            frameon=False,
+            fontsize=_LEGEND_FONT_SIZE,
+        )
+
+    if not use_elapsed_seconds:
+        _apply_time_ticks(ax, tick_positions=tick_positions, tick_labels=None)
+    figure.suptitle("Storage comparison", fontsize=_TITLE_FONT_SIZE, y=0.98)
+    figure.subplots_adjust(left=0.11, right=0.98, top=0.82, bottom=0.28)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, dpi=180, bbox_inches="tight")
+    plt.close(figure)
+    return True
+
+
+def _write_total_input_output_dashboard(
+    *,
+    path: Path,
+    budget_rows: list[Mapping[str, Any]],
+) -> bool:
+    """Write total external inflow and outflow curves for each simulation."""
+    if not budget_rows:
+        return False
+    use_elapsed_seconds, x_field, x_label = _budget_time_field(budget_rows)
+    by_sim_time: dict[tuple[str, str, float], dict[str, float]] = {}
+    tick_positions: list[float] = []
+    for row in budget_rows:
+        component = str(row.get("component", ""))
+        if component in {"storage_change_total_m3_s", "closure_residual_m3_s"}:
+            continue
+        x_value = _safe_float(row.get(x_field))
+        if x_value is not None and use_elapsed_seconds:
+            x_value = x_value / _SECONDS_PER_DAY
+        value = _safe_float(row.get("value"))
+        if x_value is None or value is None:
+            continue
+        simulation_id = str(row.get("simulation_id", ""))
+        simulation_label = str(row.get("simulation_label", simulation_id))
+        item = by_sim_time.setdefault(
+            (simulation_id, simulation_label, x_value),
+            {"input": 0.0, "output": 0.0},
+        )
+        if component in {"recharge_total_m3_s", "dry_deficit_total_m3_s"}:
+            item["input"] += max(value, 0.0)
+        elif component == "well_total_m3_s":
+            if value >= 0.0:
+                item["input"] += value
+            else:
+                item["output"] += abs(value)
+        elif component in {
+            "prescribed_head_out_total_m3_s",
+            "drainage_total_m3_s",
+            "surface_excess_total_m3_s",
+            "balance_implied_outflow_total_m3_s",
+            "comparable_outflow_total_m3_s",
+        }:
+            if component != "comparable_outflow_total_m3_s":
+                item["output"] += max(value, 0.0)
+        tick_positions.append(x_value)
+
+    grouped: dict[tuple[str, str], list[tuple[float, float, float]]] = {}
+    for (simulation_id, simulation_label, x_value), values in by_sim_time.items():
+        grouped.setdefault((simulation_id, simulation_label), []).append(
+            (x_value, values["input"], values["output"])
+        )
+    if not any(len(points) >= 2 for points in grouped.values()):
+        return False
+
+    figure, ax = plt.subplots(figsize=(8.1, 4.5))
+    for (simulation_id, simulation_label), points in sorted(grouped.items()):
+        ordered = sorted(points, key=lambda item: item[0])
+        x_values = [item[0] for item in ordered]
+        inputs = [item[1] for item in ordered]
+        outputs = [item[2] for item in ordered]
+        label = _display_simulation_label(
+            simulation_id=simulation_id,
+            simulation_label=simulation_label,
+        )
+        color = _solver_color(simulation_id)
+        ax.step(
+            x_values,
+            inputs,
+            where="post",
+            linewidth=2.0,
+            color=color,
+            label=f"{label} - total inputs",
+        )
+        ax.step(
+            x_values,
+            outputs,
+            where="post",
+            linewidth=2.0,
+            linestyle="--",
+            color=color,
+            label=f"{label} - total outputs",
+        )
+    ax.set_title(
+        "External water balance: inputs vs outputs",
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=5,
+        loc="left",
+    )
+    ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
+    ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
+    ax.grid(True, alpha=0.18, linewidth=0.6)
+    ax.axhline(0.0, color="#9ca3af", linewidth=0.8, alpha=0.8)
+    ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    handles, labels = ax.get_legend_handles_labels()
+    if labels:
+        ax.legend(
+            handles,
+            labels,
+            loc="upper center",
+            bbox_to_anchor=(0.5, -0.18),
+            ncol=_legend_ncols(len(labels)),
+            frameon=False,
+            fontsize=_LEGEND_FONT_SIZE,
+        )
+    if not use_elapsed_seconds:
+        _apply_time_ticks(ax, tick_positions=tick_positions, tick_labels=None)
+    figure.suptitle("Total inputs and outputs", fontsize=_TITLE_FONT_SIZE, y=0.98)
+    figure.subplots_adjust(left=0.11, right=0.98, top=0.82, bottom=0.28)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)

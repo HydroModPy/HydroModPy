@@ -328,38 +328,11 @@ class BoussinesqOutputAdapter:
         boussinesq_cfg = {
             "seepage_areas": cfg.get("seepage_areas", False),
             "groundwater_flux": False,
+            "release_flux": cfg.get("release_flux", True),
             "accumulation_flux": False,
+            "release_accumulation_flux": cfg.get("release_accumulation_flux", False),
             "concentration_seepage": False,
             "mass_seepage": False,
             "mass_accumulated": False,
         }
         compute_derived(sim_id, store, boussinesq_cfg)
-        self._restore_surface_excess_seepage_fields(sim_id, store)
-
-    @staticmethod
-    def _restore_surface_excess_seepage_fields(sim_id: str, store: Any) -> None:
-        """Rewrite canonical seepage fields from persisted Boussinesq state.
-
-        Some legacy derived paths recompute ``seepage_mask`` from ``h >= z_s``.
-        For Boussinesq, the stronger contract is that positive
-        ``saturation_excess`` is active seepage, so this hook restores that
-        solver-specific signal after adapter-level derivations.
-        """
-        sz = store.open_zarr(sim_id)
-        try:
-            state_grp = sz.root.get("boussinesq_state")
-            if state_grp is None or "saturation_excess_history_m_s" not in state_grp:
-                return
-            rates = np.asarray(
-                state_grp["saturation_excess_history_m_s"][:],
-                dtype=float,
-            )
-            n_timesteps = int(rates.shape[0]) if rates.ndim > 1 else 1
-        finally:
-            sz.close()
-        BoussinesqOutputAdapter._write_surface_excess_seepage_fields(
-            sim_id,
-            store,
-            rates,
-            n_timesteps=n_timesteps,
-        )

@@ -40,6 +40,7 @@ When regenerating regression goldens under this contract, expect
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -63,6 +64,15 @@ class NonlinearRuntimeOptions:
     tol_state_update_inf: float = 1.0e-9
     fd_rel_step: float = 1.0e-7
     min_damping: float = 1.0e-4
+    vi_substeps_per_period: int = 1
+    vi_substep_on_failure: bool = False
+    vi_max_adaptive_substeps: int = 1
+    ts_vi_steps_per_period: int = 4
+    ts_vi_adapt: bool = False
+    ts_vi_dt_min_fraction: float = 1.0 / 64.0
+    ts_vi_dt_max_fraction: float = 1.0 / 4.0
+    ts_vi_type: str = "beuler"
+    ts_vi_snes_type: str = "vinewtonrsls"
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -127,6 +137,7 @@ class RuntimeSolveResult:
     residual_norm_inf: float
     backend_name: str
     termination_reason: str = ""
+    diagnostics: dict[str, Any] | None = None
 
 
 __all__ = [

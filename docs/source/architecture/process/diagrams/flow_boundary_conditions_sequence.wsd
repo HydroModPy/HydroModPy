@@ -1,0 +1,33 @@
+@startuml
+title Flow Boundary Conditions - Runtime Sequence
+
+actor User
+participant "FlowConfig" as FlowConfig
+participant "BC normalizer" as Normalizer
+participant "Flow" as Flow
+participant "BoundaryConditionBundle" as Bundle
+participant "Solver adapter" as Adapter
+participant "Backend package/operator" as Backend
+
+User -> FlowConfig: define [flow.bc]\nand flow.active_bc
+FlowConfig -> Normalizer: validate and normalize sections
+Normalizer --> FlowConfig: flat mapping keyed by bc id
+
+User -> Flow: Flow(config)
+Flow -> Flow: set_boundary_conditions(...)
+Flow -> Bundle: from_flow(flow)
+Bundle --> Flow: active/configured runtime view
+
+Adapter -> Bundle: active_side_dirichlet_ids()\nget_active("ocean")\nget_active("drainage")
+Bundle --> Adapter: typed payloads or None
+
+alt MODFLOW 6
+  Adapter -> Backend: CHD / DRN stress-period data
+else MODFLOW-NWT
+  Adapter -> Backend: BAS/CHD / DRN payloads
+else Boussinesq
+  Adapter -> Backend: prescribed-head cells\nand drainage conductance
+end
+
+Backend --> User: solver-ready boundary representation
+@enduml

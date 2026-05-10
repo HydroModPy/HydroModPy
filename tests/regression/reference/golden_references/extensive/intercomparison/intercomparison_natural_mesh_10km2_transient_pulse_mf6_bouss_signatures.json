@@ -17,7 +17,7 @@
         "max_abs_error": 0.029867334084542563,
         "mean_relative_error": 9.562686809214962e-05
       },
-      "bouss_candidate::head_map_initial": {
+      "bouss_candidate::head_map_first_computed": {
         "unit": "m",
         "n_pairs": 547,
         "bias": 0.0,

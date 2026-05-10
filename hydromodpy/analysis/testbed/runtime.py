@@ -7,18 +7,20 @@ import json
 import math
 import numbers
 import re
+import textwrap
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.analysis.testbed.catalog_variants import expand_catalog_variants
 from hydromodpy.analysis.testbed.config import (
     TestbedConfig,
     TestbedMetricConfig,
     TestbedVariantConfig,
 )
-from hydromodpy.analysis.testbed.contracts import get_testbed_runner_provider
+from hydromodpy.analysis.testbed.contracts import run_testbed_child_workflow
 from hydromodpy.core.toml_io import (
     is_declared_absolute_path,
     load_toml_with_base_config,
@@ -26,9 +28,38 @@ from hydromodpy.core.toml_io import (
 )
 
 PATH_KEY_HINTS = ("path", "root", "dir", "folder", "file", "mask")
+TomlDescriptionProvider = Callable[[tuple[str, ...]], str | None]
 RUNNER_WORKFLOWS = {
-    "mesh_catchment": "mesh",
+    "comparison": "comparison",
     "simulation": "simulation",
+}
+DEFAULT_RUNNER_METRICS = {
+    "comparison": (
+        TestbedMetricConfig(name="comparison_id", source="comparison_id", required=False),
+        TestbedMetricConfig(name="audit_status", source="audit_status", required=False),
+        TestbedMetricConfig(name="n_metric_rows", source="n_metric_rows", required=False),
+        TestbedMetricConfig(name="n_difference_rows", source="n_difference_rows", required=False),
+        TestbedMetricConfig(
+            name="closure_max_abs_m3_s",
+            source="closure_max_abs_m3_s",
+            required=False,
+        ),
+        TestbedMetricConfig(
+            name="closure_max_abs_mm_d",
+            source="closure_max_abs_mm_d",
+            required=False,
+        ),
+        TestbedMetricConfig(
+            name="closure_relative_error_p95",
+            source="closure_relative_error_p95",
+            required=False,
+        ),
+        TestbedMetricConfig(
+            name="closure_status_code",
+            source="closure_status_code",
+            required=False,
+        ),
+    ),
 }
 
 
@@ -74,9 +105,24 @@ def _is_mapping_list(value: Any) -> bool:
     return isinstance(value, list) and all(isinstance(item, Mapping) for item in value)
 
 
+def _append_toml_description(
+    lines: list[str],
+    *,
+    path: tuple[str, ...],
+    description_provider: TomlDescriptionProvider | None,
+) -> None:
+    if description_provider is None:
+        return
+    description = description_provider(path)
+    if not description:
+        return
+    for line in textwrap.wrap(str(description), width=96):
+        lines.append(f"# {line}")
+
+
 def _looks_like_path_key(key: str) -> bool:
     token = str(key).strip().strip("'\"").split(".")[-1].lower()
-    if token == "base_config":
+    if token in {"anchors_file", "base_config", "base_simulation_config"}:
         return True
     return any(hint in token for hint in PATH_KEY_HINTS)
 
@@ -109,6 +155,7 @@ def _render_toml_mapping(
     mapping: Mapping[str, Any],
     *,
     prefix: tuple[str, ...] = (),
+    description_provider: TomlDescriptionProvider | None = None,
 ) -> list[str]:
     lines: list[str] = []
     scalar_items: list[tuple[str, Any]] = []
@@ -125,28 +172,62 @@ def _render_toml_mapping(
             scalar_items.append((key, value))
 
     for key, value in scalar_items:
+        _append_toml_description(
+            lines,
+            path=(*prefix, key),
+            description_provider=description_provider,
+        )
         lines.append(f"{key} = {_toml_scalar(value)}")
 
     for key, value in nested_items:
         if lines and lines[-1] != "":
             lines.append("")
         section = ".".join((*prefix, key))
+        _append_toml_description(
+            lines,
+            path=(*prefix, key),
+            description_provider=description_provider,
+        )
         lines.append(f"[{section}]")
-        lines.extend(_render_toml_mapping(value, prefix=(*prefix, key)))
+        lines.extend(
+            _render_toml_mapping(
+                value,
+                prefix=(*prefix, key),
+                description_provider=description_provider,
+            )
+        )
 
     for key, items in array_items:
         section = ".".join((*prefix, key))
         for item in items:
             if lines and lines[-1] != "":
                 lines.append("")
+            _append_toml_description(
+                lines,
+                path=(*prefix, key),
+                description_provider=description_provider,
+            )
             lines.append(f"[[{section}]]")
-            lines.extend(_render_toml_mapping(item, prefix=(*prefix, key)))
+            lines.extend(
+                _render_toml_mapping(
+                    item,
+                    prefix=(*prefix, key),
+                    description_provider=description_provider,
+                )
+            )
     return lines
 
 
 def _write_toml_payload(path: Path, payload: Mapping[str, Any]) -> None:
+    from hydromodpy.analysis.comparison.descriptions import (
+        comparison_description_for_path,
+    )
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    lines = _render_toml_mapping(payload)
+    lines = _render_toml_mapping(
+        payload,
+        description_provider=comparison_description_for_path,
+    )
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
@@ -321,6 +402,30 @@ def _extract_catalog_metadata(run: Any) -> dict[str, Any]:
         if value is not None:
             metadata[key] = _jsonable(value)
     return metadata
+
+
+def _ensure_mesh_process_payload(payload: dict[str, Any]) -> None:
+    """Ensure one simulation child payload has an explicit mesh process."""
+    simulation = payload.get("simulation")
+    if not isinstance(simulation, dict):
+        simulation = {}
+        payload["simulation"] = simulation
+    raw_processes = simulation.get("process")
+    if raw_processes is None:
+        processes: list[dict[str, Any]] = []
+    elif isinstance(raw_processes, list):
+        processes = list(raw_processes)
+    else:
+        raise ValueError("simulation.process must be a list when provided")
+    if not processes:
+        processes.append(
+            {
+                "id": "mesh_main",
+                "type": "mesh",
+                "backend": "catchment",
+            }
+        )
+    simulation["process"] = processes
 
 
 def _extract_parameter_metrics(run: Any) -> dict[str, float | int]:
@@ -532,6 +637,23 @@ class TestbedExecution:
             "sim_id",
             "run_id",
             "wall_time_seconds",
+            "comparison_id",
+            "comparison_root",
+            "comparison_web_report",
+            "comparison_report_md",
+            "comparison_metrics_csv",
+            "comparison_differences_csv",
+            "comparison_metrics_json",
+            "comparison_audit_json",
+            "comparison_audit_md",
+            "comparison_figures_dir",
+            "observables_csv",
+            "reference_simulation",
+            "audit_status",
+            "manifest_path",
+            "n_observable_rows",
+            "n_metric_rows",
+            "n_difference_rows",
             "catalog",
             "mass_balance",
             "flow_metrics",
@@ -545,6 +667,48 @@ class TestbedExecution:
             if key in self.summary:
                 row[key] = self.summary.get(key)
         return row
+
+
+def _catalog_manifest_payload(cfg: TestbedConfig) -> dict[str, Any] | None:
+    """Return a JSON-ready description of the optional testbed catalog contract."""
+    if cfg.catalog is None:
+        return None
+    return {
+        "path": str(cfg.catalog.path),
+        "format": cfg.catalog.format,
+        "id_field": cfg.catalog.id_field,
+        "label_field": cfg.catalog.label_field,
+        "axis_field": cfg.catalog.axis_field,
+        "enabled_field": cfg.catalog.enabled_field,
+        "tags_field": cfg.catalog.tags_field,
+        "required_fields": list(cfg.catalog.required_fields),
+        "path_fields": list(cfg.catalog.path_fields),
+        "tag_separator": cfg.catalog.tag_separator,
+        "field_equals": dict(cfg.catalog.field_equals),
+        "tags": list(cfg.catalog.tags),
+        "exclude_tags": list(cfg.catalog.exclude_tags),
+        "include_disabled": cfg.catalog.include_disabled,
+        "limit": cfg.catalog.limit,
+    }
+
+
+def _catalog_variant_manifest_payload(cfg: TestbedConfig) -> list[dict[str, Any]]:
+    """Return JSON-ready catalog-variant generation rules."""
+    return [
+        {
+            "id_template": rule.id_template,
+            "label_template": rule.label_template,
+            "axis_template": rule.axis_template,
+            "enabled": rule.enabled,
+            "required_fields": list(rule.required_fields),
+            "field_equals": dict(rule.field_equals),
+            "tags": list(rule.tags),
+            "exclude_tags": list(rule.exclude_tags),
+            "limit": rule.limit,
+            "overlay": _jsonable(rule.overlay),
+        }
+        for rule in cfg.catalog_variants
+    ]
 
 
 def _default_metric_row(summary: Mapping[str, Any]) -> dict[str, Any]:
@@ -572,6 +736,7 @@ def _metric_row_for_execution(
     *,
     execution: TestbedExecution,
     metrics: Sequence[TestbedMetricConfig],
+    runner_type: str,
 ) -> dict[str, Any]:
     row: dict[str, Any] = {
         "variant_id": execution.case.variant.id,
@@ -580,9 +745,10 @@ def _metric_row_for_execution(
         "status": execution.status,
     }
     if execution.status == "ok":
+        effective_metrics = metrics or DEFAULT_RUNNER_METRICS.get(runner_type, ())
         row.update(
-            _configured_metric_row(metrics=metrics, summary=execution.summary)
-            if metrics
+            _configured_metric_row(metrics=effective_metrics, summary=execution.summary)
+            if effective_metrics
             else _default_metric_row(execution.summary)
         )
     else:
@@ -617,6 +783,8 @@ class TestbedLauncher:
             raise ValueError("testbed base config must load to a TOML mapping")
         payload.pop("testbed", None)
         payload["workflow"] = self._child_workflow()
+        if self.cfg.runner.type == "simulation" and self.cfg.subject == "mesh":
+            _ensure_mesh_process_payload(payload)
         return payload
 
     def _materialize_child_config(self, variant: TestbedVariantConfig) -> Path:
@@ -626,14 +794,34 @@ class TestbedLauncher:
         )
         payload = merge_toml_payloads(self._base_child_payload(), overlay)
         payload["workflow"] = self._child_workflow()
+        if self.cfg.runner.type == "simulation" and self.cfg.subject == "mesh":
+            _ensure_mesh_process_payload(payload)
         path = self.generated_configs_dir / f"{_slugify(variant.id)}.toml"
         _write_toml_payload(path, payload)
         return path
 
+    def _expanded_variants(self) -> tuple[TestbedVariantConfig, ...]:
+        variants = (
+            *self.cfg.variants,
+            *expand_catalog_variants(
+                catalog=self.cfg.catalog,
+                rules=self.cfg.catalog_variants,
+            ),
+        )
+        if not variants:
+            raise ValueError("testbed did not expand any variant")
+        seen: set[str] = set()
+        for variant in variants:
+            normalized = variant.id.lower()
+            if normalized in seen:
+                raise ValueError(f"Duplicate testbed.variant id '{variant.id}'")
+            seen.add(normalized)
+        return variants
+
     def build_plan(self) -> list[TestbedPlannedCase]:
         """Materialize child configs and return planned cases."""
         cases: list[TestbedPlannedCase] = []
-        for variant in self.cfg.variants:
+        for variant in self._expanded_variants():
             if not variant.enabled:
                 cases.append(
                     TestbedPlannedCase(variant=variant, config_path=None, status="disabled")
@@ -651,14 +839,13 @@ class TestbedLauncher:
     def _run_case(self, case: TestbedPlannedCase) -> dict[str, Any]:
         if case.config_path is None:
             return {}
-        provider = get_testbed_runner_provider()
-        if self.cfg.runner.type == "mesh_catchment":
-            return dict(provider.run_mesh_catchment(case.config_path))
-        if self.cfg.runner.type == "simulation":
-            return dict(
-                provider.run_simulation(case.config_path, no_display=self.cfg.runner.no_display)
+        return dict(
+            run_testbed_child_workflow(
+                runner_type=self.cfg.runner.type,
+                config_path=case.config_path,
+                no_display=self.cfg.runner.no_display,
             )
-        raise ValueError(f"Unsupported testbed runner: {self.cfg.runner.type}")
+        )
 
     def _summary_paths(self) -> dict[str, str]:
         return {
@@ -729,10 +916,14 @@ class TestbedLauncher:
             {
                 "schema_version": "testbed_plan_v1",
                 "testbed_id": self.cfg.id,
+                "profile": self.cfg.profile,
+                "config_path": str(self.cfg.config_path),
                 "subject": self.cfg.subject,
                 "purpose": self.cfg.purpose,
                 "runner": self.cfg.runner.type,
                 "base_config": str(self._base_config_path()),
+                "catalog": _catalog_manifest_payload(self.cfg),
+                "variant_from_catalog": _catalog_variant_manifest_payload(self.cfg),
                 "cases": [case.to_mapping() for case in cases],
             },
         )
@@ -749,7 +940,11 @@ class TestbedLauncher:
         _write_csv_rows(Path(paths["cases_csv"]), case_rows)
 
         metric_rows = [
-            _metric_row_for_execution(execution=execution, metrics=self.cfg.metrics)
+            _metric_row_for_execution(
+                execution=execution,
+                metrics=self.cfg.metrics,
+                runner_type=self.cfg.runner.type,
+            )
             for execution in executions
         ]
         _write_csv_rows(Path(paths["metrics_csv"]), metric_rows)
@@ -758,11 +953,19 @@ class TestbedLauncher:
             {
                 "schema_version": "testbed_manifest_v1",
                 "testbed_id": self.cfg.id,
+                "profile": self.cfg.profile,
                 "subject": self.cfg.subject,
                 "purpose": self.cfg.purpose,
                 "runner": self.cfg.runner.type,
+                "config_path": str(self.cfg.config_path),
                 "output_root": str(self.cfg.output_root),
                 "execute": bool(self.cfg.execute),
+                "base_config": str(self._base_config_path()),
+                "site_catalog_path": (
+                    None if self.cfg.catalog is None else str(self.cfg.catalog.path)
+                ),
+                "catalog": _catalog_manifest_payload(self.cfg),
+                "variant_from_catalog": _catalog_variant_manifest_payload(self.cfg),
                 "variant_count": len(cases),
                 "executed_count": len(executions),
                 "successful_count": len([item for item in executions if item.status == "ok"]),
@@ -830,6 +1033,7 @@ class TestbedLauncher:
         failed_count = len([item for item in executions if item.status == "failed"])
         return {
             "testbed_id": self.cfg.id,
+            "profile": self.cfg.profile,
             "subject": self.cfg.subject,
             "purpose": self.cfg.purpose,
             "runner": self.cfg.runner.type,

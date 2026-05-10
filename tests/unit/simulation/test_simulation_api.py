@@ -113,6 +113,27 @@ def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False)
         sz.close()
 
 
+def _write_release_flux_case(catalog, sid, *, write_plot_mesh=False):
+    _write_active_accumulation_flux_case(catalog, sid, write_plot_mesh=write_plot_mesh)
+    sz = catalog.open_zarr(sid)
+    try:
+        frames = [
+            np.array([0.0, 0.0, 9.0, 3.0], dtype="float64"),
+            np.array([0.0, 2.0, 9.0, 3.0], dtype="float64"),
+            np.array([0.0, 0.0, 9.0, 3.0], dtype="float64"),
+        ]
+        for timestep, values in enumerate(frames):
+            sz.write_field(
+                "release_flux",
+                timestep,
+                values,
+                n_timesteps=3 if timestep == 0 else None,
+                subgroup="derived",
+            )
+    finally:
+        sz.close()
+
+
 # ============================================================================
 # Simulation class tests
 # ============================================================================
@@ -460,6 +481,61 @@ class TestSimulationData:
         assert metrics["bidirectional_distance_absolute_difference_m"] == pytest.approx(0.25)
         assert metrics["planar_distance_ratio"] is None
         assert metrics["planar_distance_log10_ratio"] is None
+
+    def test_release_flux_network_overlap_metrics_use_release_flux(
+        self,
+        catalog,
+    ):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_release_flux_case(catalog, sid, write_plot_mesh=True)
+        reference = gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
+            crs="EPSG:2154",
+        )
+        catalog.write_geographic_feature(
+            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
+        )
+
+        sim = Run(sid, catalog)
+        metrics = sim.release_flux_network_overlap_metrics(
+            threshold=0.5,
+            mode="persistent",
+            persistence_threshold=0.5,
+        )
+
+        assert metrics["source_variable"] == "release_flux"
+        assert metrics["active_cell_count"] == 1
+        assert metrics["network_cell_count"] == 2
+        assert metrics["overlap_cell_count"] == 1
+        assert metrics["cell_jaccard_ratio"] == pytest.approx(0.5)
+
+    def test_release_flux_network_distance_metrics_have_no_buffer_parameter(
+        self,
+        catalog,
+    ):
+        sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
+        _write_release_flux_case(catalog, sid, write_plot_mesh=True)
+        reference = gpd.GeoDataFrame(
+            {"id": [1]},
+            geometry=[LineString([(1.5, 0.5), (1.5, 1.5)])],
+            crs="EPSG:2154",
+        )
+        catalog.write_geographic_feature(
+            sid, HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME, reference
+        )
+
+        sim = Run(sid, catalog)
+        metrics = sim.release_flux_network_distance_metrics(
+            threshold=0.5,
+            mode="persistent",
+            persistence_threshold=0.5,
+        )
+
+        assert metrics["source_variable"] == "release_flux"
+        assert metrics["network_buffer_m"] == 0.0
+        assert metrics["active_cell_count"] == 1
+        assert metrics["sim_to_network_distance_mean_m"] == pytest.approx(0.0)
 
 
 class TestSimulationField:

@@ -89,8 +89,8 @@ def run(config: Any, **kwargs: Any) -> Any:
     -------
     Any
         Workflow result. Simulation workflows usually return a ``Run`` object;
-        overview, mesh, batch, and calibration workflows return their own
-        summary objects.
+        overview, mesh, testbed, comparison, and calibration workflows return
+        their own summary objects.
 
     Examples
     --------
@@ -103,7 +103,8 @@ def run(config: Any, **kwargs: Any) -> Any:
         Object-oriented form for repeated runs from one project.
     """
     if isinstance(config, (str, Path)):
-        from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
+        from hydromodpy.workflow.dispatch import resolve_workflow
+        from hydromodpy.workflow_dispatch import dispatch_workflow
 
         config_path = Path(config).expanduser().resolve()
         workflow = resolve_workflow(
@@ -176,38 +177,13 @@ def overview(config: Any, **kwargs: Any) -> Any:
     Any
         Overview workflow summary.
     """
-    from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
+    from hydromodpy.workflow.dispatch import resolve_workflow
+    from hydromodpy.workflow_dispatch import dispatch_workflow
 
     config_path = Path(config).expanduser().resolve()
     workflow = resolve_workflow(
         config_path,
         cli_workflow="overview",
-        require_toml_field=True,
-    )
-    return dispatch_workflow(workflow, config_path, **kwargs)
-
-
-def batch(config: Any, **kwargs: Any) -> Any:
-    """Run the regional batch workflow declared by a TOML file.
-
-    Parameters
-    ----------
-    config
-        TOML file containing ``[workflow] mode = "batch"``.
-    kwargs
-        Runtime options forwarded to the workflow dispatcher.
-
-    Returns
-    -------
-    Any
-        Batch workflow summary.
-    """
-    from hydromodpy.workflow.dispatch import dispatch_workflow, resolve_workflow
-
-    config_path = Path(config).expanduser().resolve()
-    workflow = resolve_workflow(
-        config_path,
-        cli_workflow="batch",
         require_toml_field=True,
     )
     return dispatch_workflow(workflow, config_path, **kwargs)
@@ -257,15 +233,16 @@ def testbed(toml_path: Any) -> Any:
 
 
 def mesh(toml_path: Any) -> dict:
-    """Run the mesh-only workflow from a TOML file.
+    """Run the standalone mesh launcher from a TOML file.
 
-    Mirrors ``hmp run`` for ``[workflow] mode = "mesh"`` configs: one call,
-    returns the launcher summary dict.
+    This is a direct API for single mesh artifacts. Public ``hmp run`` configs
+    should model mesh-only work as ``[workflow] mode = "simulation"`` with a
+    ``[[simulation.process]]`` block whose ``type`` is ``"mesh"``.
 
     Parameters
     ----------
     toml_path
-        Mesh workflow TOML path.
+        Standalone mesh launcher TOML path.
 
     Returns
     -------

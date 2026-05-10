@@ -148,6 +148,14 @@ class GmshSupportMetadata:
     cell_z_bottom_m: np.ndarray = field(
         default_factory=lambda: np.empty(0, dtype=float), repr=False
     )
+    cell_hydraulic_conductivity_m_s: np.ndarray = field(
+        default_factory=lambda: np.empty(0, dtype=float),
+        repr=False,
+    )
+    cell_storage_coefficient: np.ndarray = field(
+        default_factory=lambda: np.empty(0, dtype=float),
+        repr=False,
+    )
     edge_ids: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=int), repr=False)
     edge_node_a_index: np.ndarray = field(
         default_factory=lambda: np.empty(0, dtype=int), repr=False
@@ -425,6 +433,28 @@ def build_gmsh_support_metadata(bundle: object | None) -> GmshSupportMetadata | 
         ],
         dtype=float,
     )
+    cell_hydraulic_conductivity_m_s = np.asarray(
+        [
+            (
+                np.nan
+                if getattr(cell, "hydraulic_conductivity_m_s", None) is None
+                else float(cell.hydraulic_conductivity_m_s)
+            )
+            for cell in cells
+        ],
+        dtype=float,
+    )
+    cell_storage_coefficient = np.asarray(
+        [
+            (
+                np.nan
+                if getattr(cell, "storage_coefficient", None) is None
+                else float(cell.storage_coefficient)
+            )
+            for cell in cells
+        ],
+        dtype=float,
+    )
 
     edge_ids: list[int] = []
     edge_node_a_index: list[int] = []
@@ -486,6 +516,8 @@ def build_gmsh_support_metadata(bundle: object | None) -> GmshSupportMetadata | 
         cell_centroid_y_m=cell_centroid_y_m,
         cell_z_top_m=cell_z_top_m,
         cell_z_bottom_m=cell_z_bottom_m,
+        cell_hydraulic_conductivity_m_s=cell_hydraulic_conductivity_m_s,
+        cell_storage_coefficient=cell_storage_coefficient,
         edge_ids=np.asarray(edge_ids, dtype=int),
         edge_node_a_index=np.asarray(edge_node_a_index, dtype=int),
         edge_node_b_index=np.asarray(edge_node_b_index, dtype=int),

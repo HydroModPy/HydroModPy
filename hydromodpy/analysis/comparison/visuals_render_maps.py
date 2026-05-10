@@ -25,6 +25,7 @@ from hydromodpy.analysis.comparison.visuals_style import (
     _robust_limits,
     _robust_symmetric_limit,
     _simulation_panel_title,
+    _style_colorbar,
     _style_map_axes,
 )
 
@@ -220,10 +221,10 @@ def _write_case_configuration_figure(
             mesh_ax.autoscale_view()
             colorbar = figure.colorbar(collection, ax=mesh_ax, fraction=0.046, pad=0.02)
             colorbar.set_label(
-                "surface top [m]" if payload.surface_top is not None else "cell",
+                "surface elevation [m]" if payload.surface_top is not None else "cell",
                 fontsize=_LABEL_FONT_SIZE,
             )
-            colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+            _style_colorbar(colorbar)
             boundary_edges = _boundary_edges_by_side(payload.vertices, payload.faces)
             side_colors = {
                 "west": "#2563eb",
@@ -255,15 +256,25 @@ def _write_case_configuration_figure(
         mesh_ax.scatter(
             [x],
             [y],
-            s=34,
+            s=68,
             c="#111827",
             marker="o",
             edgecolors="white",
-            linewidths=0.8,
+            linewidths=1.0,
         )
-        mesh_ax.text(x, y, f" {label}", fontsize=7, color="#111827", va="center")
+        mesh_ax.text(
+            x,
+            y,
+            label,
+            fontsize=9,
+            fontweight="bold",
+            color="white",
+            ha="center",
+            va="center",
+        )
     mesh_ax.set_title("Spatial support, topography, boundaries", fontsize=_TITLE_FONT_SIZE)
     mesh_ax.set_aspect("equal", adjustable="box")
+    _style_map_axes(mesh_ax)
     mesh_ax.tick_params(labelsize=_TICK_FONT_SIZE)
     if payload.boundary_sides:
         mesh_ax.legend(loc="upper right", fontsize=7, frameon=True)
@@ -289,7 +300,11 @@ def _write_case_configuration_figure(
     recharge_ax.tick_params(labelsize=_TICK_FONT_SIZE)
 
     meta_ax.axis("off")
-    meta_text = "\n".join([*payload.metadata_lines, "", "simulations:", *payload.simulation_lines])
+    point_lines = tuple(payload.observable_point_legend)
+    point_block = ("", "points:", *point_lines) if point_lines else ()
+    meta_text = "\n".join(
+        [*payload.metadata_lines, "", "simulations:", *payload.simulation_lines, *point_block]
+    )
     meta_ax.text(
         0.02,
         0.98,
@@ -326,8 +341,7 @@ def _write_case_configuration_figure(
     )
     semantics_ax.set_title("Comparison semantics", fontsize=_TITLE_FONT_SIZE, loc="left")
 
-    figure.suptitle(f"Comparison case configuration: {payload.comparison_id}", fontsize=13, y=0.985)
-    figure.subplots_adjust(left=0.06, right=0.98, top=0.92, bottom=0.07, hspace=0.32, wspace=0.2)
+    figure.subplots_adjust(left=0.06, right=0.98, top=0.95, bottom=0.07, hspace=0.32, wspace=0.2)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)
@@ -375,33 +389,31 @@ def _write_map_comparison_figure(
         )
     for ax in axes_array[len(payloads) :]:
         ax.set_visible(False)
+    figure.subplots_adjust(
+        left=0.04,
+        right=0.82,
+        top=0.84,
+        bottom=0.14,
+        wspace=0.08,
+        hspace=0.12,
+    )
     if artist is not None:
+        colorbar_ax = figure.add_axes([0.87, 0.20, 0.025, 0.58])
         colorbar = figure.colorbar(
             artist,
-            ax=used_axes,
-            orientation="horizontal",
-            pad=0.06,
-            fraction=0.05,
-            aspect=40,
+            cax=colorbar_ax,
+            orientation="vertical",
         )
         colorbar.set_label(
             payloads[0].unit or "value",
             fontsize=_LABEL_FONT_SIZE,
             labelpad=4,
         )
-        colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+        _style_colorbar(colorbar)
     figure.suptitle(
         f"{_pretty_label(observable_name)} [{payloads[0].unit or 'native'}]  {payloads[0].time_label}",
         fontsize=_TITLE_FONT_SIZE,
         y=0.97,
-    )
-    figure.subplots_adjust(
-        left=0.03,
-        right=0.98,
-        top=0.84,
-        bottom=0.14,
-        wspace=0.05,
-        hspace=0.12,
     )
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
@@ -438,7 +450,7 @@ def _write_difference_figure(
         aspect=40,
     )
     colorbar.set_label(payload.unit or "difference", fontsize=_LABEL_FONT_SIZE, labelpad=4)
-    colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    _style_colorbar(colorbar)
     figure.suptitle(
         f"{_pretty_label(payload.observable_name)} difference",
         fontsize=_TITLE_FONT_SIZE,
@@ -519,7 +531,7 @@ def _write_map_triptych_figure(
         aspect=38,
     )
     value_colorbar.set_label(reference.unit or "value", fontsize=_LABEL_FONT_SIZE, labelpad=4)
-    value_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    _style_colorbar(value_colorbar)
     diff_colorbar = figure.colorbar(
         diff_artist,
         ax=diff_ax,
@@ -529,7 +541,7 @@ def _write_map_triptych_figure(
         aspect=28,
     )
     diff_colorbar.set_label(reference.unit or "difference", fontsize=_LABEL_FONT_SIZE, labelpad=4)
-    diff_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    _style_colorbar(diff_colorbar)
     figure.suptitle(
         f"{_pretty_label(reference.observable_name)} [{reference.unit or 'native'}]  "
         f"{reference.time_label}",
@@ -589,23 +601,28 @@ def _write_regridded_map_figure(
         )
     for ax in axes_array[len(arrays) :]:
         ax.set_visible(False)
+    figure.subplots_adjust(
+        left=0.04,
+        right=0.82,
+        top=0.84,
+        bottom=0.14,
+        wspace=0.08,
+        hspace=0.12,
+    )
     if artist is not None:
+        colorbar_ax = figure.add_axes([0.87, 0.20, 0.025, 0.58])
         colorbar = figure.colorbar(
             artist,
-            ax=axes_array[: len(arrays)].tolist(),
-            orientation="horizontal",
-            pad=0.06,
-            fraction=0.05,
-            aspect=40,
+            cax=colorbar_ax,
+            orientation="vertical",
         )
         colorbar.set_label(arrays[0][0].unit or "value", fontsize=_LABEL_FONT_SIZE, labelpad=4)
-        colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+        _style_colorbar(colorbar)
     figure.suptitle(
         f"{_pretty_label(observable_name)} on fine raster",
         fontsize=_TITLE_FONT_SIZE,
         y=0.97,
     )
-    figure.subplots_adjust(left=0.03, right=0.98, top=0.84, bottom=0.14, wspace=0.05, hspace=0.12)
     path.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(path, dpi=180, bbox_inches="tight")
     plt.close(figure)
@@ -655,7 +672,7 @@ def _write_regridded_difference_figure(
         aspect=40,
     )
     colorbar.set_label(unit or "difference", fontsize=_LABEL_FONT_SIZE, labelpad=4)
-    colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    _style_colorbar(colorbar)
     figure.suptitle(
         f"{_pretty_label(observable_name)} fine-raster difference",
         fontsize=_TITLE_FONT_SIZE,
@@ -766,7 +783,7 @@ def _write_regridded_triptych_figure(
         fontsize=_LABEL_FONT_SIZE,
         labelpad=4,
     )
-    value_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    _style_colorbar(value_colorbar)
     diff_colorbar = figure.colorbar(
         diff_artist,
         ax=diff_ax,
@@ -780,7 +797,7 @@ def _write_regridded_triptych_figure(
         fontsize=_LABEL_FONT_SIZE,
         labelpad=4,
     )
-    diff_colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
+    _style_colorbar(diff_colorbar)
     figure.suptitle(
         f"{_pretty_label(observable_name)} on fine raster [{reference_payload.unit or 'native'}]",
         fontsize=_TITLE_FONT_SIZE,

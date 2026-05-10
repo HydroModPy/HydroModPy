@@ -1,4 +1,4 @@
-"""Local `flow/boussinesq` runtime for the fixed-head piecewise-K validation case."""
+"""PETSc `flow/boussinesq` runtime for the fixed-head piecewise-K validation case."""
 
 from __future__ import annotations
 
@@ -13,6 +13,9 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
+from validation_cases.shared.boussinesq_analytical_runtime import (
+    apply_analytical_boussinesq_runtime_defaults,
+)
 from validation_cases.shared.boussinesq_piecewise_strip import (
     PIECEWISE_STRIP_HYDRAULIC_CONDUCTIVITY_M_S_BY_ZONE,
     PIECEWISE_STRIP_LENGTH_X_M,
@@ -78,7 +81,7 @@ def run_boussinesq_fixed_head_piecewise_k_case(
     caller_file: str | Path,
     timeout: int = 1800,
 ) -> ValidationRunResult:
-    """Run the fixed-head piecewise-K case through the local `flow/boussinesq` adapter."""
+    """Run the fixed-head piecewise-K case through the PETSc VI backend."""
     del timeout
 
     out_path = resolve_validation_results_dir(
@@ -95,17 +98,20 @@ def run_boussinesq_fixed_head_piecewise_k_case(
             mesh_summary={"output_exchange_bundle_dir": str(bundle_dir)},
             flow=Flow(
                 _build_flow_config(
-                    {
-                        "flow_regime": "steady",
-                        "ic": {"type": "custom", "value": 7.5},
-                        "active_bc": ["west_side", "east_side"],
-                        "bc": {
-                            "dirichlet": {
-                                "west_side": {"value": WEST_HEAD_M},
-                                "east_side": {"value": EAST_HEAD_M},
-                            }
+                    apply_analytical_boussinesq_runtime_defaults(
+                        {
+                            "flow_regime": "steady",
+                            "ic": {"type": "custom", "value": 7.5},
+                            "active_bc": ["west_side", "east_side"],
+                            "bc": {
+                                "dirichlet": {
+                                    "west_side": {"value": WEST_HEAD_M},
+                                    "east_side": {"value": EAST_HEAD_M},
+                                }
+                            },
                         },
-                    },
+                        flow_regime="steady",
+                    ),
                     case_dir=Path(__file__).resolve().parent,
                 )
             ),

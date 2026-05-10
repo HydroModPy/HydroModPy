@@ -23,8 +23,10 @@ from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.physics.base import ProcessSpatialConfig
 from hydromodpy.physics.flow import flow_toml_loader
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    SUPPORTED_FLOW_BOUNDARY_IDS,
+)
 from hydromodpy.physics.flow.boundary_conditions import (
-    DIRICHLET_BC_CANONICAL_DOMAINS,
     BCEntry,
     FlowBoundaryConditionConfig,
 )
@@ -90,7 +92,13 @@ class FlowConfig(ProcessSpatialConfig):
         )
     )
     surface_interaction_model: Annotated[
-        Literal["auto", "regularized_partition", "complementarity"],
+        Literal[
+            "auto",
+            "regularized_partition",
+            "complementarity",
+            "vi_obstacle",
+            "ts_vi_obstacle",
+        ],
         Profile.DEV,
     ] = Field(
         default="auto",
@@ -98,8 +106,9 @@ class FlowConfig(ProcessSpatialConfig):
             "Optional Boussinesq surface-interaction closure selector. "
             "'regularized_partition' uses the Marcais-style q_ex = G_r(theta) "
             "R(balance) law; 'complementarity' uses the mixed PETSc "
-            "q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical "
-            "backend-dependent default."
+            "q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the "
+            "experimental PETSc head-only VI obstacle formulation; 'auto' "
+            "keeps the historical backend-dependent default."
         ),
         examples=["auto", "regularized_partition"],
         json_schema_extra=field_metadata(stability="experimental"),
@@ -132,6 +141,54 @@ class FlowConfig(ProcessSpatialConfig):
             "Optional override for the infinity-norm state-update tolerance "
             "used by Boussinesq backends that track it."
         ),
+    )
+    vi_substeps_per_period: Annotated[int, Profile.DEV] = Field(
+        default=1,
+        description=(
+            "Fixed number of Backward-Euler substeps per stress period for the "
+            "experimental PETSc VI obstacle runtime. Rate-based forcing values "
+            "are kept unchanged on each substep."
+        ),
+    )
+    vi_substep_on_failure: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description=(
+            "When true, retry a failed PETSc VI obstacle stress period with "
+            "increasing substep counts."
+        ),
+    )
+    vi_max_adaptive_substeps: Annotated[int | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries."
+        ),
+    )
+    ts_vi_steps_per_period: Annotated[int, Profile.DEV] = Field(
+        default=4,
+        description=(
+            "Fixed PETSc TS Backward-Euler steps per stress period for the "
+            "experimental TS VI obstacle runtime."
+        ),
+    )
+    ts_vi_adapt: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime.",
+    )
+    ts_vi_dt_min_fraction: Annotated[float, Profile.DEV] = Field(
+        default=1.0 / 64.0,
+        description="Minimum TS VI time-step as a fraction of the stress-period length.",
+    )
+    ts_vi_dt_max_fraction: Annotated[float, Profile.DEV] = Field(
+        default=1.0 / 4.0,
+        description="Maximum TS VI time-step as a fraction of the stress-period length.",
+    )
+    ts_vi_type: Annotated[str, Profile.DEV] = Field(
+        default="beuler",
+        description="PETSc TS type for the experimental TS VI obstacle runtime.",
+    )
+    ts_vi_snes_type: Annotated[str, Profile.DEV] = Field(
+        default="vinewtonrsls",
+        description="PETSc SNES type for the experimental TS VI obstacle runtime.",
     )
     param_list: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
@@ -203,8 +260,9 @@ class FlowConfig(ProcessSpatialConfig):
         default_factory=list,
         description=(
             "Explicitly activated boundary-condition ids for this flow run. "
-            "Allowed values: 'ocean', 'stream', 'north_side', 'south_side', "
-            "'east_side', 'west_side', 'drainage'. "
+            "Allowed values are the canonical ids declared in the flow "
+            "boundary-condition registry: 'ocean', 'stream', 'north_side', "
+            "'south_side', 'east_side', 'west_side', 'drainage'. "
             "An empty list means no boundary-condition package is assembled by the solver."
         ),
         examples=[["ocean"], ["west_side", "east_side", "drainage"]],
@@ -296,7 +354,7 @@ class FlowConfig(ProcessSpatialConfig):
 
     @model_validator(mode="after")
     def _validate_param_consistency(self):
-        """Enforce one-to-one consistency between `param_list` and `param` keys."""
+        """Enforce cross-field consistency on the flow configuration."""
         missing = [param_id for param_id in self.param_list if param_id not in self.param]
         if missing:
             missing_text = ", ".join(missing)
@@ -308,6 +366,12 @@ class FlowConfig(ProcessSpatialConfig):
             extra_text = ", ".join(extra)
             raise ValueError(
                 f"flow.param contains ids not declared in flow.param_list: {extra_text}"
+            )
+        head_ic = getattr(self.ic, "h", None)
+        head_ic_type = str(getattr(head_ic, "type", "")).strip().lower()
+        if head_ic_type == "steady_state" and self.flow_regime != "transient":
+            raise ValueError(
+                "flow.ic.type='steady_state' is only supported when flow.flow_regime='transient'"
             )
         return self
 
@@ -333,10 +397,17 @@ class FlowConfig(ProcessSpatialConfig):
     def _validate_surface_interaction_model(cls, value):
         """Normalize the optional Boussinesq surface-interaction selector."""
         text = str(value or "auto").strip().lower() or "auto"
-        if text not in {"auto", "regularized_partition", "complementarity"}:
+        if text not in {
+            "auto",
+            "regularized_partition",
+            "complementarity",
+            "vi_obstacle",
+            "ts_vi_obstacle",
+        }:
             raise ValueError(
                 "flow.surface_interaction_model must be 'auto', "
-                "'regularized_partition', or 'complementarity'"
+                "'regularized_partition', 'complementarity', 'vi_obstacle', "
+                "or 'ts_vi_obstacle'"
             )
         return text
 
@@ -352,6 +423,88 @@ class FlowConfig(ProcessSpatialConfig):
         if not numeric.is_integer() or numeric <= 0:
             raise ValueError("flow.runtime_max_iterations must be a positive integer")
         return int(numeric)
+
+    @field_validator("vi_substeps_per_period", mode="before")
+    @classmethod
+    def _validate_vi_substeps_per_period(cls, value):
+        """Validate fixed PETSc VI substep count."""
+        if value is None or value == "":
+            return 1
+        if isinstance(value, bool):
+            raise ValueError("flow.vi_substeps_per_period must be a positive integer")
+        numeric = float(value)
+        if not numeric.is_integer() or numeric <= 0:
+            raise ValueError("flow.vi_substeps_per_period must be a positive integer")
+        return int(numeric)
+
+    @field_validator("vi_substep_on_failure", mode="before")
+    @classmethod
+    def _validate_vi_substep_on_failure(cls, value):
+        """Validate adaptive PETSc VI retry flag."""
+        if value is None or value == "":
+            return False
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().lower()
+        if text in {"true", "1", "yes", "on"}:
+            return True
+        if text in {"false", "0", "no", "off"}:
+            return False
+        raise ValueError("flow.vi_substep_on_failure must be a boolean")
+
+    @field_validator("vi_max_adaptive_substeps", mode="before")
+    @classmethod
+    def _validate_vi_max_adaptive_substeps(cls, value):
+        """Validate maximum PETSc VI adaptive substep count."""
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            raise ValueError("flow.vi_max_adaptive_substeps must be a positive integer")
+        numeric = float(value)
+        if not numeric.is_integer() or numeric <= 0:
+            raise ValueError("flow.vi_max_adaptive_substeps must be a positive integer")
+        return int(numeric)
+
+    @field_validator("ts_vi_steps_per_period", mode="before")
+    @classmethod
+    def _validate_ts_vi_steps_per_period(cls, value):
+        """Validate fixed PETSc TS VI step count."""
+        if value is None or value == "":
+            return 4
+        if isinstance(value, bool):
+            raise ValueError("flow.ts_vi_steps_per_period must be a positive integer")
+        numeric = float(value)
+        if not numeric.is_integer() or numeric <= 0:
+            raise ValueError("flow.ts_vi_steps_per_period must be a positive integer")
+        return int(numeric)
+
+    @field_validator("ts_vi_adapt", mode="before")
+    @classmethod
+    def _validate_ts_vi_adapt(cls, value):
+        """Validate PETSc TS VI adaptivity flag."""
+        if value is None or value == "":
+            return False
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().lower()
+        if text in {"true", "1", "yes", "on"}:
+            return True
+        if text in {"false", "0", "no", "off"}:
+            return False
+        raise ValueError("flow.ts_vi_adapt must be a boolean")
+
+    @field_validator("ts_vi_dt_min_fraction", "ts_vi_dt_max_fraction", mode="before")
+    @classmethod
+    def _validate_ts_vi_dt_fraction(cls, value, info):
+        """Validate PETSc TS VI time-step fraction limits."""
+        if value is None or value == "":
+            return 1.0 / 64.0 if info.field_name == "ts_vi_dt_min_fraction" else 1.0 / 4.0
+        if isinstance(value, bool):
+            raise ValueError(f"flow.{info.field_name} must be a positive number")
+        numeric = float(value)
+        if numeric <= 0.0:
+            raise ValueError(f"flow.{info.field_name} must be a positive number")
+        return numeric
 
     @field_validator("runtime_tol_residual_inf", "runtime_tol_state_update_inf", mode="before")
     @classmethod
@@ -429,12 +582,11 @@ class FlowConfig(ProcessSpatialConfig):
         """
         Validate that ``active_bc`` only contains allowed boundary-condition ids.
 
-        For ``Flow``, permitted ids are those declared in
-        ``DIRICHLET_BC_CANONICAL_DOMAINS`` (ocean, stream, north_side,
-        south_side, east_side, west_side) plus ``'drainage'``.
+        For ``Flow``, permitted ids are the canonical ids declared in the
+        flow boundary-condition registry.
         Duplicates are rejected to keep the list unambiguous.
         """
-        _ALLOWED = set(DIRICHLET_BC_CANONICAL_DOMAINS.keys()) | {"drainage"}
+        _ALLOWED = SUPPORTED_FLOW_BOUNDARY_IDS
         if value is None:
             return []
         if not isinstance(value, (list, tuple)):
@@ -472,6 +624,15 @@ class FlowConfig(ProcessSpatialConfig):
             max_iterations=self.runtime_max_iterations,
             tol_residual_inf=self.runtime_tol_residual_inf,
             tol_state_update_inf=self.runtime_tol_state_update_inf,
+            vi_substeps_per_period=self.vi_substeps_per_period,
+            vi_substep_on_failure=self.vi_substep_on_failure,
+            vi_max_adaptive_substeps=self.vi_max_adaptive_substeps,
+            ts_vi_steps_per_period=self.ts_vi_steps_per_period,
+            ts_vi_adapt=self.ts_vi_adapt,
+            ts_vi_dt_min_fraction=self.ts_vi_dt_min_fraction,
+            ts_vi_dt_max_fraction=self.ts_vi_dt_max_fraction,
+            ts_vi_type=self.ts_vi_type,
+            ts_vi_snes_type=self.ts_vi_snes_type,
         )
 
     _DEFAULT_PARAM_UNITS: ClassVar[dict[str, str]] = {

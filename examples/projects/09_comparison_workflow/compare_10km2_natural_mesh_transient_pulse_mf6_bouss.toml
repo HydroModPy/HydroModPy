@@ -58,10 +58,10 @@ mesh_mode = "mesh_input"
 runtime_backend = "scipy_sparse"
 
 [[comparison.observable]]
-name = "head_map_initial"
+name = "head_map_first_computed"
 variable = "watertable_elevation"
 support = "map"
-time = "first"
+time = "first_computed"
 unit = "m"
 
 [[comparison.observable]]

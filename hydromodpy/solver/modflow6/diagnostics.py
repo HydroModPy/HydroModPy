@@ -9,6 +9,9 @@ from typing import Protocol
 import numpy as np
 
 from hydromodpy.core.io import filesystem
+from hydromodpy.physics.flow.boundary_condition_registry import (
+    active_side_dirichlet_boundary_ids,
+)
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     boundary_attr,
     boundary_conditions_mapping,
@@ -146,9 +149,7 @@ def build_support_overlay_specs(
         "ocean": "#2ca02c",
     }
     boundary_conditions = boundary_conditions_mapping(model)
-    for bc_id in ("west_side", "east_side", "north_side", "south_side"):
-        if not is_bc_active(model, bc_id):
-            continue
+    for bc_id in active_side_dirichlet_boundary_ids(model.flow):
         boundary = boundary_conditions.get(bc_id)
         if boundary is None:
             continue

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from pathlib import Path
 from typing import Any
@@ -28,9 +29,9 @@ from hydromodpy.analysis.comparison.run_backend import (
     ChildRunResult,
     run_child_with_hmp,
 )
-from hydromodpy.analysis.comparison.runtime import (
+from hydromodpy.analysis.comparison.runtime import extract_observable_rows
+from hydromodpy.analysis.comparison.runtime_metadata import (
     discover_result_store,
-    extract_observable_rows,
     read_simulation_run_metadata,
 )
 from hydromodpy.analysis.comparison.web_report import write_comparison_web_report
@@ -104,6 +105,7 @@ class SimulationComparisonLauncher:
         if not generated_configs_kept:
             cleanup_errors = self._cleanup_generated_configs(children)
 
+        numerical_closure = self._numerical_closure_manifest(outputs.closure_summary_rows)
         manifest = {
             "schema_version": "simulation_comparison_manifest_v1",
             "comparison_id": comparison.comparison_id,
@@ -113,6 +115,7 @@ class SimulationComparisonLauncher:
                 if self.cfg.base_simulation_config_path is None
                 else str(self.cfg.base_simulation_config_path)
             ),
+            "base_simulation_overlay": self.cfg.comparison.base_simulation_overlay,
             "comparison_root": str(comparison_root),
             "reference_simulation": reference_simulation,
             "audit_status": audit.get("status"),
@@ -126,6 +129,13 @@ class SimulationComparisonLauncher:
             "comparison_figures_dir": str(comparison_root / "comparison_figures"),
             "comparison_figures": outputs.figure_artifacts,
             "comparison_data_artifacts": outputs.data_artifacts,
+            "boussinesq_vi_obstacle_diagnostics": self._vi_obstacle_artifact_index(
+                outputs.data_artifacts
+            ),
+            "boussinesq_ts_vi_obstacle_diagnostics": self._prefixed_artifact_index(
+                outputs.data_artifacts,
+                prefix="ts_vi_obstacle_",
+            ),
             "n_observable_rows": len(all_rows),
             "n_metric_rows": len(outputs.summary_metrics),
             "n_difference_rows": len(outputs.detail_metrics),
@@ -138,6 +148,19 @@ class SimulationComparisonLauncher:
                 observable.model_dump(mode="json") for observable in comparison.observable
             ],
         }
+        if numerical_closure:
+            manifest["numerical_closure"] = numerical_closure
+            manifest.update(
+                {
+                    "closure_max_abs_m3_s": numerical_closure.get("max_abs_closure_m3_s"),
+                    "closure_max_abs_mm_d": numerical_closure.get("max_abs_closure_mm_d"),
+                    "closure_relative_error_p95": numerical_closure.get(
+                        "relative_closure_error_p95"
+                    ),
+                    "closure_status": numerical_closure.get("diagnostic"),
+                    "closure_status_code": numerical_closure.get("diagnostic_code"),
+                }
+            )
         manifest_path = comparison_root / "comparison_manifest.json"
         manifest["manifest_path"] = str(manifest_path)
         try:
@@ -197,31 +220,41 @@ class SimulationComparisonLauncher:
         if child.config_path is None:
             raise ValueError(f"Comparison child '{child.simulation_id}' has no config_path")
         sim_id = result.sim_id
-        if result.succeeded and sim_id is None:
-            store, discovered = discover_result_store(child.config_path)
-            try:
+        store = None
+        if result.succeeded:
+            store, discovered = discover_result_store(
+                child.config_path,
+                preferred_sim_id=sim_id,
+            )
+            if sim_id is None:
                 sim_id = discovered
-            finally:
-                if store is not None:
-                    try:
-                        store.close()
-                    except Exception:
-                        pass
         status = "completed" if result.succeeded else "failed"
-        summary = self._base_child_summary(child, status=status)
-        summary.update(
-            {
-                "sim_id": sim_id,
-                "wall_time_seconds": round(result.wall_time_seconds, 2),
-                "returncode": result.returncode,
-                "stdout_tail": result.stdout[-4000:],
-                "stderr_tail": result.stderr[-4000:],
-            }
-        )
-        if not result.succeeded:
-            summary["error_type"] = "ChildProcessError"
-            summary["error_message"] = _format_child_process_error(result)
-        return summary
+        try:
+            summary = self._base_child_summary(
+                child,
+                status=status,
+                store=store,
+                sim_id=sim_id,
+            )
+            summary.update(
+                {
+                    "sim_id": sim_id,
+                    "wall_time_seconds": round(result.wall_time_seconds, 2),
+                    "returncode": result.returncode,
+                    "stdout_tail": result.stdout[-4000:],
+                    "stderr_tail": result.stderr[-4000:],
+                }
+            )
+            if not result.succeeded:
+                summary["error_type"] = "ChildProcessError"
+                summary["error_message"] = _format_child_process_error(result)
+            return summary
+        finally:
+            if store is not None:
+                try:
+                    store.close()
+                except Exception:
+                    pass
 
     def _reuse_child_summary(self, child: GeneratedChildConfig) -> dict[str, Any]:
         store = None
@@ -229,7 +262,12 @@ class SimulationComparisonLauncher:
         if child.config_path is not None:
             store, sim_id = discover_result_store(child.config_path)
         try:
-            summary = self._base_child_summary(child, status="reused")
+            summary = self._base_child_summary(
+                child,
+                status="reused",
+                store=store,
+                sim_id=sim_id,
+            )
             summary["sim_id"] = sim_id
             return summary
         finally:
@@ -254,6 +292,8 @@ class SimulationComparisonLauncher:
         child: GeneratedChildConfig,
         *,
         status: str,
+        store: Any = None,
+        sim_id: str | None = None,
     ) -> dict[str, Any]:
         run_folder = child.run_folder
         if run_folder is None and child.config_path is not None:
@@ -274,7 +314,7 @@ class SimulationComparisonLauncher:
             "run_name": child.run_name,
         }
         if run_folder is not None and status in {"completed", "reused"}:
-            summary.update(read_simulation_run_metadata(run_folder))
+            summary.update(read_simulation_run_metadata(run_folder, store=store, sim_id=sim_id))
         return summary
 
     def _build_comparison_cfg(
@@ -296,6 +336,7 @@ class SimulationComparisonLauncher:
         section = RuntimeComparisonSection(
             comparison_id=self.cfg.comparison.comparison_id,
             base_simulation_config=str(self.cfg.base_simulation_config_path),
+            base_simulation_overlay=self.cfg.comparison.base_simulation_overlay,
             output_root=str(self.cfg.comparison_root),
             run_simulations=False,
             continue_on_error=self.cfg.comparison.continue_on_error,
@@ -382,6 +423,52 @@ class SimulationComparisonLauncher:
             "",
         ]
         return "\n".join(lines) + report_text
+
+    @staticmethod
+    def _vi_obstacle_artifact_index(
+        artifacts: list[dict[str, Any]],
+    ) -> dict[str, dict[str, str]]:
+        """Group VI obstacle diagnostic artifacts by simulation id."""
+        return SimulationComparisonLauncher._prefixed_artifact_index(
+            artifacts,
+            prefix="vi_obstacle_",
+        )
+
+    @staticmethod
+    def _prefixed_artifact_index(
+        artifacts: list[dict[str, Any]],
+        *,
+        prefix: str,
+    ) -> dict[str, dict[str, str]]:
+        """Group diagnostic artifacts with a common kind prefix by simulation id."""
+        grouped: dict[str, dict[str, str]] = {}
+        for artifact in artifacts:
+            kind = str(artifact.get("kind", ""))
+            if not kind.startswith(prefix):
+                continue
+            simulation_id = str(artifact.get("simulation_id", ""))
+            if simulation_id == "":
+                continue
+            key = kind.removeprefix(prefix)
+            path = str(artifact.get("path", ""))
+            if path:
+                grouped.setdefault(simulation_id, {})[key] = path
+        return grouped
+
+    @staticmethod
+    def _numerical_closure_manifest(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        if not rows:
+            return {}
+        diagnostic = _worst_closure_diagnostic(rows)
+        return {
+            "schema_version": "numerical_closure_manifest_v1",
+            "diagnostic": diagnostic,
+            "diagnostic_code": _closure_diagnostic_code(diagnostic),
+            "max_abs_closure_m3_s": _max_finite(rows, "max_abs_closure_m3_s"),
+            "max_abs_closure_mm_d": _max_finite(rows, "max_abs_closure_mm_d"),
+            "relative_closure_error_p95": _max_finite(rows, "relative_closure_error_p95"),
+            "rows": rows,
+        }
 
     @staticmethod
     def _cleanup_generated_configs(children: list[GeneratedChildConfig]) -> list[str]:
@@ -523,6 +610,35 @@ def _format_child_process_error(result: ChildRunResult) -> str:
     if stdout:
         return f"{message}\nstdout tail:\n{stdout[-2000:]}"
     return message
+
+
+def _max_finite(rows: list[dict[str, Any]], field: str) -> float | None:
+    values: list[float] = []
+    for row in rows:
+        try:
+            value = float(row.get(field))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            values.append(value)
+    return max(values) if values else None
+
+
+def _worst_closure_diagnostic(rows: list[dict[str, Any]]) -> str:
+    worst = ""
+    for row in rows:
+        diagnostic = str(row.get("diagnostic", "")).upper()
+        if _closure_diagnostic_rank(diagnostic) > _closure_diagnostic_rank(worst):
+            worst = diagnostic
+    return worst or "UNKNOWN"
+
+
+def _closure_diagnostic_rank(value: str) -> int:
+    return {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CHECK": 3}.get(value.upper(), -1)
+
+
+def _closure_diagnostic_code(value: str) -> float | None:
+    return {"OK": 0.0, "WARN": 1.0, "CHECK": 2.0}.get(value.upper())
 
 
 __all__ = ("SimulationComparisonLauncher",)

@@ -107,11 +107,11 @@ Solver Coverage
          Dupuit Circular-Island Ocean 2D rendered with MODFLOW 6 irregular triangles for the analytical gallery.
 
       **Metrics**
-      - Radial head-profile RMSE: 0.0758 m
-      - Radial head-profile max abs error: 0.1377 m
-      - Azimuthal spread: 0.1879 m
+      - Radial head-profile RMSE: 0.1256 m
+      - Radial head-profile max abs error: 0.1959 m
+      - Azimuthal spread: 0.1837 m
       - Ocean head max abs error: 0.00e+00 m
-      - Minimum land freeboard: 0.8318 m
+      - Minimum land freeboard: 0.6655 m
 
       - Config file: ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflow6_irregular_tri.toml``
       - Tolerances: ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/tolerances.toml``
@@ -365,8 +365,12 @@ Common Numerical Setup
      - Homogeneous `K` value used by the benchmark.
      - 5e-6 m/s
      - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
+   * - ``flow.ic.type``
+     - Initial-condition policy used to start the benchmark.
+     - custom
+     - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
    * - ``flow.ic.value``
-     - Initial hydraulic head used to start the benchmark.
+     - Scalar initial head or top offset used by the initial-condition policy.
      - 1.0 m
      - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_modflownwt.toml``
    * - ``flow.bc.dirichlet.ocean.value``
@@ -496,7 +500,7 @@ Solver-Specific Overrides
            - Source
          * - ``flow.runtime_backend``
            - Runtime backend selected for the in-house solver.
-           - scipy_sparse
+           - petsc
            - ``validation_cases/analytical/steady/dupuit_circular_island_ocean_2d/config_boussinesq.toml``
 
 Acceptance Criteria

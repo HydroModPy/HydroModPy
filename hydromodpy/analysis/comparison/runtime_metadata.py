@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -37,7 +38,13 @@ def _resolve_recorded_output_path(
         return None
 
     normalized = text
-    if len(text) > 7 and text.startswith("/mnt/") and text[5].isalpha() and text[6] == "/":
+    if (
+        os.name == "nt"
+        and len(text) > 7
+        and text.startswith("/mnt/")
+        and text[5].isalpha()
+        and text[6] == "/"
+    ):
         drive = text[5].upper()
         tail = text[7:].replace("/", "\\")
         normalized = f"{drive}:\\{tail}"
@@ -61,10 +68,7 @@ def _resolve_project_root_from_config(config_path: Path) -> Path | None:
     project_root = workspace.get("project_root")
     if project_root in (None, ""):
         return None
-    resolved = Path(str(project_root)).expanduser()
-    if not resolved.is_absolute():
-        resolved = config_path.parent / resolved
-    return resolved.resolve()
+    return _resolve_recorded_output_path(project_root, base_dir=config_path.parent)
 
 
 def _resolve_workspace_root_from_config(config_path: Path) -> Path | None:
@@ -78,15 +82,13 @@ def _resolve_workspace_root_from_config(config_path: Path) -> Path | None:
     root = workspace.get("root")
     if root in (None, ""):
         return None
-    resolved = Path(str(root)).expanduser()
-    if not resolved.is_absolute():
-        resolved = config_path.parent / resolved
-    return resolved.resolve()
+    return _resolve_recorded_output_path(root, base_dir=config_path.parent)
 
 
 def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     """Keep only comparison-relevant scalar/list metrics in manifests."""
     keys = (
+        "flow_solve_time_seconds",
         "wall_time_seconds",
         "solvers",
         "success",
@@ -129,6 +131,29 @@ def read_catalog_run_metadata(store: Any, sim_id: str | None) -> dict[str, Any]:
         solvers = [item for item in str(solver).split(",") if item]
         payload["solvers"] = solvers
         metrics["solvers"] = solvers
+    try:
+        metric_rows = conn.execute(
+            """
+            SELECT metric_name, value
+            FROM metrics
+            WHERE sim_id = ?
+              AND variable = 'runtime'
+              AND metric_name IN ('flow_solve_time_seconds')
+            ORDER BY station_id
+            """,
+            [str(sim_id)],
+        ).fetchall()
+    except Exception:
+        metric_rows = []
+    for metric_name, raw_value in metric_rows:
+        if metric_name in metrics:
+            continue
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            continue
+        payload[str(metric_name)] = value
+        metrics[str(metric_name)] = value
     for key, value in (
         ("n_cells", n_cells),
         ("n_layers", n_layers),
@@ -188,9 +213,19 @@ def read_simulation_run_metadata(
                 "runtime_solver_kind",
                 "solve_stage",
                 "last_termination_reason",
+                "flow_solve_time_seconds",
             )
             if key in boussinesq_summary
         }
+        if (
+            "flow_solve_time_seconds" in boussinesq_summary
+            and "flow_solve_time_seconds" not in payload
+        ):
+            flow_time = boussinesq_summary.get("flow_solve_time_seconds")
+            payload["flow_solve_time_seconds"] = flow_time
+            metrics_payload = dict(payload.get("metrics", {}))
+            metrics_payload["flow_solve_time_seconds"] = flow_time
+            payload["metrics"] = compact_run_metrics(metrics_payload)
         for key in ("n_cells", "n_edges", "n_nodes"):
             if key in boussinesq_summary:
                 payload[key] = boussinesq_summary.get(key)

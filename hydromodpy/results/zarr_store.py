@@ -768,7 +768,17 @@ class SimulationZarr:
         check = SimulationZarr(zip_path)
         check.close()
 
-        shutil.rmtree(self._path)
+        try:
+            shutil.rmtree(self._path)
+        except FileNotFoundError:
+            pass
+        except OSError:
+            logger.warning(
+                "Packed %s -> %s, but could not remove the source Zarr directory.",
+                self._path.name,
+                zip_path.name,
+                exc_info=True,
+            )
         logger.debug("Packed %s -> %s", self._path.name, zip_path.name)
 
         self._path = zip_path

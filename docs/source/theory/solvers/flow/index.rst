@@ -49,4 +49,5 @@ Related Pages
 - :doc:`../../boussinesq`
 - :doc:`../solver-capability-matrix`
 - :doc:`../../../user_guide/solvers`
+- :doc:`../../../architecture/process/flow-boundary-conditions`
 - :doc:`../../../architecture/solver/index`

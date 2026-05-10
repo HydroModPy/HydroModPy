@@ -6,7 +6,9 @@ import numpy as np
 import pytest
 
 from hydromodpy.solver.modflow_grid.solver_mesh import SolverMesh
-from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import FlowToModflowAdapter
+from hydromodpy.solver.modflow_nwt.nwt.flow_to_modflow_adapter import (
+    FlowToModflowAdapter,
+)
 
 
 def _build_adapter(
@@ -84,6 +86,26 @@ def test_initial_heads_and_side_boundaries_follow_bas_contract():
         strt=strt,
         drain_array=drain_array,
     )
+
+
+def test_steady_state_initial_head_build_guess_uses_top_surface():
+    adapter = _build_adapter(initial_type="steady_state")
+
+    _, strt, _ = adapter._build_initial_heads_and_sides()
+
+    np.testing.assert_allclose(strt[0], adapter.dem)
+    np.testing.assert_allclose(strt[1], adapter.dem)
+
+
+def test_single_period_side_boundary_sequence_uses_first_value():
+    adapter = _build_adapter(
+        initial_type="top",
+        boundary_conditions={"west_side": SimpleNamespace(value=[9.5, 8.5])},
+    )
+
+    _, strt, _ = adapter._build_initial_heads_and_sides()
+
+    assert np.all(strt[:, :, 0] == 9.5)
 
 
 def test_validate_ibound_strt_contract_rejects_shape_mismatch():

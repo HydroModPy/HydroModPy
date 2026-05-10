@@ -29,6 +29,7 @@ class TransientRuntimeHistory:
     prescribed_head_flux_history: list[np.ndarray] = field(default_factory=list)
     prescribed_head_history: list[np.ndarray] = field(default_factory=list)
     drainage_flux_history: list[np.ndarray] = field(default_factory=list)
+    residual_history: list[np.ndarray] = field(default_factory=list)
 
     @classmethod
     def initialize(
@@ -51,6 +52,7 @@ class TransientRuntimeHistory:
             prescribed_head_flux_history=[np.zeros(mesh.n_cells, dtype=float)],
             prescribed_head_history=[np.full(mesh.n_cells, np.nan, dtype=float)],
             drainage_flux_history=[np.zeros(mesh.n_cells, dtype=float)],
+            residual_history=[np.zeros(mesh.n_cells, dtype=float)],
         )
 
     def append_step(
@@ -102,6 +104,7 @@ class TransientRuntimeHistory:
         self.drainage_flux_history.append(
             np.asarray(assembly.drainage_flux_m3_s, dtype=float).copy()
         )
+        self.residual_history.append(np.asarray(assembly.residual_m3_s, dtype=float).copy())
 
     def build_runtime_state(
         self,
@@ -160,6 +163,7 @@ class TransientRuntimeHistory:
             prescribed_head_history_m_by_cell=np.vstack(self.prescribed_head_history),
             drainage_flux_m3_s=final_drainage_flux.copy(),
             drainage_flux_history_m3_s=np.vstack(self.drainage_flux_history),
+            residual_history_m3_s=np.vstack(self.residual_history),
             period_lengths_seconds=period_lengths_seconds,
             nonlinear_iterations=nonlinear_iterations,
             converged_by_period=converged_by_period,
@@ -256,6 +260,7 @@ def build_steady_runtime_state(
             [assembly.drainage_flux_m3_s],
             dtype=float,
         ),
+        residual_history_m3_s=np.asarray([assembly.residual_m3_s], dtype=float),
         period_lengths_seconds=(),
         nonlinear_iterations=(int(nonlinear_iterations),),
         converged_by_period=(bool(converged),),
