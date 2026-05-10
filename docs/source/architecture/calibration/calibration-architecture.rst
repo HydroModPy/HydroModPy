@@ -114,7 +114,7 @@ See also
 --------
 
 - :doc:`calibration-guide` for the full operational reference.
-- :doc:`../../user_guide/calibration` for the user-facing hub.
+- :doc:`../../user_guide/workflows/calibration` for the user-facing hub.
 - :doc:`../../theory/calibration/index` for inverse-problem
   formulation and methods.
 - :doc:`../../capability_gallery/calibration` for stable benchmark

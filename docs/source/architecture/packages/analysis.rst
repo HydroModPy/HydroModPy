@@ -83,6 +83,6 @@ See also
   shared-case comparison contract.
 - :doc:`/architecture/overview/testbed-workflow-architecture` for
   the testbed pipeline.
-- :doc:`/user_guide/comparison` -- user-facing hub.
+- :doc:`/user_guide/workflows/comparison` -- user-facing hub.
 - :doc:`/user_guide/workflows/batch` -- batch workflow page.
 - :doc:`/user_guide/workflows/testbed` -- testbed workflow page.

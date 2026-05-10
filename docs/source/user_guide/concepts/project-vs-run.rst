@@ -65,24 +65,3 @@ CLI equivalents
 +---------------------+-------------------------------------------+
 | ``hmp display``     | ``hmp.open(ws)[sim_id].plot(...)``        |
 +---------------------+-------------------------------------------+
-
-Migration from pre-v1 APIs
---------------------------
-
-The v0.5 names ``Simulation`` (in ``hydromodpy.project``) and
-``SimulationView`` (in ``hydromodpy.results.simulation``) are removed in
-v1. Update imports:
-
-.. code-block:: diff
-
-   - from hydromodpy.project import Simulation
-   - with Simulation(cfg) as sim:
-   + from hydromodpy.project import Project
-   + with Project(cfg) as project:
-         ...
-
-   - from hydromodpy.results.simulation import SimulationView
-   + from hydromodpy.results.run import Run
-
-The top-level module exports ``hmp.Project`` and ``hmp.Run`` for the same
-effect.

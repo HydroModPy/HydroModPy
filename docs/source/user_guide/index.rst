@@ -97,17 +97,17 @@ Topic guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: mesh
+      :link: workflows/testbed
       :link-type: doc
 
       **Mesh diagnostics**
       ^^^
-      User-facing route through mesh examples, testbed-based discretization
-      studies, scientific notes, and mesh architecture pages.
+      Mesh-only workflows, testbed-based discretization studies, refinement
+      policies, and the route to mesh scientific and architecture pages.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: comparison
+      :link: workflows/comparison
       :link-type: doc
 
       **Comparison workflows**
@@ -117,7 +117,7 @@ Topic guides
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: calibration
+      :link: workflows/calibration
       :link-type: doc
 
       **Calibration workflows**
@@ -151,16 +151,6 @@ Capability and API-oriented guides
       ^^^
       Registered top-level commands, workflow flags, and nested command
       families.
-
-   .. grid-item-card::
-      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
-      :link: capability-matrix
-      :link-type: doc
-
-      **Capability matrix**
-      ^^^
-      What is supported, validated, demonstrated, and documented across
-      workflows, solvers, data, figures, and exports.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -231,11 +221,7 @@ Use these pages once you have generated or opened result pages:
    Concepts <concepts/index>
    Cookbook <cookbook/index>
    Theory <../theory/index>
-   mesh
-   comparison
-   calibration
    cli-reference
-   capability-matrix
    Data loading <data/index>
    results-and-exports
    figures

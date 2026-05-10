@@ -167,7 +167,7 @@ See also
 --------
 
 - :doc:`../packages/calibration` for the calibration package map.
-- :doc:`/user_guide/calibration` for the user-facing hub.
+- :doc:`/user_guide/workflows/calibration` for the user-facing hub.
 - :doc:`/architecture/calibration/calibration-guide` for the full
   operational reference (TOML, optimizer catalogue, storage rules,
   pitfalls, Python API).

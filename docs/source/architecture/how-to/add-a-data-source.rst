@@ -193,5 +193,5 @@ See also
 - :doc:`add-a-data-variable` for adding a new variable family.
 - :doc:`add-a-config-field` for adding a new field on an existing
   source.
-- :doc:`/user_guide/data/provider-matrix` for the user-facing
-  inventory.
+- :doc:`/user_guide/data/index` for the user-facing inventory and
+  provider matrix.

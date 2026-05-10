@@ -6,7 +6,7 @@ layer. The goal is to compare several HydroModPy simulations without
 adding logic to the ``simulation`` workflow itself.
 
 For the user-facing entry point, see
-:doc:`../../user_guide/comparison`. For the operational walkthrough, see
+:doc:`../../user_guide/workflows/comparison`. For the operational walkthrough, see
 :doc:`../../user_guide/concepts/comparison-workflow`.
 
 Positioning
@@ -318,7 +318,7 @@ This work should stay in
 See also
 --------
 
-- :doc:`../../user_guide/comparison` for the user-facing hub.
+- :doc:`../../user_guide/workflows/comparison` for the user-facing hub.
 - :doc:`../../user_guide/concepts/comparison-workflow` for the
   operational walkthrough.
 - :doc:`../../user_guide/concepts/comparison-output-reading-order` for

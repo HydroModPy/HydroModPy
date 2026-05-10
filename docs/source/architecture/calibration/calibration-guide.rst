@@ -13,7 +13,7 @@ sub-system. Code: ``hydromodpy/calibration/``.
 For complementary reading, see :doc:`index` (calibration architecture
 root), :doc:`../overview/design-patterns` (item 7 covers the calibration
 adapters), :doc:`../overview/two-databases`, and
-:doc:`../../user_guide/calibration`.
+:doc:`../../user_guide/workflows/calibration`.
 
 Overview
 --------
@@ -922,7 +922,7 @@ See also
 - :doc:`index` for the calibration architecture root.
 - :doc:`calibration-architecture` for the package map and every UML
   diagram (config, runtime, execution flows, case structure).
-- :doc:`../../user_guide/calibration` for the user-facing hub.
+- :doc:`../../user_guide/workflows/calibration` for the user-facing hub.
 - :doc:`../../theory/calibration/index` for the inverse-problem
   formulation and methods.
 - :doc:`../../capability_gallery/calibration` for stable benchmark
