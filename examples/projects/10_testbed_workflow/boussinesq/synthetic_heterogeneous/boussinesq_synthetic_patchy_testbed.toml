@@ -38,6 +38,10 @@ max_size = 1100.0
 interface_size = 320.0
 interface_distance = 700.0
 
+[testbed.variant.overlay.flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
+
 [[testbed.variant]]
 id = "bouss_patchy_reference_mesh"
 label = "Boussinesq patchy long-recharge reference mesh"
@@ -63,6 +67,10 @@ max_size = 800.0
 interface_size = 220.0
 interface_distance = 550.0
 
+[testbed.variant.overlay.flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
+
 [[testbed.variant]]
 id = "bouss_patchy_fine_mesh"
 label = "Boussinesq patchy long-recharge fine mesh"
@@ -87,6 +95,10 @@ min_size = 140.0
 max_size = 650.0
 interface_size = 180.0
 interface_distance = 450.0
+
+[testbed.variant.overlay.flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
 
 [[testbed.metric]]
 name = "duration_s"

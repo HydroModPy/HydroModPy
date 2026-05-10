@@ -49,4 +49,5 @@ Related Pages
 
 - :doc:`../solver-capability-matrix`
 - :doc:`../../../user_guide/solver-process-map`
+- :doc:`../../../architecture/process/flow-boundary-conditions`
 - :doc:`../../../architecture/solver/index`

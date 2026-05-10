@@ -13,6 +13,7 @@ from hydromodpy.analysis.comparison.web.figures import (
     FigureCategory,
     categorize_figures,
     configuration_figures,
+    include_in_comparison_report,
 )
 
 
@@ -112,28 +113,29 @@ def _figure_items(*, root: Path, manifest: Mapping[str, Any]) -> list[dict[str, 
                 }:
                     payload = dict(item)
                     payload["path"] = str(path)
-                    items.append(payload)
+                    if include_in_comparison_report(payload):
+                        items.append(payload)
     known = {str(Path(str(item.get("path", ""))).resolve()) for item in items}
     figure_root = root / "comparison_figures"
     if figure_root.is_dir():
         for path in sorted(figure_root.glob("*.png")):
             key = str(path.resolve())
             if key not in known:
-                items.append({"kind": "figure", "observable": path.stem, "path": str(path)})
+                payload = {"kind": "figure", "observable": path.stem, "path": str(path)}
+                if include_in_comparison_report(payload):
+                    items.append(payload)
     return items
 
 
 def _select_key_figures(figures: list[dict[str, Any]]) -> list[dict[str, Any]]:
     priority = (
         "case_configuration.png",
-        "head_map_after_first_month__triptych",
-        "head_map_after_first_month__difference",
-        "head_map_wet_period__triptych",
-        "head_map_wet_period__difference",
-        "head_map_dry_period__triptych",
-        "head_map_dry_period__difference",
-        "head_map_last__triptych",
-        "head_map_last__difference",
+        "head_map_wet_year1__fine_raster_map_comparison",
+        "head_central_high_k_series__timeseries",
+        "head_west_low_k_series__timeseries",
+        "head_west_interface_series__timeseries",
+        "head_east_interface_series__timeseries",
+        "head_east_medium_k_series__timeseries",
         "storage_comparison_dashboard.png",
         "total_inputs_outputs_dashboard.png",
     )

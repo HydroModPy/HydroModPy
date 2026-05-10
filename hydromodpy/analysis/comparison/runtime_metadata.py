@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -37,7 +38,13 @@ def _resolve_recorded_output_path(
         return None
 
     normalized = text
-    if len(text) > 7 and text.startswith("/mnt/") and text[5].isalpha() and text[6] == "/":
+    if (
+        os.name == "nt"
+        and len(text) > 7
+        and text.startswith("/mnt/")
+        and text[5].isalpha()
+        and text[6] == "/"
+    ):
         drive = text[5].upper()
         tail = text[7:].replace("/", "\\")
         normalized = f"{drive}:\\{tail}"
@@ -61,10 +68,7 @@ def _resolve_project_root_from_config(config_path: Path) -> Path | None:
     project_root = workspace.get("project_root")
     if project_root in (None, ""):
         return None
-    resolved = Path(str(project_root)).expanduser()
-    if not resolved.is_absolute():
-        resolved = config_path.parent / resolved
-    return resolved.resolve()
+    return _resolve_recorded_output_path(project_root, base_dir=config_path.parent)
 
 
 def _resolve_workspace_root_from_config(config_path: Path) -> Path | None:
@@ -78,10 +82,7 @@ def _resolve_workspace_root_from_config(config_path: Path) -> Path | None:
     root = workspace.get("root")
     if root in (None, ""):
         return None
-    resolved = Path(str(root)).expanduser()
-    if not resolved.is_absolute():
-        resolved = config_path.parent / resolved
-    return resolved.resolve()
+    return _resolve_recorded_output_path(root, base_dir=config_path.parent)
 
 
 def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:

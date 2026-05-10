@@ -110,6 +110,33 @@ def test_projected_vi_residual_uses_petsc_bound_sign_convention() -> None:
     np.testing.assert_allclose(projected, np.asarray([0.0, -2.0, 0.0, 4.0]))
 
 
+def test_failed_snesvi_acceptance_requires_projected_residual_and_bounds() -> None:
+    assert vi_runtime._accept_failed_snes_by_projected_tolerance(
+        converged_reason=-2,
+        residual_norm_inf_value=9.0e-4,
+        tol_residual_inf=1.0e-3,
+        max_violation_lower_m=0.0,
+        max_violation_upper_m=0.0,
+        tol_h=1.0e-8,
+    )
+    assert not vi_runtime._accept_failed_snes_by_projected_tolerance(
+        converged_reason=-2,
+        residual_norm_inf_value=9.0e-4,
+        tol_residual_inf=1.0e-3,
+        max_violation_lower_m=1.0,
+        max_violation_upper_m=0.0,
+        tol_h=1.0e-8,
+    )
+    assert not vi_runtime._accept_failed_snes_by_projected_tolerance(
+        converged_reason=-2,
+        residual_norm_inf_value=2.0e-3,
+        tol_residual_inf=1.0e-3,
+        max_violation_lower_m=0.0,
+        max_violation_upper_m=0.0,
+        tol_h=1.0e-8,
+    )
+
+
 @pytest.mark.petsc
 def test_single_cell_recharge_activates_upper_obstacle_reaction() -> None:
     _require_linux_petsc4py()

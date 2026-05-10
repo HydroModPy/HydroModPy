@@ -68,6 +68,10 @@ root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_v
 [comparison.simulation.overlay.flow]
 runtime_backend = "scipy_sparse"
 
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+description = "Boussinesq case 1: Cauchy drainage disabled; the upper free-surface obstacle remains active."
+
 [[comparison.observable]]
 name = "head_map_initial"
 variable = "watertable_elevation"

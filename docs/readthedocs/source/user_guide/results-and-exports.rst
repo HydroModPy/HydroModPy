@@ -238,6 +238,15 @@ For budgets, ``elapsed_seconds`` is the period end time. Do not compare a
 an explicit initial state at ``t = 0``; comparison budget exports skip that row
 instead of treating it as a zero-duration budget.
 
+Comparison metrics also enforce this distinction: fallback matching can align
+equivalent elapsed times or equivalent non-initial order positions, but it must
+not compare rows with different ``time_role`` values. For explicit state
+selection, prefer ``time = "initial_state"`` when the initial condition itself
+is the target, and ``time = "first_computed"`` when the first transient result
+is the target. The legacy ``time = "first"`` selector means "first available
+row" and is therefore ambiguous when one solver exports an initial state and
+another starts at the first computed step.
+
 Package exchange
 ----------------
 

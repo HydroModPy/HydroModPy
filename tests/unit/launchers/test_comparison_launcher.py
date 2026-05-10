@@ -1540,11 +1540,7 @@ def test_simulation_comparison_launcher_generates_visual_figures(
     assert summary["comparison_figures_dir"]
     assert {item["kind"] for item in figures} == {
         "case_configuration",
-        "map_comparison",
-        "difference_map",
-        "map_triptych",
         "timeseries",
-        "point_dashboard",
         "simulated_active_network_figures_skipped_json",
     }
     for item in figures:
@@ -1635,9 +1631,9 @@ def test_simulation_comparison_launcher_writes_chronicles_native_flux_and_runtim
     assert "execution_times_csv" in artifact_kinds
 
     figure_kinds = {item["kind"] for item in summary["comparison_figures"]}
-    assert "native_flux_panel" in figure_kinds
-    assert "execution_time_bars" in figure_kinds
-    assert "point_dashboard" in figure_kinds
+    assert "native_flux_panel" not in figure_kinds
+    assert "execution_time_bars" not in figure_kinds
+    assert "point_dashboard" not in figure_kinds
 
 
 def test_simulation_comparison_launcher_generates_structured_figures_from_run_folder_template(
@@ -1727,9 +1723,6 @@ def test_simulation_comparison_launcher_generates_structured_figures_from_run_fo
     figures = summary["comparison_figures"]
     assert {item["kind"] for item in figures} == {
         "case_configuration",
-        "map_comparison",
-        "difference_map",
-        "map_triptych",
         "simulated_active_network_figures_skipped_json",
     }
     for item in figures:
@@ -2010,6 +2003,52 @@ def test_build_comparison_metrics_aligns_non_initial_steps_and_keeps_initial_unm
     ]
 
 
+def test_build_comparison_metrics_does_not_match_incompatible_time_roles() -> None:
+    rows = [
+        {
+            "comparison_id": "demo_compare",
+            "simulation_id": "reference",
+            "observable": "head_map_first",
+            "comparison_time_key": "elapsed_seconds:86400",
+            "match_fallback_key": "time_selector:first",
+            "time_role": "state_snapshot",
+            "value_index": 0,
+            "value": 2.0,
+            "unit": "m",
+            "selection": "map",
+            "is_nodata": False,
+        },
+        {
+            "comparison_id": "demo_compare",
+            "simulation_id": "candidate",
+            "observable": "head_map_first",
+            "comparison_time_key": "elapsed_seconds:0",
+            "match_fallback_key": "time_selector:first",
+            "time_role": "initial_state",
+            "value_index": 0,
+            "value": 1.0,
+            "unit": "m",
+            "selection": "map",
+            "is_nodata": False,
+        },
+    ]
+
+    detail, summary = build_comparison_metrics(rows, reference_simulation="reference")
+    unmatched = build_unmatched_groups(rows, reference_simulation="reference")
+
+    assert detail == []
+    assert summary == []
+    assert unmatched == [
+        {
+            "simulation_id": "candidate",
+            "observable": "head_map_first",
+            "unit": "m",
+            "n_rows": 1,
+            "reason": "missing aligned reference row or unit mismatch",
+        }
+    ]
+
+
 def test_runtime_observables_integer_time_selects_non_initial_snapshot() -> None:
     series = VariableSeries(
         variable_name="watertable_elevation",
@@ -2050,3 +2089,50 @@ def test_runtime_observables_integer_time_selects_non_initial_snapshot() -> None
     assert len(selected) == 1
     assert selected[0].time_index == 1
     assert not selected[0].is_initial_state
+
+
+def test_runtime_observables_supports_explicit_initial_and_first_computed_selectors() -> None:
+    series = VariableSeries(
+        variable_name="watertable_elevation",
+        source_path=Path("memory"),
+        slices=(
+            TimeSlice(
+                time_key=0,
+                time_index=0,
+                values=np.array([10.0]),
+                elapsed_seconds=0.0,
+                is_initial_state=True,
+            ),
+            TimeSlice(
+                time_key=1,
+                time_index=1,
+                values=np.array([11.0]),
+                elapsed_seconds=86400.0,
+                is_initial_state=False,
+            ),
+        ),
+    )
+
+    initial = select_time_slices(
+        series,
+        ComparisonObservable(
+            name="head_initial",
+            variable="watertable_elevation",
+            support="map",
+            time="initial_state",
+        ),
+    )
+    first_computed = select_time_slices(
+        series,
+        ComparisonObservable(
+            name="head_first_computed",
+            variable="watertable_elevation",
+            support="map",
+            time="first_computed",
+        ),
+    )
+
+    assert initial[0].time_index == 0
+    assert initial[0].is_initial_state
+    assert first_computed[0].time_index == 1
+    assert not first_computed[0].is_initial_state

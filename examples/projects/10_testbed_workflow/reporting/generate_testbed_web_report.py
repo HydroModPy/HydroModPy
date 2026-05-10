@@ -47,6 +47,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "site_generation_config": args.site_generation_config,
         "site_generation_summary": args.site_generation_summary,
         "comparison_roots": args.comparison_root or [],
+        "comparison_index_only": bool(args.comparison_index_only),
         "site_catalog_rows": site_catalog_rows,
         "site_generation_config_details": _summarize_site_generation_config(
             args.site_generation_config
@@ -109,21 +110,23 @@ def render_testbed_report(
     ]
 
     web_root.mkdir(parents=True, exist_ok=True)
-    case_dir = web_root / "cases"
-    case_dir.mkdir(parents=True, exist_ok=True)
-
     written: list[Path] = []
-    for case in enriched_cases:
-        case_html = _render_testbed_case_page(
-            case=case,
-            output_root=output_root,
-            web_root=web_root,
-            page_dir=case_dir,
-            context=context,
-        )
-        path = case_dir / f"{case['page_id']}.html"
-        _write_text(path, case_html)
-        written.append(path)
+    if bool(context.get("comparison_index_only")):
+        _remove_generated_case_pages(web_root)
+    else:
+        case_dir = web_root / "cases"
+        case_dir.mkdir(parents=True, exist_ok=True)
+        for case in enriched_cases:
+            case_html = _render_testbed_case_page(
+                case=case,
+                output_root=output_root,
+                web_root=web_root,
+                page_dir=case_dir,
+                context=context,
+            )
+            path = case_dir / f"{case['page_id']}.html"
+            _write_text(path, case_html)
+            written.append(path)
 
     index_html = _render_testbed_index(
         output_root=output_root,
@@ -255,83 +258,99 @@ def _render_testbed_index(
         ("Echecs", manifest.get("failed_count")),
         ("Comparaisons", len(comparisons)),
     ]
+    comparison_index_only = bool(context.get("comparison_index_only"))
     run_definition = _summarize_testbed_run_definition(cases)
-    provenance = _render_provenance_section(
-        output_root=output_root,
-        web_root=web_root,
-        context=context,
-        manifest=manifest,
-        plan=plan,
-        contract_label="testbed",
-    )
     case_rows = []
-    for case in cases:
-        case_path = web_root / "cases" / f"{case['page_id']}.html"
-        label = _display_value(case.get("variant_label") or case.get("variant_id"))
-        status = _display_value(case.get("status"))
-        site = case.get("site") or {}
-        site_text = _display_value(site.get("site_id") or site.get("outlet_id") or "")
-        case_rows.append(
-            [
-                _link(case_path, "Ouvrir", web_root),
-                _case_comparison_links(case.get("comparisons") or [], from_dir=web_root),
-                _simulation_html_links(case.get("simulation_html_pages") or [], from_dir=web_root),
-                label,
-                _display_value(case.get("variant_id")),
-                site_text,
-                _status_badge(status),
-                _display_value(case.get("axis")),
-                _format_float(case.get("duration_seconds")),
-                _display_value(case.get("runner")),
-            ]
-        )
+    if not comparison_index_only:
+        for case in cases:
+            case_path = web_root / "cases" / f"{case['page_id']}.html"
+            label = _display_value(case.get("variant_label") or case.get("variant_id"))
+            status = _display_value(case.get("status"))
+            site = case.get("site") or {}
+            site_text = _display_value(site.get("site_id") or site.get("outlet_id") or "")
+            case_rows.append(
+                [
+                    _link(case_path, "Ouvrir", web_root),
+                    _case_comparison_links(case.get("comparisons") or [], from_dir=web_root),
+                    _simulation_html_links(case.get("simulation_html_pages") or [], from_dir=web_root),
+                    label,
+                    _display_value(case.get("variant_id")),
+                    site_text,
+                    _status_badge(status),
+                    _display_value(case.get("axis")),
+                    _format_float(case.get("duration_seconds")),
+                    _display_value(case.get("runner")),
+                ]
+            )
 
     artifacts_html = _render_artifact_links(artifacts, from_dir=web_root)
-    body = "\n".join(
-        [
-            _hero(title, subtitle=_path_text(output_root)),
-            _cards(summary_cards),
-            _section("Liens directs", _render_testbed_direct_links(cases, web_root=web_root)),
-            _section(
-                "Statut",
-                "<p>"
-                + html.escape(", ".join(f"{key}: {value}" for key, value in sorted(status_counts.items())))
-                + "</p>",
-            ),
-            _section(
-                "Comparaisons disponibles",
-                _render_comparison_summary_table(comparisons, from_dir=web_root),
-            ),
-            _section(
-                "Cas",
-                _table_from_rows(
-                    [
-                        "Page cas",
-                        "Comparaison HTML",
-                        "Simulation HTML",
-                        "Cas",
-                        "Variant id",
-                        "Site",
-                        "Status",
-                        "Axis",
-                        "Duration (s)",
-                        "Runner",
-                    ],
-                    case_rows,
+    sections = [
+        _hero(title, subtitle=_path_text(output_root)),
+        _cards(summary_cards),
+    ]
+    if comparison_index_only:
+        sections.extend(
+            [
+                _section(
+                    "Comparaisons",
+                    _render_testbed_comparison_overview_table(cases, web_root=web_root),
                 ),
-            ),
-            _section("Contexte d'execution", _definition_list(run_definition)),
-            _section("Metriques", _render_metrics_summary(metrics, metrics_path=output_root / "testbed_metrics.csv", from_dir=web_root)),
-            provenance,
-            _section("Artefacts", artifacts_html),
-            _section(
-                "Contrat du rapport",
-                "<p>This page is generated after the simulations. It reads the standard "
-                "testbed artifacts and the generated child TOML files; it does not create "
-                "meshes, run solvers, or add a second execution path.</p>",
-            ),
-        ]
-    )
+                _section("Artefacts", artifacts_html),
+            ]
+        )
+    else:
+        provenance = _render_provenance_section(
+            output_root=output_root,
+            web_root=web_root,
+            context=context,
+            manifest=manifest,
+            plan=plan,
+            contract_label="testbed",
+        )
+        sections.extend(
+            [
+                _section("Liens directs", _render_testbed_direct_links(cases, web_root=web_root)),
+                _section(
+                    "Statut",
+                    "<p>"
+                    + html.escape(", ".join(f"{key}: {value}" for key, value in sorted(status_counts.items())))
+                    + "</p>",
+                ),
+                _section(
+                    "Comparaisons disponibles",
+                    _render_comparison_summary_table(comparisons, from_dir=web_root),
+                ),
+                _section(
+                    "Cas",
+                    _table_from_rows(
+                        [
+                            "Page cas",
+                            "Comparaison HTML",
+                            "Simulation HTML",
+                            "Cas",
+                            "Variant id",
+                            "Site",
+                            "Status",
+                            "Axis",
+                            "Duration (s)",
+                            "Runner",
+                        ],
+                        case_rows,
+                    ),
+                ),
+                _section("Contexte d'execution", _definition_list(run_definition)),
+                _section("Metriques", _render_metrics_summary(metrics, metrics_path=output_root / "testbed_metrics.csv", from_dir=web_root)),
+                provenance,
+                _section("Artefacts", artifacts_html),
+                _section(
+                    "Contrat du rapport",
+                    "<p>This page is generated after the simulations. It reads the standard "
+                    "testbed artifacts and the generated child TOML files; it does not create "
+                    "meshes, run solvers, or add a second execution path.</p>",
+                ),
+            ]
+        )
+    body = "\n".join(sections)
     return _page(title, body)
 
 
@@ -1006,6 +1025,17 @@ def _load_comparison_summaries(
             metrics_path = (root / metrics_path).resolve()
         elif not metrics_path.exists() and default_metrics_path.is_file():
             metrics_path = default_metrics_path
+        differences_path = _comparison_artifact_path(
+            root=root,
+            manifest_value=manifest.get("comparison_differences_csv"),
+            default_name="comparison_differences.csv",
+        )
+        budget_wide_path = _comparison_artifact_path(
+            root=root,
+            manifest_value=None,
+            default_name="budget_timeseries_wide.csv",
+        )
+        simulations = _comparison_simulations(manifest)
         summary = {
             "comparison_id": _display_value(manifest.get("comparison_id") or root.name),
             "root": root,
@@ -1014,17 +1044,125 @@ def _load_comparison_summaries(
             "web_index": web_index,
             "metrics_path": metrics_path,
             "metrics_rows": _read_csv(metrics_path),
+            "differences_path": differences_path,
+            "budget_wide_path": budget_wide_path,
             "figures": figures,
             "key_figures": _select_comparison_key_figures(figures),
-            "simulations": _comparison_simulations(manifest),
+            "simulations": simulations,
             "reference_simulation": manifest.get("reference_simulation"),
             "audit_status": manifest.get("audit_status"),
             "n_metric_rows": manifest.get("n_metric_rows"),
             "n_difference_rows": manifest.get("n_difference_rows"),
             "wall_time_seconds": manifest.get("wall_time_seconds"),
+            "head_mean_abs_relative_error_percent": _head_mean_abs_relative_error_percent(
+                differences_path
+            ),
+            "global_outflow_mean_abs_relative_error_percent": (
+                _global_outflow_mean_abs_relative_error_percent(
+                    budget_wide_path=budget_wide_path,
+                    reference_simulation=manifest.get("reference_simulation"),
+                    simulations=simulations,
+                )
+            ),
         }
         summaries.append(summary)
     return summaries
+
+
+def _comparison_artifact_path(
+    *,
+    root: Path,
+    manifest_value: Any,
+    default_name: str,
+) -> Path:
+    default_path = root / default_name
+    path = _path_or_none(manifest_value)
+    if path is None:
+        return default_path
+    if _looks_like_wsl_mount_path(path) and default_path.is_file():
+        return default_path
+    if not path.is_absolute():
+        return (root / path).resolve()
+    if not path.exists() and default_path.is_file():
+        return default_path
+    return path
+
+
+def _head_mean_abs_relative_error_percent(differences_path: Path) -> float | None:
+    rows = _read_csv(differences_path)
+    numerator = 0.0
+    denominator = 0.0
+    for row in rows:
+        observable = _display_value(row.get("observable")).lower()
+        if not observable.startswith("head"):
+            continue
+        if _display_value(row.get("unit")).strip() not in {"m", "meter", "meters"}:
+            continue
+        try:
+            error = abs(float(row.get("absolute_error", "")))
+            reference = abs(float(row.get("reference_value", "")))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(error) or not math.isfinite(reference) or reference <= 0.0:
+            continue
+        numerator += error
+        denominator += reference
+    if denominator <= 0.0:
+        return None
+    return 100.0 * numerator / denominator
+
+
+def _global_outflow_mean_abs_relative_error_percent(
+    *,
+    budget_wide_path: Path,
+    reference_simulation: Any,
+    simulations: Sequence[Mapping[str, Any]],
+) -> float | None:
+    rows = _read_csv(budget_wide_path)
+    if not rows:
+        return None
+    reference_id = _display_value(reference_simulation).strip()
+    candidate_id = _first_candidate_simulation_id(
+        simulations=simulations,
+        reference_simulation=reference_id,
+    )
+    if not reference_id or not candidate_id:
+        return None
+    reference_column = f"value__{reference_id}"
+    candidate_column = f"value__{candidate_id}"
+    for component in (
+        "comparable_outflow_total_m3_s",
+        "balance_implied_outflow_total_m3_s",
+    ):
+        numerator = 0.0
+        denominator = 0.0
+        for row in rows:
+            if _display_value(row.get("component")) != component:
+                continue
+            try:
+                candidate = float(row.get(candidate_column, ""))
+                reference = float(row.get(reference_column, ""))
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(candidate) or not math.isfinite(reference):
+                continue
+            numerator += abs(candidate - reference)
+            denominator += abs(reference)
+        if denominator > 0.0:
+            return 100.0 * numerator / denominator
+    return None
+
+
+def _first_candidate_simulation_id(
+    *,
+    simulations: Sequence[Mapping[str, Any]],
+    reference_simulation: str,
+) -> str | None:
+    for simulation in simulations:
+        simulation_id = _display_value(simulation.get("id")).strip()
+        if simulation_id and simulation_id != reference_simulation:
+            return simulation_id
+    return None
 
 
 def _comparison_web_index(*, root: Path, manifest: Mapping[str, Any]) -> Path | None:
@@ -1071,7 +1209,8 @@ def _comparison_figure_items(
                 continue
             payload = dict(item)
             payload["path"] = path.resolve()
-            items.append(payload)
+            if _include_comparison_figure(payload):
+                items.append(payload)
     known = {Path(str(item["path"])).resolve() for item in items if item.get("path")}
     figure_root = root / "comparison_figures"
     if figure_root.is_dir():
@@ -1081,19 +1220,47 @@ def _comparison_figure_items(
             resolved = path.resolve()
             if resolved in known:
                 continue
-            items.append({"kind": "figure", "observable": path.stem, "path": resolved})
+            payload = {"kind": "figure", "observable": path.stem, "path": resolved}
+            if _include_comparison_figure(payload):
+                items.append(payload)
     return items
+
+
+def _include_comparison_figure(item: Mapping[str, Any]) -> bool:
+    name = Path(str(item.get("path", ""))).name.lower()
+    kind = _display_value(item.get("kind")).lower()
+    observable = _display_value(item.get("observable")).lower()
+    text = " ".join((name, kind, observable))
+    if "case_configuration" in text:
+        return True
+    if (
+        kind == "fine_raster_map_comparison" and observable == "head_map_wet_year1"
+    ) or ("head_map_wet_year1" in text and "fine_raster_map_comparison" in text):
+        return True
+    if (kind == "timeseries" and observable.startswith("head_") and observable.endswith("_series")) or (
+        name.startswith("head_") and name.endswith("__timeseries.png")
+    ):
+        return True
+    if kind in {"storage_comparison_dashboard", "total_inputs_outputs_dashboard"}:
+        return True
+    if any(
+        token in text
+        for token in (
+            "storage_comparison_dashboard",
+            "total_inputs_outputs_dashboard",
+        )
+    ):
+        return True
+    return False
 
 
 def _select_comparison_key_figures(figures: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     priority = {
-        "point_dashboard": 0,
-        "map_comparison": 0,
-        "map_triptych": 1,
-        "difference_map": 2,
-        "timeseries": 3,
-        "flux_overview": 4,
-        "budget_diagnostics": 8,
+        "case_configuration": 0,
+        "fine_raster_map_comparison": 1,
+        "timeseries": 2,
+        "storage_comparison_dashboard": 3,
+        "total_inputs_outputs_dashboard": 4,
         "figure": 7,
     }
 
@@ -1101,13 +1268,11 @@ def _select_comparison_key_figures(figures: Sequence[Mapping[str, Any]]) -> list
         kind = _display_value(item.get("kind"))
         observable = _display_value(item.get("observable"))
         name = Path(str(item.get("path", ""))).name
-        bonus = -1 if "comparable_outflow" in name else 0
-        penalty = 4 if "budget_diagnostics" in name or "execution_time" in name else 0
-        return (priority.get(kind, 99) + bonus + penalty, observable, name)
+        return (priority.get(kind, 99), observable, name)
 
     selected = []
     for item in sorted(figures, key=score):
-        if len(selected) >= 8:
+        if len(selected) >= 9:
             break
         selected.append(dict(item))
     return selected
@@ -1426,6 +1591,91 @@ def _render_comparison_summary_table(
         ],
         rows,
     )
+
+
+def _render_testbed_comparison_overview_table(
+    cases: Sequence[Mapping[str, Any]],
+    *,
+    web_root: Path,
+) -> str:
+    rows = []
+    for case in cases:
+        comparisons = [
+            comparison
+            for comparison in case.get("comparisons", [])
+            if isinstance(comparison, Mapping)
+        ]
+        comparison = comparisons[0] if comparisons else {}
+        status = _display_value(case.get("status"))
+        label = _display_value(case.get("variant_label") or case.get("variant_id"))
+        web_index = comparison.get("web_index") if comparison else None
+        rows.append(
+            [
+                _link(web_index, label, web_root)
+                if isinstance(web_index, Path)
+                else html.escape(label),
+                _display_value(case.get("axis")),
+                _status_badge(status),
+                _format_float(_comparison_solver_wall_time(comparison, "modflow6")),
+                _format_float(_comparison_solver_wall_time(comparison, "boussinesq")),
+                _format_percent(comparison.get("head_mean_abs_relative_error_percent")),
+                _format_percent(comparison.get("global_outflow_mean_abs_relative_error_percent")),
+            ]
+        )
+    table = _table_from_rows(
+        [
+            "Cas",
+            "Axe",
+            "Statut",
+            "MODFLOW 6 (s)",
+            "Boussinesq (s)",
+            "Ecart moyen charge (%)",
+            "Ecart moyen sorties globales (%)",
+        ],
+        rows,
+    )
+    note = (
+        '<p class="muted">Les pourcentages sont des NMAE globales: '
+        "somme des ecarts absolus divisee par la somme des valeurs de reference. "
+        "Pour les charges, toutes les observables de charge disponibles sont "
+        "agregees; pour les sorties globales, le composant "
+        "<code>comparable_outflow_total_m3_s</code> est utilise quand il existe.</p>"
+    )
+    return table + note
+
+
+def _comparison_solver_wall_time(comparison: Mapping[str, Any], solver: str) -> Any:
+    simulations = comparison.get("simulations")
+    if not isinstance(simulations, list):
+        return None
+    solver_key = solver.strip().lower()
+    for simulation in simulations:
+        if not isinstance(simulation, Mapping):
+            continue
+        if _display_value(simulation.get("solver")).strip().lower() == solver_key:
+            return simulation.get("wall_time_seconds")
+    return None
+
+
+def _render_convergence_analysis_section(manifest: Mapping[str, Any]) -> str:
+    analysis = manifest.get("convergence_analysis")
+    if isinstance(analysis, list):
+        items = [
+            f"<li>{html.escape(_display_value(item))}</li>"
+            for item in analysis
+            if _display_value(item).strip()
+        ]
+        if items:
+            return _section("Contraintes de convergence", "<ul>" + "".join(items) + "</ul>")
+    if isinstance(analysis, str) and analysis.strip():
+        paragraphs = [
+            f"<p>{html.escape(part.strip())}</p>"
+            for part in analysis.split("\n\n")
+            if part.strip()
+        ]
+        if paragraphs:
+            return _section("Contraintes de convergence", "".join(paragraphs))
+    return ""
 
 
 def _render_testbed_direct_links(
@@ -1751,14 +2001,14 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font: 14px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font: 18px/1.6 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .page {
-  width: min(1180px, calc(100vw - 32px));
+  width: min(1760px, calc(100vw - 28px));
   margin: 0 auto;
-  padding: 28px 0 48px;
+  padding: 32px 0 56px;
 }
 .hero {
   margin-bottom: 18px;
@@ -1767,7 +2017,7 @@ a:hover { text-decoration: underline; }
 }
 .hero h1 {
   margin: 0;
-  font-size: clamp(26px, 4vw, 42px);
+  font-size: clamp(38px, 4vw, 64px);
   line-height: 1.08;
   letter-spacing: 0;
 }
@@ -1778,14 +2028,14 @@ a:hover { text-decoration: underline; }
 }
 section {
   margin: 20px 0;
-  padding: 18px;
+  padding: 26px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 8px;
 }
 h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
+  margin: 0 0 16px;
+  font-size: 28px;
   letter-spacing: 0;
 }
 .stats {
@@ -1806,13 +2056,13 @@ h2 {
 .stat span {
   display: block;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 15px;
   text-transform: uppercase;
 }
 .stat strong {
   display: block;
   margin-top: 8px;
-  font-size: 18px;
+  font-size: 28px;
   overflow-wrap: anywhere;
 }
 .facts {
@@ -1829,7 +2079,7 @@ h2 {
 .facts dt,
 .facts dd {
   margin: 0;
-  padding: 9px 10px;
+  padding: 13px 14px;
   background: var(--panel);
   min-width: 0;
 }
@@ -1847,12 +2097,12 @@ h2 {
 }
 table {
   width: 100%;
-  min-width: 720px;
+  min-width: 900px;
   border-collapse: collapse;
   background: var(--panel);
 }
 th, td {
-  padding: 9px 10px;
+  padding: 14px 15px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
@@ -1860,7 +2110,7 @@ th, td {
 }
 th {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 15px;
   text-transform: uppercase;
   background: #f0f3f6;
 }
@@ -1873,7 +2123,7 @@ tr:last-child td { border-bottom: 0; }
   border-radius: 999px;
   border: 1px solid var(--line);
   font-weight: 650;
-  font-size: 12px;
+  font-size: 16px;
   white-space: nowrap;
 }
 .badge.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok), white 70%); }
@@ -1882,8 +2132,8 @@ tr:last-child td { border-bottom: 0; }
 .badge.pending { color: var(--warn); border-color: color-mix(in srgb, var(--warn), white 70%); }
 .figure-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 16px;
 }
 .figure-card {
   margin: 0;
@@ -1900,8 +2150,9 @@ tr:last-child td { border-bottom: 0; }
   background: #f1f4f7;
 }
 .figure-card figcaption {
-  padding: 8px 10px;
+  padding: 11px 13px;
   color: var(--muted);
+  font-size: 18px;
 }
 .figure-card figcaption strong,
 .figure-card figcaption span {
@@ -2012,6 +2263,18 @@ def _write_text(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def _remove_generated_case_pages(web_root: Path) -> None:
+    cases_dir = web_root / "cases"
+    if not cases_dir.is_dir():
+        return
+    for path in cases_dir.glob("*.html"):
+        path.unlink()
+    try:
+        cases_dir.rmdir()
+    except OSError:
+        pass
+
+
 def _get_nested(mapping: Mapping[str, Any], keys: Sequence[str]) -> Any:
     value: Any = mapping
     for key in keys:
@@ -2062,6 +2325,20 @@ def _format_float(value: Any) -> str:
     if abs(number) >= 1000 or (0 < abs(number) < 0.001):
         return f"{number:.4g}"
     return f"{number:.4f}".rstrip("0").rstrip(".")
+
+
+def _format_percent(value: Any) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if not math.isfinite(number):
+        return ""
+    if abs(number) >= 100.0:
+        return f"{number:.1f}"
+    if abs(number) >= 10.0:
+        return f"{number:.2f}"
+    return f"{number:.3f}".rstrip("0").rstrip(".")
 
 
 def _normalize_key(value: Any) -> str | None:
@@ -2148,6 +2425,14 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         help=(
             "Optional comparison output root to include. Can be repeated. "
             "By default, comparisons are auto-discovered under output_root/comparisons/."
+        ),
+    )
+    parser.add_argument(
+        "--comparison-index-only",
+        action="store_true",
+        help=(
+            "For testbed reports, generate only one comparison-oriented index "
+            "and skip per-case HTML pages."
         ),
     )
     return parser.parse_args(argv)

@@ -108,21 +108,8 @@ def render_header(ctx: ComparisonWebContext) -> str:
     <div class="pillrow">
       <span class="pill">Audit: {safe(payload.get("audit_status", ctx.audit.get("status", "")))}</span>
       <span class="pill">Reference: {safe(payload.get("reference_simulation", ""))}</span>
-      <span class="pill">Figures: {safe(len(ctx.figure_items))}</span>
     </div>
   </header>
-"""
-
-
-def render_facts(ctx: ComparisonWebContext) -> str:
-    """Render compact counters used as a quick sanity check."""
-    return f"""
-  <section class="facts">
-    <div class="fact"><span>Simulations</span><strong>{safe(len(ctx.simulations))}</strong></div>
-    <div class="fact"><span>Figures</span><strong>{safe(len(ctx.figure_items))}</strong></div>
-    <div class="fact"><span>Lignes budget</span><strong>{safe(len(ctx.budget_rows))}</strong></div>
-    <div class="fact"><span>Metriques</span><strong>{safe(len(ctx.metrics_rows))}</strong></div>
-  </section>
 """
 
 
@@ -194,15 +181,22 @@ def _render_case_configuration(ctx: ComparisonWebContext) -> str:
 def _render_numerical_methods(ctx: ComparisonWebContext) -> str:
     payload = _base_config_payload(ctx)
     flow = _mapping(payload.get("flow"))
+    simulation_payloads = _simulation_config_payloads(ctx)
+    mf6_flow = _flow_payload_for_solver(simulation_payloads, "modflow6") or flow
+    bouss_flow = _flow_payload_for_solver(simulation_payloads, "boussinesq") or flow
     mf6 = _mapping(payload.get("modflow6"))
     mf6_runtime = _mapping(mf6.get("runtime"))
     mf6_sgrid = _mapping(_mapping(mf6.get("sgrid")).get("vertical"))
-    bouss_method = _boussinesq_method_text(flow)
+    bouss_method = _boussinesq_method_text(bouss_flow)
     hydraulic_rows = [
         ("Regime hydraulique", _format_value(flow.get("flow_regime"), default="transient")),
         ("Recharge transitoire", _recharge_text(flow)),
         ("Conditions initiales", _initial_condition_text(flow)),
-        ("Conditions aux limites", _boundary_condition_text(flow)),
+        ("Conditions aux limites MODFLOW 6", _boundary_condition_text(mf6_flow)),
+        (
+            "Conditions aux limites Boussinesq",
+            _boundary_condition_text(bouss_flow, solver="boussinesq"),
+        ),
         (
             "Proprietes hydrauliques",
             "K et Sy heterogenes par zones geologiques; Ss homogene; "
@@ -232,7 +226,7 @@ def _render_numerical_methods(ctx: ComparisonWebContext) -> str:
     <div class="card">
       <h2>Methodes numeriques</h2>
       <p>Les deux simulations suivent le chemin standard HydroModPy: preparation des donnees, generation du maillage, assemblage solveur, calcul, extraction des observables et generation du rapport. Les choix hydrauliques sont separes ci-dessous des choix strictement numeriques.</p>
-      <h3>Configuration hydraulique commune</h3>
+      <h3>Configuration hydraulique et conditions aux limites</h3>
       <div class="info-grid">
         {_render_key_values(hydraulic_rows)}
       </div>
@@ -252,7 +246,7 @@ def _render_categorized_figures(ctx: ComparisonWebContext) -> str:
             continue
         category_blocks.append(
             f"""
-    <article class="card figure-category" id="figures-{safe(category.category_id)}">
+    <article class="card figure-category category-{safe(category.category_id)}" id="figures-{safe(category.category_id)}">
       <h3>{safe(category.title)} <span class="muted">({safe(len(category.figures))})</span></h3>
       <p class="muted">{safe(category.description)}</p>
       <div class="figure-grid compact">
@@ -282,7 +276,8 @@ def _render_simulations(ctx: ComparisonWebContext) -> str:
   <section>
     <div class="card">
       <h2>Simulations</h2>
-      {_render_table(ctx.simulations, [("id", "id"), ("solver", "solver"), ("mesh_mode", "mesh"), ("status", "status"), ("wall_time_seconds", "runtime s")], empty="Aucune simulation dans le manifeste.")}
+      <p class="muted">Temps de calcul releves dans le manifeste de comparaison. Les barres sont normalisees par rapport a la simulation la plus longue du cas.</p>
+      {_render_runtime_table(ctx.simulations)}
     </div>
   </section>
 """
@@ -315,7 +310,7 @@ def _render_metrics(ctx: ComparisonWebContext) -> str:
   <section>
     <h2>Metriques principales</h2>
     <p class="muted">Les ecarts de charge restent donnes en metres, puis normalises par l'amplitude de la grandeur de reference pour l'observable concerne: amplitude spatiale pour une carte, amplitude temporelle pour une chronique. Cette normalisation donne directement un ordre de grandeur en pourcentage.</p>
-    {_render_table(rows, [("simulation_id", "simulation"), ("observable_label", "observable"), ("n_pairs", "n"), ("mae", "ecart moy m"), ("rmse", "RMSE m"), ("normalization_scale", "echelle ref m"), ("mae_normalized_percent", "ecart moy %")], empty="Aucune metrique.")}
+    {_render_table(rows, [("observable_label", "observable"), ("n_pairs", "n"), ("mae", "ecart moy m"), ("rmse", "RMSE m"), ("normalization_scale", "echelle ref m"), ("mae_normalized_percent", "ecart moy %")], empty="Aucune metrique.")}
   </section>
 """
 
@@ -363,6 +358,39 @@ def _base_config_payload(ctx: ComparisonWebContext) -> dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _simulation_config_payloads(
+    ctx: ComparisonWebContext,
+) -> list[tuple[Mapping[str, Any], dict[str, Any]]]:
+    payloads: list[tuple[Mapping[str, Any], dict[str, Any]]] = []
+    for simulation in ctx.simulations:
+        raw_path = simulation.get("config_path")
+        if raw_path in (None, ""):
+            continue
+        config_path = _existing_config_path(Path(str(raw_path)), ctx=ctx)
+        if config_path is None:
+            continue
+        try:
+            payload = load_toml_with_base_config(config_path)
+        except Exception:
+            continue
+        if isinstance(payload, dict):
+            payloads.append((simulation, payload))
+    return payloads
+
+
+def _flow_payload_for_solver(
+    simulation_payloads: list[tuple[Mapping[str, Any], dict[str, Any]]],
+    solver: str,
+) -> Mapping[str, Any] | None:
+    solver_key = solver.strip().lower()
+    for simulation, payload in simulation_payloads:
+        if str(simulation.get("solver", "")).strip().lower() == solver_key:
+            flow = _mapping(payload.get("flow"))
+            if flow:
+                return flow
+    return None
+
+
 def _existing_config_path(path: Path, *, ctx: ComparisonWebContext) -> Path | None:
     """Return an existing local path for a manifest config path."""
     candidates = [path]
@@ -398,6 +426,18 @@ def _format_value(value: Any, *, default: str = "") -> str:
             return f"{value:.3g}"
         return str(value)
     return str(value)
+
+
+def _quantity_is_zero(value: Any) -> bool:
+    if value in (None, ""):
+        return False
+    if isinstance(value, int | float):
+        return math.isfinite(float(value)) and float(value) == 0.0
+    token = str(value).strip().split(maxsplit=1)[0]
+    try:
+        return float(token) == 0.0
+    except ValueError:
+        return False
 
 
 def _synthetic_context_rows(payload: Mapping[str, Any]) -> list[tuple[str, str]]:
@@ -524,7 +564,7 @@ def _recharge_text(flow: Mapping[str, Any]) -> str:
     )
 
 
-def _boundary_condition_text(flow: Mapping[str, Any]) -> str:
+def _boundary_condition_text(flow: Mapping[str, Any], *, solver: str = "") -> str:
     active_bc = flow.get("active_bc")
     active = [str(item) for item in active_bc] if isinstance(active_bc, list) else []
     if "east_side" in active:
@@ -535,9 +575,19 @@ def _boundary_condition_text(flow: Mapping[str, Any]) -> str:
         if not drainage:
             drainage = _mapping(_mapping(bc.get("robin")).get("drainage"))
         value = _format_value(drainage.get("value"))
+        if _quantity_is_zero(drainage.get("value")):
+            if solver.strip().lower() == "boussinesq":
+                return (
+                    "pas de charge laterale imposee; drainage Cauchy declare "
+                    "mais desactive par conductance nulle; obstacle libre "
+                    "strict h <= z_top conserve"
+                )
+            return "drainage declare mais desactive par conductance nulle"
         suffix = f", conductance {value}" if value else ""
         return f"pas de charge laterale imposee; drainage de surface actif sur le toit{suffix}"
     if not active:
+        if solver.strip().lower() == "boussinesq":
+            return "aucune condition limite active; obstacle libre strict h <= z_top"
         return "aucune condition limite active, hors recharge"
     return ", ".join(active)
 
@@ -586,6 +636,63 @@ def _render_table(
     return f"<table><thead><tr>{header}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
 
 
+def _render_runtime_table(
+    rows: list[Mapping[str, Any]] | tuple[Mapping[str, Any], ...],
+) -> str:
+    materialized = list(rows)
+    if not materialized:
+        return '<p class="muted">Aucune simulation dans le manifeste.</p>'
+    values = [_runtime_seconds(row.get("wall_time_seconds")) for row in materialized]
+    maximum = max([value for value in values if value is not None], default=None)
+    body_rows: list[str] = []
+    for row, value in zip(materialized, values, strict=False):
+        solver = str(row.get("solver", "") or "").strip().lower()
+        bar_class = "modflow6" if solver == "modflow6" else "boussinesq" if solver == "boussinesq" else ""
+        width = 0.0
+        if value is not None and maximum not in (None, 0):
+            width = max(2.0, min(100.0, 100.0 * value / maximum))
+        runtime = _format_runtime_seconds(value)
+        body_rows.append(
+            "<tr>"
+            f"<td>{safe(short(row.get('id', '')))}</td>"
+            f"<td>{safe(short(row.get('solver', '')))}</td>"
+            f"<td>{safe(short(row.get('status', '')))}</td>"
+            f"<td>{safe(runtime)}</td>"
+            "<td>"
+            '<div class="runtime-bar-track">'
+            f'<span class="runtime-bar {safe(bar_class)}" style="width: {width:.1f}%"></span>'
+            "</div>"
+            "</td>"
+            "</tr>"
+        )
+    return (
+        '<table class="runtime-table"><thead><tr>'
+        "<th>id</th><th>solver</th><th>status</th><th>runtime</th><th>comparaison</th>"
+        f"</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
+    )
+
+
+def _runtime_seconds(value: Any) -> float | None:
+    try:
+        seconds = float(value)
+    except Exception:
+        return None
+    if not math.isfinite(seconds):
+        return None
+    return seconds
+
+
+def _format_runtime_seconds(value: float | None) -> str:
+    if value is None:
+        return ""
+    if value < 60.0:
+        return f"{value:.1f} s"
+    minutes = value / 60.0
+    if minutes < 60.0:
+        return f"{minutes:.1f} min"
+    return f"{minutes / 60.0:.2f} h"
+
+
 def _format_metric_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     formatted: list[dict[str, str]] = []
     for row in rows:
@@ -624,6 +731,7 @@ def _format_number(value: Any) -> str:
 def _observable_label(name: str) -> str:
     labels = {
         "head_map_initial": "champ de charge initial",
+        "head_map_first_computed": "champ de charge au premier pas calcule",
         "head_map_wet_year1": "champ de charge apres la premiere saison humide",
         "head_map_drought_year2": "champ de charge en fin de periode seche",
         "head_map_extreme_recharge": "champ de charge pendant le pic de recharge",
@@ -642,13 +750,15 @@ def _figure_caption(item: Mapping[str, Any]) -> str:
     kind = str(item.get("kind", ""))
     if observable == "case_configuration":
         return "Contexte du cas: geometrie, zones K, recharge et points d'extraction."
+    if kind == "fine_raster_map_comparison":
+        return _observable_label(observable) + ": reference et candidat sur la meme grille interpolee."
     if "triptych" in kind or "head_map" in observable:
         return _observable_label(observable) + ": reference, candidat et ecart."
     if kind == "timeseries" or observable.endswith("_series"):
         return _observable_label(observable) + ": comparaison temporelle MF6 / Boussinesq."
-    if observable == "storage_change_total_m3_s":
+    if observable in {"storage_change_total_m3_s", "storage_comparison_dashboard"}:
         return "Stockage global: variation instantanee du volume stocke dans l'aquifere."
-    if observable == "total_inputs_outputs_m3_s":
+    if observable in {"total_inputs_outputs_m3_s", "total_inputs_outputs_dashboard"}:
         return "Bilan externe: somme des entrees et somme des sorties, stockage exclu."
     return _observable_label(observable)
 
@@ -673,7 +783,6 @@ def _audit_block(audit: Mapping[str, Any]) -> str:
 __all__ = (
     "ReportSection",
     "default_sections",
-    "render_facts",
     "render_header",
     "render_sections",
 )

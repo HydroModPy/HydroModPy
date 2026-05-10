@@ -112,6 +112,15 @@ def _fallback_row_keys(row: dict[str, Any]) -> list[tuple[str, str, str, str]]:
     ]
 
 
+def _time_roles_are_compatible(row: dict[str, Any], reference: dict[str, Any]) -> bool:
+    """Return whether two rows can be compared as the same temporal object."""
+    role = str(row.get("time_role", "")).strip()
+    reference_role = str(reference.get("time_role", "")).strip()
+    if not role or not reference_role:
+        return True
+    return role == reference_role
+
+
 def _is_comparable_metric_row(row: dict[str, Any]) -> bool:
     if _row_is_nodata(row):
         return False
@@ -147,12 +156,12 @@ def _match_reference_row(
 ) -> tuple[dict[str, Any] | None, str, str]:
     exact_key = _exact_row_key(row)
     reference = exact_index.get(exact_key)
-    if reference is not None:
+    if reference is not None and _time_roles_are_compatible(row, reference):
         return reference, "exact_time_key", exact_key[1]
 
     for fallback_key in _fallback_row_keys(row):
         reference = fallback_index.get(fallback_key)
-        if reference is not None:
+        if reference is not None and _time_roles_are_compatible(row, reference):
             return reference, "fallback_time_key", fallback_key[1]
 
     return None, "", ""
