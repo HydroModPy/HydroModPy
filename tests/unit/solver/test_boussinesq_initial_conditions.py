@@ -67,7 +67,7 @@ def test_boussinesq_initial_state_records_head_bounds_summary(tmp_path) -> None:
     assert bounds["within_bounds"] is False
 
 
-def test_petsc_ts_vi_initialization_uses_interior_steady_vi_obstacle_guess() -> None:
+def test_petsc_ts_vi_initialization_uses_regularized_steady_solve() -> None:
     flow = SimpleNamespace(
         flow_regime="transient",
         runtime_backend="petsc",
@@ -82,9 +82,8 @@ def test_petsc_ts_vi_initialization_uses_interior_steady_vi_obstacle_guess() -> 
 
     assert steady_flow.flow_regime == "steady"
     assert steady_flow.runtime_backend == "petsc"
-    assert steady_flow.surface_interaction_model == "vi_obstacle"
-    assert steady_flow.initial_conditions.h.type == "top_offset"
-    assert float(steady_flow.initial_conditions.h.value.magnitude) == 0.01
+    assert steady_flow.surface_interaction_model == "regularized_partition"
+    assert steady_flow.initial_conditions.h.type == "top"
 
 
 def test_petsc_ts_vi_initialization_reads_surface_model_from_config() -> None:
@@ -104,6 +103,6 @@ def test_petsc_ts_vi_initialization_reads_surface_model_from_config() -> None:
 
     steady_flow = steady_flow_copy_for_initialization(flow)
 
-    assert steady_flow.surface_interaction_model == "vi_obstacle"
-    assert steady_flow.config.surface_interaction_model == "vi_obstacle"
-    assert steady_flow.config.ic.h.type == "top_offset"
+    assert steady_flow.surface_interaction_model == "regularized_partition"
+    assert steady_flow.config.surface_interaction_model == "regularized_partition"
+    assert steady_flow.config.ic.h.type == "top"

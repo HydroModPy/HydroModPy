@@ -99,7 +99,7 @@ def steady_state_initialization_surface_interaction_model(flow: object) -> str |
         .lower()
     )
     if runtime_backend == "petsc" and surface_model == "ts_vi_obstacle":
-        return "vi_obstacle"
+        return "regularized_partition"
     return None
 
 
@@ -111,10 +111,7 @@ def _steady_state_initialization_head_guess(flow: object) -> FlowInitialConditio
         .strip()
         .lower()
     )
-    if runtime_backend == "petsc" and surface_model in {
-        "ts_vi_obstacle",
-        "vi_obstacle",
-    }:
+    if runtime_backend == "petsc" and surface_model == "vi_obstacle":
         return FlowInitialCondition(
             id="h",
             type="top_offset",

@@ -46,6 +46,8 @@ from hydromodpy.solver.boussinesq.runtimes.vi_bounds import (
     variable_bounds as _variable_bounds,
 )
 
+_DEFAULT_PC_FACTOR_SHIFT_AMOUNT = 1.0e-10
+
 
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     """Solve one transient implicit step as a PETSc bounded VI in head only."""
@@ -553,6 +555,7 @@ def _solve_vi_obstacle_problem(
     snes.setJacobian(_jacobian, jacobian, jacobian)
     snes.setVariableBounds(lower_vec, upper_vec)
     _configure_vi_snes(
+        PETSc,
         snes,
         tol_residual_inf=float(tol_residual_inf),
         max_iterations=int(max_iterations),
@@ -642,6 +645,7 @@ def _solve_vi_obstacle_problem(
 
 
 def _configure_vi_snes(
+    PETSc,
     snes,
     *,
     tol_residual_inf: float,
@@ -664,6 +668,10 @@ def _configure_vi_snes(
         pc = ksp.getPC()
         if pc is not None:
             pc.setType("lu")
+            pc.setFactorShift(
+                PETSc.Mat.FactorShiftType.NONZERO,
+                _DEFAULT_PC_FACTOR_SHIFT_AMOUNT,
+            )
             pc.setFromOptions()
         ksp.setFromOptions()
     snes.setFromOptions()
