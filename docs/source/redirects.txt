@@ -16,6 +16,7 @@ user_guide/calibration user_guide/workflows/calibration
 user_guide/mesh user_guide/workflows/testbed
 user_guide/capability-matrix user_guide/index
 user_guide/data/provider-matrix user_guide/data/index
+user_guide/config_reference/validate user_guide/cli-reference
 getting_started/workflow-families user_guide/concepts/workflow-families
 getting_started/workspace-layout user_guide/concepts/workspace-layout
 scientific/calibration/calibration-methods theory/calibration/calibration-methods

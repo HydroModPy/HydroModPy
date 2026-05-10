@@ -771,7 +771,6 @@ def _render_couche1(top_fields: dict[str, FieldInfo]) -> str:
         "- :doc:`complete_toml` -- full annotated TOML reference",
         "- :doc:`schema_explorer` -- interactive JSON Schema viewer",
         "- :doc:`recipes` -- task-oriented cookbook",
-        "- :doc:`validate` -- pre-flight your project.toml in the browser",
         "",
         "Quick search across every TOML path",
         "-----------------------------------",
@@ -819,7 +818,6 @@ def _render_couche1(top_fields: dict[str, FieldInfo]) -> str:
             "   complete_toml",
             "   schema_explorer",
             "   recipes",
-            "   validate",
         ]
     )
     for name, field in top_fields.items():
@@ -1361,10 +1359,6 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
     search_index_path = export_search_index(top_fields)
     written.append(search_index_path)
 
-    validate_path = out / "validate.rst"
-    _write_if_changed(validate_path, _render_validate_page())
-    written.append(validate_path)
-
     diagram_root = out / "_diagrams"
     diagram_root.mkdir(parents=True, exist_ok=True)
     section_cases = _scan_section_to_cases()
@@ -1386,62 +1380,6 @@ def _generate_all_impl(output_dir: Path | None) -> list[Path]:
         written.append(page_path)
 
     return written
-
-
-def _render_validate_page() -> str:
-    lines = [
-        GENERATED_HEADER,
-        "Validate your project.toml",
-        "==========================",
-        "",
-        "HydroModPy validates configuration through Pydantic v2. There are",
-        "three ways to validate a ``project.toml`` before launching a long",
-        "run:",
-        "",
-        "1. **CLI**: ``hmp validate path/to/project.toml`` (recommended).",
-        "2. **Python**: load and validate explicitly:",
-        "",
-        ".. code-block:: python",
-        "   :class: no-codeautolink",
-        "",
-        "   from hydromodpy.config import HydroModPyConfig",
-        "   import tomllib",
-        "",
-        "   with open('project.toml', 'rb') as fh:",
-        "       payload = tomllib.load(fh)",
-        "   HydroModPyConfig.model_validate(payload)",
-        "",
-        "3. **Browser**: paste a TOML payload below. The widget loads",
-        "   `Ajv 2020 <https://ajv.js.org/json-schema.html#draft-2020-12>`_",
-        "   and `smol-toml <https://github.com/squirrelchat/smol-toml>`_",
-        "   from the jsdelivr CDN to run a real JSON Schema 2020-12",
-        "   validation. When the CDN is unreachable the widget falls back",
-        "   to a structural check (top-level sections only). The Python",
-        "   validator remains authoritative for production launches.",
-        "",
-        ".. raw:: html",
-        "",
-        '   <div class="hmp-validate-widget">',
-        '     <textarea id="hmp-validate-input" rows="18" '
-        'placeholder="workflow = &quot;simulation&quot;&#10;&#10;[workspace]&#10;'
-        'project_root = &quot;.&quot;&#10;&#10;# paste the rest of your TOML here..."'
-        "></textarea>",
-        '     <div class="hmp-validate-actions">',
-        '       <button type="button" id="hmp-validate-run">Validate structure</button>',
-        '       <button type="button" id="hmp-validate-clear">Clear</button>',
-        "     </div>",
-        '     <pre id="hmp-validate-output" class="hmp-validate-output"></pre>',
-        "   </div>",
-        "",
-        "Schema and CLI",
-        "--------------",
-        "",
-        "- :download:`hydromodpy-schema.json </_static/hydromodpy-schema.json>`",
-        "- See also :doc:`schema_explorer` for the interactive viewer",
-        "- ``hmp install-binaries`` if MODFLOW binaries are missing on first run",
-        "",
-    ]
-    return "\n".join(lines)
 
 
 def _report_uncovered_opaque_fields() -> None:

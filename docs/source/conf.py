@@ -504,7 +504,6 @@ html_js_files = [
     "js/hmp-zoom-image.js",
     "js/hmp-config-reference.js",
     "js/hmp-config-search.js",
-    "js/hmp-config-validate.js",
 ]
 copybutton_prompt_text = r">>> |\$ |In \[\d+\]: | {2,5}\.\.\.:"
 copybutton_prompt_is_regexp = True
