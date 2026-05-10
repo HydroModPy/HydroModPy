@@ -2,6 +2,8 @@
 .. Run ``python -m tools.doc_config`` to refresh.
 
 
+:html_theme.sidebar_secondary.remove:
+
 Schema Explorer
 ===============
 
@@ -25,6 +27,13 @@ Downloads:
 
    <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements/styles.min.css">
    <script src="https://unpkg.com/@stoplight/elements/web-components.min.js" type="module"></script>
+   <style>
+     /* Full-width viewer: override the 80rem article cap and give
+        the Stoplight panel a tall viewport-relative height. */
+     .bd-main .bd-content .bd-article-container { max-width: none; }
+     .hmp-schema-explorer { width: 100%; min-height: 80vh; }
+     .hmp-schema-explorer elements-api { display: block; height: 80vh; width: 100%; }
+   </style>
    <div class="hmp-schema-explorer">
      <elements-api
        apiDescriptionUrl="../../_static/hydromodpy-openapi.json"
