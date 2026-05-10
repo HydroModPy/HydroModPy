@@ -211,8 +211,8 @@ The validation enforces sign-based semantics, not just
 See also
 --------
 
-- :doc:`solver/index` for the solver package architecture.
-- :doc:`mesh/structured-grid-architecture` for the grid object that
+- :doc:`index` for the solver package architecture.
+- :doc:`../mesh/structured-grid-architecture` for the grid object that
   feeds the DIS contract.
-- :doc:`overview/design-patterns` (item 1) for the adapter pattern that
+- :doc:`../overview/design-patterns` (item 1) for the adapter pattern that
   wraps these contracts.

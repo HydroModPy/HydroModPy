@@ -84,7 +84,7 @@ Notes:
 - The diagrams stop at the planar catchment mesh plus exchange
   bundle. 3D extrusion and field-parameter discretization are
   documented in :doc:`structured-grid-architecture` and
-  :doc:`../mesh_pivot`.
+  :doc:`../mesh/mesh-pivot`.
 
 Batch loop
 ----------
@@ -155,7 +155,7 @@ See also
 
 - :doc:`structured-grid-architecture` for the SGrid path and the
   bridge to ``Field`` / ``FieldParam``.
-- :doc:`../mesh_pivot` for the cross-mesh pivot format.
-- :doc:`../gmsh_meshing` for the conformal Gmsh pipeline.
+- :doc:`../mesh/mesh-pivot` for the cross-mesh pivot format.
+- :doc:`../mesh/gmsh-meshing` for the conformal Gmsh pipeline.
 - :doc:`../simulation/simulation-orchestration-class-diagram` for
   the simulation-side consumer.

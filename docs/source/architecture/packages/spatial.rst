@@ -67,7 +67,7 @@ mesh in a uniform way:
 
 Every concrete mesh class exposes ``.to_hydro_mesh()``. The pivot
 unifies plotting, VTU I/O, and conversions toward FloPy's
-``StructuredGrid`` (DIS) and DISV. See :doc:`/architecture/mesh_pivot`
+``StructuredGrid`` (DIS) and DISV. See :doc:`/architecture/mesh/mesh-pivot`
 for the full reference.
 
 Recommended reading path
@@ -96,8 +96,8 @@ Layer-matrix neighbours
 See also
 --------
 
-- :doc:`/architecture/mesh_pivot` -- ``HydroMesh`` pivot reference.
-- :doc:`/architecture/gmsh_meshing` -- conformal Gmsh pipeline.
+- :doc:`/architecture/mesh/mesh-pivot` -- ``HydroMesh`` pivot reference.
+- :doc:`/architecture/mesh/gmsh-meshing` -- conformal Gmsh pipeline.
 - :doc:`/architecture/mesh/catchment-mesh-architecture` --
   catchment-mesh workflow.
 - :doc:`/architecture/mesh/structured-grid-architecture` --

@@ -171,7 +171,7 @@ Notes:
 - Solver wrappers remain consumers of already-normalised process
   data.
 - For detailed DIS payload semantics, see
-  :doc:`../modflow_contracts`.
+  :doc:`../solver/modflow-contracts`.
 
 Extending with a new process
 ----------------------------

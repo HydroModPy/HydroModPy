@@ -33,9 +33,16 @@ Scientific derivations and mathematical solver notes live under
       and the ``MT3DMS`` / ``MODPATH`` ecosystem. See
       :doc:`modflownwt-architecture-notes`.
 
+   .. tab-item:: MODFLOW contracts
+
+      The DIS, BAS, and package-stack contracts honoured by every
+      MODFLOW-family backend, with the runtime invariants and the
+      bridge to ``hydromodpy.spatial``. See :doc:`modflow-contracts`.
+
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    boussinesq-uml-diagrams
    modflow6-architecture-notes
    modflownwt-architecture-notes
+   modflow-contracts

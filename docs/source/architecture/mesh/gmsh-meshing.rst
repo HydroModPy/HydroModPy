@@ -9,7 +9,7 @@ conforms to geological zones and the hydrographic network.
 3. Conformal Gmsh generation against the interfaces.
 
 For the data structures shared by every mesh type, see
-:doc:`mesh_pivot`.
+:doc:`mesh-pivot`.
 
 1. Hydrographic-network extraction
 ----------------------------------
@@ -217,7 +217,7 @@ stabilise CI runs.
 See also
 --------
 
-- :doc:`mesh_pivot` for the mesh-pivot architecture and the
+- :doc:`mesh-pivot` for the mesh-pivot architecture and the
   cross-mesh data structures.
-- :doc:`mesh/index` for the broader mesh architecture and the
+- :doc:`index` for the broader mesh architecture and the
   catchment-mesh workflow.

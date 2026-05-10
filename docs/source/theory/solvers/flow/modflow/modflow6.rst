@@ -165,4 +165,4 @@ Related Architecture
 --------------------
 
 - :doc:`../../../../architecture/solver/modflow6-architecture-notes`
-- :doc:`../../../../architecture/overview/hydrographic-network-simulated-active-inventory`
+- :doc:`../../../../architecture/spatial_support/hydrographic-network-simulated-active-inventory`

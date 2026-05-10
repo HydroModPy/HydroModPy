@@ -134,4 +134,4 @@ Related Reading
 - :doc:`worked-examples`
 - :doc:`nancon-k-sweep-results`
 - :doc:`../hydrology/simulated-active-network`
-- :doc:`../../architecture/overview/hydrographic-network-simulated-active-inventory`
+- :doc:`../../architecture/spatial_support/hydrographic-network-simulated-active-inventory`

@@ -53,6 +53,39 @@ annotations carried by the Pydantic models: ``widget_type``, ``unit``,
 ``display_max``. These annotations form the contract between the
 Python models and the UI.
 
+Doc-side schema artifacts
+-------------------------
+
+The Sphinx build emits two additional schema artifacts under
+``docs/source/_static/`` via ``tools/doc_config/generate.py``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 32 68
+
+   * - File
+     - Role
+   * - ``hydromodpy-schema.json``
+     - Raw JSON Schema 2020-12 export of ``HydroModPyConfig``. Use
+       this file for Ajv / ajv-cli, IDE schema stores, and any
+       external validator that consumes JSON Schema directly.
+   * - ``hydromodpy-openapi.json``
+     - OpenAPI 3.1 wrapper produced by ``export_openapi_wrapper`` in
+       the same module. The Pydantic ``$defs`` are promoted to
+       ``components.schemas`` and every internal ``$ref`` is
+       rewritten from ``#/$defs/...`` to ``#/components/schemas/...``.
+       Consumed by the Stoplight Elements viewer on
+       :doc:`/user_guide/config_reference/schema_explorer`.
+
+The OpenAPI wrapper exists because Stoplight Elements rejects a raw
+JSON Schema with "failed to parse openapi file". The wrapper keeps the
+``hmp schema export`` route untouched (it remains the canonical export
+for frontends) and only adds a second artifact for the doc viewer.
+
+.. seealso::
+   :doc:`/user_guide/config_reference/schema_explorer` for the
+   user-facing schema browser that consumes the OpenAPI wrapper.
+
 Streamlit (local, Python)
 -------------------------
 

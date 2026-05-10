@@ -307,5 +307,5 @@ See also
 - :doc:`workflows/index` for the workflow-family map.
 - :doc:`../theory/solvers/flow/index` and
   :doc:`../theory/solvers/flow/modflow-family` for solver-family theory.
-- :doc:`../architecture/process/index` for the process planner.
+- :doc:`../architecture/process/process-architecture` for the process planner.
 - :doc:`../api/index` for the solver-facing API reference.

@@ -293,4 +293,4 @@ Related Reading
 - :doc:`worked-examples`
 - :doc:`status-and-limitations`
 - :doc:`nancon-k-sweep-results`
-- :doc:`../../architecture/overview/hydrographic-network-simulated-active-inventory`
+- :doc:`../../architecture/spatial_support/hydrographic-network-simulated-active-inventory`

@@ -81,7 +81,7 @@ See also
 
 - :doc:`/architecture/simulation/comparison-workflow` for the
   shared-case comparison contract.
-- :doc:`/architecture/overview/testbed-workflow-architecture` for
+- :doc:`/architecture/simulation/testbed-workflow-architecture` for
   the testbed pipeline.
 - :doc:`/user_guide/workflows/comparison` -- user-facing hub.
 - :doc:`/user_guide/workflows/batch` -- batch workflow page.

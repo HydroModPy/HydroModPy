@@ -184,7 +184,7 @@ Hydrographic Network Class Structure
 The hydrographic-network stack is intentionally split across several classes
 because they do not answer the same question.
 
-.. uml:: diagrams/hydrographic_network_class_map.wsd
+.. uml:: ../spatial_support/diagrams/hydrographic_network_class_map.wsd
 
 The key distinction is:
 
@@ -251,7 +251,7 @@ thresholded or aggregated active network should become the persisted
 
 For the detailed inventory and next design choices, use:
 
-- :doc:`hydrographic-network-simulated-active-inventory`
+- :doc:`../spatial_support/hydrographic-network-simulated-active-inventory`
 
 Diagrams worth adding
 ---------------------
@@ -273,7 +273,7 @@ fix with prose alone.
 Where to go next
 ----------------
 
-- :doc:`hydrographic-network-uml-diagrams`
+- :doc:`../spatial_support/hydrographic-network-uml-diagrams`
 - :doc:`code-reading-guide`
 - :doc:`two-databases`
 - :doc:`../simulation/toml-to-solver-walkthrough`
