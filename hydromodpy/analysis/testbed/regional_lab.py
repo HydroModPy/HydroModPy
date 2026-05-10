@@ -1,34 +1,31 @@
-"""Top-level launcher orchestrating the regional-lab campaign."""
+"""Regional-lab profile runtime for the testbed campaign model."""
 
 from __future__ import annotations
 
-import subprocess
-import sys
 import time
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.batch.batch_catalog import load_site_catalog
-from hydromodpy.analysis.batch.batch_execution import _extract_child_case_artifacts
-from hydromodpy.analysis.batch.batch_planning import (
-    build_regional_lab_plan,
-    build_run_command,
+from hydromodpy.analysis.testbed.child_artifacts import extract_child_artifacts
+from hydromodpy.analysis.testbed.regional_lab_adapter import run_case_with_testbed_provider
+from hydromodpy.analysis.testbed.regional_lab_catalog import load_site_catalog
+from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
+from hydromodpy.analysis.testbed.regional_lab_planning import build_regional_lab_plan
+from hydromodpy.analysis.testbed.regional_lab_reporting import (
+    build_plan_payload,
+    build_report_payload,
+    load_previous_ok_case_ids,
+    write_json_payload,
+    write_summary_artifacts,
 )
-from hydromodpy.analysis.batch.batch_reporting import (
-    _build_plan_payload,
-    _build_report_payload,
-    _load_previous_ok_case_ids,
-    _write_json,
-    _write_summary_artifacts,
+from hydromodpy.analysis.testbed.regional_lab_types import (
+    RegionalLabExecution,
+    RegionalLabPlannedCase,
 )
-from hydromodpy.analysis.batch.batch_types import RegionalLabExecution
-from hydromodpy.analysis.batch.config import RegionalLabConfig
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-class RegionalLabLauncher:
-    """Expand one site catalog into a concrete regional-lab campaign."""
+class RegionalLabProfileLauncher:
+    """Expand one regional site catalog into a testbed-profile campaign."""
 
     def __init__(self, config_path: str | Path) -> None:
         self.cfg = RegionalLabConfig.from_file(config_path)
@@ -42,9 +39,9 @@ class RegionalLabLauncher:
 
         plan_path = (cfg.output_root / "regional_lab_plan.json").resolve()
         report_path = (cfg.output_root / "regional_lab_report.json").resolve()
-        _write_json(
+        write_json_payload(
             plan_path,
-            _build_plan_payload(
+            build_plan_payload(
                 cfg=cfg,
                 selected_sites=selected_sites,
                 planned_cases=planned_cases,
@@ -54,19 +51,19 @@ class RegionalLabLauncher:
 
         previous_ok_case_ids: set[str] = set()
         if cfg.resume_from_report and cfg.skip_completed_cases:
-            previous_ok_case_ids = _load_previous_ok_case_ids(report_path)
+            previous_ok_case_ids = load_previous_ok_case_ids(report_path)
 
         executions: list[RegionalLabExecution] = []
-        synthesis_paths = _write_summary_artifacts(
+        synthesis_paths = write_summary_artifacts(
             cfg=cfg,
             selected_sites=selected_sites,
             planned_cases=planned_cases,
             skipped_cases=skipped_cases,
             executions=executions,
         )
-        _write_json(
+        write_json_payload(
             report_path,
-            _build_report_payload(
+            build_report_payload(
                 cfg=cfg,
                 selected_sites=selected_sites,
                 planned_cases=planned_cases,
@@ -77,45 +74,39 @@ class RegionalLabLauncher:
         )
 
         if cfg.execute:
-            python_executable = cfg.python_executable or Path(sys.executable)
             for case in planned_cases:
-                command = build_run_command(case, python_executable=python_executable)
                 if case.case_id in previous_ok_case_ids:
                     executions.append(
                         RegionalLabExecution(
                             case=case,
-                            command=tuple(command),
                             status="skipped_existing_ok",
-                            returncode=0,
                             duration_seconds=0.0,
                             reused_from_report=True,
-                            child_artifacts=_extract_child_case_artifacts(case),
+                            child_artifacts=_regional_case_child_artifacts(case),
                         )
                     )
                 else:
                     started_at = time.perf_counter()
-                    status, returncode = _run_child_subprocess(command, timeout=cfg.child_timeout_s)
+                    status = _run_child_case(case=case)
                     executions.append(
                         RegionalLabExecution(
                             case=case,
-                            command=tuple(command),
                             status=status,
-                            returncode=returncode,
                             duration_seconds=round(float(time.perf_counter() - started_at), 6),
                             reused_from_report=False,
-                            child_artifacts=_extract_child_case_artifacts(case),
+                            child_artifacts=_regional_case_child_artifacts(case),
                         )
                     )
-                synthesis_paths = _write_summary_artifacts(
+                synthesis_paths = write_summary_artifacts(
                     cfg=cfg,
                     selected_sites=selected_sites,
                     planned_cases=planned_cases,
                     skipped_cases=skipped_cases,
                     executions=executions,
                 )
-                _write_json(
+                write_json_payload(
                     report_path,
-                    _build_report_payload(
+                    build_report_payload(
                         cfg=cfg,
                         selected_sites=selected_sites,
                         planned_cases=planned_cases,
@@ -144,10 +135,18 @@ class RegionalLabLauncher:
         }
 
 
-def _run_child_subprocess(command: list[str], *, timeout: int | None) -> tuple[str, int | None]:
-    """Run one child launcher and classify its outcome."""
-    try:
-        completed = subprocess.run(command, cwd=REPO_ROOT, check=False, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return "failed", None
-    return ("ok" if completed.returncode == 0 else "failed", int(completed.returncode))
+def _run_child_case(
+    *,
+    case: RegionalLabPlannedCase,
+) -> str:
+    """Run one regional-lab child through the shared testbed provider."""
+    return run_case_with_testbed_provider(case)
+
+
+def _regional_case_child_artifacts(case: RegionalLabPlannedCase) -> dict[str, Any]:
+    """Extract shared child artifacts for one regional-lab planned case."""
+    return extract_child_artifacts(runner=case.launcher, config_path=case.config_path)
+
+__all__ = [
+    "RegionalLabProfileLauncher",
+]

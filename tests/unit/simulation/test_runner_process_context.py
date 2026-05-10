@@ -149,6 +149,44 @@ def test_run_solver_step_uses_injected_launcher() -> None:
     assert out.get("wall_seconds") is not None
 
 
+def test_runner_records_mesh_process_without_solver_adapter(monkeypatch) -> None:
+    from hydromodpy.simulation import _solver_protocol
+
+    class _Provider:
+        def get_solver_adapter(self, process_type, solver_name):
+            raise AssertionError("mesh process should not request a solver adapter")
+
+    monkeypatch.setattr(_solver_protocol, "_PROVIDER", _Provider())
+    state = _build_state()
+    state.setup.mesh_summary = {"output_mesh": "mesh.msh", "n_cells": 12}
+    plan = SimulationPlan(
+        name="mesh-only",
+        description="mesh-only",
+        runs=(
+            ProcessRun(
+                id="mesh_main::catchment",
+                process_id="mesh_main",
+                process_type="mesh",
+                solver="catchment",
+                backend="catchment",
+            ),
+        ),
+    )
+    observed_runs = []
+
+    SimulationRunner(
+        callbacks=ProcessCallbacks(
+            after_run=lambda run, result, state: observed_runs.append((run, result)),
+        )
+    ).execute(plan, state)
+
+    assert observed_runs[0][0].id == "mesh_main::catchment"
+    assert state.execution.models_by_run_id["mesh_main::catchment"] == {
+        "backend": "catchment",
+        "summary": {"output_mesh": "mesh.msh", "n_cells": 12},
+    }
+
+
 def test_run_flow_model_raises_when_solver_fails() -> None:
     plan = SimulationPlan(
         name="demo",

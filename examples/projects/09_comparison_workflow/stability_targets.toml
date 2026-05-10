@@ -60,7 +60,7 @@ required_figures = [
 
 [[case.metric]]
 simulation_id = "bouss_candidate"
-observable = "head_map_initial"
+observable = "head_map_first_computed"
 n_pairs_min = 500
 rmse_max = 0.001
 max_abs_error_max = 0.001

@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import math
 import numbers
-from collections.abc import Mapping
+import textwrap
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,8 @@ from hydromodpy.core.toml_io.loader import (
     load_toml_with_base_config,
     merge_toml_payloads,
 )
+
+TomlDescriptionProvider = Callable[[tuple[str, ...]], str | None]
 
 
 def _toml_scalar(value: Any) -> str:
@@ -45,10 +48,26 @@ def _is_mapping_list(value: Any) -> bool:
     return isinstance(value, list) and all(isinstance(item, Mapping) for item in value)
 
 
+def _append_toml_description(
+    lines: list[str],
+    *,
+    path: tuple[str, ...],
+    description_provider: TomlDescriptionProvider | None,
+) -> None:
+    if description_provider is None:
+        return
+    description = description_provider(path)
+    if not description:
+        return
+    for line in textwrap.wrap(str(description), width=96):
+        lines.append(f"# {line}")
+
+
 def _render_toml_mapping(
     mapping: Mapping[str, Any],
     *,
     prefix: tuple[str, ...] = (),
+    description_provider: TomlDescriptionProvider | None = None,
 ) -> list[str]:
     """Render one nested TOML mapping with array-of-table support."""
     lines: list[str] = []
@@ -66,28 +85,60 @@ def _render_toml_mapping(
             scalar_items.append((key, value))
 
     for key, value in scalar_items:
+        _append_toml_description(
+            lines,
+            path=(*prefix, key),
+            description_provider=description_provider,
+        )
         lines.append(f"{key} = {_toml_scalar(value)}")
 
     for key, value in nested_items:
         if lines and lines[-1] != "":
             lines.append("")
         section = ".".join((*prefix, key))
+        _append_toml_description(
+            lines,
+            path=(*prefix, key),
+            description_provider=description_provider,
+        )
         lines.append(f"[{section}]")
-        lines.extend(_render_toml_mapping(value, prefix=(*prefix, key)))
+        lines.extend(
+            _render_toml_mapping(
+                value,
+                prefix=(*prefix, key),
+                description_provider=description_provider,
+            )
+        )
 
     for key, items in array_items:
         section = ".".join((*prefix, key))
         for item in items:
             if lines and lines[-1] != "":
                 lines.append("")
+            _append_toml_description(
+                lines,
+                path=(*prefix, key),
+                description_provider=description_provider,
+            )
             lines.append(f"[[{section}]]")
-            lines.extend(_render_toml_mapping(item, prefix=(*prefix, key)))
+            lines.extend(
+                _render_toml_mapping(
+                    item,
+                    prefix=(*prefix, key),
+                    description_provider=description_provider,
+                )
+            )
     return lines
 
 
 def write_toml_payload(path: Path, payload: Mapping[str, Any]) -> None:
     """Write a small generated TOML payload."""
-    lines = _render_toml_mapping(payload)
+    from hydromodpy.core.toml_io.descriptions import root_config_description_for_path
+
+    lines = _render_toml_mapping(
+        payload,
+        description_provider=root_config_description_for_path,
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 

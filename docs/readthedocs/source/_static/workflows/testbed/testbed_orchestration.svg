@@ -48,13 +48,13 @@
 
   <rect class="box-warn" x="530" y="174" width="158" height="96" rx="8"/>
   <text class="label" x="555" y="204">Child TOMLs</text>
-  <text class="small" x="555" y="228">workflow = mesh</text>
-  <text class="small" x="555" y="248">or simulation</text>
+  <text class="small" x="555" y="228">workflow = simulation</text>
+  <text class="small" x="555" y="248">or comparison</text>
   <text class="small" x="555" y="268">no [testbed]</text>
 
   <rect class="box-alt" x="740" y="130" width="150" height="78" rx="8"/>
-  <text class="label" x="768" y="160">Mesh runner</text>
-  <text class="small" x="768" y="184">mesh_catchment</text>
+  <text class="label" x="768" y="160">Simulation</text>
+  <text class="small" x="768" y="184">process type = mesh</text>
 
   <rect class="box-alt" x="740" y="232" width="150" height="78" rx="8"/>
   <text class="label" x="766" y="262">Flow runner</text>

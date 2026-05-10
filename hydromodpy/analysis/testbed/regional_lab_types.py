@@ -3,45 +3,21 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.batch.config import RegionalLabRecipeConfig
+from hydromodpy.analysis.catalog import (
+    merge_tags,
+)
+from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabRecipeConfig
 
-
-def _normalize_text(value: object) -> str | None:
-    """Return one stripped optional text value."""
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _normalize_float(value: object) -> float | None:
-    """Return one optional float-like value."""
-    text = _normalize_text(value)
-    if text is None:
-        return None
-    return float(text)
-
-
-def _merge_tags(*tag_groups: Sequence[str]) -> tuple[str, ...]:
-    """Merge multiple tag groups while preserving the first-seen casing."""
-    merged: list[str] = []
-    seen: set[str] = set()
-    for group in tag_groups:
-        for raw_item in group:
-            item = str(raw_item).strip()
-            if item == "":
-                continue
-            normalized = item.lower()
-            if normalized in seen:
-                continue
-            seen.add(normalized)
-            merged.append(item)
-    return tuple(merged)
+__all__ = [
+    "RegionalLabExecution",
+    "RegionalLabPlannedCase",
+    "RegionalLabSiteRecord",
+    "RegionalLabSkippedCase",
+]
 
 
 @dataclass(frozen=True)
@@ -70,7 +46,7 @@ class RegionalLabSiteRecord:
     @property
     def tags(self) -> tuple[str, ...]:
         """Return effective site tags, including cluster-enrichment tags."""
-        return _merge_tags(self.site_tags, self.cluster_tags)
+        return merge_tags(self.site_tags, self.cluster_tags)
 
     def to_summary_mapping(self) -> dict[str, Any]:
         """Serialize one site into a JSON-friendly payload."""
@@ -234,9 +210,7 @@ class RegionalLabExecution:
     """Outcome recorded for one regional-lab case."""
 
     case: RegionalLabPlannedCase
-    command: tuple[str, ...]
     status: str
-    returncode: int | None
     duration_seconds: float | None
     reused_from_report: bool
     child_artifacts: dict[str, Any]

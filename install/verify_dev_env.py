@@ -13,6 +13,7 @@ CORE_MODULES = (
     "duckdb",
     "zarr",
     "sqlalchemy",
+    "xugrid",
 )
 
 DOC_MODULES = (

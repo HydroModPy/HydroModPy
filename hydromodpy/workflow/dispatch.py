@@ -11,9 +11,7 @@ from hydromodpy.core.exceptions import ConfigError
 WorkflowName = Literal[
     "simulation",
     "calibration",
-    "batch",
     "overview",
-    "mesh",
     "comparison",
     "testbed",
 ]
@@ -21,9 +19,7 @@ WorkflowName = Literal[
 KNOWN_WORKFLOWS: tuple[str, ...] = (
     "simulation",
     "calibration",
-    "batch",
     "overview",
-    "mesh",
     "comparison",
     "testbed",
 )
@@ -109,25 +105,11 @@ def run_overview(config_path: str | Path) -> dict[str, Any]:
     return DataOverviewLauncher(config_path).run()
 
 
-def run_mesh(config_path: str | Path) -> dict[str, Any]:
-    """Generate a catchment mesh from a TOML file."""
-    from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
-
-    return MeshCatchmentLauncher(config_path).run()
-
-
 def run_calibration(config_path: str | Path) -> dict[str, Any]:
     """Run a parameter calibration campaign from a TOML file."""
     from hydromodpy.calibration.runner import run_calibration_cli
 
     return run_calibration_cli(config_path)
-
-
-def run_batch(config_path: str | Path) -> dict[str, Any]:
-    """Run a multi-site batch campaign from a TOML file."""
-    from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
-
-    return RegionalLabLauncher(config_path).run()
 
 
 def run_comparison(config_path: str | Path) -> dict[str, Any]:
@@ -147,9 +129,7 @@ __all__ = (
     "extract_workflow_field",
     "load_raw_toml",
     "resolve_workflow",
-    "run_batch",
     "run_calibration",
     "run_comparison",
-    "run_mesh",
     "run_overview",
 )

@@ -43,15 +43,45 @@ class ComparisonExecutionConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    backend: Literal["subprocess_hmp_run"] = "subprocess_hmp_run"
+    backend: Literal["subprocess_hmp_run"] = Field(
+        default="subprocess_hmp_run",
+        description=(
+            "Execution backend used for generated child simulations. The current "
+            "production path launches each generated simulation TOML through the "
+            "standard hmp run command, so the comparison workflow does not duplicate "
+            "the simulation execution path."
+        ),
+    )
     max_parallel_runs: int = Field(
         default=1,
         ge=1,
         description="Number of child simulations executed in parallel. Forced to 1 in V1.",
     )
-    keep_generated_configs: bool = True
-    run_simulations: bool = True
-    python_executable: str | None = None
+    keep_generated_configs: bool = Field(
+        default=True,
+        description=(
+            "If True, keep the generated child simulation TOMLs under the comparison "
+            "output folder. Keeping them is recommended for validation campaigns "
+            "because they are the exact configs that were run."
+        ),
+    )
+    run_simulations: bool = Field(
+        default=True,
+        description=(
+            "If True, execute the generated child simulations before extracting "
+            "observables. Set False only to reuse already existing run folders or to "
+            "dry-check the comparison materialization."
+        ),
+    )
+    python_executable: str | None = Field(
+        default=None,
+        description=(
+            "Optional Python executable used by child subprocesses. None uses the "
+            "current interpreter. For PETSc Boussinesq campaigns on Windows hosts, "
+            "run the comparison from the WSL environment instead of pointing this "
+            "field to a Windows interpreter."
+        ),
+    )
     timeout_seconds: float | None = Field(
         default=None,
         gt=0,
@@ -75,8 +105,23 @@ class ComparisonAuditConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    mode: Literal["strict_same_case"] = "strict_same_case"
-    on_mismatch: Literal["fail", "warn", "ignore"] = "fail"
+    mode: Literal["strict_same_case"] = Field(
+        default="strict_same_case",
+        description=(
+            "Audit mode applied after all child simulations have produced comparable "
+            "observables. The current mode checks that the children describe the same "
+            "case before reporting method differences."
+        ),
+    )
+    on_mismatch: Literal["fail", "warn", "ignore"] = Field(
+        default="fail",
+        description=(
+            "Policy applied when the audit detects an incompatible comparison. Use "
+            "'fail' for validation gates, 'warn' for exploratory campaigns that should "
+            "still write HTML reports, and 'ignore' only when the audit is documented "
+            "elsewhere."
+        ),
+    )
 
 
 class ComparisonSimulationConfig(HydroModelBase):
@@ -84,13 +129,57 @@ class ComparisonSimulationConfig(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str
-    label: str | None = None
-    enabled: bool = True
-    solver: str | None = None
-    simulation_config: str | None = None
-    run_folder: str | None = None
-    mesh_label: str | None = None
+    id: str = Field(
+        description=(
+            "Stable child simulation identifier inside this comparison. It is used in "
+            "generated file names, run names, metrics, figure labels, and observable "
+            "rows."
+        )
+    )
+    label: str | None = Field(
+        default=None,
+        description=(
+            "Human-readable label for plots and HTML tables. When omitted, the child "
+            "id is displayed."
+        ),
+    )
+    enabled: bool = Field(
+        default=True,
+        description=(
+            "If False, the child declaration is kept in the config but skipped during "
+            "materialization and execution."
+        ),
+    )
+    solver: str | None = Field(
+        default=None,
+        description=(
+            "Solver name used to build the generated simulation process overlay. Use "
+            "values such as 'modflow6' or 'boussinesq' when simulation_config and "
+            "run_folder are not supplied."
+        ),
+    )
+    simulation_config: str | None = Field(
+        default=None,
+        description=(
+            "Optional path to an already existing simulation TOML. When provided, the "
+            "comparison reuses this config instead of generating one from "
+            "base_simulation_config."
+        ),
+    )
+    run_folder: str | None = Field(
+        default=None,
+        description=(
+            "Optional path to an existing run folder. Use this for post-processing "
+            "comparisons that should not launch or regenerate simulations."
+        ),
+    )
+    mesh_label: str | None = Field(
+        default=None,
+        description=(
+            "Short label describing the mesh used by this child. It is reported in "
+            "the comparison manifest and HTML context."
+        ),
+    )
     mesh_mode: Literal[
         "mesh_catchment",
         "mesh_input",
@@ -98,10 +187,26 @@ class ComparisonSimulationConfig(HydroModelBase):
         "structured",
         "unstructured",
         "unknown",
-    ] = "unknown"
+    ] = Field(
+        default="unknown",
+        description=(
+            "Mesh provenance category for this child. Use 'mesh_catchment' when the "
+            "simulation regenerates an irregular catchment mesh, 'mesh_input' when it "
+            "reuses an exchanged mesh bundle, or a structured/unstructured category "
+            "when that better describes the solver grid."
+        ),
+    )
     overlay: dict[str, Any] = Field(
         default_factory=dict,
-        description="Free-form TOML overlay merged into the base simulation config when this child runs.",
+        description=(
+            "Child-specific TOML overlay merged after comparison.base_simulation_overlay "
+            "and after the shared base simulation config. Use it for solver-specific "
+            "settings, child labels, child process selection, or deliberately varied "
+            "method parameters. Site-wide inputs that must be identical for every "
+            "child in one comparison, such as outlet coordinates, recharge forcing, "
+            "mesh generation settings, or reference data paths, should be placed in "
+            "comparison.base_simulation_overlay instead."
+        ),
     )
 
     @field_validator("id")
@@ -145,12 +250,65 @@ class ComparisonSection(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    comparison_id: str | None = None
-    base_simulation_config: str | None = None
-    anchors_file: str | None = None
-    output_root: str | None = None
-    reference_simulation: str | None = None
-    continue_on_error: bool = False
+    comparison_id: str | None = Field(
+        default=None,
+        description=(
+            "Stable identifier for this comparison run. It is used in generated child "
+            "run names, output paths, manifests, and HTML pages."
+        ),
+    )
+    base_simulation_config: str | None = Field(
+        default=None,
+        description=(
+            "Path to the shared simulation TOML used to generate child simulations. "
+            "The comparison launcher loads this base once, applies "
+            "comparison.base_simulation_overlay, then applies each "
+            "comparison.simulation.overlay."
+        ),
+    )
+    base_simulation_overlay: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Shared TOML overlay applied to the base simulation config before any "
+            "child-specific comparison.simulation.overlay. This is the preferred hook "
+            "for catalog-driven site loops: a testbed can render one comparison per "
+            "catalog row and inject the row values here, for example geographic outlet "
+            "coordinates, target basin area, recharge chronicle path, geology/K-table "
+            "paths, mesh-catchment options, initial-condition policy, or common "
+            "workspace/data roots. The overlay is intentionally broad because it "
+            "describes the physical case shared by all methods being compared; solver "
+            "or method differences remain in each comparison.simulation.overlay."
+        ),
+    )
+    anchors_file: str | None = Field(
+        default=None,
+        description=(
+            "Optional TOML file containing reusable named XY anchors for point or "
+            "outlet observables."
+        ),
+    )
+    output_root: str | None = Field(
+        default=None,
+        description=(
+            "Directory where comparison artifacts are written. In catalog-driven "
+            "testbeds this is usually rendered from the site id so every site gets "
+            "its own comparison folder."
+        ),
+    )
+    reference_simulation: str | None = Field(
+        default=None,
+        description=(
+            "Simulation id used as the reference for metrics and differences. If not "
+            "provided, the first completed simulation is used."
+        ),
+    )
+    continue_on_error: bool = Field(
+        default=False,
+        description=(
+            "If True, keep running sibling child simulations after one child fails. "
+            "For strict validation campaigns, keep False so failures stop the case."
+        ),
+    )
     execution: ComparisonExecutionConfig = Field(
         default_factory=ComparisonExecutionConfig,
         description="Execution settings for the comparison child runs.",
@@ -159,7 +317,14 @@ class ComparisonSection(HydroModelBase):
         default_factory=ComparisonAuditConfig,
         description="Post-run audit policy applied to each child simulation.",
     )
-    fine_raster: ComparisonFineRaster | None = None
+    fine_raster: ComparisonFineRaster | None = Field(
+        default=None,
+        description=(
+            "Optional common regular-grid rasterization used before comparing map "
+            "observables. Enable it when compared solvers use different meshes and "
+            "need a shared support for map differences and figures."
+        ),
+    )
     simulation: list[ComparisonSimulationConfig] = Field(
         default_factory=list,
         description="Generated child simulations to run in the comparison. At least one entry required.",
@@ -185,6 +350,15 @@ class ComparisonSection(HydroModelBase):
         if value is None:
             return None
         return _clean_path_safe_id(value, field_name="comparison.comparison_id")
+
+    @field_validator("base_simulation_overlay")
+    @classmethod
+    def _validate_base_simulation_overlay(cls, value: object) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("comparison.base_simulation_overlay must be a mapping")
+        return dict(value)
 
     @model_validator(mode="after")
     def _validate_lists(self) -> ComparisonSection:

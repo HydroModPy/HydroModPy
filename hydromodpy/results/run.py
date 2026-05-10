@@ -884,17 +884,44 @@ class Run:
 
         return views.persistence(self, **kwargs)
 
+    def cell_field_active_mask(self, **kwargs) -> np.ndarray:
+        """Lazy per-cell active mask for any scalar cell field."""
+        from hydromodpy.results import views
+
+        return views.cell_field_active_mask(self, **kwargs)
+
     def simulated_active_network_mask(self, **kwargs) -> np.ndarray:
         """Lazy per-cell active-network mask from accumulation flux."""
         from hydromodpy.results import views
 
         return views.simulated_active_network_mask(self, **kwargs)
 
+    def cell_field_active_metrics(self, **kwargs) -> dict[str, float | int | str]:
+        """Lazy scalar active-cell metrics for any scalar cell field."""
+        from hydromodpy.results import views
+
+        return views.cell_field_active_metrics(self, **kwargs)
+
     def simulated_active_network_metrics(self, **kwargs) -> dict[str, float | int | str]:
         """Lazy scalar summary of active drainage occupancy from accumulation flux."""
         from hydromodpy.results import views
 
         return views.simulated_active_network_metrics(self, **kwargs)
+
+    def cell_field_network_overlap_metrics(self, **kwargs) -> dict[str, float | int | str]:
+        """Lazy cell-overlap metrics for any active cell field against a network."""
+        from hydromodpy.results import views
+
+        return views.cell_field_network_overlap_metrics(self, **kwargs)
+
+    def cell_field_network_distance_metrics(
+        self,
+        **kwargs,
+    ) -> dict[str, float | int | str | None]:
+        """Lazy planar distance metrics for any active cell field against a network."""
+        from hydromodpy.results import views
+
+        return views.cell_field_network_distance_metrics(self, **kwargs)
 
     def simulated_active_network_overlap_metrics(self, **kwargs) -> dict[str, float | int | str]:
         """Lazy cell-overlap metrics against one persisted vector network role."""
@@ -910,6 +937,21 @@ class Run:
         from hydromodpy.results import views
 
         return views.simulated_active_network_distance_metrics(self, **kwargs)
+
+    def release_flux_network_overlap_metrics(self, **kwargs) -> dict[str, float | int | str]:
+        """Lazy cell-overlap metrics for direct release flux against a vector network."""
+        from hydromodpy.results import views
+
+        return views.release_flux_network_overlap_metrics(self, **kwargs)
+
+    def release_flux_network_distance_metrics(
+        self,
+        **kwargs,
+    ) -> dict[str, float | int | str | None]:
+        """Lazy raw planar distance metrics for direct release flux."""
+        from hydromodpy.results import views
+
+        return views.release_flux_network_distance_metrics(self, **kwargs)
 
     def catchment_mean(self, variable: str, **kwargs) -> pd.Series:
         """Lazy arithmetic mean of a cell variable over active cells."""

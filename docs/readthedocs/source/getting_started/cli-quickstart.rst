@@ -105,8 +105,8 @@ eagerly:
 -----------------
 
 ``hmp run`` reads the TOML, picks the workflow declared at the top
-level (``workflow = "simulation"``, ``"calibration"``, ``"batch"``,
-``"overview"``, or ``"mesh"``), and executes the full pipeline.
+level (``workflow = "simulation"``, ``"calibration"``, ``"overview"``,
+``"comparison"``, or ``"testbed"``), and executes the full pipeline.
 
 .. code-block:: bash
 

@@ -70,7 +70,7 @@ HYDROGRAPHIC_NETWORK_METRICS_FIELDS = [
     "hausdorff_distance_m",
 ]
 
-SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS = [
+CELL_FIELD_ACTIVE_METRICS_FIELDS = [
     "comparison_id",
     "simulation_id",
     "simulation_label",
@@ -103,7 +103,9 @@ SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS = [
     "persistence_max",
 ]
 
-SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS = [
+SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS = CELL_FIELD_ACTIVE_METRICS_FIELDS
+
+CELL_FIELD_NETWORK_OVERLAP_METRICS_FIELDS = [
     "comparison_id",
     "simulation_id",
     "simulation_label",
@@ -132,7 +134,7 @@ SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS = [
     "cell_jaccard_ratio",
 ]
 
-SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS = [
+CELL_FIELD_NETWORK_DISTANCE_METRICS_FIELDS = [
     "comparison_id",
     "simulation_id",
     "simulation_label",
@@ -169,6 +171,11 @@ SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS = [
     "planar_distance_ratio",
     "planar_distance_log10_ratio",
 ]
+
+SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS = CELL_FIELD_NETWORK_OVERLAP_METRICS_FIELDS
+SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS = CELL_FIELD_NETWORK_DISTANCE_METRICS_FIELDS
+RELEASE_FLUX_NETWORK_OVERLAP_METRICS_FIELDS = CELL_FIELD_NETWORK_OVERLAP_METRICS_FIELDS
+RELEASE_FLUX_NETWORK_DISTANCE_METRICS_FIELDS = CELL_FIELD_NETWORK_DISTANCE_METRICS_FIELDS
 
 
 def _as_float(value: Any) -> float | None:
@@ -209,15 +216,34 @@ def _completed_simulation_summaries(
 
 
 def _runtime_seconds(summary: Mapping[str, Any]) -> float | None:
+    return _runtime_seconds_with_scope(summary)[0]
+
+
+def _runtime_seconds_with_scope(summary: Mapping[str, Any]) -> tuple[float | None, str]:
+    metrics = summary.get("metrics")
+    metrics_map = metrics if isinstance(metrics, Mapping) else {}
+    run_metadata = summary.get("run_metadata")
+    run_metadata_map = run_metadata if isinstance(run_metadata, Mapping) else {}
+    boussinesq_summary = summary.get("boussinesq_summary")
+    boussinesq_map = boussinesq_summary if isinstance(boussinesq_summary, Mapping) else {}
     for candidate in (
-        summary.get("wall_time_seconds"),
-        summary.get("metrics", {}).get("wall_time_seconds"),
-        summary.get("run_metadata", {}).get("wall_time_seconds"),
+        summary.get("flow_solve_time_seconds"),
+        metrics_map.get("flow_solve_time_seconds"),
+        run_metadata_map.get("flow_solve_time_seconds"),
+        boussinesq_map.get("flow_solve_time_seconds"),
     ):
         value = _as_float(candidate)
         if value is not None:
-            return value
-    return None
+            return value, "flow_solve"
+    for candidate in (
+        summary.get("wall_time_seconds"),
+        metrics_map.get("wall_time_seconds"),
+        run_metadata_map.get("wall_time_seconds"),
+    ):
+        value = _as_float(candidate)
+        if value is not None:
+            return value, "workflow_wall"
+    return None, ""
 
 
 def _observable_support_lookup(
@@ -774,7 +800,7 @@ def write_simulated_active_network_metrics_export(
                     }
                 )
                 continue
-            metrics = views.simulated_active_network_metrics(
+            metrics = views.cell_field_active_metrics(
                 run,
                 variable=variable,
                 threshold=threshold,
@@ -858,25 +884,52 @@ def write_simulated_active_network_metrics_export(
     return artifacts, rows
 
 
-def write_simulated_active_network_overlap_metrics_export(
+def _simulation_metric_row_base(
+    *,
+    comparison_id: str,
+    summary: Mapping[str, Any],
+    sim_id: str,
+) -> dict[str, Any]:
+    return {
+        "comparison_id": comparison_id,
+        "simulation_id": str(summary.get("id", "")),
+        "simulation_label": str(summary.get("label", summary.get("id", ""))),
+        "solver": str(summary.get("solver", "")),
+        "mesh_label": str(summary.get("mesh_label", "")),
+        "mesh_mode": str(summary.get("mesh_mode", "")),
+        "sim_id": str(sim_id),
+        "run_name": str(summary.get("run_name", "")),
+        "run_folder": str(summary.get("run_folder", "")),
+    }
+
+
+def _has_plottable_mesh(store: SimulationCatalog, sim_id: str) -> bool:
+    zarr = store.open_zarr(str(sim_id))
+    try:
+        mesh = zarr.root.get("mesh")
+        return bool(mesh is not None and "vertices" in mesh and "face_node_connectivity" in mesh)
+    finally:
+        zarr.close()
+
+
+def _write_cell_field_network_metrics_export(
     *,
     comparison_id: str,
     comparison_root: Path,
     simulation_summaries: Iterable[Mapping[str, Any]],
-    network_role: str = "reference",
-    variable: str = "accumulation_flux",
-    threshold: float = 0.0,
-    mode: str | None = None,
-    persistence_threshold: float = 0.5,
-    timestep: int | None = None,
-    buffer_m: float = 0.0,
+    network_role: str,
+    variable: str,
+    metric_method: str,
+    metric_kwargs: dict[str, Any],
+    payload_parameters: dict[str, Any],
+    csv_stem: str,
+    csv_fields: list[str],
+    missing_field_reason: str,
+    failure_reason: str,
+    log_label: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write cell-overlap metrics between simulated-active cells and a vector role.
-
-    The default mode is resolved from each run flow regime.
-    """
+    """Shared export loop for cell-field/network comparison metrics."""
     from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
-    from hydromodpy.results import views
 
     rows: list[dict[str, Any]] = []
     skipped_simulations: list[dict[str, Any]] = []
@@ -901,6 +954,7 @@ def write_simulated_active_network_overlap_metrics_export(
                 }
             )
             continue
+
         try:
             run = store[str(sim_id)]
             if not run.has_hydrographic_network(network_role):
@@ -918,21 +972,13 @@ def write_simulated_active_network_overlap_metrics_export(
                 skipped_simulations.append(
                     {
                         "simulation_id": simulation_id,
-                        "reason": "missing_simulated_active_field",
+                        "reason": missing_field_reason,
                         "network_role": network_role,
                         "source_variable": variable,
                     }
                 )
                 continue
-            sz = store.open_zarr(str(sim_id))
-            try:
-                mesh = sz.root.get("mesh")
-                has_mesh = (
-                    mesh is not None and "vertices" in mesh and "face_node_connectivity" in mesh
-                )
-            finally:
-                sz.close()
-            if not has_mesh:
+            if not _has_plottable_mesh(store, str(sim_id)):
                 skipped_simulations.append(
                     {
                         "simulation_id": simulation_id,
@@ -942,34 +988,20 @@ def write_simulated_active_network_overlap_metrics_export(
                     }
                 )
                 continue
-            metrics = views.simulated_active_network_overlap_metrics(
-                run,
-                network_role=network_role,
-                variable=variable,
-                threshold=threshold,
-                mode=mode,
-                persistence_threshold=persistence_threshold,
-                timestep=timestep,
-                buffer_m=buffer_m,
+
+            metrics = getattr(run, metric_method)(**metric_kwargs)
+            row = _simulation_metric_row_base(
+                comparison_id=comparison_id,
+                summary=summary,
+                sim_id=str(sim_id),
             )
-            row = {
-                "comparison_id": comparison_id,
-                "simulation_id": simulation_id,
-                "simulation_label": str(summary.get("label", summary.get("id", ""))),
-                "solver": str(summary.get("solver", "")),
-                "mesh_label": str(summary.get("mesh_label", "")),
-                "mesh_mode": str(summary.get("mesh_mode", "")),
-                "sim_id": str(sim_id),
-                "run_name": str(summary.get("run_name", "")),
-                "run_folder": str(summary.get("run_folder", "")),
-            }
             row.update(metrics)
             rows.append(row)
         except Exception as exc:
             skipped_simulations.append(
                 {
                     "simulation_id": simulation_id,
-                    "reason": "simulated_active_overlap_metrics_failed",
+                    "reason": failure_reason,
                     "source_variable": variable,
                     "network_role": network_role,
                     "error_type": type(exc).__name__,
@@ -977,7 +1009,8 @@ def write_simulated_active_network_overlap_metrics_export(
                 }
             )
             logger.debug(
-                "Skipping simulated-active overlap metrics export for simulation '%s'.",
+                "Skipping %s export for simulation '%s'.",
+                log_label,
                 simulation_id,
                 exc_info=True,
             )
@@ -989,16 +1022,12 @@ def write_simulated_active_network_overlap_metrics_export(
 
     artifacts: list[dict[str, Any]] = []
     if skipped_simulations:
-        skipped_path = comparison_root / "simulated_active_network_overlap_metrics_skipped.json"
+        skipped_path = comparison_root / f"{csv_stem}_skipped.json"
         skipped_payload = {
             "comparison_id": comparison_id,
             "network_role": network_role,
             "source_variable": variable,
-            "threshold": float(threshold),
-            "mode": mode,
-            "persistence_threshold": float(persistence_threshold),
-            "timestep": timestep,
-            "buffer_m": float(buffer_m),
+            **payload_parameters,
             "skipped_simulations": skipped_simulations,
         }
         skipped_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1008,31 +1037,73 @@ def write_simulated_active_network_overlap_metrics_export(
         )
         artifacts.append(
             {
-                "kind": "simulated_active_network_overlap_metrics_skipped_json",
+                "kind": f"{csv_stem}_skipped_json",
                 "path": str(skipped_path),
-                "note": (
-                    f"{len(skipped_simulations)} simulation(s) skipped for simulated-active "
-                    "network overlap metrics export."
-                ),
+                "note": f"{len(skipped_simulations)} simulation(s) skipped for {log_label} export.",
             }
         )
         logger.info(
-            "Simulated-active network overlap metrics export skipped %d simulation(s): %s",
+            "%s export skipped %d simulation(s): %s",
+            log_label.capitalize(),
             len(skipped_simulations),
             ", ".join(str(item.get("simulation_id", "")) for item in skipped_simulations),
         )
     if not rows:
         return artifacts, rows
 
-    path = comparison_root / "simulated_active_network_overlap_metrics.csv"
-    _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS)
-    artifacts.append({"kind": "simulated_active_network_overlap_metrics_csv", "path": str(path)})
-    logger.info(
-        "Wrote simulated-active network overlap metrics export for %d simulation(s) to %s",
-        len(rows),
-        path,
-    )
+    path = comparison_root / f"{csv_stem}.csv"
+    _write_csv(path, rows, csv_fields)
+    artifacts.append({"kind": f"{csv_stem}_csv", "path": str(path)})
+    logger.info("Wrote %s export for %d simulation(s) to %s", log_label, len(rows), path)
     return artifacts, rows
+
+
+def write_simulated_active_network_overlap_metrics_export(
+    *,
+    comparison_id: str,
+    comparison_root: Path,
+    simulation_summaries: Iterable[Mapping[str, Any]],
+    network_role: str = "reference",
+    variable: str = "accumulation_flux",
+    threshold: float = 0.0,
+    mode: str | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    buffer_m: float = 0.0,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write cell-overlap metrics between simulated-active cells and a vector role.
+
+    The default mode is resolved from each run flow regime.
+    """
+    return _write_cell_field_network_metrics_export(
+        comparison_id=comparison_id,
+        comparison_root=comparison_root,
+        simulation_summaries=simulation_summaries,
+        network_role=network_role,
+        variable=variable,
+        metric_method="cell_field_network_overlap_metrics",
+        metric_kwargs={
+            "network_role": network_role,
+            "variable": variable,
+            "threshold": threshold,
+            "mode": mode,
+            "persistence_threshold": persistence_threshold,
+            "timestep": timestep,
+            "buffer_m": buffer_m,
+        },
+        payload_parameters={
+            "threshold": float(threshold),
+            "mode": mode,
+            "persistence_threshold": float(persistence_threshold),
+            "timestep": timestep,
+            "buffer_m": float(buffer_m),
+        },
+        csv_stem="simulated_active_network_overlap_metrics",
+        csv_fields=SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS,
+        missing_field_reason="missing_simulated_active_field",
+        failure_reason="simulated_active_overlap_metrics_failed",
+        log_label="simulated-active network overlap metrics",
+    )
 
 
 def write_simulated_active_network_distance_metrics_export(
@@ -1055,156 +1126,125 @@ def write_simulated_active_network_distance_metrics_export(
     Abherve et al.; it only uses currently persisted mesh, field and reference
     linework artifacts.
     """
-    from hydromodpy.analysis.comparison.runtime import discover_result_store
-
-    rows: list[dict[str, Any]] = []
-    skipped_simulations: list[dict[str, Any]] = []
-    for summary in _completed_simulation_summaries(simulation_summaries):
-        simulation_id = str(summary.get("id", ""))
-        config_path_raw = summary.get("config_path")
-        config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-        preferred_sim_id = summary.get("sim_id")
-        preferred_run_name = summary.get("run_name")
-        store, sim_id = discover_result_store(
-            config_path,
-            preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-            preferred_name=(None if preferred_run_name in (None, "") else str(preferred_run_name)),
-        )
-        if store is None or sim_id in (None, ""):
-            skipped_simulations.append(
-                {
-                    "simulation_id": simulation_id,
-                    "reason": "result_store_unavailable",
-                    "source_variable": variable,
-                    "network_role": network_role,
-                }
-            )
-            continue
-        try:
-            run = store[str(sim_id)]
-            if not run.has_hydrographic_network(network_role):
-                skipped_simulations.append(
-                    {
-                        "simulation_id": simulation_id,
-                        "reason": "missing_vector_network_role",
-                        "network_role": network_role,
-                        "available_roles": run.available_hydrographic_network_roles(),
-                        "source_variable": variable,
-                    }
-                )
-                continue
-            if not run.has_field(variable):
-                skipped_simulations.append(
-                    {
-                        "simulation_id": simulation_id,
-                        "reason": "missing_simulated_active_field",
-                        "network_role": network_role,
-                        "source_variable": variable,
-                    }
-                )
-                continue
-            zarr_root = store.open_zarr(str(sim_id)).root
-            mesh = zarr_root.get("mesh")
-            if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
-                skipped_simulations.append(
-                    {
-                        "simulation_id": simulation_id,
-                        "reason": "missing_plottable_mesh",
-                        "network_role": network_role,
-                        "source_variable": variable,
-                    }
-                )
-                continue
-            metrics = run.simulated_active_network_distance_metrics(
-                network_role=network_role,
-                variable=variable,
-                threshold=threshold,
-                mode=mode,
-                persistence_threshold=persistence_threshold,
-                timestep=timestep,
-                network_buffer_m=network_buffer_m,
-            )
-            row = {
-                "comparison_id": comparison_id,
-                "simulation_id": simulation_id,
-                "simulation_label": str(summary.get("label", summary.get("id", ""))),
-                "solver": str(summary.get("solver", "")),
-                "mesh_label": str(summary.get("mesh_label", "")),
-                "mesh_mode": str(summary.get("mesh_mode", "")),
-                "sim_id": str(sim_id),
-                "run_name": str(summary.get("run_name", "")),
-                "run_folder": str(summary.get("run_folder", "")),
-            }
-            row.update(metrics)
-            rows.append(row)
-        except Exception as exc:
-            skipped_simulations.append(
-                {
-                    "simulation_id": simulation_id,
-                    "reason": "simulated_active_distance_metrics_failed",
-                    "source_variable": variable,
-                    "network_role": network_role,
-                    "error_type": type(exc).__name__,
-                    "error_message": str(exc),
-                }
-            )
-            logger.debug(
-                "Skipping simulated-active distance metrics export for simulation '%s'.",
-                simulation_id,
-                exc_info=True,
-            )
-        finally:
-            try:
-                store.close()
-            except Exception:
-                pass
-
-    artifacts: list[dict[str, Any]] = []
-    if skipped_simulations:
-        skipped_path = comparison_root / "simulated_active_network_distance_metrics_skipped.json"
-        skipped_payload = {
-            "comparison_id": comparison_id,
+    return _write_cell_field_network_metrics_export(
+        comparison_id=comparison_id,
+        comparison_root=comparison_root,
+        simulation_summaries=simulation_summaries,
+        network_role=network_role,
+        variable=variable,
+        metric_method="cell_field_network_distance_metrics",
+        metric_kwargs={
             "network_role": network_role,
-            "source_variable": variable,
+            "variable": variable,
+            "threshold": threshold,
+            "mode": mode,
+            "persistence_threshold": persistence_threshold,
+            "timestep": timestep,
+            "network_buffer_m": network_buffer_m,
+        },
+        payload_parameters={
             "threshold": float(threshold),
             "mode": mode or "auto",
             "persistence_threshold": float(persistence_threshold),
             "timestep": timestep,
             "network_buffer_m": float(network_buffer_m),
-            "skipped_simulations": skipped_simulations,
-        }
-        skipped_path.parent.mkdir(parents=True, exist_ok=True)
-        skipped_path.write_text(
-            json.dumps(skipped_payload, indent=2, ensure_ascii=True) + "\n",
-            encoding="utf-8",
-        )
-        artifacts.append(
-            {
-                "kind": "simulated_active_network_distance_metrics_skipped_json",
-                "path": str(skipped_path),
-                "note": (
-                    f"{len(skipped_simulations)} simulation(s) skipped for simulated-active "
-                    "network distance metrics export."
-                ),
-            }
-        )
-        logger.info(
-            "Simulated-active network distance metrics export skipped %d simulation(s): %s",
-            len(skipped_simulations),
-            ", ".join(str(item.get("simulation_id", "")) for item in skipped_simulations),
-        )
-    if not rows:
-        return artifacts, rows
-
-    path = comparison_root / "simulated_active_network_distance_metrics.csv"
-    _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS)
-    artifacts.append({"kind": "simulated_active_network_distance_metrics_csv", "path": str(path)})
-    logger.info(
-        "Wrote simulated-active network distance metrics export for %d simulation(s) to %s",
-        len(rows),
-        path,
+        },
+        csv_stem="simulated_active_network_distance_metrics",
+        csv_fields=SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS,
+        missing_field_reason="missing_simulated_active_field",
+        failure_reason="simulated_active_distance_metrics_failed",
+        log_label="simulated-active network distance metrics",
     )
-    return artifacts, rows
+
+
+def write_release_flux_network_overlap_metrics_export(
+    *,
+    comparison_id: str,
+    comparison_root: Path,
+    simulation_summaries: Iterable[Mapping[str, Any]],
+    network_role: str = "reference",
+    variable: str = "release_flux",
+    threshold: float = 0.0,
+    mode: str | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    buffer_m: float = 0.0,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write cell-overlap metrics between direct release cells and a vector role."""
+    return _write_cell_field_network_metrics_export(
+        comparison_id=comparison_id,
+        comparison_root=comparison_root,
+        simulation_summaries=simulation_summaries,
+        network_role=network_role,
+        variable=variable,
+        metric_method="cell_field_network_overlap_metrics",
+        metric_kwargs={
+            "network_role": network_role,
+            "variable": variable,
+            "threshold": threshold,
+            "mode": mode,
+            "persistence_threshold": persistence_threshold,
+            "timestep": timestep,
+            "buffer_m": buffer_m,
+        },
+        payload_parameters={
+            "threshold": float(threshold),
+            "mode": mode,
+            "persistence_threshold": float(persistence_threshold),
+            "timestep": timestep,
+            "buffer_m": float(buffer_m),
+        },
+        csv_stem="release_flux_network_overlap_metrics",
+        csv_fields=RELEASE_FLUX_NETWORK_OVERLAP_METRICS_FIELDS,
+        missing_field_reason="missing_release_flux_field",
+        failure_reason="release_flux_network_overlap_metrics_failed",
+        log_label="release-flux network overlap metrics",
+    )
+
+
+def write_release_flux_network_distance_metrics_export(
+    *,
+    comparison_id: str,
+    comparison_root: Path,
+    simulation_summaries: Iterable[Mapping[str, Any]],
+    network_role: str = "reference",
+    variable: str = "release_flux",
+    threshold: float = 0.0,
+    mode: str | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write raw planar distance metrics between release cells and a vector role."""
+    return _write_cell_field_network_metrics_export(
+        comparison_id=comparison_id,
+        comparison_root=comparison_root,
+        simulation_summaries=simulation_summaries,
+        network_role=network_role,
+        variable=variable,
+        metric_method="cell_field_network_distance_metrics",
+        metric_kwargs={
+            "network_role": network_role,
+            "variable": variable,
+            "threshold": threshold,
+            "mode": mode,
+            "persistence_threshold": persistence_threshold,
+            "timestep": timestep,
+            "network_buffer_m": 0.0,
+            "distance_method": "raw_planar_cell_centroid_to_network",
+        },
+        payload_parameters={
+            "threshold": float(threshold),
+            "mode": mode or "auto",
+            "persistence_threshold": float(persistence_threshold),
+            "timestep": timestep,
+            "network_buffer_m": 0.0,
+        },
+        csv_stem="release_flux_network_distance_metrics",
+        csv_fields=RELEASE_FLUX_NETWORK_DISTANCE_METRICS_FIELDS,
+        missing_field_reason="missing_release_flux_field",
+        failure_reason="release_flux_network_distance_metrics_failed",
+        log_label="release-flux network distance metrics",
+    )
 
 
 def write_simulated_active_network_reference_figure_export(
@@ -1388,6 +1428,16 @@ def _budget_field_total_series(payload: Mapping[str, Any], key: str) -> np.ndarr
         return values.reshape(-1)
     matrix = values.reshape(int(values.shape[0]), -1)
     return np.nansum(matrix, axis=1, dtype=float)
+
+
+def _residual_total_series_m3_s(
+    values: np.ndarray | None,
+    *,
+    n_snapshots: int,
+) -> np.ndarray | None:
+    if values is None or values.ndim != 2 or values.shape[0] != int(n_snapshots):
+        return None
+    return np.nansum(values, axis=1, dtype=float)
 
 
 def _all_finite_zero(values: np.ndarray | None) -> bool:
@@ -1720,6 +1770,7 @@ def _load_boussinesq_budget_rows(
     prescribed_head_history = _history_matrix(payload, "prescribed_head_flux_history_m3_s")
     head_history = _history_matrix(payload, "head_history_m")
     saturated_thickness_history = _history_matrix(payload, "saturated_thickness_history_m")
+    residual_history = _history_matrix(payload, "residual_history_m3_s")
     budget_recharge_total = _budget_field_total_series(payload, "budget_recharge_m3_s")
     budget_well_total = _budget_field_total_series(payload, "budget_well_m3_s")
     budget_drainage_total = _budget_field_total_series(payload, "budget_drainage_m3_s")
@@ -1740,6 +1791,7 @@ def _load_boussinesq_budget_rows(
                 prescribed_head_history,
                 head_history,
                 saturated_thickness_history,
+                residual_history,
                 budget_recharge_total,
                 budget_well_total,
                 budget_drainage_total,
@@ -1766,6 +1818,7 @@ def _load_boussinesq_budget_rows(
                 prescribed_head_history,
                 head_history,
                 saturated_thickness_history,
+                residual_history,
             )
             if matrix is not None and matrix.ndim == 2
         ),
@@ -1808,6 +1861,13 @@ def _load_boussinesq_budget_rows(
     )
 
     component_series: dict[str, np.ndarray] = {}
+    residual_total = _residual_total_series_m3_s(
+        residual_history,
+        n_snapshots=n_snapshots,
+    )
+    if residual_total is not None:
+        component_series["closure_residual_m3_s"] = residual_total
+
     if budget_recharge_total is not None and budget_recharge_total.size == n_snapshots:
         component_series["recharge_total_m3_s"] = budget_recharge_total
     elif (
@@ -1889,7 +1949,7 @@ def _load_boussinesq_budget_rows(
         "drainage_total_m3_s",
         "surface_excess_total_m3_s",
         "storage_change_total_m3_s",
-    }.issubset(component_series):
+    }.issubset(component_series) and "closure_residual_m3_s" not in component_series:
         prescribed_out = component_series.get(
             "prescribed_head_out_total_m3_s",
             np.zeros_like(component_series["recharge_total_m3_s"], dtype=float),
@@ -2645,13 +2705,14 @@ def write_execution_summary_csv(
     """Write one flat runtime summary CSV."""
     rows: list[dict[str, Any]] = []
     reference_runtime: float | None = None
+    reference_time_scope = ""
     for summary in _completed_simulation_summaries(simulation_summaries):
         if str(summary.get("id", "")) == reference_simulation:
-            reference_runtime = _runtime_seconds(summary)
+            reference_runtime, reference_time_scope = _runtime_seconds_with_scope(summary)
             break
 
     for summary in _completed_simulation_summaries(simulation_summaries):
-        runtime_seconds = _runtime_seconds(summary)
+        runtime_seconds, time_scope = _runtime_seconds_with_scope(summary)
         if runtime_seconds is None:
             continue
         speedup = (
@@ -2667,7 +2728,9 @@ def write_execution_summary_csv(
                 "mesh_mode": summary.get("mesh_mode", ""),
                 "runtime_seconds": runtime_seconds,
                 "runtime_minutes": runtime_seconds / 60.0,
+                "time_scope": time_scope,
                 "reference_simulation": reference_simulation or "",
+                "reference_time_scope": reference_time_scope,
                 "speedup_vs_reference": speedup,
             }
         )
@@ -2685,7 +2748,9 @@ def write_execution_summary_csv(
                 "mesh_mode",
                 "runtime_seconds",
                 "runtime_minutes",
+                "time_scope",
                 "reference_simulation",
+                "reference_time_scope",
                 "speedup_vs_reference",
             ],
         )
@@ -2700,7 +2765,10 @@ __all__ = (
     "write_hydrographic_network_metrics_export",
     "write_native_timeseries_exports",
     "write_observable_chronicle_exports",
+    "write_release_flux_network_distance_metrics_export",
+    "write_release_flux_network_overlap_metrics_export",
     "write_simulated_active_network_reference_figure_export",
+    "write_simulated_active_network_distance_metrics_export",
     "write_simulated_active_network_metrics_export",
     "write_simulated_active_network_overlap_metrics_export",
     "write_ts_vi_obstacle_runtime_diagnostics_export",

@@ -5,6 +5,9 @@ from types import SimpleNamespace
 
 import numpy as np
 
+from hydromodpy.analysis.comparison.runtime import (
+    load_variable_series as load_runtime_variable_series,
+)
 from hydromodpy.analysis.comparison.runtime_series import load_variable_series
 
 
@@ -63,6 +66,54 @@ def test_load_variable_series_does_not_mark_root_time_as_initial_without_bouss_s
 
     assert [item.elapsed_seconds for item in series.slices] == [10.0, 30.0]
     assert [item.is_initial_state for item in series.slices] == [False, False]
+
+
+def test_single_snapshot_boussinesq_store_field_is_steady_result(
+    tmp_path: Path,
+) -> None:
+    root = {
+        "derived": {
+            "watertable_elevation": np.asarray([[7.5, 8.0]], dtype=float),
+        },
+        "time": np.asarray([0.0], dtype=float),
+        "boussinesq_state": {
+            "period_lengths_seconds": np.asarray([], dtype=float),
+            "snapshot_elapsed_seconds": np.asarray([0.0], dtype=float),
+        },
+    }
+
+    for loader in (load_variable_series, load_runtime_variable_series):
+        series = loader(
+            run_folder=tmp_path,
+            variable="watertable_elevation",
+            store=_FakeStore(root),
+            sim_id="sim",
+        )
+
+        assert [item.elapsed_seconds for item in series.slices] == [0.0]
+        assert [item.is_initial_state for item in series.slices] == [False]
+
+
+def test_single_snapshot_boussinesq_state_history_is_steady_result(
+    tmp_path: Path,
+) -> None:
+    root = {
+        "boussinesq_state": {
+            "head_history_m": np.asarray([[7.5, 8.0]], dtype=float),
+            "period_lengths_seconds": np.asarray([], dtype=float),
+        },
+    }
+
+    for loader in (load_variable_series, load_runtime_variable_series):
+        series = loader(
+            run_folder=tmp_path,
+            variable="head_history_m",
+            store=_FakeStore(root),
+            sim_id="sim",
+        )
+
+        assert [item.elapsed_seconds for item in series.slices] == [0.0]
+        assert [item.is_initial_state for item in series.slices] == [False]
 
 
 def test_load_boussinesq_state_series_marks_root_time_initial_when_periods_match(

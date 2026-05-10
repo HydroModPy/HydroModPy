@@ -5,26 +5,22 @@ from __future__ import annotations
 import csv
 import json
 import os
-import sys
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.batch.batch_execution import _safe_float
-from hydromodpy.analysis.batch.batch_planning import (
-    build_run_command,
-    filter_sites,
-)
-from hydromodpy.analysis.batch.batch_types import (
+from hydromodpy.analysis.catalog import normalize_text
+from hydromodpy.analysis.testbed.child_artifacts import safe_float
+from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
+from hydromodpy.analysis.testbed.regional_lab_site_selection import filter_sites
+from hydromodpy.analysis.testbed.regional_lab_types import (
     RegionalLabExecution,
     RegionalLabPlannedCase,
     RegionalLabSiteRecord,
     RegionalLabSkippedCase,
-    _normalize_text,
 )
-from hydromodpy.analysis.batch.config import RegionalLabConfig
 
 
 def _atomic_write_text(path: Path, payload: str, *, encoding: str = "utf-8") -> None:
@@ -35,7 +31,7 @@ def _atomic_write_text(path: Path, payload: str, *, encoding: str = "utf-8") -> 
     os.replace(tmp_path, path)
 
 
-def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
+def write_json_payload(path: Path, payload: Mapping[str, Any]) -> None:
     """Write one JSON payload to disk atomically."""
     _atomic_write_text(
         path,
@@ -88,7 +84,7 @@ def _collect_fieldnames(rows: Sequence[Mapping[str, Any]]) -> list[str]:
     return out
 
 
-def _build_plan_payload(
+def build_plan_payload(
     *,
     cfg: RegionalLabConfig,
     selected_sites: list[RegionalLabSiteRecord],
@@ -176,7 +172,7 @@ def _build_recipe_summaries(
         child_wall_times = [
             float(item.child_artifacts["child_wall_time_seconds"])
             for item in recipe_executions
-            if _safe_float(item.child_artifacts.get("child_wall_time_seconds")) is not None
+            if safe_float(item.child_artifacts.get("child_wall_time_seconds")) is not None
         ]
         executed_fresh = [item for item in recipe_executions if not item.reused_from_report]
         reused = [item for item in recipe_executions if item.reused_from_report]
@@ -261,13 +257,13 @@ def _build_group_summary(
             row["reused_case_count"] += 1
         else:
             row["executed_case_count"] += 1
-        duration_seconds = _safe_float(execution.duration_seconds)
+        duration_seconds = safe_float(execution.duration_seconds)
         if duration_seconds is not None:
             row["execution_duration_seconds_total"] = round(
                 float(row.get("execution_duration_seconds_total", 0.0)) + duration_seconds,
                 6,
             )
-        child_wall_time = _safe_float(execution.child_artifacts.get("child_wall_time_seconds"))
+        child_wall_time = safe_float(execution.child_artifacts.get("child_wall_time_seconds"))
         if child_wall_time is not None:
             row["child_wall_time_seconds_total"] = round(
                 float(row.get("child_wall_time_seconds_total", 0.0)) + child_wall_time,
@@ -289,8 +285,8 @@ def _build_group_summary(
         executed_count = int(row.get("executed_case_count", 0)) + int(
             row.get("reused_case_count", 0)
         )
-        duration_total = _safe_float(row.get("execution_duration_seconds_total"))
-        child_total = _safe_float(row.get("child_wall_time_seconds_total"))
+        duration_total = safe_float(row.get("execution_duration_seconds_total"))
+        child_total = safe_float(row.get("child_wall_time_seconds_total"))
         row["execution_duration_seconds_mean"] = (
             None
             if duration_total is None or executed_count <= 0
@@ -369,7 +365,6 @@ def _build_case_rows(
         execution = execution_by_case_id.get(case.case_id)
         row = case.to_summary_mapping()
         row["status"] = "planned" if execution is None else execution.status
-        row["returncode"] = None if execution is None else execution.returncode
         row["duration_seconds"] = None if execution is None else execution.duration_seconds
         row["reused_from_report"] = False if execution is None else execution.reused_from_report
         row["child_artifacts_json"] = (
@@ -378,7 +373,7 @@ def _build_case_rows(
         row["child_wall_time_seconds"] = (
             None
             if execution is None
-            else _safe_float(execution.child_artifacts.get("child_wall_time_seconds"))
+            else safe_float(execution.child_artifacts.get("child_wall_time_seconds"))
         )
         row["child_success"] = (
             None if execution is None else execution.child_artifacts.get("child_success")
@@ -389,7 +384,6 @@ def _build_case_rows(
     for skipped in skipped_cases:
         row = skipped.to_summary_mapping()
         row["status"] = f"skipped_{skipped.reason}"
-        row["returncode"] = None
         row["duration_seconds"] = None
         row["reused_from_report"] = False
         row["child_artifacts_json"] = ""
@@ -413,10 +407,8 @@ def _build_execution_metric_rows(
         row.update(
             {
                 "status": execution.status,
-                "returncode": execution.returncode,
                 "duration_seconds": execution.duration_seconds,
                 "reused_from_report": execution.reused_from_report,
-                "command_json": json.dumps(list(execution.command), ensure_ascii=True),
             }
         )
         row.update(execution.child_artifacts)
@@ -510,7 +502,7 @@ def _render_summary_markdown(
     return "\n".join(lines) + "\n"
 
 
-def _write_summary_artifacts(
+def write_summary_artifacts(
     *,
     cfg: RegionalLabConfig,
     selected_sites: Sequence[RegionalLabSiteRecord],
@@ -667,7 +659,7 @@ def _write_summary_artifacts(
     return paths
 
 
-def _build_report_payload(
+def build_report_payload(
     *,
     cfg: RegionalLabConfig,
     selected_sites: list[RegionalLabSiteRecord],
@@ -682,22 +674,17 @@ def _build_report_payload(
     reused = [item for item in executions if item.reused_from_report]
     executed_fresh = [item for item in executions if not item.reused_from_report]
     pending_count = len(planned_cases) - len(executions)
-    python_executable = cfg.python_executable or Path(sys.executable)
 
     cases_payload: list[dict[str, Any]] = []
     for case in planned_cases:
         execution = execution_by_case_id.get(case.case_id)
-        command = build_run_command(case, python_executable=python_executable)
         payload = case.to_summary_mapping()
-        payload["command"] = command
         if execution is None:
             payload["status"] = "planned"
-            payload["returncode"] = None
             payload["duration_seconds"] = None
             payload["reused_from_report"] = False
         else:
             payload["status"] = execution.status
-            payload["returncode"] = execution.returncode
             payload["duration_seconds"] = execution.duration_seconds
             payload["reused_from_report"] = execution.reused_from_report
             payload["child_artifacts"] = dict(execution.child_artifacts)
@@ -734,7 +721,7 @@ def _build_report_payload(
     }
 
 
-def _load_previous_ok_case_ids(report_path: Path) -> set[str]:
+def load_previous_ok_case_ids(report_path: Path) -> set[str]:
     """Return case identifiers already marked as successful in one previous report."""
     if not report_path.is_file():
         return set()
@@ -749,8 +736,8 @@ def _load_previous_ok_case_ids(report_path: Path) -> set[str]:
     for case in cases:
         if not isinstance(case, Mapping):
             continue
-        case_id = _normalize_text(case.get("case_id"))
-        status = _normalize_text(case.get("status"))
+        case_id = normalize_text(case.get("case_id"))
+        status = normalize_text(case.get("status"))
         if case_id is None or status is None:
             continue
         if status.lower() in {"ok", "skipped_existing_ok"}:

@@ -7,7 +7,7 @@ skinparam maxMessageSize 160
 
 package "User entry points" {
   component "TOML configuration" as Toml
-  component "CLI workflows\nhmp run / overview / mesh / calibration" as Cli
+  component "CLI workflows\nhmp run / overview / calibration" as Cli
   component "Python API\nProject(...)" as PythonApi
 }
 

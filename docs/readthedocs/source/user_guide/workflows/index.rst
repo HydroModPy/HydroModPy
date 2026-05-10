@@ -45,11 +45,6 @@ interface.
      - ``[calibration]``, ``[calibration.parameters.*]``, simulation
        sections
      - :doc:`calibration`
-   * - ``batch``
-     - Expand recipes over many sites or clusters.
-     - ``[regional_lab]``, ``[regional_lab.catalog]``,
-       ``[[regional_lab.recipe]]``
-     - :doc:`batch`
    * - ``comparison``
      - Generate several child simulations from one shared base case and
        compare observables.
@@ -71,9 +66,8 @@ The CLI dispatch is intentionally simple:
         +-- dispatch to one launcher
               simulation  -> Project(config).run()
               overview    -> DataOverviewLauncher
-              testbed     -> TestbedLauncher
+              testbed     -> TestbedLauncher or profile dispatcher
               calibration -> calibration ask/tell loop
-              batch       -> RegionalLabLauncher
               comparison  -> SimulationComparisonLauncher
 
 This split avoids mixing three concepts:
@@ -95,15 +89,17 @@ run with persisted model outputs.
 Use ``testbed`` when the question is about robustness across method variants,
 for example mesh resolution, mesh constraints, hydraulic-parameter sensitivity,
 or future transport method axes. Mesh work is now documented through
-``testbed`` with ``subject = "mesh"`` and ``runner.type = "mesh_catchment"``;
-the mesh runner remains an implementation detail rather than a separate user
-guide workflow.
+``testbed`` with ``subject = "mesh"`` and ``runner.type = "simulation"``.
+The generated child simulations declare ``[[simulation.process]]`` with
+``type = "mesh"``.
 
 Use ``calibration`` when parameters are uncertain and the goal is to optimize
 or sample them against observations or synthetic targets.
 
-Use ``batch`` when the same recipe must be expanded across many catchments,
-clusters, or regional sites.
+Use ``testbed`` with ``[testbed].profile = "regional_lab"`` when the same
+recipe must be expanded across many catchments, clusters, or regional sites.
+The regional-lab profile is documented separately from the workflow list
+because it is a ``testbed`` specialization, not a standalone workflow.
 
 Use ``comparison`` when several child simulations must stay tied to one shared
 physical base case so that solver, mesh, or option differences remain
@@ -115,6 +111,6 @@ controlled.
    overview
    simulation
    testbed
+   regional_lab
    calibration
-   batch
    comparison

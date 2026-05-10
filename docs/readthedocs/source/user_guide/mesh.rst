@@ -1,4 +1,4 @@
-Mesh Workflows
+Mesh Execution
 ==============
 
 This page is a user-facing map for mesh-related documentation. It does not
@@ -11,8 +11,8 @@ Start here when the question is:
 User path
 ---------
 
-1. Read :doc:`../getting_started/workflow-families` to see where the ``mesh``
-   workflow fits relative to ``overview`` and ``simulation``.
+1. Read :doc:`../getting_started/workflow-families` to see where mesh
+   execution fits inside ``simulation`` and ``testbed``.
 2. Open :doc:`../capability_gallery/mesh` to inspect stable mesh examples and
    diagnostics without running anything locally.
 3. Use :doc:`../scientific/solvers/meshes-and-numerical-methods` when you need

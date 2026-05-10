@@ -1,4 +1,4 @@
-"""Bootstrap helpers to build one regional-lab site catalog from outlet tables."""
+﻿"""Bootstrap helpers to build one regional-lab site catalog from outlet tables."""
 
 from __future__ import annotations
 
@@ -9,21 +9,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-
-def _normalize_text(value: object) -> str | None:
-    """Return one stripped optional text value."""
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _normalize_float(value: object) -> float | None:
-    """Return one optional float value."""
-    text = _normalize_text(value)
-    if text is None:
-        return None
-    return float(text)
+from hydromodpy.analysis.catalog import normalize_float, normalize_text
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:
@@ -128,7 +114,7 @@ def _resolve_bundle_dir_from_mesh_output(
     outlet_id: str,
 ) -> str | None:
     """Infer one sibling bundle directory from one exported mesh path."""
-    mesh_output_text = _normalize_text(mesh_output)
+    mesh_output_text = normalize_text(mesh_output)
     if mesh_output_text is None:
         return None
     mesh_output_path = Path(mesh_output_text).expanduser().resolve()
@@ -179,10 +165,10 @@ def inspect_mesh_bundle_boussinesq_readiness(
         reader = csv.DictReader(stream)
         for row in reader:
             counts["bundle_cell_count"] += 1
-            top = _normalize_text(row.get("z_top_centroid"))
-            bottom = _normalize_text(row.get("z_bottom_centroid"))
-            conductivity = _normalize_text(row.get("hydraulic_conductivity_m_s"))
-            storage = _normalize_text(row.get("storage_coefficient"))
+            top = normalize_text(row.get("z_top_centroid"))
+            bottom = normalize_text(row.get("z_bottom_centroid"))
+            conductivity = normalize_text(row.get("hydraulic_conductivity_m_s"))
+            storage = normalize_text(row.get("storage_coefficient"))
             if top is None:
                 counts["bundle_missing_top_centroid_count"] += 1
             if bottom is None:
@@ -200,7 +186,7 @@ def inspect_mesh_bundle_boussinesq_readiness(
         payload = json.loads(metadata_path.read_text(encoding="utf-8"))
         hydraulic_properties = payload.get("hydraulic_properties") or {}
         storage_view = hydraulic_properties.get("storage_coefficient") or {}
-        storage_default_value = _normalize_float(storage_view.get("default_value"))
+        storage_default_value = normalize_float(storage_view.get("default_value"))
 
     steady_ready = (
         counts["bundle_cell_count"] > 0
@@ -267,7 +253,7 @@ def build_site_catalog_from_outlet_table(
     manifest_by_outlet_id: dict[str, dict[str, str]] = {}
     if manifest_path is not None:
         for row in _read_csv_rows(manifest_path):
-            manifest_outlet_id = _normalize_text(row.get("outlet_id"))
+            manifest_outlet_id = normalize_text(row.get("outlet_id"))
             if manifest_outlet_id is None:
                 continue
             manifest_by_outlet_id[manifest_outlet_id] = row
@@ -277,31 +263,31 @@ def build_site_catalog_from_outlet_table(
 
     catalog_rows: list[dict[str, Any]] = []
     for outlet_row in outlet_rows:
-        outlet_id = _normalize_text(outlet_row.get(outlet_id_column))
+        outlet_id = normalize_text(outlet_row.get(outlet_id_column))
         if outlet_id is None:
             raise ValueError(
                 "Outlets table row is missing the configured outlet identifier column "
                 f"'{outlet_id_column}'"
             )
         manifest_row = manifest_by_outlet_id.get(outlet_id, {})
-        manifest_status = _normalize_text(manifest_row.get("status"))
+        manifest_status = normalize_text(manifest_row.get("status"))
         discovered_assets = discovered_mesh_assets.get(outlet_id, {})
         tags = list(default_tags)
-        mesh_output = _normalize_text(manifest_row.get("output_mesh")) or _normalize_text(
+        mesh_output = normalize_text(manifest_row.get("output_mesh")) or normalize_text(
             discovered_assets.get("mesh_output_mesh")
         )
-        mesh_summary_json = _normalize_text(
+        mesh_summary_json = normalize_text(
             manifest_row.get("output_summary_json")
-        ) or _normalize_text(discovered_assets.get("mesh_summary_json"))
-        mesh_bundle_dir = _normalize_text(
+        ) or normalize_text(discovered_assets.get("mesh_summary_json"))
+        mesh_bundle_dir = normalize_text(
             manifest_row.get("output_exchange_bundle_dir")
-        ) or _normalize_text(discovered_assets.get("mesh_bundle_dir"))
-        mesh_figure = _normalize_text(manifest_row.get("output_figure")) or _normalize_text(
+        ) or normalize_text(discovered_assets.get("mesh_bundle_dir"))
+        mesh_figure = normalize_text(manifest_row.get("output_figure")) or normalize_text(
             discovered_assets.get("mesh_figure")
         )
-        mesh_figure_regional = _normalize_text(
+        mesh_figure_regional = normalize_text(
             manifest_row.get("output_figure_regional")
-        ) or _normalize_text(discovered_assets.get("mesh_figure_regional"))
+        ) or normalize_text(discovered_assets.get("mesh_figure_regional"))
         if manifest_status is not None and manifest_status.lower() == "ok":
             tags.append("mesh_ready")
         elif mesh_output is not None or mesh_bundle_dir is not None:
@@ -335,14 +321,14 @@ def build_site_catalog_from_outlet_table(
                 "tags": ";".join(_dedupe_tags(tags)),
                 "outlet_id": outlet_id,
                 "x": ""
-                if _normalize_float(outlet_row.get(x_column)) is None
-                else _normalize_float(outlet_row.get(x_column)),
+                if normalize_float(outlet_row.get(x_column)) is None
+                else normalize_float(outlet_row.get(x_column)),
                 "y": ""
-                if _normalize_float(outlet_row.get(y_column)) is None
-                else _normalize_float(outlet_row.get(y_column)),
+                if normalize_float(outlet_row.get(y_column)) is None
+                else normalize_float(outlet_row.get(y_column)),
                 "area_km2": ""
-                if _normalize_float(outlet_row.get(area_column)) is None
-                else _normalize_float(outlet_row.get(area_column)),
+                if normalize_float(outlet_row.get(area_column)) is None
+                else normalize_float(outlet_row.get(area_column)),
                 "mesh_manifest_status": mesh_status,
                 "mesh_output_mesh": mesh_output or "",
                 "mesh_summary_json": mesh_summary_json or "",

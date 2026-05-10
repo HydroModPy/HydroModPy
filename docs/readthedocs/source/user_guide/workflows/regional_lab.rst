@@ -1,9 +1,12 @@
-Batch Workflow
-==============
+Regional Lab Profile
+====================
 
-``workflow = "batch"`` runs a regional-lab campaign. It expands one or more
-recipes over a site catalog and records which cases were planned, skipped,
-completed, or failed.
+``regional_lab`` is the regional catalog profile of ``testbed``. It expands
+one or more recipes over a site catalog and records which cases were planned,
+skipped, completed, or failed.
+
+Regional-lab files use ``workflow = "testbed"`` with
+``[testbed].profile = "regional_lab"``.
 
 Use it when the question is:
 "How do I run the same modelling recipe across many sites consistently?"
@@ -11,9 +14,19 @@ Use it when the question is:
 Functional Role
 ---------------
 
-The batch workflow is about campaign orchestration, not about one solver
-method. A batch recipe can point to simulation or comparison launchers.
+The regional-lab profile is about campaign orchestration, not about one solver
+method. A regional-lab recipe can point to simulation or comparison launchers.
 The accepted launcher names are ``simulation`` and ``comparison``.
+
+Architecturally, ``regional_lab`` is not a separate campaign engine. It is a
+profile that keeps regional concepts such as sites, clusters, maturity/status,
+coverage gaps, and recipes, while delegating execution to the same child-runner
+contract used by ``testbed``. Internally, the catalog-loading primitives are
+shared with ``testbed`` so CSV/JSONL parsing, required fields, path fields,
+tags, and basic row filters follow one contract. A planned ``site x recipe``
+case is also projected onto the testbed case vocabulary: ``case_id`` becomes
+``variant_id``, ``recipe.id`` becomes the variant axis, and ``recipe.launcher``
+becomes the per-case runner.
 
 The launcher performs this type of expansion:
 
@@ -44,7 +57,7 @@ Typical Command
    hmp run path/to/regional_lab.toml
 
 Public examples are currently thinner than for ``overview`` and
-``simulation``. The runtime contract is nevertheless explicit: the workflow
+``simulation``. The runtime contract is nevertheless explicit: the profile
 expects a top-level ``[regional_lab]`` section.
 
 Minimal Shape
@@ -52,7 +65,10 @@ Minimal Shape
 
 .. code-block:: toml
 
-   workflow = "batch"
+   workflow = "testbed"
+
+   [testbed]
+   profile = "regional_lab"
 
    [regional_lab]
    lab_id = "headwater_campaign"
@@ -99,8 +115,8 @@ Important Parameters
      - Role
      - Practical guidance
    * - ``workflow``
-     - Selects the regional-lab launcher.
-     - Must be ``"batch"``.
+     - Selects the campaign entry point.
+     - Must be ``"testbed"`` with ``[testbed].profile = "regional_lab"``.
    * - ``[regional_lab].lab_id``
      - Names the campaign.
      - Use a stable identifier because reports and output folders are keyed by

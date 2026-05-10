@@ -113,6 +113,12 @@ Name:
 boussinesq_natural_geology_k_ladder
 ```
 
+Detailed prospective plan:
+
+```text
+docs/developers/boussinesq_natural_testbed_prospective_plan.md
+```
+
 Goal: evaluate Boussinesq on natural topography, river-constrained meshes,
 geology-derived spatial support and heterogeneous hydraulic conductivity across
 many basins and basin sizes.
@@ -1178,7 +1184,7 @@ optional summary JSON from --output-json
 The next step is the regional-lab bootstrap helper:
 
 ```text
-hydromodpy/analysis/batch/bootstrap.py::build_site_catalog_from_outlet_table
+hydromodpy/analysis/testbed/regional_lab_bootstrap.py::build_site_catalog_from_outlet_table
 ```
 
 It converts one outlet table into a canonical site catalog, optionally merging
@@ -1814,3 +1820,74 @@ These sources should be cited in the natural testbed README when their data are
 used. The first implementation can remain repository-local by reusing the
 already committed DEM and example data, while still regenerating the watershed
 and mesh for every testbed case.
+
+## Implemented Generic Testbed Loop
+
+The natural comparison campaign now uses the generic `testbed` workflow rather
+than a helper script:
+
+- `hydromodpy/analysis/testbed/config.py` accepts `runner.type = "comparison"`
+  for `subject = "flow"`;
+- `hydromodpy/analysis/testbed/runtime.py` materializes one
+  `workflow = "comparison"` child TOML per explicit variant or catalog row;
+- `hydromodpy/analysis/comparison/experiment_config.py` exposes
+  `comparison.base_simulation_overlay` with Pydantic descriptions, so a testbed
+  row can inject site-wide physical inputs before solver-specific overlays;
+- `hydromodpy/analysis/comparison/child_materialization.py` applies that shared
+  overlay to every generated child simulation and creates default isolated
+  workspaces under each comparison output root;
+- `examples/projects/10_testbed_workflow/reporting/generate_testbed_web_report.py`
+  reads the testbed manifest and displays a "Mode catalogue pas a pas" HTML
+  documentation block when a catalog-backed testbed is detected.
+
+Natural catalog example:
+
+```text
+examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/natural_10km2_sites.csv
+```
+
+Generic comparison base:
+
+```text
+examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/compare_natural_10km2_mf6_bouss_base.toml
+```
+
+Catalog-driven testbed:
+
+```text
+examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/natural_10km2_mf6_bouss_testbed.toml
+```
+
+In this example, the catalog remains site-only: outlet coordinates, labels,
+groups, tags, enabled flag, and target area. Campaign constants such as snapping
+distance, watershed buffer, river threshold, mesh sizing, numerical methods, and
+observables are kept in the reusable comparison base TOML. The testbed TOML only
+declares the catalog loop and injects the per-site values that truly vary. The
+comparison runner also provides default testbed summary metrics, so the campaign
+does not need to repeat `[[testbed.metric]]` blocks for comparison id, audit
+status, row counts, or closure diagnostics.
+
+Dry-plan command:
+
+```powershell
+python -m hydromodpy run examples\projects\10_testbed_workflow\boussinesq\natural_geology_k\natural_10km2_mf6_bouss_testbed.toml
+```
+
+HTML synthesis command:
+
+```powershell
+python examples\projects\10_testbed_workflow\reporting\generate_testbed_web_report.py `
+  examples\projects\10_testbed_workflow\outputs\boussinesq_natural_10km2_testbed `
+  --title "Boussinesq/MODFLOW6 natural 10km2 catalog testbed"
+```
+
+Generated HTML page:
+
+```text
+examples/projects/10_testbed_workflow/outputs/boussinesq_natural_10km2_testbed/web_synthesis/index.html
+```
+
+The example still uses the repository-local demonstration geology/K table. It
+is structured so replacing that table by a curated BRGM-derived hydraulic
+conductivity reference is a data/config change in the shared simulation base,
+not a change to the testbed loop.

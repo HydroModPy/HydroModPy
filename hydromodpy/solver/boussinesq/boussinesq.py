@@ -22,6 +22,7 @@ The easiest way to read the package is:
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -123,6 +124,7 @@ class Boussinesq(Solver):
         self.mesh: BoussinesqMesh | None = mesh
         self.state: BoussinesqState | None = None
         self.runtime_summary: dict[str, Any] = {}
+        self.last_flow_solve_time_seconds: float | None = None
         self.has_numerical_solution = False
         self.solve_stage = "created"
         self.saturation_excess_regularization_radius = (
@@ -180,11 +182,12 @@ class Boussinesq(Solver):
             return True
 
         self._assert_supported_runtime_subset()
+        self.last_flow_solve_time_seconds = None
         if (
             str(getattr(self.flow, "flow_regime", "transient")).strip().lower()
             == "steady"
         ):
-            success = self._run_steady_runtime()
+            success = self._time_flow_solve(self._run_steady_runtime)
         elif self.time_grid is None:
             return True
         else:
@@ -195,7 +198,7 @@ class Boussinesq(Solver):
                     self.solve_stage = "failed"
                     self.post_processing()
                     return False
-            success = self._run_transient_runtime()
+            success = self._time_flow_solve(self._run_transient_runtime)
 
         self.has_numerical_solution = bool(success)
         self.solve_stage = "solved" if success else "failed"
@@ -205,6 +208,16 @@ class Boussinesq(Solver):
             self.solve_stage = "post_processing_failed"
             raise RuntimeError("Boussinesq post-processing failed") from exc
         return bool(success)
+
+    def _time_flow_solve(self, solve_callable) -> bool:
+        """Run one main flow solve and record its elapsed wall time."""
+        solve_start = time.perf_counter()
+        try:
+            return bool(solve_callable())
+        finally:
+            elapsed = time.perf_counter() - solve_start
+            self.last_flow_solve_time_seconds = elapsed
+            self.runtime_summary["flow_solve_time_seconds"] = float(elapsed)
 
     def post_processing(self, *args, **kwargs):
         """Persist lightweight diagnostics and state histories for inspection."""

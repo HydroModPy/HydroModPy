@@ -66,6 +66,8 @@ class DeriveStep:
             )
             ctx.effective_results_config = results_cfg
             for run in plan.runs:
+                if not run.is_solver_backed:
+                    continue
                 derive_run_outputs(
                     ctx=RunContext(plan=plan, run=run, state=ctx),
                     sim_id=sim_id,

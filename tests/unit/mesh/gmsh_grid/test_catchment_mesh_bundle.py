@@ -394,6 +394,57 @@ def test_export_catchment_mesh_bundle_falls_back_to_node_mean_for_missing_centro
         )
 
 
+def test_export_catchment_mesh_bundle_fills_topography_nodata_from_nearest_cell(
+    tmp_path: Path,
+) -> None:
+    mesh_path = tmp_path / "mesh.msh"
+    _write_ascii_triangle_mesh(mesh_path)
+
+    support = RasterSupport(
+        crs="EPSG:2154",
+        dx=0.5,
+        dy=0.5,
+        xmin=0.0,
+        xmax=1.0,
+        ymin=0.0,
+        ymax=1.0,
+        nrows=2,
+        ncols=2,
+        nodata=-9999.0,
+    )
+    surface = Surface(
+        name="surface_topo",
+        values=np.array([[42.0, -9999.0], [-9999.0, -9999.0]], dtype=float),
+        support=support,
+    )
+    domain_geographic = SimpleNamespace(surface_topo=surface, watershed_box_buff_dem=None)
+
+    bundle_summary = export_catchment_mesh_bundle(
+        mesh_path=mesh_path,
+        domain_geographic=domain_geographic,
+        domain_cfg={
+            "depth_model": {
+                "type": "constant_thickness",
+                "thickness": "7 m",
+            }
+        },
+    )
+
+    loaded = load_catchment_mesh_bundle(bundle_summary["bundle_dir"])
+
+    assert loaded.n_cells == 2
+    for node in loaded.nodes:
+        assert node.z_top is not None
+        assert node.z_bottom is not None
+        assert np.isclose(float(node.z_top), 42.0)
+        assert np.isclose(float(node.z_top) - float(node.z_bottom), 7.0)
+    for cell in loaded.cells:
+        assert cell.z_top_centroid is not None
+        assert cell.z_bottom_centroid is not None
+        assert np.isclose(float(cell.z_top_centroid), 42.0)
+        assert np.isclose(float(cell.z_top_centroid) - float(cell.z_bottom_centroid), 7.0)
+
+
 def test_export_catchment_mesh_bundle_marks_river_edges(tmp_path: Path) -> None:
     mesh_path = tmp_path / "mesh.msh"
     _write_ascii_triangle_mesh(mesh_path)

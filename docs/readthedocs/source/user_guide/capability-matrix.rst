@@ -46,7 +46,8 @@ Workflow coverage
      - Strong
      - Pipeline flags and transport examples need more depth.
    * - Mesh
-     - ``workflow = "mesh"`` / ``Project.build_mesh``
+     - ``workflow = "simulation"`` with ``type = "mesh"`` /
+       ``Project.build_mesh``
      - Strong
      - Strong
      - External mesh-input recipes can be expanded.
@@ -60,8 +61,8 @@ Workflow coverage
      - Good
      - Good
      - More API examples for custom objectives and optimizers would help.
-   * - Batch
-     - ``workflow = "batch"`` / ``Project.batch``
+   * - Regional Lab
+     - ``workflow = "testbed"`` with ``profile = "regional_lab"``
      - Partial
      - Partial
      - Regional production recipes and failure handling need more examples.

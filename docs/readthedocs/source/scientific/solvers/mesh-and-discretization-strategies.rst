@@ -230,11 +230,10 @@ distinguished:
 The second case is not wrong by itself, but it must be understood as a
 parameterization choice rather than as exact geometry preservation.
 
-Why A Dedicated Mesh Workflow Exists
-------------------------------------
+Why Dedicated Mesh Execution Exists
+-----------------------------------
 
-The dedicated mesh workflow is justified scientifically, not only
-operationally.
+Dedicated mesh execution is justified scientifically, not only operationally.
 
 Its main roles are:
 
@@ -244,8 +243,8 @@ Its main roles are:
   discretizations,
 - to perform mesh QA before mixing numerical and physical interpretation.
 
-This is why the mesh workflow should not be described as mere preprocessing.
-It is where one of the most consequential modelling choices becomes explicit.
+This is why mesh execution should not be described as mere preprocessing. It is
+where one of the most consequential modelling choices becomes explicit.
 
 What To Check Before Solving
 ----------------------------

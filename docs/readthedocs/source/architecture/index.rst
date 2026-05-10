@@ -29,7 +29,7 @@ to study.
 
    hydromodpy/
    |-- cli/           Command-line entry point (hmp, hydromodpy aliases)
-   |-- analysis/       Comparison, batch, and capability gallery helpers
+   |-- analysis/       Comparison, testbed, and capability gallery helpers
    |-- calibration/    Optuna engine, objectives, optimizers, evaluators
    |-- core/           Config contracts, workspace anchoring, registry
    |-- data/           Data managers (BRGM, BD TOPAGE, Hub'Eau, SIM2, ...)

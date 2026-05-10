@@ -6,83 +6,25 @@ from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 
-from hydromodpy.analysis.batch.batch_catalog import (
-    _current_platform_tokens,
-    _normalize_platform_token,
-    _normalize_required_field_names,
+from hydromodpy.analysis.catalog import merge_tags, normalize_required_field_names, normalize_text
+from hydromodpy.analysis.testbed.regional_lab_catalog import (
+    current_platform_tokens,
+    normalize_platform_token,
 )
-from hydromodpy.analysis.batch.batch_types import (
-    RegionalLabPlannedCase,
-    RegionalLabSiteRecord,
-    RegionalLabSkippedCase,
-    _merge_tags,
-    _normalize_text,
-)
-from hydromodpy.analysis.batch.config import (
+from hydromodpy.analysis.testbed.regional_lab_config import (
     RegionalLabClusterRuleConfig,
     RegionalLabConfig,
     RegionalLabRecipeConfig,
-    RegionalLabSelectionConfig,
 )
-
-
-def _matches_text_filter(value: str | None, allowed: tuple[str, ...]) -> bool:
-    """Return whether one optional text value matches one allowed-text filter."""
-    if not allowed:
-        return True
-    normalized_value = "" if value is None else value.lower()
-    return normalized_value in {item.lower() for item in allowed}
-
-
-def _site_matches_selection(
-    site: RegionalLabSiteRecord,
-    *,
-    selection: RegionalLabSelectionConfig,
-) -> bool:
-    """Return whether one site matches a set of selection filters."""
-    if not selection.include_disabled and not site.enabled:
-        return False
-    if selection.site_ids and site.site_id.lower() not in {
-        item.lower() for item in selection.site_ids
-    }:
-        return False
-    if not _matches_text_filter(site.cluster_id, selection.cluster_ids):
-        return False
-    if not _matches_text_filter(site.region_id, selection.regions):
-        return False
-    if not _matches_text_filter(site.cluster_family, selection.families):
-        return False
-    if not _matches_text_filter(site.cluster_scale, selection.scales):
-        return False
-    if not _matches_text_filter(site.site_status, selection.statuses):
-        return False
-    if not _matches_text_filter(site.maturity, selection.maturity_levels):
-        return False
-    if selection.tags:
-        site_tags = {item.lower() for item in site.tags}
-        required_tags = {item.lower() for item in selection.tags}
-        if not required_tags.issubset(site_tags):
-            return False
-    return True
-
-
-def filter_sites(
-    sites: Sequence[RegionalLabSiteRecord],
-    *,
-    selection: RegionalLabSelectionConfig,
-) -> list[RegionalLabSiteRecord]:
-    """Filter and stably sort site records."""
-    selected = [site for site in sites if _site_matches_selection(site, selection=selection)]
-    selected.sort(
-        key=lambda site: (
-            "" if site.region_id is None else site.region_id.lower(),
-            "" if site.cluster_id is None else site.cluster_id.lower(),
-            site.site_id.lower(),
-        )
-    )
-    if selection.limit is not None:
-        return selected[: int(selection.limit)]
-    return selected
+from hydromodpy.analysis.testbed.regional_lab_site_selection import (
+    filter_sites,
+    site_matches_selection,
+)
+from hydromodpy.analysis.testbed.regional_lab_types import (
+    RegionalLabPlannedCase,
+    RegionalLabSiteRecord,
+    RegionalLabSkippedCase,
+)
 
 
 def _rule_matches_site(
@@ -91,10 +33,10 @@ def _rule_matches_site(
     rule: RegionalLabClusterRuleConfig,
 ) -> bool:
     """Return whether one cluster-enrichment rule applies to one site."""
-    if not _site_matches_selection(site, selection=rule.selection):
+    if not site_matches_selection(site, selection=rule.selection):
         return False
     for field_name, expected_value in rule.field_equals:
-        actual_value = _normalize_text(site.raw.get(field_name))
+        actual_value = normalize_text(site.raw.get(field_name))
         if (actual_value or "").lower() != expected_value.lower():
             return False
     return True
@@ -145,7 +87,7 @@ def apply_cluster_rules(
                     if rule.set_cluster_scale is not None and can_override_scale
                     else current.cluster_scale
                 ),
-                cluster_tags=_merge_tags(current.cluster_tags, rule.cluster_tags),
+                cluster_tags=merge_tags(current.cluster_tags, rule.cluster_tags),
             )
         enriched_sites.append(current)
     return enriched_sites
@@ -182,11 +124,11 @@ def _evaluate_recipe_site(
     case_id = f"{recipe.id}::{site.site_id}"
     context = site.build_template_context(lab_id=cfg.lab_id, recipe=recipe)
     if recipe.allowed_platforms:
-        current_platforms = _current_platform_tokens()
+        current_platforms = current_platform_tokens()
         allowed_platforms = {
             normalized
             for item in recipe.allowed_platforms
-            if (normalized := _normalize_platform_token(item)) is not None
+            if (normalized := normalize_platform_token(item)) is not None
         }
         if allowed_platforms and current_platforms.isdisjoint(allowed_platforms):
             return None, RegionalLabSkippedCase(
@@ -204,7 +146,7 @@ def _evaluate_recipe_site(
                 missing_fields=(),
                 config_path=None,
             )
-    missing_fields = _normalize_required_field_names(
+    missing_fields = normalize_required_field_names(
         context,
         field_names=recipe.required_fields,
     )
@@ -286,28 +228,3 @@ def build_regional_lab_plan(
     if not planned_cases and not skipped_cases:
         raise ValueError("regional_lab did not expand any runnable or explainable case")
     return selected_sites, planned_cases, skipped_cases
-
-
-def build_run_command(
-    case: RegionalLabPlannedCase,
-    *,
-    python_executable: Path,
-) -> list[str]:
-    """Build one child launcher command."""
-    if case.launcher == "simulation":
-        return [
-            str(python_executable),
-            "-m",
-            "launchers",
-            "simulation",
-            str(case.config_path),
-        ]
-    if case.launcher == "comparison":
-        return [
-            str(python_executable),
-            "-m",
-            "hydromodpy",
-            "run",
-            str(case.config_path),
-        ]
-    raise ValueError(f"Unsupported regional-lab launcher: {case.launcher}")

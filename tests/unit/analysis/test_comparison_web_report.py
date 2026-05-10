@@ -136,6 +136,48 @@ value = "0.2 m2/s"
     assert "drainage de surface actif sur le toit, conductance 0.2 m2/s" in text
 
 
+def test_web_report_includes_numerical_closure_section(tmp_path: Path) -> None:
+    root = tmp_path / "comparison"
+    root.mkdir()
+    _write_csv(
+        root / "numerical_closure_summary.csv",
+        [
+            {
+                "simulation_id": "mf6_ref",
+                "solver": "modflow6",
+                "n_periods": "2",
+                "max_abs_closure_m3_s": "0.001",
+                "max_abs_closure_mm_d": "0.0002",
+                "relative_closure_error_p95": "0.0005",
+                "diagnostic": "OK",
+            },
+            {
+                "simulation_id": "bouss_candidate",
+                "solver": "boussinesq",
+                "n_periods": "2",
+                "max_abs_closure_m3_s": "0.02",
+                "max_abs_closure_mm_d": "0.004",
+                "relative_closure_error_p95": "0.006",
+                "diagnostic": "WARN",
+            },
+        ],
+    )
+
+    path = write_comparison_web_report(
+        comparison_root=root,
+        manifest={
+            "comparison_id": "closure_demo",
+            "reference_simulation": "mf6_ref",
+            "simulations": [],
+        },
+    )
+
+    text = path.read_text(encoding="utf-8")
+    assert "Precision de resolution" in text
+    assert "bouss_candidate" in text
+    assert "erreur rel. p95" in text
+
+
 def test_synthetic_web_report_documents_disabled_boussinesq_drainage(
     tmp_path: Path,
 ) -> None:

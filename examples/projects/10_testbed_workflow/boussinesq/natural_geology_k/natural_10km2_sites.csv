@@ -1,0 +1,9 @@
+site_id,site_label,region_id,cluster_id,site_group,x_outlet,y_outlet,target_area_km2,tags,enabled
+site_01,Site 01,armorican_massif,natural_10km2_catalog,small,131189.100,6833784.400,10.0,natural_10km2;comparison;boussinesq;modflow6,true
+site_02,Site 02,armorican_massif,natural_10km2_catalog,small,142435.200,6837977.100,10.0,natural_10km2;comparison;boussinesq;modflow6,true
+site_03,Site 03,armorican_massif,natural_10km2_catalog,small,153077.000,6832394.300,10.0,natural_10km2;comparison;boussinesq;modflow6,true
+site_04,Site 04,armorican_massif,natural_10km2_catalog,small,162427.700,6839998.400,10.0,natural_10km2;comparison;boussinesq;modflow6,true
+site_05,Site 05,armorican_massif,natural_10km2_catalog,medium,132962.900,6845656.100,10.0,natural_10km2;comparison;boussinesq;modflow6,true
+site_06,Site 06,armorican_massif,natural_10km2_catalog,medium,146274.500,6849349.000,10.0,natural_10km2;comparison;boussinesq;modflow6,true
+site_07,Site 07,armorican_massif,natural_10km2_catalog,medium,158140.700,6851240.500,10.0,natural_10km2;comparison;boussinesq;modflow6,true
+site_08,Site 08,armorican_massif,natural_10km2_catalog,medium,164915.000,6861154.300,10.0,natural_10km2;comparison;boussinesq;modflow6,true

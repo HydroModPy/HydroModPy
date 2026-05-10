@@ -8,12 +8,28 @@ from collections.abc import Iterable
 from typing import Any
 
 import numpy as np
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 
 _TITLE_FONT_SIZE = 16
 _PANEL_TITLE_FONT_SIZE = 13
 _LABEL_FONT_SIZE = 12
 _TICK_FONT_SIZE = 11
 _LEGEND_FONT_SIZE = 12
+
+
+def _format_two_significant(value: float) -> str:
+    """Compact numeric label with two significant digits for axes and colorbars."""
+    numeric = float(value)
+    if not math.isfinite(numeric):
+        return ""
+    if math.isclose(numeric, 0.0, abs_tol=1e-12):
+        return "0"
+    abs_value = abs(numeric)
+    if 1e-3 <= abs_value < 1e4:
+        decimals = max(0, 1 - int(math.floor(math.log10(abs_value))))
+        text = f"{numeric:.{decimals}f}"
+        return text.rstrip("0").rstrip(".") if "." in text else text
+    return f"{numeric:.2g}"
 
 
 def _slug(value: str) -> str:
@@ -45,13 +61,34 @@ def _simulation_panel_title(*, simulation_id: str, simulation_label: str, solver
 
 
 def _style_map_axes(ax: Any) -> None:
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_xlabel("")
-    ax.set_ylabel("")
+    x_min, x_max = sorted(float(value) for value in ax.get_xlim())
+    y_min, y_max = sorted(float(value) for value in ax.get_ylim())
+    span = max(abs(x_max - x_min), abs(y_max - y_min))
+    if math.isfinite(span) and span >= 1000.0:
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.xaxis.set_major_formatter(
+            FuncFormatter(lambda value, _pos: _format_two_significant((value - x_min) / 1000.0))
+        )
+        ax.yaxis.set_major_formatter(
+            FuncFormatter(lambda value, _pos: _format_two_significant((value - y_min) / 1000.0))
+        )
+        ax.set_xlabel("x relative [km]", fontsize=_LABEL_FONT_SIZE)
+        ax.set_ylabel("y relative [km]", fontsize=_LABEL_FONT_SIZE)
+    else:
+        ax.set_xlabel("x", fontsize=_LABEL_FONT_SIZE)
+        ax.set_ylabel("y", fontsize=_LABEL_FONT_SIZE)
+    ax.tick_params(labelsize=_TICK_FONT_SIZE)
     for spine in ax.spines.values():
         spine.set_linewidth(0.6)
         spine.set_color("#9ca3af")
+
+
+def _style_colorbar(colorbar: Any, *, nbins: int = 5) -> None:
+    colorbar.locator = MaxNLocator(nbins=nbins)
+    colorbar.formatter = FuncFormatter(lambda value, _pos: _format_two_significant(value))
+    colorbar.update_ticks()
+    colorbar.ax.tick_params(labelsize=_TICK_FONT_SIZE)
 
 
 def _legend_ncols(n_items: int) -> int:

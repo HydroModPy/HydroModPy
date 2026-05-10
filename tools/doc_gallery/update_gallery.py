@@ -861,7 +861,7 @@ def _build_unavailable_case_summary(
             "paragraphs": [
                 (
                     "This local checkout cannot fully rebuild the original gallery artefacts for "
-                    "this case because one or more legacy source files are not present."
+                    "this case because one or more source files are not present."
                 ),
                 (
                     "The page is still generated so that the capability-gallery structure, cross-links, "
@@ -1463,7 +1463,7 @@ def _sanitize_regional_lab_artifact_payload(payload: Any) -> Any:
 
 
 def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
-    from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
+    from hydromodpy.analysis.testbed.regional_lab import RegionalLabProfileLauncher
 
     config_path_relative = str(spec.metadata["regional_lab_config_path"])
     config_path = _repo_path(config_path_relative)
@@ -1479,7 +1479,7 @@ def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dic
         )
     with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_regional_lab_") as temp_dir:
         output_root = Path(temp_dir) / "regional_lab_outputs"
-        launcher = RegionalLabLauncher(config_path)
+        launcher = RegionalLabProfileLauncher(config_path)
         launcher.cfg = replace(
             launcher.cfg,
             output_root=output_root,

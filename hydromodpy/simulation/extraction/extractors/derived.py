@@ -77,7 +77,9 @@ def _metadata_epsg(metadata: dict[str, object]) -> int | None:
 DERIVED_VARIABLES = {
     "seepage_areas": True,
     "groundwater_flux": False,
+    "release_flux": False,
     "accumulation_flux": False,
+    "release_accumulation_flux": False,
     "outflow_drain": False,
     "concentration_seepage": False,
     "mass_seepage": False,
@@ -124,8 +126,14 @@ def compute_derived(
     if flags.get("groundwater_flux"):
         _compute_groundwater_flux(sim_id, store, n_timesteps, n_layers, n_cells)
 
+    if flags.get("release_flux") or flags.get("release_accumulation_flux"):
+        _compute_release_flux(sim_id, store, n_timesteps, n_cells)
+
     if flags.get("accumulation_flux"):
         _compute_accumulation_flux(sim_id, store, n_timesteps, n_cells)
+
+    if flags.get("release_accumulation_flux"):
+        _compute_release_accumulation_flux(sim_id, store, n_timesteps, n_cells)
 
     if flags.get("outflow_drain"):
         _compute_outflow_drain(sim_id, store, n_timesteps, n_cells)
@@ -146,9 +154,11 @@ def _compute_seepage_mask(
     n_timesteps: int,
     n_cells: int,
 ) -> None:
-    """Seepage mask = cells where watertable >= surface elevation.
+    """Seepage mask from explicit surface excess or geometric saturation.
 
-    Requires both ``watertable_elevation`` and ``z_interfaces``.
+    Boussinesq can persist ``budget/surface_excess`` as the explicit
+    surface-release signal. When present, that field is the canonical seepage
+    source; otherwise MODFLOW-style runs use ``watertable >= surface_top``.
     """
     with _zarr_root(store, sim_id) as grp:
         if "mesh" not in grp:
@@ -164,15 +174,24 @@ def _compute_seepage_mask(
         else:
             logger.debug("No surface elevation data, skipping seepage_mask for sim %s", sim_id)
             return
+        budget_grp = grp.get("budget")
+        surface_excess_stack = None
+        if budget_grp is not None and "surface_excess" in budget_grp:
+            surface_excess_stack = np.asarray(budget_grp["surface_excess"][:], dtype="float64")
 
     for t in range(n_timesteps):
-        try:
-            wt = store.query_field(sim_id, "watertable_elevation", t)
-        except KeyError:
-            logger.debug("watertable_elevation missing at t=%d, skipping seepage", t)
-            return
+        if surface_excess_stack is not None:
+            seepage = (_positive_cell_flux(surface_excess_stack[t], n_cells=n_cells) > 0.0).astype(
+                "float64"
+            )
+        else:
+            try:
+                wt = store.query_field(sim_id, "watertable_elevation", t)
+            except KeyError:
+                logger.debug("watertable_elevation missing at t=%d, skipping seepage", t)
+                return
 
-        seepage = (wt >= top_elev).astype("float64")
+            seepage = (wt >= top_elev).astype("float64")
         store.write_field(
             sim_id,
             "seepage_mask",
@@ -239,97 +258,292 @@ def _compute_groundwater_flux(
     logger.debug("Derived groundwater_flux for sim %s", sim_id)
 
 
+def _drain_outflow_stack(
+    sim_id: str,
+    store: Any,
+    n_timesteps: int,
+    n_cells: int,
+) -> np.ndarray:
+    """Read the positive drain outflow as a ``time x cell`` stack."""
+    with _zarr_root(store, sim_id) as grp:
+        budget_grp = grp.get("budget")
+        if budget_grp is None:
+            raise KeyError("No budget fields")
+
+        drn_key = find_drain_budget_key(budget_grp)
+        if drn_key is None:
+            raise KeyError("No DRN budget field")
+
+        if int(n_timesteps) <= 0:
+            return np.empty((0, int(n_cells)), dtype="float64")
+        return np.stack(
+            [
+                drain_budget_to_positive_outflow(budget_grp[drn_key][t], n_cells=n_cells)
+                for t in range(n_timesteps)
+            ]
+        ).astype("float64", copy=False)
+
+
 def _compute_accumulation_flux(
     sim_id: str,
     store: Any,
     n_timesteps: int,
     n_cells: int,
 ) -> None:
-    """Drain flux routed on the drainage network.
+    """Route positive drain outflow downstream."""
+    try:
+        drain_stack = _drain_outflow_stack(sim_id, store, n_timesteps, n_cells)
+    except KeyError as exc:
+        logger.debug("%s, skipping accumulation_flux for sim %s", exc, sim_id)
+        return
 
-    Tries to route via whitebox d8_mass_flux using the geographic fill DEM
-    from the store (produces a connected stream network). Falls back to
-    local positive drain outflow if routing metadata is unavailable.
-    """
+    _route_cell_flux_stack_with_fallback(
+        sim_id,
+        store,
+        drain_stack,
+        "accumulation_flux",
+        n_timesteps,
+        n_cells,
+        local_label="local drain outflow",
+    )
+
+
+def _positive_cell_flux(component_field: Any, *, n_cells: int) -> np.ndarray:
+    """Return positive per-cell volumetric outflow from a budget-like field."""
+    field = np.asarray(component_field, dtype=float)
+    if field.size == 0:
+        return np.zeros(int(n_cells), dtype="float64")
+    if field.size % int(n_cells) == 0:
+        values = field.reshape(-1, int(n_cells))
+    elif field.ndim == 1:
+        values = field.reshape(1, -1)
+    else:
+        values = field.reshape(field.shape[0], -1)
+    if values.shape[-1] != int(n_cells):
+        raise ValueError(
+            f"Budget component has {values.shape[-1]} cells after reshape; expected {n_cells}."
+        )
+    finite = np.isfinite(values) & (values > -9000.0)
+    positive = np.where(finite, np.maximum(values, 0.0), 0.0)
+    return positive.sum(axis=0).astype("float64", copy=False)
+
+
+def _release_flux_stack(
+    sim_id: str,
+    store: Any,
+    n_timesteps: int,
+    n_cells: int,
+) -> np.ndarray:
+    """Read drain plus surface-excess outflow as a solver-neutral stack."""
     with _zarr_root(store, sim_id) as grp:
         budget_grp = grp.get("budget")
         if budget_grp is None:
-            logger.debug("No budget fields, skipping accumulation_flux for sim %s", sim_id)
-            return
+            raise KeyError("No budget fields")
 
         drn_key = find_drain_budget_key(budget_grp)
-        if drn_key is None:
-            logger.debug("No DRN budget field for accumulation_flux, sim %s", sim_id)
-            return
+        has_surface_excess = "surface_excess" in budget_grp
+        if drn_key is None and not has_surface_excess:
+            raise KeyError("No drain or surface_excess budget field")
 
-        try:
-            _accumulation_flux_routed(
-                sim_id,
-                store,
-                budget_grp,
-                drn_key,
-                n_timesteps,
-                n_cells,
-            )
-            logger.debug("Derived accumulation_flux (routed) for sim %s", sim_id)
-            return
-        except BaseException as exc:
-            if isinstance(exc, (KeyboardInterrupt, SystemExit, GeneratorExit)):
-                raise
-            logger.debug(
-                "Whitebox routing unavailable for sim %s, trying mesh routing",
-                sim_id,
-                exc_info=True,
-            )
-            try:
-                _accumulation_flux_mesh_graph(
-                    sim_id,
-                    store,
-                    budget_grp,
-                    drn_key,
-                    n_timesteps,
-                    n_cells,
-                )
-                logger.debug("Derived accumulation_flux (mesh graph) for sim %s", sim_id)
-                return
-            except BaseException as graph_exc:
-                if isinstance(graph_exc, (KeyboardInterrupt, SystemExit, GeneratorExit)):
-                    raise
-                logger.debug(
-                    "Mesh routing unavailable for sim %s, using local drain outflow",
-                    sim_id,
-                    exc_info=True,
-                )
-
+        frames: list[np.ndarray] = []
         for t in range(n_timesteps):
-            drn = budget_grp[drn_key][t]
-            flux = drain_budget_to_positive_outflow(drn, n_cells=n_cells)
-            store.write_field(
-                sim_id,
-                "accumulation_flux",
-                t,
-                flux.astype("float64"),
-                n_timesteps=n_timesteps if t == 0 else None,
-                subgroup="derived",
-            )
+            release = np.zeros(int(n_cells), dtype="float64")
+            if drn_key is not None:
+                release += drain_budget_to_positive_outflow(budget_grp[drn_key][t], n_cells=n_cells)
+            if has_surface_excess:
+                release += _positive_cell_flux(budget_grp["surface_excess"][t], n_cells=n_cells)
+            frames.append(release)
 
-    logger.debug("Derived accumulation_flux (local outflow) for sim %s", sim_id)
+    if not frames:
+        return np.empty((0, int(n_cells)), dtype="float64")
+    return np.stack(frames).astype("float64", copy=False)
 
 
-def _accumulation_flux_routed(
+def _compute_release_flux(
     sim_id: str,
     store: Any,
-    budget_grp: Any,
-    drn_key: str,
     n_timesteps: int,
     n_cells: int,
 ) -> None:
-    """Route drain outflow downstream via whitebox d8_mass_flux.
+    """Total positive groundwater release flux per cell.
 
-    Uses ``mesh/surface_top`` from the simulation store (at the solver
-    grid resolution) rather than the geographic fill DEM, so that routing
-    works even when the MODFLOW grid is resampled to a different shape.
+    ``release_flux`` is a solver-neutral postprocessing field. It combines
+    positive drain outflow and positive saturation/surface-excess outflow when
+    those budget components are present. The components are intentionally not
+    distinguished in the resulting diagnostic field.
     """
+    try:
+        release_stack = _release_flux_stack(sim_id, store, n_timesteps, n_cells)
+    except KeyError as exc:
+        logger.debug("%s, skipping release_flux for sim %s", exc, sim_id)
+        return
+
+    _write_derived_stack(
+        sim_id,
+        store,
+        "release_flux",
+        release_stack,
+        n_timesteps,
+        n_cells,
+    )
+    logger.debug("Derived release_flux for sim %s", sim_id)
+
+
+def _read_derived_stack(
+    store: Any,
+    sim_id: str,
+    variable: str,
+    *,
+    n_timesteps: int,
+    n_cells: int,
+) -> np.ndarray:
+    """Read one derived time-face stack directly from the Zarr store."""
+    with _zarr_root(store, sim_id) as grp:
+        derived = grp.get("derived")
+        if derived is None or variable not in derived:
+            raise KeyError(f"Missing derived/{variable}")
+        stack = np.asarray(derived[variable][:], dtype="float64")
+    if stack.ndim == 1:
+        stack = stack.reshape(1, -1)
+    stack = stack.reshape(stack.shape[0], -1)
+    if stack.shape[0] < int(n_timesteps):
+        raise ValueError(f"derived/{variable} has {stack.shape[0]} timesteps, expected {n_timesteps}.")
+    if stack.shape[1] != int(n_cells):
+        raise ValueError(f"derived/{variable} has {stack.shape[1]} cells, expected {n_cells}.")
+    return stack[:n_timesteps]
+
+
+def _write_derived_stack(
+    sim_id: str,
+    store: Any,
+    variable: str,
+    stack: np.ndarray,
+    n_timesteps: int,
+    n_cells: int,
+) -> None:
+    """Write a validated ``time x cell`` stack to ``derived/<variable>``."""
+    values = np.asarray(stack, dtype="float64")
+    if values.ndim == 1:
+        values = values.reshape(1, -1)
+    values = values.reshape(values.shape[0], -1)
+    if values.shape[0] < int(n_timesteps):
+        raise ValueError(f"{variable} has {values.shape[0]} timesteps, expected {n_timesteps}.")
+    if values.shape[1] != int(n_cells):
+        raise ValueError(f"{variable} has {values.shape[1]} cells, expected {n_cells}.")
+
+    for t in range(n_timesteps):
+        field = np.maximum(values[t], 0.0)
+        field = np.where(np.isfinite(field), field, 0.0).astype("float64", copy=False)
+        store.write_field(
+            sim_id,
+            variable,
+            t,
+            field,
+            n_timesteps=n_timesteps if t == 0 else None,
+            subgroup="derived",
+        )
+
+
+def _route_cell_flux_stack_with_fallback(
+    sim_id: str,
+    store: Any,
+    local_stack: np.ndarray,
+    output_variable: str,
+    n_timesteps: int,
+    n_cells: int,
+    *,
+    local_label: str,
+) -> None:
+    """Route a positive cell-flux stack, falling back to the local field."""
+    try:
+        _accumulate_cell_stack_raster_d8(
+            sim_id,
+            store,
+            local_stack,
+            output_variable,
+            n_timesteps,
+            n_cells,
+        )
+        logger.debug("Derived %s (raster D8 routed) for sim %s", output_variable, sim_id)
+        return
+    except Exception:
+        logger.debug(
+            "Raster D8 routing unavailable for %s on sim %s, trying mesh graph routing",
+            output_variable,
+            sim_id,
+            exc_info=True,
+        )
+
+    try:
+        _accumulate_cell_stack_mesh_graph(
+            sim_id,
+            store,
+            local_stack,
+            output_variable,
+            n_timesteps,
+            n_cells,
+        )
+        logger.debug("Derived %s (mesh graph routed) for sim %s", output_variable, sim_id)
+        return
+    except Exception:
+        logger.debug(
+            "Mesh graph routing unavailable for %s on sim %s, using %s",
+            output_variable,
+            sim_id,
+            local_label,
+            exc_info=True,
+        )
+
+    _write_derived_stack(
+        sim_id,
+        store,
+        output_variable,
+        local_stack,
+        n_timesteps,
+        n_cells,
+    )
+    logger.debug("Derived %s (%s) for sim %s", output_variable, local_label, sim_id)
+
+
+def _compute_release_accumulation_flux(
+    sim_id: str,
+    store: Any,
+    n_timesteps: int,
+    n_cells: int,
+) -> None:
+    """Route ``release_flux`` downstream and persist it as a separate field."""
+    try:
+        release_stack = _read_derived_stack(
+            store,
+            sim_id,
+            "release_flux",
+            n_timesteps=n_timesteps,
+            n_cells=n_cells,
+        )
+    except Exception:
+        logger.debug("Cannot read release_flux for release_accumulation_flux, sim %s", sim_id)
+        return
+
+    _route_cell_flux_stack_with_fallback(
+        sim_id,
+        store,
+        release_stack,
+        "release_accumulation_flux",
+        n_timesteps,
+        n_cells,
+        local_label="local release_flux",
+    )
+
+
+def _accumulate_cell_stack_raster_d8(
+    sim_id: str,
+    store: Any,
+    local_stack: np.ndarray,
+    output_variable: str,
+    n_timesteps: int,
+    n_cells: int,
+) -> None:
+    """Route a positive cell-flux stack downstream via Whitebox D8 mass flux."""
     import tempfile
     from pathlib import Path
 
@@ -337,7 +551,6 @@ def _accumulation_flux_routed(
 
     from hydromodpy.spatial.delineation import get_whitebox_backend
 
-    # Read surface_top from mesh (solver resolution) and infer 2D shape.
     with _zarr_root(store, sim_id) as grp:
         mesh = grp.get("mesh")
         if mesh is None or "surface_top" not in mesh:
@@ -346,7 +559,6 @@ def _accumulation_flux_routed(
         if "face_node_connectivity" in mesh:
             raise ValueError("UGRID mesh routing should use mesh graph routing")
 
-    # Infer 2D grid shape: try geographic metadata first, then assume square.
     geo_meta = store.read_geographic_metadata(sim_id)
     crs_epsg = _metadata_epsg(geo_meta)
     nrow = int(geo_meta.get("nrow", 0))
@@ -354,7 +566,6 @@ def _accumulation_flux_routed(
     if nrow * ncol == n_cells:
         grid_shape = (nrow, ncol)
     else:
-        # Resampled grid - infer from n_cells (square grids or from DuckDB).
         side = int(np.sqrt(n_cells))
         if side * side == n_cells:
             grid_shape = (side, side)
@@ -364,7 +575,6 @@ def _accumulation_flux_routed(
     wb = get_whitebox_backend()
 
     with tempfile.TemporaryDirectory(prefix="hmp_accflux_") as tmp:
-        # Fill surface_top with whitebox to get proper D8 routing.
         dem_path = str(Path(tmp) / "dem.tif")
         fill_path = str(Path(tmp) / "fill.tif")
 
@@ -391,14 +601,14 @@ def _accumulation_flux_routed(
         )
 
         for t in range(n_timesteps):
-            drn = budget_grp[drn_key][t]
-            drain_abs = drain_budget_to_positive_outflow(drn, n_cells=n_cells)
-            drain_2d = drain_abs.reshape(grid_shape)
-            drain_2d[~np.isfinite(drain_2d)] = 0.0
+            local_2d = np.maximum(np.asarray(local_stack[t], dtype="float64"), 0.0).reshape(
+                grid_shape
+            )
+            local_2d[~np.isfinite(local_2d)] = 0.0
 
             load_path = str(Path(tmp) / "load.tif")
             out_path = str(Path(tmp) / "acc.tif")
-            _write_bare_tif(load_path, drain_2d, -99999.0, crs_epsg=crs_epsg)
+            _write_bare_tif(load_path, local_2d, -99999.0, crs_epsg=crs_epsg)
             wb.flow.d8_mass_flux(fill_path, load_path, eff_path, abs_path, out_path)
 
             with rasterio.open(out_path) as src:
@@ -407,7 +617,7 @@ def _accumulation_flux_routed(
 
             store.write_field(
                 sim_id,
-                "accumulation_flux",
+                output_variable,
                 t,
                 acc.ravel(),
                 n_timesteps=n_timesteps if t == 0 else None,
@@ -415,15 +625,15 @@ def _accumulation_flux_routed(
             )
 
 
-def _accumulation_flux_mesh_graph(
+def _accumulate_cell_stack_mesh_graph(
     sim_id: str,
     store: Any,
-    budget_grp: Any,
-    drn_key: str,
+    local_stack: np.ndarray,
+    output_variable: str,
     n_timesteps: int,
     n_cells: int,
 ) -> None:
-    """Route positive drain outflow on a UGRID mesh graph."""
+    """Route a positive cell-flux stack on a UGRID mesh graph."""
     with _zarr_root(store, sim_id) as grp:
         mesh = grp.get("mesh")
         if mesh is None or "surface_top" not in mesh or "face_node_connectivity" not in mesh:
@@ -437,7 +647,7 @@ def _accumulation_flux_mesh_graph(
     inactive = ~active_surface_mask(surface_top)
 
     for t in range(n_timesteps):
-        local = drain_budget_to_positive_outflow(budget_grp[drn_key][t], n_cells=n_cells)
+        local = np.maximum(np.asarray(local_stack[t], dtype="float64").reshape(-1), 0.0)
         accumulation = accumulate_downhill_on_mesh(
             local,
             surface_top,
@@ -447,7 +657,7 @@ def _accumulation_flux_mesh_graph(
         )
         store.write_field(
             sim_id,
-            "accumulation_flux",
+            output_variable,
             t,
             accumulation.astype("float64"),
             n_timesteps=n_timesteps if t == 0 else None,
@@ -462,29 +672,13 @@ def _compute_outflow_drain(
     n_cells: int,
 ) -> None:
     """Positive per-cell drain outflow summed over layers."""
-    with _zarr_root(store, sim_id) as grp:
-        budget_grp = grp.get("budget")
-        if budget_grp is None:
-            logger.debug("No budget fields, skipping outflow_drain for sim %s", sim_id)
-            return
+    try:
+        drain_stack = _drain_outflow_stack(sim_id, store, n_timesteps, n_cells)
+    except KeyError as exc:
+        logger.debug("%s, skipping outflow_drain for sim %s", exc, sim_id)
+        return
 
-        drn_key = find_drain_budget_key(budget_grp)
-        if drn_key is None:
-            logger.debug("No DRN budget field for outflow_drain, sim %s", sim_id)
-            return
-
-        for t in range(n_timesteps):
-            drn = budget_grp[drn_key][t]
-            flux = drain_budget_to_positive_outflow(drn, n_cells=n_cells)
-            store.write_field(
-                sim_id,
-                "outflow_drain",
-                t,
-                flux.astype("float64"),
-                n_timesteps=n_timesteps if t == 0 else None,
-                subgroup="derived",
-            )
-
+    _write_derived_stack(sim_id, store, "outflow_drain", drain_stack, n_timesteps, n_cells)
     logger.debug("Derived outflow_drain for sim %s", sim_id)
 
 

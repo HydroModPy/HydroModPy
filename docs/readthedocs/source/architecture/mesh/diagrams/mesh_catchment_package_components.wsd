@@ -3,7 +3,7 @@ title MeshCatchment Package Components
 left to right direction
 
 package "Public entry points" {
-  component "hmp run mesh.toml\nworkflow = 'mesh'" as MainCli
+  component "hmp.mesh(mesh.toml)\nstandalone launcher" as MainCli
   component "Project.build_mesh()\npython facade" as Facade
 }
 

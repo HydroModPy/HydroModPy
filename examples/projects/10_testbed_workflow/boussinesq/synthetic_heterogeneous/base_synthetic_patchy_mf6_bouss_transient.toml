@@ -51,7 +51,7 @@ crs = "EPSG:2154"
 
 [geographic.synthetic.topography]
 kind = "linear"
-base_elevation = 80.0
+base_elevation = 20.0
 right_to_left_amplitude = 20.0
 
 [domain]

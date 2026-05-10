@@ -77,9 +77,9 @@ Source Pointers
 - ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_recipe_summary.csv``
 - ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_cluster_summary.csv``
 - ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_case_matrix.csv``
-- ``hydromodpy/analysis/batch/__init__.py``
-- ``hydromodpy/analysis/batch/config.py``
-- ``hydromodpy/analysis/batch/runtime.py``
+- ``hydromodpy/analysis/testbed/__init__.py``
+- ``hydromodpy/analysis/testbed/regional_lab_config.py``
+- ``hydromodpy/analysis/testbed/regional_lab.py``
 
 Artifacts
 ---------

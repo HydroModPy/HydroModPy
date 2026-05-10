@@ -40,7 +40,7 @@ def test_natural_mesh_transient_pulse_mf6_boussinesq_intercomparison_regression(
         limits={
             metric_key(
                 simulation_id="bouss_candidate",
-                observable="head_map_initial",
+                observable="head_map_first_computed",
             ): {
                 "rmse": 0.001,
                 "max_abs_error": 0.001,

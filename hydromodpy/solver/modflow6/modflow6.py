@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import os
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -139,6 +140,7 @@ class Modflow6(Solver):
         self.flow = None
         self.domain = None
         self.flow_regime: str | None = None
+        self.last_flow_solve_time_seconds: float | None = None
         self.prob_cells = 0
 
         self.full_path = os.path.join(model_folder, model_name)
@@ -609,8 +611,13 @@ class Modflow6(Solver):
             self.ic.write()
 
         success_model = False
+        self.last_flow_solve_time_seconds = None
         if options.run_model:
-            success_model, _ = self.sim.run_simulation(silent=not options.verbose)
+            solve_start = time.perf_counter()
+            try:
+                success_model, _ = self.sim.run_simulation(silent=not options.verbose)
+            finally:
+                self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
         return success_model
 
     @staticmethod

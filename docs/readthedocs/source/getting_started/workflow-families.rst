@@ -45,10 +45,11 @@ Quick Map
      - Run parameter estimation against one or several observables
      - ``examples/projects/01_calibration/project.toml``
      - :doc:`../scientific/calibration/index`
-   * - ``batch``
-     - Launch a multi-site or campaign-style execution over several cases
-     - no polished public example yet
-     - :doc:`../architecture/index`
+   * - ``testbed`` / ``regional_lab``
+     - Launch controlled variants or regional campaign-style execution over
+       several cases
+     - ``examples/projects/10_testbed_workflow/mesh_resolution_testbed.toml``
+     - :doc:`../user_guide/workflows/testbed`
    * - ``comparison``
      - Compare several child simulations built from one shared physical base
        case
@@ -135,22 +136,24 @@ Current best public anchors:
 - :doc:`simulation-walkthrough`
 - :doc:`../architecture/simulation/toml-to-solver-walkthrough`
 
-Mesh Workflow
-^^^^^^^^^^^^^
+Mesh Execution
+^^^^^^^^^^^^^^
 
-This workflow deserves its own explicit public narrative because it is not
-just a preprocessing convenience. It is where discretization choices become
+Mesh execution deserves its own explicit public narrative even though it is now
+expressed as a ``simulation`` process or as a ``testbed`` subject rather than
+as a separate ``hmp run`` workflow. It is where discretization choices become
 visible and testable.
 
 It should explain:
 
-- why a mesh is generated separately from the solver in some workflows,
+- why a mesh can be generated separately from the solver in some runs,
 - how structured and catchment-conformal meshes differ,
 - which artifacts are exported for reuse,
 - which mesh diagnostics matter before any physical interpretation.
 
-Today, the code clearly exposes the workflow, but the public example path is
-still thinner than for ``overview`` or ``simulation``.
+Today, the code exposes both embedded simulation meshing and the lower-level
+standalone mesh launcher, but the public example path is still thinner than
+for ``overview`` or full solver simulations.
 
 Current best public anchors:
 
@@ -175,21 +178,23 @@ Current best public anchors:
 - :doc:`../scientific/calibration/index`
 - :doc:`../architecture/calibration/index`
 
-Batch Workflow
-^^^^^^^^^^^^^^
+Regional-Lab Profile
+^^^^^^^^^^^^^^^^^^^^
 
-This workflow is important conceptually because HydroModPy was designed for
-repeated deployment across many basins, not only for one-off local runs.
+This testbed profile is important conceptually because HydroModPy was designed
+for repeated deployment across many basins, not only for one-off local runs.
 
-It should eventually document:
+It documents:
 
 - campaign-scale execution,
 - per-site reproducibility,
 - aggregation of outputs across basins,
 - what remains shared versus site-specific.
 
-Current public documentation is still sparse. A dedicated user-facing example
-page is still missing.
+Current public anchors:
+
+- :doc:`../user_guide/workflows/regional_lab`
+- :doc:`../user_guide/workflows/testbed`
 
 Comparison Workflow
 ^^^^^^^^^^^^^^^^^^^
@@ -221,5 +226,5 @@ The highest-value additions after this workflow map would be:
 
 1. one public ``mesh`` walkthrough that starts from a single catchment and
    ends with a reusable mesh bundle,
-2. one public ``batch`` example page so the campaign-scale purpose of
-   HydroModPy is visible outside the code and developer notes.
+2. one public ``regional_lab`` example page with a small real catalog so the
+   campaign-scale purpose of HydroModPy is visible outside developer notes.

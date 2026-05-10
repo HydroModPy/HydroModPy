@@ -38,6 +38,7 @@ class BoussinesqState:
     prescribed_head_history_m_by_cell: np.ndarray | None = None
     drainage_flux_m3_s: np.ndarray | None = None
     drainage_flux_history_m3_s: np.ndarray | None = None
+    residual_history_m3_s: np.ndarray | None = None
     period_lengths_seconds: tuple[float, ...] = ()
     nonlinear_iterations: tuple[int, ...] = ()
     converged_by_period: tuple[bool, ...] = ()
@@ -85,6 +86,7 @@ class BoussinesqState:
             "prescribed_head_history_m_by_cell",
             "drainage_flux_m3_s",
             "drainage_flux_history_m3_s",
+            "residual_history_m3_s",
         }
         for field_name in array_fields:
             value = normalized.get(field_name)
