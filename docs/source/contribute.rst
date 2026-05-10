@@ -2,9 +2,11 @@ Contribute
 ==========
 
 HydroModPy is open to bug reports, new features, documentation work, and
-example notebooks. This page describes the practical steps. The deep
-reference for the configuration system, the data managers, and the TOML
-inheritance rules is kept in ``CONTRIBUTING.md`` at the repository root.
+example notebooks. This page describes the practical steps. The
+:doc:`user_guide/config_reference/index` covers the configuration system
+section by section, :doc:`user_guide/data/index` describes the data
+managers, and :doc:`user_guide/concepts/project-vs-run` explains the TOML
+inheritance contract.
 
 Open an issue
 -------------
@@ -176,11 +178,14 @@ warnings, the changelog is updated, and a tag is pushed.
 Where to look next
 ------------------
 
-- ``CONTRIBUTING.md`` (repository root) holds the deep reference for
-  the CLI subcommands, the workspace layout, the TOML inheritance
-  rules, the data managers, and the Pydantic config-system internals
-  (``ParamLevel``, ``VisibleWhen``, validators, declaring a new config
-  field).
+- :doc:`user_guide/config_reference/index` is the deep reference for
+  every TOML section, with field types, defaults, validators, and the
+  ``ParamLevel`` / ``VisibleWhen`` rules used to declare new fields.
+- :doc:`user_guide/data/index` covers the data managers (variables,
+  providers, cache, custom data format).
+- :doc:`user_guide/concepts/workspace-layout` and
+  :doc:`user_guide/concepts/project-vs-run` document the workspace
+  layout and the TOML inheritance contract.
 - :doc:`architecture/index` documents the package layout and the
   runtime handoff between modules.
 - :doc:`user_guide/driving-hydromodpy` lists the supported user APIs

@@ -14,31 +14,36 @@ BibTeX
 .. code-block:: bibtex
 
    @software{hydromodpy_software,
-     title        = {HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models},
-     author       = {Gauvain, Alexandre and Abherv{\'e}, Ronan and Coche, Antoine and
-                     Le Mesnil, Martin and Roques, Cl{\'e}ment and Bouchez, Camille and
-                     Mar{\c c}ais, Jean and Leray, Sarah and Marti, Eliana and
-                     Figueroa, Rodrigo and Bresciani, Etienne and Vautier, Camille and
-                     Boivin, Bastien and Sallou, June and Bourcier, Johann and
-                     Combemale, Benoit and Longuevergne, Laurent and Aquilina, Luc and
-                     de Dreuzy, Jean-Raynald},
-     year         = {2025},
-     url          = {https://github.com/HydroModPy/HydroModPy},
-     license      = {EPL-2.0}
+     title   = {HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models},
+     author  = {Gauvain, A. and Abherv{\'e}, R. and Boivin, B. and Roques, C. and
+                Le Mesnil, M. and Coche, A. and Babey, T. and Mar{\c c}ais, J. and
+                Bouchez, C. and Leray, S. and Marti, E. and Bresciani, E. and
+                Figueroa, R. and P{\'e}lissier, M. and Guillaumot, L. and
+                Touzeau, T. and Issolah, I. and Maugan, E. and Bagagnan, R. S. and
+                Vautier, C. and Sallou, J. and Bourcier, J. and Combemale, B. and
+                Brunner, P. and Longuevergne, L. and Aquilina, L. and
+                de Dreuzy, J.-R.},
+     year    = {2026},
+     url     = {https://github.com/HydroModPy/HydroModPy},
+     license = {EPL-2.0}
    }
 
-   @article{hydromodpy_paper,
-     title   = {HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models},
-     author  = {Gauvain, Alexandre and Abherv{\'e}, Ronan and Coche, Antoine and
-                Le Mesnil, Martin and Roques, Cl{\'e}ment and Bouchez, Camille and
-                Mar{\c c}ais, Jean and Leray, Sarah and Marti, Eliana and
-                Figueroa, Rodrigo and Bresciani, Etienne and Vautier, Camille and
-                Boivin, Bastien and Sallou, June and Bourcier, Johann and
-                Combemale, Benoit and Longuevergne, Laurent and Aquilina, Luc and
-                de Dreuzy, Jean-Raynald},
-     journal = {Hydrology and Earth System Sciences},
-     year    = {2025},
-     note    = {In preparation}
+   @article{egusphere-2026-868,
+     title   = {Technical note: HydroModPy -- a Python toolbox for deploying catchment-scale shallow groundwater models},
+     author  = {Gauvain, A. and Abherv{\'e}, R. and Boivin, B. and Roques, C. and
+                Le Mesnil, M. and Coche, A. and Babey, T. and Mar{\c c}ais, J. and
+                Bouchez, C. and Leray, S. and Marti, E. and Bresciani, E. and
+                Figueroa, R. and P{\'e}lissier, M. and Guillaumot, L. and
+                Touzeau, T. and Issolah, I. and Maugan, E. and Bagagnan, R. S. and
+                Vautier, C. and Sallou, J. and Bourcier, J. and Combemale, B. and
+                Brunner, P. and Longuevergne, L. and Aquilina, L. and
+                de Dreuzy, J.-R.},
+     journal = {EGUsphere},
+     volume  = {2026},
+     year    = {2026},
+     pages   = {1--31},
+     doi     = {10.5194/egusphere-2026-868},
+     url     = {https://egusphere.copernicus.org/preprints/2026/egusphere-2026-868/}
    }
 
 RIS
@@ -46,29 +51,42 @@ RIS
 
 .. code-block:: text
 
-   TY  - COMP
-   TI  - HydroModPy: a Python toolbox for deploying catchment-scale shallow groundwater models
+   TY  - JOUR
+   TI  - Technical note: HydroModPy – a Python toolbox for deploying catchment-scale shallow groundwater models
    AU  - Gauvain, Alexandre
    AU  - Abhervé, Ronan
-   AU  - Coche, Antoine
-   AU  - Le Mesnil, Martin
-   AU  - Roques, Clément
-   AU  - Bouchez, Camille
-   AU  - Marçais, Jean
-   AU  - Leray, Sarah
-   AU  - Marti, Eliana
-   AU  - Figueroa, Rodrigo
-   AU  - Bresciani, Etienne
-   AU  - Vautier, Camille
    AU  - Boivin, Bastien
+   AU  - Roques, Clément
+   AU  - Le Mesnil, Martin
+   AU  - Coche, Alexandre
+   AU  - Babey, Tristan
+   AU  - Marçais, Jean
+   AU  - Bouchez, Camille
+   AU  - Leray, Sarah
+   AU  - Marti, Etienne
+   AU  - Bresciani, Etienne
+   AU  - Figueroa, Ronny
+   AU  - Pélissier, Mathias
+   AU  - Guillaumot, Luca
+   AU  - Touzeau, Théa
+   AU  - Issolah, Imene
+   AU  - Maugan, Enzo
+   AU  - Bagagnan, Rock S.
+   AU  - Vautier, Camille
    AU  - Sallou, June
-   AU  - Bourcier, Johann
+   AU  - Bourcier, Johan
    AU  - Combemale, Benoit
+   AU  - Brunner, Philip
    AU  - Longuevergne, Laurent
    AU  - Aquilina, Luc
    AU  - de Dreuzy, Jean-Raynald
-   PY  - 2025
-   UR  - https://github.com/HydroModPy/HydroModPy
+   JO  - EGUsphere
+   PY  - 2026
+   VL  - 2026
+   SP  - 1
+   EP  - 31
+   DO  - 10.5194/egusphere-2026-868
+   UR  - https://egusphere.copernicus.org/preprints/2026/egusphere-2026-868/
    ER  -
 
 Plain text
@@ -76,17 +94,25 @@ Plain text
 
 .. code-block:: text
 
-   Gauvain, A., Abhervé, R., Coche, A., Le Mesnil, M., Roques, C., Bouchez, C.,
-   Marçais, J., Leray, S., Marti, E., Figueroa, R., Bresciani, E., Vautier, C.,
-   Boivin, B., Sallou, J., Bourcier, J., Combemale, B., Longuevergne, L.,
-   Aquilina, L., & de Dreuzy, J.-R. (2025). HydroModPy: a Python toolbox for
-   deploying catchment-scale shallow groundwater models. Hydrology and Earth
-   System Sciences. In preparation.
+   Gauvain, A., Abhervé, R., Boivin, B., Roques, C., Le Mesnil, M., Coche, A.,
+   Babey, T., Marçais, J., Bouchez, C., Leray, S., Marti, E., Bresciani, E.,
+   Figueroa, R., Pélissier, M., Guillaumot, L., Touzeau, T., Issolah, I.,
+   Maugan, E., Bagagnan, R. S., Vautier, C., Sallou, J., Bourcier, J.,
+   Combemale, B., Brunner, P., Longuevergne, L., Aquilina, L., & de Dreuzy, J.-R.
+   (2026). Technical note: HydroModPy – a Python toolbox for deploying
+   catchment-scale shallow groundwater models. EGUsphere [preprint], 1–31.
+   https://doi.org/10.5194/egusphere-2026-868
 
 Authors and affiliations
 ------------------------
 
-The companion paper lists the corresponding authors of the toolbox.
+The companion paper lists 27 co-authors across Geosciences Rennes
+(Université de Rennes, CNRS), CHYN Neuchâtel, INRAE, LMD Sorbonne, BRGM,
+Pontificia Universidad Católica de Chile, Universidad de O'Higgins,
+Wageningen University & Research, Université de Pau et des Pays de
+l'Adour, and Inria/IRISA. The complete author list with ORCIDs and
+affiliations is maintained in ``CITATION.cff`` at the repository root.
+
 Contact details for collaboration requests are kept on the
 :doc:`landing page <index>`.
 
