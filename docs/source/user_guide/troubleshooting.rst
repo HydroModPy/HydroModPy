@@ -16,14 +16,12 @@ Configuration parsing
    :icon: alert
 
    **Cause.** The TOML root contains a section name that is not part of
-   the validated set (workspace, geographic, domain, data, flow,
-   transport, simulation, solver, modflownwt, modflow6, display,
-   persistence, analysis, overview, mesh_catchment, calibration,
-   testbed, mesh_input, workflow).
+   the validated ``HydroModPyConfig`` schema. The live list of valid
+   sections is enumerated at :doc:`config_reference/index`.
 
    **Fix.** Rename or remove the offending section. Check spelling and
-   underscores. The full list of valid sections lives at
-   :doc:`config_reference/index`.
+   underscores against the section index, then re-run ``hmp config check
+   <file>.toml``.
 
 .. dropdown:: ``constraints_mode is required``
    :icon: alert
@@ -80,7 +78,7 @@ Solver binaries
    **Cause.** A Boussinesq run requested the ``petsc`` runtime backend
    but PETSc/petsc4py is not installed in the environment.
 
-   **Fix.** Either install PETSc with ``mamba install -c conda-forge
+   **Fix.** Either install PETSc with ``conda install -c conda-forge
    petsc4py``, or set ``[flow] runtime_backend = "scipy_sparse"`` to
    use the pure-Python backend.
 
@@ -128,7 +126,7 @@ Calibration and runtime
    ``cma_es`` but the optional dependencies are not installed.
 
    **Fix.** Run ``pip install -e ".[calibration]"`` or
-   ``mamba install -c conda-forge optuna cma`` and retry.
+   ``conda install -c conda-forge optuna cma`` and retry.
 
 .. dropdown:: ``mode must be one of: family_priority_local_budget, grid_local_budget``
    :icon: alert

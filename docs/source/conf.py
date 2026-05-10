@@ -426,7 +426,7 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = []
+exclude_patterns = ["user_guide/figures_inventory.partial.rst"]
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -607,11 +607,25 @@ def _regenerate_config_reference(app) -> None:
         app.warn(f"Config-reference regeneration failed: {exc}")
 
 
+def _regenerate_figures_inventory(app) -> None:
+    """Regenerate the figures inventory included by user_guide/figures.rst."""
+    try:
+        from tools.doc_figures import generate
+    except Exception as exc:
+        app.warn(f"tools.doc_figures import failed; skipping figures inventory regeneration: {exc}")
+        return
+    try:
+        generate()
+    except Exception as exc:
+        app.warn(f"Figures inventory regeneration failed: {exc}")
+
+
 def setup(app):
     if _PLANTUML_COMMAND is None:
         app.add_directive("uml", _MissingPlantUMLDirective, override=True)
         app.add_directive("plantuml", _MissingPlantUMLDirective, override=True)
     app.connect("builder-inited", _regenerate_config_reference)
+    app.connect("builder-inited", _regenerate_figures_inventory)
     return {
         "parallel_read_safe": True,
         "parallel_write_safe": True,

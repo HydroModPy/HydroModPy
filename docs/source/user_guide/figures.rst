@@ -26,46 +26,14 @@ From the CLI:
 Registered figure names
 -----------------------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 28 28 44
+The catalog below is auto-generated from the
+``hydromodpy.display.list_figures()`` registry. Each entry shows the figure
+name, the title rendered in plots, and the result fields or tables the
+figure reads at render time. Run ``python -m tools.doc_figures`` to refresh
+the partial without rebuilding the rest of the documentation; the Sphinx
+build also regenerates it on every run.
 
-   * - Family
-     - Figure names
-     - Expected result families
-   * - Watershed and network
-     - ``watershed_id_card``, ``hydrographic_network_reference``,
-       ``hydrographic_network_generated``,
-       ``hydrographic_network_comparison``,
-       ``hydrographic_network_reference_missing_only``,
-       ``hydrographic_network_generated_extra_only``,
-       ``simulated_active_network``,
-       ``simulated_active_network_reference_overlay``
-     - Geographic support, observed hydrography, simulated seepage or active
-       stream-network fields.
-   * - Flow maps and sections
-     - ``piezometric_map``, ``recharge_map``, ``seepage_map``,
-       ``difference_map``, ``side_by_side``, ``cross_section``
-     - Mesh or raster support plus persisted scalar fields.
-   * - Time-series diagnostics
-     - ``hydrograph``, ``duration_curve``, ``seasonal_boxplot``,
-       ``recession``, ``ensemble_band``
-     - Observed and simulated time-series records.
-   * - Budgets and balances
-     - ``water_budget``
-     - Persisted budget or mass-balance tables.
-   * - Calibration
-     - ``calibration_convergence``, ``calibration_landscape``,
-       ``calibration_objective_surface``, ``calibration_pairplot``,
-       ``calibration_posterior``, ``calibration_trace``
-     - Calibration session, objective values, candidate parameters, and
-       posterior samples when available.
-   * - Transport and particles
-     - ``concentration_map``, ``particle_tracks``
-     - Persisted concentration fields or pathline outputs.
-   * - Hydrochemistry
-     - ``piper_diagram``, ``schoeller_diagram``, ``stiff_diagram``
-     - Water-quality point samples and chemistry tables.
+.. include:: figures_inventory.partial.rst
 
 Choosing figures in TOML
 ------------------------
