@@ -162,58 +162,22 @@ absent). When a project catalog is present, it also reports result-storage
 drift such as completed catalog rows without Zarr artefacts, orphan
 Zarr/Parquet artefacts, and leftover ``*.parquet.tmp`` files.
 
-8. Run the test suite
+8. Share a simulation
 ---------------------
 
-``hmp test unit`` is the fastest local check. For the full ladder
-(unit, regression, validation, etc.) with role and entry point per
-family, use
-:doc:`../architecture/overview/test-families-and-quality-roles`.
-
-9. Share a simulation
----------------------
-
-Simulation outputs can be exported from a project workspace and imported
-into another workspace when packaged:
+Package one run as a single archive that another workspace can import:
 
 .. code-block:: bash
 
-   hmp export projects/my_basin --sim run_demo --csv --output exports/run_demo
-   hmp export projects/my_basin --sim run_demo --geotiff --resolution 100 --output exports/maps
-   hmp add my_run.hmp                          # import into current dir
-   hmp add my_run.hmp -w /mnt/shared/hmp       # import into a workspace
-   hmp add my_run.hmp --as renamed_run         # rename on import
-   hmp add my_run.hmp --dry-run                # validate without writing
+   hmp export projects/my_basin --sim run_demo --output exports/run_demo
+   hmp add exports/run_demo.hmp
 
-The archive contains the configuration, the inputs, and the results
-together. ``hmp add`` re-materializes them inside the target workspace.
+The archive bundles the configuration, the inputs, and the results.
+``hmp add`` re-materializes them inside the target workspace.
 
-Other commands
---------------
-
-Less common but documented for reference:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 60
-
-   * - Command
-     - Purpose
-   * - ``hmp delete``
-     - Remove a simulation (DuckDB row plus Zarr store).
-   * - ``hmp data``
-     - Inspect or manage custom data artefacts in the workspace.
-   * - ``hmp lock``
-     - Manage the reproducible data lockfile (``hydromodpy.lock``).
-   * - ``hmp manage``
-     - Open a local browser UI for catalog tables, result diagnostics, and
-       selected artefact cleanup or legacy-name normalization.
-   * - ``hmp report``
-     - Render the HTML report for a calibration session.
-   * - ``hmp schema``
-     - Export the JSON Schema and companion files for frontend hooks.
-   * - ``hmp completion``
-     - Emit a shell completion script for bash, zsh, or fish.
+For the full set of commands (``delete``, ``data``, ``lock``, ``manage``,
+``report``, ``schema``, ``completion``, plus every flag of the verbs
+shown above), see :doc:`../user_guide/cli-reference`.
 
 Where to look next
 ------------------
@@ -223,7 +187,7 @@ Where to look next
   variable, and the default ``~/hydromodpy/`` location.
 - :doc:`../user_guide/concepts/project-vs-run` explains the TOML inheritance contract between
   ``project.toml`` and the ``run_*.toml`` variants.
-- :doc:`../user_guide/driving-hydromodpy` lists the seven supported
+- :doc:`../user_guide/workflows/index` lists the seven supported
   user APIs (CLI, TOML, Python, notebook).
 - :doc:`../user_guide/config_reference/index` is the deep reference for
   the configuration system, the workspace catalog schema, and the
