@@ -36,7 +36,7 @@ Core concepts
 
       **Workflow families**
       ^^^
-      Overview, simulation, testbed, calibration, batch, and comparison
+      Overview, simulation, testbed, calibration, and comparison
       workflows.
 
    .. grid-item-card::
@@ -73,8 +73,8 @@ Read the documentation in this order when you want to avoid duplicates:
    and gallery evidence.
 2. :doc:`workflows/index` explains which operation writes to those folders:
    overview for data identity cards, simulation for one persisted run, testbed
-   for controlled variants, calibration for repeated candidate runs, batch for
-   regional campaigns, and comparison for shared-case solver contrasts.
+   for controlled variants and regional campaigns, calibration for repeated
+   candidate runs, and comparison for shared-case solver contrasts.
 3. Topic guides such as :doc:`mesh`, :doc:`comparison`, and :doc:`calibration`
    should only route users to scientific, gallery, and architecture details;
    they should not duplicate the workflow walkthroughs.

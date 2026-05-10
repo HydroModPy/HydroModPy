@@ -71,9 +71,9 @@ Refresh the committed gallery artifacts with:
 Source Pointers
 ---------------
 
-- ``hydromodpy/analysis/batch/__init__.py``
-- ``hydromodpy/analysis/batch/config.py``
-- ``hydromodpy/analysis/batch/runtime.py``
+- ``hydromodpy/analysis/testbed/__init__.py``
+- ``hydromodpy/analysis/testbed/regional_lab_config.py``
+- ``hydromodpy/analysis/testbed/regional_lab.py``
 - ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_plan.json``
 - ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_report.json``
 - ``docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md``

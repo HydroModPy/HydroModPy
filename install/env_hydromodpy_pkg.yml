@@ -33,6 +33,7 @@ dependencies:
   - spyder-kernels
   - spyder
   - xarray
+  - xugrid
   - pyside6
   - pysheds
   - pip

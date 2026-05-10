@@ -89,8 +89,8 @@ def run(config: Any, **kwargs: Any) -> Any:
     -------
     Any
         Workflow result. Simulation workflows usually return a ``Run`` object;
-        overview, mesh, batch, and calibration workflows return their own
-        summary objects.
+        overview, mesh, testbed, comparison, and calibration workflows return
+        their own summary objects.
 
     Examples
     --------
@@ -189,33 +189,6 @@ def overview(config: Any, **kwargs: Any) -> Any:
     return dispatch_workflow(workflow, config_path, **kwargs)
 
 
-def batch(config: Any, **kwargs: Any) -> Any:
-    """Run the regional batch workflow declared by a TOML file.
-
-    Parameters
-    ----------
-    config
-        TOML file containing ``workflow = "batch"``.
-    kwargs
-        Runtime options forwarded to the workflow dispatcher.
-
-    Returns
-    -------
-    Any
-        Batch workflow summary.
-    """
-    from hydromodpy.workflow.dispatch import resolve_workflow
-    from hydromodpy.workflow_dispatch import dispatch_workflow
-
-    config_path = Path(config).expanduser().resolve()
-    workflow = resolve_workflow(
-        config_path,
-        cli_workflow="batch",
-        require_toml_field=True,
-    )
-    return dispatch_workflow(workflow, config_path, **kwargs)
-
-
 def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     """Compare two simulations by id or result object.
 
@@ -260,15 +233,16 @@ def testbed(toml_path: Any) -> Any:
 
 
 def mesh(toml_path: Any) -> dict:
-    """Run the mesh-only workflow from a TOML file.
+    """Run the standalone mesh launcher from a TOML file.
 
-    Mirrors ``hmp run`` for ``workflow = "mesh"`` configs: one call,
-    returns the launcher summary dict.
+    This is a direct API for single mesh artifacts. Public ``hmp run`` configs
+    should model mesh-only work as ``workflow = "simulation"`` with a
+    ``[[simulation.process]]`` block whose ``type`` is ``"mesh"``.
 
     Parameters
     ----------
     toml_path
-        Mesh workflow TOML path.
+        Standalone mesh launcher TOML path.
 
     Returns
     -------

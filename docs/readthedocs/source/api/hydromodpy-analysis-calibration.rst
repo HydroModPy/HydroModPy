@@ -2,7 +2,7 @@ Analysis And Calibration API
 ============================
 
 Generated reference for calibration, objective functions, optimizers,
-comparison, and batch analysis surfaces.
+comparison, and testbed analysis surfaces.
 
 Calibration
 -----------
@@ -38,12 +38,12 @@ Calibration
    ~hydromodpy.calibration.apply_parameter_to_config
    ~hydromodpy.calibration.materialize_candidate
 
-Comparison and batch modules
-----------------------------
+Comparison and testbed modules
+------------------------------
 
 .. autosummary::
    :nosignatures:
    :toctree: generated/analysis-calibration
 
    ~hydromodpy.analysis.comparison
-   ~hydromodpy.analysis.batch
+   ~hydromodpy.analysis.testbed

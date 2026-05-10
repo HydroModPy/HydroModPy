@@ -166,7 +166,12 @@ def run_flow_model(ctx: RunContext, model_modflow, preprocess_options) -> RunExe
             f"See {diagnostics_path} for diagnostics.",
             run_id=ctx.run.id,
         )
+    metrics: dict[str, float] = {}
+    flow_solve_time = getattr(model_modflow, "last_flow_solve_time_seconds", None)
+    if flow_solve_time is not None:
+        metrics["flow_solve_time_seconds"] = float(flow_solve_time)
     return RunExecutionResult(
         primary_model=model_modflow,
         solver_output_dir=Path(model_modflow.full_path),
+        metrics=metrics,
     )

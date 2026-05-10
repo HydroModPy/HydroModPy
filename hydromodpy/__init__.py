@@ -5,7 +5,6 @@ from __future__ import annotations
 import importlib
 
 from hydromodpy._api import (
-    batch,
     calibrate,
     catalog,
     compare_pair,
@@ -39,7 +38,6 @@ _DIRECT_EXPORTS = [
     "calibrate",
     "catalog",
     "overview",
-    "batch",
     "compare_pair",
     "mesh",
     "testbed",

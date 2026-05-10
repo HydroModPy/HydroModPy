@@ -25,13 +25,37 @@ class ComparisonSimulation(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str
-    label: str | None = None
-    enabled: bool = True
-    simulation_config: str | None = None
-    run_folder: str | None = None
-    solver: str | None = None
-    mesh_label: str | None = None
+    id: str = Field(
+        description=(
+            "Stable child simulation identifier inside this comparison. It is used in "
+            "generated file names, run names, metrics, figure labels, and observable "
+            "rows."
+        )
+    )
+    label: str | None = Field(
+        default=None,
+        description="Human-readable label for plots and HTML tables.",
+    )
+    enabled: bool = Field(
+        default=True,
+        description="If False, keep this child declaration but skip it during execution.",
+    )
+    simulation_config: str | None = Field(
+        default=None,
+        description="Path to an already existing simulation TOML to compare.",
+    )
+    run_folder: str | None = Field(
+        default=None,
+        description="Path to an already existing simulation run folder to compare.",
+    )
+    solver: str | None = Field(
+        default=None,
+        description="Solver name used when a child config is generated from the base simulation.",
+    )
+    mesh_label: str | None = Field(
+        default=None,
+        description="Short label describing the mesh provenance for this child.",
+    )
     mesh_mode: Literal[
         "mesh_catchment",
         "mesh_input",
@@ -39,10 +63,17 @@ class ComparisonSimulation(HydroModelBase):
         "structured",
         "unstructured",
         "unknown",
-    ] = "unknown"
+    ] = Field(
+        default="unknown",
+        description="Mesh provenance category used for reporting and audit context.",
+    )
     overlay: dict[str, Any] = Field(
         default_factory=dict,
-        description="Free-form TOML overlay merged into the base simulation config when this child runs.",
+        description=(
+            "Child-specific TOML overlay merged after the shared base simulation "
+            "payload. Use it for solver- or method-specific changes; site-wide "
+            "inputs shared by all methods belong in comparison.base_simulation_overlay."
+        ),
     )
 
     @field_validator("id")
@@ -81,23 +112,98 @@ class ComparisonObservable(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str
-    variable: str
-    source: Literal["disk"] = "disk"
-    simulations: list[str] | None = None
-    support: Literal["point", "outlet", "boundary", "cell_mask", "map"] = "point"
-    anchor_id: str | None = None
-    x: float | None = None
-    y: float | None = None
-    cell_index: int | None = None
-    cell_indices: list[int] | None = None
-    boundary_id: str | None = None
-    allow_domain_proxy: bool = False
-    time: str | int | None = "all"
-    time_window: tuple[str, str] | tuple[float, float] | None = None
-    reducer: str | None = None
-    time_reducer: str | None = None
-    unit: str | None = None
+    name: str = Field(
+        description=(
+            "Stable observable identifier. It becomes the group name used in metrics, "
+            "differences, figures, and HTML sections."
+        )
+    )
+    variable: str = Field(
+        description=(
+            "Result variable to extract from each simulation, for example "
+            "'watertable_elevation', 'head', 'accumulation_flux', or a comparison "
+            "derived variable."
+        )
+    )
+    source: Literal["disk"] = Field(
+        default="disk",
+        description=(
+            "Observable source backend. The current comparison workflow reads persisted "
+            "simulation results from disk."
+        ),
+    )
+    simulations: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional subset of simulation ids for this observable. None means all "
+            "enabled simulations in the comparison."
+        ),
+    )
+    support: Literal["point", "outlet", "boundary", "cell_mask", "map"] = Field(
+        default="point",
+        description=(
+            "Spatial support used to sample the variable: point nearest-cell series, "
+            "outlet aggregate, boundary aggregate, cell-mask aggregate, or full map."
+        ),
+    )
+    anchor_id: str | None = Field(
+        default=None,
+        description="Named XY anchor loaded from comparison.anchors_file.",
+    )
+    x: float | None = Field(
+        default=None,
+        description="X coordinate in the model/project CRS for point or outlet sampling.",
+    )
+    y: float | None = Field(
+        default=None,
+        description="Y coordinate in the model/project CRS for point or outlet sampling.",
+    )
+    cell_index: int | None = Field(
+        default=None,
+        description="Zero-based cell index used when the observable is tied to one cell.",
+    )
+    cell_indices: list[int] | None = Field(
+        default=None,
+        description="Zero-based cell indices used for boundary or cell-mask aggregations.",
+    )
+    boundary_id: str | None = Field(
+        default=None,
+        description="Boundary identifier used when support='boundary'.",
+    )
+    allow_domain_proxy: bool = Field(
+        default=False,
+        description=(
+            "If True, allow a whole-domain proxy when an exact outlet location cannot "
+            "be selected. This should remain explicit because it changes the physical "
+            "meaning of the observable."
+        ),
+    )
+    time: str | int | None = Field(
+        default="all",
+        description=(
+            "Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based "
+            "time index."
+        ),
+    )
+    time_window: tuple[str, str] | tuple[float, float] | None = Field(
+        default=None,
+        description="Optional time window used instead of a single time selector.",
+    )
+    reducer: str | None = Field(
+        default=None,
+        description=(
+            "Spatial reducer. Defaults depend on support: nearest-cell for points, "
+            "sum for outlets/boundaries, and identity for maps."
+        ),
+    )
+    time_reducer: str | None = Field(
+        default=None,
+        description="Optional reducer applied across the selected time dimension.",
+    )
+    unit: str | None = Field(
+        default=None,
+        description="Display and reporting unit for this observable.",
+    )
 
     @field_validator("name", "variable")
     @classmethod
@@ -202,6 +308,15 @@ class ComparisonSection(HydroModelBase):
 
     comparison_id: str | None = None
     base_simulation_config: str | None = None
+    base_simulation_overlay: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Shared TOML overlay applied to the base simulation config before each "
+            "child-specific comparison.simulation.overlay. It carries the physical "
+            "case definition common to all compared simulations, especially in "
+            "catalog-driven testbeds."
+        ),
+    )
     anchors_file: str | None = None
     output_root: str | None = None
     run_simulations: bool = True
@@ -227,6 +342,15 @@ class ComparisonSection(HydroModelBase):
     @classmethod
     def _validate_optional_text(cls, value: object) -> str | None:
         return _clean_optional_text(value)
+
+    @field_validator("base_simulation_overlay")
+    @classmethod
+    def _validate_base_simulation_overlay(cls, value: object) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("comparison.base_simulation_overlay must be a mapping")
+        return dict(value)
 
     @model_validator(mode="after")
     def _validate_non_empty_lists(self) -> ComparisonSection:
@@ -260,11 +384,32 @@ class ComparisonFineRaster(HydroModelBase):
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = False
-    resolution: float | None = None
-    extent_mode: Literal["intersection", "union", "reference"] = "intersection"
-    interpolation: Literal["linear", "nearest"] = "linear"
-    write_geotiff: bool = True
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "If True, interpolate map observables onto a common regular raster before "
+            "computing map differences and figures."
+        ),
+    )
+    resolution: float | None = Field(
+        default=None,
+        description="Target raster resolution in project CRS units, usually metres.",
+    )
+    extent_mode: Literal["intersection", "union", "reference"] = Field(
+        default="intersection",
+        description=(
+            "Common raster extent policy: intersection compares only shared coverage, "
+            "union keeps all coverage, and reference follows the reference simulation."
+        ),
+    )
+    interpolation: Literal["linear", "nearest"] = Field(
+        default="linear",
+        description="Interpolation method used when resampling map observables.",
+    )
+    write_geotiff: bool = Field(
+        default=True,
+        description="If True, write GeoTIFF rasters in addition to CSV/PNG outputs.",
+    )
 
     @field_validator("resolution")
     @classmethod

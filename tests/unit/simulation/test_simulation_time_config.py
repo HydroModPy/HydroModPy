@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from hydromodpy.simulation.planning.config import SimulationConfig
+from hydromodpy.simulation.planning.planner import SimulationPlanner
 
 
 def test_simulation_time_window_parses_from_mapping() -> None:
@@ -153,3 +154,46 @@ def test_simulation_transient_helper_builds_flow_transport_processes() -> None:
     assert [process.id for process in cfg.process] == ["flow_main", "transport_main"]
     assert [process.type for process in cfg.process] == ["flow", "transport"]
     assert cfg.process[1].solvers == ["mt3dms"]
+
+
+def test_simulation_mesh_process_uses_backend_not_solvers() -> None:
+    cfg = SimulationConfig.model_validate(
+        {
+            "name": "mesh-only",
+            "process": [
+                {
+                    "id": "mesh_main",
+                    "type": "mesh",
+                    "backend": "catchment",
+                }
+            ],
+        }
+    )
+
+    process = cfg.process[0]
+    assert process.type == "mesh"
+    assert process.backend == "catchment"
+    assert process.solvers == []
+
+    plan = SimulationPlanner().build(cfg)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].id == "mesh_main::catchment"
+    assert plan.runs[0].process_type == "mesh"
+    assert plan.runs[0].backend == "catchment"
+    assert plan.runs[0].is_solver_backed is False
+
+
+def test_simulation_mesh_process_rejects_solvers() -> None:
+    with pytest.raises(ValueError, match="type='mesh' must use backend"):
+        SimulationConfig.model_validate(
+            {
+                "name": "bad-mesh",
+                "process": [
+                    {
+                        "id": "mesh_main",
+                        "type": "mesh",
+                        "solvers": ["mesh_catchment"],
+                    }
+                ],
+            }
+        )

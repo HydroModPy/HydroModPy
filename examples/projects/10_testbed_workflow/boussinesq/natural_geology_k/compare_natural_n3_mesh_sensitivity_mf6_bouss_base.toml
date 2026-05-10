@@ -1,0 +1,20 @@
+# This N3 comparison base inherits the common MF6/Boussinesq methods,
+# observables and physical simulation base from the N1 comparison template.
+# The N3 testbed rules override the mesh and raster settings per scale and
+# per sensitivity variant.
+base_config = "compare_natural_10km2_mf6_bouss_base.toml"
+
+# Workflow selector: this file remains a reusable solver-comparison template.
+workflow = "comparison"
+
+# Top-level comparison experiment section.
+[comparison]
+# Stable identifier for the reusable N3 mesh-sensitivity comparison base.
+comparison_id = "natural_n3_mesh_sensitivity_mf6_bouss_base"
+# Default output root, overridden by the N3 catalog testbed for each site/mesh variant.
+output_root = "../../outputs/boussinesq_natural_n3_mesh_sensitivity_testbed/comparisons/base"
+
+# Execution settings for child simulations.
+[comparison.execution]
+# N3 includes refined meshes, so keep the per-child timeout conservative.
+timeout_seconds = 7200

@@ -49,7 +49,7 @@ Reference Groups
       **Analysis and calibration**
       ^^^
       Calibration contracts, objectives, optimizers, reports, comparison, and
-      batch analysis entry points.
+      testbed analysis entry points.
 
    .. grid-item-card::
       :class-card: hmp-api-card sd-shadow-sm sd-rounded-3 sd-p-4

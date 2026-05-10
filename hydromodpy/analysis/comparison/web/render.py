@@ -9,9 +9,9 @@ from typing import Any
 from hydromodpy.analysis.comparison.web.context import load_comparison_web_context
 from hydromodpy.analysis.comparison.web.html_utils import safe
 from hydromodpy.analysis.comparison.web.sections import (
-    report_title,
     render_header,
     render_sections,
+    report_title,
 )
 
 

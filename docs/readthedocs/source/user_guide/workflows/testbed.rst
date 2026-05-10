@@ -17,17 +17,51 @@ reports.
 
 The first supported subjects are:
 
-- ``mesh`` through the ``mesh_catchment`` runner;
-- ``flow`` through the ``simulation`` runner.
+- ``mesh`` through the ``simulation`` runner with a ``type = "mesh"``
+  process;
+- ``flow`` through either the ``simulation`` runner or the ``comparison``
+  runner.
+- ``transport`` through the same child-runner contract as flow.
 
 This keeps the testbed detached from simulation internals. A mesh testbed can
 evaluate discretization choices without running a flow solver. A flow testbed
 delegates to ordinary generated ``workflow = "simulation"`` children, but the
-testbed itself only expands variants and gathers evidence.
+testbed itself only expands variants and gathers evidence. A flow testbed can
+also delegate to ordinary generated ``workflow = "comparison"`` children when a
+regional or method campaign contains several pairwise comparison configs.
 
 The implementation lives near the analysis workflows in
 ``hydromodpy/analysis/testbed/``. The package README documents the internal
 contract for maintainers; this page documents the user-facing behavior.
+
+Profiles
+--------
+
+``[testbed].profile`` selects a specialization of the testbed campaign model.
+When omitted, the profile is ``"generic"`` and the file is parsed as the
+variant matrix documented on this page.
+
+.. code-block:: toml
+
+   workflow = "testbed"
+
+   [testbed]
+   profile = "generic"
+
+``profile = "regional_lab"`` delegates to the regional catalog profile. That
+profile exposes the ``[regional_lab]`` section for regional concepts such as
+site catalogs, cluster rules, status/maturity fields, coverage gaps, and
+recipes.
+
+.. code-block:: toml
+
+   workflow = "testbed"
+
+   [testbed]
+   profile = "regional_lab"
+
+   [regional_lab]
+   lab_id = "headwater_campaign"
 
 What This Workflow Is
 ---------------------
@@ -46,7 +80,7 @@ Declare a testbed with:
    output_root = "outputs/mesh_resolution_testbed"
 
    [testbed.runner]
-   type = "mesh_catchment"
+   type = "simulation"
 
    [[testbed.variant]]
    id = "coarse"
@@ -71,9 +105,108 @@ The launcher writes one child TOML per variant under:
 
    <output_root>/_generated_configs/
 
-For mesh subjects, each generated child is delegated to the
-``mesh_catchment`` runner. The testbed does not call the simulation planner
-and does not persist solver runs.
+For mesh subjects, each generated child is a normal
+``workflow = "simulation"`` TOML. If the base config does not already declare
+processes, the testbed materializer injects:
+
+.. code-block:: toml
+
+   [[simulation.process]]
+   id = "mesh_main"
+   type = "mesh"
+   backend = "catchment"
+
+``runner.type = "mesh_catchment"`` is no longer part of the testbed contract.
+Use ``runner.type = "simulation"`` and keep mesh settings in the
+``[mesh_catchment]`` section consumed by the mesh process.
+
+Catalog-Backed Variants
+-----------------------
+
+Variants can also be generated from a CSV or JSONL catalog. This is the common
+campaign model that the ``regional_lab`` profile specializes for regional site
+inventories.
+
+.. code-block:: toml
+
+   [testbed.catalog]
+   path = "variant_catalog.jsonl"
+   format = "jsonl"
+   id_field = "case_id"
+   label_field = "title"
+   axis_field = "scale"
+   tags_field = "tags"
+   path_fields = ["workspace_root"]
+   field_equals = { tier = "smoke" }
+   tags = ["mesh_ready"]
+
+   [[testbed.variant_from_catalog]]
+   required_fields = ["workspace_root", "global_size"]
+
+   [testbed.variant_from_catalog.overlay.workspace]
+   project_root = "{workspace_root}"
+
+   [testbed.variant_from_catalog.overlay.mesh_catchment.zone_meshing]
+   global_size = "{global_size}"
+
+The catalog loader supports CSV and JSONL, optional suffix inference with
+``format = "auto"``, required fields, path fields resolved relative to the
+catalog file, tag filtering, equality filters, and ``enabled`` rows. The
+``variant_from_catalog`` block is an overlay template: placeholders such as
+``{workspace_root}`` and ``{global_size}`` are taken from the selected row.
+Explicit ``[[testbed.variant]]`` blocks and catalog-generated variants can be
+combined as long as variant identifiers remain unique.
+
+Catalog-Backed Comparisons
+--------------------------
+
+The same mechanism can generate one comparison per site. In that case the
+testbed child is a normal ``workflow = "comparison"`` TOML, not a special
+script:
+
+.. code-block:: toml
+
+   [testbed]
+   subject = "flow"
+   base_config = "compare_natural_10km2_mf6_bouss_base.toml"
+
+   [testbed.runner]
+   type = "comparison"
+
+   [testbed.catalog]
+   path = "natural_10km2_sites.csv"
+   id_field = "site_id"
+   label_field = "site_label"
+   tags_field = "tags"
+   tags = ["natural_10km2", "comparison"]
+
+   [[testbed.variant_from_catalog]]
+   id_template = "{site_id}"
+
+   [testbed.variant_from_catalog.overlay.comparison]
+   comparison_id = "{site_id}_natural_10km2_mf6_bouss"
+   output_root = "outputs/comparisons/{site_id}_natural_10km2_mf6_bouss"
+
+   [testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+   x_outlet = "{x_outlet}"
+   y_outlet = "{y_outlet}"
+
+The generated comparison config still delegates to the existing comparison
+launcher. ``comparison.base_simulation_overlay`` carries the site-wide physical
+case shared by all methods in that comparison, while each
+``comparison.simulation.overlay`` keeps method-specific settings such as MF6 IMS
+parameters or the Boussinesq PETSc TS/SNESVI backend.
+
+For comparison testbeds, ``[[testbed.metric]]`` is optional. If no metric block
+is declared, the runner reports the default comparison summary: comparison id,
+audit status, row counts, and numerical-closure diagnostics when available.
+Declare explicit metric blocks only when the campaign needs a custom summary.
+
+The HTML synthesis generated by
+``examples/projects/10_testbed_workflow/reporting/generate_testbed_web_report.py``
+detects this catalog contract from the testbed manifest and adds a
+``Mode catalogue pas a pas`` section with links to the catalog, generated
+configs, and comparison pages.
 
 Flow Example
 ------------
@@ -214,9 +347,11 @@ For mesh studies, ``testbed`` answers:
 
 This means:
 
-- use ``subject = "mesh"`` with ``runner.type = "mesh_catchment"`` for
+- use ``subject = "mesh"`` with ``runner.type = "simulation"`` for
   resolution ladders, constraint sensitivity, conformity studies, and
   robustness checks;
+- describe mesh-only children with ``[[simulation.process]]`` /
+  ``type = "mesh"`` instead of a separate mesh workflow;
 - keep mono-case mesh artifacts as generated evidence inside the testbed output
   tree;
 - use ``flow`` testbeds when the varied axis is solver settings, flow
@@ -281,7 +416,8 @@ Vocabulary
 The canonical terms are:
 
 - ``testbed``: reproducible evidence layer;
-- ``subject``: method domain under test, currently ``mesh`` or ``flow``;
+- ``subject``: method domain under test, currently ``mesh``, ``flow``, or
+  ``transport``;
 - ``axis``: dimension varied by a variant, such as ``resolution`` or
   ``constraints``;
 - ``variant``: one concrete child case;
@@ -293,12 +429,15 @@ Current Limits
 
 The current implementation deliberately supports only:
 
-- ``subject = "mesh"`` with ``runner.type = "mesh_catchment"``;
+- ``subject = "mesh"`` with ``runner.type = "simulation"``;
 - ``subject = "flow"`` with ``runner.type = "simulation"``;
+- ``subject = "flow"`` with ``runner.type = "comparison"``;
+- ``subject = "transport"`` with ``runner.type = "simulation"`` or
+  ``runner.type = "comparison"``;
 - sequential execution.
 
 This is intentional. The workflow establishes the orchestration contract while
-keeping comparison and future transport runners as separate extensions.
+keeping future transport runners as separate extensions.
 
 Implementation Notes
 --------------------

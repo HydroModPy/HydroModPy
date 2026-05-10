@@ -88,6 +88,7 @@ def _resolve_workspace_root_from_config(config_path: Path) -> Path | None:
 def compact_run_metrics(metrics: Mapping[str, Any]) -> dict[str, Any]:
     """Keep only comparison-relevant scalar/list metrics in manifests."""
     keys = (
+        "flow_solve_time_seconds",
         "wall_time_seconds",
         "solvers",
         "success",
@@ -130,6 +131,29 @@ def read_catalog_run_metadata(store: Any, sim_id: str | None) -> dict[str, Any]:
         solvers = [item for item in str(solver).split(",") if item]
         payload["solvers"] = solvers
         metrics["solvers"] = solvers
+    try:
+        metric_rows = conn.execute(
+            """
+            SELECT metric_name, value
+            FROM metrics
+            WHERE sim_id = ?
+              AND variable = 'runtime'
+              AND metric_name IN ('flow_solve_time_seconds')
+            ORDER BY station_id
+            """,
+            [str(sim_id)],
+        ).fetchall()
+    except Exception:
+        metric_rows = []
+    for metric_name, raw_value in metric_rows:
+        if metric_name in metrics:
+            continue
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            continue
+        payload[str(metric_name)] = value
+        metrics[str(metric_name)] = value
     for key, value in (
         ("n_cells", n_cells),
         ("n_layers", n_layers),
@@ -189,9 +213,19 @@ def read_simulation_run_metadata(
                 "runtime_solver_kind",
                 "solve_stage",
                 "last_termination_reason",
+                "flow_solve_time_seconds",
             )
             if key in boussinesq_summary
         }
+        if (
+            "flow_solve_time_seconds" in boussinesq_summary
+            and "flow_solve_time_seconds" not in payload
+        ):
+            flow_time = boussinesq_summary.get("flow_solve_time_seconds")
+            payload["flow_solve_time_seconds"] = flow_time
+            metrics_payload = dict(payload.get("metrics", {}))
+            metrics_payload["flow_solve_time_seconds"] = flow_time
+            payload["metrics"] = compact_run_metrics(metrics_payload)
         for key in ("n_cells", "n_edges", "n_nodes"):
             if key in boussinesq_summary:
                 payload[key] = boussinesq_summary.get(key)

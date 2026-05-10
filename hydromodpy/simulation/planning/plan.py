@@ -19,6 +19,7 @@ and the adapters share a single import source without circular dependencies.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,7 @@ class ProcessRun:
     process_id: str
     process_type: str
     solver: str
+    backend: str | None = None
     # Dependencies refer to concrete run ids (for example "flow_1::modflownwt").
     depends_on: tuple[str, ...] = field(default_factory=tuple)
 
@@ -45,6 +47,11 @@ class ProcessRun:
     def build_id(process_id: str, solver: str) -> str:
         """Canonical run-id format: ``"<process_id>::<solver>"``."""
         return f"{process_id}::{solver}"
+
+    @property
+    def is_solver_backed(self) -> bool:
+        """Return True when this run is delegated to a registered solver adapter."""
+        return self.process_type != "mesh"
 
 
 @dataclass(frozen=True)
@@ -124,7 +131,12 @@ class RunExecutionResult:
     ``solver_output_dir`` is the directory where the solver wrote its raw
     output files (e.g. ``.hds``, ``.cbc``). May be ``None`` for in-memory
     solvers.
+
+    ``metrics`` carries lightweight scalar execution metadata produced by
+    the solver itself. It is intentionally optional so older/custom adapters
+    can keep returning only a model and an output directory.
     """
 
     primary_model: Any
     solver_output_dir: Path | None = None
+    metrics: Mapping[str, Any] = field(default_factory=dict)

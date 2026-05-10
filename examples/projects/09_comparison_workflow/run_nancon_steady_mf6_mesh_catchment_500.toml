@@ -1,0 +1,37 @@
+base_config = "base_nancon_steady_hydrography_mesh_catchment.toml"
+
+workflow = "simulation"
+
+[workspace]
+project_root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_catchment_500"
+root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_catchment_500"
+
+[simulation]
+name = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_catchment_500"
+run_id = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_catchment_500"
+description = "MODFLOW 6 Nancon steady candidate on a generated irregular mesh-catchment grid, target size 500 m."
+on_collision = "replace"
+
+[mesh_catchment.zone_meshing]
+global_size = 500.0
+min_size = 220.0
+max_size = 1100.0
+interface_size = 250.0
+
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf_verbose = false
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.tgrid]
+firstpersteady = true
+
+[modflow6.sgrid.vertical]
+nlay = 1

@@ -460,10 +460,11 @@ d'autres lectures sans risque de corruption.
 Pour les détails (paramètres, objectifs, optimizers, pièges), voir
 [calibration_guide.md](calibration_guide.md).
 
-### 4.3. `batch`
+### 4.3. `testbed` / profil `regional_lab`
 
 Campagne régionale : expansion site × recette × solveur. Code
-`hydromodpy/analysis/batch/`.
+`hydromodpy/analysis/testbed/regional_lab*.py`, exécuté via
+`workflow = "testbed"` et `[testbed].profile = "regional_lab"`.
 
 - Sites exécutés en parallèle, un par process.
 - Chaque site dispose de son propre `<basename>.zarr/` et

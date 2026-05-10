@@ -48,7 +48,7 @@ Core objects
      - One persisted simulation resolved from the catalog. It reads one
        catalog row plus that simulation's Zarr/Parquet artefacts.
    * - ``SimulationGroup``
-     - A set of runs used for comparison, calibration, or batch analysis.
+     - A set of runs used for comparison, calibration, or testbed analysis.
    * - ``ResultsConfig``
      - Configuration block controlling result persistence and export options.
 

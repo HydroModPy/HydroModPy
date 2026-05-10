@@ -44,21 +44,21 @@
     "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_recipe_summary.csv",
     "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_cluster_summary.csv",
     "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_case_matrix.csv",
-    "hydromodpy/analysis/batch/__init__.py",
-    "hydromodpy/analysis/batch/config.py",
-    "hydromodpy/analysis/batch/runtime.py"
+    "hydromodpy/analysis/testbed/__init__.py",
+    "hydromodpy/analysis/testbed/regional_lab_config.py",
+    "hydromodpy/analysis/testbed/regional_lab.py"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_plan.json": "efd3e4cc3ddd9207f153efb8b8dab52f0423c8d83dd8924ee241e426cd22c377",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_report.json": "3ea6d970687680dc2890c1f3a247b045df83d26a0cf4d644ad973ac6c2f831fe",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_plan.json": "8ecc9ff7e6da6ac9753c509aececf3133f4e7b8025d794ba97931597fbc5fd8c",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_report.json": "33eb2eb83655e653a8642c000d46c1bed68c7d9f6f0a4eb19ea5771c98ddb390",
     "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_summary.md": "81ea7fb59ff533cccc2a9b48acc87b18a896f195d3b413108b38193fc45dd52d",
     "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_site_inventory.csv": "75899272b8c0728456fdb64edc84af2a79c66cfdd4f5b5396e4a0a79aec9fa91",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_recipe_summary.csv": "aa57d743faa9b475a7f44eb654fdf126a67ccb1a23cf685d96653ee83c44f81a",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_recipe_summary.csv": "c0f8a23b7001047a1ca0fcb6a0e3fcd245545155a174fbae147fcea027c5e7d7",
     "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_cluster_summary.csv": "1738b81b72150d3df29ccd709c43345eae3ad096603da988299a8a81f74d32c1",
-    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_case_matrix.csv": "836504da2dc00a18127f79f73b63b2691db6ba324c296983906cb983b5469fce",
-    "hydromodpy/analysis/batch/__init__.py": "fd66fa0503694884495d6d668b29fdee9e65fb1a812e397119c033f5351b2550",
-    "hydromodpy/analysis/batch/config.py": "aa0649e89414c7820230adf35fdb71458955b3633ffc266c3943efeace04d146",
-    "hydromodpy/analysis/batch/runtime.py": "cc0b894982d0f304622fb08d2fbc814cbf77bda3ebc2ac267d95d39624aeb1b2"
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_backend_compare_recipe_case_matrix.csv": "3077a32ee5acba03da71320996a18867f5ace8730bdec4c39a04d3851c645581",
+    "hydromodpy/analysis/testbed/__init__.py": "199376f72d11988af74a3fb860ddad35abb6f1452d47750aeb416a608e706895",
+    "hydromodpy/analysis/testbed/regional_lab_config.py": "fba9d336e84677c50dd7c235f5f413c0bb4b7d0efbce556c78f5c51a13aa0d8e",
+    "hydromodpy/analysis/testbed/regional_lab.py": "04a713bafe742f8d4c33860c7382ac7427806ba1370d0b74d3d1f068540505c0"
   },
   "docname": "cases/regional_lab_headwater_100km2_backend_compare_recipe",
   "images": [

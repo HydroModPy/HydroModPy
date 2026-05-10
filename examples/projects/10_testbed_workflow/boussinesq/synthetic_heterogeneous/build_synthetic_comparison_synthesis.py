@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -130,6 +131,7 @@ def _build_rows(
         comparison_root = comparisons_root / str(item["comparison_root"])
         manifest_path = comparison_root / "comparison_manifest.json"
         manifest = _read_json(manifest_path)
+        closure = _read_closure_summary(comparison_root / "numerical_closure_summary.csv", manifest)
         html_path = comparison_root / "web" / "index.html"
         status = "ok" if _comparison_completed(manifest=manifest, html_path=html_path) else "failed"
         case_row = {
@@ -158,10 +160,42 @@ def _build_rows(
                 "audit_status": manifest.get("audit_status", ""),
                 "n_metric_rows": manifest.get("n_metric_rows", ""),
                 "n_difference_rows": manifest.get("n_difference_rows", ""),
+                "closure_max_abs_m3_s": closure.get("max_abs_closure_m3_s", ""),
+                "closure_max_abs_mm_d": closure.get("max_abs_closure_mm_d", ""),
+                "closure_relative_error_p95": closure.get("relative_closure_error_p95", ""),
+                "closure_status": closure.get("diagnostic", ""),
+                "closure_status_code": closure.get("diagnostic_code", ""),
                 "comparison_html": case_row["comparison_html"],
             }
         )
     return case_rows, metric_rows
+
+
+def _read_closure_summary(path: Path, manifest: dict[str, Any]) -> dict[str, Any]:
+    manifest_payload = manifest.get("numerical_closure")
+    if isinstance(manifest_payload, dict):
+        return {
+            "max_abs_closure_m3_s": manifest_payload.get("max_abs_closure_m3_s", ""),
+            "max_abs_closure_mm_d": manifest_payload.get("max_abs_closure_mm_d", ""),
+            "relative_closure_error_p95": manifest_payload.get(
+                "relative_closure_error_p95",
+                "",
+            ),
+            "diagnostic": manifest_payload.get("diagnostic", ""),
+            "diagnostic_code": manifest_payload.get("diagnostic_code", ""),
+        }
+    rows = _read_csv(path)
+    if not rows:
+        return {}
+    return {
+        "max_abs_closure_m3_s": _max_numeric(rows, "max_abs_closure_m3_s"),
+        "max_abs_closure_mm_d": _max_numeric(rows, "max_abs_closure_mm_d"),
+        "relative_closure_error_p95": _max_numeric(rows, "relative_closure_error_p95"),
+        "diagnostic": _worst_diagnostic(rows),
+        "diagnostic_code": {"OK": 0.0, "WARN": 1.0, "CHECK": 2.0}.get(
+            _worst_diagnostic(rows)
+        ),
+    }
 
 
 def _comparison_completed(*, manifest: dict[str, Any], html_path: Path) -> bool:
@@ -249,6 +283,35 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _read_csv(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        return [dict(row) for row in csv.DictReader(handle)]
+
+
+def _max_numeric(rows: list[dict[str, Any]], field: str) -> float | str:
+    values = []
+    for row in rows:
+        try:
+            value = float(row.get(field, ""))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            values.append(value)
+    return max(values) if values else ""
+
+
+def _worst_diagnostic(rows: list[dict[str, Any]]) -> str:
+    ranks = {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CHECK": 3}
+    worst = ""
+    for row in rows:
+        diagnostic = str(row.get("diagnostic", "")).upper()
+        if ranks.get(diagnostic, -1) > ranks.get(worst, -1):
+            worst = diagnostic
+    return worst or "UNKNOWN"
 
 
 def _write_json(path: Path, payload: dict[str, Any]) -> None:

@@ -1,8 +1,8 @@
-"""Analysis hub aggregating batch, capability-gallery, and comparison sub-configs.
+"""Analysis hub aggregating capability-gallery and comparison sub-configs.
 
 Single TOML entry point ``[analysis]`` for every post-simulation analysis
 sub-section. Replaces the disjoint root-level entries previously exposed
-under ``[batch]`` and ``[capability_gallery]``.
+under root-level analysis sections.
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 
 if TYPE_CHECKING:
-    from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.analysis.comparison.config import ComparisonSection
 
@@ -23,22 +22,13 @@ if TYPE_CHECKING:
 class AnalysisConfig(HydroModelBase):
     """Hub aggregating every post-simulation analysis sub-section.
 
-    Each field is optional: enabling ``[analysis.batch]`` triggers the
-    regional-lab launcher, ``[analysis.capability_gallery]`` selects
-    figures for the versionable gallery, and ``[analysis.comparison]``
-    drives the comparison launcher.
+    Each field is optional: ``[analysis.capability_gallery]`` selects figures
+    for the versionable gallery, and ``[analysis.comparison]`` drives the
+    comparison launcher.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    batch: Annotated[RegionalLabConfig | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Optional regional-lab batch settings loaded from "
-            "[analysis.batch]. Parsed standalone via "
-            "RegionalLabLauncher under the section name [regional_lab]."
-        ),
-    )
     capability_gallery: Annotated[CapabilityGalleryConfig | None, Profile.USER] = Field(
         default=None,
         description=(

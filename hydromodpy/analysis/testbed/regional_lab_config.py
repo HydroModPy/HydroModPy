@@ -1,4 +1,4 @@
-"""Configuration contract for the regional-lab launcher family."""
+﻿"""Configuration contract for the regional-lab launcher family."""
 
 from __future__ import annotations
 
@@ -8,100 +8,23 @@ from typing import Annotated, Any, Literal
 
 from pydantic import ConfigDict, Field
 
+from hydromodpy.analysis.config_helpers import (
+    normalize_text_list,
+    normalize_text_mapping,
+    optional_text,
+    require_mapping,
+    require_text,
+    resolve_required_path,
+    validate_optional_positive_int,
+)
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
-def _require_mapping(value: object, *, label: str) -> Mapping[str, Any]:
-    """Validate that one raw value is a mapping."""
-    if not isinstance(value, Mapping):
-        raise ValueError(f"{label} must be a mapping")
-    return value
-
-
-def _require_text(value: object, *, label: str) -> str:
-    """Return one normalized non-empty text value."""
-    text = str(value).strip()
-    if text == "":
-        raise ValueError(f"{label} cannot be empty")
-    return text
-
-
-def _optional_text(value: object) -> str | None:
-    """Return one normalized optional text value."""
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
-def _normalize_text_list(value: object, *, label: str) -> tuple[str, ...]:
-    """Normalize one optional list of distinct text values."""
-    if value is None:
-        return ()
-    if not isinstance(value, list):
-        raise ValueError(f"{label} must be a list")
-    out: list[str] = []
-    seen: set[str] = set()
-    for raw_item in value:
-        item = str(raw_item).strip()
-        if item == "":
-            raise ValueError(f"{label} cannot contain empty values")
-        normalized = item.lower()
-        if normalized in seen:
-            continue
-        seen.add(normalized)
-        out.append(item)
-    return tuple(out)
-
-
-def _normalize_text_mapping(
-    value: object,
-    *,
-    label: str,
-) -> tuple[tuple[str, str], ...]:
-    """Normalize one optional mapping of text keys and values."""
-    if value is None:
-        return ()
-    if not isinstance(value, Mapping):
-        raise ValueError(f"{label} must be a mapping")
-    out: list[tuple[str, str]] = []
-    for raw_key, raw_value in value.items():
-        key = str(raw_key).strip()
-        mapped_value = str(raw_value).strip()
-        if key == "":
-            raise ValueError(f"{label} cannot contain empty keys")
-        if mapped_value == "":
-            raise ValueError(f"{label}[{key}] cannot be empty")
-        out.append((key, mapped_value))
-    out.sort(key=lambda item: item[0].lower())
-    return tuple(out)
-
-
-def _resolve_required_path(base_dir: Path, raw_path: object, *, label: str) -> Path:
-    """Resolve one required path relative to the configuration file."""
-    text = _require_text(raw_path, label=label)
-    path = Path(text).expanduser()
-    if not path.is_absolute():
-        path = base_dir / path
-    return path.resolve()
-
-
-def _resolve_optional_path(base_dir: Path, raw_path: object) -> Path | None:
-    """Resolve one optional path relative to the configuration file."""
-    text = _optional_text(raw_path)
-    if text is None:
-        return None
-    path = Path(text).expanduser()
-    if not path.is_absolute():
-        path = base_dir / path
-    return path.resolve()
-
-
 def _resolve_output_root(*, base_dir: Path, raw_value: object, lab_id: str) -> Path:
     """Resolve the regional-lab output root."""
-    text = _optional_text(raw_value)
+    text = optional_text(raw_value)
     if text is None:
         return (base_dir / "regional_lab" / lab_id).resolve()
     path = Path(text).expanduser()
@@ -110,14 +33,18 @@ def _resolve_output_root(*, base_dir: Path, raw_value: object, lab_id: str) -> P
     return path.resolve()
 
 
-def _validate_optional_int(value: object, *, label: str) -> int | None:
-    """Validate one optional positive integer."""
-    if value is None:
-        return None
-    out = int(value)
-    if out <= 0:
-        raise ValueError(f"{label} must be >= 1")
-    return out
+def _reject_removed_execution_fields(raw_section: Mapping[str, Any]) -> None:
+    """Reject regional-lab execution fields removed from the public contract."""
+    if "execution_backend" in raw_section:
+        raise ValueError(
+            "regional_lab.execution_backend has been removed. "
+            "regional_lab always uses the shared testbed runner provider."
+        )
+    for key in ("child_timeout_s", "python_executable"):
+        if key in raw_section:
+            raise ValueError(
+                f"regional_lab.{key} has been removed from regional_lab execution."
+            )
 
 
 class RegionalLabCatalogConfig(HydroModelBase):
@@ -344,7 +271,7 @@ class RegionalLabConfig(HydroModelBase):
     )
     execute: Annotated[bool, Profile.USER] = Field(
         default=True,
-        description="If False, the planner runs but no child subprocesses are launched.",
+        description="If False, the planner runs but no child workflows are launched.",
     )
     continue_on_error: Annotated[bool, Profile.USER] = Field(
         default=True,
@@ -361,14 +288,6 @@ class RegionalLabConfig(HydroModelBase):
     skip_completed_cases: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="If True, do not re-run cases marked as completed in the report.",
-    )
-    child_timeout_s: Annotated[int | None, Profile.USER] = Field(
-        default=3600,
-        description="Per-child subprocess timeout in seconds. Use null to disable.",
-    )
-    python_executable: Annotated[Path | None, Profile.USER] = Field(
-        default=None,
-        description="Python interpreter used for child subprocesses. None means current.",
     )
     catalog: Annotated[RegionalLabCatalogConfig, Profile.USER]
     selection: Annotated[RegionalLabSelectionConfig, Profile.USER]
@@ -389,80 +308,73 @@ class RegionalLabConfig(HydroModelBase):
         if not isinstance(raw_toml, Mapping):
             raise ValueError("configuration must be a mapping")
         source = raw_toml.get("regional_lab") if "regional_lab" in raw_toml else raw_toml
-        raw_section = _require_mapping(source, label="regional_lab")
+        raw_section = require_mapping(source, label="regional_lab")
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
-        lab_id = _optional_text(raw_section.get("lab_id")) or resolved_config_path.stem
+        lab_id = optional_text(raw_section.get("lab_id")) or resolved_config_path.stem
         output_root = _resolve_output_root(
             base_dir=base_dir,
             raw_value=raw_section.get("output_root"),
             lab_id=lab_id,
         )
-        python_executable = _resolve_optional_path(
-            base_dir,
-            raw_section.get("python_executable"),
-        )
-        child_timeout_s = _validate_optional_int(
-            raw_section.get("child_timeout_s", 3600),
-            label="regional_lab.child_timeout_s",
-        )
+        _reject_removed_execution_fields(raw_section)
 
-        raw_catalog = _require_mapping(
+        raw_catalog = require_mapping(
             raw_section.get("catalog"),
             label="regional_lab.catalog",
         )
-        catalog_format = (_optional_text(raw_catalog.get("format")) or "auto").lower()
+        catalog_format = (optional_text(raw_catalog.get("format")) or "auto").lower()
         if catalog_format not in {"auto", "csv", "jsonl"}:
             raise ValueError("regional_lab.catalog.format must be one of: auto, csv, jsonl")
-        tag_separator = _optional_text(raw_catalog.get("tag_separator")) or ";"
+        tag_separator = optional_text(raw_catalog.get("tag_separator")) or ";"
         if tag_separator == "":
             raise ValueError("regional_lab.catalog.tag_separator cannot be empty")
         catalog = RegionalLabCatalogConfig(
-            path=_resolve_required_path(
+            path=resolve_required_path(
                 base_dir,
                 raw_catalog.get("path"),
                 label="regional_lab.catalog.path",
             ),
             format=catalog_format,
-            site_id_field=_require_text(
+            site_id_field=require_text(
                 raw_catalog.get("site_id_field", "site_id"),
                 label="regional_lab.catalog.site_id_field",
             ),
-            site_label_field=_optional_text(raw_catalog.get("site_label_field", "site_label")),
-            cluster_id_field=_optional_text(raw_catalog.get("cluster_id_field", "cluster_id")),
-            cluster_label_field=_optional_text(
+            site_label_field=optional_text(raw_catalog.get("site_label_field", "site_label")),
+            cluster_id_field=optional_text(raw_catalog.get("cluster_id_field", "cluster_id")),
+            cluster_label_field=optional_text(
                 raw_catalog.get("cluster_label_field", "cluster_label")
             ),
-            cluster_family_field=_optional_text(
+            cluster_family_field=optional_text(
                 raw_catalog.get("cluster_family_field", "cluster_family")
             ),
-            cluster_scale_field=_optional_text(
+            cluster_scale_field=optional_text(
                 raw_catalog.get("cluster_scale_field", "cluster_scale")
             ),
-            region_field=_optional_text(raw_catalog.get("region_field", "region_id")),
-            source_selection_field=_optional_text(
+            region_field=optional_text(raw_catalog.get("region_field", "region_id")),
+            source_selection_field=optional_text(
                 raw_catalog.get("source_selection_field", "source_selection_id")
             ),
-            status_field=_optional_text(raw_catalog.get("status_field", "site_status")),
-            maturity_field=_optional_text(raw_catalog.get("maturity_field", "maturity")),
-            x_field=_optional_text(raw_catalog.get("x_field", "x")),
-            y_field=_optional_text(raw_catalog.get("y_field", "y")),
-            area_km2_field=_optional_text(raw_catalog.get("area_km2_field", "area_km2")),
-            tags_field=_optional_text(raw_catalog.get("tags_field", "tags")),
-            enabled_field=_optional_text(raw_catalog.get("enabled_field", "enabled")),
-            required_fields=_normalize_text_list(
+            status_field=optional_text(raw_catalog.get("status_field", "site_status")),
+            maturity_field=optional_text(raw_catalog.get("maturity_field", "maturity")),
+            x_field=optional_text(raw_catalog.get("x_field", "x")),
+            y_field=optional_text(raw_catalog.get("y_field", "y")),
+            area_km2_field=optional_text(raw_catalog.get("area_km2_field", "area_km2")),
+            tags_field=optional_text(raw_catalog.get("tags_field", "tags")),
+            enabled_field=optional_text(raw_catalog.get("enabled_field", "enabled")),
+            required_fields=normalize_text_list(
                 raw_catalog.get("required_fields"),
                 label="regional_lab.catalog.required_fields",
             ),
-            path_fields=_normalize_text_list(
+            path_fields=normalize_text_list(
                 raw_catalog.get("path_fields"),
                 label="regional_lab.catalog.path_fields",
             ),
             tag_separator=tag_separator,
         )
 
-        raw_selection = _require_mapping(
+        raw_selection = require_mapping(
             raw_section.get("selection", {}),
             label="regional_lab.selection",
         )
@@ -479,11 +391,11 @@ class RegionalLabConfig(HydroModelBase):
         cluster_rules: list[RegionalLabClusterRuleConfig] = []
         seen_cluster_rule_ids: set[str] = set()
         for index, raw_rule in enumerate(raw_cluster_rules):
-            rule_mapping = _require_mapping(
+            rule_mapping = require_mapping(
                 raw_rule,
                 label=f"regional_lab.cluster_rule[{index}]",
             )
-            rule_id = _require_text(
+            rule_id = require_text(
                 rule_mapping.get("id"),
                 label=f"regional_lab.cluster_rule[{index}].id",
             )
@@ -494,7 +406,7 @@ class RegionalLabConfig(HydroModelBase):
             cluster_rules.append(
                 RegionalLabClusterRuleConfig(
                     id=rule_id,
-                    label=_optional_text(rule_mapping.get("label")) or rule_id,
+                    label=optional_text(rule_mapping.get("label")) or rule_id,
                     enabled=bool(rule_mapping.get("enabled", True)),
                     priority=int(rule_mapping.get("priority", 100)),
                     selection=_parse_selection(
@@ -502,15 +414,15 @@ class RegionalLabConfig(HydroModelBase):
                         label=f"regional_lab.cluster_rule[{rule_id}]",
                         include_disabled_default=True,
                     ),
-                    field_equals=_normalize_text_mapping(
+                    field_equals=normalize_text_mapping(
                         rule_mapping.get("field_equals"),
                         label=f"regional_lab.cluster_rule[{rule_id}].field_equals",
                     ),
-                    set_cluster_id=_optional_text(rule_mapping.get("set_cluster_id")),
-                    set_cluster_label=_optional_text(rule_mapping.get("set_cluster_label")),
-                    set_cluster_family=_optional_text(rule_mapping.get("set_cluster_family")),
-                    set_cluster_scale=_optional_text(rule_mapping.get("set_cluster_scale")),
-                    cluster_tags=_normalize_text_list(
+                    set_cluster_id=optional_text(rule_mapping.get("set_cluster_id")),
+                    set_cluster_label=optional_text(rule_mapping.get("set_cluster_label")),
+                    set_cluster_family=optional_text(rule_mapping.get("set_cluster_family")),
+                    set_cluster_scale=optional_text(rule_mapping.get("set_cluster_scale")),
+                    cluster_tags=normalize_text_list(
                         rule_mapping.get("cluster_tags"),
                         label=f"regional_lab.cluster_rule[{rule_id}].cluster_tags",
                     ),
@@ -527,11 +439,11 @@ class RegionalLabConfig(HydroModelBase):
         recipes: list[RegionalLabRecipeConfig] = []
         seen_recipe_ids: set[str] = set()
         for index, raw_recipe in enumerate(raw_recipes):
-            recipe_mapping = _require_mapping(
+            recipe_mapping = require_mapping(
                 raw_recipe,
                 label=f"regional_lab.recipe[{index}]",
             )
-            recipe_id = _require_text(
+            recipe_id = require_text(
                 recipe_mapping.get("id"),
                 label=f"regional_lab.recipe[{index}].id",
             )
@@ -540,7 +452,7 @@ class RegionalLabConfig(HydroModelBase):
                 raise ValueError(f"Duplicate regional_lab.recipe id '{recipe_id}'")
             seen_recipe_ids.add(normalized_recipe_id)
 
-            launcher = _require_text(
+            launcher = require_text(
                 recipe_mapping.get("launcher"),
                 label=f"regional_lab.recipe[{recipe_id}].launcher",
             ).lower()
@@ -553,9 +465,9 @@ class RegionalLabConfig(HydroModelBase):
             recipes.append(
                 RegionalLabRecipeConfig(
                     id=recipe_id,
-                    label=_optional_text(recipe_mapping.get("label")) or recipe_id,
+                    label=optional_text(recipe_mapping.get("label")) or recipe_id,
                     launcher=launcher,
-                    config_path_template=_require_text(
+                    config_path_template=require_text(
                         recipe_mapping.get("config_path_template"),
                         label=f"regional_lab.recipe[{recipe_id}].config_path_template",
                     ),
@@ -565,11 +477,11 @@ class RegionalLabConfig(HydroModelBase):
                         label=f"regional_lab.recipe[{recipe_id}]",
                         include_disabled_default=True,
                     ),
-                    required_fields=_normalize_text_list(
+                    required_fields=normalize_text_list(
                         recipe_mapping.get("required_fields"),
                         label=f"regional_lab.recipe[{recipe_id}].required_fields",
                     ),
-                    allowed_platforms=_normalize_text_list(
+                    allowed_platforms=normalize_text_list(
                         recipe_mapping.get("allowed_platforms"),
                         label=f"regional_lab.recipe[{recipe_id}].allowed_platforms",
                     ),
@@ -586,8 +498,6 @@ class RegionalLabConfig(HydroModelBase):
             validate_config_paths=bool(raw_section.get("validate_config_paths", True)),
             resume_from_report=bool(raw_section.get("resume_from_report", True)),
             skip_completed_cases=bool(raw_section.get("skip_completed_cases", True)),
-            child_timeout_s=child_timeout_s,
-            python_executable=python_executable,
             catalog=catalog,
             selection=selection,
             cluster_rules=tuple(cluster_rules),
@@ -610,39 +520,39 @@ def _parse_selection(
 ) -> RegionalLabSelectionConfig:
     """Parse the common site-selection contract."""
     return RegionalLabSelectionConfig(
-        site_ids=_normalize_text_list(
+        site_ids=normalize_text_list(
             raw_mapping.get("site_ids"),
             label=f"{label}.site_ids",
         ),
-        cluster_ids=_normalize_text_list(
+        cluster_ids=normalize_text_list(
             raw_mapping.get("cluster_ids"),
             label=f"{label}.cluster_ids",
         ),
-        regions=_normalize_text_list(
+        regions=normalize_text_list(
             raw_mapping.get("regions"),
             label=f"{label}.regions",
         ),
-        families=_normalize_text_list(
+        families=normalize_text_list(
             raw_mapping.get("families"),
             label=f"{label}.families",
         ),
-        scales=_normalize_text_list(
+        scales=normalize_text_list(
             raw_mapping.get("scales"),
             label=f"{label}.scales",
         ),
-        statuses=_normalize_text_list(
+        statuses=normalize_text_list(
             raw_mapping.get("statuses"),
             label=f"{label}.statuses",
         ),
-        maturity_levels=_normalize_text_list(
+        maturity_levels=normalize_text_list(
             raw_mapping.get("maturity_levels"),
             label=f"{label}.maturity_levels",
         ),
-        tags=_normalize_text_list(
+        tags=normalize_text_list(
             raw_mapping.get("tags"),
             label=f"{label}.tags",
         ),
-        limit=_validate_optional_int(
+        limit=validate_optional_positive_int(
             raw_mapping.get("limit"),
             label=f"{label}.limit",
         ),

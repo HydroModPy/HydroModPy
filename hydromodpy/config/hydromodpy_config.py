@@ -92,6 +92,7 @@ _KNOWN_TOP_LEVEL_KEYS = frozenset(
         "mesh_catchment",
         "mesh_input",
         "testbed",
+        "regional_lab",
         "calibration",
     }
 )
@@ -114,9 +115,7 @@ class HydroModPyConfig(HydroModelBase):
         Literal[
             "simulation",
             "calibration",
-            "batch",
             "overview",
-            "mesh",
             "comparison",
             "testbed",
         ],
@@ -124,7 +123,7 @@ class HydroModPyConfig(HydroModelBase):
     ] = Field(
         description=(
             "Workflow selector (mandatory). Must be one of "
-            "'simulation', 'calibration', 'batch', 'overview', 'mesh', "
+            "'simulation', 'calibration', 'overview', "
             "'comparison', 'testbed'. "
             "Drives dispatch in `hmp run <toml>` and in API-driven callers "
             "that instantiate `HydroModPyConfig` from a frontend form."
@@ -215,13 +214,12 @@ class HydroModPyConfig(HydroModelBase):
         default=None,
         description=(
             "Optional analysis hub loaded from [analysis]. Aggregates "
-            "[analysis.batch] (regional-lab launcher), "
             "[analysis.capability_gallery] (figure publication), and "
             "[analysis.comparison] (simulation-comparison launcher)."
         ),
     )
 
-    # Lightweight workflows (without simulation)
+    # Lightweight non-simulation sections.
     overview: Annotated[OverviewSection | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -234,8 +232,9 @@ class HydroModPyConfig(HydroModelBase):
         default=None,
         description=(
             "Optional mesh-only settings loaded from the [mesh_catchment] "
-            "section.  When present without [simulation], triggers the "
-            "mesh-only workflow."
+            "section. Mesh-only public runs should use [simulation.process] "
+            "with type='mesh'; the standalone mesh API can still consume this "
+            "section directly."
         ),
     )
     calibration: Annotated[CalibrationConfig | None, Profile.USER] = Field(
@@ -371,7 +370,8 @@ class HydroModPyConfig(HydroModelBase):
             )
         if "batch" in raw:
             raise ValueError(
-                "Section [batch] is no longer supported. Use [analysis.batch] instead."
+                "Section [batch] is no longer supported. Use workflow='testbed' "
+                "with [testbed].profile = 'regional_lab' and [regional_lab] instead."
             )
         unknown = sorted(set(raw) - _KNOWN_TOP_LEVEL_KEYS)
         if unknown:
@@ -689,10 +689,8 @@ def _load_optional_analysis_section(
     if not isinstance(section_data, Mapping):
         raise ValueError("[analysis] must be a mapping")
 
-    from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
     from hydromodpy.analysis.comparison.config import ComparisonSection
-
     parsed: dict[str, Any] = {}
 
     raw_gallery = section_data.get("capability_gallery")
@@ -701,22 +699,13 @@ def _load_optional_analysis_section(
             raw_gallery, CapabilityGalleryConfig, base
         )
 
-    raw_batch = section_data.get("batch")
-    if raw_batch is not None:
-        if not isinstance(raw_batch, Mapping):
-            raise ValueError("[analysis.batch] must be a mapping")
-        parsed["batch"] = RegionalLabConfig.from_toml(
-            raw_batch,
-            config_path=base / "analysis_batch.toml",
-        )
-
     raw_comparison = section_data.get("comparison")
     if raw_comparison is not None:
         if not isinstance(raw_comparison, Mapping):
             raise ValueError("[analysis.comparison] must be a mapping")
         parsed["comparison"] = ComparisonSection.model_validate(raw_comparison)
 
-    extra_keys = set(section_data) - {"batch", "capability_gallery", "comparison"}
+    extra_keys = set(section_data) - {"capability_gallery", "comparison"}
     if extra_keys:
         unknown = ", ".join(sorted(extra_keys))
         raise ValueError(f"Unknown [analysis] sub-section(s): {unknown}")
