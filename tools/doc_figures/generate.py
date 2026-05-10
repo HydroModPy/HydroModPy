@@ -115,9 +115,22 @@ def _output_path() -> Path:
 
 
 def generate() -> Path:
-    """Write the partial RST file and return its path."""
+    """Write the partial RST file only if its content would change.
+
+    Skipping the rewrite when the output is identical prevents
+    sphinx-autobuild from looping: a watched file whose mtime changes
+    on every build retriggers an endless rebuild cycle.
+    """
     specs = list_figures()
     output_file = _output_path()
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_file.write_text(_HEADER + _build_body(specs), encoding="utf-8")
+    new_content = _HEADER + _build_body(specs)
+    if output_file.exists():
+        try:
+            current = output_file.read_text(encoding="utf-8")
+        except OSError:
+            current = None
+        if current == new_content:
+            return output_file
+    output_file.write_text(new_content, encoding="utf-8")
     return output_file
