@@ -1,107 +1,160 @@
+:html_theme.sidebar_secondary.remove:
+
 Install
 =======
 
-Requirements
-------------
+.. raw:: html
 
-- Python 3.11, 3.12, or 3.13.
-- Git (only needed if you install from the repository).
-- MODFLOW, MODPATH, and MT3D-USGS binaries are downloaded on demand by
-  ``flopy.utils.get_modflow`` the first time a solver runs. The cache
-  lives at ``~/.cache/hydromodpy/bin/`` (or the platform equivalent) and
-  the location can be overridden with the ``HYDROMODPY_BIN`` environment
-  variable. The same set of binaries can be fetched eagerly with
-  ``hmp install-binaries``.
-- The PyHELP binary also downloads itself on the first call to the
-  helper module.
+   <p class="lead">
+   Install HydroModPy with the package manager you already use. Pick a
+   tab, run the command, you are ready to go.
+   </p>
 
-Solver binaries
-~~~~~~~~~~~~~~~
+.. admonition:: Want to contribute, build the docs, or run the test suite?
+   :class: tip
 
-The lazy download keeps the installed package small and avoids shipping
-platform-specific executables in the wheel. Once a binary is in the
-cache it is never auto-refreshed, so a run started today produces the
-same result a year from now. Use the explicit command if you need to
-control when binaries arrive on disk:
+   This page covers the user install. For the editable clone, the
+   pre-commit hooks, the Sphinx toolchain, or the WSL/PETSc developer
+   environment, head over to the :doc:`contributor install <contribute>`
+   in the developer section.
+
+Quick install
+-------------
 
 .. code-block:: bash
 
-   hmp install-binaries                  # fetch everything now
-   hmp install-binaries --subset mf6,mfnwt   # restrict to a subset
-   hmp install-binaries --bindir <dir>   # fetch into a custom directory
-   hmp install-binaries --upgrade        # force re-download (rare)
-   hmp install-binaries --release 23.0   # pin a specific release tag
+   pip install hydromodpy
 
-The default release tag is ``23.0``. Binaries are pulled from the
-``MODFLOW-ORG/executables`` GitHub release by ``flopy.utils.get_modflow``;
-integrity is provided by GitHub TLS plus the release-tag pin, which is
-also the recommended reproducibility lever.
+That single command installs the latest published release from PyPI
+inside the active Python environment (Python 3.11 or newer). The two
+CLI entry points become available straight away:
 
-Cache layout:
+.. code-block:: bash
 
-.. code-block:: text
+   hmp --version
+   hmp --help
 
-   ~/.cache/hydromodpy/bin/
-   ├── mf6
-   ├── mfnwt
-   ├── mp6
-   ├── mp7
-   ├── mt3dusgs
-   └── .manifest.json
+Need an IDE bundle (Spyder + JupyterLab)? Use ``pip install
+"hydromodpy[ide]"`` instead. The full list of optional extras is
+:ref:`below <install-extras>`.
 
-The ``.manifest.json`` file records the active release tag and the
-download timestamp:
-
-.. code-block:: json
-
-   {
-     "release": "23.0",
-     "downloaded_at": "2026-04-29T12:34:56+00:00",
-     "solvers": ["mf6", "mfnwt", "mp6", "mp7", "mt3dusgs"]
-   }
-
-When ``HYDROMODPY_BIN`` (or ``--bindir``) points at a user-managed
-directory, HydroModPy never writes into it: missing binaries surface at
-solver execution time with a clear ``FileNotFoundError``. For air-gapped
-or CI deployments, run ``hmp install-binaries`` once during provisioning
-so subsequent runs are deterministic and offline-safe.
-
-Install with pip
-----------------
+Choose your installer
+---------------------
 
 .. tab-set::
 
-   .. tab-item:: PyPI (latest master)
+   .. tab-item:: pip + venv
+      :sync: pip
+
+      The lightest path. Works on any supported Python interpreter
+      (3.11, 3.12, or 3.13).
 
       .. code-block:: bash
 
+         python3.12 -m venv .venv
+         source .venv/bin/activate
          python -m pip install --upgrade pip
          pip install hydromodpy
 
-      This installs the published release from PyPI and exposes the package as
-      ``hydromodpy`` in any environment. Need an IDE bundle (Spyder + JupyterLab)?
-      install ``hydromodpy[ide]`` instead.
+      On Windows PowerShell, replace the first two lines with
+      ``py -3.12 -m venv .venv`` and ``.\.venv\Scripts\Activate.ps1``.
 
-   .. tab-item:: Editable clone
+   .. tab-item:: uv
+      :sync: uv
+
+      `uv <https://docs.astral.sh/uv/>`_ is a fast, drop-in replacement
+      for ``pip``. Recommended when bootstrapping a fresh environment
+      or a CI job.
+
+      .. code-block:: bash
+
+         uv venv .venv --python 3.12
+         source .venv/bin/activate
+         uv pip install hydromodpy
+
+      One-shot run without a long-lived venv:
+
+      .. code-block:: bash
+
+         uvx --from hydromodpy hmp --help
+
+   .. tab-item:: conda
+      :sync: conda
+
+      Recommended when geospatial libraries are tricky to build from
+      source (Windows, restricted environments). A minimal env is
+      enough:
+
+      .. code-block:: bash
+
+         conda create -n hmp python=3.12 pip
+         conda activate hmp
+         pip install hydromodpy
+
+      For the curated environment YAMLs (runtime stack, with Spyder
+      and the geospatial dependencies), download the file you need
+      from the `install/ folder on GitHub
+      <https://github.com/HydroModPy/HydroModPy/tree/master/install>`_,
+      then create the env from the downloaded copy:
+
+      .. code-block:: bash
+
+         conda env create -n hmp -f env_hydromodpy.yml
+         conda activate hmp
+
+   .. tab-item:: docker
+      :sync: docker
+
+      Truly zero local install: only Docker (or Podman) is required on
+      the host. No clone, no Python, no pip.
+
+      **Pull from the registry (recommended):**
+
+      .. code-block:: bash
+
+         docker run --rm ghcr.io/hydromodpy/hydromodpy --help
+
+      .. admonition:: Hosted image: coming soon
+         :class: note
+
+         The official ``hydromodpy`` image will be published on the
+         `GitHub Container Registry
+         <https://github.com/HydroModPy/HydroModPy/pkgs/container/hydromodpy>`_
+         at ``ghcr.io/hydromodpy/hydromodpy`` once the publish step
+         is enabled in the CI. Until then, use the local build below.
+
+      **Local build (works today):**
 
       .. code-block:: bash
 
          git clone https://github.com/HydroModPy/HydroModPy.git
          cd HydroModPy
-         python -m pip install --upgrade pip
-         pip install -e .
+         docker build -t hydromodpy .
+         docker run --rm hydromodpy --help
 
-      Editable mode installs the package from the local repository while keeping
-      the source tree editable. Ideal for contributions or quick fixes. Install
-      the ``[docs]`` extras later only if you work on the documentation.
+      Solver binaries are not embedded in the image. They are pulled
+      into the container on the first solver run, into the cache
+      under the ``hmp`` user home.
 
-Full pip packaging is available from v0.3.0 onward. Users pinned to older
-releases should rely on the conda environment and the ``v0.2.0`` tag.
+   .. tab-item:: conda-forge
+      :sync: conda-forge
+
+      .. admonition:: Coming soon
+         :class: note
+
+         A ``hydromodpy`` feedstock on conda-forge is being prepared.
+         In the meantime, use the **conda** tab above with
+         ``env_hydromodpy.yml`` from the
+         `install/ folder on GitHub
+         <https://github.com/HydroModPy/HydroModPy/tree/master/install>`_,
+         or fall back to ``pip`` inside a conda env.
+
+.. _install-extras:
 
 Optional extras
 ---------------
 
-HydroModPy ships several optional extras. Add only what you need. Combine
+HydroModPy ships a few optional extras. Add only what you need; combine
 them inside one ``pip install`` command, for example
 ``pip install "hydromodpy[ide,viewer3d]"``.
 
@@ -111,276 +164,43 @@ them inside one ``pip install`` command, for example
 
    * - Extra
      - Provides
-   * - ``[test]``
-     - ``pytest``, ``pytest-xdist``, ``pytest-timeout``, ``coverage`` for
-       running the test tiers.
-   * - ``[dev]``
-     - ``ruff`` and ``pre-commit`` for linting and Git hooks. Required
-       only for contributors.
-   * - ``[docs]``
-     - Sphinx, the RTD theme, ``myst-parser``, ``nbsphinx``, plus the
-       extensions used to build this documentation.
    * - ``[ide]``
      - ``ipykernel``, ``jupyterlab``, Spyder, and PySide6.
    * - ``[viewer3d]``
      - ``pyvista`` for 3D mesh visualization.
+   * - ``[test]``
+     - ``pytest``, ``pytest-xdist``, ``pytest-timeout``, ``coverage``
+       for running the test tiers.
+   * - ``[dev]``
+     - ``ruff`` and ``pre-commit`` for linting and Git hooks.
+       Contributor-only.
+   * - ``[docs]``
+     - Sphinx, the PyData theme, ``myst-parser``, ``nbsphinx``, plus
+       the extensions used to build this documentation.
+       Contributor-only.
 
-Developer install
------------------
+The ``[dev]`` and ``[docs]`` extras belong to the contributor flow.
+See :doc:`contribute` for the editable clone and the full developer
+setup.
 
-Contributors should clone the repository, install in editable mode with
-the ``[dev,test,docs]`` extras, and register the pre-commit hook:
-
-.. code-block:: bash
-
-   git clone https://github.com/HydroModPy/HydroModPy.git
-   cd HydroModPy
-   conda create -n hmp-dev python=3.12 -y
-   conda activate hmp-dev
-   pip install -e ".[dev,test,docs]"
-   pre-commit install
-
-The ``pre-commit install`` step registers the Git hook that runs ``ruff``
-before each commit. See :doc:`contribute` for the full contributor
-workflow (issue filing, coding style, test tiers, doc build, pull request
-conventions).
-
-Windows plus WSL development
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-For PETSc-backed Boussinesq work on Windows, use two environments instead of
-forcing every dependency into one environment:
-
-- WSL ``hydromodpy-wsl`` for PETSc simulations and numerical validation tests,
-- Windows ``hydromodpy-kpg`` or another docs-capable environment for Sphinx.
-
-Run the PETSc smoke suite from PowerShell through WSL:
-
-.. code-block:: powershell
-
-   wsl.exe bash -lc "cd /mnt/c/codes/HydroModPy && bash install/enter_wsl_dev.sh --headless -- bash tools/ci/run_boussinesq_petsc_smoke.sh"
-
-Then rebuild the documentation in Windows:
-
-.. code-block:: powershell
-
-   conda run --no-capture-output -n hydromodpy-kpg python -m sphinx -E -a -W -b html docs/source docs/build/html
-
-The documentation build should consume existing figures and reports; it should
-not require PETSc or rerun Linux-only simulations.
-
-Install with conda
+Verify the install
 ------------------
 
-Three ready-to-use environment files live in ``install/``. Pick the tabbed recipe
-that matches your workflow.
+Once installed, this short snippet imports the public surface and
+prints the version:
 
-.. tab-set::
+.. code-block:: python
 
-   .. tab-item:: Conda (Runtime stack)
+   import hydromodpy
+   from hydromodpy.config import HydroModPyConfig
+   from hydromodpy.display import list_figures
 
-      Installs the runtime stack (Spyder included) for executing scripts and
-      notebooks without touching the local source tree.
+   print("hydromodpy", hydromodpy.__version__)
+   print("first 3 figures:", [spec.name for spec in list_figures()[:3]])
 
-      .. code-block:: bash
-
-         conda env create -n <env> -f install/env_hydromodpy.yml
-         conda activate <env>
-
-      When running scripts or notebooks from a cloned repository, install the
-      package into the active environment instead of mutating ``sys.path``:
-
-      .. code-block:: bash
-
-         python -m pip install -e /absolute/path/to/your/HydroModPy
-
-      Wheel-based installs expose ``hydromodpy`` globally and do not need
-      any repository path at runtime.
-
-   .. tab-item:: Conda (Editable stack)
-
-      Sets up the same environment but finishes with
-      ``pip install -e "..[docs]"`` so the cloned repository stays importable
-      everywhere and the Sphinx extension stack is ready for local doc builds.
-
-      .. code-block:: bash
-
-         conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml
-         conda activate <env>-pkg
-
-      Run the commands from the repository root (``install/`` sits at the top
-      level) so the relative ``pip install -e "..[docs]"`` executed by the YAML
-      file can reach the project.
-
-   .. tab-item:: Conda (Light editable stack)
-
-      Uses a smaller editable stack intended for Linux/WSL command-line
-      development and test execution without the Spyder bundle.
-
-      .. code-block:: bash
-
-         conda env create -n <env>-light -f install/env_hydromodpy_light_pkg.yml
-         conda activate <env>-light
-
-      As with the other editable recipe, run the command from the repository
-      root so the relative ``pip install -e "..[docs]"`` in the YAML file
-      resolves back to ``HydroModPy/``.
-
-Command recipes
----------------
-
-Pick the setup that matches your workflow. Replace ``<env>`` with your
-environment name, set ``<py>`` to the desired Python version (3.11-3.13), and switch
-``hydromodpy`` to ``"hydromodpy[docs]"`` if you need the documentation extras.
-
-.. dropdown:: Conda + YAML
-   :color: secondary
-
-   Ready-made Conda environments. Replace ``<env>`` with your environment name.
-
-   .. code-block:: bash
-
-      # Clone + runtime stack (scripts, notebooks)
-      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
-
-   .. code-block:: bash
-
-      # Already cloned: create/activate the runtime env
-      conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
-
-   .. code-block:: bash
-
-      # Clone + editable stack (adds pip install -e "..[docs]")
-      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
-
-   .. code-block:: bash
-
-      # Already cloned: create/activate the editable env
-      conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
-
-   .. code-block:: bash
-
-      # Clone + light editable stack (recommended on Linux/WSL)
-      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda env create -n <env>-light -f install/env_hydromodpy_light_pkg.yml && conda activate <env>-light
-
-   .. code-block:: bash
-
-      # Already cloned: create/activate the light editable env
-      conda env create -n <env>-light -f install/env_hydromodpy_light_pkg.yml && conda activate <env>-light
-
-.. dropdown:: Conda + PyPI
-   :color: secondary
-
-   Create a fresh Conda (or Mamba) env and install HydroModPy directly from
-   PyPI, so you do not need to download the codebase.
-
-   .. code-block:: bash
-
-      # Without cloning
-      conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
-
-   .. code-block:: bash
-
-      # Without cloning, editable mode
-      conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
-
-   .. code-block:: bash
-
-      # Clone first (optional), then install from PyPI
-      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
-
-   .. code-block:: bash
-
-      # Clone first, then install in editable mode (pip install -e .)
-      git clone https://github.com/HydroModPy/HydroModPy.git && cd HydroModPy && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
-
-   Add ``"hydromodpy[ide]"`` at the end if you want Spyder and JupyterLab bundled.
-
-.. dropdown:: venv + PyPI
-   :color: secondary
-
-   Rely only on the standard ``venv`` module. This keeps everything on pip, but
-   you must have the system libraries required by GDAL/Proj.
-
-   .. rubric:: Linux / macOS
-
-   .. code-block:: bash
-
-      python<py> -m venv <env> && source <env>/bin/activate && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
-
-   .. rubric:: Windows (PowerShell)
-
-   .. code-block:: powershell
-
-      py -<py> -m venv <env> ; .\<env>\Scripts\Activate.ps1 ; python -m pip install --upgrade pip ; pip install --upgrade hydromodpy
-
-   .. rubric:: Windows (CMD)
-
-   .. code-block:: batch
-
-      py -<py> -m venv <env> && call <env>\Scripts\activate.bat && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
-
-   Append ``"hydromodpy[ide]"`` to either command if you want the IDE extras.
-
-Linux / WSL quick start
------------------------
-
-Ubuntu and WSL users can bootstrap the editable development environment with
-the helper script shipped in ``install/``. It installs the minimal system
-dependency, creates the Conda env, and adds the Linux runtime library needed by
-``gmsh``:
-
-.. code-block:: bash
-
-   bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl
-
-Add ``--with-petsc`` to install PETSc, ``petsc4py``, ``mpi4py``, and ``mpich``
-inside the same environment:
-
-.. code-block:: bash
-
-   bash install/setup_wsl_dev.sh --env-name hydromodpy-wsl --with-petsc
-
-For day-to-day work after the environment already exists, open one ready shell
-with the companion helper:
-
-.. code-block:: bash
-
-   bash install/enter_wsl_dev.sh
-
-The helper sources Conda, activates the chosen env, and moves to the repository
-root. Add ``--headless`` for non-interactive runs or ``--output-root`` to send
-outputs directly to one Windows path:
-
-.. code-block:: bash
-
-   bash install/enter_wsl_dev.sh --headless
-   bash install/enter_wsl_dev.sh --output-root /mnt/c/Users/<user>/Documents/HydroModPyOutputs
-
-If Conda is not installed inside WSL yet, Miniforge is a compact default:
-
-.. code-block:: bash
-
-   sudo apt update && sudo apt install -y curl git libglu1-mesa
-   curl -L -O https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
-   bash Miniforge3-Linux-x86_64.sh
-   source ~/miniforge3/etc/profile.d/conda.sh
-
-If you create the Conda environment manually instead of using
-``install/setup_wsl_dev.sh``, add the Linux ``gmsh`` runtime shim yourself:
-
-.. code-block:: bash
-
-   conda install -n <env>-light -c conda-forge xorg-libxft
-
-After activation, a typical Linux/WSL non-interactive test session is:
-
-.. code-block:: bash
-
-   export MPLBACKEND=Agg
-   python -m pytest tests/unit -q
-   hmp test regression --fast -j 2
-   hmp test validation --fast
+If the imports succeed, you are ready to follow
+:doc:`getting_started/index` for the first guided run, or
+:doc:`user_guide/cookbook/index` for short TOML-first recipes.
 
 Upgrade
 -------
@@ -389,51 +209,106 @@ Upgrade
 
    pip install --upgrade hydromodpy
 
-Editable installs can be updated with ``git pull`` followed by the same command.
+The same command works inside a uv-managed venv, a conda env, or any
+other PEP 668 compliant environment.
 
-Check the installation
-----------------------
+Where next
+----------
 
-.. code-block:: python
+.. grid:: 1 2 3 3
+   :gutter: 2 2 3 3
 
-   import hydromodpy
-   from hydromodpy.config import HydroModPyConfig
-   from hydromodpy.spatial.geographic import CatchmentDelineation
-   # Examples of submodule imports
-   from hydromodpy.display import get, list_figures
-   from hydromodpy.display.theme import plot_params
+   .. grid-item-card:: First run
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: getting_started/index
+      :link-type: doc
 
-   font_sizes = plot_params(8, 15, 18, 20)  # small, medium, intermediate, large
-   print([spec.name for spec in list_figures()[:3]])
-   print(hydromodpy.__version__)
+      Concepts in five minutes, then a guided end-to-end project on a
+      real basin.
 
-Refer to :doc:`getting_started/index` for a guided first workflow once the
-import works. Use :doc:`user_guide/cookbook/index` for short TOML-first
-recipes covering the most common HydroModPy tasks.
+   .. grid-item-card:: Cookbook
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: user_guide/cookbook/index
+      :link-type: doc
 
-Spyder note
------------
+      Short TOML-first recipes for the most common HydroModPy tasks.
 
-``spyder-kernels`` ships with HydroModPy so Spyder can attach to any prepared
-environment. Install the IDE itself via the Conda YAML files (Spyder is already
-included) or by adding the ``ide`` extra ::
+   .. grid-item-card:: Contribute
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: contribute
+      :link-type: doc
 
-   pip install "hydromodpy[ide]"
+      Editable clone, pre-commit hooks, ``[dev,test,docs]`` extras,
+      WSL/PETSc helpers, and the documentation toolchain.
 
-Manual install remains possible with ``conda install spyder``.
+Solver binaries
+---------------
 
-Python 3.8 users
-----------------
+MODFLOW, MODPATH, and MT3D-USGS executables are downloaded on demand
+the first time a solver runs, into ``~/.cache/hydromodpy/bin/`` (or
+the platform equivalent). Override the location with the
+``HYDROMODPY_BIN`` environment variable.
 
-If you must stay on Python 3.8.10, stick to release ``v0.2.0`` by cloning
-https://github.com/HydroModPy/HydroModPy/releases/tag/v0.2.0 and following the
-conda recipe above. Later versions require Python 3.11+ and will not install on
-older interpreters.
+In most cases nothing is required from the user: the first solver run
+populates the cache transparently. The dropdown below covers the
+explicit commands and the air-gapped flow.
 
-.. dropdown:: Compatibility note
-   :color: info
+.. dropdown:: Eager fetch, custom location, and air-gapped setups
+   :icon: package
+   :color: secondary
+
+   Use the explicit command if you need to control when binaries
+   arrive on disk:
+
+   .. code-block:: bash
+
+      hmp install-binaries                      # fetch everything now
+      hmp install-binaries --subset mf6,mfnwt   # restrict to a subset
+      hmp install-binaries --bindir <dir>       # fetch into a custom directory
+      hmp install-binaries --upgrade            # force re-download
+      hmp install-binaries --release <tag>      # pin a specific release tag
+
+   Binaries are pulled from the ``MODFLOW-ORG/executables`` GitHub
+   release. The release tag is pinned by the installed HydroModPy
+   version; integrity is provided by GitHub TLS plus the release-tag
+   pin, which is also the recommended reproducibility lever. Use
+   ``hmp install-binaries --help`` to see the tag baked into your
+   install.
+
+   Cache layout:
+
+   .. code-block:: text
+
+      ~/.cache/hydromodpy/bin/
+      ├── mf6
+      ├── mfnwt
+      ├── mp6
+      ├── mp7
+      ├── mt3dusgs
+      └── .manifest.json
+
+   The ``.manifest.json`` file records the release tag and the
+   download timestamp written on first fetch.
+
+   When ``HYDROMODPY_BIN`` (or ``--bindir``) points at a user-managed
+   directory, HydroModPy never writes into it: missing binaries
+   surface at solver execution time with a clear ``FileNotFoundError``.
+   For air-gapped or CI deployments, run ``hmp install-binaries`` once
+   during provisioning so subsequent runs are deterministic and
+   offline-safe.
+
+   The PyHELP binary follows the same lazy pattern and downloads
+   itself on the first call to the helper module.
+
+.. dropdown:: Compatibility notes
    :icon: info
+   :color: info
 
-   Known ``pyproj`` / ``proj.db`` issues observed in earlier releases were fixed
-   from v0.3.0 onward. Upgrade to this version (or newer) to avoid the missing
-   database errors that appeared on some conda setups.
+   - **Python version.** Releases require Python 3.11 or newer. If you
+     must stay on an older interpreter, install an earlier HydroModPy
+     release from the
+     `release archive <https://github.com/HydroModPy/HydroModPy/releases>`_
+     and follow the install recipe shipped with that tag.
+   - **pyproj / proj.db.** Errors observed on some early conda setups
+     have been fixed in current releases. Always run the latest
+     version when possible.

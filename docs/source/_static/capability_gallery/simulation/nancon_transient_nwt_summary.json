@@ -24,7 +24,7 @@
     "Use the hydrograph and water-budget figures last, once the spatial context is already clear, so that you do not over-interpret one temporal mismatch without checking where it comes from spatially."
   ],
   "next_steps": [
-    "Read :doc:`the real-basin reading guide </getting_started/read-real-basin-run>` for a stricter interpretation order across committed basin-result pages.",
+    "Read :doc:`the results-pages reading guide </user_guide/concepts/reading-results-pages>` for a stricter interpretation order across committed basin-result pages.",
     "Read :doc:`the Nancon scientific worked case </theory/solvers/worked-modflow-case-nancon-transient-nwt-etp-evt>` if you want the exact `ETP -> EVT` package path and the MODFLOW-NWT option rationale behind this run."
   ],
   "what_it_shows": [
@@ -34,8 +34,8 @@
   ],
   "reference_highlights": [],
   "equations_rst": [],
-  "walkthrough_doc": "getting_started/read-real-basin-run",
-  "walkthrough_title": "the real-basin reading guide",
+  "walkthrough_doc": "user_guide/concepts/reading-results-pages",
+  "walkthrough_title": "the results-pages reading guide",
   "reproduction_command": "python -m hydromodpy run examples/projects/02_nancon_watershed/run_transient_nwt.toml",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
