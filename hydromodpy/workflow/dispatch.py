@@ -106,27 +106,6 @@ def resolve_workflow(
     return toml_workflow
 
 
-def run_overview(config_path: str | Path) -> dict[str, Any]:
-    """Generate a watershed identity card from a TOML file."""
-    from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
-
-    return DataOverviewLauncher(config_path).run()
-
-
-def run_calibration(config_path: str | Path) -> dict[str, Any]:
-    """Run a parameter calibration campaign from a TOML file."""
-    from hydromodpy.calibration.runner import run_calibration_cli
-
-    return run_calibration_cli(config_path)
-
-
-def run_comparison(config_path: str | Path) -> dict[str, Any]:
-    """Run a comparison workflow from a TOML file."""
-    from hydromodpy.analysis.comparison.dispatch import run_comparison_config
-
-    return run_comparison_config(config_path)
-
-
 __all__ = (
     "KNOWN_WORKFLOWS",
     "WorkflowError",
@@ -137,7 +116,4 @@ __all__ = (
     "extract_workflow_field",
     "load_raw_toml",
     "resolve_workflow",
-    "run_calibration",
-    "run_comparison",
-    "run_overview",
 )

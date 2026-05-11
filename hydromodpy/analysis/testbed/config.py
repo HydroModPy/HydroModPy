@@ -8,9 +8,10 @@ delegates to a runner, and gathers evidence artifacts.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+
+from pydantic import Field
 
 from hydromodpy.analysis.catalog import SUPPORTED_CATALOG_FORMATS
 from hydromodpy.analysis.config_helpers import (
@@ -28,6 +29,8 @@ from hydromodpy.analysis.testbed.profiles import (
     GENERIC_TESTBED_PROFILE,
     resolve_testbed_profile,
 )
+from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io import load_toml_with_base_config
 
 SUPPORTED_RUNNERS = {"comparison", "simulation"}
@@ -46,90 +49,210 @@ def _resolve_output_root(*, base_dir: Path, raw_value: object, testbed_id: str) 
     return (base_dir / "testbed" / testbed_id).resolve()
 
 
-@dataclass(frozen=True)
-class TestbedRunnerConfig:
+class TestbedRunnerConfig(HydroModelBase):
     """Child-runner selection for one testbed."""
 
-    type: str
-    no_display: bool
+    type: Annotated[str, Profile.USER] = Field(
+        description="Runner identifier dispatched for every variant (comparison, simulation)."
+    )
+    no_display: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Disable interactive display in child runners.",
+    )
 
 
-@dataclass(frozen=True)
-class TestbedVariantConfig:
+class TestbedVariantConfig(HydroModelBase):
     """One concrete testbed variant."""
 
-    id: str
-    label: str
-    axis: str | None
-    enabled: bool
-    overlay: dict[str, Any]
+    id: Annotated[str, Profile.USER] = Field(description="Stable variant identifier.")
+    label: Annotated[str, Profile.USER] = Field(description="Human-readable variant label.")
+    axis: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional axis tag used to group variants in reports.",
+    )
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Toggle to skip a variant without removing it from the config.",
+    )
+    overlay: Annotated[dict[str, Any], Profile.USER] = Field(
+        default_factory=dict,
+        description="TOML overlay merged into the child-runner base config.",
+    )
 
 
-@dataclass(frozen=True)
-class TestbedMetricConfig:
+class TestbedMetricConfig(HydroModelBase):
     """One metric extracted from a child-runner summary."""
 
-    name: str
-    source: str
-    required: bool
+    name: Annotated[str, Profile.USER] = Field(description="Metric column name.")
+    source: Annotated[str, Profile.USER] = Field(
+        description="Dotted path into the child-runner summary."
+    )
+    required: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="When true, a missing metric fails the variant.",
+    )
 
 
-@dataclass(frozen=True)
-class TestbedCatalogConfig:
+class TestbedCatalogConfig(HydroModelBase):
     """Catalog source used to generate testbed variants."""
 
-    path: Path
-    format: str
-    id_field: str
-    label_field: str | None
-    axis_field: str | None
-    enabled_field: str | None
-    tags_field: str | None
-    required_fields: tuple[str, ...]
-    path_fields: tuple[str, ...]
-    tag_separator: str
-    field_equals: tuple[tuple[str, str], ...]
-    tags: tuple[str, ...]
-    exclude_tags: tuple[str, ...]
-    include_disabled: bool
-    limit: int | None
+    path: Annotated[Path, Profile.USER] = Field(
+        description="Resolved path to the variant catalog (CSV or JSONL)."
+    )
+    format: Annotated[str, Profile.USER] = Field(
+        default="auto",
+        description="Catalog format. 'auto' infers from the file suffix.",
+    )
+    id_field: Annotated[str, Profile.USER] = Field(
+        default="variant_id",
+        description="Column carrying the variant identifier.",
+    )
+    label_field: Annotated[str | None, Profile.USER] = Field(
+        default="variant_label",
+        description="Column carrying a human-readable variant label.",
+    )
+    axis_field: Annotated[str | None, Profile.USER] = Field(
+        default="axis",
+        description="Column carrying the optional axis tag.",
+    )
+    enabled_field: Annotated[str | None, Profile.USER] = Field(
+        default="enabled",
+        description="Column flagging whether a row is active.",
+    )
+    tags_field: Annotated[str | None, Profile.USER] = Field(
+        default="tags",
+        description="Column carrying free-form tags joined by tag_separator.",
+    )
+    required_fields: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Columns that must be present and non-empty per row.",
+    )
+    path_fields: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Columns whose values are resolved as filesystem paths.",
+    )
+    tag_separator: Annotated[str, Profile.USER] = Field(
+        default=";",
+        description="Separator splitting the tags column into individual tags.",
+    )
+    field_equals: Annotated[tuple[tuple[str, str], ...], Profile.USER] = Field(
+        default=(),
+        description="Per-field equality filters applied during catalog selection.",
+    )
+    tags: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Whitelist of tags. Empty disables the filter.",
+    )
+    exclude_tags: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Blacklist of tags applied after the whitelist.",
+    )
+    include_disabled: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="When true, rows flagged as disabled are kept.",
+    )
+    limit: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        description="Optional cap on the number of selected rows.",
+    )
 
 
-@dataclass(frozen=True)
-class TestbedCatalogVariantConfig:
+class TestbedCatalogVariantConfig(HydroModelBase):
     """One variant-generation rule applied to rows from a testbed catalog."""
 
-    id_template: str | None
-    label_template: str | None
-    axis_template: str | None
-    enabled: bool
-    overlay: dict[str, Any]
-    required_fields: tuple[str, ...]
-    field_equals: tuple[tuple[str, str], ...]
-    tags: tuple[str, ...]
-    exclude_tags: tuple[str, ...]
-    limit: int | None
+    id_template: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Format string evaluated against catalog row fields to derive the variant id.",
+    )
+    label_template: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Format string used to derive the variant label.",
+    )
+    axis_template: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Format string used to derive the optional axis tag.",
+    )
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Toggle to skip the rule without removing it from the config.",
+    )
+    overlay: Annotated[dict[str, Any], Profile.USER] = Field(
+        default_factory=dict,
+        description="TOML overlay rendered against each catalog row.",
+    )
+    required_fields: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Catalog columns that must be present and non-empty per row.",
+    )
+    field_equals: Annotated[tuple[tuple[str, str], ...], Profile.USER] = Field(
+        default=(),
+        description="Per-field equality filters applied while expanding rows.",
+    )
+    tags: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Whitelist of tags applied during rule expansion.",
+    )
+    exclude_tags: Annotated[tuple[str, ...], Profile.USER] = Field(
+        default=(),
+        description="Blacklist of tags applied during rule expansion.",
+    )
+    limit: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        description="Optional cap on the number of variants generated by the rule.",
+    )
 
 
-@dataclass(frozen=True)
-class TestbedConfig:
+class TestbedConfig(HydroModelBase):
     """Validated configuration for one method testbed."""
 
-    config_path: Path
-    base_dir: Path
-    id: str
-    profile: str
-    subject: str
-    purpose: str
-    output_root: Path
-    execute: bool
-    continue_on_error: bool
-    base_config_path: Path | None
-    runner: TestbedRunnerConfig
-    variants: tuple[TestbedVariantConfig, ...]
-    catalog: TestbedCatalogConfig | None
-    catalog_variants: tuple[TestbedCatalogVariantConfig, ...]
-    metrics: tuple[TestbedMetricConfig, ...]
+    config_path: Annotated[Path, Profile.USER] = Field(
+        description="Resolved path of the TOML file that produced this config."
+    )
+    base_dir: Annotated[Path, Profile.USER] = Field(
+        description="Directory used to resolve relative paths."
+    )
+    id: Annotated[str, Profile.USER] = Field(description="Stable testbed identifier.")
+    profile: Annotated[str, Profile.USER] = Field(description="Selected testbed profile.")
+    subject: Annotated[str, Profile.USER] = Field(
+        description="High-level subject covered by the testbed (flow, mesh, transport)."
+    )
+    purpose: Annotated[str, Profile.USER] = Field(
+        description="Stated purpose of the testbed (robustness, sensitivity, ...)."
+    )
+    output_root: Annotated[Path, Profile.USER] = Field(
+        description="Directory where testbed artifacts are written."
+    )
+    execute: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="When false, child configs are materialized but not executed.",
+    )
+    continue_on_error: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="When false, the first failure aborts the testbed.",
+    )
+    base_config_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description="Optional child workflow TOML used as the variant base config.",
+    )
+    runner: Annotated[TestbedRunnerConfig, Profile.USER] = Field(
+        description="Child-runner selection for every variant."
+    )
+    variants: Annotated[tuple[TestbedVariantConfig, ...], Profile.USER] = Field(
+        default=(),
+        description="Explicit variants declared in the TOML.",
+    )
+    catalog: Annotated[TestbedCatalogConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Optional catalog source used to expand variants from rows.",
+    )
+    catalog_variants: Annotated[tuple[TestbedCatalogVariantConfig, ...], Profile.USER] = Field(
+        default=(),
+        description="Variant-generation rules applied to catalog rows.",
+    )
+    metrics: Annotated[tuple[TestbedMetricConfig, ...], Profile.USER] = Field(
+        default=(),
+        description="Metrics extracted from each child-runner summary.",
+    )
 
     @classmethod
     def from_toml(

@@ -50,6 +50,41 @@ def _resolve_list_model_type(annotation: Any) -> type[BaseModel] | None:
     return None
 
 
+def _iter_union_model_types(annotation: Any) -> list[type[BaseModel]]:
+    """Return every BaseModel subclass referenced by a (possibly nested) Union."""
+    seen: list[type[BaseModel]] = []
+
+    def _visit(value: Any) -> None:
+        if isinstance(value, type) and issubclass(value, BaseModel):
+            if value not in seen:
+                seen.append(value)
+            return
+        for arg in get_args(value):
+            _visit(arg)
+
+    _visit(annotation)
+    return seen
+
+
+def _legacy_union_description(
+    model_cls: type[BaseModel],
+    field_name: str,
+) -> str | None:
+    """Resolve a description from sibling discriminated-union variants.
+
+    Some TOML payloads flatten variant-specific keys (for example
+    ``geographic.x_outlet``) onto the parent section after merge. The
+    parent model exposes those keys only via a discriminated union field,
+    so we fall back to scanning union variants for a matching field.
+    """
+    for info in model_cls.model_fields.values():
+        for variant in _iter_union_model_types(info.annotation):
+            variant_info = variant.model_fields.get(field_name)
+            if variant_info is not None and variant_info.description:
+                return clean_description(variant_info.description)
+    return None
+
+
 def model_description_for_path(
     model_cls: type[BaseModel],
     parts: Sequence[str],
@@ -61,6 +96,8 @@ def model_description_for_path(
     field_name = str(parts[0])
     field_info = model_cls.model_fields.get(field_name)
     if field_info is None:
+        if len(parts) == 1:
+            return _legacy_union_description(model_cls, field_name)
         return None
     if len(parts) == 1:
         return clean_description(field_info.description)

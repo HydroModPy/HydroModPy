@@ -631,15 +631,20 @@ def _resolve_recorded_output_path(
 
 
 def _bundle_dir_from_config(config_path: Path) -> Path | None:
+    from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
+
     try:
         payload = load_toml_with_base_config(config_path)
     except Exception:
         return None
-    mesh_input = payload.get("mesh_input")
-    if isinstance(mesh_input, Mapping):
-        bundle_dir_raw = mesh_input.get("bundle_dir")
-        if bundle_dir_raw not in (None, ""):
-            return _resolve_recorded_output_path(bundle_dir_raw, base_dir=config_path.parent)
+    mesh_input_raw = payload.get("mesh_input")
+    if isinstance(mesh_input_raw, Mapping):
+        try:
+            mesh_input = MeshInputConfig.model_validate(dict(mesh_input_raw))
+        except Exception:
+            mesh_input = None
+        if mesh_input is not None and mesh_input.bundle_dir is not None:
+            return _resolve_recorded_output_path(mesh_input.bundle_dir, base_dir=config_path.parent)
 
     mesh_catchment = payload.get("mesh_catchment")
     if not isinstance(mesh_catchment, Mapping):

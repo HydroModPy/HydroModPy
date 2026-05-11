@@ -73,7 +73,9 @@ class BaseFigure(ABC):
 
     @abstractmethod
     def render(self, sim: Run, ax: Axes, **opts) -> Axes:
-        raise NotImplementedError
+        raise NotImplementedError(
+            "render must be implemented by subclasses (defines how the figure draws itself onto the given axes)."
+        )
 
     def plot(
         self,

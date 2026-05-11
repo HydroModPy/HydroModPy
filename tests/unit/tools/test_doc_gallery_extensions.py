@@ -126,7 +126,6 @@ def test_generate_simulation_comparison_case_smoke(tmp_path: Path) -> None:
     static_root = (
         Path(__file__).resolve().parents[3]
         / "docs"
-        / "readthedocs"
         / "source"
         / "_static"
         / "capability_gallery"

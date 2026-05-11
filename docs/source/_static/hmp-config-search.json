@@ -8,7 +8,7 @@
     "section": "workflow",
     "anchor": "workflow-mode",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L87",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L91",
     "description": "Workflow mode dispatched by `hmp run`."
   },
   {
@@ -5228,7 +5228,7 @@
     "section": "flow",
     "anchor": "flow-ic-h",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L169",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L159",
     "description": "Hydraulic-head initial condition payload."
   },
   {
@@ -6056,7 +6056,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-location",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L341",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L258",
     "description": ""
   },
   {
@@ -6188,7 +6188,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-flux",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L348",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L265",
     "description": ""
   },
   {
@@ -6200,7 +6200,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-forcing",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L355",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L272",
     "description": ""
   },
   {
@@ -6356,7 +6356,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L363",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L280",
     "description": ""
   },
   {
@@ -6368,7 +6368,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-wells-id-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L343",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/wells.py#L260",
     "description": ""
   },
   {
@@ -10856,8 +10856,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-comparison-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L118",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L138",
+    "description": "Stable identifier for this comparison run."
   },
   {
     "path": "analysis.comparison.base_simulation_config",
@@ -10868,7 +10868,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-base-simulation-config",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L119",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L142",
     "description": ""
   },
   {
@@ -10880,7 +10880,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-base-simulation-overlay",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L120",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L143",
     "description": "Shared TOML overlay applied to the base simulation config before any child-specific comparison.simulation.overlay. This is the preferred hook for catalog-driven site loops: a testbed can render one comparison per catalog row and inject the "
   },
   {
@@ -10892,7 +10892,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-anchors-file",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L134",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L157",
     "description": ""
   },
   {
@@ -10904,7 +10904,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-output-root",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L135",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L158",
     "description": ""
   },
   {
@@ -10916,7 +10916,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-reference-simulation",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L136",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L159",
     "description": ""
   },
   {
@@ -10928,7 +10928,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-continue-on-error",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L137",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L160",
     "description": ""
   },
   {
@@ -10940,7 +10940,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L138",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L161",
     "description": "Execution settings for the comparison child runs."
   },
   {
@@ -10952,7 +10952,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-backend",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L25",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L51",
     "description": ""
   },
   {
@@ -10964,7 +10964,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-max-parallel-runs",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L26",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L52",
     "description": "Number of child simulations executed in parallel. Forced to 1 in V1."
   },
   {
@@ -10976,7 +10976,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-keep-generated-configs",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L31",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L57",
     "description": ""
   },
   {
@@ -10988,7 +10988,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-run-simulations",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L58",
     "description": ""
   },
   {
@@ -11000,7 +11000,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-python-executable",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L59",
     "description": ""
   },
   {
@@ -11012,7 +11012,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-timeout-seconds",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L34",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L60",
     "description": "Optional per-child timeout in seconds. None disables the timeout."
   },
   {
@@ -11024,7 +11024,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-audit",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L142",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L165",
     "description": "Post-run audit policy applied to each child simulation."
   },
   {
@@ -11036,7 +11036,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-audit-mode",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L50",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L76",
     "description": ""
   },
   {
@@ -11048,7 +11048,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-audit-on-mismatch",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L51",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L77",
     "description": ""
   },
   {
@@ -11060,7 +11060,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L146",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L169",
     "description": ""
   },
   {
@@ -11072,8 +11072,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-enabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L248",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L350",
+    "description": "Enable the shared fine raster for map comparisons."
   },
   {
     "path": "analysis.comparison.fine_raster.resolution",
@@ -11084,8 +11084,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-resolution",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L249",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L354",
+    "description": "Target raster cell size in meters (EPSG:2154 grid)."
   },
   {
     "path": "analysis.comparison.fine_raster.extent_mode",
@@ -11096,8 +11096,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-extent-mode",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L250",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L358",
+    "description": "Strategy used to derive the common raster extent across simulations."
   },
   {
     "path": "analysis.comparison.fine_raster.interpolation",
@@ -11108,8 +11108,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-interpolation",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L253",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L362",
+    "description": "Regridding method used to project each map onto the shared fine raster."
   },
   {
     "path": "analysis.comparison.fine_raster.write_geotiff",
@@ -11120,8 +11120,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-write-geotiff",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L254",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L366",
+    "description": "Write the regridded maps as GeoTIFF files alongside the comparison figures."
   },
   {
     "path": "analysis.comparison.simulation",
@@ -11132,7 +11132,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L147",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L170",
     "description": "Generated child simulations to run in the comparison. At least one entry required."
   },
   {
@@ -11144,7 +11144,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L83",
     "description": ""
   },
   {
@@ -11156,7 +11156,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-label",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L58",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L84",
     "description": ""
   },
   {
@@ -11168,7 +11168,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-enabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L59",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L85",
     "description": ""
   },
   {
@@ -11180,7 +11180,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-solver",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L86",
     "description": ""
   },
   {
@@ -11192,7 +11192,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-simulation-config",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L61",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L87",
     "description": ""
   },
   {
@@ -11204,7 +11204,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-run-folder",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L62",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L88",
     "description": ""
   },
   {
@@ -11216,7 +11216,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-mesh-label",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L63",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L89",
     "description": ""
   },
   {
@@ -11228,7 +11228,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-mesh-mode",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L90",
     "description": ""
   },
   {
@@ -11240,7 +11240,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-overlay",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L101",
     "description": "Child-specific TOML overlay merged after comparison.base_simulation_overlay and after the shared base simulation config. Use it for solver-specific settings, child labels, child process selection, or deliberately varied method parameters. S"
   },
   {
@@ -11252,7 +11252,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L151",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L174",
     "description": "Observables to compare across the declared simulations. At least one entry required."
   },
   {
@@ -11264,8 +11264,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-name",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L74",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L113",
+    "description": "Unique identifier of this observable inside the comparison."
   },
   {
     "path": "analysis.comparison.observable.variable",
@@ -11276,8 +11276,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-variable",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L75",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L116",
+    "description": "Name of the simulated variable to extract (e.g. head, discharge)."
   },
   {
     "path": "analysis.comparison.observable.source",
@@ -11288,8 +11288,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-source",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L76",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L119",
+    "description": "Backing store for the extracted values; currently only disk outputs."
   },
   {
     "path": "analysis.comparison.observable.simulations",
@@ -11300,8 +11300,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-simulations",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L77",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L123",
+    "description": "Subset of simulation ids this observable applies to; null means all."
   },
   {
     "path": "analysis.comparison.observable.support",
@@ -11312,8 +11312,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-support",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L78",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L127",
+    "description": "Spatial support of the observable (point, outlet, boundary, mask, map)."
   },
   {
     "path": "analysis.comparison.observable.anchor_id",
@@ -11324,8 +11324,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-anchor-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L81",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L133",
+    "description": "Optional anchor key resolved from anchors_file to provide x and y."
   },
   {
     "path": "analysis.comparison.observable.x",
@@ -11336,8 +11336,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-x",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L82",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L137",
+    "description": "Easting in meters (EPSG:2154 / Lambert 93)."
   },
   {
     "path": "analysis.comparison.observable.y",
@@ -11348,8 +11348,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-y",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L83",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L141",
+    "description": "Northing in meters (EPSG:2154 / Lambert 93)."
   },
   {
     "path": "analysis.comparison.observable.cell_index",
@@ -11360,8 +11360,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-cell-index",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L84",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L145",
+    "description": "Zero-based mesh cell index for point or outlet support."
   },
   {
     "path": "analysis.comparison.observable.cell_indices",
@@ -11372,8 +11372,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-cell-indices",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L85",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L149",
+    "description": "List of zero-based mesh cell indices used for cell_mask support."
   },
   {
     "path": "analysis.comparison.observable.boundary_id",
@@ -11384,8 +11384,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-boundary-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L89",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L154",
+    "description": "Identifier of the boundary group selected for boundary support."
   },
   {
     "path": "analysis.comparison.observable.allow_domain_proxy",
@@ -11396,8 +11396,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-allow-domain-proxy",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L90",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L158",
+    "description": "Allow whole-domain reduction as outlet fallback when no location is set."
   },
   {
     "path": "analysis.comparison.observable.time",
@@ -11408,8 +11408,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-time",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L91",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L162",
+    "description": "Timestep selector (timestamp, integer index, or 'all')."
   },
   {
     "path": "analysis.comparison.observable.time_window",
@@ -11420,8 +11420,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-time-window",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L92",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L166",
+    "description": "Optional inclusive time window as a (start, end) pair, mutually exclusive with time."
   },
   {
     "path": "analysis.comparison.observable.reducer",
@@ -11432,8 +11432,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-reducer",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L93",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L170",
+    "description": "Spatial reducer applied over the support (e.g. nearest_cell, sum, max)."
   },
   {
     "path": "analysis.comparison.observable.time_reducer",
@@ -11444,8 +11444,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-time-reducer",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L94",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L174",
+    "description": "Temporal reducer applied over the selected timesteps (e.g. mean, sum)."
   },
   {
     "path": "analysis.comparison.observable.unit",
@@ -11456,8 +11456,8 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-unit",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L95",
-    "description": ""
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L178",
+    "description": "Optional unit label attached to the extracted values for display."
   },
   {
     "path": "overview.name",
@@ -12804,6 +12804,30 @@
     "description": ""
   },
   {
+    "path": "mesh_input.mesh_path",
+    "name": "mesh_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "mesh_input",
+    "anchor": "mesh-input-mesh-path",
+    "page": "mesh_input.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/mesh_input.py#L30",
+    "description": "Path to the external planar mesh file (typically a ``.msh``). Required when ``bundle_dir`` is not provided. Relative paths are resolved against the TOML directory."
+  },
+  {
+    "path": "mesh_input.bundle_dir",
+    "name": "bundle_dir",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "mesh_input",
+    "anchor": "mesh-input-bundle-dir",
+    "page": "mesh_input.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/mesh_input.py#L38",
+    "description": "Path to the solver-exchange mesh bundle directory associated with the external mesh. Required when ``mesh_path`` is not provided. Relative paths are resolved against the TOML directory."
+  },
+  {
     "path": "calibration.method",
     "name": "method",
     "type": "str",
@@ -13534,5 +13558,605 @@
     "page": "calibration.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/persistence.py#L54",
     "description": "Compression level (codec-dependent). Ignored when compression='none'."
+  },
+  {
+    "path": "testbed.config_path",
+    "name": "config_path",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-config-path",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L208",
+    "description": "Resolved path of the TOML file that produced this config."
+  },
+  {
+    "path": "testbed.base_dir",
+    "name": "base_dir",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-base-dir",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L211",
+    "description": "Directory used to resolve relative paths."
+  },
+  {
+    "path": "testbed.id",
+    "name": "id",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-id",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L214",
+    "description": "Stable testbed identifier."
+  },
+  {
+    "path": "testbed.profile",
+    "name": "profile",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-profile",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L215",
+    "description": "Selected testbed profile."
+  },
+  {
+    "path": "testbed.subject",
+    "name": "subject",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-subject",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L216",
+    "description": "High-level subject covered by the testbed (flow, mesh, transport)."
+  },
+  {
+    "path": "testbed.purpose",
+    "name": "purpose",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-purpose",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L219",
+    "description": "Stated purpose of the testbed (robustness, sensitivity, ...)."
+  },
+  {
+    "path": "testbed.output_root",
+    "name": "output_root",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-output-root",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L222",
+    "description": "Directory where testbed artifacts are written."
+  },
+  {
+    "path": "testbed.execute",
+    "name": "execute",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-execute",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L225",
+    "description": "When false, child configs are materialized but not executed."
+  },
+  {
+    "path": "testbed.continue_on_error",
+    "name": "continue_on_error",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-continue-on-error",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L229",
+    "description": "When false, the first failure aborts the testbed."
+  },
+  {
+    "path": "testbed.base_config_path",
+    "name": "base_config_path",
+    "type": "Path | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-base-config-path",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L233",
+    "description": "Optional child workflow TOML used as the variant base config."
+  },
+  {
+    "path": "testbed.runner",
+    "name": "runner",
+    "type": "TestbedRunnerConfig",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-runner",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L237",
+    "description": "Child-runner selection for every variant."
+  },
+  {
+    "path": "testbed.runner.type",
+    "name": "type",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-runner-type",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L55",
+    "description": "Runner identifier dispatched for every variant (comparison, simulation)."
+  },
+  {
+    "path": "testbed.runner.no_display",
+    "name": "no_display",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-runner-no-display",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L58",
+    "description": "Disable interactive display in child runners."
+  },
+  {
+    "path": "testbed.variants",
+    "name": "variants",
+    "type": "tuple[TestbedVariantConfig, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-variants",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L240",
+    "description": "Explicit variants declared in the TOML."
+  },
+  {
+    "path": "testbed.variants.id",
+    "name": "id",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-variants-id",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L67",
+    "description": "Stable variant identifier."
+  },
+  {
+    "path": "testbed.variants.label",
+    "name": "label",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-variants-label",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L68",
+    "description": "Human-readable variant label."
+  },
+  {
+    "path": "testbed.variants.axis",
+    "name": "axis",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-variants-axis",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L69",
+    "description": "Optional axis tag used to group variants in reports."
+  },
+  {
+    "path": "testbed.variants.enabled",
+    "name": "enabled",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-variants-enabled",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L73",
+    "description": "Toggle to skip a variant without removing it from the config."
+  },
+  {
+    "path": "testbed.variants.overlay",
+    "name": "overlay",
+    "type": "dict[str, Any]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-variants-overlay",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L77",
+    "description": "TOML overlay merged into the child-runner base config."
+  },
+  {
+    "path": "testbed.catalog",
+    "name": "catalog",
+    "type": "TestbedCatalogConfig | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L244",
+    "description": "Optional catalog source used to expand variants from rows."
+  },
+  {
+    "path": "testbed.catalog.path",
+    "name": "path",
+    "type": "Path",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-path",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L99",
+    "description": "Resolved path to the variant catalog (CSV or JSONL)."
+  },
+  {
+    "path": "testbed.catalog.format",
+    "name": "format",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-format",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L102",
+    "description": "Catalog format. 'auto' infers from the file suffix."
+  },
+  {
+    "path": "testbed.catalog.id_field",
+    "name": "id_field",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-id-field",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L106",
+    "description": "Column carrying the variant identifier."
+  },
+  {
+    "path": "testbed.catalog.label_field",
+    "name": "label_field",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-label-field",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L110",
+    "description": "Column carrying a human-readable variant label."
+  },
+  {
+    "path": "testbed.catalog.axis_field",
+    "name": "axis_field",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-axis-field",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L114",
+    "description": "Column carrying the optional axis tag."
+  },
+  {
+    "path": "testbed.catalog.enabled_field",
+    "name": "enabled_field",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-enabled-field",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L118",
+    "description": "Column flagging whether a row is active."
+  },
+  {
+    "path": "testbed.catalog.tags_field",
+    "name": "tags_field",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-tags-field",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L122",
+    "description": "Column carrying free-form tags joined by tag_separator."
+  },
+  {
+    "path": "testbed.catalog.required_fields",
+    "name": "required_fields",
+    "type": "tuple[str, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-required-fields",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L126",
+    "description": "Columns that must be present and non-empty per row."
+  },
+  {
+    "path": "testbed.catalog.path_fields",
+    "name": "path_fields",
+    "type": "tuple[str, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-path-fields",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L130",
+    "description": "Columns whose values are resolved as filesystem paths."
+  },
+  {
+    "path": "testbed.catalog.tag_separator",
+    "name": "tag_separator",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-tag-separator",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L134",
+    "description": "Separator splitting the tags column into individual tags."
+  },
+  {
+    "path": "testbed.catalog.field_equals",
+    "name": "field_equals",
+    "type": "tuple[tuple[str, str], ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-field-equals",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L138",
+    "description": "Per-field equality filters applied during catalog selection."
+  },
+  {
+    "path": "testbed.catalog.tags",
+    "name": "tags",
+    "type": "tuple[str, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-tags",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L142",
+    "description": "Whitelist of tags. Empty disables the filter."
+  },
+  {
+    "path": "testbed.catalog.exclude_tags",
+    "name": "exclude_tags",
+    "type": "tuple[str, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-exclude-tags",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L146",
+    "description": "Blacklist of tags applied after the whitelist."
+  },
+  {
+    "path": "testbed.catalog.include_disabled",
+    "name": "include_disabled",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-include-disabled",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L150",
+    "description": "When true, rows flagged as disabled are kept."
+  },
+  {
+    "path": "testbed.catalog.limit",
+    "name": "limit",
+    "type": "int | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-limit",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L154",
+    "description": "Optional cap on the number of selected rows."
+  },
+  {
+    "path": "testbed.catalog_variants",
+    "name": "catalog_variants",
+    "type": "tuple[TestbedCatalogVariantConfig, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L248",
+    "description": "Variant-generation rules applied to catalog rows."
+  },
+  {
+    "path": "testbed.catalog_variants.id_template",
+    "name": "id_template",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-id-template",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L163",
+    "description": "Format string evaluated against catalog row fields to derive the variant id."
+  },
+  {
+    "path": "testbed.catalog_variants.label_template",
+    "name": "label_template",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-label-template",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L167",
+    "description": "Format string used to derive the variant label."
+  },
+  {
+    "path": "testbed.catalog_variants.axis_template",
+    "name": "axis_template",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-axis-template",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L171",
+    "description": "Format string used to derive the optional axis tag."
+  },
+  {
+    "path": "testbed.catalog_variants.enabled",
+    "name": "enabled",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-enabled",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L175",
+    "description": "Toggle to skip the rule without removing it from the config."
+  },
+  {
+    "path": "testbed.catalog_variants.overlay",
+    "name": "overlay",
+    "type": "dict[str, Any]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-overlay",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L179",
+    "description": "TOML overlay rendered against each catalog row."
+  },
+  {
+    "path": "testbed.catalog_variants.required_fields",
+    "name": "required_fields",
+    "type": "tuple[str, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-required-fields",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L183",
+    "description": "Catalog columns that must be present and non-empty per row."
+  },
+  {
+    "path": "testbed.catalog_variants.field_equals",
+    "name": "field_equals",
+    "type": "tuple[tuple[str, str], ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-field-equals",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L187",
+    "description": "Per-field equality filters applied while expanding rows."
+  },
+  {
+    "path": "testbed.catalog_variants.tags",
+    "name": "tags",
+    "type": "tuple[str, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-tags",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L191",
+    "description": "Whitelist of tags applied during rule expansion."
+  },
+  {
+    "path": "testbed.catalog_variants.exclude_tags",
+    "name": "exclude_tags",
+    "type": "tuple[str, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-exclude-tags",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L195",
+    "description": "Blacklist of tags applied during rule expansion."
+  },
+  {
+    "path": "testbed.catalog_variants.limit",
+    "name": "limit",
+    "type": "int | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-catalog-variants-limit",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L199",
+    "description": "Optional cap on the number of variants generated by the rule."
+  },
+  {
+    "path": "testbed.metrics",
+    "name": "metrics",
+    "type": "tuple[TestbedMetricConfig, ...]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-metrics",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L252",
+    "description": "Metrics extracted from each child-runner summary."
+  },
+  {
+    "path": "testbed.metrics.name",
+    "name": "name",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-metrics-name",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L86",
+    "description": "Metric column name."
+  },
+  {
+    "path": "testbed.metrics.source",
+    "name": "source",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-metrics-source",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L87",
+    "description": "Dotted path into the child-runner summary."
+  },
+  {
+    "path": "testbed.metrics.required",
+    "name": "required",
+    "type": "bool",
+    "profile": "user",
+    "stability": "stable",
+    "section": "testbed",
+    "anchor": "testbed-metrics-required",
+    "page": "testbed.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L90",
+    "description": "When true, a missing metric fails the variant."
   }
 ]

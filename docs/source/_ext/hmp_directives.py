@@ -292,6 +292,16 @@ def _webp_path_for(png_path: str) -> str:
     return png_path + ".webp"
 
 
+def _doc_relative_uri(env: Any, path: str) -> str:
+    # Convert a source-root absolute path (/_static/...) to a path relative
+    # to the current doc so raw <img src=...> works when the docs are served
+    # under a sub-path (RTD versioning, file://, GH Pages).
+    if not path.startswith("/"):
+        return path
+    depth = env.docname.count("/")
+    return ("../" * depth) + path.lstrip("/")
+
+
 def _escape_attr(value: str) -> str:
     return (
         (value or "")
@@ -324,7 +334,8 @@ class GalleryFigureDirective(SphinxDirective):
 
     def run(self) -> list[nodes.Node]:
         png_path = self.arguments[0].strip()
-        webp_path = _webp_path_for(png_path)
+        png_uri = _doc_relative_uri(self.env, png_path)
+        webp_uri = _doc_relative_uri(self.env, _webp_path_for(png_path))
         alt = self.options.get("alt", "")
         width = self.options.get("width", "100%")
         caption = "\n".join(self.content).strip()
@@ -334,8 +345,8 @@ class GalleryFigureDirective(SphinxDirective):
         html = (
             '<figure class="hmp-gallery-figure">'
             "<picture>"
-            f'<source srcset="{_escape_attr(webp_path)}" type="image/webp">'
-            f'<img src="{_escape_attr(png_path)}" alt="{_escape_attr(alt)}"'
+            f'<source srcset="{_escape_attr(webp_uri)}" type="image/webp">'
+            f'<img src="{_escape_attr(png_uri)}" alt="{_escape_attr(alt)}"'
             f'{style_attr} loading="lazy">'
             "</picture>"
             f"{figcaption}"
@@ -389,13 +400,17 @@ class ImageComparisonDirective(SphinxDirective):
         after_alt = self.options.get("after-alt", after_label or "After")
         caption = self.options.get("caption", "")
 
+        before_uri = _doc_relative_uri(self.env, before)
+        after_uri = _doc_relative_uri(self.env, after)
+        before_webp_uri = _doc_relative_uri(self.env, _webp_path_for(before))
+        after_webp_uri = _doc_relative_uri(self.env, _webp_path_for(after))
         before_html = (
-            f'<picture class="hmp-before"><source srcset="{_escape_attr(_webp_path_for(before))}" type="image/webp">'
-            f'<img src="{_escape_attr(before)}" alt="{_escape_attr(before_alt)}" loading="lazy"></picture>'
+            f'<picture class="hmp-before"><source srcset="{_escape_attr(before_webp_uri)}" type="image/webp">'
+            f'<img src="{_escape_attr(before_uri)}" alt="{_escape_attr(before_alt)}" loading="lazy"></picture>'
         )
         after_html = (
-            f'<picture class="hmp-after"><source srcset="{_escape_attr(_webp_path_for(after))}" type="image/webp">'
-            f'<img src="{_escape_attr(after)}" alt="{_escape_attr(after_alt)}" loading="lazy"></picture>'
+            f'<picture class="hmp-after"><source srcset="{_escape_attr(after_webp_uri)}" type="image/webp">'
+            f'<img src="{_escape_attr(after_uri)}" alt="{_escape_attr(after_alt)}" loading="lazy"></picture>'
         )
         labels_html = ""
         if before_label:

@@ -20,10 +20,10 @@ from hydromodpy.spatial.geographic.synthetic.topography import build_topography_
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (
     _build_flow_config,
 )
+from validation_cases.shared import load_case_metadata
 from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
 )
-from validation_cases.shared import load_case_metadata
 from validation_cases.shared.gmsh_irregular_strip import write_gmsh22_triangle_mesh_from_bundle_csv
 from validation_cases.shared.runtime import (
     ValidationRunResult,
@@ -387,10 +387,12 @@ def run_boussinesq_circular_island_piecewise_k_case(
     simulations_folder.mkdir(parents=True, exist_ok=True)
     wells_payload = {
         f"ocean_comp_{index:03d}": {
-            "location_mode": "absolute_xy",
-            "layer": 0,
-            "x": float(x_m),
-            "y": float(y_m),
+            "location": {
+                "kind": "absolute_xy",
+                "layer": 0,
+                "x": float(x_m),
+                "y": float(y_m),
+            },
             "flux": -recharge_rate_m_s * float(area_m2),
         }
         for index, (x_m, y_m, area_m2) in enumerate(ocean_cell_specs)

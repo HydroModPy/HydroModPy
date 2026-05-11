@@ -242,89 +242,6 @@ FlowWellLocation: TypeAlias = Annotated[
 """Discriminated union of well-location payloads."""
 
 
-_LOCATION_KIND_BY_KEY: dict[str, str] = {
-    "cell": "cell",
-    "x": "absolute_xy",
-    "y": "absolute_xy",
-    "x_rel": "relative_xy",
-    "y_rel": "relative_xy",
-}
-
-
-_FLAT_LOCATION_KEYS: frozenset[str] = frozenset(
-    {"location_mode", "cell", "layer", "x", "y", "x_rel", "y_rel"}
-)
-
-
-def _normalize_location_kind(value: Any) -> str:
-    normalized = str(value).strip().lower()
-    if normalized not in {"cell", "absolute_xy", "relative_xy"}:
-        raise ValueError("well.location_mode must be one of: cell, absolute_xy, relative_xy")
-    return normalized
-
-
-def _build_location_from_flat_keys(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Translate a legacy flat well payload to the nested ``location`` mapping."""
-    raw_mode = payload.get("location_mode")
-    inferred_mode: str | None = None
-    if raw_mode is not None and str(raw_mode).strip() != "":
-        inferred_mode = _normalize_location_kind(raw_mode)
-    else:
-        for key, kind in _LOCATION_KIND_BY_KEY.items():
-            if payload.get(key) is not None:
-                inferred_mode = kind
-                break
-
-    if inferred_mode is None:
-        raise ValueError(
-            "well location requires either cell=[lay,row,col] or "
-            "location_mode with coordinate fields"
-        )
-
-    if inferred_mode == "cell":
-        cell_payload = payload.get("cell")
-        if cell_payload is None:
-            raise ValueError("well.location_mode='cell' requires cell=[lay,row,col]")
-        if any(payload.get(key) is not None for key in ("x", "y", "x_rel", "y_rel")):
-            raise ValueError(
-                "well.cell cannot be combined with layer/x/y/x_rel/y_rel; "
-                "use either cell or coordinate-based location fields"
-            )
-        if payload.get("layer") is not None:
-            raise ValueError(
-                "well.cell cannot be combined with layer/x/y/x_rel/y_rel; "
-                "use either cell or coordinate-based location fields"
-            )
-        return {"kind": "cell", "cell": cell_payload}
-
-    if payload.get("cell") is not None:
-        raise ValueError("well.cell cannot be combined with a non-'cell' location_mode")
-
-    layer = payload.get("layer")
-    if inferred_mode == "absolute_xy":
-        x = payload.get("x")
-        y = payload.get("y")
-        if x is None or y is None:
-            raise ValueError("well.location_mode='absolute_xy' requires x and y")
-        if payload.get("x_rel") is not None or payload.get("y_rel") is not None:
-            raise ValueError("well.location_mode='absolute_xy' cannot be combined with x_rel/y_rel")
-        nested: dict[str, Any] = {"kind": "absolute_xy", "x": x, "y": y}
-        if layer is not None:
-            nested["layer"] = layer
-        return nested
-
-    x_rel = payload.get("x_rel")
-    y_rel = payload.get("y_rel")
-    if x_rel is None or y_rel is None:
-        raise ValueError("well.location_mode='relative_xy' requires x_rel and y_rel")
-    if payload.get("x") is not None or payload.get("y") is not None:
-        raise ValueError("well.location_mode='relative_xy' cannot be combined with x/y")
-    nested = {"kind": "relative_xy", "x_rel": x_rel, "y_rel": y_rel}
-    if layer is not None:
-        nested["layer"] = layer
-    return nested
-
-
 class FlowWellConfig(HydroModelBase):
     """
     Typed payload for one pumping or injection well.
@@ -364,31 +281,6 @@ class FlowWellConfig(HydroModelBase):
     description: Annotated[str, Profile.USER] = Field(
         default="", description="Optional well description."
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_legacy_flat_location(cls, value):
-        """Translate legacy flat ``location_mode`` payloads to nested ``location``."""
-        if not isinstance(value, Mapping):
-            return value
-        payload = dict(value)
-        has_flat_keys = any(
-            key in payload and payload[key] is not None for key in _FLAT_LOCATION_KEYS
-        )
-        if "location" in payload and payload["location"] is not None:
-            if has_flat_keys:
-                raise ValueError(
-                    "well.location cannot be combined with legacy flat fields "
-                    "(location_mode, cell, layer, x, y, x_rel, y_rel)"
-                )
-            return payload
-        if not has_flat_keys:
-            return payload
-        nested = _build_location_from_flat_keys(payload)
-        for key in _FLAT_LOCATION_KEYS:
-            payload.pop(key, None)
-        payload["location"] = nested
-        return payload
 
     @field_validator("flux", mode="before")
     @classmethod

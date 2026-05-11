@@ -239,7 +239,7 @@ def test_apply_simulation_time_to_flow_wells_binds_constant_forcing() -> None:
         sinks_sources=FlowSinksSourcesConfig(
             wells={
                 "W1": {
-                    "cell": [0, 0, 0],
+                    "location": {"kind": "cell", "cell": [0, 0, 0]},
                     "units": "m3/day",
                     "forcing": {"kind": "constant", "value": -86400.0},
                 }
@@ -282,7 +282,7 @@ def test_apply_simulation_time_to_flow_wells_binds_csv_forcing(tmp_path: Path) -
         sinks_sources=FlowSinksSourcesConfig(
             wells={
                 "W1": {
-                    "cell": [0, 0, 0],
+                    "location": {"kind": "cell", "cell": [0, 0, 0]},
                     "units": "m3/day",
                     "forcing": {
                         "kind": "csv",

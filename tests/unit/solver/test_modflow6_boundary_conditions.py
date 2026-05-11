@@ -346,7 +346,7 @@ def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
         sinks_sources={
             "wells": {
                 "W1": FlowWellConfig(
-                    cell=(0, 0, 0),
+                    location={"kind": "cell", "cell": (0, 0, 0)},
                     units="m3/day",
                     forcing={"kind": "constant", "value": -86400.0},
                 )
@@ -369,9 +369,7 @@ def test_modflow6_resolves_absolute_xy_well_on_unstructured_runtime_mesh() -> No
         sinks_sources={
             "wells": {
                 "W1": FlowWellConfig(
-                    location_mode="absolute_xy",
-                    x=0.75,
-                    y=0.25,
+                    location={"kind": "absolute_xy", "x": 0.75, "y": 0.25},
                     flux=-1.0,
                 )
             }
@@ -393,10 +391,7 @@ def test_modflow6_coordinate_well_rejects_inherited_cell_payload() -> None:
             "wells": {
                 "W1": {
                     "cell": (0, 0, 1),
-                    "location_mode": "absolute_xy",
-                    "layer": 0,
-                    "x": 0.75,
-                    "y": 0.25,
+                    "location": {"kind": "absolute_xy", "x": 0.75, "y": 0.25, "layer": 0},
                     "flux": -1.0,
                 }
             }
@@ -404,7 +399,7 @@ def test_modflow6_coordinate_well_rejects_inherited_cell_payload() -> None:
         active_sinks_sources=["wells"],
     )
 
-    with pytest.raises(ValueError, match="well.cell cannot be combined"):
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
         build_well_stress_period_data(model, 1)
 
 
@@ -415,9 +410,7 @@ def test_modflow6_rejects_unstructured_well_outside_runtime_mesh() -> None:
         sinks_sources={
             "wells": {
                 "W1": FlowWellConfig(
-                    location_mode="absolute_xy",
-                    x=2.0,
-                    y=2.0,
+                    location={"kind": "absolute_xy", "x": 2.0, "y": 2.0},
                     flux=-1.0,
                 )
             }
@@ -436,7 +429,7 @@ def test_modflow6_rejects_well_flux_length_mismatch() -> None:
         sinks_sources={
             "wells": {
                 "W1": FlowWellConfig(
-                    cell=(0, 0, 0),
+                    location={"kind": "cell", "cell": (0, 0, 0)},
                     flux=[-1.0, -2.0, -3.0],
                 )
             }
@@ -894,7 +887,7 @@ def test_modflow6_flow_adapter_builds_wells_from_forcing_payload() -> None:
         sinks_sources={
             "wells": {
                 "W1": FlowWellConfig(
-                    cell=(0, 0, 0),
+                    location={"kind": "cell", "cell": (0, 0, 0)},
                     units="m3/day",
                     forcing={"kind": "constant", "value": -86400.0},
                 )

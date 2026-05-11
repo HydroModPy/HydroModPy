@@ -36,27 +36,19 @@ CellFieldActiveMode = Literal[
     "perennial",
     "persistence",
 ]
-SimulatedActiveNetworkMode = CellFieldActiveMode
 
 
 __all__ = [
     "CellFieldActiveMode",
-    "SimulatedActiveNetworkMode",
     "saturated_fraction",
     "drainage_density",
     "persistence",
     "resolve_cell_field_active_mode",
-    "resolve_simulated_active_network_mode",
     "cell_field_active_mode_label",
-    "simulated_active_network_mode_label",
     "cell_field_active_mask",
-    "simulated_active_network_mask",
     "cell_field_active_metrics",
-    "simulated_active_network_metrics",
     "cell_field_network_overlap_metrics",
     "cell_field_network_distance_metrics",
-    "simulated_active_network_overlap_metrics",
-    "simulated_active_network_distance_metrics",
     "release_flux_network_overlap_metrics",
     "release_flux_network_distance_metrics",
     "catchment_mean",
@@ -286,13 +278,6 @@ def resolve_cell_field_active_mode(sim: Run, mode: CellFieldActiveMode | None = 
     )
 
 
-def resolve_simulated_active_network_mode(
-    sim: Run, mode: SimulatedActiveNetworkMode | None = None
-) -> str:
-    """Backward-compatible alias for ``resolve_cell_field_active_mode``."""
-    return resolve_cell_field_active_mode(sim, mode)
-
-
 def cell_field_active_mode_label(
     sim: Run,
     *,
@@ -310,20 +295,6 @@ def cell_field_active_mode_label(
     if resolved_mode == "always_active":
         return "always active cells"
     return f"persistence >= {persistence_threshold:g}"
-
-
-def simulated_active_network_mode_label(
-    sim: Run,
-    *,
-    mode: SimulatedActiveNetworkMode | None = None,
-    persistence_threshold: float = 0.5,
-) -> str:
-    """Backward-compatible alias for ``cell_field_active_mode_label``."""
-    return cell_field_active_mode_label(
-        sim,
-        mode=mode,
-        persistence_threshold=persistence_threshold,
-    )
 
 
 # --------------------------------------------------------------------------
@@ -457,26 +428,6 @@ def cell_field_active_mask(
     return values
 
 
-def simulated_active_network_mask(
-    sim: Run,
-    *,
-    variable: str = "accumulation_flux",
-    threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode | None = None,
-    persistence_threshold: float = 0.5,
-    timestep: int | None = None,
-) -> np.ndarray:
-    """Backward-compatible alias for ``cell_field_active_mask``."""
-    return cell_field_active_mask(
-        sim,
-        variable=variable,
-        threshold=threshold,
-        mode=mode,
-        persistence_threshold=persistence_threshold,
-        timestep=timestep,
-    )
-
-
 def cell_field_active_metrics(
     sim: Run,
     *,
@@ -547,22 +498,6 @@ def cell_field_active_metrics(
         "persistence_mean": float(np.mean(persistence_fraction[mask])),
         "persistence_max": float(np.max(persistence_fraction[mask])),
     }
-
-
-def simulated_active_network_metrics(
-    sim: Run,
-    *,
-    variable: str = "accumulation_flux",
-    threshold: float = 0.0,
-    persistence_threshold: float = 0.5,
-) -> dict[str, float | int | str]:
-    """Backward-compatible alias for ``cell_field_active_metrics``."""
-    return cell_field_active_metrics(
-        sim,
-        variable=variable,
-        threshold=threshold,
-        persistence_threshold=persistence_threshold,
-    )
 
 
 def _cell_field_active_state(
@@ -774,61 +709,13 @@ def cell_field_network_distance_metrics(
     }
 
 
-def simulated_active_network_overlap_metrics(
-    sim: Run,
-    *,
-    network_role: str = "reference",
-    variable: str = "accumulation_flux",
-    threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode | None = None,
-    persistence_threshold: float = 0.5,
-    timestep: int | None = None,
-    buffer_m: float = 0.0,
-) -> dict[str, float | int | str]:
-    """Compare simulated active cells with an existing vector network role."""
-    return cell_field_network_overlap_metrics(
-        sim,
-        network_role=network_role,
-        variable=variable,
-        threshold=threshold,
-        mode=mode,
-        persistence_threshold=persistence_threshold,
-        timestep=timestep,
-        buffer_m=buffer_m,
-    )
-
-
-def simulated_active_network_distance_metrics(
-    sim: Run,
-    *,
-    network_role: str = "reference",
-    variable: str = "accumulation_flux",
-    threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode | None = None,
-    persistence_threshold: float = 0.5,
-    timestep: int | None = None,
-    network_buffer_m: float = 0.0,
-) -> dict[str, float | int | str | None]:
-    """Return planar bidirectional distances between active cells and a network."""
-    return cell_field_network_distance_metrics(
-        sim,
-        network_role=network_role,
-        variable=variable,
-        threshold=threshold,
-        mode=mode,
-        persistence_threshold=persistence_threshold,
-        timestep=timestep,
-        network_buffer_m=network_buffer_m,
-    )
-
-
 def release_flux_network_overlap_metrics(
     sim: Run,
     *,
     network_role: str = "reference",
     variable: str = "release_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode | None = None,
+    mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
     buffer_m: float = 0.0,
@@ -852,7 +739,7 @@ def release_flux_network_distance_metrics(
     network_role: str = "reference",
     variable: str = "release_flux",
     threshold: float = 0.0,
-    mode: SimulatedActiveNetworkMode | None = None,
+    mode: CellFieldActiveMode | None = None,
     persistence_threshold: float = 0.5,
     timestep: int | None = None,
 ) -> dict[str, float | int | str | None]:

@@ -232,17 +232,17 @@ computes useful summaries such as:
 
 - ``run.drainage_density()``
 - ``run.persistence(variable="accumulation_flux")``
-- ``run.simulated_active_network_mask()``
-- ``run.simulated_active_network_metrics()``
-- ``run.simulated_active_network_overlap_metrics()``
-- ``run.simulated_active_network_distance_metrics()``
+- ``run.cell_field_active_mask()``
+- ``run.cell_field_active_metrics()``
+- ``run.cell_field_network_overlap_metrics()``
+- ``run.cell_field_network_distance_metrics()``
 - the ``simulated_active_network`` figure when the run has
   ``accumulation_flux`` and a plottable mesh
 
 These are lazy result views implemented in ``hydromodpy.results.views``:
 they read persisted fields, mesh geometry, and hydrographic-network roles from
 the run without mutating the catalog. ``hydromodpy.analysis.stream_networks``
-keeps a compatibility import for callers that used the older analysis path.
+re-routes the same distance view under the analysis subpackage.
 
 What is still missing is the canonical storage rule that decides which
 thresholded or aggregated active network should become the persisted

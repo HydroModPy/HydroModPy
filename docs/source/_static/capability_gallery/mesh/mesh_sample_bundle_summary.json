@@ -29,12 +29,12 @@
     "tools/mesh_bundle_viewer/display/summary.py"
   ],
   "source_hashes": {
-    "examples/projects/08_mesh_viewer/config_example.toml": "23c379f7334a38be13d577a7238b94aa0ea7962cee3fbd43fbf4f952d261df95",
-    "examples/projects/08_mesh_viewer/default_bundle/README.md": "6033bff255a7b967403f2423851979b8fc8c7eb906a26e5450e2c70dc5ede8fc",
-    "tools/mesh_bundle_viewer/README.md": "563695ceaf5f7c62cc42a3e16637c8fbe4cad128af808b50846f259c4887de88",
-    "tools/mesh_bundle_viewer/runner/visualization_runner.py": "d04970b17ab7cc78f1931ef2b92dc5dc9e2db06bf49c573c461928f1c08c68fa",
-    "tools/mesh_bundle_viewer/display/figure.py": "ec6056f53f5af1961ef073c1e700f2e6a9658fec18f890150aae4ab42130e6c6",
-    "tools/mesh_bundle_viewer/display/summary.py": "152e4dcf6c8a6884f812411daa890f9fde18b13a464cf7209a15361f92ec8c6d"
+    "examples/projects/08_mesh_viewer/config_example.toml": "3d029b663116ccb877ebb5969950ba7bbb51f46f5b67548e796dd500e2e41ca5",
+    "examples/projects/08_mesh_viewer/default_bundle/README.md": "44d8359209d029cc02d8f9f9d31da522369d090983d4bc12dff6781da6e98bd1",
+    "tools/mesh_bundle_viewer/README.md": "ee221138fdfd22bdca4c3e5dbd1b3b6abab2a8e89c4ad51c5f17355708f72d13",
+    "tools/mesh_bundle_viewer/runner/visualization_runner.py": "a2a5296887c77f6be1d1ce7cfa921393c60a0cf447689585d54349f50f08766e",
+    "tools/mesh_bundle_viewer/display/figure.py": "0df18b1454f263696e5cc7d272e072ddee6cf1fd81cc176b628f9568c787489e",
+    "tools/mesh_bundle_viewer/display/summary.py": "94d0c8de4718a447b459daf5899e8fe92812a90999fee0e7f1c02d28e45fe7b0"
   },
   "docname": "cases/mesh_sample_bundle",
   "images": [
@@ -43,7 +43,7 @@
       "caption": "Standalone mesh overview generated from the shipped sample bundle and viewer TOML.",
       "alt_text": "Mesh sample bundle overview with geology and topography panels",
       "doc_path": "/_static/capability_gallery/mesh/mesh_sample_bundle_overview.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_overview.png"
+      "repo_path": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_overview.png"
     }
   ],
   "metrics": [
@@ -104,9 +104,9 @@
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_overview.png"
+      "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_overview.png"
     ]
   },
   "parameter_docs": {
@@ -153,49 +153,49 @@
             "field": "crs",
             "meaning": "Coordinate reference system declared by the imported mesh bundle.",
             "value": "EPSG:2154",
-            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
           },
           {
             "field": "node_count",
             "meaning": "Number of nodes available in the displayed mesh bundle.",
             "value": "4",
-            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
           },
           {
             "field": "cell_count",
             "meaning": "Number of cells available in the displayed mesh bundle.",
             "value": "2",
-            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
           },
           {
             "field": "edge_count",
             "meaning": "Number of edges available in the displayed mesh bundle.",
             "value": "5",
-            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
           },
           {
             "field": "river_edge_count",
             "meaning": "Count of edges tagged as river constraints in the bundle.",
             "value": "1",
-            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
           },
           {
             "field": "boundary_edge_count",
             "meaning": "Count of watershed-boundary edges in the bundle.",
             "value": "4",
-            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
           },
           {
             "field": "geology_interface_edge_count",
             "meaning": "Count of geology-interface edges present in the bundle.",
             "value": "1",
-            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
           },
           {
             "field": "geology_keys",
             "meaning": "Distinct geology codes present in the imported bundle.",
             "value": "granite, schist",
-            "source": "docs/readthedocs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
+            "source": "docs/source/_static/capability_gallery/mesh/mesh_sample_bundle_summary.json"
           }
         ]
       }

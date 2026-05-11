@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">solver_engine</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "modflownwt"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L17>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "modflow6"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L17>`__
 
       Groundwater flow solver backend registered for the 'flow' process.
 
@@ -55,7 +55,7 @@ Starter TOML snippet
    .. code-block:: toml
 
       [solver]
-      # solver_engine = "modflownwt"
+      # solver_engine = "modflow6"
 
 Entity-relationship diagram
 ---------------------------

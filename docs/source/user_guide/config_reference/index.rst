@@ -176,6 +176,15 @@ Sections
       Optional mesh-only settings loaded from the [mesh_catchment] section. Mesh-only public runs should use [simulation.process] with type='mesh'; the standalone mesh API can still consume this section directly.
 
    .. grid-item-card::
+      :link: mesh_input
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[mesh_input]**
+      ^^^
+      Optional external mesh declaration loaded from the [mesh_input] section. Declares a pre-existing planar mesh (and optional solver exchange bundle) the simulation or comparison workflow should consume instead of running the embedded mesh-catchment workflow. Mutually exclusive with [mesh_catchment].
+
+   .. grid-item-card::
       :link: calibration
       :link-type: doc
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
@@ -183,6 +192,15 @@ Sections
       **[calibration]**
       ^^^
       Optional calibration settings loaded from the [calibration] section.  When present, triggers the calibration workflow.
+
+   .. grid-item-card::
+      :link: testbed
+      :link-type: doc
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-3
+
+      **[testbed]**
+      ^^^
+      Optional method-testbed settings loaded from the [testbed] section. Drives the orchestration layer over child runners (comparison or simulation) and is dispatched when workflow.mode='testbed'.
 
 .. toctree::
    :hidden:
@@ -207,4 +225,6 @@ Sections
    analysis
    overview
    mesh_catchment
+   mesh_input
    calibration
+   testbed

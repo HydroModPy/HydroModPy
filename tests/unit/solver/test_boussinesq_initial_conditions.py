@@ -3,7 +3,8 @@ from types import SimpleNamespace
 import numpy as np
 
 from hydromodpy.physics.flow.initial_conditions import (
-    FlowInitialCondition,
+    FlowICCustom,
+    FlowICSteadyState,
     FlowInitialConditions,
 )
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -24,11 +25,7 @@ def test_boussinesq_steady_state_initial_condition_uses_top_as_initial_guess() -
         z_top_m=np.asarray([10.0, 11.0, 12.0], dtype=float),
         z_bottom_m=np.asarray([1.0, 1.0, 1.0], dtype=float),
     )
-    flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="steady_state")
-        )
-    )
+    flow = SimpleNamespace(initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")))
     resolver = BoussinesqForcingResolver(mesh=mesh, flow=flow, time_grid=None)
 
     head = resolver.resolve_initial_head_field()
@@ -43,9 +40,7 @@ def test_boussinesq_initial_state_records_head_bounds_summary(tmp_path) -> None:
         z_bottom_m=np.asarray([1.0, 1.0, 1.0], dtype=float),
     )
     flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="custom", value=6.0, units="m")
-        )
+        initial_conditions=FlowInitialConditions(h=FlowICCustom(id="h", value=6.0, units="m"))
     )
     solver = Boussinesq(
         mesh_bundle=None,
@@ -72,9 +67,7 @@ def test_petsc_ts_vi_initialization_uses_regularized_steady_solve() -> None:
         flow_regime="transient",
         runtime_backend="petsc",
         surface_interaction_model="ts_vi_obstacle",
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="steady_state")
-        ),
+        initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")),
         sinks_sources={},
     )
 
@@ -95,9 +88,7 @@ def test_petsc_ts_vi_initialization_reads_surface_model_from_config() -> None:
             runtime_backend="petsc",
             surface_interaction_model="ts_vi_obstacle",
         ),
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="steady_state")
-        ),
+        initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")),
         sinks_sources={},
     )
 

@@ -50,7 +50,7 @@ must carry a rationale before it is merged.
 | 20 | Provenance float-stat SHA | exact equality | `n/a` | Hash equality | No tolerance |
 | 21 | Mesh vertex/connectivity | exact equality | `n/a` | Integer connectivity | No float tolerance |
 | 22 | Bootstrap CI on metrics | bootstrap `rtol` | `2 %` | Sampling noise | 1000 resamples |
-| 23 | Geographic catchment golden | boundary area, elevation sum, and pixel-count drift | `0.03 km2`, `1000 m`, `5 px` | Whitebox raster boundary tie envelope on fixed DEM/outlet | Shapes, CRS, elevation distribution, and counts remain constrained |
+| 23 | Geographic catchment golden | boundary area, elevation sum, and pixel-count drift | `0.06 km2`, `1000 m`, `10 px` | Whitebox D8/breach tie envelope on fixed DEM/outlet across mamba (conda-forge) and pip stacks; ~10 px on 75 m DEM | Shapes, CRS, elevation distribution, and counts remain constrained |
 | 24 | Geographic DEM processing golden | D8/floating raster stat drift | `0.03 m` for elevation stats, `max(512, 0.03 * valid cells)` for integer sums, `20 m` for float sums | Whitebox D8 tie ordering on fixed DEM/outlet | Per-raster shape, dtype, nodata, counts, min/max, and quantiles remain constrained |
 | 25 | Linearized transient recharge step 1D (MF6 irregular tri) | cross-row spread | `< 0.006 m` | Triangular mesh lateral asymmetry envelope | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
 | 26 | Linearized transient recharge periodic 1D (MF6 irregular tri) | cross-row spread | `< 0.006 m` | Triangular mesh lateral asymmetry envelope | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
