@@ -56,7 +56,7 @@ jobs:
           cache: pip
 
       - name: Install system libraries
-        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa graphviz libgraphviz-dev pkg-config
 
       - name: Install package and docs extras
         run: |
