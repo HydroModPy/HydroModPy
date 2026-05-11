@@ -210,7 +210,7 @@ def _mesh_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None
 
 
 def _bundle_dir_from_config(config_path: Path) -> Path | None:
-    from hydromodpy.spatial.mesh.config import MeshInputConfig
+    from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 
     payload = _safe_config_payload(config_path)
     mesh_input_raw = payload.get("mesh_input")

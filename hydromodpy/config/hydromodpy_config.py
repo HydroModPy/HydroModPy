@@ -45,6 +45,7 @@ from hydromodpy.config.toml_section_loader import (
     _load_optional_mesh_catchment_section,
     _load_optional_mesh_input_section,
     _load_optional_overview_section,
+    _load_optional_testbed_section,
     _raw_declares_dem_source,
     _validation_context,
     load_geographic_section,
@@ -55,6 +56,7 @@ from hydromodpy.core.config_kit.introspect import (
     collect_profile_violations,
     resolve_profile,
 )
+from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.toml_io.error_locator import format_validation_error
@@ -71,7 +73,7 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig, MeshInputConfig
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 WorkflowMode = Literal[
     "simulation",
@@ -544,6 +546,7 @@ class HydroModPyConfig(HydroModelBase):
             "mesh_catchment": (None, _load_optional_mesh_catchment_section),
             "mesh_input": (None, _load_optional_mesh_input_section),
             "calibration": (None, _load_optional_calibration_section),
+            "testbed": (None, _load_optional_testbed_section),
         }
 
         parsed_sections: dict[str, Any] = {"workspace": parsed_workspace}

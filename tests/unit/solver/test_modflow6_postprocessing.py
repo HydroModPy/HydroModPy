@@ -708,10 +708,12 @@ def test_modflow6_post_processing_exports_runtime_support_overview(
         sinks_sources={
             "wells": {
                 "W1": SimpleNamespace(
-                    location_mode="absolute_xy",
-                    layer=0,
-                    x=0.25,
-                    y=0.25,
+                    location=SimpleNamespace(
+                        kind="absolute_xy",
+                        layer=0,
+                        x=0.25,
+                        y=0.25,
+                    ),
                     flux=-1.0,
                 )
             }

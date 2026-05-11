@@ -74,10 +74,12 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
     simulations_folder.mkdir(parents=True, exist_ok=True)
     wells_payload = {
         f"ocean_comp_{index:03d}": {
-            "location_mode": "absolute_xy",
-            "layer": 0,
-            "x": float(x_m),
-            "y": float(y_m),
+            "location": {
+                "kind": "absolute_xy",
+                "layer": 0,
+                "x": float(x_m),
+                "y": float(y_m),
+            },
             "flux": -recharge_rate_m_s * float(area_m2),
         }
         for index, (x_m, y_m, area_m2) in enumerate(ocean_cell_specs)

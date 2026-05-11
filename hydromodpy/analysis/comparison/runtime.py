@@ -631,7 +631,7 @@ def _resolve_recorded_output_path(
 
 
 def _bundle_dir_from_config(config_path: Path) -> Path | None:
-    from hydromodpy.spatial.mesh.config import MeshInputConfig
+    from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 
     try:
         payload = load_toml_with_base_config(config_path)
