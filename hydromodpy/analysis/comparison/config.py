@@ -17,6 +17,7 @@ from hydromodpy.core.config_kit.types import (
     OptionalText,
     PositiveFloat,
 )
+from hydromodpy.core.config_kit.validators import validate_optional_identifier
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
@@ -50,13 +51,7 @@ class ComparisonSimulation(HydroModelBase):
         ),
     )
 
-    @field_validator("mesh_label")
-    @classmethod
-    def _validate_optional_identifier(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        return text or None
+    _normalize_mesh_label = field_validator("mesh_label")(validate_optional_identifier)
 
     @field_validator("overlay")
     @classmethod
@@ -94,13 +89,9 @@ class ComparisonObservable(HydroModelBase):
     time_reducer: Annotated[OptionalText, Profile.USER] = None
     unit: Annotated[OptionalText, Profile.USER] = None
 
-    @field_validator("anchor_id", "boundary_id")
-    @classmethod
-    def _validate_optional_identifier(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        return text or None
+    _normalize_anchor_boundary_ids = field_validator("anchor_id", "boundary_id")(
+        validate_optional_identifier
+    )
 
     @field_validator("simulations")
     @classmethod
@@ -198,13 +189,9 @@ class RuntimeComparisonSection(HydroModelBase):
         description="Observables to compare across the declared simulations. At least one entry required.",
     )
 
-    @field_validator("comparison_id", "reference_simulation")
-    @classmethod
-    def _validate_optional_identifier(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        return text or None
+    _normalize_comparison_identifiers = field_validator("comparison_id", "reference_simulation")(
+        validate_optional_identifier
+    )
 
     @field_validator("base_simulation_overlay")
     @classmethod

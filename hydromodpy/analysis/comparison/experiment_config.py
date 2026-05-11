@@ -17,6 +17,7 @@ from hydromodpy.analysis.comparison.config import (
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IdentifierStr, OptionalText
+from hydromodpy.core.config_kit.validators import validate_optional_identifier
 
 
 class ComparisonExecutionConfig(HydroModelBase):
@@ -85,13 +86,7 @@ class ComparisonSimulationConfig(HydroModelBase):
         ),
     )
 
-    @field_validator("mesh_label")
-    @classmethod
-    def _validate_optional_identifier(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        return text or None
+    _normalize_mesh_label = field_validator("mesh_label")(validate_optional_identifier)
 
     @field_validator("overlay")
     @classmethod
@@ -153,13 +148,9 @@ class ComparisonSection(HydroModelBase):
         description="Observables to compare across the declared simulations. At least one entry required.",
     )
 
-    @field_validator("comparison_id", "reference_simulation")
-    @classmethod
-    def _validate_optional_identifier(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        return text or None
+    _normalize_comparison_identifiers = field_validator("comparison_id", "reference_simulation")(
+        validate_optional_identifier
+    )
 
     @field_validator("base_simulation_overlay")
     @classmethod
