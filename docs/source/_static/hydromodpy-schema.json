@@ -1245,6 +1245,7 @@
       "properties": {
         "enabled": {
           "default": false,
+          "description": "Enable the shared fine raster for map comparisons.",
           "examples": [
             false
           ],
@@ -1263,11 +1264,13 @@
             }
           ],
           "default": null,
+          "description": "Target raster cell size in meters (EPSG:2154 grid).",
           "title": "Resolution",
           "x-hmp-profile": "expert"
         },
         "extent_mode": {
           "default": "intersection",
+          "description": "Strategy used to derive the common raster extent across simulations.",
           "enum": [
             "intersection",
             "union",
@@ -1282,6 +1285,7 @@
         },
         "interpolation": {
           "default": "linear",
+          "description": "Regridding method used to project each map onto the shared fine raster.",
           "enum": [
             "linear",
             "nearest"
@@ -1295,6 +1299,7 @@
         },
         "write_geotiff": {
           "default": true,
+          "description": "Write the regridded maps as GeoTIFF files alongside the comparison figures.",
           "examples": [
             true
           ],
@@ -1311,6 +1316,7 @@
       "description": "One quantity of interest extracted from each simulation run folder.",
       "properties": {
         "name": {
+          "description": "Unique identifier of this observable inside the comparison.",
           "examples": [
             "example"
           ],
@@ -1320,6 +1326,7 @@
           "x-hmp-profile": "user"
         },
         "variable": {
+          "description": "Name of the simulated variable to extract (e.g. head, discharge).",
           "examples": [
             "example"
           ],
@@ -1330,6 +1337,7 @@
         "source": {
           "const": "disk",
           "default": "disk",
+          "description": "Backing store for the extracted values; currently only disk outputs.",
           "examples": [
             "disk"
           ],
@@ -1351,11 +1359,13 @@
             }
           ],
           "default": null,
+          "description": "Subset of simulation ids this observable applies to; null means all.",
           "title": "Simulations",
           "x-hmp-profile": "user"
         },
         "support": {
           "default": "point",
+          "description": "Spatial support of the observable (point, outlet, boundary, mask, map).",
           "enum": [
             "point",
             "outlet",
@@ -1380,6 +1390,7 @@
             }
           ],
           "default": null,
+          "description": "Optional anchor key resolved from anchors_file to provide x and y.",
           "title": "Anchor Id",
           "x-hmp-profile": "user"
         },
@@ -1393,6 +1404,7 @@
             }
           ],
           "default": null,
+          "description": "Easting in meters (EPSG:2154 / Lambert 93).",
           "title": "X",
           "x-hmp-profile": "user"
         },
@@ -1406,6 +1418,7 @@
             }
           ],
           "default": null,
+          "description": "Northing in meters (EPSG:2154 / Lambert 93).",
           "title": "Y",
           "x-hmp-profile": "user"
         },
@@ -1420,6 +1433,7 @@
             }
           ],
           "default": null,
+          "description": "Zero-based mesh cell index for point or outlet support.",
           "title": "Cell Index",
           "x-hmp-profile": "user"
         },
@@ -1438,6 +1452,7 @@
             }
           ],
           "default": null,
+          "description": "List of zero-based mesh cell indices used for cell_mask support.",
           "title": "Cell Indices",
           "x-hmp-profile": "user"
         },
@@ -1452,11 +1467,13 @@
             }
           ],
           "default": null,
+          "description": "Identifier of the boundary group selected for boundary support.",
           "title": "Boundary Id",
           "x-hmp-profile": "user"
         },
         "allow_domain_proxy": {
           "default": false,
+          "description": "Allow whole-domain reduction as outlet fallback when no location is set.",
           "examples": [
             false
           ],
@@ -1477,6 +1494,7 @@
             }
           ],
           "default": "all",
+          "description": "Timestep selector (timestamp, integer index, or 'all').",
           "examples": [
             "all"
           ],
@@ -1516,6 +1534,7 @@
             }
           ],
           "default": null,
+          "description": "Optional inclusive time window as a (start, end) pair, mutually exclusive with time.",
           "title": "Time Window",
           "x-hmp-profile": "user"
         },
@@ -1529,6 +1548,7 @@
             }
           ],
           "default": null,
+          "description": "Spatial reducer applied over the support (e.g. nearest_cell, sum, max).",
           "title": "Reducer",
           "x-hmp-profile": "user"
         },
@@ -1542,6 +1562,7 @@
             }
           ],
           "default": null,
+          "description": "Temporal reducer applied over the selected timesteps (e.g. mean, sum).",
           "title": "Time Reducer",
           "x-hmp-profile": "user"
         },
@@ -1555,6 +1576,7 @@
             }
           ],
           "default": null,
+          "description": "Optional unit label attached to the extracted values for display.",
           "title": "Unit",
           "x-hmp-profile": "user"
         }
@@ -1581,6 +1603,7 @@
             }
           ],
           "default": null,
+          "description": "Stable identifier for this comparison run.",
           "title": "Comparison Id",
           "x-hmp-profile": "user"
         },
@@ -7928,6 +7951,44 @@
       "title": "MeshCatchmentWatershedOutsideCoarseningConfig",
       "type": "object"
     },
+    "MeshInputConfig": {
+      "additionalProperties": false,
+      "description": "External pre-existing mesh declared in ``[mesh_input]``.\n\nEither ``mesh_path`` or ``bundle_dir`` must be provided. Paths are stored\nas ``Path`` instances; relative paths are resolved by the call site (the\nsimulation launcher resolves them against the TOML directory).",
+      "properties": {
+        "mesh_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to the external planar mesh file (typically a ``.msh``). Required when ``bundle_dir`` is not provided. Relative paths are resolved against the TOML directory.",
+          "title": "Mesh Path",
+          "x-hmp-profile": "user"
+        },
+        "bundle_dir": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Path to the solver-exchange mesh bundle directory associated with the external mesh. Required when ``mesh_path`` is not provided. Relative paths are resolved against the TOML directory.",
+          "title": "Bundle Dir",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "MeshInputConfig",
+      "type": "object"
+    },
     "Modflow6Config": {
       "additionalProperties": false,
       "description": "Expert-level MODFLOW 6 configuration organized by concern.",
@@ -12410,10 +12471,10 @@
       "description": "Configuration block defining the active groundwater solver engine.",
       "properties": {
         "solver_engine": {
-          "default": "modflownwt",
+          "default": "modflow6",
           "description": "Groundwater flow solver backend registered for the 'flow' process.",
           "examples": [
-            "modflownwt"
+            "modflow6"
           ],
           "title": "Solver Engine",
           "type": "string",
@@ -13040,6 +13101,638 @@
         "source"
       ],
       "title": "TemperatureSourceConfig",
+      "type": "object"
+    },
+    "TestbedCatalogConfig": {
+      "additionalProperties": false,
+      "description": "Catalog source used to generate testbed variants.",
+      "properties": {
+        "path": {
+          "description": "Resolved path to the variant catalog (CSV or JSONL).",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "format": {
+          "default": "auto",
+          "description": "Catalog format. 'auto' infers from the file suffix.",
+          "examples": [
+            "auto"
+          ],
+          "title": "Format",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "id_field": {
+          "default": "variant_id",
+          "description": "Column carrying the variant identifier.",
+          "examples": [
+            "variant_id"
+          ],
+          "title": "Id Field",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "label_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "variant_label",
+          "description": "Column carrying a human-readable variant label.",
+          "examples": [
+            "variant_label"
+          ],
+          "title": "Label Field",
+          "x-hmp-profile": "user"
+        },
+        "axis_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "axis",
+          "description": "Column carrying the optional axis tag.",
+          "examples": [
+            "axis"
+          ],
+          "title": "Axis Field",
+          "x-hmp-profile": "user"
+        },
+        "enabled_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "enabled",
+          "description": "Column flagging whether a row is active.",
+          "examples": [
+            "enabled"
+          ],
+          "title": "Enabled Field",
+          "x-hmp-profile": "user"
+        },
+        "tags_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": "tags",
+          "description": "Column carrying free-form tags joined by tag_separator.",
+          "examples": [
+            "tags"
+          ],
+          "title": "Tags Field",
+          "x-hmp-profile": "user"
+        },
+        "required_fields": {
+          "default": [],
+          "description": "Columns that must be present and non-empty per row.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Fields",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "path_fields": {
+          "default": [],
+          "description": "Columns whose values are resolved as filesystem paths.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Path Fields",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "tag_separator": {
+          "default": ";",
+          "description": "Separator splitting the tags column into individual tags.",
+          "examples": [
+            ";"
+          ],
+          "title": "Tag Separator",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "field_equals": {
+          "default": [],
+          "description": "Per-field equality filters applied during catalog selection.",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Field Equals",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "tags": {
+          "default": [],
+          "description": "Whitelist of tags. Empty disables the filter.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "exclude_tags": {
+          "default": [],
+          "description": "Blacklist of tags applied after the whitelist.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Exclude Tags",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "include_disabled": {
+          "default": false,
+          "description": "When true, rows flagged as disabled are kept.",
+          "examples": [
+            false
+          ],
+          "title": "Include Disabled",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional cap on the number of selected rows.",
+          "title": "Limit",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "TestbedCatalogConfig",
+      "type": "object"
+    },
+    "TestbedCatalogVariantConfig": {
+      "additionalProperties": false,
+      "description": "One variant-generation rule applied to rows from a testbed catalog.",
+      "properties": {
+        "id_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Format string evaluated against catalog row fields to derive the variant id.",
+          "title": "Id Template",
+          "x-hmp-profile": "user"
+        },
+        "label_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Format string used to derive the variant label.",
+          "title": "Label Template",
+          "x-hmp-profile": "user"
+        },
+        "axis_template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Format string used to derive the optional axis tag.",
+          "title": "Axis Template",
+          "x-hmp-profile": "user"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Toggle to skip the rule without removing it from the config.",
+          "examples": [
+            true
+          ],
+          "title": "Enabled",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "overlay": {
+          "additionalProperties": true,
+          "description": "TOML overlay rendered against each catalog row.",
+          "title": "Overlay",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "required_fields": {
+          "default": [],
+          "description": "Catalog columns that must be present and non-empty per row.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Fields",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "field_equals": {
+          "default": [],
+          "description": "Per-field equality filters applied while expanding rows.",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Field Equals",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "tags": {
+          "default": [],
+          "description": "Whitelist of tags applied during rule expansion.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "exclude_tags": {
+          "default": [],
+          "description": "Blacklist of tags applied during rule expansion.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Exclude Tags",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional cap on the number of variants generated by the rule.",
+          "title": "Limit",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "TestbedCatalogVariantConfig",
+      "type": "object"
+    },
+    "TestbedConfig": {
+      "additionalProperties": false,
+      "description": "Validated configuration for one method testbed.",
+      "properties": {
+        "config_path": {
+          "description": "Resolved path of the TOML file that produced this config.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Config Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "base_dir": {
+          "description": "Directory used to resolve relative paths.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Base Dir",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "id": {
+          "description": "Stable testbed identifier.",
+          "examples": [
+            "example"
+          ],
+          "title": "Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "profile": {
+          "description": "Selected testbed profile.",
+          "examples": [
+            "example"
+          ],
+          "title": "Profile",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "subject": {
+          "description": "High-level subject covered by the testbed (flow, mesh, transport).",
+          "examples": [
+            "example"
+          ],
+          "title": "Subject",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "purpose": {
+          "description": "Stated purpose of the testbed (robustness, sensitivity, ...).",
+          "examples": [
+            "example"
+          ],
+          "title": "Purpose",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "output_root": {
+          "description": "Directory where testbed artifacts are written.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Output Root",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "execute": {
+          "default": true,
+          "description": "When false, child configs are materialized but not executed.",
+          "examples": [
+            true
+          ],
+          "title": "Execute",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "continue_on_error": {
+          "default": true,
+          "description": "When false, the first failure aborts the testbed.",
+          "examples": [
+            true
+          ],
+          "title": "Continue On Error",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "base_config_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional child workflow TOML used as the variant base config.",
+          "title": "Base Config Path",
+          "x-hmp-profile": "user"
+        },
+        "runner": {
+          "$ref": "#/$defs/TestbedRunnerConfig",
+          "description": "Child-runner selection for every variant.",
+          "x-hmp-profile": "user"
+        },
+        "variants": {
+          "default": [],
+          "description": "Explicit variants declared in the TOML.",
+          "items": {
+            "$ref": "#/$defs/TestbedVariantConfig"
+          },
+          "title": "Variants",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "catalog": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TestbedCatalogConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional catalog source used to expand variants from rows.",
+          "x-hmp-profile": "user"
+        },
+        "catalog_variants": {
+          "default": [],
+          "description": "Variant-generation rules applied to catalog rows.",
+          "items": {
+            "$ref": "#/$defs/TestbedCatalogVariantConfig"
+          },
+          "title": "Catalog Variants",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "metrics": {
+          "default": [],
+          "description": "Metrics extracted from each child-runner summary.",
+          "items": {
+            "$ref": "#/$defs/TestbedMetricConfig"
+          },
+          "title": "Metrics",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "config_path",
+        "base_dir",
+        "id",
+        "profile",
+        "subject",
+        "purpose",
+        "output_root",
+        "runner"
+      ],
+      "title": "TestbedConfig",
+      "type": "object"
+    },
+    "TestbedMetricConfig": {
+      "additionalProperties": false,
+      "description": "One metric extracted from a child-runner summary.",
+      "properties": {
+        "name": {
+          "description": "Metric column name.",
+          "examples": [
+            "example"
+          ],
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "description": "Dotted path into the child-runner summary.",
+          "examples": [
+            "example"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "required": {
+          "default": false,
+          "description": "When true, a missing metric fails the variant.",
+          "examples": [
+            false
+          ],
+          "title": "Required",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "name",
+        "source"
+      ],
+      "title": "TestbedMetricConfig",
+      "type": "object"
+    },
+    "TestbedRunnerConfig": {
+      "additionalProperties": false,
+      "description": "Child-runner selection for one testbed.",
+      "properties": {
+        "type": {
+          "description": "Runner identifier dispatched for every variant (comparison, simulation).",
+          "examples": [
+            "example"
+          ],
+          "title": "Type",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "no_display": {
+          "default": true,
+          "description": "Disable interactive display in child runners.",
+          "examples": [
+            true
+          ],
+          "title": "No Display",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "TestbedRunnerConfig",
+      "type": "object"
+    },
+    "TestbedVariantConfig": {
+      "additionalProperties": false,
+      "description": "One concrete testbed variant.",
+      "properties": {
+        "id": {
+          "description": "Stable variant identifier.",
+          "examples": [
+            "example"
+          ],
+          "title": "Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "label": {
+          "description": "Human-readable variant label.",
+          "examples": [
+            "example"
+          ],
+          "title": "Label",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "axis": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional axis tag used to group variants in reports.",
+          "title": "Axis",
+          "x-hmp-profile": "user"
+        },
+        "enabled": {
+          "default": true,
+          "description": "Toggle to skip a variant without removing it from the config.",
+          "examples": [
+            true
+          ],
+          "title": "Enabled",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "overlay": {
+          "additionalProperties": true,
+          "description": "TOML overlay merged into the child-runner base config.",
+          "title": "Overlay",
+          "type": "object",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "TestbedVariantConfig",
       "type": "object"
     },
     "TransportConfig": {
@@ -14734,6 +15427,19 @@
       "description": "Optional mesh-only settings loaded from the [mesh_catchment] section. Mesh-only public runs should use [simulation.process] with type='mesh'; the standalone mesh API can still consume this section directly.",
       "x-hmp-profile": "user"
     },
+    "mesh_input": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MeshInputConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional external mesh declaration loaded from the [mesh_input] section. Declares a pre-existing planar mesh (and optional solver exchange bundle) the simulation or comparison workflow should consume instead of running the embedded mesh-catchment workflow. Mutually exclusive with [mesh_catchment].",
+      "x-hmp-profile": "user"
+    },
     "calibration": {
       "anyOf": [
         {
@@ -14745,6 +15451,19 @@
       ],
       "default": null,
       "description": "Optional calibration settings loaded from the [calibration] section.  When present, triggers the calibration workflow.",
+      "x-hmp-profile": "user"
+    },
+    "testbed": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TestbedConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional method-testbed settings loaded from the [testbed] section. Drives the orchestration layer over child runners (comparison or simulation) and is dispatched when workflow.mode='testbed'.",
       "x-hmp-profile": "user"
     }
   },

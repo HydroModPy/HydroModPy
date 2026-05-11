@@ -14,7 +14,7 @@ def test_flow_converts_well_flux_scalar_from_m3_day_to_m3_s() -> None:
         sinks_sources=FlowSinksSourcesConfig(
             wells={
                 "W1": {
-                    "cell": [0, 0, 0],
+                    "location": {"kind": "cell", "cell": [0, 0, 0]},
                     "flux": -86400.0,
                     "units": "m3/day",
                 }
@@ -34,7 +34,7 @@ def test_flow_converts_well_flux_list_from_m3_day_to_m3_s() -> None:
         sinks_sources=FlowSinksSourcesConfig(
             wells={
                 "W1": {
-                    "cell": [0, 0, 0],
+                    "location": {"kind": "cell", "cell": [0, 0, 0]},
                     "flux": [-86400.0, -43200.0],
                     "units": "m3/day",
                 }
@@ -56,7 +56,7 @@ def test_flow_rejects_unsupported_well_units() -> None:
         sinks_sources=FlowSinksSourcesConfig(
             wells={
                 "W1": {
-                    "cell": [0, 0, 0],
+                    "location": {"kind": "cell", "cell": [0, 0, 0]},
                     "flux": -100.0,
                     "units": "foo/day",
                 }
@@ -75,7 +75,7 @@ def test_flow_accepts_well_forcing_without_flux() -> None:
         sinks_sources=FlowSinksSourcesConfig(
             wells={
                 "W1": {
-                    "cell": [0, 0, 0],
+                    "location": {"kind": "cell", "cell": [0, 0, 0]},
                     "units": "m3/day",
                     "forcing": {"kind": "constant", "value": -100.0},
                 }

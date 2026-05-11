@@ -16,10 +16,11 @@ GOLDEN_FILE = (
     Path(__file__).resolve().parent / "golden" / "run_geographic_case_metrics_nancon_golden.json"
 )
 CASE_IDS = ["nancon"]
-ABS_TOL_AREA_KM2 = 3e-2
+# ~10 px at 75 m DEM; whitebox D8/breach tie envelope drifts between mamba and pip stacks.
+ABS_TOL_AREA_KM2 = 6e-2
 ABS_TOL_ELEV_M = 1e-2
 ABS_TOL_SUM_ELEV_M = 1_000.0
-ABS_TOL_PIXEL_COUNT = 5
+ABS_TOL_PIXEL_COUNT = 10
 
 ELEV_METRIC_KEYS = [
     "mean_elevation_catchment_m",

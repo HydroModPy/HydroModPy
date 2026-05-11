@@ -17,10 +17,10 @@ from hydromodpy.simulation.planning.plan import (
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared import load_case_metadata
-from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
 )
+from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
     materialize_postprocess_fields_to_store,
@@ -324,9 +324,11 @@ def run_boussinesq_late_time_unconfined_pumping_case(
                             "sinks_sources": {
                                 "wells": {
                                     "P1": {
-                                        "location_mode": "absolute_xy",
-                                        "x": float(reference_cfg["center_x_m"]),
-                                        "y": float(reference_cfg["center_y_m"]),
+                                        "location": {
+                                            "kind": "absolute_xy",
+                                            "x": float(reference_cfg["center_x_m"]),
+                                            "y": float(reference_cfg["center_y_m"]),
+                                        },
                                         "flux": -float(reference_cfg["pumping_rate_m3_day"]),
                                         "units": "m3/day",
                                     }

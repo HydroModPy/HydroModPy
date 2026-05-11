@@ -76,6 +76,95 @@ The gallery is grouped into five top-level categories. Each card opens its own l
       ^^^
       Synthetic inverse problems used to inspect calibration workflows, search methods, and timing diagnostics. 5 cases.
 
+Browse by category
+------------------
+
+Each populated category opens its own landing page with the full case grid.
+
+.. grid:: 1 1 2 3
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: mesh
+      :link-type: doc
+
+      **Mesh Gallery**
+      ^^^
+      Static mesh and geology illustrations produced from versioned bundle inputs. 29 cases.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: validation
+      :link-type: doc
+
+      **Validation Benchmarks**
+      ^^^
+      Analytical and semi-analytical comparisons rendered as reproducible teaching figures. 24 cases.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: calibration
+      :link-type: doc
+
+      **Calibration Benchmarks**
+      ^^^
+      Synthetic inverse problems used to inspect calibration workflows, search methods, and timing diagnostics. 5 cases.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: geographic
+      :link-type: doc
+
+      **Data Overview**
+      ^^^
+      Pre-solver watershed and hydrography figures that explain how one domain is assembled before solving. 4 cases.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: geometry
+      :link-type: doc
+
+      **Geometry Diagnostics**
+      ^^^
+      Vector-only views of catchment geometry, hydrography, and geology layers. 3 cases.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: hydraulic_properties
+      :link-type: doc
+
+      **Hydraulic Properties**
+      ^^^
+      Hydraulic conductivity and storage parameterizations rendered on synthetic and geology-driven supports. 5 cases.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: simulation_comparison
+      :link-type: doc
+
+      **Simulation Comparison**
+      ^^^
+      Reusable solver comparisons built from committed run folders on shared supports. 6 cases.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: code_comparison
+      :link-type: doc
+
+      **Code Comparison**
+      ^^^
+      Synthetic solver-to-solver benchmarks with no analytical truth claim. 2 cases.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: simulation
+      :link-type: doc
+
+      **Simulation Workflows**
+      ^^^
+      End-to-end solver runs rendered as stable documentation artifacts. 7 cases.
+
 All cases
 ---------
 
@@ -107,3 +196,4 @@ Looking for one specific case? Browse the flat index of all available gallery ca
    simulation_comparison
    code_comparison
    simulation
+   Examples <../examples/index>

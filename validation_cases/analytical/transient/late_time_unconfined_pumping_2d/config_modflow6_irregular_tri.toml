@@ -19,12 +19,14 @@ nlay = 1
 firstpersteady = false
 
 [flow.sinks_sources.wells.P1]
-location_mode = "absolute_xy"
+units = "m3/day"
+description = "Central pumping well on irregular triangular mesh"
+
+[flow.sinks_sources.wells.P1.location]
+kind = "absolute_xy"
 layer = 0
 x = 1000.0
 y = 1000.0
-units = "m3/day"
-description = "Central pumping well on irregular triangular mesh"
 
 [flow.sinks_sources.wells.P1.forcing]
 value = -1000.0

@@ -54,27 +54,31 @@ def resolve_optional_mesh_input(
     config_path: str | Path,
 ) -> dict[str, str] | None:
     """Resolve one optional external mesh-input block from raw launcher TOML."""
+    from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
+
     section = raw_toml.get("mesh_input")
     if section is None:
         return None
     if not isinstance(section, Mapping):
         raise ConfigError("[mesh_input] configuration must be a mapping when provided.")
 
+    try:
+        mesh_input = MeshInputConfig.model_validate(dict(section))
+    except Exception as exc:
+        raise ConfigError(str(exc)) from exc
+
     config_path = Path(config_path)
 
-    def _resolve_optional_path(raw_value: object) -> str:
-        text = str(raw_value or "").strip()
-        if text == "":
+    def _resolve_optional_path(raw_value: Path | None) -> str:
+        if raw_value is None:
             return ""
-        path = Path(text).expanduser()
+        path = Path(raw_value).expanduser()
         if not path.is_absolute():
             path = (config_path.parent / path).resolve()
         return str(path)
 
-    mesh_path = _resolve_optional_path(section.get("mesh_path"))
-    bundle_dir = _resolve_optional_path(section.get("bundle_dir"))
-    if mesh_path == "" and bundle_dir == "":
-        raise ConfigError("[mesh_input] requires at least one of 'mesh_path' or 'bundle_dir'.")
+    mesh_path = _resolve_optional_path(mesh_input.mesh_path)
+    bundle_dir = _resolve_optional_path(mesh_input.bundle_dir)
     return {
         "mesh_path": mesh_path,
         "bundle_dir": bundle_dir,

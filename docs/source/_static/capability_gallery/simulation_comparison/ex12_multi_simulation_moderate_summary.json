@@ -36,18 +36,18 @@
   "reproduction_command": "python -m tools.doc_gallery",
   "gallery_update_command": "python -m tools.doc_gallery",
   "source_paths": [
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv"
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv"
   ],
   "source_hashes": {
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json": "ea9b6a27efbbae3f046357d1dcc0f89b9f19ed67c311b8645b6ecf6c569bc96a",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json": "b6046c5c9f40866a4e02a13515498189e5c127dff11cada3dbf35aa83261aab6",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv": "b519f69e362c2f46dd849bb0adb2e377b2844cfcb92c86779265d30ed4318a51",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv": "92e8e13dd4105a7762ceee1937cf1b7da515d872bad254d4cbe3b6b2a3323d11",
-    "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv": "00a7e6299a1eac9b6f0a82000da444b4e3a503d30129cce982a3d78d2023d25d"
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json": "3634276629af3bfdd1f60b070b8d0316df619b50a881a7e890ec2cb9d9466726",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json": "1068f8ff802add9e337573b435cb8a8aeb72ca42a1ef48ee0e222b75be8d0578",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv": "42920662935736c937fde89d45a5b3806b20935335ccefd9048aa091bf6cce83",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv": "ac6c7ea54c2b91a3baa8211d8dd176305aaa6d36a27d2529b982043d4133bb49",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv": "6a174bc32a9b9809b2c4a1e00d676eb16264d02fea709e3ccc7a99cb371ae21c"
   },
   "docname": "cases/ex12_multi_simulation_moderate",
   "images": [
@@ -56,13 +56,13 @@
       "caption": "Summary comparison figure for four-simulation moderate suite on example12.",
       "alt_text": "Simulation comparison summary for Four-Simulation Moderate Suite on Example12",
       "doc_path": "/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png"
+      "repo_path": "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png"
     }
   ],
   "metrics": [],
   "metadata": {
-    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
-    "comparison_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
+    "static_summary_path": "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
+    "comparison_summary_path": "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
     "study_area": "Example12 / Naizin",
     "focus_simulation_id": "bouss_mod_tri",
     "comparison_family_key": "multi_simulation_suites",
@@ -72,16 +72,16 @@
     "comparison_case_order": 10,
     "copied_assets": [
       {
-        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png"
+        "source_path": "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png",
+        "copied_to": "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png"
       }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png"
+      "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate.png"
     ]
   }
 }

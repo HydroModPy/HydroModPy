@@ -34,7 +34,6 @@ REQUIRED_API_PAGES = {
 
 REQUIRED_USER_GUIDE_PAGES = {
     "data/index",
-    "data-sources",
 }
 
 if str(ROOT) not in sys.path:

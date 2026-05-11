@@ -15,7 +15,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 CASE_DEFINITIONS = [
     {
         "variant_id": "synthetic_homogeneous_control_mf6_vs_bouss",
@@ -192,9 +191,7 @@ def _read_closure_summary(path: Path, manifest: dict[str, Any]) -> dict[str, Any
         "max_abs_closure_mm_d": _max_numeric(rows, "max_abs_closure_mm_d"),
         "relative_closure_error_p95": _max_numeric(rows, "relative_closure_error_p95"),
         "diagnostic": _worst_diagnostic(rows),
-        "diagnostic_code": {"OK": 0.0, "WARN": 1.0, "CHECK": 2.0}.get(
-            _worst_diagnostic(rows)
-        ),
+        "diagnostic_code": {"OK": 0.0, "WARN": 1.0, "CHECK": 2.0}.get(_worst_diagnostic(rows)),
     }
 
 
@@ -234,7 +231,9 @@ def _write_campaign_contract(
         "successful_count": successful_count,
         "failed_count": len(case_rows) - successful_count,
         "config_path": str((source_dir / "run_synthetic_comparison_campaign.sh").resolve()),
-        "base_config": str((source_dir / "base_synthetic_patchy_mf6_bouss_transient.toml").resolve()),
+        "base_config": str(
+            (source_dir / "base_synthetic_patchy_mf6_bouss_transient.toml").resolve()
+        ),
         "cases": case_rows,
     }
     _write_json(campaign_root / "testbed_manifest.json", manifest)

@@ -1,4 +1,29 @@
-"""Configuration contract for external simulation-comparison experiments."""
+"""External experiment contract for subprocess-driven comparison launchers.
+
+This module owns the verbose, user-facing TOML schema consumed by
+`experiment_launcher.py` to orchestrate a comparison as a set of child
+simulations executed in subprocesses (currently `subprocess_hmp_run`).
+It exposes:
+
+- `ComparisonExecutionConfig` and `ComparisonAuditConfig`: experiment-only
+  sub-sections describing how children are launched and how their cases
+  are audited post-run.
+- `ComparisonSimulationConfig` and `ComparisonSection`: the experiment-side
+  twins of `ComparisonSimulation` / `RuntimeComparisonSection` from
+  `config.py`. They differ from the runtime models on purpose: the
+  experiment requires a `solver` (or a direct config/run folder) at parse
+  time, exposes `execution` and `audit`, and validates id references
+  against the enabled subset only.
+- `SimulationComparisonConfig`: the resolved external config with absolute
+  paths, built by `from_toml` and used as launcher input. The launcher
+  later derives a `RuntimeComparisonConfig` from it to feed the in-process
+  runtime defined in `config.py`.
+
+The sibling module `config.py` owns the runtime-side contract used after
+resolution by `runtime.py` and the visual layer. The shared leaf models
+`ComparisonObservable` and `ComparisonFineRaster` live in `config.py` and
+are re-imported here.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +42,7 @@ from hydromodpy.analysis.comparison.config import (
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import IdentifierStr, OptionalText
+from hydromodpy.core.config_kit.validators import validate_optional_identifier
 
 
 class ComparisonExecutionConfig(HydroModelBase):
@@ -85,13 +111,7 @@ class ComparisonSimulationConfig(HydroModelBase):
         ),
     )
 
-    @field_validator("mesh_label")
-    @classmethod
-    def _validate_optional_identifier(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        return text or None
+    _normalize_mesh_label = field_validator("mesh_label")(validate_optional_identifier)
 
     @field_validator("overlay")
     @classmethod
@@ -115,7 +135,10 @@ class ComparisonSimulationConfig(HydroModelBase):
 class ComparisonSection(HydroModelBase):
     """Top-level comparison experiment section."""
 
-    comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
+    comparison_id: Annotated[IdentifierStr | None, Profile.USER] = Field(
+        default=None,
+        description="Stable identifier for this comparison run.",
+    )
     base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
     base_simulation_overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,
@@ -153,13 +176,9 @@ class ComparisonSection(HydroModelBase):
         description="Observables to compare across the declared simulations. At least one entry required.",
     )
 
-    @field_validator("comparison_id", "reference_simulation")
-    @classmethod
-    def _validate_optional_identifier(cls, value: object) -> str | None:
-        if value is None:
-            return None
-        text = str(value).strip()
-        return text or None
+    _normalize_comparison_identifiers = field_validator("comparison_id", "reference_simulation")(
+        validate_optional_identifier
+    )
 
     @field_validator("base_simulation_overlay")
     @classmethod

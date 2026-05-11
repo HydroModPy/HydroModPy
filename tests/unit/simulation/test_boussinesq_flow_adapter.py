@@ -868,9 +868,11 @@ def test_boussinesq_flow_adapter_supports_absolute_xy_well(
                         "sinks_sources": {
                             "wells": {
                                 "W1": {
-                                    "location_mode": "absolute_xy",
-                                    "x": 0.75,
-                                    "y": 0.25,
+                                    "location": {
+                                        "kind": "absolute_xy",
+                                        "x": 0.75,
+                                        "y": 0.25,
+                                    },
                                     "flux": -1.0e-5,
                                 }
                             }

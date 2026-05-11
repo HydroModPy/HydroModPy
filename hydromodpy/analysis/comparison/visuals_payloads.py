@@ -210,14 +210,19 @@ def _mesh_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None
 
 
 def _bundle_dir_from_config(config_path: Path) -> Path | None:
+    from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
+
     payload = _safe_config_payload(config_path)
-    mesh_input = payload.get("mesh_input")
-    if not isinstance(mesh_input, Mapping):
+    mesh_input_raw = payload.get("mesh_input")
+    if not isinstance(mesh_input_raw, Mapping):
         return None
-    bundle_dir_raw = mesh_input.get("bundle_dir")
-    if bundle_dir_raw in (None, ""):
+    try:
+        mesh_input = MeshInputConfig.model_validate(dict(mesh_input_raw))
+    except Exception:
         return None
-    return _resolve_recorded_output_path(bundle_dir_raw, base_dir=config_path.parent)
+    if mesh_input.bundle_dir is None:
+        return None
+    return _resolve_recorded_output_path(mesh_input.bundle_dir, base_dir=config_path.parent)
 
 
 def _bundle_dir_for_case(run_folder: Path, config_path: Path | None) -> Path | None:

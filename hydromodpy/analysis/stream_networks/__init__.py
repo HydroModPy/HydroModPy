@@ -7,7 +7,7 @@ against persisted hydrographic-network roles, typically ``reference``.
 from __future__ import annotations
 
 from hydromodpy.analysis.stream_networks.metrics import (
-    simulated_active_network_distance_metrics,
+    cell_field_network_distance_metrics,
 )
 
-__all__ = ["simulated_active_network_distance_metrics"]
+__all__ = ["cell_field_network_distance_metrics"]

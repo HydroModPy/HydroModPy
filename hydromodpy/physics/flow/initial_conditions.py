@@ -24,7 +24,7 @@ Raw `[flow.ic]` configuration payloads are normalized separately in
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Annotated, Any, ClassVar, Literal, TypeAlias
+from typing import Annotated, ClassVar, Literal, TypeAlias
 
 from pydantic import Field, TypeAdapter, field_validator, model_validator
 
@@ -144,16 +144,6 @@ FlowInitialCondition: TypeAlias = Annotated[
 _FLOW_IC_ADAPTER: TypeAdapter[FlowInitialCondition] = TypeAdapter(FlowInitialCondition)
 
 
-def _coerce_flow_ic_payload(value: Any) -> Any:
-    """Backward-compat: accept dicts without explicit `type`, default to 'custom'."""
-    if not isinstance(value, Mapping):
-        return value
-    payload = dict(value)
-    if "type" not in payload or payload["type"] in (None, ""):
-        payload["type"] = "custom"
-    return payload
-
-
 class FlowInitialConditions(HydroModelBase):
     """
     Container for flow initial conditions stored in process runtime.
@@ -170,12 +160,6 @@ class FlowInitialConditions(HydroModelBase):
         default_factory=lambda: FlowICTop(id="h", units="m", description="Initial condition 'h'"),
         description="Hydraulic-head initial condition payload.",
     )
-
-    @field_validator("h", mode="before")
-    @classmethod
-    def _coerce_h(cls, value):
-        """Accept legacy flat dicts without explicit `type`."""
-        return _coerce_flow_ic_payload(value)
 
     @model_validator(mode="before")
     @classmethod

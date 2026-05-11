@@ -374,7 +374,7 @@ def test_export_catchment_mesh_bundle_falls_back_to_node_mean_for_missing_centro
         domain_geographic=domain_geographic,
         domain_cfg={
             "depth_model": {
-                "type": "constant_thickness",
+                "kind": "constant_thickness",
                 "thickness": "7 m",
             }
         },
@@ -424,7 +424,7 @@ def test_export_catchment_mesh_bundle_fills_topography_nodata_from_nearest_cell(
         domain_geographic=domain_geographic,
         domain_cfg={
             "depth_model": {
-                "type": "constant_thickness",
+                "kind": "constant_thickness",
                 "thickness": "7 m",
             }
         },

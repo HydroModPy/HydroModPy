@@ -48,13 +48,13 @@ def _fake_run(flow_regime: str) -> _FakeRun:
 
 
 def test_active_network_default_mode_uses_last_step_for_steady_runs() -> None:
-    mask = views.simulated_active_network_mask(_fake_run("steady"))
+    mask = views.cell_field_active_mask(_fake_run("steady"))
 
     np.testing.assert_array_equal(mask, np.asarray([0.0, 0.0, 1.0]))
 
 
 def test_active_network_default_mode_uses_persistent_cells_for_transient_runs() -> None:
-    mask = views.simulated_active_network_mask(_fake_run("transient"))
+    mask = views.cell_field_active_mask(_fake_run("transient"))
 
     np.testing.assert_array_equal(mask, np.asarray([1.0, 0.0, 1.0]))
 
@@ -62,4 +62,4 @@ def test_active_network_default_mode_uses_persistent_cells_for_transient_runs() 
 def test_active_network_perennial_alias_resolves_to_always_active() -> None:
     sim = _fake_run("transient")
 
-    assert views.resolve_simulated_active_network_mode(sim, "perennial") == "always_active"
+    assert views.resolve_cell_field_active_mode(sim, "perennial") == "always_active"

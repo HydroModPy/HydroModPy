@@ -80,10 +80,12 @@ value = "1.0 m"
 data_value = true
 
 [flow.sinks_sources.wells.W1]
-location_mode = "absolute_xy"
+units = "m3/day"
+
+[flow.sinks_sources.wells.W1.location]
+kind = "absolute_xy"
 x = 265611.933
 y = 6784182.776
-units = "m3/day"
 
 [flow.sinks_sources.wells.W1.forcing]
 date_column = "date"
@@ -93,8 +95,10 @@ aggregate = "mean"
 kind = "csv"
 
 [flow.sinks_sources.wells.W2]
-location_mode = "relative_xy"
 units = "m3/day"
+
+[flow.sinks_sources.wells.W2.location]
+kind = "relative_xy"
 
 [flow.sinks_sources.wells.W2.forcing]
 date_column = "date"

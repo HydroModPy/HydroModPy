@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import importlib
 
+# Public API facade. This is the single allowed exception to the
+# "no aliases / no re-exports" rule in CLAUDE.md. CLI verbs and Python
+# user code must reach the same canonical symbols through this module,
+# so the verbs in `hydromodpy/_api` are re-exported here on purpose.
 from hydromodpy._api import (
     calibrate,
     catalog,

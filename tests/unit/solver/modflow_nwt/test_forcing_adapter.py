@@ -272,7 +272,9 @@ def test_wells_not_activated_returns_empty_spd():
     flow = types.SimpleNamespace(
         sinks_sources={
             "recharge": None,
-            "wells": {"W1": FlowWellConfig(cell=(0, 0, 0), flux=-1e-4)},
+            "wells": {
+                "W1": FlowWellConfig(location={"kind": "cell", "cell": (0, 0, 0)}, flux=-1e-4)
+            },
         },
         flow_regime="transient",
         active_sinks_sources=["recharge"],
@@ -297,10 +299,7 @@ def test_well_absolute_xy_is_resolved_to_solver_cell():
             "recharge": None,
             "wells": {
                 "W1": FlowWellConfig(
-                    location_mode="absolute_xy",
-                    layer=1,
-                    x=125.0,
-                    y=365.0,
+                    location={"kind": "absolute_xy", "layer": 1, "x": 125.0, "y": 365.0},
                     flux=-1e-4,
                 )
             },
@@ -337,10 +336,12 @@ def test_well_relative_xy_is_resolved_to_solver_cell():
             "recharge": None,
             "wells": {
                 "W1": FlowWellConfig(
-                    location_mode="relative_xy",
-                    layer=0,
-                    x_rel=0.4,
-                    y_rel=0.25,
+                    location={
+                        "kind": "relative_xy",
+                        "layer": 0,
+                        "x_rel": 0.4,
+                        "y_rel": 0.25,
+                    },
                     flux=[-1e-4, -2e-4],
                 )
             },
@@ -377,10 +378,7 @@ def test_well_absolute_xy_outside_grid_raises():
             "recharge": None,
             "wells": {
                 "W1": FlowWellConfig(
-                    location_mode="absolute_xy",
-                    layer=0,
-                    x=1000.0,
-                    y=1000.0,
+                    location={"kind": "absolute_xy", "layer": 0, "x": 1000.0, "y": 1000.0},
                     flux=-1e-4,
                 )
             },
@@ -413,7 +411,12 @@ def test_well_flux_length_mismatch_raises():
     flow = types.SimpleNamespace(
         sinks_sources={
             "recharge": None,
-            "wells": {"W1": FlowWellConfig(cell=(0, 0, 0), flux=[-1e-4, -2e-4, -3e-4])},
+            "wells": {
+                "W1": FlowWellConfig(
+                    location={"kind": "cell", "cell": (0, 0, 0)},
+                    flux=[-1e-4, -2e-4, -3e-4],
+                )
+            },
         },
         flow_regime="transient",
         active_sinks_sources=["wells"],
@@ -432,7 +435,7 @@ def test_well_flux_length_mismatch_raises():
 
 
 def test_well_relative_xy_defaults_to_layer_zero():
-    well = FlowWellConfig(location_mode="relative_xy", x_rel=0.5, y_rel=0.5, flux=-1e-4)
+    well = FlowWellConfig(location={"kind": "relative_xy", "x_rel": 0.5, "y_rel": 0.5}, flux=-1e-4)
     assert well.location.layer == 0
 
 
@@ -442,7 +445,7 @@ def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
             "recharge": None,
             "wells": {
                 "W1": FlowWellConfig(
-                    cell=(0, 0, 0),
+                    location={"kind": "cell", "cell": (0, 0, 0)},
                     units="m3/day",
                     forcing={"kind": "constant", "value": -86400.0},
                 )

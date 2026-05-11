@@ -6,6 +6,8 @@ import copy
 from dataclasses import dataclass
 
 from hydromodpy.physics.flow.initial_conditions import (
+    FlowICTop,
+    FlowICTopOffset,
     FlowInitialCondition,
     FlowInitialConditions,
 )
@@ -103,16 +105,14 @@ def _steady_state_initialization_head_guess(flow: object) -> FlowInitialConditio
     runtime_backend = str(_flow_config_value(flow, "runtime_backend") or "").strip().lower()
     surface_model = str(_flow_config_value(flow, "surface_interaction_model") or "").strip().lower()
     if runtime_backend == "petsc" and surface_model == "vi_obstacle":
-        return FlowInitialCondition(
+        return FlowICTopOffset(
             id="h",
-            type="top_offset",
             value=0.01,
             units="m",
             description=("Interior initial guess for steady-state initial-condition VI solve"),
         )
-    return FlowInitialCondition(
+    return FlowICTop(
         id="h",
-        type="top",
         units="m",
         description="Initial guess for steady-state initial-condition solve",
     )

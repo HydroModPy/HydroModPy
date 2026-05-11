@@ -11,6 +11,7 @@ from pydantic.fields import FieldInfo
 
 from hydromodpy.analysis.config import AnalysisConfig
 from hydromodpy.calibration.config import CalibrationConfig
+from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.toml_io.paths import resolve_declared_path
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.display.overview.config import OverviewConfig
@@ -263,6 +264,35 @@ def _load_optional_mesh_catchment_section(
     from hydromodpy.spatial.mesh.config import parse_mesh_catchment_config_data
 
     return parse_mesh_catchment_config_data(section_data)
+
+
+def _load_optional_mesh_input_section(
+    section_data: Any,
+    base: Path,
+) -> MeshInputConfig | None:
+    """Load the optional ``[mesh_input]`` section."""
+    if section_data is None:
+        return None
+    from hydromodpy.core.config_kit.mesh_input import parse_mesh_input_config_data
+
+    return parse_mesh_input_config_data(section_data)
+
+
+def _load_optional_testbed_section(
+    section_data: Any,
+    base: Path,
+) -> Any | None:
+    """Load the optional ``[testbed]`` section."""
+    if section_data is None:
+        return None
+    if not isinstance(section_data, Mapping):
+        raise ValueError("[testbed] must be a mapping")
+    from hydromodpy.analysis.testbed.config import TestbedConfig
+
+    return TestbedConfig.from_toml(
+        {"testbed": dict(section_data)},
+        config_path=base / "testbed.toml",
+    )
 
 
 def _load_optional_calibration_section(
