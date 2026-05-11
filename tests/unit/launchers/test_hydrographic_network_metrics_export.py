@@ -10,6 +10,8 @@ from shapely.geometry import LineString
 
 from hydromodpy.analysis.comparison.exports import (
     write_hydrographic_network_metrics_export,
+    write_release_flux_network_distance_metrics_export,
+    write_release_flux_network_overlap_metrics_export,
     write_simulated_active_network_distance_metrics_export,
     write_simulated_active_network_metrics_export,
     write_simulated_active_network_overlap_metrics_export,
@@ -33,7 +35,7 @@ def _write_simulation_config(path: Path, workspace_root: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[workspace]",
                 f'root = "{workspace_root.as_posix()}"',
@@ -51,6 +53,7 @@ def _register_completed_run(
     generated_length_m: float | None,
     reference_gdf: gpd.GeoDataFrame | None = None,
     accumulation_flux: list[np.ndarray] | None = None,
+    release_flux: list[np.ndarray] | None = None,
     flow_regime: str = "transient",
 ) -> tuple[Path, str]:
     config_path = workspace_root.parent / f"run_{uuid.uuid4().hex[:8]}.toml"
@@ -63,14 +66,20 @@ def _register_completed_run(
         project="demo_compare",
         solver="modflow6",
         name="network_demo",
-        n_cells=3 if accumulation_flux is not None else 2,
+        n_cells=3 if accumulation_flux is not None or release_flux is not None else 2,
         n_layers=1,
-        n_timesteps=len(accumulation_flux) if accumulation_flux is not None else None,
+        n_timesteps=(
+            len(accumulation_flux)
+            if accumulation_flux is not None
+            else len(release_flux)
+            if release_flux is not None
+            else None
+        ),
         flow_regime=flow_regime,
     )
     if reg.zarr is not None:
         reg.zarr.close()
-    if accumulation_flux is not None:
+    if accumulation_flux is not None or release_flux is not None:
         vertices = np.array(
             [
                 [0.0, 0.0, 0.0],
@@ -107,15 +116,26 @@ def _register_completed_run(
             )
         finally:
             sz.close()
-        for timestep, values in enumerate(accumulation_flux):
-            catalog.write_field(
-                sim_id,
-                "accumulation_flux",
-                timestep,
-                values,
-                n_timesteps=len(accumulation_flux) if timestep == 0 else None,
-                subgroup="derived",
-            )
+        if accumulation_flux is not None:
+            for timestep, values in enumerate(accumulation_flux):
+                catalog.write_field(
+                    sim_id,
+                    "accumulation_flux",
+                    timestep,
+                    values,
+                    n_timesteps=len(accumulation_flux) if timestep == 0 else None,
+                    subgroup="derived",
+                )
+        if release_flux is not None:
+            for timestep, values in enumerate(release_flux):
+                catalog.write_field(
+                    sim_id,
+                    "release_flux",
+                    timestep,
+                    values,
+                    n_timesteps=len(release_flux) if timestep == 0 else None,
+                    subgroup="derived",
+                )
     if reference_length_m is not None:
         catalog.write_geographic_feature(
             sim_id,
@@ -492,6 +512,114 @@ def test_write_simulated_active_network_distance_metrics_export_writes_csv(
     assert row["bidirectional_distance_absolute_difference_m"] == pytest.approx(0.0)
     assert row["planar_distance_ratio"] == pytest.approx(1.0)
     assert row["planar_distance_log10_ratio"] == pytest.approx(0.0)
+
+
+def test_write_release_flux_network_overlap_metrics_export_writes_csv(
+    tmp_path: Path,
+) -> None:
+    workspace_root = tmp_path / "workspace"
+    reference_gdf = gpd.GeoDataFrame(
+        {"id": [1]},
+        geometry=[LineString([(1.25, 0.5), (1.75, 0.5)])],
+        crs="EPSG:2154",
+    )
+    config_path, sim_id = _register_completed_run(
+        workspace_root,
+        reference_length_m=None,
+        generated_length_m=None,
+        reference_gdf=reference_gdf,
+        release_flux=[
+            np.array([0.0, 2.0, 0.0], dtype="float64"),
+            np.array([1.0, 2.0, 0.0], dtype="float64"),
+            np.array([0.0, 2.0, 4.0], dtype="float64"),
+        ],
+    )
+
+    artifacts, rows = write_release_flux_network_overlap_metrics_export(
+        comparison_id="demo_compare",
+        comparison_root=tmp_path / "comparison_outputs",
+        simulation_summaries=[
+            {
+                "id": "bouss_demo",
+                "label": "Boussinesq demo",
+                "solver": "boussinesq",
+                "mesh_mode": "unstructured",
+                "config_path": str(config_path),
+                "run_folder": str(tmp_path / "run_folder"),
+                "sim_id": sim_id,
+                "run_name": "network_demo",
+                "status": "completed",
+            }
+        ],
+        threshold=0.5,
+        persistence_threshold=0.5,
+        buffer_m=0.0,
+    )
+
+    assert len(artifacts) == 1
+    assert artifacts[0]["kind"] == "release_flux_network_overlap_metrics_csv"
+    assert Path(str(artifacts[0]["path"])).exists()
+    row = rows[0]
+    assert row["simulation_id"] == "bouss_demo"
+    assert row["source_variable"] == "release_flux"
+    assert row["active_cell_count"] == 1
+    assert row["network_cell_count"] == 1
+    assert row["overlap_cell_count"] == 1
+    assert row["cell_jaccard_ratio"] == pytest.approx(1.0)
+
+
+def test_write_release_flux_network_distance_metrics_export_writes_raw_distances(
+    tmp_path: Path,
+) -> None:
+    workspace_root = tmp_path / "workspace"
+    reference_gdf = gpd.GeoDataFrame(
+        {"id": [1]},
+        geometry=[LineString([(1.25, 0.5), (1.75, 0.5)])],
+        crs="EPSG:2154",
+    )
+    config_path, sim_id = _register_completed_run(
+        workspace_root,
+        reference_length_m=None,
+        generated_length_m=None,
+        reference_gdf=reference_gdf,
+        release_flux=[
+            np.array([0.0, 2.0, 0.0], dtype="float64"),
+            np.array([1.0, 2.0, 0.0], dtype="float64"),
+            np.array([0.0, 2.0, 4.0], dtype="float64"),
+        ],
+    )
+
+    artifacts, rows = write_release_flux_network_distance_metrics_export(
+        comparison_id="demo_compare",
+        comparison_root=tmp_path / "comparison_outputs",
+        simulation_summaries=[
+            {
+                "id": "bouss_demo",
+                "label": "Boussinesq demo",
+                "solver": "boussinesq",
+                "mesh_mode": "unstructured",
+                "config_path": str(config_path),
+                "run_folder": str(tmp_path / "run_folder"),
+                "sim_id": sim_id,
+                "run_name": "network_demo",
+                "status": "completed",
+            }
+        ],
+        threshold=0.5,
+        persistence_threshold=0.5,
+    )
+
+    assert len(artifacts) == 1
+    assert artifacts[0]["kind"] == "release_flux_network_distance_metrics_csv"
+    assert Path(str(artifacts[0]["path"])).exists()
+    row = rows[0]
+    assert row["simulation_id"] == "bouss_demo"
+    assert row["source_variable"] == "release_flux"
+    assert row["network_buffer_m"] == 0.0
+    assert row["distance_method"] == "raw_planar_cell_centroid_to_network"
+    assert row["active_cell_count"] == 1
+    assert row["sim_to_network_distance_mean_m"] == pytest.approx(0.0)
+    assert row["network_to_sim_distance_mean_m"] == pytest.approx(0.0)
 
 
 def test_write_simulated_active_network_overlap_metrics_export_uses_steady_default(

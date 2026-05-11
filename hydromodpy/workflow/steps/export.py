@@ -160,6 +160,8 @@ class ExportStep:
                     run_id=ctx.setup.run_id,
                 )
                 for run in plan.runs:
+                    if not run.is_solver_backed:
+                        continue
                     cleanup_solver_outputs(
                         ctx=RunContext(plan=plan, run=run, state=ctx),
                         results_config=results_cfg,

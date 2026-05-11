@@ -3,7 +3,7 @@
 The script is intentionally a post-processing layer: it does not build meshes,
 does not run simulations, and does not require any extra output contract from
 the numerical workflow. It reads the standard JSON/CSV/TOML artifacts already
-written by ``hydromodpy.analysis.testbed`` or ``hydromodpy.analysis.batch``.
+written by ``hydromodpy.analysis.testbed``.
 """
 
 from __future__ import annotations
@@ -34,6 +34,7 @@ except Exception:  # pragma: no cover - standalone fallback when HydroModPy is u
 
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".svg", ".webp"}
+CLOSURE_STATUS_ORDER = {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CHECK": 3}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -92,7 +93,15 @@ def render_testbed_report(
         cases = [dict(item) for item in raw_cases if isinstance(item, Mapping)]
     metrics = _read_csv(metrics_path)
     plan = _read_json(plan_path) if plan_path.is_file() else {}
+    context = dict(context)
+    site_catalog_path = _path_or_none(
+        context.get("site_catalog_path") or manifest.get("site_catalog_path")
+    )
     site_catalog_rows = list(context.get("site_catalog_rows") or [])
+    if not site_catalog_rows and site_catalog_path is not None and site_catalog_path.is_file():
+        site_catalog_rows = _read_csv(site_catalog_path)
+    context["site_catalog_path"] = site_catalog_path
+    context["site_catalog_rows"] = site_catalog_rows
     site_index = _index_site_catalog(site_catalog_rows)
     comparisons = _load_comparison_summaries(
         output_root=output_root,
@@ -295,6 +304,10 @@ def _render_testbed_index(
                     "Comparaisons",
                     _render_testbed_comparison_overview_table(cases, web_root=web_root),
                 ),
+                _section(
+                    "Precision de resolution",
+                    _render_comparison_closure_overview(comparisons, from_dir=web_root),
+                ),
                 _section("Artefacts", artifacts_html),
             ]
         )
@@ -310,6 +323,12 @@ def _render_testbed_index(
         sections.extend(
             [
                 _section("Liens directs", _render_testbed_direct_links(cases, web_root=web_root)),
+                _render_catalog_testbed_guidance(
+                    manifest=manifest,
+                    plan=plan,
+                    context=context,
+                    web_root=web_root,
+                ),
                 _section(
                     "Statut",
                     "<p>"
@@ -319,6 +338,10 @@ def _render_testbed_index(
                 _section(
                     "Comparaisons disponibles",
                     _render_comparison_summary_table(comparisons, from_dir=web_root),
+                ),
+                _section(
+                    "Precision de resolution",
+                    _render_comparison_closure_overview(comparisons, from_dir=web_root),
                 ),
                 _section(
                     "Cas",
@@ -352,6 +375,75 @@ def _render_testbed_index(
         )
     body = "\n".join(sections)
     return _page(title, body)
+
+
+def _render_catalog_testbed_guidance(
+    *,
+    manifest: Mapping[str, Any],
+    plan: Mapping[str, Any],
+    context: Mapping[str, Any],
+    web_root: Path,
+) -> str:
+    catalog = manifest.get("catalog") if isinstance(manifest.get("catalog"), Mapping) else None
+    if catalog is None and isinstance(plan.get("catalog"), Mapping):
+        catalog = plan.get("catalog")
+    rules = manifest.get("variant_from_catalog")
+    if not isinstance(rules, list) and isinstance(plan.get("variant_from_catalog"), list):
+        rules = plan.get("variant_from_catalog")
+    if catalog is None and not rules:
+        return ""
+
+    catalog_path = _path_or_none(context.get("site_catalog_path") or (catalog or {}).get("path"))
+    selected_rows = len(context.get("site_catalog_rows") or [])
+    runner = _display_value(manifest.get("runner"))
+    base_config = _path_or_none(manifest.get("base_config"))
+    generated_dir = _path_or_none(_get_nested(manifest, ["paths", "generated_configs_dir"]))
+    comparison_note = ""
+    if runner == "comparison":
+        comparison_note = (
+            "<p>Dans ce mode, chaque ligne retenue du catalogue produit un TOML "
+            "<code>workflow = &quot;comparison&quot;</code>. Les valeurs physiques du site "
+            "sont injectees dans <code>comparison.base_simulation_overlay</code>, puis le "
+            "workflow de comparaison genere et lance les simulations enfants declarees "
+            "dans le TOML de base. Les pages HTML de comparaison sont les sorties "
+            "principales a consulter.</p>"
+        )
+
+    fields = [
+        (
+            "Catalogue",
+            _link(catalog_path, _path_text(catalog_path), web_root) if catalog_path else "",
+        ),
+        ("Lignes lues", selected_rows if selected_rows else ""),
+        ("Runner testbed", runner),
+        ("Base config", _link(base_config, _path_text(base_config), web_root) if base_config else ""),
+        (
+            "Configs generees",
+            _link(generated_dir, _path_text(generated_dir), web_root) if generated_dir else "",
+        ),
+        (
+            "Regles catalogue",
+            len(rules) if isinstance(rules, list) else "",
+        ),
+    ]
+    steps = [
+        "Le testbed charge le catalogue CSV/JSONL declare dans <code>[testbed.catalog]</code>.",
+        "Les filtres du catalogue et de <code>[[testbed.variant_from_catalog]]</code> retiennent les lignes utiles.",
+        "Pour chaque ligne, les champs <code>{...}</code> des templates sont remplaces par les valeurs du catalogue.",
+        "Le TOML enfant est ecrit dans <code>_generated_configs</code>; il ne contient plus de section <code>[testbed]</code>.",
+        "L'execution delegue ensuite ce TOML au runner choisi, sans script de commodite supplementaire.",
+    ]
+    body = (
+        "<p>Cette section documente le mode catalogue du testbed. Il permet de "
+        "declarer une liste de sites une seule fois, puis d'appliquer la meme "
+        "configuration de comparaison, de simulation ou de maillage a chaque site.</p>"
+        + comparison_note
+        + _definition_list(fields)
+        + "<ol>"
+        + "".join(f"<li>{item}</li>" for item in steps)
+        + "</ol>"
+    )
+    return _section("Mode catalogue pas a pas", body)
 
 
 def _render_testbed_case_page(
@@ -1035,7 +1127,17 @@ def _load_comparison_summaries(
             manifest_value=None,
             default_name="budget_timeseries_wide.csv",
         )
+        numerical_closure_path = _comparison_artifact_path(
+            root=root,
+            manifest_value=None,
+            default_name="numerical_closure_summary.csv",
+        )
         simulations = _comparison_simulations(manifest)
+        numerical_closure_rows = _comparison_numerical_closure_rows(
+            path=numerical_closure_path,
+            manifest=manifest,
+        )
+        closure_summary = _summarize_numerical_closure(numerical_closure_rows)
         summary = {
             "comparison_id": _display_value(manifest.get("comparison_id") or root.name),
             "root": root,
@@ -1046,6 +1148,8 @@ def _load_comparison_summaries(
             "metrics_rows": _read_csv(metrics_path),
             "differences_path": differences_path,
             "budget_wide_path": budget_wide_path,
+            "numerical_closure_path": numerical_closure_path,
+            "numerical_closure_rows": numerical_closure_rows,
             "figures": figures,
             "key_figures": _select_comparison_key_figures(figures),
             "simulations": simulations,
@@ -1065,6 +1169,7 @@ def _load_comparison_summaries(
                 )
             ),
         }
+        summary.update(closure_summary)
         summaries.append(summary)
     return summaries
 
@@ -1086,6 +1191,63 @@ def _comparison_artifact_path(
     if not path.exists() and default_path.is_file():
         return default_path
     return path
+
+
+def _comparison_numerical_closure_rows(
+    *,
+    path: Path,
+    manifest: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = [dict(row) for row in _read_csv(path)]
+    if rows:
+        return rows
+    payload = manifest.get("numerical_closure")
+    if not isinstance(payload, Mapping):
+        return []
+    raw_rows = payload.get("rows")
+    if not isinstance(raw_rows, list):
+        return []
+    return [dict(row) for row in raw_rows if isinstance(row, Mapping)]
+
+
+def _summarize_numerical_closure(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    if not rows:
+        return {}
+    return {
+        "closure_status": _worst_closure_status(rows),
+        "closure_max_abs_m3_s": _max_numeric_field(rows, "max_abs_closure_m3_s"),
+        "closure_max_abs_mm_d": _max_numeric_field(rows, "max_abs_closure_mm_d"),
+        "closure_relative_error_p95": _max_numeric_field(
+            rows,
+            "relative_closure_error_p95",
+        ),
+    }
+
+
+def _max_numeric_field(rows: Sequence[Mapping[str, Any]], field: str) -> float | None:
+    values = []
+    for row in rows:
+        value = _float_or_none(row.get(field))
+        if value is not None:
+            values.append(value)
+    return max(values) if values else None
+
+
+def _worst_closure_status(rows: Sequence[Mapping[str, Any]]) -> str:
+    worst = ""
+    for row in rows:
+        status = _display_value(row.get("diagnostic")).strip().upper()
+        if CLOSURE_STATUS_ORDER.get(status, -1) > CLOSURE_STATUS_ORDER.get(worst, -1):
+            worst = status
+    return worst or "UNKNOWN"
+
+
+def _float_or_none(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
 
 
 def _head_mean_abs_relative_error_percent(differences_path: Path) -> float | None:
@@ -1573,6 +1735,7 @@ def _render_comparison_summary_table(
                 _display_value(comparison.get("n_metric_rows") or len(comparison.get("metrics_rows") or [])),
                 _display_value(comparison.get("n_difference_rows")),
                 _display_value(len(comparison.get("figures") or [])),
+                _display_value(comparison.get("closure_status")),
                 _link(metrics_path, "CSV", from_dir) if isinstance(metrics_path, Path) else "",
                 _link(web_index, "HTML", from_dir) if isinstance(web_index, Path) else "",
             ]
@@ -1586,11 +1749,58 @@ def _render_comparison_summary_table(
             "Metrics",
             "Differences",
             "Figures",
+            "Precision",
             "Metrics CSV",
             "Report HTML",
         ],
         rows,
     )
+
+
+def _render_comparison_closure_overview(
+    comparisons: Sequence[Mapping[str, Any]],
+    *,
+    from_dir: Path,
+) -> str:
+    comparisons_with_closure = [
+        comparison
+        for comparison in comparisons
+        if comparison.get("numerical_closure_rows")
+    ]
+    if not comparisons_with_closure:
+        return (
+            '<p class="muted">Aucune metrique de fermeture de bilan numerique '
+            "n'a ete trouvee pour les comparaisons disponibles.</p>"
+        )
+    rows = []
+    for comparison in comparisons_with_closure:
+        path = comparison.get("numerical_closure_path")
+        rows.append(
+            [
+                _comparison_link(comparison, from_dir=from_dir),
+                _format_float(_closure_solver_metric(comparison, ("modflow", "mf6", "nwt"))),
+                _format_float(_closure_solver_metric(comparison, ("bouss",))),
+                _format_float(comparison.get("closure_relative_error_p95")),
+                _display_value(comparison.get("closure_status")),
+                _link(path, "CSV", from_dir) if isinstance(path, Path) and path.is_file() else "",
+            ]
+        )
+    note = (
+        '<p class="muted">Diagnostic calcule apres coup sur les budgets normalises: '
+        "entrees moins sorties moins variation de stockage. Les valeurs en mm/j "
+        "expriment le maximum de residu de fermeture equivalent sur chaque simulation.</p>"
+    )
+    return _table_from_rows(
+        [
+            "Comparaison",
+            "MODFLOW max mm/j",
+            "Boussinesq max mm/j",
+            "Erreur rel. p95 max",
+            "Avis",
+            "Detail",
+        ],
+        rows,
+    ) + note
 
 
 def _render_testbed_comparison_overview_table(
@@ -1620,6 +1830,9 @@ def _render_testbed_comparison_overview_table(
                 _format_float(_comparison_solver_wall_time(comparison, "boussinesq")),
                 _format_percent(comparison.get("head_mean_abs_relative_error_percent")),
                 _format_percent(comparison.get("global_outflow_mean_abs_relative_error_percent")),
+                _format_float(_closure_solver_metric(comparison, ("modflow", "mf6", "nwt"))),
+                _format_float(_closure_solver_metric(comparison, ("bouss",))),
+                _display_value(comparison.get("closure_status")),
             ]
         )
     table = _table_from_rows(
@@ -1631,6 +1844,9 @@ def _render_testbed_comparison_overview_table(
             "Boussinesq (s)",
             "Ecart moyen charge (%)",
             "Ecart moyen sorties globales (%)",
+            "Fermeture MODFLOW mm/j",
+            "Fermeture Bouss. mm/j",
+            "Avis precision",
         ],
         rows,
     )
@@ -1655,6 +1871,31 @@ def _comparison_solver_wall_time(comparison: Mapping[str, Any], solver: str) -> 
         if _display_value(simulation.get("solver")).strip().lower() == solver_key:
             return simulation.get("wall_time_seconds")
     return None
+
+
+def _closure_solver_metric(
+    comparison: Mapping[str, Any],
+    solver_tokens: Sequence[str],
+    *,
+    field: str = "max_abs_closure_mm_d",
+) -> float | None:
+    rows = comparison.get("numerical_closure_rows")
+    if not isinstance(rows, list):
+        return None
+    values: list[float] = []
+    normalized_tokens = tuple(token.lower() for token in solver_tokens)
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        solver = _display_value(row.get("solver")).strip().lower()
+        simulation_id = _display_value(row.get("simulation_id")).strip().lower()
+        haystack = f"{solver} {simulation_id}"
+        if not any(token in haystack for token in normalized_tokens):
+            continue
+        value = _float_or_none(row.get(field))
+        if value is not None:
+            values.append(abs(value))
+    return max(values) if values else None
 
 
 def _render_convergence_analysis_section(manifest: Mapping[str, Any]) -> str:
@@ -1724,10 +1965,12 @@ def _render_case_comparisons(
             ("Metric rows", comparison.get("n_metric_rows") or len(comparison.get("metrics_rows") or [])),
             ("Difference rows", comparison.get("n_difference_rows")),
             ("Figures", len(comparison.get("figures") or [])),
+            ("Precision de resolution", comparison.get("closure_status")),
         ]
         blocks.append(
             '<div class="comparison-block">'
             + _definition_list(facts)
+            + _render_comparison_closure_table(comparison, from_dir=from_dir)
             + _render_comparison_figure_grid(comparison.get("key_figures") or [], from_dir=from_dir)
             + "</div>"
         )
@@ -1749,6 +1992,57 @@ def _case_comparison_links(
         label = "Ouvrir" if len(comparisons) == 1 else f"Ouvrir {index}"
         links.append(_link(web_index, label, from_dir))
     return "<br>".join(links) if links else '<span class="muted">not found</span>'
+
+
+def _render_comparison_closure_table(
+    comparison: Mapping[str, Any],
+    *,
+    from_dir: Path,
+) -> str:
+    rows = comparison.get("numerical_closure_rows")
+    if not isinstance(rows, list) or not rows:
+        return ""
+    body_rows = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            continue
+        body_rows.append(
+            [
+                _display_value(row.get("simulation_id")),
+                _display_value(row.get("solver")),
+                _display_value(row.get("n_periods")),
+                _format_float(row.get("max_abs_closure_m3_s")),
+                _format_float(row.get("max_abs_closure_mm_d")),
+                _format_float(row.get("relative_closure_error_p95")),
+                _display_value(row.get("diagnostic")),
+            ]
+        )
+    if not body_rows:
+        return ""
+    path = comparison.get("numerical_closure_path")
+    link = (
+        "<p>"
+        + _link(path, "Ouvrir le detail numerique", from_dir)
+        + "</p>"
+        if isinstance(path, Path) and path.is_file()
+        else ""
+    )
+    return (
+        "<h3>Precision de resolution</h3>"
+        + _table_from_rows(
+            [
+                "Simulation",
+                "Solveur",
+                "Periodes",
+                "Max residu m3/s",
+                "Max residu mm/j",
+                "Erreur rel. p95",
+                "Avis",
+            ],
+            body_rows,
+        )
+        + link
+    )
 
 
 def _render_comparison_figure_grid(
@@ -2290,6 +2584,12 @@ def _path_or_none(value: Any) -> Path | None:
     text = str(value).strip()
     if not text:
         return None
+    if os.name == "nt":
+        match = re.match(r"^/mnt/([A-Za-z])(?:/(.*))?$", text)
+        if match:
+            drive = match.group(1).upper()
+            tail = (match.group(2) or "").replace("/", "\\")
+            return Path(f"{drive}:\\{tail}")
     return Path(text)
 
 

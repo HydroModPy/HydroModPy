@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.config.schema_export import (
+    _cached_full_schema,
     _ensure_root_sections,
     export_schema,
 )
@@ -140,7 +141,7 @@ def _walk_fields(
 ) -> None:
     """Populate *out* with ``field_path -> validator_type`` entries."""
     try:
-        schema = model_cls.model_json_schema()
+        schema = _cached_full_schema(model_cls)
     except Exception:
         return
     props = schema.get("properties", {})

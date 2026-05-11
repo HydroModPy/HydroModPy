@@ -7,7 +7,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.config import ComparisonConfig
+from hydromodpy.analysis.comparison.config import RuntimeComparisonConfig
 from hydromodpy.analysis.comparison.visuals_payloads import (
     MapPayload,
     _build_case_configuration_payload,
@@ -16,6 +16,7 @@ from hydromodpy.analysis.comparison.visuals_payloads import (
     _regrid_payload,
     _resolve_fine_grid_bounds,
     griddata,
+    observable_point_label_map,
 )
 from hydromodpy.analysis.comparison.visuals_render_maps import (
     _write_case_configuration_figure,
@@ -51,7 +52,7 @@ def _representative_map_observable_names(observables: list[Any]) -> set[str]:
 
 def generate_comparison_figures(
     *,
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     simulation_summaries: list[dict[str, Any]],
     rows: list[dict[str, Any]],
     detail_metrics: list[dict[str, Any]],
@@ -102,9 +103,8 @@ def generate_comparison_figures(
                 }
             )
 
-    representative_map_names = _representative_map_observable_names(
-        list(cfg.comparison.observable)
-    )
+    representative_map_names = _representative_map_observable_names(list(cfg.comparison.observable))
+    point_labels = observable_point_label_map(tuple(cfg.comparison.observable))
     for observable in cfg.comparison.observable:
         if observable.support != "map":
             continue
@@ -204,17 +204,20 @@ def generate_comparison_figures(
 
     for (observable_name, unit), grouped in sorted(grouped_rows.items()):
         series_path = figure_root / f"{_slug(observable_name)}__timeseries.png"
+        point_label = point_labels.get(observable_name, "")
         if _write_timeseries_figure(
             path=series_path,
             observable_name=observable_name,
             unit=unit,
             grouped_rows=grouped,
+            point_label=point_label,
         ):
             artifacts.append(
                 {
                     "kind": "timeseries",
                     "observable": observable_name,
                     "unit": unit,
+                    "point_label": point_label,
                     "path": str(series_path),
                 }
             )

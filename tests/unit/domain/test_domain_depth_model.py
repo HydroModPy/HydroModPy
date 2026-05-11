@@ -8,7 +8,7 @@ from hydromodpy.spatial.domain import Domain, DomainConfig
 
 def test_domain_depth_model_default_is_constant_thickness():
     cfg = DomainConfig()
-    assert cfg.depth_model.type == "constant_thickness"
+    assert cfg.depth_model.kind == "constant_thickness"
     assert float(cfg.depth_model.thickness) == 50.0
     assert cfg.supports == {}
     assert cfg.zone_ids == []
@@ -19,13 +19,13 @@ def test_domain_config_accepts_geology_supports() -> None:
         {
             "supports": {
                 "field_geology": {
-                    "provider": "geology",
+                    "kind": "geology",
                 }
             }
         }
     )
 
-    assert cfg.supports["field_geology"].provider == "geology"
+    assert cfg.supports["field_geology"].kind == "geology"
 
 
 def test_domain_config_accepts_generated_supports() -> None:
@@ -33,7 +33,7 @@ def test_domain_config_accepts_generated_supports() -> None:
         {
             "supports": {
                 "halves": {
-                    "provider": "generated_bands",
+                    "kind": "generated_bands",
                     "axis": "x",
                     "breaks": [0.5],
                     "labels": ["left", "right"],
@@ -42,7 +42,7 @@ def test_domain_config_accepts_generated_supports() -> None:
         }
     )
 
-    assert cfg.supports["halves"].provider == "generated_bands"
+    assert cfg.supports["halves"].kind == "generated_bands"
 
 
 def test_domain_config_accepts_generated_rings_supports() -> None:
@@ -50,7 +50,7 @@ def test_domain_config_accepts_generated_rings_supports() -> None:
         {
             "supports": {
                 "rings": {
-                    "provider": "generated_rings",
+                    "kind": "generated_rings",
                     "coordinate_mode": "relative",
                     "radii": [0.4, 0.7],
                     "labels": ["inner", "middle", "outer"],
@@ -59,7 +59,7 @@ def test_domain_config_accepts_generated_rings_supports() -> None:
         }
     )
 
-    assert cfg.supports["rings"].provider == "generated_rings"
+    assert cfg.supports["rings"].kind == "generated_rings"
 
 
 def test_domain_config_accepts_mixed_support_providers() -> None:
@@ -67,10 +67,10 @@ def test_domain_config_accepts_mixed_support_providers() -> None:
         {
             "supports": {
                 "field_geology": {
-                    "provider": "geology",
+                    "kind": "geology",
                 },
                 "halves": {
-                    "provider": "generated_bands",
+                    "kind": "generated_bands",
                     "axis": "x",
                     "breaks": [0.5],
                     "labels": ["left", "right"],
@@ -79,8 +79,8 @@ def test_domain_config_accepts_mixed_support_providers() -> None:
         }
     )
 
-    assert cfg.supports["field_geology"].provider == "geology"
-    assert cfg.supports["halves"].provider == "generated_bands"
+    assert cfg.supports["field_geology"].kind == "geology"
+    assert cfg.supports["halves"].kind == "generated_bands"
 
 
 def test_domain_config_rejects_legacy_support_key() -> None:
@@ -93,7 +93,7 @@ def test_domain_builds_top_and_bottom_with_constant_thickness():
     cfg = DomainConfig.model_validate(
         {
             "depth_model": {
-                "type": "constant_thickness",
+                "kind": "constant_thickness",
                 "thickness": 30.0,
             }
         }
@@ -110,7 +110,7 @@ def test_domain_builds_top_and_bottom_with_constant_thickness_unit_string():
     cfg = DomainConfig.model_validate(
         {
             "depth_model": {
-                "type": "constant_thickness",
+                "kind": "constant_thickness",
                 "thickness": "30.0 m",
             }
         }
@@ -127,7 +127,7 @@ def test_domain_builds_flat_substratum():
     cfg = DomainConfig.model_validate(
         {
             "depth_model": {
-                "type": "flat_substratum",
+                "kind": "flat_substratum",
                 "substratum_elevation": -12.5,
             }
         }
@@ -147,7 +147,7 @@ def test_domain_flat_substratum_must_be_below_topography_everywhere():
     cfg = DomainConfig.model_validate(
         {
             "depth_model": {
-                "type": "flat_substratum",
+                "kind": "flat_substratum",
                 "substratum_elevation": 6.0,
             }
         }

@@ -66,7 +66,7 @@ class TimeseriesColumnsMixin(HydroModelBase):
 
 
 class TimeseriesSelectionMixin(HydroModelBase):
-    """Shared station selection and cache grammar for timeseries variables."""
+    """Shared station selection, mask, and cache grammar for timeseries variables."""
 
     station_ids: Annotated[list[str] | None, Profile.USER] = Field(
         default=None,
@@ -87,63 +87,6 @@ class TimeseriesSelectionMixin(HydroModelBase):
         default=False,
         description="Ignore the cache and force a fresh download from the API.",
     )
-
-
-class TimeseriesVariableConfig(BaseVariableConfig):
-    """Factored base for ``[data.<timeseries_variable>]`` TOML sections.
-
-    Subclasses bring their own ``sources: list[<VariableSourceConfig>]``
-    field (and any variable-specific parameters such as ``product`` or
-    ``components``). The date range and CSV column grammar are inherited
-    from :class:`BaseVariableConfig` and the selection/cache fields below.
-    """
-
-    # Re-expose the shared CSV column-name grammar at the top level of the
-    # variable config so it can be overridden alongside dates.
-    col_id: Annotated[str, Profile.DEV] = Field(
-        default="id",
-        description="Column name for the station identifier in location files.",
-    )
-    col_x: Annotated[str, Profile.DEV] = Field(
-        default="x",
-        description="Column name for the X coordinate in location files.",
-    )
-    col_y: Annotated[str, Profile.DEV] = Field(
-        default="y",
-        description="Column name for the Y coordinate in location files.",
-    )
-    col_crs: Annotated[str, Profile.DEV] = Field(
-        default="crs",
-        description="Column name for the CRS in location files.",
-    )
-    col_datetime: Annotated[str, Profile.DEV] = Field(
-        default="datetime",
-        description="Column name for timestamps in chronicle CSVs.",
-    )
-    col_value: Annotated[str, Profile.DEV] = Field(
-        default="value",
-        description="Column name for numeric values in chronicle CSVs.",
-    )
-    default_crs: Annotated[str, Profile.DEV] = Field(
-        default="EPSG:4326",
-        description="Default CRS used when a location file omits the CRS column.",
-    )
-
-    station_ids: Annotated[list[str] | None, Profile.USER] = Field(
-        default=None,
-        description="Explicit station identifiers to load (custom source).",
-    )
-    extent: Annotated[
-        Literal["watershed", "study_area"] | None,
-        Profile.USER,
-    ] = Field(
-        default=None,
-        description="Enable bbox-based data retrieval using the project extent.",
-    )
-    force_refresh: Annotated[bool, Profile.DEV] = Field(
-        default=False,
-        description="Ignore the cache and force a fresh download from the API.",
-    )
     mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description=(
@@ -151,9 +94,44 @@ class TimeseriesVariableConfig(BaseVariableConfig):
             "or clip gridded sources."
         ),
     )
+    source_unit: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional source unit for custom gridded .nc/.tif inputs. "
+            "When omitted for NetCDF, units are inferred from variable metadata."
+        ),
+    )
+
+
+class SparseStationFallbackMixin(HydroModelBase):
+    """Shared fallback search behaviour for sparse-station timeseries variables."""
+
+    fallback_search_radius_km: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Maximum search radius (km) used to find a fallback station when "
+            "no observation is available inside the requested bbox."
+        ),
+    )
+
+
+class TimeseriesVariableConfig(
+    TimeseriesColumnsMixin,
+    TimeseriesSelectionMixin,
+    BaseVariableConfig,
+):
+    """Factored base for ``[data.<timeseries_variable>]`` TOML sections.
+
+    Subclasses bring their own ``sources: list[<VariableSourceConfig>]``
+    field (and any variable-specific parameters such as ``product`` or
+    ``components``). The date range and CSV column grammar are inherited
+    from :class:`BaseVariableConfig` and the selection/cache fields above.
+    """
 
 
 __all__ = [
+    "SparseStationFallbackMixin",
     "TimeseriesColumnsMixin",
     "TimeseriesSelectionMixin",
     "TimeseriesVariableConfig",

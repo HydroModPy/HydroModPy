@@ -362,7 +362,7 @@ def test_run_setup_declares_requested_geology_support_id(monkeypatch) -> None:
         run_state,
         requested_spatial_support_ids=("field_geology",),
         requested_domain_supports={
-            "field_geology": SimpleNamespace(provider="geology"),
+            "field_geology": SimpleNamespace(kind="geology"),
         },
     )
 

@@ -241,7 +241,7 @@ def test_apply_simulation_time_to_flow_wells_binds_constant_forcing() -> None:
                 "W1": {
                     "cell": [0, 0, 0],
                     "units": "m3/day",
-                    "forcing": {"mode": "constant", "value": -86400.0},
+                    "forcing": {"kind": "constant", "value": -86400.0},
                 }
             }
         )
@@ -285,7 +285,7 @@ def test_apply_simulation_time_to_flow_wells_binds_csv_forcing(tmp_path: Path) -
                     "cell": [0, 0, 0],
                     "units": "m3/day",
                     "forcing": {
-                        "mode": "csv",
+                        "kind": "csv",
                         "path_file": csv_path,
                         "date_column": "date",
                         "value_column": "rate",

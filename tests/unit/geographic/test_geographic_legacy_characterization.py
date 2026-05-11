@@ -510,8 +510,8 @@ def test_geographic_legacy_from_outlet_golden(
 
 
 def test_geographic_config_rejects_missing_outlet_fields() -> None:
-    """Validate model-level guardrails for outlet-based catchment definition."""
-    with pytest.raises(ValueError, match="catch_def='from_outlet_coord' requires"):
+    """Validate per-variant required-field guardrails for outlet catchment definition."""
+    with pytest.raises(ValueError, match="from_outlet_coord"):
         GeographicConfig(
             catch_def="from_outlet_coord",
             dem_init_path=Path("dummy_dem.tif"),

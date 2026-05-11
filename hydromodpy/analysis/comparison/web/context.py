@@ -27,6 +27,7 @@ class ComparisonWebContext:
     manifest: dict[str, Any]
     audit: dict[str, Any]
     metrics_rows: list[dict[str, str]]
+    numerical_closure_rows: list[dict[str, str]]
     budget_rows: list[dict[str, str]]
     figure_items: list[dict[str, Any]]
     key_figures: list[dict[str, Any]]
@@ -49,6 +50,7 @@ def load_comparison_web_context(
     out = output_path or (web_dir / "index.html")
     payload = dict(manifest or _load_json(root / "comparison_manifest.json"))
     metrics_rows = _load_csv(root / "comparison_metrics.csv")
+    numerical_closure_rows = _load_csv(root / "numerical_closure_summary.csv")
     budget_rows = _load_csv(root / "budget_timeseries_wide.csv")
     audit = _load_json(root / "comparison_audit.json")
     figure_items = _figure_items(root=root, manifest=payload)
@@ -67,6 +69,7 @@ def load_comparison_web_context(
         manifest=payload,
         audit=audit,
         metrics_rows=metrics_rows,
+        numerical_closure_rows=numerical_closure_rows,
         budget_rows=budget_rows,
         figure_items=figure_items,
         key_figures=_select_key_figures(figure_items),
@@ -157,6 +160,8 @@ def _data_links(root: Path) -> list[Path]:
         "comparison_manifest.json",
         "comparison_metrics.csv",
         "comparison_differences.csv",
+        "numerical_closure_summary.csv",
+        "numerical_closure_by_period.csv",
         "observables.csv",
         "budget_timeseries_wide.csv",
         "budget_timeseries_long.csv",

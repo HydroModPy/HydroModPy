@@ -44,23 +44,21 @@ def format_boussinesq_method_line(result: ValidationRunResult) -> str | None:
         return None
 
     runtime_backend = str(summary.get("runtime_backend", "") or "").strip().lower()
-    surface_model = str(
-        summary.get("surface_interaction_model_resolved")
-        or summary.get("surface_interaction_model_requested")
-        or ""
-    ).strip().lower()
+    surface_model = (
+        str(
+            summary.get("surface_interaction_model_resolved")
+            or summary.get("surface_interaction_model_requested")
+            or ""
+        )
+        .strip()
+        .lower()
+    )
     engine_id = str(summary.get("runtime_engine_id", "") or "").strip()
 
     if runtime_backend == "petsc" and surface_model == "vi_obstacle":
-        return (
-            "method=Boussinesq PETSc SNESVI head-only obstacle "
-            "(steady pure, vi_obstacle)"
-        )
+        return "method=Boussinesq PETSc SNESVI head-only obstacle (steady pure, vi_obstacle)"
     if runtime_backend == "petsc" and surface_model == "ts_vi_obstacle":
-        return (
-            "method=Boussinesq PETSc TS + SNESVI head-only obstacle "
-            "(ts_vi_obstacle)"
-        )
+        return "method=Boussinesq PETSc TS + SNESVI head-only obstacle (ts_vi_obstacle)"
     if runtime_backend == "petsc" and surface_model == "complementarity":
         return "method=Boussinesq PETSc mixed complementarity"
     if runtime_backend == "petsc" and surface_model == "regularized_partition":

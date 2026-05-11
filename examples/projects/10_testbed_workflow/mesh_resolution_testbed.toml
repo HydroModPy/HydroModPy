@@ -1,4 +1,6 @@
-workflow = "testbed"
+
+[workflow]
+mode = "testbed"
 
 [testbed]
 id = "mesh_resolution_testbed"
@@ -9,7 +11,7 @@ output_root = "outputs/mesh_resolution_testbed"
 execute = false
 
 [testbed.runner]
-type = "mesh_catchment"
+type = "simulation"
 
 [[testbed.variant]]
 id = "coarse"

@@ -22,6 +22,7 @@ The easiest way to read the package is:
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -110,9 +111,7 @@ class Boussinesq(Solver):
         model_name: str,
     ) -> None:
         if mesh_bundle is None and mesh is None:
-            raise ValueError(
-                "Boussinesq requires either mesh_bundle or a prebuilt mesh"
-            )
+            raise ValueError("Boussinesq requires either mesh_bundle or a prebuilt mesh")
         self.mesh_bundle = mesh_bundle
         self.flow = flow
         self.domain = domain
@@ -123,11 +122,10 @@ class Boussinesq(Solver):
         self.mesh: BoussinesqMesh | None = mesh
         self.state: BoussinesqState | None = None
         self.runtime_summary: dict[str, Any] = {}
+        self.last_flow_solve_time_seconds: float | None = None
         self.has_numerical_solution = False
         self.solve_stage = "created"
-        self.saturation_excess_regularization_radius = (
-            _DEFAULT_SATURATION_EXCESS_REGULARIZATION
-        )
+        self.saturation_excess_regularization_radius = _DEFAULT_SATURATION_EXCESS_REGULARIZATION
 
     def pre_processing(self):
         """Build the compact solver mesh and initialize static run metadata."""
@@ -180,11 +178,9 @@ class Boussinesq(Solver):
             return True
 
         self._assert_supported_runtime_subset()
-        if (
-            str(getattr(self.flow, "flow_regime", "transient")).strip().lower()
-            == "steady"
-        ):
-            success = self._run_steady_runtime()
+        self.last_flow_solve_time_seconds = None
+        if str(getattr(self.flow, "flow_regime", "transient")).strip().lower() == "steady":
+            success = self._time_flow_solve(self._run_steady_runtime)
         elif self.time_grid is None:
             return True
         else:
@@ -195,7 +191,7 @@ class Boussinesq(Solver):
                     self.solve_stage = "failed"
                     self.post_processing()
                     return False
-            success = self._run_transient_runtime()
+            success = self._time_flow_solve(self._run_transient_runtime)
 
         self.has_numerical_solution = bool(success)
         self.solve_stage = "solved" if success else "failed"
@@ -206,6 +202,16 @@ class Boussinesq(Solver):
             raise RuntimeError("Boussinesq post-processing failed") from exc
         return bool(success)
 
+    def _time_flow_solve(self, solve_callable) -> bool:
+        """Run one main flow solve and record its elapsed wall time."""
+        solve_start = time.perf_counter()
+        try:
+            return bool(solve_callable())
+        finally:
+            elapsed = time.perf_counter() - solve_start
+            self.last_flow_solve_time_seconds = elapsed
+            self.runtime_summary["flow_solve_time_seconds"] = float(elapsed)
+
     def post_processing(self, *args, **kwargs):
         """Persist lightweight diagnostics and state histories for inspection."""
         _ = args
@@ -215,12 +221,8 @@ class Boussinesq(Solver):
             state_payload = build_state_history_export_payload(self.state)
             if self.mesh is not None:
                 state_payload["z_top_m"] = np.asarray(self.mesh.z_top_m, dtype=float)
-                state_payload["z_bottom_m"] = np.asarray(
-                    self.mesh.z_bottom_m, dtype=float
-                )
-                state_payload["cell_area_m2"] = np.asarray(
-                    self.mesh.cell_area_m2, dtype=float
-                )
+                state_payload["z_bottom_m"] = np.asarray(self.mesh.z_bottom_m, dtype=float)
+                state_payload["cell_area_m2"] = np.asarray(self.mesh.cell_area_m2, dtype=float)
             np.savez(
                 state_history_path,
                 **state_payload,
@@ -232,22 +234,12 @@ class Boussinesq(Solver):
         summary_payload["has_numerical_solution"] = bool(self.has_numerical_solution)
         summary_payload["solve_stage"] = str(self.solve_stage)
         if self.mesh is not None and hasattr(self.mesh, "z_top_m"):
-            summary_payload["z_top_m"] = np.asarray(
-                self.mesh.z_top_m, dtype=float
-            ).tolist()
-            summary_payload["z_bottom_m"] = np.asarray(
-                self.mesh.z_bottom_m, dtype=float
-            ).tolist()
+            summary_payload["z_top_m"] = np.asarray(self.mesh.z_top_m, dtype=float).tolist()
+            summary_payload["z_bottom_m"] = np.asarray(self.mesh.z_bottom_m, dtype=float).tolist()
         if self.state is not None:
-            summary_payload["period_lengths_seconds"] = list(
-                self.state.period_lengths_seconds
-            )
-            summary_payload["nonlinear_iterations"] = list(
-                self.state.nonlinear_iterations
-            )
-            summary_payload["converged_by_period"] = list(
-                self.state.converged_by_period
-            )
+            summary_payload["period_lengths_seconds"] = list(self.state.period_lengths_seconds)
+            summary_payload["nonlinear_iterations"] = list(self.state.nonlinear_iterations)
+            summary_payload["converged_by_period"] = list(self.state.converged_by_period)
         summary_path = self.full_path / "_boussinesq_summary.json"
         summary_path.write_text(
             json.dumps(summary_payload, indent=2, ensure_ascii=True) + "\n",
@@ -281,9 +273,7 @@ class Boussinesq(Solver):
     def _assert_supported_runtime_subset(self) -> None:
         """Fail fast when the requested problem exceeds the implemented slice."""
         boundary_bundle = boundary_condition_bundle_from_flow(self.flow)
-        active_sinks_sources = tuple(
-            getattr(self.flow, "active_sinks_sources", ()) or ()
-        )
+        active_sinks_sources = tuple(getattr(self.flow, "active_sinks_sources", ()) or ())
         unsupported_bc = sorted(
             set(boundary_bundle.unknown_active_ids())
             | set(boundary_bundle.unsupported_active_ids("boussinesq"))
@@ -297,9 +287,7 @@ class Boussinesq(Solver):
         if unsupported_bc:
             unsupported.append("active_bc=" + ",".join(unsupported_bc))
         if unsupported_sinks_sources:
-            unsupported.append(
-                "active_sinks_sources=" + ",".join(unsupported_sinks_sources)
-            )
+            unsupported.append("active_sinks_sources=" + ",".join(unsupported_sinks_sources))
 
         if unsupported:
             raise NotImplementedError(
@@ -314,9 +302,7 @@ class Boussinesq(Solver):
     def _runtime_backend_name(self) -> str:
         """Return the selected nonlinear runtime backend name."""
         return (
-            str(getattr(self.flow, "runtime_backend", "local") or "local")
-            .strip()
-            .lower()
+            str(getattr(self.flow, "runtime_backend", "local") or "local").strip().lower()
             or "local"
         )
 
@@ -347,23 +333,17 @@ class Boussinesq(Solver):
         runtime_max_iterations = getattr(self.flow, "runtime_max_iterations", None)
         if runtime_max_iterations is not None:
             max_iterations = int(runtime_max_iterations)
-        tol_residual_inf = float(
-            getattr(self.flow, "runtime_tol_residual_inf", 1.0e-9) or 1.0e-9
-        )
+        tol_residual_inf = float(getattr(self.flow, "runtime_tol_residual_inf", 1.0e-9) or 1.0e-9)
         tol_state_update_inf = float(
             getattr(self.flow, "runtime_tol_state_update_inf", 1.0e-9) or 1.0e-9
         )
-        vi_substeps_per_period = int(
-            getattr(self.flow, "vi_substeps_per_period", 1) or 1
-        )
+        vi_substeps_per_period = int(getattr(self.flow, "vi_substeps_per_period", 1) or 1)
         vi_substep_on_failure = bool(getattr(self.flow, "vi_substep_on_failure", False))
         vi_max_adaptive_substeps = int(
             getattr(self.flow, "vi_max_adaptive_substeps", vi_substeps_per_period)
             or vi_substeps_per_period
         )
-        ts_vi_steps_per_period = int(
-            getattr(self.flow, "ts_vi_steps_per_period", 4) or 4
-        )
+        ts_vi_steps_per_period = int(getattr(self.flow, "ts_vi_steps_per_period", 4) or 4)
         ts_vi_adapt = bool(getattr(self.flow, "ts_vi_adapt", False))
         ts_vi_dt_min_fraction = float(
             getattr(self.flow, "ts_vi_dt_min_fraction", 1.0 / 64.0) or (1.0 / 64.0)
@@ -425,9 +405,7 @@ class Boussinesq(Solver):
         original_time_grid = self.time_grid
         original_surface_model = getattr(self.flow, "surface_interaction_model", None)
         original_config = getattr(self.flow, "config", None)
-        steady_surface_model = steady_state_initialization_surface_interaction_model(
-            self.flow
-        )
+        steady_surface_model = steady_state_initialization_surface_interaction_model(self.flow)
         sinks_sources = getattr(self.flow, "sinks_sources", None)
         had_recharge = False
         original_recharge = None
@@ -472,13 +450,11 @@ class Boussinesq(Solver):
         if self.mesh is None:
             raise RuntimeError("Mesh must be built before initializing the state.")
         head_m = self._resolve_initial_head_field()
-        self.runtime_summary["initial_head_bounds"] = (
-            summarize_head_initial_condition_bounds(
-                head=head_m,
-                top=self.mesh.z_top_m,
-                bottom=self.mesh.z_bottom_m,
-                location_prefix="flow.ic",
-            )
+        self.runtime_summary["initial_head_bounds"] = summarize_head_initial_condition_bounds(
+            head=head_m,
+            top=self.mesh.z_top_m,
+            bottom=self.mesh.z_bottom_m,
+            location_prefix="flow.ic",
         )
         saturated_thickness_m = saturated_thickness_from_head(self.mesh, head_m)
         return BoussinesqState(

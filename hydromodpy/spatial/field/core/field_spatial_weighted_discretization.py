@@ -9,10 +9,17 @@ This implementation corresponds to the current workflow:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from hydromodpy.spatial.field.core.field_spatial import FieldDiscretization
+
+if TYPE_CHECKING:
+    # Imported only for the inherited ``mesh: BaseFieldMesh`` annotation so
+    # sphinx-autodoc-typehints can resolve the forward reference. Avoid the
+    # runtime import to keep the module loadable without a full mesh stack.
+    from hydromodpy.spatial.field.core.field_mesh import BaseFieldMesh as BaseFieldMesh
 
 
 @dataclass(frozen=True)

@@ -13,7 +13,10 @@ from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.initial_conditions import (
-    FlowInitialCondition,
+    FlowICBottom,
+    FlowICCustom,
+    FlowICSteadyState,
+    FlowICTop,
     FlowInitialConditions,
 )
 from hydromodpy.physics.flow.sinks_sources import FlowRechargeConfig, FlowWellConfig
@@ -119,9 +122,7 @@ def _build_unstructured_runtime(
         geology_a_key=("", "", "", "", ""),
         geology_b_key=("", "", "", "", ""),
         boundary_labels_by_edge_id=(
-            {}
-            if boundary_labels_by_edge_id is None
-            else dict(boundary_labels_by_edge_id)
+            {} if boundary_labels_by_edge_id is None else dict(boundary_labels_by_edge_id)
         ),
     )
     return solver_mesh, support
@@ -262,12 +263,8 @@ def test_build_gmsh_support_metadata_from_bundle_like_payload() -> None:
     assert support is not None
     assert support.locate_cell_index_for_point(0.75, 0.25) == 0
     assert support.boundary_cell_indices_for_side("west_side").tolist() == [1]
-    np.testing.assert_allclose(
-        support.cell_z_top_m, np.asarray([30.0, 40.0], dtype=float)
-    )
-    np.testing.assert_allclose(
-        support.cell_z_bottom_m, np.asarray([10.0, 20.0], dtype=float)
-    )
+    np.testing.assert_allclose(support.cell_z_top_m, np.asarray([30.0, 40.0], dtype=float))
+    np.testing.assert_allclose(support.cell_z_bottom_m, np.asarray([10.0, 20.0], dtype=float))
 
 
 def test_gmsh_support_metadata_collects_cells_from_internal_river_edge() -> None:
@@ -277,9 +274,7 @@ def test_gmsh_support_metadata_collects_cells_from_internal_river_edge() -> None
 
 
 def test_gmsh_support_metadata_resolves_cells_from_explicit_label() -> None:
-    _, support = _build_unstructured_runtime(
-        boundary_labels_by_edge_id={1: "east_custom"}
-    )
+    _, support = _build_unstructured_runtime(boundary_labels_by_edge_id={1: "east_custom"})
 
     assert support.cell_indices_for_label("east_custom").tolist() == [0]
 
@@ -328,7 +323,7 @@ def test_modflow6_resolves_boundary_forcing_without_runtime_binding() -> None:
         boundary_conditions={
             "east_side": FlowBoundaryConditionConfig(
                 id="east_side",
-                type="dirichlet",
+                kind="dirichlet",
                 units="cm",
                 application_domain="east side",
                 forcing={"mode": "constant", "value": 20.0},
@@ -353,7 +348,7 @@ def test_modflow6_resolves_well_forcing_without_runtime_binding() -> None:
                 "W1": FlowWellConfig(
                     cell=(0, 0, 0),
                     units="m3/day",
-                    forcing={"mode": "constant", "value": -86400.0},
+                    forcing={"kind": "constant", "value": -86400.0},
                 )
             }
         },
@@ -390,7 +385,7 @@ def test_modflow6_resolves_absolute_xy_well_on_unstructured_runtime_mesh() -> No
     assert wel_spd[1] == [[0, 0, pytest.approx(-1.0)]]
 
 
-def test_modflow6_coordinate_well_ignores_inherited_cell_payload() -> None:
+def test_modflow6_coordinate_well_rejects_inherited_cell_payload() -> None:
     model = _build_unstructured_model()
     model.grid_ctx = SimpleNamespace(grid=None)
     model.flow = SimpleNamespace(
@@ -409,9 +404,8 @@ def test_modflow6_coordinate_well_ignores_inherited_cell_payload() -> None:
         active_sinks_sources=["wells"],
     )
 
-    wel_spd = build_well_stress_period_data(model, 1)
-
-    assert wel_spd[0] == [[0, 0, pytest.approx(-1.0)]]
+    with pytest.raises(ValueError, match="well.cell cannot be combined"):
+        build_well_stress_period_data(model, 1)
 
 
 def test_modflow6_rejects_unstructured_well_outside_runtime_mesh() -> None:
@@ -472,9 +466,7 @@ def test_modflow6_builds_side_boundary_chd_on_unstructured_runtime_mesh() -> Non
     assert period1 == [[0, 0, pytest.approx(21.0)], [0, 1, pytest.approx(10.0)]]
 
 
-def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh() -> (
-    None
-):
+def test_modflow6_applies_side_boundary_start_heads_on_unstructured_runtime_mesh() -> None:
     model = _build_unstructured_model()
     model.flow = SimpleNamespace(
         boundary_conditions={
@@ -509,9 +501,7 @@ def test_modflow6_builds_stream_boundary_chd_on_unstructured_runtime_mesh() -> N
 def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> None:
     model = _build_unstructured_model(river_internal_edge=True)
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="custom", value=2.0)
-        ),
+        initial_conditions=FlowInitialConditions(h=FlowICCustom(id="h", value=2.0)),
         boundary_conditions={
             "stream": SimpleNamespace(value=7.0),
         },
@@ -523,9 +513,7 @@ def test_modflow6_applies_stream_start_heads_on_unstructured_runtime_mesh() -> N
     assert np.allclose(strt[0], [7.0, 7.0])
 
 
-def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_mesh() -> (
-    None
-):
+def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_mesh() -> None:
     model = _build_unstructured_model(boundary_labels_by_edge_id={1: "east_custom"})
     model.flow = SimpleNamespace(
         boundary_conditions={
@@ -534,7 +522,7 @@ def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_m
                 id="east_side",
                 value=6.0,
                 units="m",
-                type="dirichlet",
+                kind="dirichlet",
                 application_domain="east side",
                 support_label="east_custom",
             ),
@@ -548,9 +536,7 @@ def test_modflow6_uses_support_label_for_side_boundary_on_unstructured_runtime_m
     assert chd_spd[1] == [[0, 0, pytest.approx(6.0)]]
 
 
-def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime_mesh() -> (
-    None
-):
+def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime_mesh() -> None:
     model = _build_unstructured_model(boundary_labels_by_edge_id={0: "ditch_custom"})
     model.flow = SimpleNamespace(
         boundary_conditions={
@@ -558,7 +544,7 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
                 id="stream",
                 value=5.0,
                 units="m",
-                type="dirichlet",
+                kind="dirichlet",
                 application_domain="top",
                 support_label="ditch_custom",
             ),
@@ -576,9 +562,7 @@ def test_modflow6_uses_support_label_for_stream_boundary_on_unstructured_runtime
 def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="top")
-        ),
+        initial_conditions=FlowInitialConditions(h=FlowICTop(id="h")),
         boundary_conditions={},
         active_bc=[],
     )
@@ -601,9 +585,7 @@ def test_modflow6_builds_start_heads_from_typed_initial_conditions() -> None:
 def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="steady_state")
-        ),
+        initial_conditions=FlowInitialConditions(h=FlowICSteadyState(id="h")),
         boundary_conditions={},
         active_bc=[],
     )
@@ -625,9 +607,7 @@ def test_modflow6_steady_state_initial_condition_uses_top_as_build_guess() -> No
 def test_modflow6_accepts_bottom_initial_condition_name() -> None:
     model = _build_model()
     model.flow = SimpleNamespace(
-        initial_conditions=FlowInitialConditions(
-            h=FlowInitialCondition(id="h", type="bottom")
-        ),
+        initial_conditions=FlowInitialConditions(h=FlowICBottom(id="h")),
         boundary_conditions={},
         active_bc=[],
     )
@@ -810,9 +790,7 @@ def test_modflow6_enables_rewet_when_requested() -> None:
     model.flow_regime = "transient"
     model.modflow_config = model.modflow_config.model_copy(
         update={
-            "runtime": model.modflow_config.runtime.model_copy(
-                update={"mf6_enable_rewet": True}
-            )
+            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_rewet": True})
         }
     )
     top = np.array([[10.0, 11.0, 12.0], [13.0, 14.0, 15.0]], dtype=float)
@@ -849,9 +827,7 @@ def test_modflow6_enables_xt3d_when_requested() -> None:
     model = _build_model()
     model.modflow_config = model.modflow_config.model_copy(
         update={
-            "runtime": model.modflow_config.runtime.model_copy(
-                update={"mf6_enable_xt3d": True}
-            )
+            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": True})
         }
     )
 
@@ -872,9 +848,7 @@ def test_modflow6_explicit_false_disables_xt3d_on_unstructured_mesh() -> None:
     model = _build_unstructured_model()
     model.modflow_config = model.modflow_config.model_copy(
         update={
-            "runtime": model.modflow_config.runtime.model_copy(
-                update={"mf6_enable_xt3d": False}
-            )
+            "runtime": model.modflow_config.runtime.model_copy(update={"mf6_enable_xt3d": False})
         }
     )
 
@@ -922,7 +896,7 @@ def test_modflow6_flow_adapter_builds_wells_from_forcing_payload() -> None:
                 "W1": FlowWellConfig(
                     cell=(0, 0, 0),
                     units="m3/day",
-                    forcing={"mode": "constant", "value": -86400.0},
+                    forcing={"kind": "constant", "value": -86400.0},
                 )
             }
         },

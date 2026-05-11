@@ -1,35 +1,32 @@
-"""Analysis hub aggregating batch, capability-gallery, and comparison sub-configs.
+"""Analysis hub aggregating capability-gallery and comparison sub-configs.
 
 Single TOML entry point ``[analysis]`` for every post-simulation analysis
 sub-section. Replaces the disjoint root-level entries previously exposed
-under ``[batch]`` and ``[capability_gallery]``.
+under root-level analysis sections.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 
 if TYPE_CHECKING:
-    from hydromodpy.analysis.batch.config import RegionalLabConfig
     from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.comparison.config import ComparisonSection
+    from hydromodpy.analysis.comparison.experiment_config import ComparisonSection
+    from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
 
 
 class AnalysisConfig(HydroModelBase):
     """Hub aggregating every post-simulation analysis sub-section.
 
-    Each field is optional: enabling ``[analysis.batch]`` triggers the
-    regional-lab launcher, ``[analysis.capability_gallery]`` selects
-    figures for the versionable gallery, and ``[analysis.comparison]``
-    drives the comparison launcher.
+    Each field is optional: ``[analysis.capability_gallery]`` selects figures
+    for the versionable gallery, and ``[analysis.comparison]`` drives the
+    comparison launcher.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     batch: Annotated[RegionalLabConfig | None, Profile.USER] = Field(
         default=None,
@@ -51,7 +48,7 @@ class AnalysisConfig(HydroModelBase):
         default=None,
         description=(
             "Optional simulation-comparison block loaded from [analysis.comparison]. "
-            "Parsed standalone via ComparisonConfig under the section name [comparison]."
+            "Parsed standalone via SimulationComparisonConfig under the section name [comparison]."
         ),
     )
 

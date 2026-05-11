@@ -320,13 +320,13 @@ def _apply_transient_payload(
     param = dict(flow.get("param", {}))
     param_k = dict(param.get("K", {}))
     param_k["field"] = {"id": "K", "kind": "homogeneous"}
-    param_k["field_homogeneous"] = {"value": f"{hydraulic_conductivity_m_s:.12g} m/s"}
+    param_k["field"] = {"value": f"{hydraulic_conductivity_m_s:.12g} m/s"}
     param_ss = dict(param.get("Ss", {}))
     param_ss["field"] = {"id": "Ss", "kind": "homogeneous"}
-    param_ss["field_homogeneous"] = {"value": f"{SPECIFIC_STORAGE_M_INV:.12g} m-1"}
+    param_ss["field"] = {"value": f"{SPECIFIC_STORAGE_M_INV:.12g} m-1"}
     param_sy = dict(param.get("Sy", {}))
     param_sy["field"] = {"id": "Sy", "kind": "homogeneous"}
-    param_sy["field_homogeneous"] = {"value": f"{SPECIFIC_YIELD:.12g} -"}
+    param_sy["field"] = {"value": f"{SPECIFIC_YIELD:.12g} -"}
     param["K"] = param_k
     param["Ss"] = param_ss
     param["Sy"] = param_sy

@@ -31,6 +31,7 @@ from validation_cases.calibration.shared.definitions import (
     method_returns_parameter_distribution,
 )
 
+from . import png_drift
 from .gallery_manifest import (
     CATEGORY_SPECS,
     GalleryCaseSpec,
@@ -45,7 +46,7 @@ from .mesh_case_registry import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DOCS_SOURCE_DIR = REPO_ROOT / "docs" / "readthedocs" / "source"
+DOCS_SOURCE_DIR = REPO_ROOT / "docs" / "source"
 VALIDATION_REPORT_DIR = REPO_ROOT / "validation_cases" / "reports" / "latest"
 TEXTUAL_SUFFIXES = {".json", ".rst"}
 MISSING_SOURCE_HASH = "__missing__"
@@ -69,28 +70,46 @@ VALIDATION_SOLVER_ORDER = (
 )
 CATEGORY_GROUP_SPECS = (
     {
-        "title": "Build The Support",
+        "title": "1. Support",
         "deck": (
-            "Start here when the question is still about the basin, the geometry, the "
-            "properties, or the mesh rather than about solver behaviour."
+            "Pre-solver basin views, geometry diagnostics, and hydraulic-property "
+            "fields. Start here when the question is still about the support, not "
+            "the solver."
         ),
-        "categories": ("geographic", "geometry", "hydraulic_properties", "mesh"),
+        "categories": ("geographic", "geometry", "hydraulic_properties"),
+        "thumbnail": "_static/capability_gallery/geographic/geographic_bdtopage_hydrography_overlay.png",
     },
     {
-        "title": "Run And Compare",
+        "title": "2. Mesh",
+        "deck": ("Static mesh and geology illustrations produced from versioned bundle inputs."),
+        "categories": ("mesh",),
+        "thumbnail": "_static/capability_gallery/mesh/mesh_1000km2_outlet_2_geology_rivers_buffer30_overview.png",
+    },
+    {
+        "title": "3. Simulation",
         "deck": (
-            "Move here once the spatial support is understood and you want to inspect one "
-            "full workflow or compare solver families on shared supports."
+            "End-to-end solver runs, run-to-run comparisons on shared supports, and "
+            "synthetic code-to-code benchmarks."
         ),
         "categories": ("simulation", "simulation_comparison", "code_comparison"),
+        "thumbnail": "_static/capability_gallery/simulation/headwater_100km2_outlet_2_mf6_transient_reference_flow_state_triptych.png",
     },
     {
-        "title": "Validate And Calibrate",
+        "title": "4. Validation",
         "deck": (
-            "Use these pages when the goal is not demonstration only, but numerical trust "
-            "or inverse-problem behaviour."
+            "Analytical and semi-analytical comparisons rendered as reproducible teaching figures."
         ),
-        "categories": ("validation", "calibration"),
+        "categories": ("validation",),
+        "thumbnail": "_static/capability_gallery/validation/boussinesq_circular_island_piecewise_k_2d__boussinesq.png",
+    },
+    {
+        "title": "5. Calibration",
+        "deck": (
+            "Synthetic inverse problems used to inspect calibration workflows, "
+            "search methods, and timing diagnostics."
+        ),
+        "categories": ("calibration",),
+        "thumbnail": "_static/capability_gallery/calibration/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6__cma_es_landscape.png",
     },
 )
 
@@ -335,6 +354,42 @@ def build_parser() -> argparse.ArgumentParser:
             "List the selected gallery cases without generating anything. This still "
             "validates the manifest inventory."
         ),
+    )
+    parser.add_argument(
+        "--check-drift",
+        action="store_true",
+        help=(
+            "Hash every PNG under ``docs/source/_static/capability_gallery/`` and "
+            "compare against ``tools/doc_gallery/png_baseline.json``. Exits non-zero "
+            "on any mismatched, missing, or unexpected file."
+        ),
+    )
+    parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help=(
+            "Regenerate ``tools/doc_gallery/png_baseline.json`` from the current "
+            "PNG tree under ``docs/source/_static/capability_gallery/``."
+        ),
+    )
+    parser.add_argument(
+        "--convert-webp",
+        action="store_true",
+        help=(
+            "Generate ``.webp`` siblings for every PNG under "
+            "``docs/source/_static/capability_gallery/`` (idempotent)."
+        ),
+    )
+    parser.add_argument(
+        "--webp-quality",
+        type=int,
+        default=85,
+        help="WebP encoder quality used by ``--convert-webp`` (0-100, default 85).",
+    )
+    parser.add_argument(
+        "--webp-force",
+        action="store_true",
+        help="Force re-encode even when the WebP is newer than the PNG.",
     )
     return parser
 
@@ -625,6 +680,7 @@ def _write_gallery_pages_from_summaries(
     docs_dir = source_root / "capability_gallery"
     docs_dir.mkdir(parents=True, exist_ok=True)
     _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
+    _write_text(docs_dir / "all_cases.rst", _build_all_cases_page(summaries_by_category))
     for category_slug, cases in summaries_by_category.items():
         if category_slugs_to_write is not None and category_slug not in category_slugs_to_write:
             continue
@@ -861,7 +917,7 @@ def _build_unavailable_case_summary(
             "paragraphs": [
                 (
                     "This local checkout cannot fully rebuild the original gallery artefacts for "
-                    "this case because one or more legacy source files are not present."
+                    "this case because one or more source files are not present."
                 ),
                 (
                     "The page is still generated so that the capability-gallery structure, cross-links, "
@@ -1463,7 +1519,7 @@ def _sanitize_regional_lab_artifact_payload(payload: Any) -> Any:
 
 
 def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dict[str, Any]:
-    from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
+    from hydromodpy.analysis.testbed.regional_lab import RegionalLabProfileLauncher
 
     config_path_relative = str(spec.metadata["regional_lab_config_path"])
     config_path = _repo_path(config_path_relative)
@@ -1479,7 +1535,7 @@ def _generate_regional_lab_case(spec: GalleryCaseSpec, source_root: Path) -> dic
         )
     with _temporary_gallery_dir(prefix="hydromodpy_doc_gallery_regional_lab_") as temp_dir:
         output_root = Path(temp_dir) / "regional_lab_outputs"
-        launcher = RegionalLabLauncher(config_path)
+        launcher = RegionalLabProfileLauncher(config_path)
         launcher.cfg = replace(
             launcher.cfg,
             output_root=output_root,
@@ -4515,18 +4571,31 @@ def _append_custom_sections(lines: list[str], custom_sections: list[dict[str, An
         raise ValueError(f"Unsupported custom section kind: {kind}")
 
 
-def _render_grid_card(*, link: str, title: str, deck: str) -> list[str]:
-    return [
+def _render_grid_card(
+    *,
+    link: str,
+    title: str,
+    deck: str,
+    img_top: str | None = None,
+) -> list[str]:
+    lines = [
         "   .. grid-item-card::",
         "      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4",
         f"      :link: {link}",
         "      :link-type: doc",
-        "",
-        f"      **{title}**",
-        "      ^^^",
-        f"      {deck}",
-        "",
     ]
+    if img_top:
+        lines.append(f"      :img-top: /{img_top.lstrip('/')}")
+    lines.extend(
+        [
+            "",
+            f"      **{title}**",
+            "      ^^^",
+            f"      {deck}",
+            "",
+        ]
+    )
+    return lines
 
 
 def _render_case_count(value: int) -> str:
@@ -5092,7 +5161,7 @@ def _build_calibration_intercomparison_page(
             "- ``{}``".format(
                 comparison_summary.get(
                     "summary_repo_path",
-                    "docs/readthedocs/source/_static/capability_gallery/calibration/intercomparison/calibration_intercomparison_summary.json",
+                    "docs/source/_static/capability_gallery/calibration/intercomparison/calibration_intercomparison_summary.json",
                 )
             ),
         ]
@@ -5270,10 +5339,14 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
 
     lines.extend(
         [
-            "Browse By Intent",
-            "----------------",
+            "Five top-level categories",
+            "-------------------------",
             "",
-            "The gallery is intentionally grouped by workflow intent first, then by case page.",
+            "The gallery is grouped into five top-level categories. Each card opens "
+            "its own landing page with the case grid for that category.",
+            "",
+            ".. grid:: 1 1 2 3",
+            "   :gutter: 2 2 3 3",
             "",
         ]
     )
@@ -5285,40 +5358,99 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
         ]
         if not available_categories:
             continue
-        title = str(group_spec["title"])
-        lines.extend(
-            [
-                title,
-                "~" * len(title),
-                "",
-                str(group_spec["deck"]),
-                "",
-                ".. grid:: 1 1 2 2",
-                "   :gutter: 2 2 3 3",
-                "",
-            ]
+        umbrella_count = sum(
+            len(cases_by_category.get(category.slug, [])) for category in available_categories
         )
-        for category in available_categories:
-            case_count = len(cases_by_category.get(category.slug, []))
-            lines.extend(
-                _render_grid_card(
-                    link=category.slug,
-                    title=category.title,
-                    deck=f"{category.deck} {_render_case_count(case_count)}.",
-                )
+        if len(available_categories) == 1:
+            link_target = available_categories[0].slug
+        else:
+            link_target = group_spec["categories"][0]
+        deck = f"{group_spec['deck']} {_render_case_count(umbrella_count)}."
+        lines.extend(
+            _render_grid_card(
+                link=link_target,
+                title=str(group_spec["title"]),
+                deck=deck,
+                img_top=group_spec.get("thumbnail"),
             )
+        )
+
+    lines.extend(
+        [
+            "All cases",
+            "---------",
+            "",
+            "Looking for one specific case? Browse the flat index of all available gallery cases:",
+            "",
+            ".. grid:: 1 1 2 2",
+            "   :gutter: 2 2 3 3",
+            "",
+            *_render_grid_card(
+                link="all_cases",
+                title="All cases",
+                deck=(
+                    f"Flat sortable list of {total_case_count} cases with category, "
+                    "solver, and link to the case page."
+                ),
+            ),
+        ]
+    )
+
     lines.extend(
         [
             ".. toctree::",
             "   :hidden:",
             "   :maxdepth: 1",
             "",
+            "   all_cases",
         ]
     )
     for category_slug in CATEGORY_SPECS:
         if cases_by_category.get(category_slug):
             lines.append(f"   {category_slug}")
+    lines.append("   Examples <../examples/index>")
     return "\n".join(lines)
+
+
+def _build_all_cases_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str:
+    """Generate the flat sortable cases listing page."""
+    rows: list[tuple[str, str, str, str]] = []
+    for category_slug in CATEGORY_SPECS:
+        category = CATEGORY_SPECS[category_slug]
+        for case in cases_by_category.get(category_slug, []):
+            slug = str(case.get("slug", ""))
+            title = str(case.get("title", slug))
+            deck = str(case.get("deck", ""))
+            rows.append((slug, title, category.title, deck))
+    rows.sort(key=lambda row: row[1].lower())
+
+    lines = [
+        AUTO_GENERATED_COMMENT,
+        "",
+        "All cases",
+        "=========",
+        "",
+        *_render_note_block(),
+        (
+            f"Flat index of all {len(rows)} curated gallery cases. "
+            "Cases are sorted alphabetically by title. Use the in-page browser "
+            "search to filter by category or solver name."
+        ),
+        "",
+        ".. list-table::",
+        "   :header-rows: 1",
+        "   :widths: 32 18 50",
+        "",
+        "   * - Case",
+        "     - Category",
+        "     - Description",
+    ]
+    for slug, title, category_title, deck in rows:
+        deck_short = deck.splitlines()[0].strip() if deck else ""
+        lines.append(f"   * - :doc:`{title} <cases/{slug}>`")
+        lines.append(f"     - {category_title}")
+        lines.append(f"     - {deck_short}")
+    return "\n".join(lines) + "\n"
 
 
 def _build_category_page(category_slug: str, cases: list[dict[str, Any]]) -> str:
@@ -6213,9 +6345,14 @@ def _append_figure(
     indent: str = "",
     width: str = "100%",
 ) -> None:
+    doc_path = str(image["doc_path"])
+    if doc_path.lower().endswith(".png"):
+        directive = "gallery-figure"
+    else:
+        directive = "figure"
     lines.extend(
         [
-            f"{indent}.. figure:: {image['doc_path']}",
+            f"{indent}.. {directive}:: {doc_path}",
             f"{indent}   :alt: {image['alt_text']}",
             f"{indent}   :width: {width}",
             "",
@@ -6836,16 +6973,16 @@ def _build_simulation_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
     )
     _add_parameter_row(
         selected_rows,
-        field="[flow.param.K.field_homogeneous] value",
+        field="[flow.param.K.field] value",
         meaning="Homogeneous hydraulic conductivity used by the flow model in this tutorial run.",
-        value=_lookup_path(payload, "flow", "param", "K", "field_homogeneous", "value"),
+        value=_lookup_path(payload, "flow", "param", "K", "field", "value"),
         source=run_config_path or "",
     )
     _add_parameter_row(
         selected_rows,
-        field="[flow.param.Sy.field_homogeneous] value",
+        field="[flow.param.Sy.field] value",
         meaning="Specific yield used to control the free-surface response of the aquifer.",
-        value=_lookup_path(payload, "flow", "param", "Sy", "field_homogeneous", "value"),
+        value=_lookup_path(payload, "flow", "param", "Sy", "field", "value"),
         source=run_config_path or "",
     )
 
@@ -7297,24 +7434,24 @@ def _build_property_parameter_docs(case: dict[str, Any]) -> dict[str, Any]:
         )
         _add_parameter_row(
             config_rows,
-            field="[field_heterogeneous] values_source",
+            field="[field] values_source",
             meaning="How heterogeneous values are supplied to the field parameter.",
-            value=_lookup_path(field_param_cfg, "field_heterogeneous", "values_source"),
+            value=_lookup_path(field_param_cfg, "field", "values_source"),
             source=field_param_path,
         )
-        heterogeneous_values = _lookup_path(field_param_cfg, "field_heterogeneous", "values")
+        heterogeneous_values = _lookup_path(field_param_cfg, "field", "values")
         if not _is_empty_parameter_value(heterogeneous_values):
             _add_parameter_row(
                 config_rows,
-                field="[field_heterogeneous] values",
+                field="[field] values",
                 meaning="Inline heterogeneous values used to map zones or materials to property values.",
                 value=heterogeneous_values,
                 source=field_param_path,
             )
-        csv_file = _lookup_path(field_param_cfg, "field_heterogeneous", "values_csv_file")
+        csv_file = _lookup_path(field_param_cfg, "field", "values_csv_file")
         _add_parameter_row(
             config_rows,
-            field="[field_heterogeneous] values_csv_file",
+            field="[field] values_csv_file",
             meaning="CSV file used to map zone keys to property values when the case is CSV-driven.",
             value=Path(str(csv_file)).name if csv_file else "",
             source=str(csv_file or ""),
@@ -7582,6 +7719,8 @@ def _build_case_page(case: dict[str, Any]) -> str:
     next_steps = list(case.get("next_steps", []))
     lines = [
         AUTO_GENERATED_COMMENT,
+        "",
+        ":html_theme.sidebar_secondary.remove:",
         "",
         title,
         "=" * len(title),
@@ -7985,6 +8124,7 @@ def generate_gallery(*, source_root: Path) -> None:
             ]
 
         _write_text(docs_dir / "index.rst", _build_index_page(summaries_by_category))
+        _write_text(docs_dir / "all_cases.rst", _build_all_cases_page(summaries_by_category))
         calibration_cases = list(summaries_by_category.get("calibration", []))
         if calibration_cases:
             for family_group in _group_calibration_cases_by_benchmark_family(calibration_cases):
@@ -8019,6 +8159,40 @@ def main(argv: list[str] | None = None) -> int:
     """Entry point for ``python -m tools.doc_gallery``."""
 
     args = build_parser().parse_args(argv)
+
+    if args.update_baseline:
+        hashes = png_drift.update_baseline()
+        print(
+            f"Updated PNG baseline at {png_drift.BASELINE_PATH.relative_to(REPO_ROOT)} "
+            f"({len(hashes)} files)."
+        )
+        return 0
+
+    if args.convert_webp:
+        from . import png_to_webp
+
+        produced = png_to_webp.convert_gallery_pngs(
+            quality=args.webp_quality, force=args.webp_force
+        )
+        print(f"Wrote {len(produced)} WebP file(s).")
+        return 0
+
+    if args.check_drift:
+        report = png_drift.check_drift()
+        if report.has_drift:
+            print("Capability gallery PNG drift detected. Inspect the changes and either:")
+            print("  - regenerate with `python -m tools.doc_gallery` and rerun the check;")
+            print(
+                "  - or, if the new figures are intended, refresh the baseline with "
+                "`python -m tools.doc_gallery --update-baseline`."
+            )
+            for line in report.format_lines():
+                print(f"- {line}")
+            return 1
+        baseline_count = len(png_drift.load_baseline())
+        print(f"Capability gallery PNG tree matches the baseline ({baseline_count} files).")
+        return 0
+
     only_slugs = _normalize_filter_values(args.only)
     categories = _normalize_filter_values(args.category)
     specs = build_gallery_specs(only_slugs=only_slugs, categories=categories)
@@ -8097,12 +8271,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(
             f"Capability gallery refreshed for {len(selected_specs)} selected case(s) "
-            "under docs/readthedocs/source/."
+            "under docs/source/."
         )
         return 0
 
     generate_gallery(source_root=DOCS_SOURCE_DIR)
-    print("Capability gallery refreshed under docs/readthedocs/source/.")
+    print("Capability gallery refreshed under docs/source/.")
     return 0
 
 

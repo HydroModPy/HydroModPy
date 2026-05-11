@@ -112,6 +112,7 @@ def _write_timeseries_figure(
     observable_name: str,
     unit: str,
     grouped_rows: list[dict[str, Any]],
+    point_label: str = "",
 ) -> bool:
     use_elapsed_seconds = all(
         _safe_float(row.get("elapsed_seconds")) is not None for row in grouped_rows
@@ -169,7 +170,10 @@ def _write_timeseries_figure(
     _plot_surface_reference_lines(ax, grouped_rows)
     ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
     ax.set_ylabel(unit or "value", fontsize=_LABEL_FONT_SIZE)
-    ax.set_title(_pretty_label(observable_name), fontsize=_TITLE_FONT_SIZE, pad=8)
+    title = _pretty_label(observable_name)
+    if point_label:
+        title = f"Point {point_label} - {title}"
+    ax.set_title(title, fontsize=_TITLE_FONT_SIZE, pad=8)
     ax.tick_params(labelsize=_TICK_FONT_SIZE)
     ax.grid(True, alpha=0.18, linewidth=0.6)
     ax.margins(x=0.03, y=0.08)
@@ -213,16 +217,29 @@ def _write_runtime_bar_figure(
     ]
     runtimes = [float(row["runtime_seconds"]) for row in ordered]
     colors = [_solver_color(str(row.get("solver", ""))) for row in ordered]
+    time_scopes = {
+        str(row.get("time_scope", "") or "").strip().lower()
+        for row in ordered
+        if str(row.get("time_scope", "") or "").strip()
+    }
+    is_flow_solve_time = time_scopes == {"flow_solve"}
 
     figure_height = max(2.8, 0.72 * len(ordered) + 1.1)
     figure, ax = plt.subplots(1, 1, figsize=(7.4, figure_height))
     positions = np.arange(len(ordered))
     bars = ax.barh(positions, runtimes, color=colors, edgecolor="none", height=0.58)
     ax.set_yticks(positions, labels=labels, fontsize=_LABEL_FONT_SIZE)
-    ax.set_xlabel("Runtime [s]", fontsize=_LABEL_FONT_SIZE)
+    ax.set_xlabel(
+        "Flow solve time [s]" if is_flow_solve_time else "Runtime [s]",
+        fontsize=_LABEL_FONT_SIZE,
+    )
     ax.tick_params(axis="x", labelsize=_TICK_FONT_SIZE)
     ax.grid(axis="x", alpha=0.22, linewidth=0.6)
-    ax.set_title("Execution time comparison", fontsize=_TITLE_FONT_SIZE, pad=8)
+    ax.set_title(
+        "Flow solve time comparison" if is_flow_solve_time else "Execution time comparison",
+        fontsize=_TITLE_FONT_SIZE,
+        pad=8,
+    )
 
     reference_runtime = None
     if reference_simulation is not None:
@@ -855,9 +872,7 @@ def _write_storage_comparison_dashboard(
 ) -> bool:
     """Write a global storage-rate comparison figure across simulations."""
     storage_rows = [
-        row
-        for row in budget_rows
-        if str(row.get("component", "")) == "storage_change_total_m3_s"
+        row for row in budget_rows if str(row.get("component", "")) == "storage_change_total_m3_s"
     ]
     if not storage_rows:
         return False
@@ -1001,7 +1016,12 @@ def _write_total_input_output_dashboard(
             color=color,
             label=f"{label} - total outputs",
         )
-    ax.set_title("External water balance: inputs vs outputs", fontsize=_PANEL_TITLE_FONT_SIZE, pad=5, loc="left")
+    ax.set_title(
+        "External water balance: inputs vs outputs",
+        fontsize=_PANEL_TITLE_FONT_SIZE,
+        pad=5,
+        loc="left",
+    )
     ax.set_ylabel("m3/s", fontsize=_LABEL_FONT_SIZE)
     ax.set_xlabel(x_label, fontsize=_LABEL_FONT_SIZE)
     ax.grid(True, alpha=0.18, linewidth=0.6)

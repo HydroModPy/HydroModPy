@@ -103,9 +103,7 @@ def find_xy_dims(da: object) -> tuple[str, str]:
     if y_dim is None and len(spatial_dims) >= 2:
         y_dim = spatial_dims[-2]
     if x_dim is None or y_dim is None:
-        raise ValueError(
-            f"Cannot identify X/Y dimensions in DataArray with dims={dims}"
-        )
+        raise ValueError(f"Cannot identify X/Y dimensions in DataArray with dims={dims}")
     return x_dim, y_dim
 
 

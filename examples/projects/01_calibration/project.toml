@@ -21,7 +21,12 @@
 #   hmp run examples/projects/01_calibration/project.toml
 # ======================================================================
 
-workflow = "calibration"
+
+[workflow]
+mode = "calibration"
+
+[workspace]
+project_root = "."
 
 [simulation]
 name = "calibration_dupuit"
@@ -55,7 +60,7 @@ base_elevation = 20.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "20.0 m"
 
 # --- Processus d'écoulement -----------------------------------------
@@ -69,8 +74,6 @@ param_list = ["K"]
 [flow.param.K.field]
 id = "K"
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "1e-4 m/s"
 
 [flow.ic]
@@ -78,11 +81,11 @@ type = "custom"
 value = "5.0 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "5.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "5.0 m"
 
 [flow.sinks_sources.recharge]
@@ -116,7 +119,7 @@ nlay = 1
 enabled = false
 
 # --- Calibration ----------------------------------------------------
-# `workflow = "calibration"` plus the [calibration] block below trigger
+# `[workflow].mode = "calibration"` plus the [calibration] block below trigger
 # the ask/tell loop. The [simulation] section above is the plan replayed
 # by the evaluator at each iteration.
 #
@@ -144,10 +147,8 @@ variable = "head"
 [calibration.parameters.K_aquifer]
 bounds = [1e-6, 1e-3]
 transform = "log"
-# Pydantic flattens the [flow.param.K.field_homogeneous] subsection
-# into a flat dict at validation time, so the runtime injection key
-# is `flow.param.K.value` (not `...field_homogeneous.value`).
-path = "flow.param.K.value"
+# Native flow parameters keep the TOML subsection path.
+path = "flow.param.K.field.value"
 units = "m/s"
 
 # Observable at the centre cell (x = L/2, y = W/2). The dict key 'head'

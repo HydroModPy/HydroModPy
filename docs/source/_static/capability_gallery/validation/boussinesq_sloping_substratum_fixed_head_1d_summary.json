@@ -1,0 +1,889 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "boussinesq_sloping_substratum_fixed_head_1d",
+  "title": "Boussinesq Sloping-Substratum Fixed-Head 1D",
+  "category": "validation",
+  "deck": "Steady synthetic groundwater-flow case used to validate one sloping substratum profile beyond the trivial constant-thickness solution.",
+  "summary": "Steady synthetic groundwater-flow case used to validate one sloping substratum profile beyond the trivial constant-thickness solution.",
+  "case_setup": [
+    "quasi-1D strip (`40 x 5`, single layer for launcher-backed runs),",
+    "linear topography from `25 m` on the west side to `20 m` on the east side,",
+    "linear substratum from `5 m` on the west side to `0 m` on the east side,",
+    "geometric aquifer thickness `20 m`,",
+    "west/east heads `15 m` / `5 m`,",
+    "no recharge, no drainage, homogeneous `K = 1e-4 m/s`.",
+    "Available solver variants: MODFLOW-NWT, MODFLOW 6, MODFLOW 6 irregular triangles, Boussinesq."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "keep the same simple sloping geometry as the constant-thickness case,",
+    "remove recharge and drainage so the comparison isolates only the lateral Boussinesq balance on a sloping bottom,",
+    "compare `modflownwt`, `modflow6`, `modflow6_irregular_tri`, and the local `boussinesq` backend against one semi-analytical no-recharge profile.",
+    "Direct validation of sloping-bottom flow beyond the trivial constant-thickness branch",
+    "Primary metrics: head-profile RMSE, max abs error, cross-row spread.",
+    "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
+  ],
+  "reference_highlights": [
+    "compared quantity: row-averaged head profile along `x`,",
+    "reference: steady no-recharge Boussinesq relation on `b(x)` above a linear substratum, solved through its implicit integral law,"
+  ],
+  "equations_rst": [
+    "q=K\\,b\\left(S_0-\\frac{\\mathrm{d}b}{\\mathrm{d}x}\\right),\\qquad S_0=-\\frac{\\mathrm{d}z_b}{\\mathrm{d}x}",
+    "x-x_{\\min}=\\int_{b_w}^{b(x)} \\frac{K\\,\\beta\\,\\eta-q}{K\\,\\beta^2}\\,\\mathrm{d}\\eta,\\qquad \\beta=S_0,\\qquad H(x)=z_b(x)+b(x)"
+  ],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.run_case --no-show",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "validation_cases/README.md",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/README.md",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/reference.py",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/comparison.py",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/plotting.py",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/run_case.py",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/runtime_boussinesq.py",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6.toml",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6_irregular_tri.toml",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py",
+    "validation_cases/shared/boussinesq_uniform_strip.py"
+  ],
+  "source_hashes": {
+    "validation_cases/README.md": "ae2d4305358ab202b5da06b1fca10beb330d32018ab746774d7c66775e0e4b82",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/README.md": "17010dbcf6660982ab1d8a8795ab8041425fdb5557bb05b5049ae74119976c8e",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/reference.py": "9f6d9de8c12d844e6352d012eb18a9fb433ec7058e279a6cbdada52c8c08063d",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/comparison.py": "51a6aca2c2240be52fdca716982972e49f9e9068fb7188433ad330d9ebd2742c",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/plotting.py": "06a2baf8c5d71af34fc1f5c5a4c8d84eaa0a1003edfe365a64c606f93a0e91dc",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/run_case.py": "131a32b69836807010ae64100c74206fab0ab561737f219f2b69185cbf025c2a",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml": "1ca437ed2ef0c4ffe754ebfa58e6052ddd6ae1a6fe8084e5eed568989a16e30e",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml": "629c46d4cca655d4b862c38bc07f5939ea8acc0d5b3a4fd607d248707879f4ee",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/runtime_boussinesq.py": "ad50dbb8d373268e8165f748632b6310dce7e5818dd36ac3036b0ea6832be4c3",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml": "ae806c72740259173b05686ec566f91e0e0cfa8d7c08657861f6a424ccc2c20f",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6.toml": "07b1e50b270be0f38f9f4ae39ba7a354791cb73a4d711e6e8849a0695967a90b",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6_irregular_tri.toml": "297c034272b1d8162fbe62129b4d99a2b98e189d4dfa8df60ae9640fe162ac81",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml": "df9536f2eb09f8b02fbaccca5241aa56db2980f007d93df7a1e0e67bb92b364c",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml": "0d3b3ba045d0ec126be4676f214bd288b468701aa7a3f2e13a453d92acd27fd3",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml": "acff5448ad55f03a214cd8bbab763e7a3cd13645b7e9cd6bf71f4592c6dd3c6d",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml": "0269d8ba444008d187b4834c683a90b8e13c3eb55a4729c66ac577a2d924b1c2",
+    "validation_cases/analytical/steady/boussinesq_sloping_substratum.py": "bb08f5ccc8da0911abe363bc4dd613b9e4f2a71959336bee04cfd6f7b05601c7",
+    "validation_cases/shared/boussinesq_uniform_strip.py": "7c96c529c2148e704eb46d61753d67f480670124d6b5ac643de265ab952421d5"
+  },
+  "docname": "cases/boussinesq_sloping_substratum_fixed_head_1d",
+  "images": [
+    {
+      "filename": "boussinesq_sloping_substratum_fixed_head_1d__modflownwt.png",
+      "caption": "Boussinesq Sloping-Substratum Fixed-Head 1D rendered with MODFLOW-NWT for the analytical gallery.",
+      "alt_text": "Boussinesq Sloping-Substratum Fixed-Head 1D validation figure for MODFLOW-NWT",
+      "doc_path": "/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflownwt.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflownwt.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "case_dir": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d",
+    "default_solver": "modflownwt",
+    "solver_variants": [
+      "modflownwt",
+      "modflow6",
+      "modflow6_irregular_tri",
+      "boussinesq"
+    ],
+    "solver_details": {
+      "modflownwt": {
+        "display_name": "MODFLOW-NWT",
+        "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml"
+      },
+      "modflow6": {
+        "display_name": "MODFLOW 6",
+        "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6.toml"
+      },
+      "modflow6_irregular_tri": {
+        "display_name": "MODFLOW 6 irregular triangles",
+        "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6_irregular_tri.toml"
+      },
+      "boussinesq": {
+        "display_name": "Boussinesq",
+        "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml",
+        "expected_output": "Expected shape: 5 x 40",
+        "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml"
+      }
+    },
+    "regime": "steady",
+    "dimension": "1d",
+    "inventory_reference": "",
+    "case_sheet": {
+      "numerical_setup": "Homogeneous strip, linear topography, linearly sloping impermeable bottom, general fixed west/east heads, no recharge",
+      "analytical_target": "Exact steady no-recharge Boussinesq profile on a sloping substratum",
+      "primary_metrics": "head-profile RMSE, max abs error, cross-row spread",
+      "what_it_validates": "Direct validation of sloping-bottom flow beyond the trivial constant-thickness branch"
+    },
+    "process_family": "flow",
+    "process_family_label": "Flow",
+    "geometry_family": "hillslope_1d",
+    "geometry_family_label": "Hillslope 1D",
+    "reference_type": "analytical_exact",
+    "reference_type_label": "Analytical Exact",
+    "validation_family": "steady_1d_boussinesq_topography_sloping_substratum",
+    "validation_family_label": "Steady 1D Boussinesq with Topography or Sloping Substratum",
+    "validation_family_order": 30
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflownwt.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflow6.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflow6_irregular_tri.png",
+      "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__boussinesq.png"
+    ]
+  },
+  "solver_runs": [
+    {
+      "solver": "modflownwt",
+      "solver_display_name": "MODFLOW-NWT",
+      "is_default": true,
+      "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.run_case --no-show --solver modflownwt",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0146 m",
+        "Head-profile max abs error: 0.0215 m",
+        "Cross-row head spread: 4.67e-07 m",
+        "Reference discharge per width: 1.942e-05 m2/s"
+      ],
+      "image": {
+        "filename": "boussinesq_sloping_substratum_fixed_head_1d__modflownwt.png",
+        "caption": "Boussinesq Sloping-Substratum Fixed-Head 1D rendered with MODFLOW-NWT for the analytical gallery.",
+        "alt_text": "Boussinesq Sloping-Substratum Fixed-Head 1D validation figure for MODFLOW-NWT",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflownwt.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflownwt.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_sloping_substratum_fixed_head_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "default_solver": "modflownwt",
+          "base_config": "config_common.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 15.0,
+            "east_head": 5.0,
+            "topography_base_elevation_m": 20.0,
+            "topography_right_to_left_amplitude_m": 5.0,
+            "bottom_base_elevation_m": 0.0,
+            "bottom_right_to_left_amplitude_m": 5.0,
+            "aquifer_thickness_m": 20.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.08,
+            "max_abs_error": 0.14,
+            "row_spread": 2e-05
+          }
+        },
+        "comparison_solver": "modflownwt",
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "modflow6",
+      "solver_display_name": "MODFLOW 6",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.run_case --no-show --solver modflow6",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0006 m",
+        "Head-profile max abs error: 0.0008 m",
+        "Cross-row head spread: 4.05e-06 m",
+        "Reference discharge per width: 1.942e-05 m2/s"
+      ],
+      "image": {
+        "filename": "boussinesq_sloping_substratum_fixed_head_1d__modflow6.png",
+        "caption": "Boussinesq Sloping-Substratum Fixed-Head 1D rendered with MODFLOW 6 for the analytical gallery.",
+        "alt_text": "Boussinesq Sloping-Substratum Fixed-Head 1D validation figure for MODFLOW 6",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflow6.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflow6.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_sloping_substratum_fixed_head_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "default_solver": "modflownwt",
+          "base_config": "config_common.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 15.0,
+            "east_head": 5.0,
+            "topography_base_elevation_m": 20.0,
+            "topography_right_to_left_amplitude_m": 5.0,
+            "bottom_base_elevation_m": 0.0,
+            "bottom_right_to_left_amplitude_m": 5.0,
+            "aquifer_thickness_m": 20.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.03,
+            "max_abs_error": 0.06,
+            "row_spread": 1e-05
+          }
+        },
+        "comparison_solver": "modflow6",
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "modflow6_irregular_tri",
+      "solver_display_name": "MODFLOW 6 irregular triangles",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6_irregular_tri.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.run_case --no-show --solver modflow6_irregular_tri",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0395 m",
+        "Head-profile max abs error: 0.0832 m",
+        "Cross-row head spread: 1.78e-15 m",
+        "Reference discharge per width: 1.942e-05 m2/s"
+      ],
+      "image": {
+        "filename": "boussinesq_sloping_substratum_fixed_head_1d__modflow6_irregular_tri.png",
+        "caption": "Boussinesq Sloping-Substratum Fixed-Head 1D rendered with MODFLOW 6 irregular triangles for the analytical gallery.",
+        "alt_text": "Boussinesq Sloping-Substratum Fixed-Head 1D validation figure for MODFLOW 6 irregular triangles",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflow6_irregular_tri.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__modflow6_irregular_tri.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_sloping_substratum_fixed_head_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "default_solver": "modflownwt",
+          "base_config": "config_common.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 15.0,
+            "east_head": 5.0,
+            "topography_base_elevation_m": 20.0,
+            "topography_right_to_left_amplitude_m": 5.0,
+            "bottom_base_elevation_m": 0.0,
+            "bottom_right_to_left_amplitude_m": 5.0,
+            "aquifer_thickness_m": 20.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.08,
+            "max_abs_error": 0.18,
+            "row_spread": 1e-09
+          }
+        },
+        "comparison_solver": "modflow6_irregular_tri",
+        "timestep": 0
+      }
+    },
+    {
+      "solver": "boussinesq",
+      "solver_display_name": "Boussinesq",
+      "is_default": false,
+      "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml",
+      "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml",
+      "expected_output": "Expected shape: 5 x 40",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.run_case --no-show --solver boussinesq",
+      "metric_lines": [
+        "Head-profile RMSE: 0.0516 m",
+        "Head-profile max abs error: 0.1259 m",
+        "Cross-row head spread: 1.78e-15 m",
+        "Reference discharge per width: 1.942e-05 m2/s"
+      ],
+      "image": {
+        "filename": "boussinesq_sloping_substratum_fixed_head_1d__boussinesq.png",
+        "caption": "Boussinesq Sloping-Substratum Fixed-Head 1D rendered with Boussinesq for the analytical gallery.",
+        "alt_text": "Boussinesq Sloping-Substratum Fixed-Head 1D validation figure for Boussinesq",
+        "doc_path": "/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__boussinesq.png",
+        "repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/boussinesq_sloping_substratum_fixed_head_1d__boussinesq.png"
+      },
+      "metadata": {
+        "observable_name": "watertable_elevation",
+        "case_metadata": {
+          "case_id": "boussinesq_sloping_substratum_fixed_head_1d",
+          "category": "analytical",
+          "regime": "steady",
+          "dimension": "1d",
+          "launcher": "launcher_simulation",
+          "default_solver": "modflownwt",
+          "base_config": "config_common.toml",
+          "config_files": {
+            "modflownwt": "config_modflownwt.toml",
+            "modflow6": "config_modflow6.toml",
+            "modflow6_irregular_tri": "config_modflow6_irregular_tri.toml",
+            "boussinesq": "config_boussinesq.toml"
+          },
+          "workspace": {
+            "results_folder_name": "results_simulations"
+          },
+          "output": {
+            "observable_name": "watertable_elevation",
+            "expected_shape": [
+              5,
+              40
+            ]
+          },
+          "reference": {
+            "xmin": 0.0,
+            "xmax": 400.0,
+            "west_head": 15.0,
+            "east_head": 5.0,
+            "topography_base_elevation_m": 20.0,
+            "topography_right_to_left_amplitude_m": 5.0,
+            "bottom_base_elevation_m": 0.0,
+            "bottom_right_to_left_amplitude_m": 5.0,
+            "aquifer_thickness_m": 20.0,
+            "hydraulic_conductivity_m_per_s": 0.0001,
+            "profile_axis": 0
+          }
+        },
+        "tolerances": {
+          "head_profile": {
+            "rmse": 0.08,
+            "max_abs_error": 0.14,
+            "row_spread": 2e-05
+          }
+        },
+        "comparison_solver": "boussinesq",
+        "timestep": 0
+      }
+    }
+  ],
+  "parameter_docs": {
+    "reference_parameters": [
+      {
+        "field": "xmin",
+        "meaning": "Minimum x coordinate of the analytical reference domain.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "xmax",
+        "meaning": "Maximum x coordinate of the analytical reference domain.",
+        "value": "400",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "west_head",
+        "meaning": "Fixed west-boundary hydraulic head used by the reference solution.",
+        "value": "15 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "east_head",
+        "meaning": "Fixed east-boundary hydraulic head used by the reference solution.",
+        "value": "5 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "topography_base_elevation_m",
+        "meaning": "Base elevation used by the synthetic reference topography.",
+        "value": "20 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "topography_right_to_left_amplitude_m",
+        "meaning": "Right-to-left topographic amplitude used by the hillslope reference.",
+        "value": "5 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "bottom_base_elevation_m",
+        "meaning": "Base elevation used by the synthetic reference substratum.",
+        "value": "0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "bottom_right_to_left_amplitude_m",
+        "meaning": "Right-to-left amplitude used by the synthetic reference substratum.",
+        "value": "5 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "aquifer_thickness_m",
+        "meaning": "Aquifer thickness used by the reference formulation.",
+        "value": "20 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "hydraulic_conductivity_m_per_s",
+        "meaning": "Hydraulic conductivity used by the analytical or benchmark reference.",
+        "value": "0.0001 m/s",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      },
+      {
+        "field": "profile_axis",
+        "meaning": "Axis along which the validation profile is extracted.",
+        "value": "0",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+      }
+    ],
+    "common_setup": [
+      {
+        "field": "workflow",
+        "meaning": "Case-specific configuration field `workflow` used by the validation benchmark.",
+        "value": "simulation",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_x",
+        "meaning": "Synthetic-domain length along the x axis.",
+        "value": "400.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.length_y",
+        "meaning": "Synthetic-domain length along the y axis.",
+        "value": "50.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.nx",
+        "meaning": "Grid cell count along the x axis.",
+        "value": "40",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.grid.ny",
+        "meaning": "Grid cell count along the y axis.",
+        "value": "5",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.kind",
+        "meaning": "Synthetic topography shape used by the benchmark.",
+        "value": "linear",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.base_elevation",
+        "meaning": "Base land-surface elevation of the synthetic topography.",
+        "value": "20 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "geographic.synthetic.topography.right_to_left_amplitude",
+        "meaning": "Right-to-left topographic amplitude used by the synthetic topography.",
+        "value": "5",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "domain.depth_model.type",
+        "meaning": "Depth model used to build the aquifer support.",
+        "value": "constant_thickness",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "domain.depth_model.thickness",
+        "meaning": "Aquifer or support thickness used by the benchmark.",
+        "value": "20.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.flow_regime",
+        "meaning": "Steady or transient flow regime used by the benchmark.",
+        "value": "steady",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.active_sinks_sources",
+        "meaning": "Sink and source families activated in the benchmark.",
+        "value": "[]",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.active_bc",
+        "meaning": "Boundary-condition families activated in the benchmark.",
+        "value": "[west_side, east_side]",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param_list",
+        "meaning": "Hydraulic parameter families explicitly configured by the benchmark.",
+        "value": "[K]",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.K.field.kind",
+        "meaning": "Parameterization mode used for `K`.",
+        "value": "homogeneous",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.param.K.field.value",
+        "meaning": "Homogeneous `K` value used by the benchmark.",
+        "value": "1e-4 m/s",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.ic.type",
+        "meaning": "Initial-condition policy used to start the benchmark.",
+        "value": "custom",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.ic.value",
+        "meaning": "Scalar initial head or top offset used by the initial-condition policy.",
+        "value": "10.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.west_side.value",
+        "meaning": "Fixed head applied on the west side boundary.",
+        "value": "15.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      },
+      {
+        "field": "flow.bc.dirichlet.east_side.value",
+        "meaning": "Fixed head applied on the east side boundary.",
+        "value": "5.0 m",
+        "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_common.toml"
+      }
+    ],
+    "solver_overrides": {
+      "modflownwt": [
+        {
+          "field": "modflownwt.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW-NWT.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW-NWT.",
+          "value": "40",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW-NWT.",
+          "value": "5",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW-NWT.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml"
+        },
+        {
+          "field": "modflownwt.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW-NWT.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml"
+        }
+      ],
+      "modflow6": [
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "SIMPLE",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.mode",
+          "meaning": "Planar support construction mode used by MODFLOW 6.",
+          "value": "resample_to_shape",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.nx",
+          "meaning": "Planar support cell count along x used by MODFLOW 6.",
+          "value": "40",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.ny",
+          "meaning": "Planar support cell count along y used by MODFLOW 6.",
+          "value": "5",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.planar.resampling",
+          "meaning": "Planar support resampling mode used by MODFLOW 6.",
+          "value": "nearest",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6.toml"
+        }
+      ],
+      "modflow6_irregular_tri": [
+        {
+          "field": "modflow6.runtime.mf6_ims_complexity",
+          "meaning": "Linear-solver complexity preset used by MODFLOW 6.",
+          "value": "COMPLEX",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.runtime.mf_verbose",
+          "meaning": "Solver-specific override applied to MODFLOW 6.",
+          "value": "false",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.process_specific.vka",
+          "meaning": "Vertical anisotropy ratio passed to MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "modflow6.sgrid.vertical.nlay",
+          "meaning": "Number of vertical layers used by MODFLOW 6.",
+          "value": "1",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.mesh_path",
+          "meaning": "Committed unstructured mesh file used by the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50/mesh_2d.msh",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        },
+        {
+          "field": "mesh_input.bundle_dir",
+          "meaning": "Committed mesh-bundle directory used to recover support metadata for the irregular-mesh solver variant.",
+          "value": "../../../shared/mesh_bundles/sloping_substratum_irregular_tri_400x50",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflow6_irregular_tri.toml"
+        }
+      ],
+      "boussinesq": [
+        {
+          "field": "flow.runtime_backend",
+          "meaning": "Runtime backend selected for the in-house solver.",
+          "value": "petsc",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_boussinesq.toml"
+        }
+      ]
+    },
+    "acceptance_criteria": {
+      "common": [
+        {
+          "field": "output.observable_name",
+          "meaning": "Simulated observable compared against the reference solution.",
+          "value": "watertable_elevation",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+        },
+        {
+          "field": "output.expected_shape",
+          "meaning": "Expected spatial output shape checked by the validation helper.",
+          "value": "[5, 40]",
+          "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+        }
+      ],
+      "solver_specific": {
+        "modflownwt": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.08",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.14",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "2e-05",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml"
+          }
+        ],
+        "modflow6": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.03",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.06",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "1e-05",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6.toml"
+          }
+        ],
+        "modflow6_irregular_tri": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.08",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.18",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6_irregular_tri.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "1e-09",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances_modflow6_irregular_tri.toml"
+          }
+        ],
+        "boussinesq": [
+          {
+            "field": "expected_output",
+            "meaning": "Expected output shape or time-space layout checked for this solver.",
+            "value": "Expected shape: 5 x 40",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/metadata.toml"
+          },
+          {
+            "field": "head_profile.rmse",
+            "meaning": "Maximum accepted root-mean-square error for head profile.",
+            "value": "0.08",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.max_abs_error",
+            "meaning": "Maximum accepted absolute error for head profile.",
+            "value": "0.14",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml"
+          },
+          {
+            "field": "head_profile.row_spread",
+            "meaning": "Maximum accepted cross-row spread for head profile.",
+            "value": "2e-05",
+            "source": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml"
+          }
+        ]
+      }
+    }
+  }
+}

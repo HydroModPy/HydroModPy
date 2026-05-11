@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
+from hydromodpy.physics.forcing.types import InterpolationMethod, SpatialMode
 from hydromodpy.physics.forcing.validation import (
     ensure_finite_numeric_payload,
     ensure_non_negative_numeric_payload,
@@ -50,8 +51,6 @@ class FlowRechargeConfig(HydroModelBase):
         to SI ``m/s`` when the process is built.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     values: Annotated[Any, Profile.USER] = Field(
         default=0.0,
         description=(
@@ -91,7 +90,7 @@ class FlowRechargeConfig(HydroModelBase):
             "package and RCH receives the non-negative clipped recharge."
         ),
     )
-    spatial_mode: Annotated[Literal["auto", "homogeneous", "heterogeneous"], Profile.DEV] = Field(
+    spatial_mode: Annotated[SpatialMode, Profile.DEV] = Field(
         default="auto",
         description=(
             "How to interpret spatial data: 'auto' (points->homogeneous, "
@@ -100,7 +99,7 @@ class FlowRechargeConfig(HydroModelBase):
             "point-to-grid interpolation when stations have coordinates)."
         ),
     )
-    interpolation_method: Annotated[Literal["nearest", "linear", "idw"], Profile.DEV] = Field(
+    interpolation_method: Annotated[InterpolationMethod, Profile.DEV] = Field(
         default="nearest",
         description=(
             "Spatial interpolation method for gridded/point data onto the "

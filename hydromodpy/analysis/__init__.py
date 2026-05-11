@@ -10,7 +10,7 @@ The legacy ``display`` and ``postprocess`` subpackages were removed in P08:
 
 The legacy ``calibration`` subpackage was removed in P09 - calibration now
 lives at :mod:`hydromodpy.calibration` (Optuna-first, lightweight, TOML-
-simplified). Comparison, batch and capability-gallery helpers remain here.
+simplified). Comparison, testbed and capability-gallery helpers remain here.
 """
 
 from __future__ import annotations
@@ -20,8 +20,8 @@ from typing import Any
 
 _SUBMODULES = {
     "comparison": "hydromodpy.analysis.comparison",
-    "batch": "hydromodpy.analysis.batch",
     "stream_networks": "hydromodpy.analysis.stream_networks",
+    "testbed": "hydromodpy.analysis.testbed",
 }
 
 

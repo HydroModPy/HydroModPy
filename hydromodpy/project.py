@@ -586,15 +586,6 @@ class Project:
             raise ConfigError("project.compare() requires a TOML path for now")
         return run_comparison_config(path)
 
-    def batch(self, *, config_path: str | Path | None = None, **kwargs):
-        """Run the regional-batch workflow."""
-        from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
-
-        path = config_path if config_path is not None else self._config_path
-        if path is None:
-            raise ConfigError("project.batch() requires a TOML path for now")
-        return RegionalLabLauncher(path).run(**kwargs)
-
     def calibrate(
         self,
         *,

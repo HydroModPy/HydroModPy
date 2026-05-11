@@ -27,7 +27,7 @@ def _write_base_simulation_config(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[workspace]",
                 'project_root = "."',
@@ -62,7 +62,7 @@ def _write_comparison_config(
     path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "demo_sim_compare"',
@@ -113,7 +113,7 @@ def test_simulation_comparison_materializes_child_tomls(tmp_path: Path) -> None:
     assert [child.simulation_id for child in children] == ["mf6_ref", "bouss_candidate"]
     mf6_raw = load_toml_with_base_config(children[0].config_path)
     bouss_raw = load_toml_with_base_config(children[1].config_path)
-    assert mf6_raw["workflow"] == "simulation"
+    assert mf6_raw["workflow"] == {"mode": "simulation"}
     assert mf6_raw["simulation"]["name"] == "demo_sim_compare__mf6_ref"
     assert mf6_raw["simulation"]["process"][0]["solvers"] == ["modflow6"]
     assert bouss_raw["simulation"]["run_id"] == "demo_sim_compare__bouss_candidate"
@@ -128,7 +128,7 @@ def test_simulation_comparison_generated_child_run_folder_uses_workspace_root(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "demo_workspace_root"',
@@ -169,7 +169,7 @@ def test_simulation_comparison_accepts_existing_run_folders_without_base_config(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "existing_runs"',
@@ -210,9 +210,7 @@ def test_simulation_comparison_accepts_existing_run_folders_without_base_config(
         run_a.resolve(),
         run_b.resolve(),
     ]
-    assert not (
-        tmp_path / "comparison" / "existing_runs" / "_generated_configs"
-    ).exists()
+    assert not (tmp_path / "comparison" / "existing_runs" / "_generated_configs").exists()
 
 
 def test_simulation_comparison_launcher_reuses_existing_run_folders(
@@ -227,7 +225,7 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "existing_runs"',
@@ -268,15 +266,11 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
             None,
             None,
         ]
-        assert [
-            Path(str(summary["run_folder"])).name for summary in simulation_summaries
-        ] == [
+        assert [Path(str(summary["run_folder"])).name for summary in simulation_summaries] == [
             "mf6",
             "bouss",
         ]
-        assert [
-            simulation.id for simulation in comparison_cfg.comparison.simulation
-        ] == [
+        assert [simulation.id for simulation in comparison_cfg.comparison.simulation] == [
             "mf6_ref",
             "bouss_candidate",
         ]
@@ -326,9 +320,7 @@ def test_simulation_comparison_launcher_reuses_existing_run_folders(
             "issues": [],
         },
     )
-    monkeypatch.setattr(
-        output_pipeline_module, "generate_comparison_figures", lambda **kwargs: []
-    )
+    monkeypatch.setattr(output_pipeline_module, "generate_comparison_figures", lambda **kwargs: [])
 
     manifest = SimulationComparisonLauncher(config_path).run()
 
@@ -345,7 +337,7 @@ def test_simulation_comparison_rejects_physical_overlay_changes(tmp_path: Path) 
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -381,7 +373,7 @@ def test_simulation_comparison_allows_flow_parameter_sweep_overlay(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -390,7 +382,7 @@ def test_simulation_comparison_allows_flow_parameter_sweep_overlay(
                 'id = "k_mid"',
                 'solver = "modflow6"',
                 "",
-                "[comparison.simulation.overlay.flow.param.K.field_homogeneous]",
+                "[comparison.simulation.overlay.flow.param.K.field]",
                 'value = "2e-4 m/s"',
                 "",
                 "[[comparison.observable]]",
@@ -408,7 +400,7 @@ def test_simulation_comparison_allows_flow_parameter_sweep_overlay(
     children = materialize_child_configs(cfg)
     raw = load_toml_with_base_config(children[0].config_path)
 
-    assert raw["flow"]["param"]["K"]["field_homogeneous"]["value"] == "2e-4 m/s"
+    assert raw["flow"]["param"]["K"]["field"]["value"] == "2e-4 m/s"
 
 
 def test_simulation_comparison_allows_flow_boundary_sweep_overlay(
@@ -419,7 +411,7 @@ def test_simulation_comparison_allows_flow_boundary_sweep_overlay(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -491,9 +483,7 @@ def test_simulation_comparison_requires_existing_base_config(tmp_path: Path) -> 
     config_path = tmp_path / "compare.toml"
     _write_comparison_config(config_path)
 
-    with pytest.raises(
-        FileNotFoundError, match="comparison.base_simulation_config not found"
-    ):
+    with pytest.raises(FileNotFoundError, match="comparison.base_simulation_config not found"):
         _load_comparison_cfg(config_path)
 
 
@@ -503,7 +493,7 @@ def test_simulation_comparison_requires_enabled_reference(tmp_path: Path) -> Non
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -541,7 +531,7 @@ def test_simulation_comparison_rejects_unknown_observable_simulation(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -573,21 +563,18 @@ def test_simulation_comparison_rejects_path_like_comparison_id(tmp_path: Path) -
     raw = load_toml_with_base_config(config_path)
     raw["comparison"]["comparison_id"] = "bad/name"
 
-    with pytest.raises(ValueError, match="comparison.comparison_id cannot contain"):
+    with pytest.raises(ValueError, match="String should match pattern"):
         SimulationComparisonConfig.from_toml(raw, config_path=config_path)
 
 
 def test_cli_resolves_comparison_workflow(tmp_path: Path) -> None:
     config_path = tmp_path / "compare.toml"
     config_path.write_text(
-        'workflow = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
+        '[workflow]\nmode = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
         encoding="utf-8",
     )
 
-    assert (
-        resolve_workflow(config_path, cli_workflow=None, require_toml_field=True)
-        == "comparison"
-    )
+    assert resolve_workflow(config_path, cli_workflow=None, require_toml_field=True) == "comparison"
     assert _infer_workflow_from_sections({"comparison": {}}) == "comparison"
 
 
@@ -610,7 +597,7 @@ def test_resolve_bundle_cells_reads_mesh_input_from_generated_config(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[workspace]",
                 'project_root = "."',
@@ -646,7 +633,7 @@ def test_equivalence_audit_flags_physical_config_mismatch(
     ref_config = tmp_path / "mf6_ref.toml"
     candidate_config = tmp_path / "bouss_candidate.toml"
     common = [
-        'workflow = "simulation"',
+        '[workflow]\nmode = "simulation"',
         "",
         "[simulation.time]",
         'start_datetime = "2020-01-01 00:00:00"',
@@ -722,9 +709,7 @@ def test_equivalence_audit_flags_physical_config_mismatch(
         sim_id = preferred_sim_id or "sim"
         return FakeStore(sim_id), sim_id
 
-    monkeypatch.setattr(
-        audit_module, "discover_result_store", fake_discover_result_store
-    )
+    monkeypatch.setattr(audit_module, "discover_result_store", fake_discover_result_store)
 
     audit = build_equivalence_audit(
         simulation_summaries=[
@@ -780,16 +765,12 @@ def test_equivalence_audit_treats_missing_disabled_recharge_budget_as_zero(
         on_mismatch="warn",
     )
 
-    candidate = next(
-        subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate"
-    )
+    candidate = next(subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate")
     recharge_check = candidate["budget_checks"][audit_module.RECHARGE_COMPONENT]
     assert audit["status"] == "pass"
     assert recharge_check["status"] == "pass"
     assert recharge_check["n_pairs"] == 1
-    assert not any(
-        issue["kind"] == "recharge_budget_mismatch" for issue in audit["issues"]
-    )
+    assert not any(issue["kind"] == "recharge_budget_mismatch" for issue in audit["issues"])
 
 
 def test_equivalence_audit_warns_when_configured_recharge_budget_is_missing(
@@ -820,9 +801,7 @@ def test_equivalence_audit_warns_when_configured_recharge_budget_is_missing(
         on_mismatch="warn",
     )
 
-    candidate = next(
-        subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate"
-    )
+    candidate = next(subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate")
     recharge_check = candidate["budget_checks"][audit_module.RECHARGE_COMPONENT]
     assert audit["status"] == "warn"
     assert recharge_check["status"] == "missing_overlap"
@@ -840,9 +819,7 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
             "parameters": [],
             "physical_config": {"fingerprints": {}},
             "budget_components": {
-                audit_module.RECHARGE_COMPONENT: {
-                    "series": {"elapsed_seconds:86400": 1.0}
-                }
+                audit_module.RECHARGE_COMPONENT: {"series": {"elapsed_seconds:86400": 1.0}}
             },
         }
 
@@ -888,9 +865,7 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
 
     assert audit["status"] == "warn"
     assert audit["initial_state_policy"][0]["severity"] == "warning"
-    assert any(
-        issue["kind"] == "initial_state_policy_mismatch" for issue in audit["issues"]
-    )
+    assert any(issue["kind"] == "initial_state_policy_mismatch" for issue in audit["issues"])
 
 
 def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
@@ -995,9 +970,7 @@ def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
             {
                 "kind": "mock_figure",
                 "observable": "head_mid",
-                "path": str(
-                    kwargs["comparison_root"] / "comparison_figures" / "mock.png"
-                ),
+                "path": str(kwargs["comparison_root"] / "comparison_figures" / "mock.png"),
             }
         ],
     )
@@ -1013,9 +986,7 @@ def test_simulation_comparison_launcher_writes_manifest_with_mocked_runs(
     assert Path(persisted["observables_csv"]).exists()
     assert Path(persisted["comparison_metrics_csv"]).exists()
     assert persisted["generated_configs_kept"] is True
-    assert (
-        tmp_path / "comparison_outputs" / "_generated_configs" / "mf6_ref.toml"
-    ).exists()
+    assert (tmp_path / "comparison_outputs" / "_generated_configs" / "mf6_ref.toml").exists()
 
 
 def test_simulation_comparison_child_failure_includes_output_tail(
@@ -1149,9 +1120,7 @@ def test_simulation_comparison_launcher_can_remove_generated_child_tomls(
             "issues": [],
         },
     )
-    monkeypatch.setattr(
-        output_pipeline_module, "generate_comparison_figures", lambda **kwargs: []
-    )
+    monkeypatch.setattr(output_pipeline_module, "generate_comparison_figures", lambda **kwargs: [])
 
     manifest = SimulationComparisonLauncher(config_path).run()
 

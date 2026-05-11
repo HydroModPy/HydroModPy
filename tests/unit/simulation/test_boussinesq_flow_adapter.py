@@ -121,6 +121,20 @@ def _build_flow_config(flow_section: dict[str, object]) -> FlowConfig:
     return FlowConfig.from_toml_section(flow_section, base_dir=Path("."))
 
 
+def _homogeneous_param(value: object) -> dict[str, object]:
+    return {"field": {"kind": "homogeneous", "value": value}}
+
+
+def _heterogeneous_param(values: dict[str, object], field_spatial_id: str) -> dict[str, object]:
+    return {
+        "field": {
+            "kind": "heterogeneous",
+            "values": values,
+            "field_spatial_id": field_spatial_id,
+        }
+    }
+
+
 class _DummyRasterSupport:
     def __init__(
         self,
@@ -251,8 +265,8 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_flow_parameters(
             {
                 "param_list": ["K", "Sy"],
                 "param": {
-                    "K": {"kind": "homogeneous", "value": 1.0e-5},
-                    "Sy": {"kind": "homogeneous", "value": 0.2},
+                    "K": _homogeneous_param(1.0e-5),
+                    "Sy": _homogeneous_param(0.2),
                 },
                 "ic": {"type": "bottom"},
             }
@@ -336,8 +350,8 @@ def test_boussinesq_flow_adapter_supports_runtime_mesh_with_heterogeneous_rechar
             {
                 "param_list": ["K", "Sy"],
                 "param": {
-                    "K": {"kind": "homogeneous", "value": 1.0e-5},
-                    "Sy": {"kind": "homogeneous", "value": 0.2},
+                    "K": _homogeneous_param(1.0e-5),
+                    "Sy": _homogeneous_param(0.2),
                 },
                 "ic": {"type": "custom", "value": 7.0},
                 "active_sinks_sources": ["recharge"],
@@ -428,16 +442,11 @@ def test_boussinesq_flow_adapter_maps_runtime_mesh_from_heterogeneous_flow_param
             {
                 "param_list": ["K", "Sy"],
                 "param": {
-                    "K": {
-                        "kind": "heterogeneous",
-                        "values": {"west": 2.0e-5, "east": 5.0e-6},
-                        "field_spatial_id": "field_geology",
-                    },
-                    "Sy": {
-                        "kind": "heterogeneous",
-                        "values": {"west": 0.22, "east": 0.08},
-                        "field_spatial_id": "field_geology",
-                    },
+                    "K": _heterogeneous_param(
+                        {"west": 2.0e-5, "east": 5.0e-6},
+                        "field_geology",
+                    ),
+                    "Sy": _heterogeneous_param({"west": 0.22, "east": 0.08}, "field_geology"),
                 },
                 "ic": {"type": "bottom"},
             }
@@ -505,16 +514,14 @@ def test_boussinesq_flow_adapter_falls_back_to_bundle_and_overrides_properties(
             {
                 "param_list": ["K", "Sy"],
                 "param": {
-                    "K": {
-                        "kind": "heterogeneous",
-                        "values": {"west": 3.0e-4, "east": 8.0e-7},
-                        "field_spatial_id": "field_hydrofacies",
-                    },
-                    "Sy": {
-                        "kind": "heterogeneous",
-                        "values": {"west": 0.21, "east": 0.03},
-                        "field_spatial_id": "field_hydrofacies",
-                    },
+                    "K": _heterogeneous_param(
+                        {"west": 3.0e-4, "east": 8.0e-7},
+                        "field_hydrofacies",
+                    ),
+                    "Sy": _heterogeneous_param(
+                        {"west": 0.21, "east": 0.03},
+                        "field_hydrofacies",
+                    ),
                 },
                 "ic": {"type": "top"},
             }
@@ -598,8 +605,8 @@ def test_boussinesq_flow_adapter_uses_geographic_features_for_stream_runtime_mes
             {
                 "param_list": ["K", "Sy"],
                 "param": {
-                    "K": {"kind": "homogeneous", "value": 1.0e-5},
-                    "Sy": {"kind": "homogeneous", "value": 0.2},
+                    "K": _homogeneous_param(1.0e-5),
+                    "Sy": _homogeneous_param(0.2),
                 },
                 "ic": {"type": "custom", "value": 8.0},
                 "active_bc": ["stream"],

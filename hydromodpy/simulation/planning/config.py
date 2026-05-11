@@ -5,10 +5,15 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import (
+    CoveragePolicy,
+    IdentifierStr,
+    TimePeriodUnit,
+)
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
 from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.results_config import ResultsConfig
@@ -26,7 +31,7 @@ _STEP_UNIT_ALIASES = {
 }
 
 
-def _coerce_step_unit(token: str) -> Literal["hour", "day", "month", "year"]:
+def _coerce_step_unit(token: str) -> TimePeriodUnit:
     """Resolve one user-facing step-unit token to the canonical literal."""
     cleaned = token.strip().lower()
     if cleaned == "":
@@ -48,14 +53,13 @@ def _coerce_step_unit(token: str) -> Literal["hour", "day", "month", "year"]:
 class SimulationTimeConfig(HydroModelBase):
     """Canonical simulation time window and forcing-coverage policy."""
 
-    model_config = ConfigDict(extra="forbid")
-
     start_datetime: Annotated[datetime | None, Profile.USER] = Field(
         default=None,
         description=(
             "Simulation window lower datetime bound used by launcher-level "
             "time alignment and forcing checks."
         ),
+        examples=["2019-01-01"],
     )
     end_datetime: Annotated[datetime | None, Profile.USER] = Field(
         default=None,
@@ -63,6 +67,7 @@ class SimulationTimeConfig(HydroModelBase):
             "Simulation window upper datetime bound, interpreted as inclusive. "
             "Must be greater than or equal to start_datetime."
         ),
+        examples=["2025-12-31"],
     )
     step_value: Annotated[int | float | str, Profile.USER] = Field(
         default="1 month",
@@ -72,8 +77,9 @@ class SimulationTimeConfig(HydroModelBase):
             "This controls the temporal aggregation step for forcing series "
             "(for example recharge/runoff) and the resulting stress periods."
         ),
+        examples=["1 month", "10 day"],
     )
-    step_unit: Annotated[Literal["hour", "day", "month", "year"] | None, Profile.USER] = Field(
+    step_unit: Annotated[TimePeriodUnit | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional forcing/stress-period base time unit used with step_value "
@@ -89,7 +95,7 @@ class SimulationTimeConfig(HydroModelBase):
             "substeps inside monthly stress periods)."
         ),
     )
-    coverage_policy: Annotated[Literal["error", "warn", "ignore"], Profile.DEV] = Field(
+    coverage_policy: Annotated[CoveragePolicy, Profile.DEV] = Field(
         default="error",
         description=(
             "Behavior when recharge does not fully cover the declared simulation "
@@ -147,22 +153,30 @@ class SimulationTimeConfig(HydroModelBase):
 class SimulationProcessConfig(HydroModelBase):
     """One requested process entry under ``[[simulation.process]]``."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    id: Annotated[str, Profile.USER] = Field(
+    id: Annotated[IdentifierStr, Profile.USER] = Field(
         description=(
             "User-facing identifier for the process. "
             "This id is required and must be unique within the simulation."
         ),
+        examples=["flow_main"],
     )
     type: Annotated[str, Profile.USER] = Field(
         description="Requested process family executed by the launcher.",
     )
     solvers: Annotated[list[str], Profile.USER] = Field(
-        min_length=1,
+        default_factory=list,
         description=(
             "Ordered list of active solver names for this process. Each listed "
-            "solver is executed in order."
+            "solver is executed in order. Required for solver-backed processes "
+            "such as flow and transport."
+        ),
+    )
+    backend: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Backend used by non-solver orchestration processes. Currently only "
+            "used by type='mesh', where backend='catchment' delegates to the "
+            "[mesh_catchment] runtime."
         ),
     )
 
@@ -172,27 +186,63 @@ class SimulationProcessConfig(HydroModelBase):
         cleaned = value.strip().lower()
         if not cleaned:
             raise ValueError("Process type cannot be empty.")
-        registered = get_solver_registry_provider().known_process_types()
-        if cleaned not in registered:
-            raise ValueError(
-                f"Unknown process type '{cleaned}'. "
-                f"Registered types: {', '.join(sorted(registered))}."
-            )
         return cleaned
+
+    def model_post_init(self, context: object) -> None:
+        super().model_post_init(context)
+        if self.type == "mesh":
+            return
+        registered = get_solver_registry_provider().known_process_types()
+        if self.type not in registered:
+            raise ValueError(
+                f"Unknown process type '{self.type}'. "
+                f"Registered types: {', '.join(sorted((*registered, 'mesh')))}."
+            )
 
     @field_validator("solvers")
     @classmethod
     def _validate_solvers(cls, value: list[str]) -> list[str]:
         cleaned = [solver.strip() for solver in value if solver and solver.strip()]
-        if not cleaned:
-            raise ValueError("At least one non-empty solver name is required.")
         return cleaned
+
+    @field_validator("backend")
+    @classmethod
+    def _validate_backend(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip().lower()
+        if not cleaned:
+            raise ValueError("Process backend cannot be empty.")
+        return cleaned
+
+    @model_validator(mode="after")
+    def _validate_process_execution_contract(self):
+        if self.type == "mesh":
+            if self.solvers:
+                raise ValueError(
+                    "simulation.process entries with type='mesh' must use backend, not solvers."
+                )
+            backend = self.backend or "catchment"
+            if backend != "catchment":
+                raise ValueError(
+                    "simulation.process entries with type='mesh' currently "
+                    "support only backend='catchment'."
+                )
+            object.__setattr__(self, "backend", backend)
+            return self
+
+        if self.backend is not None:
+            raise ValueError("simulation.process.backend is only supported for type='mesh'.")
+        if not self.solvers:
+            raise ValueError(
+                f"simulation.process entries with type='{self.type}' require "
+                "at least one solver in solvers."
+            )
+        return self
 
 
 class SimulationConfig(HydroModelBase):
     """Minimal orchestration block declared under ``[simulation]``."""
-
-    model_config = ConfigDict(extra="forbid")
 
     @classmethod
     def transient(
@@ -255,6 +305,7 @@ class SimulationConfig(HydroModelBase):
             "results_simulations/. When empty, derived from the TOML "
             "filename at load time (e.g. run_steady_nwt.toml -> steady_nwt)."
         ),
+        examples=["steady_nwt"],
     )
     on_collision: Annotated[
         Literal["replace", "fail", "version"],

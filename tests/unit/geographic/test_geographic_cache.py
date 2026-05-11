@@ -103,7 +103,8 @@ def test_geographic_cache_rejects_changed_fingerprint(tmp_path: Path) -> None:
         ),
         catchment_area_km2=12.0,
     )
-    changed_config = config.model_copy(update={"x_outlet": 99.0})
+    changed_catchment = config.catchment.model_copy(update={"x_outlet": 99.0})
+    changed_config = config.model_copy(update={"catchment": changed_catchment})
 
     assert _geographic_cache_fingerprint(config) != _geographic_cache_fingerprint(changed_config)
     assert (

@@ -4,19 +4,40 @@ import csv
 import json
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
-from hydromodpy.analysis.batch.batch_catalog import load_site_catalog
-from hydromodpy.analysis.batch.batch_execution import (
-    _extract_comparison_child_artifacts,
+import pytest
+
+from hydromodpy.analysis.catalog import (
+    CatalogLoadSpec,
+    CatalogRowSelector,
+    load_catalog_rows,
+    select_catalog_rows,
 )
-from hydromodpy.analysis.batch.batch_planning import (
+from hydromodpy.analysis.testbed.child_artifacts import extract_comparison_child_artifacts
+from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
+from hydromodpy.analysis.testbed.regional_lab import RegionalLabProfileLauncher
+from hydromodpy.analysis.testbed.regional_lab_adapter import regional_plan_to_testbed_cases
+from hydromodpy.analysis.testbed.regional_lab_bootstrap import build_site_catalog_from_outlet_table
+from hydromodpy.analysis.testbed.regional_lab_catalog import load_site_catalog
+from hydromodpy.analysis.testbed.regional_lab_config import (
+    RegionalLabConfig,
+    RegionalLabSelectionConfig,
+)
+from hydromodpy.analysis.testbed.regional_lab_planning import (
     build_regional_lab_plan,
-    build_run_command,
 )
-from hydromodpy.analysis.batch.bootstrap import build_site_catalog_from_outlet_table
-from hydromodpy.analysis.batch.config import RegionalLabConfig
-from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
+from hydromodpy.analysis.testbed.regional_lab_reporting import build_plan_payload
+from hydromodpy.analysis.testbed.regional_lab_site_selection import (
+    filter_sites,
+    site_matches_selection,
+)
+from hydromodpy.workflow_dispatch import run_testbed
+
+
+def test_regional_lab_legacy_launcher_alias_is_removed() -> None:
+    import hydromodpy.analysis.testbed.regional_lab as regional_lab
+
+    assert not hasattr(regional_lab, "RegionalLabLauncher")
 
 
 def _write_regional_lab_config(
@@ -25,8 +46,9 @@ def _write_regional_lab_config(
     execute: bool = False,
     continue_on_error: bool = True,
     catalog_name: str = "site_catalog.csv",
+    config_name: str = "regional_lab.toml",
 ) -> Path:
-    config_path = tmp_path / "regional_lab.toml"
+    config_path = tmp_path / config_name
     config_path.write_text(
         "\n".join(
             [
@@ -77,6 +99,38 @@ def _write_regional_lab_config(
                 'families = ["headwater"]',
                 'required_fields = ["compare_config"]',
                 'config_path_template = "{compare_config}"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return config_path
+
+
+def _write_regional_lab_testbed_profile_config(
+    tmp_path: Path,
+    *,
+    execute: bool = False,
+    continue_on_error: bool = True,
+    catalog_name: str = "site_catalog.csv",
+    config_name: str = "regional_lab.toml",
+) -> Path:
+    config_path = _write_regional_lab_config(
+        tmp_path,
+        execute=execute,
+        continue_on_error=continue_on_error,
+        catalog_name=catalog_name,
+        config_name=config_name,
+    )
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "testbed"',
+                "",
+                "[testbed]",
+                'profile = "regional_lab"',
+                "",
+                config_path.read_text(encoding="utf-8").rstrip(),
             ]
         )
         + "\n",
@@ -142,7 +196,7 @@ def _write_planned_configs(tmp_path: Path) -> None:
     (configs_dir / "compare_headwater_100km2_outlet_2.toml").write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "demo"',
@@ -188,7 +242,7 @@ def test_regional_lab_builds_plan_without_execution(tmp_path: Path) -> None:
         "backend_compare::headwater_100km2_outlet_3"
     ]
 
-    summary = RegionalLabLauncher(config_path).run()
+    summary = RegionalLabProfileLauncher(config_path).run()
 
     assert summary["selected_site_count"] == 2
     assert summary["planned_case_count"] == 3
@@ -211,6 +265,159 @@ def test_regional_lab_builds_plan_without_execution(tmp_path: Path) -> None:
         "planned",
     ]
     assert report["skipped_cases"][0]["reason"] == "missing_required_fields"
+
+
+def test_regional_lab_runs_as_testbed_profile(tmp_path: Path) -> None:
+    config_path = _write_regional_lab_testbed_profile_config(tmp_path, execute=False)
+    _write_csv_catalog(tmp_path)
+    _write_planned_configs(tmp_path)
+
+    summary = run_testbed(config_path)
+
+    assert summary["lab_id"] == "demo_lab"
+    assert summary["selected_site_count"] == 2
+    assert summary["planned_case_count"] == 3
+    assert summary["skipped_case_count"] == 1
+    plan = json.loads(Path(summary["plan_path"]).read_text(encoding="utf-8"))
+    assert plan["schema_version"] == "regional_lab_plan_v2"
+
+
+def test_regional_lab_compatibility_toml_plan_contract_is_stable(tmp_path: Path) -> None:
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    _write_csv_catalog(tmp_path)
+    _write_planned_configs(tmp_path)
+
+    cfg = RegionalLabConfig.from_file(config_path)
+    selected_sites, planned_cases, skipped_cases = build_regional_lab_plan(
+        cfg,
+        load_site_catalog(cfg.catalog),
+    )
+    payload = build_plan_payload(
+        cfg=cfg,
+        selected_sites=selected_sites,
+        planned_cases=planned_cases,
+        skipped_cases=skipped_cases,
+    )
+
+    assert payload["schema_version"] == "regional_lab_plan_v2"
+    assert payload["lab_id"] == "demo_lab"
+    assert payload["selected_site_count"] == 2
+    assert payload["planned_case_count"] == 3
+    assert payload["skipped_case_count"] == 1
+    assert [site["site_id"] for site in payload["selected_sites"]] == [
+        "headwater_100km2_outlet_2",
+        "headwater_100km2_outlet_3",
+    ]
+    assert [
+        (case["case_id"], case["launcher"], Path(case["config_path"]).name)
+        for case in payload["cases"]
+    ] == [
+        (
+            "sim_reference::headwater_100km2_outlet_2",
+            "simulation",
+            "run_headwater_100km2_outlet_2.toml",
+        ),
+        (
+            "sim_reference::headwater_100km2_outlet_3",
+            "simulation",
+            "run_headwater_100km2_outlet_3.toml",
+        ),
+        (
+            "backend_compare::headwater_100km2_outlet_2",
+            "comparison",
+            "compare_headwater_100km2_outlet_2.toml",
+        ),
+    ]
+    assert [
+        (case["case_id"], case["reason"], case["missing_fields"])
+        for case in payload["skipped_cases"]
+    ] == [
+        (
+            "backend_compare::headwater_100km2_outlet_3",
+            "missing_required_fields",
+            ["compare_config"],
+        )
+    ]
+    assert payload["recipes"] == [
+        {
+            "id": "sim_reference",
+            "label": "sim_reference",
+            "launcher": "simulation",
+            "enabled": True,
+            "config_path_template": "{simulation_config}",
+            "required_fields": ["simulation_config"],
+            "allowed_platforms": [],
+        },
+        {
+            "id": "backend_compare",
+            "label": "backend_compare",
+            "launcher": "comparison",
+            "enabled": True,
+            "config_path_template": "{compare_config}",
+            "required_fields": ["compare_config"],
+            "allowed_platforms": [],
+        },
+    ]
+
+
+def test_regional_lab_plan_projects_to_testbed_cases(tmp_path: Path) -> None:
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    _write_csv_catalog(tmp_path)
+    _write_planned_configs(tmp_path)
+
+    cfg = RegionalLabConfig.from_file(config_path)
+    _, planned_cases, _ = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
+    testbed_cases = regional_plan_to_testbed_cases(planned_cases)
+
+    assert [case.variant_id for case in testbed_cases] == [
+        "sim_reference::headwater_100km2_outlet_2",
+        "sim_reference::headwater_100km2_outlet_3",
+        "backend_compare::headwater_100km2_outlet_2",
+    ]
+    assert [(case.runner, case.case.variant.axis) for case in testbed_cases] == [
+        ("simulation", "sim_reference"),
+        ("simulation", "sim_reference"),
+        ("comparison", "backend_compare"),
+    ]
+    assert testbed_cases[0].case.variant.label == ("sim_reference / headwater_100km2_outlet_2")
+    assert testbed_cases[0].to_mapping() == {
+        "variant_id": "sim_reference::headwater_100km2_outlet_2",
+        "variant_label": "sim_reference / headwater_100km2_outlet_2",
+        "axis": "sim_reference",
+        "enabled": True,
+        "status": "planned",
+        "config_path": str((tmp_path / "configs" / "run_headwater_100km2_outlet_2.toml").resolve()),
+        "runner": "simulation",
+        "regional_case_id": "sim_reference::headwater_100km2_outlet_2",
+        "recipe_id": "sim_reference",
+        "site_id": "headwater_100km2_outlet_2",
+    }
+
+
+def test_regional_lab_rejects_removed_subprocess_execution_fields(tmp_path: Path) -> None:
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "validate_config_paths = true\n",
+            'execution_backend = "subprocess"\nvalidate_config_paths = true\n',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="execution_backend has been removed"):
+        RegionalLabConfig.from_file(config_path)
+
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "validate_config_paths = true\n",
+            "child_timeout_s = 120\nvalidate_config_paths = true\n",
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="child_timeout_s has been removed"):
+        RegionalLabConfig.from_file(config_path)
 
 
 def test_regional_lab_supports_jsonl_catalog(tmp_path: Path) -> None:
@@ -275,6 +482,91 @@ def test_regional_lab_supports_utf8_bom_csv_catalog(tmp_path: Path) -> None:
     assert [site.site_id for site in sites] == ["headwater_100km2_outlet_2"]
 
 
+def test_common_catalog_loader_handles_paths_tags_and_filters(tmp_path: Path) -> None:
+    catalog_path = tmp_path / "catalog.csv"
+    catalog_path.write_text(
+        "\n".join(
+            [
+                "case_id,tier,tags,enabled,config_path",
+                "case_a,smoke,mesh_ready;catalog,true,configs/a.toml",
+                "case_b,smoke,catalog,false,configs/b.toml",
+                "case_c,full,mesh_ready;catalog,true,configs/c.toml",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    rows = load_catalog_rows(
+        CatalogLoadSpec(
+            path=catalog_path,
+            format="csv",
+            required_fields=("case_id",),
+            path_fields=("config_path",),
+            tag_fields=("tags",),
+            source_label="test catalog",
+        )
+    )
+    selected = select_catalog_rows(
+        rows,
+        selector=CatalogRowSelector(
+            field_equals=(("tier", "smoke"),),
+            tags=("mesh_ready",),
+            enabled_field="enabled",
+        ),
+    )
+
+    assert [row.raw["case_id"] for row in selected] == ["case_a"]
+    assert selected[0].tags == ("mesh_ready", "catalog")
+    assert selected[0].resolved_paths["config_path"] == str(
+        (tmp_path / "configs" / "a.toml").resolve()
+    )
+
+
+def test_regional_site_selection_filters_by_region_tags_and_enabled(
+    tmp_path: Path,
+) -> None:
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    _write_csv_catalog(tmp_path)
+    cfg = RegionalLabConfig.from_file(config_path)
+    sites = load_site_catalog(cfg.catalog)
+
+    selected = filter_sites(
+        sites,
+        selection=RegionalLabSelectionConfig(
+            regions=("brittany",),
+            tags=("mesh_ready",),
+            limit=1,
+        ),
+    )
+
+    assert [site.site_id for site in selected] == ["headwater_100km2_outlet_2"]
+    assert site_matches_selection(
+        sites[0],
+        selection=RegionalLabSelectionConfig(
+            regions=("brittany",),
+            statuses=("ready",),
+            maturity_levels=("validated",),
+            tags=("backend_ready",),
+        ),
+    )
+    assert not site_matches_selection(
+        sites[2],
+        selection=RegionalLabSelectionConfig(
+            regions=("brittany",),
+            tags=("mesh_ready",),
+        ),
+    )
+    assert site_matches_selection(
+        sites[2],
+        selection=RegionalLabSelectionConfig(
+            regions=("brittany",),
+            tags=("mesh_ready",),
+            include_disabled=True,
+        ),
+    )
+
+
 def test_regional_lab_recipe_can_skip_unsupported_platform(tmp_path: Path) -> None:
     config_path = _write_regional_lab_config(tmp_path, execute=False)
     unsupported_platform = "linux" if sys.platform.startswith("win") else "windows"
@@ -305,7 +597,7 @@ def test_regional_lab_recipe_can_skip_unsupported_platform(tmp_path: Path) -> No
     assert unsupported_platform in skipped_cases[0].detail
 
 
-def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Path) -> None:
+def test_regional_lab_execution_stops_on_first_failure(tmp_path: Path) -> None:
     config_path = _write_regional_lab_config(
         tmp_path,
         execute=True,
@@ -314,37 +606,30 @@ def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Pa
     _write_csv_catalog(tmp_path)
     _write_planned_configs(tmp_path)
 
-    calls: list[list[str]] = []
+    calls: list[tuple[str, Path]] = []
 
-    def _fake_subprocess_run(command, cwd, check, timeout=None):
-        calls.append(list(command))
-        returncode = 0 if len(calls) == 1 else 1
-        return SimpleNamespace(returncode=returncode)
+    class _FakeProvider:
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            calls.append(("simulation", child_config))
+            if len(calls) == 2:
+                raise RuntimeError("planned failure")
+            return {"name": child_config.stem}
 
-    monkeypatch.setattr(
-        "hydromodpy.analysis.batch.runtime.subprocess.run",
-        _fake_subprocess_run,
-    )
+        def run_comparison(self, child_config: Path) -> dict[str, object]:
+            calls.append(("comparison", child_config))
+            return {"comparison_id": child_config.stem}
 
-    summary = RegionalLabLauncher(config_path).run()
+    register_testbed_runner_provider(_FakeProvider())
+
+    summary = RegionalLabProfileLauncher(config_path).run()
 
     assert summary["planned_case_count"] == 3
     assert summary["skipped_case_count"] == 1
     assert summary["executed_case_count"] == 2
     assert summary["failed_case_count"] == 1
-    assert calls[0] == [
-        str(Path(sys.executable)),
-        "-m",
-        "launchers",
-        "simulation",
-        str((tmp_path / "configs" / "run_headwater_100km2_outlet_2.toml").resolve()),
-    ]
-    assert calls[1] == [
-        str(Path(sys.executable)),
-        "-m",
-        "launchers",
-        "simulation",
-        str((tmp_path / "configs" / "run_headwater_100km2_outlet_3.toml").resolve()),
+    assert [(kind, path.name) for kind, path in calls] == [
+        ("simulation", "run_headwater_100km2_outlet_2.toml"),
+        ("simulation", "run_headwater_100km2_outlet_3.toml"),
     ]
 
     report = json.loads(Path(summary["report_path"]).read_text(encoding="utf-8"))
@@ -356,8 +641,47 @@ def test_regional_lab_execution_stops_on_first_failure(monkeypatch, tmp_path: Pa
     assert report["skipped_cases"][0]["case_id"] == "backend_compare::headwater_100km2_outlet_3"
 
 
-def test_regional_lab_resume_skips_completed_cases(monkeypatch, tmp_path: Path) -> None:
-    config_path = _write_regional_lab_config(tmp_path, execute=True)
+def test_regional_lab_executes_children_through_testbed_provider(tmp_path: Path) -> None:
+    config_path = _write_regional_lab_config(
+        tmp_path,
+        execute=True,
+    )
+    _write_csv_catalog(tmp_path)
+    _write_planned_configs(tmp_path)
+
+    calls: list[tuple[str, Path, bool | None]] = []
+
+    class _FakeProvider:
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            calls.append(("simulation", child_config, no_display))
+            return {"name": child_config.stem}
+
+        def run_comparison(self, child_config: Path) -> dict[str, object]:
+            calls.append(("comparison", child_config, None))
+            return {"comparison_id": child_config.stem}
+
+    register_testbed_runner_provider(_FakeProvider())
+
+    summary = RegionalLabProfileLauncher(config_path).run()
+
+    assert summary["executed_case_count"] == 3
+    assert summary["failed_case_count"] == 0
+    assert [(kind, path.name) for kind, path, _ in calls] == [
+        ("simulation", "run_headwater_100km2_outlet_2.toml"),
+        ("simulation", "run_headwater_100km2_outlet_3.toml"),
+        ("comparison", "compare_headwater_100km2_outlet_2.toml"),
+    ]
+    assert calls[0][2] is False
+
+    report = json.loads(Path(summary["report_path"]).read_text(encoding="utf-8"))
+    assert [case["status"] for case in report["cases"]] == ["ok", "ok", "ok"]
+
+
+def test_regional_lab_resume_skips_completed_cases(tmp_path: Path) -> None:
+    config_path = _write_regional_lab_config(
+        tmp_path,
+        execute=True,
+    )
     _write_csv_catalog(tmp_path)
     _write_planned_configs(tmp_path)
 
@@ -379,53 +703,32 @@ def test_regional_lab_resume_skips_completed_cases(monkeypatch, tmp_path: Path) 
         encoding="utf-8",
     )
 
-    calls: list[list[str]] = []
+    calls: list[tuple[str, Path]] = []
 
-    def _fake_subprocess_run(command, cwd, check, timeout=None):
-        calls.append(list(command))
-        return SimpleNamespace(returncode=0)
+    class _FakeProvider:
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            calls.append(("simulation", child_config))
+            return {"name": child_config.stem}
 
-    monkeypatch.setattr(
-        "hydromodpy.analysis.batch.runtime.subprocess.run",
-        _fake_subprocess_run,
-    )
+        def run_comparison(self, child_config: Path) -> dict[str, object]:
+            calls.append(("comparison", child_config))
+            return {"comparison_id": child_config.stem}
 
-    summary = RegionalLabLauncher(config_path).run()
+    register_testbed_runner_provider(_FakeProvider())
+
+    summary = RegionalLabProfileLauncher(config_path).run()
 
     assert summary["executed_case_count"] == 2
     assert summary["reused_case_count"] == 1
     assert len(calls) == 2
-    assert calls[0][-1].endswith("run_headwater_100km2_outlet_3.toml")
-    assert calls[1][-1].endswith("compare_headwater_100km2_outlet_2.toml")
+    assert [(kind, path.name) for kind, path in calls] == [
+        ("simulation", "run_headwater_100km2_outlet_3.toml"),
+        ("comparison", "compare_headwater_100km2_outlet_2.toml"),
+    ]
 
     report = json.loads(Path(summary["report_path"]).read_text(encoding="utf-8"))
     assert report["reused_case_count"] == 1
     assert report["cases"][0]["status"] == "skipped_existing_ok"
-
-
-def test_regional_lab_build_run_command_dispatches_launchers(tmp_path: Path) -> None:
-    config_path = _write_regional_lab_config(tmp_path, execute=False)
-    _write_csv_catalog(tmp_path)
-    _write_planned_configs(tmp_path)
-    cfg = RegionalLabConfig.from_file(config_path)
-    _, planned_cases, _ = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
-
-    commands = [build_run_command(case, python_executable=Path("python")) for case in planned_cases]
-
-    assert commands[0] == [
-        "python",
-        "-m",
-        "launchers",
-        "simulation",
-        str((tmp_path / "configs" / "run_headwater_100km2_outlet_2.toml").resolve()),
-    ]
-    assert commands[2] == [
-        "python",
-        "-m",
-        "hydromodpy",
-        "run",
-        str((tmp_path / "configs" / "compare_headwater_100km2_outlet_2.toml").resolve()),
-    ]
 
 
 def test_regional_lab_rejects_unknown_recipe_launcher(tmp_path: Path) -> None:
@@ -509,7 +812,7 @@ def test_regional_lab_extracts_simulation_comparison_child_artifacts(
         encoding="utf-8",
     )
 
-    artifacts = _extract_comparison_child_artifacts(config_path)
+    artifacts = extract_comparison_child_artifacts(config_path)
 
     assert artifacts["child_artifact_kind"] == "comparison"
     assert artifacts["child_artifact_status"] == "resolved"
@@ -562,7 +865,7 @@ def test_regional_lab_extracts_canonical_comparison_child_artifacts(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "demo_compare"',
@@ -583,7 +886,7 @@ def test_regional_lab_extracts_canonical_comparison_child_artifacts(
         encoding="utf-8",
     )
 
-    artifacts = _extract_comparison_child_artifacts(config_path)
+    artifacts = extract_comparison_child_artifacts(config_path)
 
     assert artifacts["child_artifact_kind"] == "comparison"
     assert artifacts["child_artifact_status"] == "resolved"

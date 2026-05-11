@@ -149,7 +149,7 @@ def run_boussinesq_brutsaert_recession_case(
                         "dirichlet": {
                             "east_side": {"value": float(east_head_m)},
                         }
-                    }
+                    },
                 },
                 flow_regime="steady",
             ),
@@ -270,9 +270,7 @@ def run_boussinesq_brutsaert_recession_case(
         "steady_residual_norm_inf": float(steady_residual),
         "acceptable_steady_residual_inf": float(acceptable_steady_residual_inf),
         "steady_runtime_backend": str(steady_model.flow.config.runtime_backend),
-        "steady_surface_interaction_model": str(
-            steady_model.flow.config.surface_interaction_model
-        ),
+        "steady_surface_interaction_model": str(steady_model.flow.config.surface_interaction_model),
         "transient_runtime_backend": str(transient_model.flow.config.runtime_backend),
         "transient_surface_interaction_model": str(
             transient_model.flow.config.surface_interaction_model

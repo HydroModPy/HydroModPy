@@ -12,10 +12,10 @@ from typing import Any
 import numpy as np
 
 from hydromodpy.analysis.comparison.config import (
-    ComparisonConfig,
     ComparisonFineRaster,
     ComparisonObservable,
     ComparisonSimulation,
+    RuntimeComparisonConfig,
 )
 from hydromodpy.analysis.comparison.runtime_mesh import (
     resolve_bundle_cells,
@@ -90,6 +90,7 @@ class CaseConfigurationPayload:
     metadata_lines: tuple[str, ...]
     boundary_sides: tuple[tuple[str, str], ...]
     observable_points: tuple[tuple[float, float, str], ...]
+    observable_point_legend: tuple[str, ...] = ()
     vertices: np.ndarray | None = None
     faces: np.ndarray | None = None
     surface_top: np.ndarray | None = None
@@ -416,13 +417,12 @@ def _flow_param_summary_lines(config_payload: Mapping[str, Any]) -> tuple[str, .
         if not isinstance(payload, Mapping):
             continue
         value = ""
-        section = payload.get("field_homogeneous")
-        if isinstance(section, Mapping):
-            value = str(section.get("value", ""))
+        field = payload.get("field")
+        if isinstance(field, Mapping):
+            value = str(field.get("value", ""))
         elif "value" in payload:
             value = str(payload.get("value", ""))
         unit = ""
-        field = payload.get("field")
         if isinstance(field, Mapping):
             unit = str(field.get("unit", ""))
         if value:
@@ -467,13 +467,37 @@ def _face_centroids(
     return centroids[:, 0], centroids[:, 1]
 
 
+def _alphabetic_label(index: int) -> str:
+    """Return spreadsheet-style alphabetical labels: A, B, ..., Z, AA, AB."""
+    value = int(index)
+    parts: list[str] = []
+    while True:
+        value, remainder = divmod(value, 26)
+        parts.append(chr(ord("A") + remainder))
+        if value == 0:
+            break
+        value -= 1
+    return "".join(reversed(parts))
+
+
+def observable_point_label_map(observables: tuple[ComparisonObservable, ...]) -> dict[str, str]:
+    """Return stable point labels from the declared observable order."""
+    labels: dict[str, str] = {}
+    for observable in observables:
+        if observable.support not in {"point", "outlet"}:
+            continue
+        labels[observable.name] = _alphabetic_label(len(labels))
+    return labels
+
+
 def _observable_points_for_case(
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     *,
     centroid_x: np.ndarray | None,
     centroid_y: np.ndarray | None,
 ) -> tuple[tuple[float, float, str], ...]:
     points: list[tuple[float, float, str]] = []
+    point_labels = observable_point_label_map(tuple(cfg.comparison.observable))
     for observable in cfg.comparison.observable:
         if observable.support not in {"point", "outlet"}:
             continue
@@ -490,13 +514,27 @@ def _observable_points_for_case(
                 y = float(centroid_y[int(observable.cell_index)])
         if x is None or y is None:
             continue
-        points.append((float(x), float(y), observable.name))
+        points.append((float(x), float(y), point_labels.get(observable.name, observable.name)))
     return tuple(points[:12])
+
+
+def _observable_point_legend_lines(cfg: RuntimeComparisonConfig) -> tuple[str, ...]:
+    labels = observable_point_label_map(tuple(cfg.comparison.observable))
+    lines: list[str] = []
+    for observable in cfg.comparison.observable:
+        if len(lines) >= 12:
+            break
+        label = labels.get(observable.name)
+        if label is None:
+            continue
+        text = observable.name.replace("_", " ")
+        lines.append(f"{label}: {text}")
+    return tuple(lines)
 
 
 def _build_case_configuration_payload(
     *,
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     simulation_summaries: list[dict[str, Any]],
     reference_simulation: str | None,
 ) -> CaseConfigurationPayload | None:
@@ -588,6 +626,7 @@ def _build_case_configuration_payload(
             centroid_x=centroid_x,
             centroid_y=centroid_y,
         ),
+        observable_point_legend=_observable_point_legend_lines(cfg),
         vertices=vertices,
         faces=faces,
         surface_top=surface_top,
@@ -623,7 +662,7 @@ def _choose_map_slice(
 
 def _build_map_payload(
     *,
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     simulation: ComparisonSimulation,
     summary: dict[str, Any],
     observable: ComparisonObservable,

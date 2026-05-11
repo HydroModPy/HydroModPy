@@ -7,7 +7,8 @@ import json
 import math
 import numbers
 import os
-from collections.abc import Mapping
+import textwrap
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,13 +16,13 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.config import (
-    ComparisonConfig,
-    ComparisonObservable,
-    ComparisonSimulation,
-)
 from hydromodpy.analysis.comparison._solver_protocol import (
     get_solver_registry_provider,
+)
+from hydromodpy.analysis.comparison.config import (
+    ComparisonObservable,
+    ComparisonSimulation,
+    RuntimeComparisonConfig,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.solver_diagnostics import (
@@ -38,9 +39,13 @@ from hydromodpy.core.toml_io.loader import (
 )
 from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
+    history_has_initial_snapshot,
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
 )
+
+TomlDescriptionProvider = Callable[[tuple[str, ...]], str | None]
+
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
 
@@ -415,10 +420,26 @@ def _is_mapping_list(value: Any) -> bool:
     return isinstance(value, list) and all(isinstance(item, Mapping) for item in value)
 
 
+def _append_toml_description(
+    lines: list[str],
+    *,
+    path: tuple[str, ...],
+    description_provider: TomlDescriptionProvider | None,
+) -> None:
+    if description_provider is None:
+        return
+    description = description_provider(path)
+    if not description:
+        return
+    for line in textwrap.wrap(str(description), width=96):
+        lines.append(f"# {line}")
+
+
 def _render_toml_mapping(
     mapping: Mapping[str, Any],
     *,
     prefix: tuple[str, ...] = (),
+    description_provider: TomlDescriptionProvider | None = None,
 ) -> list[str]:
     """Render one nested TOML mapping with array-of-table support."""
     lines: list[str] = []
@@ -436,28 +457,60 @@ def _render_toml_mapping(
             scalar_items.append((key, value))
 
     for key, value in scalar_items:
+        _append_toml_description(
+            lines,
+            path=(*prefix, key),
+            description_provider=description_provider,
+        )
         lines.append(f"{key} = {_toml_scalar(value)}")
 
     for key, value in nested_items:
         if lines and lines[-1] != "":
             lines.append("")
         section = ".".join((*prefix, key))
+        _append_toml_description(
+            lines,
+            path=(*prefix, key),
+            description_provider=description_provider,
+        )
         lines.append(f"[{section}]")
-        lines.extend(_render_toml_mapping(value, prefix=(*prefix, key)))
+        lines.extend(
+            _render_toml_mapping(
+                value,
+                prefix=(*prefix, key),
+                description_provider=description_provider,
+            )
+        )
 
     for key, items in array_items:
         section = ".".join((*prefix, key))
         for item in items:
             if lines and lines[-1] != "":
                 lines.append("")
+            _append_toml_description(
+                lines,
+                path=(*prefix, key),
+                description_provider=description_provider,
+            )
             lines.append(f"[[{section}]]")
-            lines.extend(_render_toml_mapping(item, prefix=(*prefix, key)))
+            lines.extend(
+                _render_toml_mapping(
+                    item,
+                    prefix=(*prefix, key),
+                    description_provider=description_provider,
+                )
+            )
     return lines
 
 
 def write_toml_payload(path: Path, payload: Mapping[str, Any]) -> None:
     """Write a small generated TOML payload."""
-    lines = _render_toml_mapping(payload)
+    from hydromodpy.core.toml_io.descriptions import root_config_description_for_path
+
+    lines = _render_toml_mapping(
+        payload,
+        description_provider=root_config_description_for_path,
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
@@ -501,7 +554,7 @@ def _build_solver_process_overlay(
 
 def materialize_simulation_config(
     *,
-    cfg: ComparisonConfig,
+    cfg: RuntimeComparisonConfig,
     simulation: ComparisonSimulation,
 ) -> Path | None:
     """Return the config path used by one comparison simulation, generating it if needed."""
@@ -1379,7 +1432,7 @@ def _load_boussinesq_npz_series(
             payload,
             n_snapshots=int(values.shape[0]),
         )
-        is_snapshot_series = elapsed_seconds is not None
+        is_snapshot_series = elapsed_seconds is not None and int(values.shape[0]) > 1
         if elapsed_seconds is None:
             elapsed_seconds = step_end_elapsed_seconds_from_payload(
                 payload,
@@ -1621,7 +1674,13 @@ def _elapsed_axis_from_boussinesq_state_group(
         and snapshots.size == int(n_slices)
         and not _is_degenerate_axis(snapshots)
     ):
-        return ([float(value) for value in snapshots.tolist()], True)
+        return (
+            [float(value) for value in snapshots.tolist()],
+            history_has_initial_snapshot(
+                n_slices=n_slices,
+                period_lengths_seconds=None,
+            ),
+        )
 
     step_ends = _read_1d("step_end_elapsed_seconds")
     if (
@@ -1639,7 +1698,10 @@ def _elapsed_axis_from_boussinesq_state_group(
                     n_snapshots=int(n_slices),
                     period_lengths=periods,
                 ),
-                periods.size == int(n_slices) - 1,
+                history_has_initial_snapshot(
+                    n_slices=n_slices,
+                    period_lengths_seconds=periods,
+                ),
             )
 
     if "time" in grp:
@@ -1650,7 +1712,11 @@ def _elapsed_axis_from_boussinesq_state_group(
         if root_time.size == int(n_slices) and not _is_degenerate_axis(root_time):
             return (
                 [float(value) for value in root_time.tolist()],
-                periods is not None and periods.size == int(n_slices) - 1,
+                periods is not None
+                and history_has_initial_snapshot(
+                    n_slices=n_slices,
+                    period_lengths_seconds=periods,
+                ),
             )
     return None
 
@@ -1856,7 +1922,13 @@ def _load_store_boussinesq_state_series(
                 time_index=index,
                 values=values[index].ravel(),
                 elapsed_seconds=elapsed_by_index[index],
-                is_initial_state=period_lengths.size == values.shape[0] - 1 and index == 0,
+                is_initial_state=(
+                    history_has_initial_snapshot(
+                        n_slices=int(values.shape[0]),
+                        period_lengths_seconds=period_lengths,
+                    )
+                    and index == 0
+                ),
             )
             for index in range(values.shape[0])
         )
@@ -1934,7 +2006,13 @@ def _load_store_rate_total_series(
             time_index=index,
             values=np.asarray([float(total)], dtype=float),
             elapsed_seconds=elapsed_by_index[index],
-            is_initial_state=period_lengths.size == totals_m3_s.size - 1 and index == 0,
+            is_initial_state=(
+                history_has_initial_snapshot(
+                    n_slices=int(totals_m3_s.size),
+                    period_lengths_seconds=period_lengths,
+                )
+                and index == 0
+            ),
         )
         for index, total in enumerate(totals_m3_s.tolist())
     )

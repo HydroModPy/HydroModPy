@@ -238,7 +238,9 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         else f"petsc TSVI failed reason {ts_reason} ({ts_reason_label})"
     )
     if exception is not None:
-        termination_reason_base = f"{termination_reason_base}; {type(exception).__name__}: {exception}"
+        termination_reason_base = (
+            f"{termination_reason_base}; {type(exception).__name__}: {exception}"
+        )
     converged, termination_reason = apply_residual_tolerance(
         success=ts_reason > 0 and exception is None,
         residual_norm_inf_value=residual_norm,
@@ -376,7 +378,9 @@ def _reaction_state(
     return reacted, diagnostics
 
 
-def _configure_ts_vi_snes(PETSc, snes, *, snes_type: str, tol_residual_inf: float, max_iterations: int) -> None:
+def _configure_ts_vi_snes(
+    PETSc, snes, *, snes_type: str, tol_residual_inf: float, max_iterations: int
+) -> None:
     snes.setType(str(snes_type or "vinewtonrsls"))
     snes.setTolerances(atol=float(tol_residual_inf), rtol=0.0, stol=0.0, max_it=int(max_iterations))
     ksp = snes.getKSP()
@@ -396,7 +400,11 @@ def _configure_ts_vi_snes(PETSc, snes, *, snes_type: str, tol_residual_inf: floa
 
 
 def _prescribed_head_cells(prescribed_head_m_by_cell: np.ndarray | None) -> np.ndarray | None:
-    return None if prescribed_head_m_by_cell is None else np.asarray(prescribed_head_m_by_cell, dtype=float).reshape(-1)
+    return (
+        None
+        if prescribed_head_m_by_cell is None
+        else np.asarray(prescribed_head_m_by_cell, dtype=float).reshape(-1)
+    )
 
 
 def _clip_head_to_bounds(head_m: np.ndarray, *, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
@@ -426,8 +434,12 @@ def _reconstruct_obstacle_reactions(
     surface_reaction = np.where(surface_active, np.maximum(-raw_residual, 0.0), 0.0)
     bottom_reaction = np.where(bottom_active, np.maximum(raw_residual, 0.0), 0.0)
     area = np.asarray(mesh.cell_area_m2, dtype=float).reshape(-1)
-    q_ex = np.divide(surface_reaction, area, out=np.zeros(int(mesh.n_cells), dtype=float), where=area > 0.0)
-    q_dry = np.divide(bottom_reaction, area, out=np.zeros(int(mesh.n_cells), dtype=float), where=area > 0.0)
+    q_ex = np.divide(
+        surface_reaction, area, out=np.zeros(int(mesh.n_cells), dtype=float), where=area > 0.0
+    )
+    q_dry = np.divide(
+        bottom_reaction, area, out=np.zeros(int(mesh.n_cells), dtype=float), where=area > 0.0
+    )
     correction = surface_reaction - bottom_reaction
     corrected_flow = raw_residual + correction
     corrected_residual = np.asarray(assembly.residual_m3_s, dtype=float).reshape(-1).copy()
@@ -454,7 +466,15 @@ def _reconstruct_obstacle_reactions(
     )
 
 
-def _projected_vi_residual(*, residual: np.ndarray, head_m: np.ndarray, lower_m: np.ndarray, upper_m: np.ndarray, prescribed_mask: np.ndarray, tol_h: float) -> np.ndarray:
+def _projected_vi_residual(
+    *,
+    residual: np.ndarray,
+    head_m: np.ndarray,
+    lower_m: np.ndarray,
+    upper_m: np.ndarray,
+    prescribed_mask: np.ndarray,
+    tol_h: float,
+) -> np.ndarray:
     values = np.asarray(residual, dtype=float).reshape(-1)
     head = np.asarray(head_m, dtype=float).reshape(-1)
     lower = np.asarray(lower_m, dtype=float).reshape(-1)
@@ -470,16 +490,39 @@ def _projected_vi_residual(*, residual: np.ndarray, head_m: np.ndarray, lower_m:
     return projected
 
 
-def _free_residual_norm(*, residual: np.ndarray, head_m: np.ndarray, lower_m: np.ndarray, upper_m: np.ndarray, prescribed_mask: np.ndarray, tol_h: float) -> float:
+def _free_residual_norm(
+    *,
+    residual: np.ndarray,
+    head_m: np.ndarray,
+    lower_m: np.ndarray,
+    upper_m: np.ndarray,
+    prescribed_mask: np.ndarray,
+    tol_h: float,
+) -> float:
     head = np.asarray(head_m, dtype=float).reshape(-1)
     free = ~np.asarray(prescribed_mask, dtype=bool).reshape(-1)
-    interior = free & (head > np.asarray(lower_m, dtype=float) + float(tol_h)) & (head < np.asarray(upper_m, dtype=float) - float(tol_h))
+    interior = (
+        free
+        & (head > np.asarray(lower_m, dtype=float) + float(tol_h))
+        & (head < np.asarray(upper_m, dtype=float) - float(tol_h))
+    )
     if not np.any(interior):
         return 0.0
     return residual_norm_inf(np.asarray(residual, dtype=float).reshape(-1)[interior])
 
 
-def _step_diagnostic_record(*, ts, step_index: int, time_seconds: float, dt_seconds: float, raw_assembly: BoussinesqAssembly, head_m: np.ndarray, reaction_diagnostics: dict[str, Any], physical_lower_m: np.ndarray, physical_upper_m: np.ndarray) -> dict[str, Any]:
+def _step_diagnostic_record(
+    *,
+    ts,
+    step_index: int,
+    time_seconds: float,
+    dt_seconds: float,
+    raw_assembly: BoussinesqAssembly,
+    head_m: np.ndarray,
+    reaction_diagnostics: dict[str, Any],
+    physical_lower_m: np.ndarray,
+    physical_upper_m: np.ndarray,
+) -> dict[str, Any]:
     snes = ts.getSNES()
     return {
         "ts_step_index": int(step_index),
@@ -499,21 +542,57 @@ def _step_diagnostic_record(*, ts, step_index: int, time_seconds: float, dt_seco
         "active_top_count": int(reaction_diagnostics.get("surface_active_cells", 0) or 0),
         "active_bottom_count": int(reaction_diagnostics.get("bottom_active_cells", 0) or 0),
         "free_count": int(reaction_diagnostics.get("free_cells", 0) or 0),
-        "surface_reaction_total_m3_s": float(reaction_diagnostics.get("surface_reaction_total_m3_s", 0.0) or 0.0),
-        "bottom_reaction_total_m3_s": float(reaction_diagnostics.get("bottom_reaction_total_m3_s", 0.0) or 0.0),
-        "surface_reaction_total_m3": float(reaction_diagnostics.get("surface_reaction_total_m3_s", 0.0) or 0.0) * float(dt_seconds),
-        "bottom_reaction_total_m3": float(reaction_diagnostics.get("bottom_reaction_total_m3_s", 0.0) or 0.0) * float(dt_seconds),
+        "surface_reaction_total_m3_s": float(
+            reaction_diagnostics.get("surface_reaction_total_m3_s", 0.0) or 0.0
+        ),
+        "bottom_reaction_total_m3_s": float(
+            reaction_diagnostics.get("bottom_reaction_total_m3_s", 0.0) or 0.0
+        ),
+        "surface_reaction_total_m3": float(
+            reaction_diagnostics.get("surface_reaction_total_m3_s", 0.0) or 0.0
+        )
+        * float(dt_seconds),
+        "bottom_reaction_total_m3": float(
+            reaction_diagnostics.get("bottom_reaction_total_m3_s", 0.0) or 0.0
+        )
+        * float(dt_seconds),
         "residual_norm_free": float(reaction_diagnostics.get("free_residual_norm_inf", 0.0) or 0.0),
-        "residual_norm_projected": float(reaction_diagnostics.get("projected_vi_residual_norm_inf", 0.0) or 0.0),
+        "residual_norm_projected": float(
+            reaction_diagnostics.get("projected_vi_residual_norm_inf", 0.0) or 0.0
+        ),
         "h_min_m": float(np.min(head_m)) if head_m.size else None,
         "h_max_m": float(np.max(head_m)) if head_m.size else None,
-        "residual_min_m3_s": float(np.min(raw_assembly.flow_residual_m3_s)) if raw_assembly.flow_residual_m3_s.size else None,
-        "residual_max_m3_s": float(np.max(raw_assembly.flow_residual_m3_s)) if raw_assembly.flow_residual_m3_s.size else None,
+        "residual_min_m3_s": float(np.min(raw_assembly.flow_residual_m3_s))
+        if raw_assembly.flow_residual_m3_s.size
+        else None,
+        "residual_max_m3_s": float(np.max(raw_assembly.flow_residual_m3_s))
+        if raw_assembly.flow_residual_m3_s.size
+        else None,
         **_petsc_solver_configuration(snes),
     }
 
 
-def _period_diagnostics(*, ts, snes, ts_reason: int, ts_reason_label: str, snes_reason: int, snes_reason_label: str, ts_steps_requested: int, dt_period_seconds: float, dt_initial_seconds: float, dt_min_seconds: float, dt_max_seconds: float, step_records: list[dict[str, Any]], reaction_diagnostics: dict[str, Any], residual_norm: float, head_m: np.ndarray, physical_lower_m: np.ndarray, physical_upper_m: np.ndarray, ts_vi_adapt: bool) -> dict[str, Any]:
+def _period_diagnostics(
+    *,
+    ts,
+    snes,
+    ts_reason: int,
+    ts_reason_label: str,
+    snes_reason: int,
+    snes_reason_label: str,
+    ts_steps_requested: int,
+    dt_period_seconds: float,
+    dt_initial_seconds: float,
+    dt_min_seconds: float,
+    dt_max_seconds: float,
+    step_records: list[dict[str, Any]],
+    reaction_diagnostics: dict[str, Any],
+    residual_norm: float,
+    head_m: np.ndarray,
+    physical_lower_m: np.ndarray,
+    physical_upper_m: np.ndarray,
+    ts_vi_adapt: bool,
+) -> dict[str, Any]:
     return {
         "ts_type": str(ts.getType()),
         "ts_adapt_type": "none" if not bool(ts_vi_adapt) else "petsc_default",
@@ -530,8 +609,12 @@ def _period_diagnostics(*, ts, snes, ts_reason: int, ts_reason_label: str, snes_
         "snes_converged_reason_label": str(snes_reason_label),
         "ksp_converged_reason": _linear_converged_reason(snes),
         "ksp_converged_reason_label": _ksp_reason_label(_linear_converged_reason(snes)),
-        "total_snes_iterations": int(sum(int(row.get("snes_iterations", 0) or 0) for row in step_records)),
-        "total_ksp_iterations": int(sum(int(row.get("ksp_iterations", 0) or 0) for row in step_records)),
+        "total_snes_iterations": int(
+            sum(int(row.get("snes_iterations", 0) or 0) for row in step_records)
+        ),
+        "total_ksp_iterations": int(
+            sum(int(row.get("ksp_iterations", 0) or 0) for row in step_records)
+        ),
         "max_snes_iterations_per_ts_step": _max_int(step_records, "snes_iterations"),
         "max_ksp_iterations_per_ts_step": _max_int(step_records, "ksp_iterations"),
         "max_violation_lower_m": float(np.max(np.maximum(physical_lower_m - head_m, 0.0))),
@@ -580,7 +663,13 @@ def _linear_converged_reason(snes) -> int:
 
 
 def _ksp_reason_label(reason: int) -> str:
-    labels = {2: "KSP_CONVERGED_RTOL_NORMAL", 3: "KSP_CONVERGED_ATOL_NORMAL", -3: "KSP_DIVERGED_ITS", -11: "KSP_DIVERGED_PC_FAILED", 0: "KSP_CONVERGED_ITERATING"}
+    labels = {
+        2: "KSP_CONVERGED_RTOL_NORMAL",
+        3: "KSP_CONVERGED_ATOL_NORMAL",
+        -3: "KSP_DIVERGED_ITS",
+        -11: "KSP_DIVERGED_PC_FAILED",
+        0: "KSP_CONVERGED_ITERATING",
+    }
     return labels.get(int(reason), f"KSP_REASON_{int(reason)}")
 
 
@@ -597,7 +686,16 @@ def _normalize_step_count(value: int) -> int:
 
 
 def _ts_reason_label(reason: int) -> str:
-    labels = {0: "TS_CONVERGED_ITERATING", 1: "TS_CONVERGED_TIME", 2: "TS_CONVERGED_ITS", 3: "TS_CONVERGED_USER", 4: "TS_CONVERGED_EVENT", -1: "TS_DIVERGED_NONLINEAR_SOLVE", -2: "TS_DIVERGED_STEP_REJECTED", -99: "TS_DIVERGED_EXCEPTION"}
+    labels = {
+        0: "TS_CONVERGED_ITERATING",
+        1: "TS_CONVERGED_TIME",
+        2: "TS_CONVERGED_ITS",
+        3: "TS_CONVERGED_USER",
+        4: "TS_CONVERGED_EVENT",
+        -1: "TS_DIVERGED_NONLINEAR_SOLVE",
+        -2: "TS_DIVERGED_STEP_REJECTED",
+        -99: "TS_DIVERGED_EXCEPTION",
+    }
     return labels.get(int(reason), f"TS_REASON_{int(reason)}")
 
 

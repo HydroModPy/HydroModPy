@@ -1,4 +1,6 @@
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/10km2_natural_mesh_transient_pulse/workspace"
@@ -43,7 +45,7 @@ right_to_left_amplitude = 40.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "80.0 m"
 
 [flow]
@@ -57,24 +59,18 @@ runtime_max_iterations = 80
 id = "K"
 kind = "homogeneous"
 unit = "m/s"
-
-[flow.param.K.field_homogeneous]
 value = "1e-5 m/s"
 
 [flow.param.Ss.field]
 id = "Ss"
 kind = "homogeneous"
 unit = "m-1"
-
-[flow.param.Ss.field_homogeneous]
 value = "1e-5 m-1"
 
 [flow.param.Sy.field]
 id = "Sy"
 kind = "homogeneous"
 unit = "-"
-
-[flow.param.Sy.field_homogeneous]
 value = "0.02 -"
 
 [flow.ic]
@@ -82,11 +78,11 @@ type = "custom"
 value = "220.0 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "220.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "220.0 m"
 
 [flow.sinks_sources.recharge]

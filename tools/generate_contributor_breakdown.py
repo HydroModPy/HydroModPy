@@ -71,9 +71,9 @@ PATHSPECS = [
     "CMakeLists.txt",
     ":(exclude)bin/**",
     ":(exclude)docs/_build*/**",
-    ":(exclude)docs/readthedocs/_build*/**",
-    ":(exclude)docs/readthedocs/source/api/generated/**",
-    ":(exclude)docs/readthedocs/source/_generated/**",
+    ":(exclude)docs/_build*/**",
+    ":(exclude)docs/source/api/generated/**",
+    ":(exclude)docs/source/_generated/**",
     ":(exclude)hydromodpy.egg-info/**",
 ]
 

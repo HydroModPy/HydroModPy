@@ -19,6 +19,10 @@ from hydromodpy.physics.flow.sinks_sources.wells import (
     FlowWellForcingConfig,
     FlowWellForcingConstantConfig,
     FlowWellForcingCsvConfig,
+    FlowWellLocation,
+    FlowWellLocationAbsoluteXY,
+    FlowWellLocationCell,
+    FlowWellLocationRelativeXY,
 )
 
 __all__ = [
@@ -29,4 +33,8 @@ __all__ = [
     "FlowWellForcingConfig",
     "FlowWellForcingConstantConfig",
     "FlowWellForcingCsvConfig",
+    "FlowWellLocation",
+    "FlowWellLocationAbsoluteXY",
+    "FlowWellLocationCell",
+    "FlowWellLocationRelativeXY",
 ]

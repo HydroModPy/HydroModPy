@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -17,12 +17,11 @@ class ConstantThicknessDepthModel(HydroModelBase):
     ``bottom = top_surface - thickness``.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
-    type: Annotated[Literal["constant_thickness"], Profile.USER] = Field(
+    kind: Annotated[Literal["constant_thickness"], Profile.USER] = Field(
         default="constant_thickness",
         description=(
-            "Depth-model type selector. Use 'constant_thickness' to define bottom as top-thickness."
+            "Depth-model kind discriminator. Use 'constant_thickness' to define "
+            "bottom as top-thickness."
         ),
     )
     thickness: Annotated[float, Profile.USER] = Field(
@@ -49,12 +48,10 @@ class FlatSubstratumDepthModel(HydroModelBase):
     ``bottom = substratum_elevation``.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
-    type: Annotated[Literal["flat_substratum"], Profile.USER] = Field(
+    kind: Annotated[Literal["flat_substratum"], Profile.USER] = Field(
         default="flat_substratum",
         description=(
-            "Depth-model type selector. "
+            "Depth-model kind discriminator. "
             "Use 'flat_substratum' to define one constant bottom elevation."
         ),
     )
@@ -67,7 +64,7 @@ class FlatSubstratumDepthModel(HydroModelBase):
 DepthModelConfig: TypeAlias = Annotated[
     ConstantThicknessDepthModel | FlatSubstratumDepthModel,
     Field(
-        discriminator="type",
-        description="Discriminated union of depth-model variants selected by the type tag.",
+        discriminator="kind",
+        description="Discriminated union of depth-model variants selected by the kind tag.",
     ),
 ]

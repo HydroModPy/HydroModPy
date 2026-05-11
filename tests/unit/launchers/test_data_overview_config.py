@@ -19,7 +19,8 @@ def test_overview_config_respects_project_root_env_override(
     )
 
     toml_content = f"""\
-workflow = "simulation"
+[workflow]
+mode = "simulation"
 [workspace]
 project_root = "."
 root = "{tmp_path}"

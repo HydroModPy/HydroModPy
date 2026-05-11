@@ -27,6 +27,7 @@ dependencies:
   - scikit-learn
   - scipy
   - xarray
+  - xugrid
   - pysheds
   - dask
   - pip

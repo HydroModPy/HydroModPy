@@ -210,9 +210,9 @@ def _apply_scenario_to_launcher_payload(
     flow = dict(payload.get("flow", {}))
     param = dict(flow.get("param", {}))
     param_k = dict(param.get("K", {}))
-    field_homogeneous = dict(param_k.get("field_homogeneous", {}))
-    field_homogeneous["value"] = f"{hydraulic_conductivity_m_s:.12g} m/s"
-    param_k["field_homogeneous"] = field_homogeneous
+    field = dict(param_k.get("field", {}))
+    field["value"] = f"{hydraulic_conductivity_m_s:.12g} m/s"
+    param_k["field"] = field
     param["K"] = param_k
     flow["param"] = param
     bc = dict(flow.get("bc", {}))

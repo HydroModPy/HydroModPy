@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import Length
 from hydromodpy.physics.flow.sinks_sources._units import normalize_first_clim
+from hydromodpy.physics.forcing.types import InterpolationMethod, SpatialMode
 
 
 class FlowEtpConfig(HydroModelBase):
@@ -24,8 +25,6 @@ class FlowEtpConfig(HydroModelBase):
     :class:`FlowToModflowAdapter._build_etp_payload`. This is the unique
     entry point for the EVT package.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     values: Annotated[Any, Profile.USER] = Field(
         default=0.0,
@@ -76,14 +75,14 @@ class FlowEtpConfig(HydroModelBase):
             "evapotranspiration is zero. Legacy default was 1 m."
         ),
     )
-    spatial_mode: Annotated[Literal["auto", "homogeneous", "heterogeneous"], Profile.DEV] = Field(
+    spatial_mode: Annotated[SpatialMode, Profile.DEV] = Field(
         default="auto",
         description=(
             "How to interpret spatial data: 'auto' (points->homogeneous, "
             "fields->heterogeneous), 'homogeneous', or 'heterogeneous'."
         ),
     )
-    interpolation_method: Annotated[Literal["nearest", "linear", "idw"], Profile.DEV] = Field(
+    interpolation_method: Annotated[InterpolationMethod, Profile.DEV] = Field(
         default="nearest",
         description=(
             "Spatial interpolation method for gridded/point data onto the "

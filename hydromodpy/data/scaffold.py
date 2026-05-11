@@ -216,7 +216,7 @@ types = []
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "50 m"
 
 [flow]
@@ -225,14 +225,10 @@ param_list = ["K", "Sy"]
 
 [flow.param.K.field]
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "1.0e-4 m/s"
 
 [flow.param.Sy.field]
 kind = "homogeneous"
-
-[flow.param.Sy.field_homogeneous]
 value = "0.12 -"
 """
 
@@ -244,8 +240,10 @@ RUN_TOML_TEMPLATE = """\
 # Inherits from : project.toml
 # ===========================================================================
 
-workflow = "simulation"
 base_config = "project.toml"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "."

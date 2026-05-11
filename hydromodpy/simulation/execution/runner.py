@@ -140,7 +140,7 @@ class SimulationRunner:
         state: Any,
         *,
         callbacks: ProcessCallbacks | None = None,
-    ) -> None:
+    ) -> tuple[tuple[ProcessRun, RunExecutionResult], ...]:
         """Execute each planned run in order against ``state``.
 
         The plan is assumed to be pre-validated by ``SimulationPlanner``.
@@ -169,6 +169,7 @@ class SimulationRunner:
         previous_callbacks = self.callbacks
         if callbacks is not None:
             self.callbacks = callbacks
+        executed_results: list[tuple[ProcessRun, RunExecutionResult]] = []
         try:
             current_process_type: str | None = None
             process_open = False
@@ -184,7 +185,8 @@ class SimulationRunner:
                         current_process_type = run.process_type
                         process_open = True
 
-                    self._run_process_run(plan, state, run)
+                    result = self._run_process_run(plan, state, run)
+                    executed_results.append((run, result))
             except BaseException:
                 if process_open and current_process_type is not None:
                     process_open = False
@@ -201,6 +203,7 @@ class SimulationRunner:
             if process_open and current_process_type is not None:
                 process_open = False
                 self._call_after_process(current_process_type)
+            return tuple(executed_results)
         finally:
             self.callbacks = previous_callbacks
 
@@ -226,8 +229,14 @@ class SimulationRunner:
         plan: SimulationPlan,
         state: Any,
         run: ProcessRun,
-    ) -> None:
+    ) -> RunExecutionResult:
         """Execute one resolved process run through its registered adapter."""
+
+        if run.process_type == "mesh":
+            result = self._run_mesh_process(state, run)
+            self._record_run_output(state, run, result)
+            self._call_after_run(run, result, state)
+            return result
 
         dependency_models = self._resolve_dependency_models(state, run)
         adapter = get_solver_registry_provider().get_solver_adapter(run.process_type, run.solver)
@@ -241,6 +250,19 @@ class SimulationRunner:
         )
         self._record_run_output(state, run, result)
         self._call_after_run(run, result, state)
+        return result
+
+    def _run_mesh_process(self, state: Any, run: ProcessRun) -> RunExecutionResult:
+        """Record the mesh artifacts already materialized by the mesh phase."""
+        backend = run.backend or run.solver
+        if backend != "catchment":
+            raise ValueError(f"Unsupported mesh process backend: {backend!r}")
+        mesh_summary = getattr(getattr(state, "setup", None), "mesh_summary", None)
+        primary_model = {
+            "backend": backend,
+            "summary": dict(mesh_summary) if isinstance(mesh_summary, dict) else mesh_summary,
+        }
+        return RunExecutionResult(primary_model=primary_model)
 
     def _resolve_dependency_models(
         self,

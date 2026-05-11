@@ -19,15 +19,15 @@ def _rebuild_forward_refs() -> None:
     lookup against the defining module's globals, so the sibling classes are
     written into the canonical root-config module globals.
     """
-    from hydromodpy.analysis.batch.config import RegionalLabConfig
-    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
-    from hydromodpy.analysis.comparison.config import ComparisonSection
-    from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.analysis import config as analysis_module
+    from hydromodpy.analysis.capability_gallery import CapabilityGalleryConfig
+    from hydromodpy.analysis.comparison.experiment_config import ComparisonSection
+    from hydromodpy.analysis.testbed.regional_lab_config import RegionalLabConfig
+    from hydromodpy.calibration.config import CalibrationConfig
     from hydromodpy.config import hydromodpy_config as cfg_module
     from hydromodpy.data.data_managers_config import DataManagersConfig
     from hydromodpy.display.config import DisplayConfig
-    from hydromodpy.display.overview.config import OverviewSection
+    from hydromodpy.display.overview.config import OverviewConfig
     from hydromodpy.physics.flow.flow_config import FlowConfig
     from hydromodpy.physics.transport.transport_config import TransportConfig
     from hydromodpy.simulation.planning.config import SimulationConfig
@@ -57,7 +57,7 @@ def _rebuild_forward_refs() -> None:
         "DomainConfig": DomainConfig,
         "GeographicConfig": GeographicConfig,
         "MeshCatchmentConfig": MeshCatchmentConfig,
-        "OverviewSection": OverviewSection,
+        "OverviewConfig": OverviewConfig,
     }
     cfg_module.__dict__.update(refs)
     cfg_module.HydroModPyConfig.model_rebuild()
@@ -105,13 +105,13 @@ def _register_calibration_contracts() -> None:
     structural binders through ``TrialPipelineProvider`` so the
     calibration package never imports the workflow package.
     """
-    from hydromodpy.workflow.steps.calibration import (
-        register_default_trial_pipeline_provider,
-    )
     from hydromodpy.calibration.runners.contracts import (
         register_trial_promotion_provider,
     )
     from hydromodpy.calibration_dispatch import ProjectTrialPromotionProvider
+    from hydromodpy.workflow.steps.calibration import (
+        register_default_trial_pipeline_provider,
+    )
 
     register_default_trial_pipeline_provider()
     register_trial_promotion_provider(ProjectTrialPromotionProvider())
@@ -131,11 +131,11 @@ def _register_analysis_contracts() -> None:
     """
     from hydromodpy.analysis.comparison import _solver_protocol
     from hydromodpy.solver.base import registry as _registry
-    from hydromodpy.workflow_dispatch import ProjectTestbedRunnerProvider
     from hydromodpy.workflow.testbed import (
         register_default_testbed_runner_provider,
         set_default_testbed_runner_provider_factory,
     )
+    from hydromodpy.workflow_dispatch import ProjectTestbedRunnerProvider
 
     class _RegistryProvider:
         def distributed_flow_solver_sections(self) -> tuple[str, ...]:

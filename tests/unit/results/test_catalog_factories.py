@@ -15,7 +15,8 @@ from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.run_loader import RunLoaderAdapter
 
 _CATALOG_TOML = """\
-workflow = "simulation"
+[workflow]
+mode = "simulation"
 
 [workspace]
 root = "{root}"
@@ -34,7 +35,7 @@ def _write_minimal_toml(tmp_path: Path) -> Path:
 
 def _build_payload(tmp_path: Path) -> dict:
     return {
-        "workflow": "simulation",
+        "workflow": {"mode": "simulation"},
         "workspace": {
             "project_root": str(tmp_path),
             "root": str(tmp_path),

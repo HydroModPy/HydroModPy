@@ -98,8 +98,7 @@ def build_head_initial_condition_array(
         return np.broadcast_to(base, target_shape).astype(float, copy=True)
     except ValueError as exc:
         raise ValueError(
-            f"{location_prefix} resolved shape {base.shape} cannot broadcast to "
-            f"{target_shape}."
+            f"{location_prefix} resolved shape {base.shape} cannot broadcast to {target_shape}."
         ) from exc
 
 
@@ -117,8 +116,7 @@ def summarize_head_initial_condition_bounds(
         bottom_arr = np.broadcast_to(np.asarray(bottom, dtype=float), head_arr.shape)
     except ValueError as exc:
         raise ValueError(
-            f"{location_prefix} bounds cannot broadcast to head shape "
-            f"{head_arr.shape}."
+            f"{location_prefix} bounds cannot broadcast to head shape {head_arr.shape}."
         ) from exc
 
     finite = np.isfinite(head_arr) & np.isfinite(top_arr) & np.isfinite(bottom_arr)
@@ -141,9 +139,7 @@ def summarize_head_initial_condition_bounds(
         "max_above_top_m": float(np.max(above_gap)) if above_gap.size else 0.0,
         "head_min_m": float(np.min(finite_head)) if finite_head.size else None,
         "head_max_m": float(np.max(finite_head)) if finite_head.size else None,
-        "within_bounds": below_count == 0
-        and above_count == 0
-        and nonfinite_count == 0,
+        "within_bounds": below_count == 0 and above_count == 0 and nonfinite_count == 0,
     }
 
 

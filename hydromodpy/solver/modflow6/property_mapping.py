@@ -245,7 +245,7 @@ def fill_missing_flow_properties_from_mesh_support(
     if getattr(solver_mesh, "is_structured", False):
         return flow_params
 
-    n_cells = int(getattr(solver_mesh, "n_cells"))
+    n_cells = int(solver_mesh.n_cells)
     support_k = _support_cell_vector(
         mesh_support,
         "cell_hydraulic_conductivity_m_s",

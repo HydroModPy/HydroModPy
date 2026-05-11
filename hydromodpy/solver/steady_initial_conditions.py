@@ -43,8 +43,7 @@ def steady_state_initial_condition_strategy(
         initial_condition_field(head_ic, "source", "mean_recharge") or "mean_recharge"
     ).strip()
     recharge_statistic = str(
-        initial_condition_field(head_ic, "recharge_statistic", "time_mean")
-        or "time_mean"
+        initial_condition_field(head_ic, "recharge_statistic", "time_mean") or "time_mean"
     ).strip()
     boundary_policy = str(
         initial_condition_field(head_ic, "boundary_condition_policy", "first_period")
@@ -93,33 +92,40 @@ def _flow_config_value(flow: object, name: str) -> object:
 def steady_state_initialization_surface_interaction_model(flow: object) -> str | None:
     """Return the surface model override needed for an auxiliary steady solve."""
     runtime_backend = str(_flow_config_value(flow, "runtime_backend") or "").strip().lower()
-    surface_model = (
-        str(_flow_config_value(flow, "surface_interaction_model") or "")
-        .strip()
-        .lower()
-    )
+    surface_model = str(_flow_config_value(flow, "surface_interaction_model") or "").strip().lower()
     if runtime_backend == "petsc" and surface_model == "ts_vi_obstacle":
-        return "vi_obstacle"
+        return "regularized_partition"
     return None
+
+
+def _steady_state_initialization_head_guess(flow: object) -> FlowInitialCondition:
+    """Return a robust initial head guess for the auxiliary steady solve."""
+    runtime_backend = str(_flow_config_value(flow, "runtime_backend") or "").strip().lower()
+    surface_model = str(_flow_config_value(flow, "surface_interaction_model") or "").strip().lower()
+    if runtime_backend == "petsc" and surface_model == "vi_obstacle":
+        return FlowInitialCondition(
+            id="h",
+            type="top_offset",
+            value=0.01,
+            units="m",
+            description=("Interior initial guess for steady-state initial-condition VI solve"),
+        )
+    return FlowInitialCondition(
+        id="h",
+        type="top",
+        units="m",
+        description="Initial guess for steady-state initial-condition solve",
+    )
 
 
 def steady_flow_copy_for_initialization(flow: object) -> object:
     """Return a flow copy configured for the auxiliary steady solve."""
     strategy = steady_state_initial_condition_strategy(flow)
     steady_flow = copy.deepcopy(flow)
-    steady_ic = FlowInitialConditions(
-        h=FlowInitialCondition(
-            id="h",
-            type="top",
-            units="m",
-            description="Initial guess for steady-state initial-condition solve",
-        )
-    )
+    steady_ic = FlowInitialConditions(h=_steady_state_initialization_head_guess(steady_flow))
     flow_config = getattr(steady_flow, "config", None)
     config_update = {"flow_regime": "steady", "ic": steady_ic}
-    steady_surface_model = steady_state_initialization_surface_interaction_model(
-        steady_flow
-    )
+    steady_surface_model = steady_state_initialization_surface_interaction_model(steady_flow)
     if steady_surface_model is not None:
         config_update["surface_interaction_model"] = steady_surface_model
         steady_flow.surface_interaction_model = steady_surface_model

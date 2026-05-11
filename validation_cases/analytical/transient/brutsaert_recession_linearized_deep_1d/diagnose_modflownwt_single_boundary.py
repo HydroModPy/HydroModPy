@@ -219,7 +219,7 @@ def _run_probe(
         probe_id=probe_id,
         stage=stage,
         success=success,
-        nwt_options=str(modflow_config.runtime.nwt_options),
+        nwt_options=str(modflow_config.runtime.nwt.options),
         nper=int(len(tuple(time_grid.period_lengths_seconds))),
         outlet_series_m3_s=outlet_series,
         budget_max_abs_rate_discrepancy_percent=budget_max_abs,
@@ -398,8 +398,8 @@ def main() -> None:
     transient_complex_cfg.tgrid = transient_complex_cfg.tgrid.model_copy(
         update={"firstpersteady": False}
     )
-    transient_complex_cfg.runtime = transient_complex_cfg.runtime.model_copy(
-        update={"nwt_options": "COMPLEX", "nwt_maxiterout": 2000}
+    transient_complex_cfg.runtime.nwt = transient_complex_cfg.runtime.nwt.model_copy(
+        update={"options": "COMPLEX", "maxiterout": 2000}
     )
     transient_complex_result, _ = _run_probe(
         probe_id=f"{CASE_ID}_transient_restart_complex",

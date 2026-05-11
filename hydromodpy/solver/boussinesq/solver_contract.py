@@ -102,17 +102,14 @@ def build_runtime_options(
     vi_substeps_per_period = int(getattr(flow, "vi_substeps_per_period", 1) or 1)
     vi_substep_on_failure = bool(getattr(flow, "vi_substep_on_failure", False))
     vi_max_adaptive_substeps = int(
-        getattr(flow, "vi_max_adaptive_substeps", vi_substeps_per_period)
-        or vi_substeps_per_period
+        getattr(flow, "vi_max_adaptive_substeps", vi_substeps_per_period) or vi_substeps_per_period
     )
     ts_vi_steps_per_period = int(getattr(flow, "ts_vi_steps_per_period", 4) or 4)
     ts_vi_adapt = bool(getattr(flow, "ts_vi_adapt", False))
     ts_vi_dt_min_fraction = float(
         getattr(flow, "ts_vi_dt_min_fraction", 1.0 / 64.0) or (1.0 / 64.0)
     )
-    ts_vi_dt_max_fraction = float(
-        getattr(flow, "ts_vi_dt_max_fraction", 1.0 / 4.0) or (1.0 / 4.0)
-    )
+    ts_vi_dt_max_fraction = float(getattr(flow, "ts_vi_dt_max_fraction", 1.0 / 4.0) or (1.0 / 4.0))
     ts_vi_type = str(getattr(flow, "ts_vi_type", "beuler") or "beuler")
     ts_vi_snes_type = str(getattr(flow, "ts_vi_snes_type", "vinewtonrsls") or "vinewtonrsls")
     return NonlinearRuntimeOptions(

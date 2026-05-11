@@ -33,9 +33,7 @@ def _read_final_head(head_path: Path, *, nlay: int, ncpl: int) -> np.ndarray:
     try:
         times = head_file.get_times()
         if not times:
-            raise RuntimeError(
-                f"No head times were written by steady initialization: {head_path}"
-            )
+            raise RuntimeError(f"No head times were written by steady initialization: {head_path}")
         raw = np.asarray(head_file.get_data(totim=times[-1]), dtype=float)
     finally:
         head_file.close()
@@ -56,9 +54,7 @@ def _read_final_head(head_path: Path, *, nlay: int, ncpl: int) -> np.ndarray:
     return np.asarray(raw, dtype=float)
 
 
-def run_modflow6_steady_state_initialization(
-    model: object, *, verbose: bool
-) -> np.ndarray:
+def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) -> np.ndarray:
     """Run one auxiliary steady MF6 model and return heads for the transient IC."""
     # Keep the auxiliary workspace short. On Windows, MF6 still fails on long
     # nested paths when writing DISV binary grid files.
@@ -73,9 +69,7 @@ def run_modflow6_steady_state_initialization(
             box=bool(getattr(model.preprocess_options, "box", True)),
             sink_fill=bool(getattr(model.preprocess_options, "sink_fill", False)),
             check_grid=bool(getattr(model.preprocess_options, "check_grid", True)),
-            time_grid=single_period_mean_forcing_time_grid(
-                getattr(model, "time_grid", None)
-            ),
+            time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None)),
         ),
     )
     steady_model.pre_processing(
@@ -104,9 +98,7 @@ def run_modflow6_steady_state_initialization(
     return head
 
 
-def apply_modflow6_steady_state_initial_heads(
-    model: object, head_m: np.ndarray
-) -> None:
+def apply_modflow6_steady_state_initial_heads(model: object, head_m: np.ndarray) -> None:
     """Inject materialized steady heads into the already-built MF6 IC package."""
     head = np.asarray(head_m, dtype=float).reshape(int(model.nlay), int(model.ncpl))
     model.ic.strt.set_data(head)

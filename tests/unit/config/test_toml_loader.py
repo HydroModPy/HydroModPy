@@ -16,7 +16,7 @@ def test_load_toml_with_base_config_merges_nested_sections(tmp_path: Path) -> No
     base_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path / "demo"}"',
                 "",
@@ -79,7 +79,7 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     base_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path / "demo"}"',
                 f'root = "{tmp_path}"',
@@ -115,6 +115,26 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     assert cfg.workspace.catch_name == "demo"
     assert str(cfg.geographic.dem_init_path) == str(dem_path.resolve())
     assert cfg.flow.active_bc == ["ocean", "drainage"]
+
+
+def test_from_toml_requires_workspace_project_root(tmp_path: Path) -> None:
+    path = tmp_path / "missing_workspace.toml"
+    path.write_text('[workflow]\nmode = "simulation"\n', encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"\[workspace\]\.project_root is required"):
+        HydroModPyConfig.from_toml(path)
+
+
+def test_from_dict_keeps_api_workspace_default(tmp_path: Path) -> None:
+    cfg = HydroModPyConfig.from_dict(
+        {
+            "workflow": {"mode": "simulation"},
+            "geographic": {"source_mode": "synthetic"},
+        },
+        base_dir=tmp_path,
+    )
+
+    assert cfg.workspace.project_root == tmp_path.resolve()
 
 
 def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
@@ -186,8 +206,8 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
     assert payload["simulation"]["time"]["step_value"] == "10 day"
     assert payload["modflow6"]["tgrid"]["firstpersteady"] is False
     assert payload["flow"]["ic"]["type"] == "top"
-    assert payload["flow"]["param"]["K"]["field_homogeneous"]["value"] == "1e-5 m/s"
-    assert payload["flow"]["param"]["Sy"]["field_homogeneous"]["value"] == "0.12 -"
+    assert payload["flow"]["param"]["K"]["field"]["value"] == "1e-5 m/s"
+    assert payload["flow"]["param"]["Sy"]["field"]["value"] == "0.12 -"
     assert payload["data"]["recharge"]["sources"][0]["freq"] == "10D"
     assert "postprocess" not in payload
     assert payload["analysis"]["capability_gallery"]["enabled"] is True
@@ -209,7 +229,7 @@ def test_data_overview_example_declares_overview_workflow_and_report_section() -
 
     cfg = HydroModPyConfig.from_toml(example_config)
 
-    assert cfg.workflow == "overview"
+    assert cfg.workflow.mode == "overview"
     assert cfg.overview is not None
     assert cfg.overview.date_start == "2019-01-01"
     assert cfg.overview.date_end == "2025-12-31"
@@ -225,9 +245,10 @@ def test_hydromodpy_config_loads_profiling_shortcuts(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'catch_def = "dem"',
@@ -253,10 +274,11 @@ def test_hydromodpy_config_allows_dem_from_data_sources_without_placeholder(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "",
                 "[workspace]",
                 f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
                 f'data_dir = "{tmp_path / "data"}"',
                 "",
                 "[geographic]",
@@ -285,7 +307,7 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "calibration"',
+                '[workflow]\nmode = "calibration"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
                 f'project_root = "{tmp_path}"',
@@ -298,8 +320,6 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
                 "",
                 "[flow.param.K.field]",
                 'kind = "homogeneous"',
-                "",
-                "[flow.param.K.field_homogeneous]",
                 'value = "1.0e-4 m/s"',
                 "",
                 "[calibration]",
@@ -308,7 +328,7 @@ def test_hydromodpy_config_loads_calibration_section(tmp_path: Path) -> None:
                 "",
                 "[calibration.parameters.K]",
                 "bounds = [1.0e-6, 1.0e-3]",
-                'target = "flow.param.K.field_homogeneous.value"',
+                'target = "flow.param.K.field.value"',
             ]
         ),
         encoding="utf-8",
@@ -327,9 +347,10 @@ def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> Non
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',
@@ -348,9 +369,10 @@ def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
                 "",
                 "[geographic]",
                 'source_mode = "synthetic"',
@@ -372,14 +394,13 @@ def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> 
 
     cfg = HydroModPyConfig.from_dict(
         {
-            "workflow": "simulation",
+            "workflow": {"mode": "simulation"},
             "workspace": {"root": str(tmp_path), "project_root": ""},
             "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
             "flow": {
                 "param": {
                     "K": {
-                        "field": {"kind": "homogeneous"},
-                        "field_homogeneous": {"value": "1.0e-4 m/s"},
+                        "field": {"kind": "homogeneous", "value": "1.0e-4 m/s"},
                     }
                 }
             },
@@ -390,7 +411,7 @@ def test_hydromodpy_config_from_dict_uses_toml_normalization(tmp_path: Path) -> 
     assert cfg.workspace.project_root == tmp_path.resolve()
     assert cfg.geographic.dem_init_path == dem_path.resolve()
     assert cfg.flow.param_list == ["K"]
-    assert cfg.flow.param["K"] == {
+    assert cfg.flow.param["K"].resolved_payload(param_id="K") == {
         "id": "K",
         "kind": "homogeneous",
         "value": "1.0e-4 m/s",
@@ -401,7 +422,7 @@ def test_hydromodpy_config_from_json_uses_toml_normalization(tmp_path: Path) -> 
     dem_path = tmp_path / "dem.tif"
     dem_path.touch()
     payload = {
-        "workflow": "simulation",
+        "workflow": {"mode": "simulation"},
         "workspace": {"root": str(tmp_path), "project_root": str(tmp_path)},
         "geographic": {"catch_def": "dem", "dem_init_path": "dem.tif"},
     }
@@ -415,7 +436,7 @@ def test_hydromodpy_config_rejects_unknown_workflow(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="unknown-workflow"):
         HydroModPyConfig.from_dict(
             {
-                "workflow": "unknown-workflow",
+                "workflow": {"mode": "unknown-workflow"},
                 "workspace": {"root": str(tmp_path)},
                 "geographic": {"source_mode": "synthetic"},
             },

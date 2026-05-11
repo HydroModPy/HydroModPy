@@ -51,12 +51,17 @@ def build_comparison_report(
     ]
     for summary in simulation_summaries:
         wall_time = summary.get("wall_time_seconds")
+        metrics = summary.get("metrics")
+        flow_solve_time = summary.get("flow_solve_time_seconds")
+        if flow_solve_time in (None, "") and isinstance(metrics, Mapping):
+            flow_solve_time = metrics.get("flow_solve_time_seconds")
         run_folder = summary.get("run_folder", "")
         lines.append(
             f"- `{summary.get('id', '')}`: {summary.get('status', '')}"
             f", solver=`{summary.get('solver', '') or 'n/a'}`"
             f", mesh=`{summary.get('mesh_mode', '')}`"
             f", rows={summary.get('n_observable_rows', 0)}"
+            f", flow_solve_time={_format_number(flow_solve_time)}"
             f", wall_time={_format_number(wall_time)}"
             f", run_folder=`{run_folder}`"
         )

@@ -1,0 +1,109 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "regional_lab_headwater_100km2_dry_plan",
+  "title": "Regional Lab Dry Plan on Headwater 100 km2",
+  "category": "simulation",
+  "deck": "Dry-run orchestration example showing how one regional site catalog expands into simulation and comparison recipes.",
+  "summary": "This case documents the orchestration layer rather than one child run. It uses the first committed `regional_lab` example in dry-plan mode to show how a small site catalog is filtered, clustered, expanded into recipes, and reported as runnable cases or explicit coverage gaps.",
+  "case_setup": [
+    "Launcher family: `regional_lab`, sitting above child `simulation` and `comparison` launchers.",
+    "Example scope: one small Brittany site catalog with one fully runnable headwater site and several inventory-only or screening sites.",
+    "The committed example starts with `execute = false`, so the page documents planning, selection, and reporting rather than child-run results."
+  ],
+  "key_parameters": [
+    "`[regional_lab.catalog]` defines how site metadata and path-like config references are loaded from the catalog.",
+    "`[regional_lab.selection] tags = [\"mesh_ready\"]` filters the population before any recipe expansion happens.",
+    "`[[regional_lab.cluster_rule]]` enriches catalog rows into reusable clusters/families/scales instead of relying only on static columns.",
+    "`[[regional_lab.recipe]]` turns one selected site population into concrete child launcher plans, with `required_fields` making coverage gaps explicit.",
+    "`execute = false` keeps the example in dry-plan mode, which is exactly what this page documents."
+  ],
+  "how_to_read": [
+    "Start with the site-by-recipe matrix to see which sites are runnable and which ones remain coverage gaps.",
+    "Use the recipe bars next to understand how much of the selected population each recipe actually covers.",
+    "Read the text summary last: it explains why the example is valuable even with zero executed child runs."
+  ],
+  "next_steps": [
+    "Switch `execute = true` in the example config when the dry plan looks correct and you want to launch the child workflows.",
+    "Use this page as the orchestration complement to the individual simulation and comparison cases already exposed elsewhere in the gallery."
+  ],
+  "what_it_shows": [
+    "How `regional_lab` separates site inventory, recipe definitions, and execution/reporting layers.",
+    "How one selected site population expands into planned child runs plus explicit coverage gaps when required configs are missing.",
+    "How a dry-run can be used as a planning and coverage-audit tool before any child simulation is actually launched."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/simulation-walkthrough",
+  "walkthrough_title": "the Simulation walkthrough",
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "hydromodpy/analysis/testbed/__init__.py",
+    "hydromodpy/analysis/testbed/regional_lab_config.py",
+    "hydromodpy/analysis/testbed/regional_lab.py",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_plan.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_report.json",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_site_inventory.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_recipe_summary.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_cluster_summary.csv",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_case_matrix.csv"
+  ],
+  "source_hashes": {
+    "hydromodpy/analysis/testbed/__init__.py": "199376f72d11988af74a3fb860ddad35abb6f1452d47750aeb416a608e706895",
+    "hydromodpy/analysis/testbed/regional_lab_config.py": "fba9d336e84677c50dd7c235f5f413c0bb4b7d0efbce556c78f5c51a13aa0d8e",
+    "hydromodpy/analysis/testbed/regional_lab.py": "04a713bafe742f8d4c33860c7382ac7427806ba1370d0b74d3d1f068540505c0",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_plan.json": "719399979deb87955c89d7cae2c8e9be1006231c6522b8a71f2dec641606d9c9",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_report.json": "72d7308420dbdfef288e49cceacb0ada394c5c4361a70c31ba4e94ed6fae1919",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.md": "a6bbf402c25dad7d1c23943f99bc265c8609ec11067af1cd366d65d3079a49b3",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_site_inventory.csv": "d594d2eb321bc623d546527b074ca8a1c74ef7846efe77a568f9c610b7bc4fa4",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_recipe_summary.csv": "4a9f2e389a6182dfeefb2c608b48b54a656b7132fb39693180eaa787324f7ba8",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_cluster_summary.csv": "85e4895fc61b029a19539b07c9576b9791af26dcd04e5d3bec73ce23a06a08b7",
+    "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_case_matrix.csv": "3eac4c5b1ee5b3fcaf81324576cd7d818869400e664cf18c67ff3bef9d5b1faf"
+  },
+  "docname": "cases/regional_lab_headwater_100km2_dry_plan",
+  "images": [
+    {
+      "filename": "regional_lab_headwater_100km2_dry_plan.png",
+      "caption": "Dry-plan synthesis for the committed regional-lab example: site/recipe matrix, recipe coverage, and planning summary.",
+      "alt_text": "Regional lab dry-plan synthesis for the headwater 100 km2 example",
+      "doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
+    }
+  ],
+  "metrics": [],
+  "metadata": {
+    "static_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+    "regional_lab_summary_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+    "study_area": "Brittany regional laboratory",
+    "process_families": [
+      "planning",
+      "simulation",
+      "comparison",
+      "reporting"
+    ],
+    "workflow_family_key": "regional_orchestration",
+    "workflow_family_label": "Regional Orchestration",
+    "workflow_family_deck": "These cases do not focus on one child solver run. They document how one population of sites and reusable recipes expands into a coordinated study plan.",
+    "workflow_family_order": 30,
+    "workflow_case_order": 10,
+    "postprocess_outputs": [
+      "site_recipe_matrix",
+      "recipe_coverage_summary",
+      "coverage_gap_summary"
+    ],
+    "copied_assets": [
+      {
+        "source_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png",
+        "copied_to": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
+      }
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/simulation/regional_lab_headwater_100km2_dry_plan.png"
+    ]
+  }
+}

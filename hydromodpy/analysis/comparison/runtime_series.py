@@ -14,6 +14,7 @@ from hydromodpy.analysis.comparison.runtime_physics import (
     is_nodata_value,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.physics.flow.history_contract import history_has_initial_snapshot
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
@@ -87,7 +88,13 @@ def _time_axis_from_store_root(
         and snapshots.size == int(n_slices)
         and not _is_degenerate_time_axis(snapshots)
     ):
-        return [float(value) for value in snapshots.tolist()], True
+        return (
+            [float(value) for value in snapshots.tolist()],
+            history_has_initial_snapshot(
+                n_slices=n_slices,
+                period_lengths_seconds=periods,
+            ),
+        )
 
     step_ends = _read_1d_array(state_grp, "step_end_elapsed_seconds")
     if (
@@ -103,7 +110,10 @@ def _time_axis_from_store_root(
                 n_snapshots=int(n_slices),
                 period_lengths=periods,
             ),
-            periods.size == int(n_slices) - 1,
+            history_has_initial_snapshot(
+                n_slices=n_slices,
+                period_lengths_seconds=periods,
+            ),
         )
 
     root_time = _read_1d_array(grp, "time")
@@ -114,7 +124,11 @@ def _time_axis_from_store_root(
     ):
         return (
             [float(value) for value in root_time.tolist()],
-            periods is not None and periods.size == int(n_slices) - 1,
+            periods is not None
+            and history_has_initial_snapshot(
+                n_slices=n_slices,
+                period_lengths_seconds=periods,
+            ),
         )
 
     return [None for _ in range(max(int(n_slices), 0))], False
@@ -273,6 +287,7 @@ def _load_store_boussinesq_state_series(
         if (
             root_time is not None
             and period_lengths.size == values.shape[0] - 1
+            and period_lengths.size > 0
             and not _is_degenerate_time_axis(root_time)
         ):
             has_initial_state = True
@@ -281,7 +296,10 @@ def _load_store_boussinesq_state_series(
                 n_snapshots=int(values.shape[0]),
                 period_lengths=period_lengths,
             )
-            has_initial_state = period_lengths.size == values.shape[0] - 1
+            has_initial_state = history_has_initial_snapshot(
+                n_slices=int(values.shape[0]),
+                period_lengths_seconds=period_lengths,
+            )
         slices = tuple(
             TimeSlice(
                 time_key=index,
@@ -375,7 +393,13 @@ def _load_store_surface_excess_total_series(
             time_index=index,
             values=np.asarray([float(total)], dtype=float),
             elapsed_seconds=elapsed_by_index[index],
-            is_initial_state=period_lengths.size == totals_m3_s.size - 1 and index == 0,
+            is_initial_state=(
+                history_has_initial_snapshot(
+                    n_slices=int(totals_m3_s.size),
+                    period_lengths_seconds=period_lengths,
+                )
+                and index == 0
+            ),
         )
         for index, total in enumerate(totals_m3_s.tolist())
     )

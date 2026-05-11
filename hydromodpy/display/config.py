@@ -15,6 +15,97 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 
 
+class DisplayFlowConfig(HydroModelBase):
+    """Display switches for flow figures."""
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Master switch for flow figures.",
+    )
+    cross_section: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render the flow cross-section plot.",
+    )
+    streamflow: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render the streamflow comparison plot.",
+    )
+    piezometry: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render the piezometry plot.",
+    )
+    watertable_map: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render water-table maps.",
+    )
+    dem_map: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render a DEM overview map.",
+    )
+    budget: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Render groundwater budget figures.",
+    )
+    hydrography: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render hydrography maps.",
+    )
+    boussinesq_state: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render the Boussinesq state figure.",
+    )
+    boussinesq_diagnostics: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render Boussinesq diagnostics.",
+    )
+    boussinesq_mass_balance: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render Boussinesq mass-balance diagnostics.",
+    )
+    boussinesq_probes: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render Boussinesq probe time series.",
+    )
+    boussinesq_edge_flux: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Render final Boussinesq edge fluxes.",
+    )
+
+
+class DisplayParticlesConfig(HydroModelBase):
+    """Display switches for particle figures."""
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Master switch for particle figures.",
+    )
+    pathlines: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Render particle pathlines.",
+    )
+
+
+class DisplayTransportConfig(HydroModelBase):
+    """Display switches for transport figures."""
+
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Master switch for transport figures.",
+    )
+    concentration: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Render concentration plots.",
+    )
+    gif: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Export concentration GIF animation.",
+    )
+    web_animation: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description="Export browser-friendly concentration animation.",
+    )
+
+
 class DisplayConfig(HydroModelBase):
     """Display behaviour resolved from the ``[display]`` TOML section."""
 
@@ -70,4 +161,16 @@ class DisplayConfig(HydroModelBase):
             "Per-figure keyword overrides, keyed by figure name "
             "(e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``)."
         ),
+    )
+    flow: Annotated[DisplayFlowConfig, Profile.USER] = Field(
+        default_factory=DisplayFlowConfig,
+        description="Flow figure switches.",
+    )
+    particles: Annotated[DisplayParticlesConfig, Profile.USER] = Field(
+        default_factory=DisplayParticlesConfig,
+        description="Particle figure switches.",
+    )
+    transport: Annotated[DisplayTransportConfig, Profile.USER] = Field(
+        default_factory=DisplayTransportConfig,
+        description="Transport figure switches.",
     )

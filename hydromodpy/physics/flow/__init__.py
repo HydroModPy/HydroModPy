@@ -16,10 +16,18 @@ from .boundary_condition_registry import (
     boundary_definition,
     supported_boundary_ids_for_backend,
 )
-from .boundary_conditions import FlowBoundaryConditionConfig
+from .boundary_conditions import CauchyBC, DirichletBC, FlowBoundaryConditionConfig, RobinBC
 from .flow import Flow
-from .flow_config import FlowConfig
-from .initial_conditions import FlowInitialCondition, FlowInitialConditions
+from .flow_config import FlowConfig, FlowParam
+from .initial_conditions import (
+    FlowICBottom,
+    FlowICCustom,
+    FlowICSteadyState,
+    FlowICTop,
+    FlowICTopOffset,
+    FlowInitialCondition,
+    FlowInitialConditions,
+)
 from .physical_properties import FlowPhysicalProperties
 from .regime import FlowRegime, normalize_flow_regime
 from .sinks_sources import FlowSinksSourcesConfig, FlowWellConfig
@@ -27,8 +35,16 @@ from .sinks_sources import FlowSinksSourcesConfig, FlowWellConfig
 __all__ = [
     "Flow",
     "FlowRegime",
+    "FlowICBottom",
+    "FlowICCustom",
+    "FlowICSteadyState",
+    "FlowICTop",
+    "FlowICTopOffset",
     "FlowInitialCondition",
     "FlowInitialConditions",
+    "DirichletBC",
+    "CauchyBC",
+    "RobinBC",
     "FlowBoundaryConditionConfig",
     "BoundaryConditionBundle",
     "FlowBoundaryDefinition",
@@ -38,6 +54,7 @@ __all__ = [
     "supported_boundary_ids_for_backend",
     "FlowWellConfig",
     "FlowSinksSourcesConfig",
+    "FlowParam",
     "FlowConfig",
     "FlowPhysicalProperties",
     "normalize_flow_regime",

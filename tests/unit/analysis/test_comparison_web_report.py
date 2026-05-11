@@ -15,9 +15,7 @@ def test_write_comparison_web_report_links_key_outputs(tmp_path: Path) -> None:
     figure_root.mkdir(parents=True)
     (figure_root / "case_configuration.png").write_bytes(b"png")
     (figure_root / "comparable_outflow_dashboard.png").write_bytes(b"png")
-    (figure_root / "head_map_wet_year1__fine_raster_map_comparison.png").write_bytes(
-        b"png"
-    )
+    (figure_root / "head_map_wet_year1__fine_raster_map_comparison.png").write_bytes(b"png")
     (figure_root / "storage_comparison_dashboard.png").write_bytes(b"png")
     (figure_root / "total_inputs_outputs_dashboard.png").write_bytes(b"png")
     (root / "comparison_report.md").write_text("# report\n", encoding="utf-8")
@@ -134,6 +132,48 @@ value = "0.2 m2/s"
     assert "first_clim=first" in text
     assert "negative_to_evt=true" in text
     assert "drainage de surface actif sur le toit, conductance 0.2 m2/s" in text
+
+
+def test_web_report_includes_numerical_closure_section(tmp_path: Path) -> None:
+    root = tmp_path / "comparison"
+    root.mkdir()
+    _write_csv(
+        root / "numerical_closure_summary.csv",
+        [
+            {
+                "simulation_id": "mf6_ref",
+                "solver": "modflow6",
+                "n_periods": "2",
+                "max_abs_closure_m3_s": "0.001",
+                "max_abs_closure_mm_d": "0.0002",
+                "relative_closure_error_p95": "0.0005",
+                "diagnostic": "OK",
+            },
+            {
+                "simulation_id": "bouss_candidate",
+                "solver": "boussinesq",
+                "n_periods": "2",
+                "max_abs_closure_m3_s": "0.02",
+                "max_abs_closure_mm_d": "0.004",
+                "relative_closure_error_p95": "0.006",
+                "diagnostic": "WARN",
+            },
+        ],
+    )
+
+    path = write_comparison_web_report(
+        comparison_root=root,
+        manifest={
+            "comparison_id": "closure_demo",
+            "reference_simulation": "mf6_ref",
+            "simulations": [],
+        },
+    )
+
+    text = path.read_text(encoding="utf-8")
+    assert "Precision de resolution" in text
+    assert "bouss_candidate" in text
+    assert "erreur rel. p95" in text
 
 
 def test_synthetic_web_report_documents_disabled_boussinesq_drainage(

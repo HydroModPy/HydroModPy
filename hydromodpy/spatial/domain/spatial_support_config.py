@@ -1,26 +1,28 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import CellSamplingDensity, NonEmptyStr
 from hydromodpy.core.units import parse_length_to_m
 
 
 class DomainSupportBaseConfig(HydroModelBase):
-    """Base schema for one named spatial-support declaration."""
+    """Base schema for one named spatial-support declaration.
 
-    model_config = ConfigDict(extra="forbid")
-
-    provider: Annotated[str, Profile.USER]
+    Concrete variants are unified through :data:`DomainSupportConfig`,
+    a discriminated union over the ``kind`` literal.
+    """
 
 
 class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
     """Analytical bands split along one cartesian axis."""
 
-    provider: Annotated[Literal["generated_bands"], Profile.USER]
+    kind: Annotated[Literal["generated_bands"], Profile.USER]
     axis: Annotated[Literal["x", "y"], Profile.USER] = "x"
     coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
     breaks: Annotated[list[float | str], Profile.USER] = Field(
@@ -35,74 +37,65 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
         default_factory=list,
         description="Ordered band labels. Length must be len(breaks)+1.",
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description="Sub-sampling resolution per cell axis used when rasterizing band masks.",
     )
 
-    @field_validator("breaks", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def _validate_breaks_input(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("domain.supports.<id>.breaks must be a list")
-        return value
-
-    @field_validator("labels", mode="before")
-    @classmethod
-    def _validate_labels_input(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("domain.supports.<id>.labels must be a list")
-        return value
-
-    @model_validator(mode="after")
-    def _normalize_and_validate(self) -> GeneratedBandsSupportConfig:
-        normalized_breaks: list[float] = []
-        for index, raw_break in enumerate(self.breaks):
-            if self.coordinate_mode == "relative":
-                value = float(raw_break)
-                if not 0.0 < value < 1.0:
+    def _normalize_breaks_and_labels(cls, value):
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        coordinate_mode = str(payload.get("coordinate_mode", "relative")).strip().lower()
+        raw_breaks = payload.get("breaks") or []
+        if not isinstance(raw_breaks, list):
+            return payload
+        normalized: list[float] = []
+        for index, raw_break in enumerate(raw_breaks):
+            if coordinate_mode == "relative":
+                value_m = float(raw_break)
+                if not 0.0 < value_m < 1.0:
                     raise ValueError(
                         "Relative generated_bands breaks must lie strictly between 0 and 1."
                     )
             else:
-                value = float(
+                value_m = float(
                     parse_length_to_m(
                         raw_break,
                         default_unit="m",
                         label=f"domain.supports.breaks[{index}]",
                     )
                 )
-                if value <= 0.0:
+                if value_m <= 0.0:
                     raise ValueError("Absolute generated_bands breaks must be > 0.")
-            normalized_breaks.append(value)
+            normalized.append(value_m)
+        payload["breaks"] = normalized
+        raw_labels = payload.get("labels") or []
+        if isinstance(raw_labels, list):
+            payload["labels"] = [str(raw).strip() for raw in raw_labels]
+        return payload
 
-        if normalized_breaks != sorted(normalized_breaks):
+    @model_validator(mode="after")
+    def _validate_consistency(self) -> GeneratedBandsSupportConfig:
+        if self.breaks != sorted(self.breaks):
             raise ValueError("domain.supports.<id>.breaks must be strictly increasing.")
-        if len(set(normalized_breaks)) != len(normalized_breaks):
+        if len(set(self.breaks)) != len(self.breaks):
             raise ValueError("domain.supports.<id>.breaks cannot contain duplicates.")
-
-        normalized_labels = [str(raw).strip() for raw in self.labels]
-        if any(label == "" for label in normalized_labels):
+        if any(label == "" for label in self.labels):
             raise ValueError("domain.supports.<id>.labels cannot contain empty values.")
-        if len(normalized_labels) != len(normalized_breaks) + 1:
+        if len(self.labels) != len(self.breaks) + 1:
             raise ValueError("domain.supports.<id>.labels length must be len(breaks) + 1.")
-        if len(set(normalized_labels)) != len(normalized_labels):
+        if len(set(self.labels)) != len(self.labels):
             raise ValueError("domain.supports.<id>.labels cannot contain duplicates.")
-
-        object.__setattr__(self, "breaks", normalized_breaks)
-        object.__setattr__(self, "labels", normalized_labels)
         return self
 
 
 class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
     """Analytical concentric rings centered on one cartesian point."""
 
-    provider: Annotated[Literal["generated_rings"], Profile.USER]
+    kind: Annotated[Literal["generated_rings"], Profile.USER]
     coordinate_mode: Annotated[Literal["relative", "absolute"], Profile.DEV] = "relative"
     radii: Annotated[list[float | str], Profile.USER] = Field(
         default_factory=list,
@@ -131,29 +124,10 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
             "Defaults to the domain midpoint."
         ),
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description="Sub-sampling resolution per cell axis used when rasterizing ring masks.",
     )
-
-    @field_validator("radii", mode="before")
-    @classmethod
-    def _validate_radii_input(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("domain.supports.<id>.radii must be a list")
-        return value
-
-    @field_validator("labels", mode="before")
-    @classmethod
-    def _validate_ring_labels_input(cls, value):
-        if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("domain.supports.<id>.labels must be a list")
-        return value
 
     @field_validator("center_x", "center_y", mode="before")
     @classmethod
@@ -168,73 +142,74 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
             )
         )
 
-    @model_validator(mode="after")
-    def _normalize_and_validate_rings(self) -> GeneratedRingsSupportConfig:
-        normalized_radii: list[float] = []
-        for index, raw_radius in enumerate(self.radii):
-            if self.coordinate_mode == "relative":
-                value = float(raw_radius)
-                if not 0.0 < value < 1.0:
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_radii_and_labels(cls, value):
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        coordinate_mode = str(payload.get("coordinate_mode", "relative")).strip().lower()
+        raw_radii = payload.get("radii") or []
+        if not isinstance(raw_radii, list):
+            return payload
+        normalized: list[float] = []
+        for index, raw_radius in enumerate(raw_radii):
+            if coordinate_mode == "relative":
+                value_m = float(raw_radius)
+                if not 0.0 < value_m < 1.0:
                     raise ValueError(
                         "Relative generated_rings radii must lie strictly between 0 and 1."
                     )
             else:
-                value = float(
+                value_m = float(
                     parse_length_to_m(
                         raw_radius,
                         default_unit="m",
                         label=f"domain.supports.radii[{index}]",
                     )
                 )
-                if value <= 0.0:
+                if value_m <= 0.0:
                     raise ValueError("Absolute generated_rings radii must be > 0.")
-            normalized_radii.append(value)
+            normalized.append(value_m)
+        payload["radii"] = normalized
+        raw_labels = payload.get("labels") or []
+        if isinstance(raw_labels, list):
+            payload["labels"] = [str(raw).strip() for raw in raw_labels]
+        return payload
 
-        if normalized_radii != sorted(normalized_radii):
+    @model_validator(mode="after")
+    def _validate_rings_consistency(self) -> GeneratedRingsSupportConfig:
+        if self.radii != sorted(self.radii):
             raise ValueError("domain.supports.<id>.radii must be strictly increasing.")
-        if len(set(normalized_radii)) != len(normalized_radii):
+        if len(set(self.radii)) != len(self.radii):
             raise ValueError("domain.supports.<id>.radii cannot contain duplicates.")
-
-        normalized_labels = [str(raw).strip() for raw in self.labels]
-        if any(label == "" for label in normalized_labels):
+        if any(label == "" for label in self.labels):
             raise ValueError("domain.supports.<id>.labels cannot contain empty values.")
-        if len(normalized_labels) != len(normalized_radii) + 1:
+        if len(self.labels) != len(self.radii) + 1:
             raise ValueError("domain.supports.<id>.labels length must be len(radii) + 1.")
-        if len(set(normalized_labels)) != len(normalized_labels):
+        if len(set(self.labels)) != len(self.labels):
             raise ValueError("domain.supports.<id>.labels cannot contain duplicates.")
-
-        object.__setattr__(self, "radii", normalized_radii)
-        object.__setattr__(self, "labels", normalized_labels)
         return self
 
 
 class CatchmentZonesSupportConfig(DomainSupportBaseConfig):
     """Support built from catchment/domain zonation already prepared in setup."""
 
-    provider: Annotated[Literal["catchment_zones"], Profile.USER]
-    source_zone_id: Annotated[str, Profile.USER] = Field(
+    kind: Annotated[Literal["catchment_zones"], Profile.USER]
+    source_zone_id: Annotated[NonEmptyStr, Profile.USER] = Field(
         default="catchment",
         description="Domain zone id providing the source catchment zonation.",
     )
-    default_cell_samples_per_axis: Annotated[int, Profile.DEV] = Field(
+    default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
-        ge=2,
         description="Sub-sampling resolution per cell axis used when rasterizing zone masks.",
     )
-
-    @field_validator("source_zone_id", mode="before")
-    @classmethod
-    def _normalize_source_zone_id(cls, value):
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("source_zone_id cannot be empty")
-        return text
 
 
 class GeologySupportConfig(DomainSupportBaseConfig):
     """Support backed by the geology data manager."""
 
-    provider: Annotated[Literal["geology"], Profile.USER]
+    kind: Annotated[Literal["geology"], Profile.USER]
 
 
 DomainSupportConfig = Annotated[
@@ -243,7 +218,7 @@ DomainSupportConfig = Annotated[
     | CatchmentZonesSupportConfig
     | GeologySupportConfig,
     Field(
-        discriminator="provider",
-        description="Discriminated union of spatial-support providers selected by provider tag.",
+        discriminator="kind",
+        description="Discriminated union of spatial-support kinds selected by kind tag.",
     ),
 ]

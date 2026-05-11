@@ -125,8 +125,7 @@ def test_ts_vi_single_cell_recharge_activates_upper_obstacle_reaction(tmp_path) 
         "converged_by_period": [True],
         "runtime_period_diagnostics": [{**result.diagnostics, "period_index": 0}],
         "runtime_ts_step_diagnostics": [
-            {**item, "period_index": 0}
-            for item in result.diagnostics["ts_vi_step_details"]
+            {**item, "period_index": 0} for item in result.diagnostics["ts_vi_step_details"]
         ],
     }
     compact = build_ts_vi_obstacle_runtime_summary(runtime_summary)

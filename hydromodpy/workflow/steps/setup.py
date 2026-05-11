@@ -96,7 +96,13 @@ def resolve_dem_init_path(cfg: object, run_state: WorkflowContext) -> None:
         cache_dir=cache_dir,
     )
     if resolved is not None:
-        geographic_cfg.dem_init_path = resolved
+        catchment = getattr(geographic_cfg, "catchment", None)
+        if catchment is None:
+            raise ConfigError(
+                "geographic.catch_def is required when [[data.dem.sources]] is the "
+                "DEM source. Set geographic.catchment.catch_def."
+            )
+        catchment.dem_init_path = resolved
         return
     raise ConfigError(
         "geographic.dem_init_path is missing and [[data.dem.sources]] did not resolve."
@@ -123,12 +129,9 @@ def collect_requested_support_ids(flow_cfg: object) -> tuple[str, ...]:
     requested: list[str] = []
     seen: set[str] = set()
     for param_cfg in raw_param_cfg.values():
-        if not isinstance(param_cfg, dict):
+        support_id = _heterogeneous_support_id(param_cfg)
+        if support_id is None:
             continue
-        kind = str(param_cfg.get("kind", "")).strip().lower()
-        if kind != "heterogeneous":
-            continue
-        support_id = str(param_cfg.get("field_spatial_id", "")).strip()
         if support_id == "":
             raise ConfigError("Heterogeneous flow parameters require a non-empty field_spatial_id.")
         normalized = support_id.lower()
@@ -139,12 +142,35 @@ def collect_requested_support_ids(flow_cfg: object) -> tuple[str, ...]:
     return tuple(requested)
 
 
+def _heterogeneous_support_id(param_cfg: object) -> str | None:
+    """Return a heterogeneous flow parameter support id, if one is declared."""
+    if isinstance(param_cfg, dict):
+        kind = str(param_cfg.get("kind", "")).strip().lower()
+        if kind == "":
+            field_cfg = param_cfg.get("field")
+            if isinstance(field_cfg, dict):
+                kind = str(field_cfg.get("kind", "")).strip().lower()
+        if kind != "heterogeneous":
+            return None
+        support_id = param_cfg.get("field_spatial_id")
+        if support_id is None and isinstance(param_cfg.get("field"), dict):
+            support_id = param_cfg["field"].get("field_spatial_id")
+        return str(support_id or "").strip()
+
+    field_cfg = getattr(param_cfg, "field", None)
+    kind = str(getattr(field_cfg, "kind", "") or "").strip().lower()
+    if kind != "heterogeneous":
+        return None
+    support_id = getattr(field_cfg, "field_spatial_id", "")
+    return str(support_id or "").strip()
+
+
 def support_provider_names(domain_supports: dict[str, object]) -> tuple[str, ...]:
     """Return the ordered provider names declared by resolved support configs."""
     provider_names: list[str] = []
     seen: set[str] = set()
     for support_cfg in domain_supports.values():
-        provider_name = str(getattr(support_cfg, "provider", "")).strip().lower()
+        provider_name = str(getattr(support_cfg, "kind", "")).strip().lower()
         if provider_name == "" or provider_name in seen:
             continue
         seen.add(provider_name)
@@ -297,7 +323,7 @@ def build_domain_spatial_supports(
             and str(getattr(existing_zone, "identifier", "")).strip() == str(support_id).strip()
         ):
             continue
-        provider = registry.get(getattr(support_cfg, "provider", ""))
+        provider = registry.get(getattr(support_cfg, "kind", ""))
         if str(provider.build_phase).strip().lower() != str(phase).strip().lower():
             continue
         support_field = provider.build(

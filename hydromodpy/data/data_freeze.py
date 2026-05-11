@@ -28,7 +28,7 @@ import tomlkit
 from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 LOCKFILE_NAME = "hydromodpy.lock"
-_LOCKFILE_VERSION = 1
+_LOCKFILE_VERSION = 2
 
 # Process-wide frozen-mode flag. Consulted by data loaders to refuse
 # fresh downloads when a lockfile is authoritative.
@@ -131,7 +131,9 @@ def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArt
         station_id=row.get("station_id"),
         file_path=str(row["file_path"]),
         sha256=str(row.get("sha256") or sha256_of(path)),
-        file_mtime=float(row["file_mtime"]) if row.get("file_mtime") is not None else None,
+        file_mtime=round(float(row["file_mtime"]), 6)
+        if row.get("file_mtime") is not None
+        else None,
         size_bytes=size,
         fetched_at=_now_iso(),
     )
@@ -140,8 +142,18 @@ def _entry_to_locked(row: dict[str, Any], *, base_dir: Path | None) -> LockedArt
 # ---------------------------------------------------------------------- public
 
 
-def write_lockfile(catalog: DataCatalogDuckDB, dest: Path | str) -> Path:
-    """Freeze every cached artefact into *dest* (TOML)."""
+def write_lockfile(
+    catalog: DataCatalogDuckDB,
+    dest: Path | str,
+    *,
+    schema_sha256: str | None = None,
+) -> Path:
+    """Freeze every cached artefact into *dest* (TOML).
+
+    When *schema_sha256* is provided, it is recorded in the ``[schema]``
+    section so consumers can detect that the configuration schema has
+    changed between freeze and replay.
+    """
     dest = Path(dest)
     rows = (
         catalog.connection.execute(
@@ -155,6 +167,10 @@ def write_lockfile(catalog: DataCatalogDuckDB, dest: Path | str) -> Path:
     doc = tomlkit.document()
     doc.add("version", _LOCKFILE_VERSION)
     doc.add("generated_at", _now_iso())
+    if schema_sha256 is not None:
+        schema_table = tomlkit.table()
+        schema_table.add("sha256", schema_sha256)
+        doc.add("schema", schema_table)
     artefacts = tomlkit.aot()
     base_dir = _catalog_base_dir(catalog)
     for row in rows:
@@ -179,6 +195,16 @@ def write_lockfile(catalog: DataCatalogDuckDB, dest: Path | str) -> Path:
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(tomlkit.dumps(doc))
     return dest
+
+
+def read_lockfile_schema_sha256(path: Path | str) -> str | None:
+    """Return the ``schema.sha256`` recorded in the lockfile, when present."""
+    doc = tomlkit.parse(Path(path).read_text())
+    schema = doc.get("schema")
+    if not isinstance(schema, dict):
+        return None
+    value = schema.get("sha256")
+    return str(value) if value is not None else None
 
 
 def read_lockfile(path: Path | str) -> list[LockedArtifact]:

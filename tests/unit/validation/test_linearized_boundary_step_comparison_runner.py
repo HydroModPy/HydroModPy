@@ -12,7 +12,7 @@ from validation_cases.analytical.transient.linearized_unconfined_boundary_step_1
 def test_boundary_step_comparison_runner_uses_canonical_section(tmp_path: Path) -> None:
     payload = run_comparison._build_payload(output_root=tmp_path, run_simulations=True)
 
-    assert payload["workflow"] == "comparison"
+    assert payload["workflow"] == {"mode": "comparison"}
     assert "comparison" in payload
 
     comparison = payload["comparison"]

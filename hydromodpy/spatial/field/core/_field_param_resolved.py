@@ -9,7 +9,6 @@ from collections.abc import Mapping
 from typing import Annotated, Any
 
 from pydantic import (
-    ConfigDict,
     Field,
     ValidationError,
     field_validator,
@@ -18,20 +17,19 @@ from pydantic import (
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr
 from hydromodpy.spatial.field.core._field_param_sections import (
     FieldKind,
     FieldVerticalProfileSection,
     HeterogeneousValueSource,
 )
-from hydromodpy.spatial.field.core._field_param_units import normalize_unit_token
+from hydromodpy.spatial.field.core._field_param_units import UnitStr
 
 
 class ResolvedFieldParam(HydroModelBase):
     """Schema for a fully resolved field-parameter payload."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    id: Annotated[str | None, Profile.DEV] = Field(
+    id: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter identifier.",
     )
@@ -39,7 +37,7 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Resolved parameter kind: homogeneous or heterogeneous.",
     )
-    unit: Annotated[str | None, Profile.DEV] = Field(
+    unit: Annotated[UnitStr, Profile.DEV] = Field(
         default=None,
         description="Resolved parameter unit (canonical token).",
     )
@@ -47,11 +45,11 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Resolved scalar value for homogeneous kind.",
     )
-    values: Annotated[dict[str, object] | None, Profile.DEV] = Field(
+    values: Annotated[dict[str, float | str] | None, Profile.DEV] = Field(
         default=None,
         description="Resolved mapping for heterogeneous kind.",
     )
-    field_spatial_id: Annotated[str | None, Profile.DEV] = Field(
+    field_spatial_id: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description="Resolved spatial field identifier for heterogeneous kind.",
     )
@@ -59,15 +57,15 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Optional helper flag describing heterogeneous values source.",
     )
-    values_csv_file: Annotated[str | None, Profile.DEV] = Field(
+    values_csv_file: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV path used before resolution.",
     )
-    csv_key_column: Annotated[str | None, Profile.DEV] = Field(
+    csv_key_column: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV key column used before resolution.",
     )
-    csv_value_column: Annotated[str | None, Profile.DEV] = Field(
+    csv_value_column: Annotated[NonEmptyStr | None, Profile.DEV] = Field(
         default=None,
         description="Optional helper CSV value column used before resolution.",
     )
@@ -75,21 +73,6 @@ class ResolvedFieldParam(HydroModelBase):
         default=None,
         description="Resolved optional depth profile configuration.",
     )
-
-    @field_validator("id")
-    @classmethod
-    def _validate_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("id cannot be empty")
-        return text
-
-    @field_validator("unit")
-    @classmethod
-    def _validate_unit(cls, value):
-        return normalize_unit_token(value)
 
     @field_validator("value")
     @classmethod
@@ -107,12 +90,12 @@ class ResolvedFieldParam(HydroModelBase):
             return token
         raise TypeError("value must be numeric or '<number> <unit>'")
 
-    @field_validator("values")
+    @field_validator("values", mode="before")
     @classmethod
     def _validate_values(cls, value):
         if value is None:
             return None
-        values: dict[str, object] = {}
+        values: dict[str, float | str] = {}
         for key, raw_value in dict(value).items():
             key_text = str(key)
             if isinstance(raw_value, bool):
@@ -133,26 +116,6 @@ class ResolvedFieldParam(HydroModelBase):
             raise ValueError("values cannot contain empty keys")
         return values
 
-    @field_validator("values_csv_file", "csv_key_column", "csv_value_column")
-    @classmethod
-    def _validate_optional_non_empty(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if text == "":
-            raise ValueError("value cannot be empty when provided")
-        return text
-
-    @field_validator("field_spatial_id")
-    @classmethod
-    def _validate_optional_field_spatial_id(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("field_spatial_id cannot be empty when provided")
-        return text
-
     @model_validator(mode="after")
     def _validate_by_kind(self):
         if self.kind is None:
@@ -160,15 +123,18 @@ class ResolvedFieldParam(HydroModelBase):
         if self.kind == "homogeneous":
             if self.value is None:
                 raise ValueError("Homogeneous field requires 'value'")
-            object.__setattr__(self, "values", None)
-            object.__setattr__(self, "field_spatial_id", None)
+            if self.values is not None:
+                self.values = None
+            if self.field_spatial_id is not None:
+                self.field_spatial_id = None
             return self
 
         if self.values is None:
             raise ValueError("Heterogeneous field requires 'values'")
         if self.field_spatial_id is None:
             raise ValueError("Heterogeneous field requires 'field_spatial_id'")
-        object.__setattr__(self, "value", None)
+        if self.value is not None:
+            self.value = None
         return self
 
 

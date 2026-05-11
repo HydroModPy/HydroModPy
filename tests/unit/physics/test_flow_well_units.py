@@ -77,7 +77,7 @@ def test_flow_accepts_well_forcing_without_flux() -> None:
                 "W1": {
                     "cell": [0, 0, 0],
                     "units": "m3/day",
-                    "forcing": {"mode": "constant", "value": -100.0},
+                    "forcing": {"kind": "constant", "value": -100.0},
                 }
             }
         )

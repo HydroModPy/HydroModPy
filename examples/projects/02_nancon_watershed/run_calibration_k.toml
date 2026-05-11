@@ -7,7 +7,7 @@
 #
 # Sy, Ss and aquifer thickness are frozen at their baseline value.
 #
-# `hmp run` reads `workflow = "calibration"` and dispatches to the
+# `hmp run` reads `[workflow].mode = "calibration"` and dispatches to the
 # calibration ask/tell loop. Each iteration forks the prepared context
 # and runs a real MODFLOW-NWT simulation in lightweight mode (no per
 # iteration Zarr / Parquet by default).
@@ -26,8 +26,10 @@ base_config = "project.toml"
 
 # `calibration` switches the dispatcher to the ask/tell loop instead of
 # the single-run pipeline. Required: a [calibration] block (below).
-workflow = "calibration"
 
+
+[workflow]
+mode = "calibration"
 
 [simulation]
 name = "nancon_calibration_k"
@@ -51,15 +53,15 @@ solvers = ["modflownwt"]
 [domain.depth_model]
 thickness = 30.0
 
-[flow.param.Sy.field_homogeneous]
+[flow.param.Sy.field]
 value = 0.05
 
-[flow.param.Ss.field_homogeneous]
+[flow.param.Ss.field]
 value = 1e-5
 
 
 # ---- Calibration -----------------------------------------------------
-# The mere presence of [calibration] (with `workflow = "calibration"`)
+# The mere presence of [calibration] (with `[workflow].mode = "calibration"`)
 # triggers the calibration workflow. Each parameter declares:
 #   bounds     : [low, high] in the physical space
 #   transform  : 'log' for K (strictly positive, multi-decade range)
@@ -71,7 +73,7 @@ value = 1e-5
 # Optuna is the recommended sampler (Tree-structured Parzen Estimator).
 method = "optuna"
 # 40 trials is a small budget; bump it for production runs.
-max_iter = 5
+max_iter = 3
 # One trial per ask (sequential). Increase for parallel optimisers.
 batch_size = 1
 # `best_n` promotes the top iterations to full simulations after the
@@ -96,9 +98,6 @@ use_cache = true
 bounds = [1e-6, 1e-3]
 transform = "log"
 prior = "log_uniform"
-# Dotted path written at each iteration. Pydantic flattens the
-# [flow.param.K.field_homogeneous] subsection into a flat dict at
-# validation time, so the runtime key is `flow.param.K.value` (not
-# `flow.param.K.field_homogeneous.value` as on disk).
-path = "flow.param.K.value"
+# Dotted path written at each iteration.
+path = "flow.param.K.field.value"
 units = "m/s"

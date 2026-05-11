@@ -1,4 +1,6 @@
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/10km2_natural_mesh_recharge/workspace"
@@ -43,7 +45,7 @@ right_to_left_amplitude = 40.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "50.0 m"
 
 [flow]
@@ -57,8 +59,6 @@ runtime_max_iterations = 80
 id = "K"
 kind = "homogeneous"
 unit = "m/s"
-
-[flow.param.K.field_homogeneous]
 value = "1e-5 m/s"
 
 [flow.ic]
@@ -66,11 +66,11 @@ type = "custom"
 value = "190.0 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "210.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "170.0 m"
 
 [flow.sinks_sources.recharge]

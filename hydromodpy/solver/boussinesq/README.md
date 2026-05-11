@@ -269,7 +269,7 @@ The recommended documentation set for this package is intentionally small:
 1. this `README.md`
 2. `boussinesq_math_notes.tex`
 3. RTD architecture page
-   `docs/readthedocs/source/architecture/solver/boussinesq-uml-diagrams.rst`
+   `docs/source/architecture/solver/boussinesq-uml-diagrams.rst`
 4. architecture audit
    `reporting/boussinesq_module_audit_2026-04-17.md`
 

@@ -46,6 +46,8 @@ from hydromodpy.solver.boussinesq.runtimes.vi_bounds import (
     variable_bounds as _variable_bounds,
 )
 
+_DEFAULT_PC_FACTOR_SHIFT_AMOUNT = 1.0e-10
+
 
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
     """Solve one transient implicit step as a PETSc bounded VI in head only."""
@@ -83,9 +85,7 @@ def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
         # rescale rate-based forcing values.
         for substep_index in range(int(n_substeps)):
             substep_initial = (
-                head_initial
-                if attempt_index == 0 and substep_index == 0
-                else head_current
+                head_initial if attempt_index == 0 and substep_index == 0 else head_current
             )
             substep = _solve_transient_vi_substep(
                 inputs=inputs,
@@ -413,8 +413,7 @@ def _period_substep_diagnostics(
     """Return period-level diagnostics, preserving final SNESVI diagnostics."""
     diagnostics = dict(final_result.diagnostics or {})
     attempted_substeps = [
-        int(item.get("n_substeps", used_substeps) or used_substeps)
-        for item in attempt_summaries
+        int(item.get("n_substeps", used_substeps) or used_substeps) for item in attempt_summaries
     ]
     diagnostics.update(
         {
@@ -553,6 +552,7 @@ def _solve_vi_obstacle_problem(
     snes.setJacobian(_jacobian, jacobian, jacobian)
     snes.setVariableBounds(lower_vec, upper_vec)
     _configure_vi_snes(
+        PETSc,
         snes,
         tol_residual_inf=float(tol_residual_inf),
         max_iterations=int(max_iterations),
@@ -642,6 +642,7 @@ def _solve_vi_obstacle_problem(
 
 
 def _configure_vi_snes(
+    PETSc,
     snes,
     *,
     tol_residual_inf: float,
@@ -664,6 +665,10 @@ def _configure_vi_snes(
         pc = ksp.getPC()
         if pc is not None:
             pc.setType("lu")
+            pc.setFactorShift(
+                PETSc.Mat.FactorShiftType.NONZERO,
+                _DEFAULT_PC_FACTOR_SHIFT_AMOUNT,
+            )
             pc.setFromOptions()
         ksp.setFromOptions()
     snes.setFromOptions()

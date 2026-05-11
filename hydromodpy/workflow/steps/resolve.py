@@ -19,11 +19,11 @@ Outputs
 
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
 from typing import ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.workflow.internals.state import PipelineState, ResolvedState, ValidatedState
 
 
@@ -54,8 +54,7 @@ class ResolveStep:
 
             raw_toml = state.get("raw_toml")
             if raw_toml is None:
-                with open(config_path, "rb") as fh:
-                    raw_toml = tomllib.load(fh)
+                raw_toml = load_toml_with_base_config(config_path)
 
             ctx = WorkflowContext(cfg=cfg, config_path=config_path, raw_toml=raw_toml)
         else:

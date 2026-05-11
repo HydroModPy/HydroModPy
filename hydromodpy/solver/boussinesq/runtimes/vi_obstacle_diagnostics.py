@@ -224,9 +224,7 @@ def build_vi_obstacle_runtime_summary(summary: Mapping[str, Any]) -> dict[str, A
         "runtime_engine": summary.get("runtime_engine"),
         "runtime_engine_id": summary.get("runtime_engine_id"),
         "surface_interaction_model": summary.get("surface_interaction_model_resolved"),
-        "surface_interaction_model_requested": summary.get(
-            "surface_interaction_model_requested"
-        ),
+        "surface_interaction_model_requested": summary.get("surface_interaction_model_requested"),
         "snes_type": last_substep.get("snes_type") or summary.get("snes_type"),
         "ksp_type": last_substep.get("ksp_type") or summary.get("ksp_type"),
         "pc_type": last_substep.get("pc_type") or summary.get("pc_type"),

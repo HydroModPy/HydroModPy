@@ -53,35 +53,60 @@ def _root_model() -> type[BaseModel]:
 
 
 def _resolve_field(path: str) -> tuple[type[BaseModel], str, FieldInfo]:
-    """Walk the root model and return ``(owner_cls, leaf_name, FieldInfo)``."""
+    """Walk the root model and return ``(owner_cls, leaf_name, FieldInfo)``.
+
+    When a mid-path field is a discriminated union of BaseModels, this helper
+    searches every variant for the next path segment and picks the one that
+    declares it. That avoids the false-positive a naive "take the first
+    BaseModel" strategy would produce when only one variant declares the leaf.
+    """
     parts = _split_path(path)
-    current: type[BaseModel] = _root_model()
+    candidates: list[type[BaseModel]] = [_root_model()]
     for name in parts[:-1]:
-        if name not in current.model_fields:
-            raise KeyError(f"unknown field {name!r} while resolving {path!r} in {current.__name__}")
-        annotation = current.model_fields[name].annotation
-        nested = _unwrap_basemodel(annotation)
-        if nested is None:
-            # Mid-path points to a leaf (e.g. dict[str, float]); bail out
-            # and let caller treat as a dynamic payload.
-            raise KeyError(f"mid-path field {name!r} in {path!r} is not a nested model")
-        current = nested
+        next_candidates: list[type[BaseModel]] = []
+        seen: set[type[BaseModel]] = set()
+        for cls in candidates:
+            if name not in cls.model_fields:
+                continue
+            annotation = cls.model_fields[name].annotation
+            for nested in _iter_basemodels(annotation):
+                if nested in seen:
+                    continue
+                seen.add(nested)
+                next_candidates.append(nested)
+        if not next_candidates:
+            current_name = candidates[0].__name__ if candidates else "?"
+            raise KeyError(f"unknown field {name!r} while resolving {path!r} in {current_name}")
+        candidates = next_candidates
 
     leaf = parts[-1]
-    if leaf not in current.model_fields:
-        raise KeyError(f"unknown leaf {leaf!r} in {current.__name__}")
-    return current, leaf, current.model_fields[leaf]
+    for cls in candidates:
+        if leaf in cls.model_fields:
+            return cls, leaf, cls.model_fields[leaf]
+    raise KeyError(f"unknown leaf {leaf!r} in {candidates[0].__name__}")
 
 
-def _unwrap_basemodel(annotation: Any) -> type[BaseModel] | None:
-    """Return the inner BaseModel class of an annotation or ``None``."""
-    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
-        return annotation
-    for arg in getattr(annotation, "__args__", ()) or ():
-        inner = _unwrap_basemodel(arg)
-        if inner is not None:
-            return inner
-    return None
+def _iter_basemodels(annotation: Any) -> list[type[BaseModel]]:
+    """Return every BaseModel subclass reachable through *annotation*.
+
+    Unlike a "first match" unwrap, this enumerates every variant of a
+    discriminated or plain union so the caller can resolve a path against
+    each candidate and pick the one that declares the next segment.
+    """
+    found: list[type[BaseModel]] = []
+    seen: set[type[BaseModel]] = set()
+
+    def _walk(node: Any) -> None:
+        if isinstance(node, type) and issubclass(node, BaseModel):
+            if node not in seen:
+                seen.add(node)
+                found.append(node)
+            return
+        for arg in getattr(node, "__args__", ()) or ():
+            _walk(arg)
+
+    _walk(annotation)
+    return found
 
 
 @lru_cache(maxsize=512)

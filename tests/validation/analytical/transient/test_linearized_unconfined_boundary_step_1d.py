@@ -79,7 +79,9 @@ def test_linearized_unconfined_boundary_step_1d_matches_reference_profiles(
 @pytest.mark.analytical
 @pytest.mark.transient
 @pytest.mark.petsc
-def test_linearized_unconfined_boundary_step_1d_petsc_ts_vi_obstacle_matches_reference_profiles() -> None:
+def test_linearized_unconfined_boundary_step_1d_petsc_ts_vi_obstacle_matches_reference_profiles() -> (
+    None
+):
     """Run the analytical boundary-step case through PETSc TS VI obstacle."""
     _require_linux_petsc4py()
 

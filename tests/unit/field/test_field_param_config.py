@@ -21,8 +21,6 @@ def test_load_field_param_toml_validates_sections(tmp_path: Path):
             id = "K"
             kind = "heterogeneous"
             unit = "m/s"
-
-            [field_heterogeneous]
             values = { granite = 10.0, micaschists = 2.0 }
             field_spatial_id = "field_square"
             """),
@@ -32,21 +30,17 @@ def test_load_field_param_toml_validates_sections(tmp_path: Path):
     assert payload["field"]["id"] == "K"
     assert payload["field"]["kind"] == "heterogeneous"
     assert payload["field"]["unit"] == "m/s"
-    assert payload["field_heterogeneous"]["field_spatial_id"] == "field_square"
+    assert payload["field"]["field_spatial_id"] == "field_square"
 
 
-def test_load_field_param_toml_accepts_empty_inactive_mode_sections(tmp_path: Path):
-    path = tmp_path / "field_param_with_empty_inactive_sections.toml"
+def test_load_field_param_toml_accepts_heterogeneous_payload(tmp_path: Path):
+    path = tmp_path / "field_param_heterogeneous.toml"
     path.write_text(
         textwrap.dedent("""
             [field]
             id = "K"
             kind = "heterogeneous"
             unit = "m/s"
-
-            [field_homogeneous]
-
-            [field_heterogeneous]
             values = { granite = 10.0, micaschists = 2.0 }
             field_spatial_id = "field_square"
             """),
@@ -55,8 +49,7 @@ def test_load_field_param_toml_accepts_empty_inactive_mode_sections(tmp_path: Pa
     payload = load_field_param_toml(path)
     assert payload["field"]["kind"] == "heterogeneous"
     assert payload["field"]["unit"] == "m/s"
-    assert payload["field_heterogeneous"]["field_spatial_id"] == "field_square"
-    assert payload["field_homogeneous"] == {}
+    assert payload["field"]["field_spatial_id"] == "field_square"
 
 
 def test_load_field_param_toml_accepts_unit_alias_for_dimensionless(tmp_path: Path):
@@ -67,8 +60,6 @@ def test_load_field_param_toml_accepts_unit_alias_for_dimensionless(tmp_path: Pa
             id = "Sy"
             kind = "homogeneous"
             unit = "dimensionless"
-
-            [field_homogeneous]
             value = 0.2
             """),
         encoding="utf-8",
@@ -85,8 +76,6 @@ def test_load_field_param_toml_accepts_hourly_k_unit(tmp_path: Path):
             id = "K"
             kind = "homogeneous"
             unit = "m/h"
-
-            [field_homogeneous]
             value = 0.01
             """),
         encoding="utf-8",
@@ -103,8 +92,6 @@ def test_load_field_param_toml_rejects_unknown_unit(tmp_path: Path):
             id = "K"
             kind = "homogeneous"
             unit = "foo/bar"
-
-            [field_homogeneous]
             value = 1.0
             """),
         encoding="utf-8",
@@ -113,21 +100,19 @@ def test_load_field_param_toml_rejects_unknown_unit(tmp_path: Path):
         _ = load_field_param_toml(path)
 
 
-def test_load_field_param_toml_rejects_unknown_field_homogeneous_key(tmp_path: Path):
+def test_load_field_param_toml_rejects_unknown_field_key(tmp_path: Path):
     path = tmp_path / "field_param_invalid.toml"
     path.write_text(
         textwrap.dedent("""
             [field]
             id = "K"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 12.5
             unexpected = 1
             """),
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="field_homogeneous"):
+    with pytest.raises(ValueError, match="field"):
         _ = load_field_param_toml(path)
 
 
@@ -141,8 +126,6 @@ def test_load_field_param_toml_rejects_field_common_section(tmp_path: Path):
 
             [field_common]
             id = "K"
-
-            [field_homogeneous]
             value = 12.5
             """),
         encoding="utf-8",
@@ -221,8 +204,6 @@ def test_load_field_param_toml_accepts_csv_values_source(tmp_path: Path):
             [field]
             id = "K"
             kind = "heterogeneous"
-
-            [field_heterogeneous]
             values_source = "csv"
             values_csv_file = "mapping.csv"
             csv_key_column = "zone_key"
@@ -232,7 +213,7 @@ def test_load_field_param_toml_accepts_csv_values_source(tmp_path: Path):
         encoding="utf-8",
     )
     payload = load_field_param_toml(path)
-    hetero = payload["field_heterogeneous"]
+    hetero = payload["field"]
     assert hetero["values_source"] == "csv"
     assert hetero["values_csv_file"] == "mapping.csv"
     assert hetero["field_spatial_id"] == "field_geology"
@@ -245,8 +226,6 @@ def test_load_field_param_toml_rejects_csv_source_without_file(tmp_path: Path):
             [field]
             id = "K"
             kind = "heterogeneous"
-
-            [field_heterogeneous]
             values_source = "csv"
             field_spatial_id = "field_geology"
             """),
@@ -263,8 +242,6 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential(tmp_path: Pa
             [field]
             id = "K"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]
@@ -289,8 +266,6 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential_with_min_fac
             [field]
             id = "K"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]
@@ -317,8 +292,6 @@ def test_load_field_param_toml_accepts_vertical_profile_exponential_characterist
             [field]
             id = "K"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]
@@ -343,8 +316,6 @@ def test_load_field_param_toml_rejects_vertical_profile_exponential_with_invalid
             [field]
             id = "K"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]
@@ -368,8 +339,6 @@ def test_load_field_param_toml_rejects_vertical_profile_exponential_without_dept
             [field]
             id = "K"
             kind = "homogeneous"
-
-            [field_homogeneous]
             value = 10.0
 
             [field_vertical_profile]
