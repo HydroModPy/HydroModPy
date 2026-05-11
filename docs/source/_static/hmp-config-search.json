@@ -2,13 +2,13 @@
   {
     "path": "workflow.mode",
     "name": "mode",
-    "type": "Literal['simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed']",
+    "type": "Literal['simulation', 'calibration', 'overview', 'comparison', 'testbed']",
     "profile": "user",
     "stability": "stable",
     "section": "workflow",
     "anchor": "workflow-mode",
     "page": "workflow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L87",
     "description": "Workflow mode dispatched by `hmp run`."
   },
   {
@@ -4937,7 +4937,7 @@
     "section": "flow",
     "anchor": "flow-param-list",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L136",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L193",
     "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
     "examples": [
       "[\"K\", \"Sy\", \"Ss\"]"
@@ -4952,7 +4952,7 @@
     "section": "flow",
     "anchor": "flow-param",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L144",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L201",
     "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads."
   },
   {
@@ -5216,19 +5216,19 @@
     "section": "flow",
     "anchor": "flow-ic",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L182",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L239",
     "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition)."
   },
   {
     "path": "flow.ic.h",
     "name": "h",
-    "type": "FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom",
+    "type": "FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom | FlowICSteadyState",
     "profile": "user",
     "stability": "stable",
     "section": "flow",
     "anchor": "flow-ic-h",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L137",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L169",
     "description": "Hydraulic-head initial condition payload."
   },
   {
@@ -5240,7 +5240,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L61",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L62",
     "description": ""
   },
   {
@@ -5252,7 +5252,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L61",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L62",
     "description": ""
   },
   {
@@ -5264,7 +5264,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L66",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L67",
     "description": ""
   },
   {
@@ -5276,7 +5276,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L61",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L62",
     "description": ""
   },
   {
@@ -5288,7 +5288,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L65",
     "description": ""
   },
   {
@@ -5300,7 +5300,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L71",
     "description": ""
   },
   {
@@ -5312,7 +5312,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L77",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L78",
     "description": ""
   },
   {
@@ -5324,7 +5324,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L76",
     "description": ""
   },
   {
@@ -5336,7 +5336,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L71",
     "description": ""
   },
   {
@@ -5348,7 +5348,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L73",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L74",
     "description": ""
   },
   {
@@ -5360,7 +5360,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-bottom-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L83",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84",
     "description": ""
   },
   {
@@ -5372,7 +5372,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-bottom-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L83",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84",
     "description": ""
   },
   {
@@ -5384,7 +5384,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-bottom-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L88",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L89",
     "description": ""
   },
   {
@@ -5396,7 +5396,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-bottom-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L83",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84",
     "description": ""
   },
   {
@@ -5408,7 +5408,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-bottom-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L86",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L87",
     "description": ""
   },
   {
@@ -5420,7 +5420,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L92",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L93",
     "description": ""
   },
   {
@@ -5432,7 +5432,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L99",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L100",
     "description": ""
   },
   {
@@ -5444,7 +5444,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L98",
     "description": ""
   },
   {
@@ -5456,7 +5456,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L92",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L93",
     "description": ""
   },
   {
@@ -5468,7 +5468,103 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L95",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L96",
+    "description": ""
+  },
+  {
+    "path": "flow.ic.h.steady_state.id",
+    "name": "id",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ic-h-steady-state-id",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106",
+    "description": ""
+  },
+  {
+    "path": "flow.ic.h.steady_state.value",
+    "name": "value",
+    "type": "object | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ic-h-steady-state-value",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106",
+    "description": ""
+  },
+  {
+    "path": "flow.ic.h.steady_state.description",
+    "name": "description",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ic-h-steady-state-description",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L111",
+    "description": ""
+  },
+  {
+    "path": "flow.ic.h.steady_state.units",
+    "name": "units",
+    "type": "str",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ic-h-steady-state-units",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106",
+    "description": ""
+  },
+  {
+    "path": "flow.ic.h.steady_state.type",
+    "name": "type",
+    "type": "Literal['steady_state']",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ic-h-steady-state-type",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L109",
+    "description": ""
+  },
+  {
+    "path": "flow.ic.h.steady_state.source",
+    "name": "source",
+    "type": "Optional[Literal['recharge', 'mean_recharge']]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ic-h-steady-state-source",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L116",
+    "description": ""
+  },
+  {
+    "path": "flow.ic.h.steady_state.recharge_statistic",
+    "name": "recharge_statistic",
+    "type": "Optional[Literal['time_mean']]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ic-h-steady-state-recharge-statistic",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L124",
+    "description": ""
+  },
+  {
+    "path": "flow.ic.h.steady_state.boundary_condition_policy",
+    "name": "boundary_condition_policy",
+    "type": "Optional[Literal['first_period']]",
+    "profile": "user",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ic-h-steady-state-boundary-condition-policy",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L128",
     "description": ""
   },
   {
@@ -5480,7 +5576,7 @@
     "section": "flow",
     "anchor": "flow-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L148",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L205",
     "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``"
   },
   {
@@ -5936,7 +6032,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L189",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L246",
     "description": "Typed sinks/sources payload (for example pumping wells)."
   },
   {
@@ -6488,7 +6584,7 @@
     "section": "flow",
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L193",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L250",
     "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
     "examples": [
       "[\"recharge\"]",
@@ -6504,8 +6600,8 @@
     "section": "flow",
     "anchor": "flow-active-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L202",
-    "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L259",
+    "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An em",
     "examples": [
       "[\"ocean\"]",
       "[\"west_side\", \"east_side\", \"drainage\"]"
@@ -6520,7 +6616,7 @@
     "section": "flow",
     "anchor": "flow-flow-regime",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L65",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L67",
     "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
     "examples": [
       "\"steady\"",
@@ -6536,7 +6632,7 @@
     "section": "flow",
     "anchor": "flow-runtime-backend",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L81",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L83",
     "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.",
     "examples": [
       "\"local\"",
@@ -6546,14 +6642,14 @@
   {
     "path": "flow.surface_interaction_model",
     "name": "surface_interaction_model",
-    "type": "Literal['auto', 'regularized_partition', 'complementarity']",
+    "type": "Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']",
     "profile": "dev",
     "stability": "experimental",
     "section": "flow",
     "anchor": "flow-surface-interaction-model",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L92",
-    "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical b",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L94",
+    "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experi",
     "examples": [
       "\"auto\"",
       "\"regularized_partition\""
@@ -6568,7 +6664,7 @@
     "section": "flow",
     "anchor": "flow-runtime-max-iterations",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L107",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L116",
     "description": "Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend."
   },
   {
@@ -6580,7 +6676,7 @@
     "section": "flow",
     "anchor": "flow-runtime-tol-residual-inf",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L122",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L131",
     "description": "Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend."
   },
   {
@@ -6592,8 +6688,116 @@
     "section": "flow",
     "anchor": "flow-runtime-tol-state-update-inf",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L129",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L138",
     "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it."
+  },
+  {
+    "path": "flow.vi_substeps_per_period",
+    "name": "vi_substeps_per_period",
+    "type": "int",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-vi-substeps-per-period",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L145",
+    "description": "Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep."
+  },
+  {
+    "path": "flow.vi_substep_on_failure",
+    "name": "vi_substep_on_failure",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-vi-substep-on-failure",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L153",
+    "description": "When true, retry a failed PETSc VI obstacle stress period with increasing substep counts."
+  },
+  {
+    "path": "flow.vi_max_adaptive_substeps",
+    "name": "vi_max_adaptive_substeps",
+    "type": "int | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-vi-max-adaptive-substeps",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L160",
+    "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries."
+  },
+  {
+    "path": "flow.ts_vi_steps_per_period",
+    "name": "ts_vi_steps_per_period",
+    "type": "int",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-steps-per-period",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L166",
+    "description": "Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime."
+  },
+  {
+    "path": "flow.ts_vi_adapt",
+    "name": "ts_vi_adapt",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-adapt",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L173",
+    "description": "Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime."
+  },
+  {
+    "path": "flow.ts_vi_dt_min_fraction",
+    "name": "ts_vi_dt_min_fraction",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-dt-min-fraction",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L177",
+    "description": "Minimum TS VI time-step as a fraction of the stress-period length."
+  },
+  {
+    "path": "flow.ts_vi_dt_max_fraction",
+    "name": "ts_vi_dt_max_fraction",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-dt-max-fraction",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L181",
+    "description": "Maximum TS VI time-step as a fraction of the stress-period length."
+  },
+  {
+    "path": "flow.ts_vi_type",
+    "name": "ts_vi_type",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-type",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L185",
+    "description": "PETSc TS type for the experimental TS VI obstacle runtime."
+  },
+  {
+    "path": "flow.ts_vi_snes_type",
+    "name": "ts_vi_snes_type",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-snes-type",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L189",
+    "description": "PETSc SNES type for the experimental TS VI obstacle runtime."
   },
   {
     "path": "transport.active_sinks_sources",
@@ -7024,7 +7228,7 @@
     "section": "simulation",
     "anchor": "simulation-name",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L210",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L254",
     "description": "Human-readable simulation name."
   },
   {
@@ -7036,7 +7240,7 @@
     "section": "simulation",
     "anchor": "simulation-run-id",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L257",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L301",
     "description": "Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).",
     "examples": [
       "\"steady_nwt\""
@@ -7051,7 +7255,7 @@
     "section": "simulation",
     "anchor": "simulation-on-collision",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L266",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L310",
     "description": "Behavior when registering a simulation whose ``name`` already exists in this project. ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3"
   },
   {
@@ -7063,7 +7267,7 @@
     "section": "simulation",
     "anchor": "simulation-description",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L259",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L303",
     "description": "Short free-text description of the simulation intent."
   },
   {
@@ -7075,7 +7279,7 @@
     "section": "simulation",
     "anchor": "simulation-scientific-objective",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L282",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L326",
     "description": "Scientific objective used for catalog and ML stratification."
   },
   {
@@ -7087,7 +7291,7 @@
     "section": "simulation",
     "anchor": "simulation-contact-email",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L286",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L330",
     "description": "Contact email for the simulation metadata."
   },
   {
@@ -7099,7 +7303,7 @@
     "section": "simulation",
     "anchor": "simulation-doi",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L290",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L334",
     "description": "DOI or reference identifier for the simulation metadata."
   },
   {
@@ -7111,7 +7315,7 @@
     "section": "simulation",
     "anchor": "simulation-study-area-name",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L294",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L338",
     "description": "Human-readable study area name."
   },
   {
@@ -7123,7 +7327,7 @@
     "section": "simulation",
     "anchor": "simulation-outlet-x",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L298",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L342",
     "description": "Outlet X coordinate in the project CRS units."
   },
   {
@@ -7135,7 +7339,7 @@
     "section": "simulation",
     "anchor": "simulation-outlet-y",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L302",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L346",
     "description": "Outlet Y coordinate in the project CRS units."
   },
   {
@@ -7147,7 +7351,7 @@
     "section": "simulation",
     "anchor": "simulation-time",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L207",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L251",
     "description": "Optional canonical simulation window used to align solver temporal settings and validate forcing coverage. Required for launcher flow processes and for runtime features that explicitly consume simulation-window dates."
   },
   {
@@ -7241,7 +7445,7 @@
     "section": "simulation",
     "anchor": "simulation-process",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L231",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L275",
     "description": "Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported."
   },
   {
@@ -7281,7 +7485,19 @@
     "anchor": "simulation-process-solvers",
     "page": "simulation.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L166",
-    "description": "Ordered list of active solver names for this process. Each listed solver is executed in order."
+    "description": "Ordered list of active solver names for this process. Each listed solver is executed in order. Required for solver-backed processes such as flow and transport."
+  },
+  {
+    "path": "simulation.process.backend",
+    "name": "backend",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-process-backend",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L174",
+    "description": "Backend used by non-solver orchestration processes. Currently only used by type='mesh', where backend='catchment' delegates to the [mesh_catchment] runtime."
   },
   {
     "path": "simulation.results",
@@ -7292,7 +7508,7 @@
     "section": "simulation",
     "anchor": "simulation-results",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L322",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L366",
     "description": "Results storage and export configuration loaded from [simulation.results]. Controls SimulationCatalog, derived variables, and automated exports."
   },
   {
@@ -7304,7 +7520,7 @@
     "section": "simulation",
     "anchor": "simulation-results-persistence",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L140",
     "description": "Simulation-run persistence switch passed to the result catalog (DuckDB rows, Zarr fields, Parquet tables, lockfile)."
   },
   {
@@ -7388,7 +7604,7 @@
     "section": "simulation",
     "anchor": "simulation-results-keep-solver-files",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L139",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L147",
     "description": "Keep raw solver output files (.hds, .cbc, .lst) after ingestion."
   },
   {
@@ -7400,7 +7616,7 @@
     "section": "simulation",
     "anchor": "simulation-results-solver-scratch",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L143",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L151",
     "description": "Directory for temporary solver files, relative to the project. Use an absolute path (e.g. /scratch/$USER/hmp) for HPC."
   },
   {
@@ -7412,7 +7628,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L150",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L158",
     "description": "Derived variable computation toggles."
   },
   {
@@ -7464,6 +7680,18 @@
     "description": "Magnitude of inter-cell flow (right/front/lower face). Volumetric."
   },
   {
+    "path": "simulation.results.derived.release_flux",
+    "name": "release_flux",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-derived-release-flux",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L33",
+    "description": "Positive total groundwater release flux from drains and surface excess."
+  },
+  {
     "path": "simulation.results.derived.accumulation_flux",
     "name": "accumulation_flux",
     "type": "bool",
@@ -7472,8 +7700,20 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-accumulation-flux",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L37",
     "description": "Drain flux routed on the drainage network."
+  },
+  {
+    "path": "simulation.results.derived.release_accumulation_flux",
+    "name": "release_accumulation_flux",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "simulation",
+    "anchor": "simulation-results-derived-release-accumulation-flux",
+    "page": "simulation.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L41",
+    "description": "Release flux routed on surface drainage paths."
   },
   {
     "path": "simulation.results.derived.outflow_drain",
@@ -7484,7 +7724,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-outflow-drain",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L37",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L45",
     "description": "Positive per-cell drain outflow summed over layers."
   },
   {
@@ -7496,7 +7736,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-concentration-seepage",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L41",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L49",
     "description": "Concentration at seepage cells only. Requires transport."
   },
   {
@@ -7508,7 +7748,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-mass-seepage",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L45",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L53",
     "description": "Mass flux at seepage cells. Requires transport + budget."
   },
   {
@@ -7520,7 +7760,7 @@
     "section": "simulation",
     "anchor": "simulation-results-derived-mass-accumulated",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L57",
     "description": "Cumulative mass_seepage over time."
   },
   {
@@ -7532,7 +7772,7 @@
     "section": "simulation",
     "anchor": "simulation-results-budget",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L154",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L162",
     "description": "Budget extraction configuration."
   },
   {
@@ -7544,7 +7784,7 @@
     "section": "simulation",
     "anchor": "simulation-results-budget-spatial-fields",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L118",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L126",
     "description": "Extract per-cell budget fields (DRN, RCH, etc.) into Zarr."
   },
   {
@@ -7556,7 +7796,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L158",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L166",
     "description": "Automated export configuration."
   },
   {
@@ -7568,7 +7808,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-netcdf",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L88",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L96",
     "description": "Export to NetCDF-4/UGRID."
   },
   {
@@ -7580,7 +7820,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-csv-timeseries",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L91",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L99",
     "description": "Export time series to CSV."
   },
   {
@@ -7592,7 +7832,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-vtu",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L94",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L102",
     "description": "Export to VTU (ParaView)."
   },
   {
@@ -7604,7 +7844,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-geotiff",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L105",
     "description": "Export to GeoTIFF."
   },
   {
@@ -7616,7 +7856,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-shapefile",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L98",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L106",
     "description": "Export to Shapefile."
   },
   {
@@ -7628,7 +7868,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-output-dir",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L101",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L109",
     "description": "Output directory for exports. Defaults to project results folder."
   },
   {
@@ -7640,7 +7880,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L105",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L113",
     "description": "Which variables to include in exports."
   },
   {
@@ -7652,7 +7892,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-head",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L58",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L66",
     "description": "Export head field."
   },
   {
@@ -7664,7 +7904,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-concentration",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L59",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L67",
     "description": "Export concentration field."
   },
   {
@@ -7676,7 +7916,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-budget",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L62",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L70",
     "description": "Export spatial budget fields."
   },
   {
@@ -7688,7 +7928,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-pathlines",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L65",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L73",
     "description": "Export pathline data."
   },
   {
@@ -7700,7 +7940,7 @@
     "section": "simulation",
     "anchor": "simulation-results-export-variables-derived",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L68",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L76",
     "description": "Export derived variables (watertable_depth, seepage_mask, etc.)."
   },
   {
@@ -7712,7 +7952,7 @@
     "section": "simulation",
     "anchor": "simulation-rng-seed",
     "page": "simulation.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L330",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L374",
     "description": "Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` "
   },
   {
@@ -9536,7 +9776,7 @@
     "section": "analysis",
     "anchor": "analysis-batch",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L32",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L31",
     "description": "Optional regional-lab batch settings loaded from [analysis.batch]. Parsed standalone via RegionalLabLauncher under the section name [regional_lab]."
   },
   {
@@ -9548,7 +9788,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-config-path",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L542",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L556",
     "description": "Resolved path to the source TOML file."
   },
   {
@@ -9560,7 +9800,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-base-dir",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L545",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L559",
     "description": "Directory used to resolve relative paths."
   },
   {
@@ -9572,7 +9812,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-lab-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L548",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L562",
     "description": "Regional-lab identifier."
   },
   {
@@ -9584,7 +9824,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-output-root",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L549",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L563",
     "description": "Directory where lab artifacts are written."
   },
   {
@@ -9596,8 +9836,8 @@
     "section": "analysis",
     "anchor": "analysis-batch-execute",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L552",
-    "description": "If False, the planner runs but no child subprocesses are launched."
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L566",
+    "description": "If False, the planner runs but no child workflows are launched."
   },
   {
     "path": "analysis.batch.continue_on_error",
@@ -9608,7 +9848,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-continue-on-error",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L556",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L570",
     "description": "If True, keep dispatching siblings after a child failure."
   },
   {
@@ -9620,7 +9860,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-validate-config-paths",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L560",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L574",
     "description": "If True, ensure each rendered child config path exists before run."
   },
   {
@@ -9632,7 +9872,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-resume-from-report",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L564",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L578",
     "description": "If True, replay the previous report to skip already-completed cases."
   },
   {
@@ -9644,32 +9884,8 @@
     "section": "analysis",
     "anchor": "analysis-batch-skip-completed-cases",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L568",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L582",
     "description": "If True, do not re-run cases marked as completed in the report."
-  },
-  {
-    "path": "analysis.batch.child_timeout_s",
-    "name": "child_timeout_s",
-    "type": "int | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "analysis",
-    "anchor": "analysis-batch-child-timeout-s",
-    "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L572",
-    "description": "Per-child subprocess timeout in seconds. Use null to disable."
-  },
-  {
-    "path": "analysis.batch.python_executable",
-    "name": "python_executable",
-    "type": "Path | None",
-    "profile": "user",
-    "stability": "stable",
-    "section": "analysis",
-    "anchor": "analysis-batch-python-executable",
-    "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L576",
-    "description": "Python interpreter used for child subprocesses. None means current."
   },
   {
     "path": "analysis.batch.catalog",
@@ -9680,7 +9896,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L580",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L586",
     "description": "Site catalog source declaring the columns and filters used to enumerate runs."
   },
   {
@@ -9692,7 +9908,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-path",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L146",
     "description": "Resolved path to the site catalog (CSV or JSONL)."
   },
   {
@@ -9704,7 +9920,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-format",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L135",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L149",
     "description": "Catalog format. 'auto' infers from suffix."
   },
   {
@@ -9716,7 +9932,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-site-id-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L139",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L153",
     "description": "Catalog column carrying the site identifier."
   },
   {
@@ -9728,7 +9944,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-site-label-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L143",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L157",
     "description": "Catalog column carrying a human-readable site label."
   },
   {
@@ -9740,7 +9956,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-cluster-id-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L147",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L161",
     "description": "Catalog column carrying the cluster identifier."
   },
   {
@@ -9752,7 +9968,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-cluster-label-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L151",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L165",
     "description": "Catalog column carrying the cluster label."
   },
   {
@@ -9764,7 +9980,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-cluster-family-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L155",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L169",
     "description": "Catalog column carrying the cluster family name."
   },
   {
@@ -9776,7 +9992,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-cluster-scale-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L159",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L173",
     "description": "Catalog column carrying the cluster spatial scale tag."
   },
   {
@@ -9788,7 +10004,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-region-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L163",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L177",
     "description": "Catalog column carrying the region identifier."
   },
   {
@@ -9800,7 +10016,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-source-selection-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L167",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L181",
     "description": "Catalog column carrying the data-source selection identifier."
   },
   {
@@ -9812,7 +10028,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-status-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L171",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L185",
     "description": "Catalog column carrying the site lifecycle status."
   },
   {
@@ -9824,7 +10040,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-maturity-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L175",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L189",
     "description": "Catalog column carrying the site maturity level."
   },
   {
@@ -9836,7 +10052,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-x-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L179",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L193",
     "description": "Catalog column carrying the X coordinate (CRS units)."
   },
   {
@@ -9848,7 +10064,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-y-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L183",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L197",
     "description": "Catalog column carrying the Y coordinate (CRS units)."
   },
   {
@@ -9860,7 +10076,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-area-km2-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L187",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L201",
     "description": "Catalog column carrying the catchment area in km^2."
   },
   {
@@ -9872,7 +10088,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-tags-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L191",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L205",
     "description": "Catalog column carrying free-form tags joined by tag_separator."
   },
   {
@@ -9884,7 +10100,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-enabled-field",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L195",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L209",
     "description": "Catalog column flagging whether a site is active."
   },
   {
@@ -9896,7 +10112,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-required-fields",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L199",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L213",
     "description": "Catalog columns that must be present and non-empty per row."
   },
   {
@@ -9908,7 +10124,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-path-fields",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L203",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L217",
     "description": "Catalog columns whose values are resolved as filesystem paths."
   },
   {
@@ -9920,7 +10136,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-catalog-tag-separator",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L207",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L221",
     "description": "Separator splitting the tags column into individual tags."
   },
   {
@@ -9932,7 +10148,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L583",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L589",
     "description": "Top-level site selection filters applied before cluster rules and recipes."
   },
   {
@@ -9944,7 +10160,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-site-ids",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L277",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L291",
     "description": "Whitelist of site identifiers to keep. Empty means no filter."
   },
   {
@@ -9956,7 +10172,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-cluster-ids",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L281",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L295",
     "description": "Whitelist of cluster identifiers to keep. Empty means no filter."
   },
   {
@@ -9968,7 +10184,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-regions",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L285",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L299",
     "description": "Whitelist of region identifiers to keep. Empty means no filter."
   },
   {
@@ -9980,7 +10196,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-families",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L289",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L303",
     "description": "Whitelist of cluster family names to keep. Empty means no filter."
   },
   {
@@ -9992,7 +10208,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-scales",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L293",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L307",
     "description": "Whitelist of cluster scale tags to keep. Empty means no filter."
   },
   {
@@ -10004,7 +10220,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-statuses",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L297",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L311",
     "description": "Whitelist of site lifecycle statuses to keep. Empty means no filter."
   },
   {
@@ -10016,7 +10232,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-maturity-levels",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L301",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L315",
     "description": "Whitelist of site maturity levels to keep. Empty means no filter."
   },
   {
@@ -10028,7 +10244,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-tags",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L305",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L319",
     "description": "Required tags. A site must carry every tag listed here to pass."
   },
   {
@@ -10040,7 +10256,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-limit",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L309",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L323",
     "description": "Maximum number of sites to retain after filtering. None disables."
   },
   {
@@ -10052,7 +10268,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-selection-include-disabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L313",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L327",
     "description": "If True, also keep sites flagged as disabled in the catalog."
   },
   {
@@ -10064,7 +10280,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L586",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L592",
     "description": "Optional cluster enrichment rules applied on top of the catalog."
   },
   {
@@ -10076,7 +10292,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L342",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L356",
     "description": "Unique rule identifier."
   },
   {
@@ -10088,7 +10304,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-label",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L343",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L357",
     "description": "Human-readable rule label."
   },
   {
@@ -10100,7 +10316,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-enabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L344",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L358",
     "description": "If False, the rule is parsed but skipped during enrichment."
   },
   {
@@ -10112,7 +10328,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-priority",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L348",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L362",
     "description": "Application order (lower runs first) when several rules match."
   },
   {
@@ -10124,7 +10340,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L352",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L366",
     "description": "Site filters (ids, regions, families, tags) restricting which sites the rule applies to."
   },
   {
@@ -10136,7 +10352,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-site-ids",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L277",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L291",
     "description": "Whitelist of site identifiers to keep. Empty means no filter."
   },
   {
@@ -10148,7 +10364,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-cluster-ids",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L281",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L295",
     "description": "Whitelist of cluster identifiers to keep. Empty means no filter."
   },
   {
@@ -10160,7 +10376,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-regions",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L285",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L299",
     "description": "Whitelist of region identifiers to keep. Empty means no filter."
   },
   {
@@ -10172,7 +10388,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-families",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L289",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L303",
     "description": "Whitelist of cluster family names to keep. Empty means no filter."
   },
   {
@@ -10184,7 +10400,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-scales",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L293",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L307",
     "description": "Whitelist of cluster scale tags to keep. Empty means no filter."
   },
   {
@@ -10196,7 +10412,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-statuses",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L297",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L311",
     "description": "Whitelist of site lifecycle statuses to keep. Empty means no filter."
   },
   {
@@ -10208,7 +10424,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-maturity-levels",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L301",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L315",
     "description": "Whitelist of site maturity levels to keep. Empty means no filter."
   },
   {
@@ -10220,7 +10436,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-tags",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L305",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L319",
     "description": "Required tags. A site must carry every tag listed here to pass."
   },
   {
@@ -10232,7 +10448,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-limit",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L309",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L323",
     "description": "Maximum number of sites to retain after filtering. None disables."
   },
   {
@@ -10244,7 +10460,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-selection-include-disabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L313",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L327",
     "description": "If True, also keep sites flagged as disabled in the catalog."
   },
   {
@@ -10256,7 +10472,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-field-equals",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L355",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L369",
     "description": "Column equality constraints applied on top of selection (key=value)."
   },
   {
@@ -10268,7 +10484,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-set-cluster-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L359",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L373",
     "description": "Cluster id to assign to matched sites. None leaves it untouched."
   },
   {
@@ -10280,7 +10496,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-set-cluster-label",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L363",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L377",
     "description": "Cluster label to assign to matched sites. None leaves it untouched."
   },
   {
@@ -10292,7 +10508,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-set-cluster-family",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L367",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L381",
     "description": "Cluster family to assign to matched sites. None leaves it untouched."
   },
   {
@@ -10304,7 +10520,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-set-cluster-scale",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L371",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L385",
     "description": "Cluster scale tag to assign to matched sites. None leaves it untouched."
   },
   {
@@ -10316,7 +10532,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-cluster-tags",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L375",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L389",
     "description": "Extra tags appended to the cluster of matched sites."
   },
   {
@@ -10328,7 +10544,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-cluster-rules-override-existing-cluster",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L379",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L393",
     "description": "If True, overwrite cluster fields already set on matched sites."
   },
   {
@@ -10340,7 +10556,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L590",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L596",
     "description": "Per-recipe expansion plans declaring which child launchers run on which sites."
   },
   {
@@ -10352,7 +10568,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L436",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L450",
     "description": "Unique recipe identifier."
   },
   {
@@ -10364,7 +10580,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-label",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L437",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L451",
     "description": "Human-readable recipe label."
   },
   {
@@ -10376,7 +10592,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-launcher",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L438",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L452",
     "description": "Child launcher dispatched per site."
   },
   {
@@ -10388,7 +10604,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-config-path-template",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L441",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L455",
     "description": "Template producing the child config path from a site context."
   },
   {
@@ -10400,7 +10616,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-enabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L444",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L458",
     "description": "If False, the recipe is parsed but skipped during dispatch."
   },
   {
@@ -10412,7 +10628,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L448",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L462",
     "description": "Site filters restricting which sites this recipe expands over."
   },
   {
@@ -10424,7 +10640,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-site-ids",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L277",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L291",
     "description": "Whitelist of site identifiers to keep. Empty means no filter."
   },
   {
@@ -10436,7 +10652,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-cluster-ids",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L281",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L295",
     "description": "Whitelist of cluster identifiers to keep. Empty means no filter."
   },
   {
@@ -10448,7 +10664,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-regions",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L285",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L299",
     "description": "Whitelist of region identifiers to keep. Empty means no filter."
   },
   {
@@ -10460,7 +10676,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-families",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L289",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L303",
     "description": "Whitelist of cluster family names to keep. Empty means no filter."
   },
   {
@@ -10472,7 +10688,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-scales",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L293",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L307",
     "description": "Whitelist of cluster scale tags to keep. Empty means no filter."
   },
   {
@@ -10484,7 +10700,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-statuses",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L297",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L311",
     "description": "Whitelist of site lifecycle statuses to keep. Empty means no filter."
   },
   {
@@ -10496,7 +10712,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-maturity-levels",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L301",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L315",
     "description": "Whitelist of site maturity levels to keep. Empty means no filter."
   },
   {
@@ -10508,7 +10724,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-tags",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L305",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L319",
     "description": "Required tags. A site must carry every tag listed here to pass."
   },
   {
@@ -10520,7 +10736,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-limit",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L309",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L323",
     "description": "Maximum number of sites to retain after filtering. None disables."
   },
   {
@@ -10532,7 +10748,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-selection-include-disabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L313",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L327",
     "description": "If True, also keep sites flagged as disabled in the catalog."
   },
   {
@@ -10544,7 +10760,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-required-fields",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L451",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L465",
     "description": "Catalog columns that must be present per site for this recipe."
   },
   {
@@ -10556,7 +10772,7 @@
     "section": "analysis",
     "anchor": "analysis-batch-recipes-allowed-platforms",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L455",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L469",
     "description": "Platforms (linux, darwin, windows) on which the recipe may run."
   },
   {
@@ -10568,7 +10784,7 @@
     "section": "analysis",
     "anchor": "analysis-capability-gallery",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L40",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L39",
     "description": "Optional publication block copying selected run figures into a versionable capability-gallery source folder, loaded from [analysis.capability_gallery]."
   },
   {
@@ -10628,7 +10844,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L48",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L47",
     "description": "Optional simulation-comparison block loaded from [analysis.comparison]. Parsed standalone via SimulationComparisonConfig under the section name [comparison]."
   },
   {
@@ -10640,7 +10856,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-comparison-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L110",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L118",
     "description": ""
   },
   {
@@ -10652,8 +10868,20 @@
     "section": "analysis",
     "anchor": "analysis-comparison-base-simulation-config",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L111",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L119",
     "description": ""
+  },
+  {
+    "path": "analysis.comparison.base_simulation_overlay",
+    "name": "base_simulation_overlay",
+    "type": "dict[str, Any]",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "analysis",
+    "anchor": "analysis-comparison-base-simulation-overlay",
+    "page": "analysis.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L120",
+    "description": "Shared TOML overlay applied to the base simulation config before any child-specific comparison.simulation.overlay. This is the preferred hook for catalog-driven site loops: a testbed can render one comparison per catalog row and inject the "
   },
   {
     "path": "analysis.comparison.anchors_file",
@@ -10664,7 +10892,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-anchors-file",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L112",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L134",
     "description": ""
   },
   {
@@ -10676,7 +10904,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-output-root",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L113",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L135",
     "description": ""
   },
   {
@@ -10688,7 +10916,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-reference-simulation",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L114",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L136",
     "description": ""
   },
   {
@@ -10700,7 +10928,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-continue-on-error",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L115",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L137",
     "description": ""
   },
   {
@@ -10712,7 +10940,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L116",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L138",
     "description": "Execution settings for the comparison child runs."
   },
   {
@@ -10796,7 +11024,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-audit",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L120",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L142",
     "description": "Post-run audit policy applied to each child simulation."
   },
   {
@@ -10832,7 +11060,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L124",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L146",
     "description": ""
   },
   {
@@ -10844,7 +11072,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-enabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L226",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L248",
     "description": ""
   },
   {
@@ -10856,7 +11084,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-resolution",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L227",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L249",
     "description": ""
   },
   {
@@ -10868,7 +11096,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-extent-mode",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L228",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L250",
     "description": ""
   },
   {
@@ -10880,7 +11108,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-interpolation",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L231",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L253",
     "description": ""
   },
   {
@@ -10892,7 +11120,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-write-geotiff",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L232",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L254",
     "description": ""
   },
   {
@@ -10904,7 +11132,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L125",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L147",
     "description": "Generated child simulations to run in the comparison. At least one entry required."
   },
   {
@@ -11013,7 +11241,7 @@
     "anchor": "analysis-comparison-simulation-overlay",
     "page": "analysis.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L75",
-    "description": "Free-form TOML overlay merged into the base simulation config when this child runs."
+    "description": "Child-specific TOML overlay merged after comparison.base_simulation_overlay and after the shared base simulation config. Use it for solver-specific settings, child labels, child process selection, or deliberately varied method parameters. S"
   },
   {
     "path": "analysis.comparison.observable",
@@ -11024,7 +11252,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L129",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L151",
     "description": "Observables to compare across the declared simulations. At least one entry required."
   },
   {
@@ -11036,7 +11264,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-name",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L74",
     "description": ""
   },
   {
@@ -11048,7 +11276,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-variable",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L75",
     "description": ""
   },
   {
@@ -11060,7 +11288,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-source",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L76",
     "description": ""
   },
   {
@@ -11072,7 +11300,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-simulations",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L73",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L77",
     "description": ""
   },
   {
@@ -11084,7 +11312,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-support",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L78",
     "description": ""
   },
   {
@@ -11096,7 +11324,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-anchor-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L77",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L81",
     "description": ""
   },
   {
@@ -11108,7 +11336,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-x",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L82",
     "description": ""
   },
   {
@@ -11120,7 +11348,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-y",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L83",
     "description": ""
   },
   {
@@ -11132,7 +11360,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-cell-index",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L80",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L84",
     "description": ""
   },
   {
@@ -11144,7 +11372,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-cell-indices",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L81",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L85",
     "description": ""
   },
   {
@@ -11156,7 +11384,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-boundary-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L85",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L89",
     "description": ""
   },
   {
@@ -11168,7 +11396,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-allow-domain-proxy",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L86",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L90",
     "description": ""
   },
   {
@@ -11180,7 +11408,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-time",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L87",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L91",
     "description": ""
   },
   {
@@ -11192,7 +11420,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-time-window",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L88",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L92",
     "description": ""
   },
   {
@@ -11204,7 +11432,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-reducer",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L93",
     "description": ""
   },
   {
@@ -11216,7 +11444,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-time-reducer",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L94",
     "description": ""
   },
   {
@@ -11228,7 +11456,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-unit",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L91",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L95",
     "description": ""
   },
   {

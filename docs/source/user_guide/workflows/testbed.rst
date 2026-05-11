@@ -44,7 +44,8 @@ variant matrix documented on this page.
 
 .. code-block:: toml
 
-   workflow = "testbed"
+   [workflow]
+   mode = "testbed"
 
    [testbed]
    profile = "generic"
@@ -52,11 +53,12 @@ variant matrix documented on this page.
 ``profile = "regional_lab"`` delegates to the regional catalog profile. That
 profile exposes the ``[regional_lab]`` section for regional concepts such as
 site catalogs, cluster rules, status/maturity fields, coverage gaps, and
-recipes.
+recipes. See :doc:`regional_lab` for the full reference.
 
 .. code-block:: toml
 
-   workflow = "testbed"
+   [workflow]
+   mode = "testbed"
 
    [testbed]
    profile = "regional_lab"
@@ -108,8 +110,8 @@ The launcher writes one child TOML per variant under:
    <output_root>/_generated_configs/
 
 For mesh subjects, each generated child is a normal
-``workflow = "simulation"`` TOML. If the base config does not already declare
-processes, the testbed materializer injects:
+``[workflow].mode = "simulation"`` TOML. If the base config does not already
+declare processes, the testbed materializer injects:
 
 .. code-block:: toml
 
@@ -163,7 +165,7 @@ Catalog-Backed Comparisons
 --------------------------
 
 The same mechanism can generate one comparison per site. In that case the
-testbed child is a normal ``workflow = "comparison"`` TOML, not a special
+testbed child is a normal ``[workflow].mode = "comparison"`` TOML, not a special
 script:
 
 .. code-block:: toml
@@ -396,13 +398,13 @@ Mesh-Only Minimal Shape
 
 When iterating on refinement policy, geology constraints, or river-network
 conformity without invoking any flow solver, declare a single mesh build
-through the same ``testbed`` workflow with one variant (or use a one-shot
-mesh-only TOML):
+through a ``simulation`` workflow with one mesh process (the testbed wraps
+several such children when a sweep is needed):
 
 .. code-block:: toml
 
    [workflow]
-   mode = "mesh"
+   mode = "simulation"
 
    [workspace]
    project_root = "./my_basin"
@@ -412,6 +414,11 @@ mesh-only TOML):
    dem_init_path = "data/regional_dem.tif"
    polyg_shp_path = "data/basin.shp"
    buff_area = "500 m"
+
+   [[simulation.process]]
+   id = "mesh_main"
+   type = "mesh"
+   backend = "catchment"
 
    [mesh_catchment]
    constraints_mode = "geology_rivers"

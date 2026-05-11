@@ -45,21 +45,16 @@ The mandatory ``[workflow].mode`` field selects the user-facing operation.
      - :doc:`simulation`
    * - ``testbed``
      - Expand controlled method variants and collect evidence, including mesh
-       resolution or constraint studies.
+       resolution, constraint studies, and regional campaigns.
      - ``[testbed]``, ``[testbed.runner]``, ``[[testbed.variant]]``,
-       child-runner sections such as ``[mesh_catchment]`` or
-       ``[simulation]``
-     - :doc:`testbed`
+       child-runner sections such as ``[simulation]`` or ``[comparison]``.
+       Set ``[testbed].profile = "regional_lab"`` for site-catalog campaigns.
+     - :doc:`testbed`, :doc:`regional_lab`
    * - ``calibration``
      - Estimate parameters by running repeated candidate simulations.
      - ``[calibration]``, ``[calibration.parameters.*]``, simulation
        sections
      - :doc:`calibration`
-   * - ``batch``
-     - Expand recipes over many sites or clusters.
-     - ``[regional_lab]``, ``[regional_lab.catalog]``,
-       ``[[regional_lab.recipe]]``
-     - :doc:`batch`
    * - ``comparison``
      - Generate several child simulations from one shared base case and
        compare observables.
@@ -75,19 +70,19 @@ Click any node to jump to its detailed page.
 .. mermaid::
 
    flowchart TD
-       config[hmp run config.toml] --> dispatch{workflow = ...}
+       config[hmp run config.toml] --> dispatch{workflow.mode = ...}
        dispatch -->|overview| ov[Overview]
        dispatch -->|simulation| sim[Simulation]
        dispatch -->|testbed| tb[Testbed]
        dispatch -->|calibration| cal[Calibration]
-       dispatch -->|batch| bat[Batch]
        dispatch -->|comparison| cmp[Comparison]
+       tb --> rl[Regional Lab profile]
        click ov "overview.html" "Open overview workflow"
        click sim "simulation.html" "Open simulation workflow"
        click tb "testbed.html" "Open testbed workflow"
        click cal "calibration.html" "Open calibration workflow"
-       click bat "batch.html" "Open batch workflow"
        click cmp "comparison.html" "Open comparison workflow"
+       click rl "regional_lab.html" "Open regional lab profile"
 
 Dispatch model
 --------------
@@ -103,9 +98,8 @@ The CLI dispatch is intentionally simple:
         +-- dispatch to one launcher
               simulation  -> Project(config).run()
               overview    -> DataOverviewLauncher
-              testbed     -> TestbedLauncher
+              testbed     -> TestbedLauncher (or regional_lab profile)
               calibration -> calibration ask/tell loop
-              batch       -> RegionalLabLauncher
               comparison  -> SimulationComparisonLauncher
 
 This split avoids mixing three concepts:
@@ -126,20 +120,22 @@ run with persisted model outputs.
 
 Use ``testbed`` when the question is about robustness across method variants,
 for example mesh resolution, mesh constraints, hydraulic-parameter sensitivity,
-or future transport method axes. Mesh work is now documented through
-``testbed`` with ``subject = "mesh"`` and ``runner.type = "mesh_catchment"``;
-the mesh runner remains an implementation detail rather than a separate user
-guide workflow.
+or future transport method axes. Mesh testbeds use ``subject = "mesh"`` with
+``runner.type = "simulation"``; the generated children are normal simulation
+TOMLs that declare ``[[simulation.process]]`` with ``type = "mesh"``. For
+site-catalog campaigns over many basins or clusters, use ``testbed`` with
+``[testbed].profile = "regional_lab"``. See :doc:`regional_lab`.
 
 Use ``calibration`` when parameters are uncertain and the goal is to optimize
 or sample them against observations or synthetic targets.
 
-Use ``batch`` when the same recipe must be expanded across many catchments,
-clusters, or regional sites.
-
 Use ``comparison`` when several child simulations must stay tied to one shared
 physical base case so that solver, mesh, or option differences remain
 controlled.
+
+Mesh-only runs are not a separate workflow. Express them as
+``[workflow].mode = "simulation"`` with a ``[[simulation.process]]`` block
+whose ``type = "mesh"``.
 
 Choose a mode
 -------------
@@ -345,6 +341,6 @@ Read more
    overview
    simulation
    testbed
+   regional_lab
    calibration
-   batch
    comparison

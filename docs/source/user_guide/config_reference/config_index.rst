@@ -21,11 +21,11 @@ per-section page (anchor) and to the source declaration on GitHub.
      - Page
      - Source
    * - ``workflow.mode``
-     - ``Literal['simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed']``
+     - ``Literal['simulation', 'calibration', 'overview', 'comparison', 'testbed']``
      - user
      - -
      - `workflow <workflow.html#workflow-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L89>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/config/hydromodpy_config.py#L87>`__
    * - ``workspace.project_root``
      - ``Path``
      - user
@@ -2443,13 +2443,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-param-list>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L136>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L193>`__
    * - ``flow.param``
      - ``dict[str, FlowParam]``
      - user
      - -
      - `flow <flow.html#flow-param>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L144>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L201>`__
    * - ``flow.param.<id>.field``
      - ``FieldHomogeneousSection | FieldHeterogeneousSection``
      - user
@@ -2581,139 +2581,187 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-ic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L182>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L239>`__
    * - ``flow.ic.h``
-     - ``FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom``
+     - ``FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom | FlowICSteadyState``
      - user
      - -
      - `flow <flow.html#flow-ic-h>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L137>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L169>`__
    * - ``flow.ic.h.top.id``
      - ``str``
      - dev
      - -
      - `flow <flow.html#flow-ic-h-top-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L61>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L62>`__
    * - ``flow.ic.h.top.value``
      - ``object | None``
      - user
      - -
      - `flow <flow.html#flow-ic-h-top-value>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L61>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L62>`__
    * - ``flow.ic.h.top.description``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-ic-h-top-description>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L66>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L67>`__
    * - ``flow.ic.h.top.units``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-ic-h-top-units>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L61>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L62>`__
    * - ``flow.ic.h.top.type``
      - ``Literal['top']``
      - user
      - -
      - `flow <flow.html#flow-ic-h-top-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L64>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L65>`__
    * - ``flow.ic.h.top_offset.id``
      - ``str``
      - dev
      - -
      - `flow <flow.html#flow-ic-h-top-offset-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L70>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L71>`__
    * - ``flow.ic.h.top_offset.value``
      - ``Any``
      - user
      - -
      - `flow <flow.html#flow-ic-h-top-offset-value>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L77>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L78>`__
    * - ``flow.ic.h.top_offset.description``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-ic-h-top-offset-description>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L75>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L76>`__
    * - ``flow.ic.h.top_offset.units``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-ic-h-top-offset-units>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L70>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L71>`__
    * - ``flow.ic.h.top_offset.type``
      - ``Literal['top_offset']``
      - user
      - -
      - `flow <flow.html#flow-ic-h-top-offset-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L73>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L74>`__
    * - ``flow.ic.h.bottom.id``
      - ``str``
      - dev
      - -
      - `flow <flow.html#flow-ic-h-bottom-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L83>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84>`__
    * - ``flow.ic.h.bottom.value``
      - ``object | None``
      - user
      - -
      - `flow <flow.html#flow-ic-h-bottom-value>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L83>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84>`__
    * - ``flow.ic.h.bottom.description``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-ic-h-bottom-description>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L88>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L89>`__
    * - ``flow.ic.h.bottom.units``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-ic-h-bottom-units>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L83>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84>`__
    * - ``flow.ic.h.bottom.type``
      - ``Literal['bottom']``
      - user
      - -
      - `flow <flow.html#flow-ic-h-bottom-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L86>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L87>`__
    * - ``flow.ic.h.custom.id``
      - ``str``
      - dev
      - -
      - `flow <flow.html#flow-ic-h-custom-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L93>`__
    * - ``flow.ic.h.custom.value``
      - ``Any``
      - user
      - -
      - `flow <flow.html#flow-ic-h-custom-value>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L99>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L100>`__
    * - ``flow.ic.h.custom.description``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-ic-h-custom-description>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L98>`__
    * - ``flow.ic.h.custom.units``
      - ``str``
      - user
      - -
      - `flow <flow.html#flow-ic-h-custom-units>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L93>`__
    * - ``flow.ic.h.custom.type``
      - ``Literal['custom']``
      - user
      - -
      - `flow <flow.html#flow-ic-h-custom-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L95>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L96>`__
+   * - ``flow.ic.h.steady_state.id``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-ic-h-steady-state-id>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106>`__
+   * - ``flow.ic.h.steady_state.value``
+     - ``object | None``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-steady-state-value>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106>`__
+   * - ``flow.ic.h.steady_state.description``
+     - ``str``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-steady-state-description>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L111>`__
+   * - ``flow.ic.h.steady_state.units``
+     - ``str``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-steady-state-units>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106>`__
+   * - ``flow.ic.h.steady_state.type``
+     - ``Literal['steady_state']``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-steady-state-type>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L109>`__
+   * - ``flow.ic.h.steady_state.source``
+     - ``Optional[Literal['recharge', 'mean_recharge']]``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-steady-state-source>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L116>`__
+   * - ``flow.ic.h.steady_state.recharge_statistic``
+     - ``Optional[Literal['time_mean']]``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-steady-state-recharge-statistic>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L124>`__
+   * - ``flow.ic.h.steady_state.boundary_condition_policy``
+     - ``Optional[Literal['first_period']]``
+     - user
+     - -
+     - `flow <flow.html#flow-ic-h-steady-state-boundary-condition-policy>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L128>`__
    * - ``flow.bc``
      - ``dict[str, DirichletBC | CauchyBC | RobinBC]``
      - user
      - -
      - `flow <flow.html#flow-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L148>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L205>`__
    * - ``flow.bc.dirichlet.<id>.id``
      - ``str``
      - user
@@ -2941,7 +2989,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L189>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L246>`__
    * - ``flow.sinks_sources.wells``
      - ``dict[str, FlowWellConfig]``
      - user
@@ -3217,49 +3265,103 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-active-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L193>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L250>`__
    * - ``flow.active_bc``
      - ``list[str]``
      - user
      - -
      - `flow <flow.html#flow-active-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L202>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L259>`__
    * - ``flow.flow_regime``
      - ``Literal['steady', 'transient']``
      - user
      - -
      - `flow <flow.html#flow-flow-regime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L65>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L67>`__
    * - ``flow.runtime_backend``
      - ``Literal['local', 'scipy', 'scipy_sparse', 'petsc']``
      - dev
      - experimental
      - `flow <flow.html#flow-runtime-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L81>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L83>`__
    * - ``flow.surface_interaction_model``
-     - ``Literal['auto', 'regularized_partition', 'complementarity']``
+     - ``Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']``
      - dev
      - experimental
      - `flow <flow.html#flow-surface-interaction-model>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L92>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L94>`__
    * - ``flow.runtime_max_iterations``
      - ``int | None``
      - dev
      - -
      - `flow <flow.html#flow-runtime-max-iterations>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L107>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L116>`__
    * - ``flow.runtime_tol_residual_inf``
      - ``float | None``
      - dev
      - -
      - `flow <flow.html#flow-runtime-tol-residual-inf>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L122>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L131>`__
    * - ``flow.runtime_tol_state_update_inf``
      - ``float | None``
      - dev
      - -
      - `flow <flow.html#flow-runtime-tol-state-update-inf>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L129>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L138>`__
+   * - ``flow.vi_substeps_per_period``
+     - ``int``
+     - dev
+     - -
+     - `flow <flow.html#flow-vi-substeps-per-period>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L145>`__
+   * - ``flow.vi_substep_on_failure``
+     - ``bool``
+     - dev
+     - -
+     - `flow <flow.html#flow-vi-substep-on-failure>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L153>`__
+   * - ``flow.vi_max_adaptive_substeps``
+     - ``int | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-vi-max-adaptive-substeps>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L160>`__
+   * - ``flow.ts_vi_steps_per_period``
+     - ``int``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-steps-per-period>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L166>`__
+   * - ``flow.ts_vi_adapt``
+     - ``bool``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-adapt>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L173>`__
+   * - ``flow.ts_vi_dt_min_fraction``
+     - ``float``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-dt-min-fraction>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L177>`__
+   * - ``flow.ts_vi_dt_max_fraction``
+     - ``float``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-dt-max-fraction>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L181>`__
+   * - ``flow.ts_vi_type``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-type>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L185>`__
+   * - ``flow.ts_vi_snes_type``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-snes-type>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L189>`__
    * - ``transport.active_sinks_sources``
      - ``list[str]``
      - user
@@ -3475,67 +3577,67 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `simulation <simulation.html#simulation-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L210>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L254>`__
    * - ``simulation.run_id``
      - ``str``
      - user
      - -
      - `simulation <simulation.html#simulation-run-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L257>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L301>`__
    * - ``simulation.on_collision``
      - ``Literal['replace', 'fail', 'version']``
      - user
      - -
      - `simulation <simulation.html#simulation-on-collision>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L266>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L310>`__
    * - ``simulation.description``
      - ``str``
      - user
      - -
      - `simulation <simulation.html#simulation-description>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L259>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L303>`__
    * - ``simulation.scientific_objective``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-scientific-objective>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L282>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L326>`__
    * - ``simulation.contact_email``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-contact-email>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L286>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L330>`__
    * - ``simulation.doi``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-doi>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L290>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L334>`__
    * - ``simulation.study_area_name``
      - ``str | None``
      - user
      - -
      - `simulation <simulation.html#simulation-study-area-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L294>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L338>`__
    * - ``simulation.outlet_x``
      - ``float | None``
      - user
      - -
      - `simulation <simulation.html#simulation-outlet-x>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L298>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L342>`__
    * - ``simulation.outlet_y``
      - ``float | None``
      - user
      - -
      - `simulation <simulation.html#simulation-outlet-y>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L302>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L346>`__
    * - ``simulation.time``
      - ``SimulationTimeConfig | None``
      - user
      - -
      - `simulation <simulation.html#simulation-time>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L207>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L251>`__
    * - ``simulation.time.start_datetime``
      - ``datetime.datetime | None``
      - user
@@ -3577,7 +3679,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `simulation <simulation.html#simulation-process>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L231>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L275>`__
    * - ``simulation.process.id``
      - ``str``
      - user
@@ -3596,18 +3698,24 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `simulation <simulation.html#simulation-process-solvers>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L166>`__
+   * - ``simulation.process.backend``
+     - ``str | None``
+     - user
+     - -
+     - `simulation <simulation.html#simulation-process-backend>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L174>`__
    * - ``simulation.results``
      - ``ResultsConfig``
      - dev
      - -
      - `simulation <simulation.html#simulation-results>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L322>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L366>`__
    * - ``simulation.results.persistence``
      - ``PersistenceConfig``
      - user
      - -
      - `simulation <simulation.html#simulation-results-persistence>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L132>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L140>`__
    * - ``simulation.results.persistence.save_catalog``
      - ``bool``
      - user
@@ -3649,19 +3757,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `simulation <simulation.html#simulation-results-keep-solver-files>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L139>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L147>`__
    * - ``simulation.results.solver_scratch``
      - ``str``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-solver-scratch>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L143>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L151>`__
    * - ``simulation.results.derived``
      - ``DerivedConfig``
      - user
      - -
      - `simulation <simulation.html#simulation-results-derived>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L150>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L158>`__
    * - ``simulation.results.derived.watertable_elevation``
      - ``bool``
      - user
@@ -3686,132 +3794,144 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `simulation <simulation.html#simulation-results-derived-groundwater-flux>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L29>`__
+   * - ``simulation.results.derived.release_flux``
+     - ``bool``
+     - dev
+     - -
+     - `simulation <simulation.html#simulation-results-derived-release-flux>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L33>`__
    * - ``simulation.results.derived.accumulation_flux``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-accumulation-flux>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L33>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L37>`__
+   * - ``simulation.results.derived.release_accumulation_flux``
+     - ``bool``
+     - dev
+     - -
+     - `simulation <simulation.html#simulation-results-derived-release-accumulation-flux>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L41>`__
    * - ``simulation.results.derived.outflow_drain``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-outflow-drain>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L37>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L45>`__
    * - ``simulation.results.derived.concentration_seepage``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-concentration-seepage>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L49>`__
    * - ``simulation.results.derived.mass_seepage``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-mass-seepage>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L45>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L53>`__
    * - ``simulation.results.derived.mass_accumulated``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-derived-mass-accumulated>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L49>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L57>`__
    * - ``simulation.results.budget``
      - ``BudgetConfig``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-budget>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L154>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L162>`__
    * - ``simulation.results.budget.spatial_fields``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-budget-spatial-fields>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L118>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L126>`__
    * - ``simulation.results.export``
      - ``ExportConfig``
      - user
      - -
      - `simulation <simulation.html#simulation-results-export>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L158>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L166>`__
    * - ``simulation.results.export.netcdf``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-export-netcdf>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L88>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L96>`__
    * - ``simulation.results.export.csv_timeseries``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-export-csv-timeseries>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L91>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L99>`__
    * - ``simulation.results.export.vtu``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-export-vtu>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L94>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L102>`__
    * - ``simulation.results.export.geotiff``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-export-geotiff>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L105>`__
    * - ``simulation.results.export.shapefile``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-export-shapefile>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L98>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L106>`__
    * - ``simulation.results.export.output_dir``
      - ``str | None``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-export-output-dir>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L101>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L109>`__
    * - ``simulation.results.export.variables``
      - ``ExportVariablesConfig``
      - user
      - -
      - `simulation <simulation.html#simulation-results-export-variables>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L105>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L113>`__
    * - ``simulation.results.export.variables.head``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-export-variables-head>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L58>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L66>`__
    * - ``simulation.results.export.variables.concentration``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-export-variables-concentration>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L59>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L67>`__
    * - ``simulation.results.export.variables.budget``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-export-variables-budget>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L62>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L70>`__
    * - ``simulation.results.export.variables.pathlines``
      - ``bool``
      - dev
      - -
      - `simulation <simulation.html#simulation-results-export-variables-pathlines>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L65>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L73>`__
    * - ``simulation.results.export.variables.derived``
      - ``bool``
      - user
      - -
      - `simulation <simulation.html#simulation-results-export-variables-derived>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L68>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/results_config.py#L76>`__
    * - ``simulation.rng_seed``
      - ``int | None``
      - user
      - -
      - `simulation <simulation.html#simulation-rng-seed>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L330>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L374>`__
    * - ``solver.solver_engine``
      - ``str``
      - user
@@ -4723,523 +4843,511 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `analysis <analysis.html#analysis-batch>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L32>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L31>`__
    * - ``analysis.batch.config_path``
      - ``Path``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-config-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L542>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L556>`__
    * - ``analysis.batch.base_dir``
      - ``Path``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-base-dir>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L545>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L559>`__
    * - ``analysis.batch.lab_id``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-lab-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L548>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L562>`__
    * - ``analysis.batch.output_root``
      - ``Path``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-output-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L549>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L563>`__
    * - ``analysis.batch.execute``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-execute>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L552>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L566>`__
    * - ``analysis.batch.continue_on_error``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-continue-on-error>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L556>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L570>`__
    * - ``analysis.batch.validate_config_paths``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-validate-config-paths>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L560>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L574>`__
    * - ``analysis.batch.resume_from_report``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-resume-from-report>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L564>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L578>`__
    * - ``analysis.batch.skip_completed_cases``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-skip-completed-cases>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L568>`__
-   * - ``analysis.batch.child_timeout_s``
-     - ``int | None``
-     - user
-     - -
-     - `analysis <analysis.html#analysis-batch-child-timeout-s>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L572>`__
-   * - ``analysis.batch.python_executable``
-     - ``Path | None``
-     - user
-     - -
-     - `analysis <analysis.html#analysis-batch-python-executable>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L576>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L582>`__
    * - ``analysis.batch.catalog``
      - ``RegionalLabCatalogConfig``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L580>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L586>`__
    * - ``analysis.batch.catalog.path``
      - ``Path``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L132>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L146>`__
    * - ``analysis.batch.catalog.format``
      - ``Literal['auto', 'csv', 'jsonl']``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-format>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L135>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L149>`__
    * - ``analysis.batch.catalog.site_id_field``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-site-id-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L139>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L153>`__
    * - ``analysis.batch.catalog.site_label_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-site-label-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L143>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L157>`__
    * - ``analysis.batch.catalog.cluster_id_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-cluster-id-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L147>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L161>`__
    * - ``analysis.batch.catalog.cluster_label_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-cluster-label-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L151>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L165>`__
    * - ``analysis.batch.catalog.cluster_family_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-cluster-family-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L155>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L169>`__
    * - ``analysis.batch.catalog.cluster_scale_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-cluster-scale-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L159>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L173>`__
    * - ``analysis.batch.catalog.region_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-region-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L163>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L177>`__
    * - ``analysis.batch.catalog.source_selection_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-source-selection-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L167>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L181>`__
    * - ``analysis.batch.catalog.status_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-status-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L171>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L185>`__
    * - ``analysis.batch.catalog.maturity_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-maturity-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L175>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L189>`__
    * - ``analysis.batch.catalog.x_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-x-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L179>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L193>`__
    * - ``analysis.batch.catalog.y_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-y-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L183>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L197>`__
    * - ``analysis.batch.catalog.area_km2_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-area-km2-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L187>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L201>`__
    * - ``analysis.batch.catalog.tags_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-tags-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L191>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L205>`__
    * - ``analysis.batch.catalog.enabled_field``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-enabled-field>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L195>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L209>`__
    * - ``analysis.batch.catalog.required_fields``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-required-fields>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L199>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L213>`__
    * - ``analysis.batch.catalog.path_fields``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-path-fields>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L203>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L217>`__
    * - ``analysis.batch.catalog.tag_separator``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-catalog-tag-separator>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L207>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L221>`__
    * - ``analysis.batch.selection``
      - ``RegionalLabSelectionConfig``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L583>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L589>`__
    * - ``analysis.batch.selection.site_ids``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-site-ids>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L277>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L291>`__
    * - ``analysis.batch.selection.cluster_ids``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-cluster-ids>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L281>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L295>`__
    * - ``analysis.batch.selection.regions``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-regions>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L285>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L299>`__
    * - ``analysis.batch.selection.families``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-families>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L289>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L303>`__
    * - ``analysis.batch.selection.scales``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-scales>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L293>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L307>`__
    * - ``analysis.batch.selection.statuses``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-statuses>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L297>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L311>`__
    * - ``analysis.batch.selection.maturity_levels``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-maturity-levels>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L301>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L315>`__
    * - ``analysis.batch.selection.tags``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-tags>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L305>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L319>`__
    * - ``analysis.batch.selection.limit``
      - ``int | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-limit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L309>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L323>`__
    * - ``analysis.batch.selection.include_disabled``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-selection-include-disabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L313>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L327>`__
    * - ``analysis.batch.cluster_rules``
      - ``tuple[RegionalLabClusterRuleConfig, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L586>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L592>`__
    * - ``analysis.batch.cluster_rules.id``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L342>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L356>`__
    * - ``analysis.batch.cluster_rules.label``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-label>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L343>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L357>`__
    * - ``analysis.batch.cluster_rules.enabled``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L344>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L358>`__
    * - ``analysis.batch.cluster_rules.priority``
      - ``int``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-priority>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L348>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L362>`__
    * - ``analysis.batch.cluster_rules.selection``
      - ``RegionalLabSelectionConfig``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L352>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L366>`__
    * - ``analysis.batch.cluster_rules.selection.site_ids``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-site-ids>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L277>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L291>`__
    * - ``analysis.batch.cluster_rules.selection.cluster_ids``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-cluster-ids>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L281>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L295>`__
    * - ``analysis.batch.cluster_rules.selection.regions``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-regions>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L285>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L299>`__
    * - ``analysis.batch.cluster_rules.selection.families``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-families>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L289>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L303>`__
    * - ``analysis.batch.cluster_rules.selection.scales``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-scales>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L293>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L307>`__
    * - ``analysis.batch.cluster_rules.selection.statuses``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-statuses>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L297>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L311>`__
    * - ``analysis.batch.cluster_rules.selection.maturity_levels``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-maturity-levels>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L301>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L315>`__
    * - ``analysis.batch.cluster_rules.selection.tags``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-tags>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L305>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L319>`__
    * - ``analysis.batch.cluster_rules.selection.limit``
      - ``int | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-limit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L309>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L323>`__
    * - ``analysis.batch.cluster_rules.selection.include_disabled``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-selection-include-disabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L313>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L327>`__
    * - ``analysis.batch.cluster_rules.field_equals``
      - ``tuple[tuple[str, str], ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-field-equals>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L355>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L369>`__
    * - ``analysis.batch.cluster_rules.set_cluster_id``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-set-cluster-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L359>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L373>`__
    * - ``analysis.batch.cluster_rules.set_cluster_label``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-set-cluster-label>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L363>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L377>`__
    * - ``analysis.batch.cluster_rules.set_cluster_family``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-set-cluster-family>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L367>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L381>`__
    * - ``analysis.batch.cluster_rules.set_cluster_scale``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-set-cluster-scale>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L371>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L385>`__
    * - ``analysis.batch.cluster_rules.cluster_tags``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-cluster-tags>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L375>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L389>`__
    * - ``analysis.batch.cluster_rules.override_existing_cluster``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-cluster-rules-override-existing-cluster>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L379>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L393>`__
    * - ``analysis.batch.recipes``
      - ``tuple[RegionalLabRecipeConfig, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L590>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L596>`__
    * - ``analysis.batch.recipes.id``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L436>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L450>`__
    * - ``analysis.batch.recipes.label``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-label>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L437>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L451>`__
    * - ``analysis.batch.recipes.launcher``
      - ``Literal['simulation', 'comparison']``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-launcher>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L438>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L452>`__
    * - ``analysis.batch.recipes.config_path_template``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-config-path-template>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L441>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L455>`__
    * - ``analysis.batch.recipes.enabled``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L444>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L458>`__
    * - ``analysis.batch.recipes.selection``
      - ``RegionalLabSelectionConfig``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L448>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L462>`__
    * - ``analysis.batch.recipes.selection.site_ids``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-site-ids>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L277>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L291>`__
    * - ``analysis.batch.recipes.selection.cluster_ids``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-cluster-ids>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L281>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L295>`__
    * - ``analysis.batch.recipes.selection.regions``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-regions>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L285>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L299>`__
    * - ``analysis.batch.recipes.selection.families``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-families>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L289>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L303>`__
    * - ``analysis.batch.recipes.selection.scales``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-scales>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L293>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L307>`__
    * - ``analysis.batch.recipes.selection.statuses``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-statuses>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L297>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L311>`__
    * - ``analysis.batch.recipes.selection.maturity_levels``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-maturity-levels>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L301>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L315>`__
    * - ``analysis.batch.recipes.selection.tags``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-tags>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L305>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L319>`__
    * - ``analysis.batch.recipes.selection.limit``
      - ``int | None``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-limit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L309>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L323>`__
    * - ``analysis.batch.recipes.selection.include_disabled``
      - ``bool``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-selection-include-disabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L313>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L327>`__
    * - ``analysis.batch.recipes.required_fields``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-required-fields>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L451>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L465>`__
    * - ``analysis.batch.recipes.allowed_platforms``
      - ``tuple[str, ...]``
      - user
      - -
      - `analysis <analysis.html#analysis-batch-recipes-allowed-platforms>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/batch/config.py#L455>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/regional_lab_config.py#L469>`__
    * - ``analysis.capability_gallery``
      - ``CapabilityGalleryConfig | None``
      - user
      - -
      - `analysis <analysis.html#analysis-capability-gallery>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L40>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L39>`__
    * - ``analysis.capability_gallery.enabled``
      - ``bool``
      - user
@@ -5269,49 +5377,55 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `analysis <analysis.html#analysis-comparison>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L48>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/config.py#L47>`__
    * - ``analysis.comparison.comparison_id``
      - ``Optional[str]``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-comparison-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L110>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L118>`__
    * - ``analysis.comparison.base_simulation_config``
      - ``str | None``
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-base-simulation-config>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L111>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L119>`__
+   * - ``analysis.comparison.base_simulation_overlay``
+     - ``dict[str, Any]``
+     - expert
+     - -
+     - `analysis <analysis.html#analysis-comparison-base-simulation-overlay>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L120>`__
    * - ``analysis.comparison.anchors_file``
      - ``str | None``
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-anchors-file>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L112>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L134>`__
    * - ``analysis.comparison.output_root``
      - ``str | None``
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-output-root>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L113>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L135>`__
    * - ``analysis.comparison.reference_simulation``
      - ``Optional[str]``
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-reference-simulation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L114>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L136>`__
    * - ``analysis.comparison.continue_on_error``
      - ``bool``
      - dev
      - -
      - `analysis <analysis.html#analysis-comparison-continue-on-error>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L115>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L137>`__
    * - ``analysis.comparison.execution``
      - ``ComparisonExecutionConfig``
      - dev
      - -
      - `analysis <analysis.html#analysis-comparison-execution>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L116>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L138>`__
    * - ``analysis.comparison.execution.backend``
      - ``Literal['subprocess_hmp_run']``
      - dev
@@ -5353,7 +5467,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `analysis <analysis.html#analysis-comparison-audit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L120>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L142>`__
    * - ``analysis.comparison.audit.mode``
      - ``Literal['strict_same_case']``
      - dev
@@ -5371,43 +5485,43 @@ per-section page (anchor) and to the source declaration on GitHub.
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-fine-raster>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L124>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L146>`__
    * - ``analysis.comparison.fine_raster.enabled``
      - ``bool``
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-fine-raster-enabled>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L226>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L248>`__
    * - ``analysis.comparison.fine_raster.resolution``
      - ``Optional[float]``
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-fine-raster-resolution>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L227>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L249>`__
    * - ``analysis.comparison.fine_raster.extent_mode``
      - ``Literal['intersection', 'union', 'reference']``
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-fine-raster-extent-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L228>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L250>`__
    * - ``analysis.comparison.fine_raster.interpolation``
      - ``Literal['linear', 'nearest']``
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-fine-raster-interpolation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L231>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L253>`__
    * - ``analysis.comparison.fine_raster.write_geotiff``
      - ``bool``
      - expert
      - -
      - `analysis <analysis.html#analysis-comparison-fine-raster-write-geotiff>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L232>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L254>`__
    * - ``analysis.comparison.simulation``
      - ``list[ComparisonSimulationConfig]``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-simulation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L125>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L147>`__
    * - ``analysis.comparison.simulation.id``
      - ``str``
      - user
@@ -5467,109 +5581,109 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L129>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L151>`__
    * - ``analysis.comparison.observable.name``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-name>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L70>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L74>`__
    * - ``analysis.comparison.observable.variable``
      - ``str``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-variable>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L71>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L75>`__
    * - ``analysis.comparison.observable.source``
      - ``Literal['disk']``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L72>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L76>`__
    * - ``analysis.comparison.observable.simulations``
      - ``list[str] | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-simulations>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L73>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L77>`__
    * - ``analysis.comparison.observable.support``
      - ``Literal['point', 'outlet', 'boundary', 'cell_mask', 'map']``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-support>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L78>`__
    * - ``analysis.comparison.observable.anchor_id``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-anchor-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L77>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L81>`__
    * - ``analysis.comparison.observable.x``
      - ``float | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-x>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L78>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L82>`__
    * - ``analysis.comparison.observable.y``
      - ``float | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-y>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L79>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L83>`__
    * - ``analysis.comparison.observable.cell_index``
      - ``Optional[int]``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-cell-index>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L80>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L84>`__
    * - ``analysis.comparison.observable.cell_indices``
      - ``list[int] | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-cell-indices>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L81>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L85>`__
    * - ``analysis.comparison.observable.boundary_id``
      - ``Optional[str]``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-boundary-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L85>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L89>`__
    * - ``analysis.comparison.observable.allow_domain_proxy``
      - ``bool``
      - dev
      - -
      - `analysis <analysis.html#analysis-comparison-observable-allow-domain-proxy>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L86>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L90>`__
    * - ``analysis.comparison.observable.time``
      - ``str | int | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-time>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L87>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L91>`__
    * - ``analysis.comparison.observable.time_window``
      - ``tuple[str, str] | tuple[float, float] | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-time-window>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L88>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L92>`__
    * - ``analysis.comparison.observable.reducer``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-reducer>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L89>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L93>`__
    * - ``analysis.comparison.observable.time_reducer``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-time-reducer>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L94>`__
    * - ``analysis.comparison.observable.unit``
      - ``str | None``
      - user
      - -
      - `analysis <analysis.html#analysis-comparison-observable-unit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L91>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L95>`__
    * - ``overview.name``
      - ``str``
      - user

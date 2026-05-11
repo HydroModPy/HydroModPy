@@ -38,7 +38,7 @@ Sections
 
       **[workflow]**
       ^^^
-      Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.
+      Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'overview', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.
 
    .. grid-item-card::
       :link: workspace
@@ -155,7 +155,7 @@ Sections
 
       **[analysis]**
       ^^^
-      Optional analysis hub loaded from [analysis]. Aggregates [analysis.batch] (regional-lab launcher), [analysis.capability_gallery] (figure publication), and [analysis.comparison] (simulation-comparison launcher).
+      Optional analysis hub loaded from [analysis]. Aggregates [analysis.capability_gallery] (figure publication), and [analysis.comparison] (simulation-comparison launcher).
 
    .. grid-item-card::
       :link: overview
@@ -173,7 +173,7 @@ Sections
 
       **[mesh_catchment]**
       ^^^
-      Optional mesh-only settings loaded from the [mesh_catchment] section.  When present without [simulation], triggers the mesh-only workflow.
+      Optional mesh-only settings loaded from the [mesh_catchment] section. Mesh-only public runs should use [simulation.process] with type='mesh'; the standalone mesh API can still consume this section directly.
 
    .. grid-item-card::
       :link: calibration

@@ -14,7 +14,7 @@
         "properties": {
           "workflow": {
             "$ref": "#/components/schemas/WorkflowConfig",
-            "description": "Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'batch', 'overview', 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.",
+            "description": "Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'overview', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.",
             "examples": [
               {
                 "mode": "simulation"
@@ -97,7 +97,7 @@
               }
             ],
             "default": null,
-            "description": "Optional analysis hub loaded from [analysis]. Aggregates [analysis.batch] (regional-lab launcher), [analysis.capability_gallery] (figure publication), and [analysis.comparison] (simulation-comparison launcher).",
+            "description": "Optional analysis hub loaded from [analysis]. Aggregates [analysis.capability_gallery] (figure publication), and [analysis.comparison] (simulation-comparison launcher).",
             "x-hmp-profile": "dev"
           },
           "overview": {
@@ -123,7 +123,7 @@
               }
             ],
             "default": null,
-            "description": "Optional mesh-only settings loaded from the [mesh_catchment] section.  When present without [simulation], triggers the mesh-only workflow.",
+            "description": "Optional mesh-only settings loaded from the [mesh_catchment] section. Mesh-only public runs should use [simulation.process] with type='mesh'; the standalone mesh API can still consume this section directly.",
             "x-hmp-profile": "user"
           },
           "calibration": {
@@ -150,7 +150,7 @@
       },
       "AnalysisConfig": {
         "additionalProperties": false,
-        "description": "Hub aggregating every post-simulation analysis sub-section.\n\nEach field is optional: enabling ``[analysis.batch]`` triggers the\nregional-lab launcher, ``[analysis.capability_gallery]`` selects\nfigures for the versionable gallery, and ``[analysis.comparison]``\ndrives the comparison launcher.",
+        "description": "Hub aggregating every post-simulation analysis sub-section.\n\nEach field is optional: ``[analysis.capability_gallery]`` selects figures\nfor the versionable gallery, and ``[analysis.comparison]`` drives the\ncomparison launcher.",
         "properties": {
           "batch": {
             "anyOf": [
@@ -1744,6 +1744,13 @@
             "title": "Base Simulation Config",
             "x-hmp-profile": "expert"
           },
+          "base_simulation_overlay": {
+            "additionalProperties": true,
+            "description": "Shared TOML overlay applied to the base simulation config before any child-specific comparison.simulation.overlay. This is the preferred hook for catalog-driven site loops: a testbed can render one comparison per catalog row and inject the row values here, for example geographic outlet coordinates, target basin area, recharge chronicle path, geology/K-table paths, mesh-catchment options, initial-condition policy, or common workspace/data roots. The overlay is intentionally broad because it describes the physical case shared by all methods being compared; solver or method differences remain in each comparison.simulation.overlay.",
+            "title": "Base Simulation Overlay",
+            "type": "object",
+            "x-hmp-profile": "expert"
+          },
           "anchors_file": {
             "anyOf": [
               {
@@ -1944,7 +1951,7 @@
           },
           "overlay": {
             "additionalProperties": true,
-            "description": "Free-form TOML overlay merged into the base simulation config when this child runs.",
+            "description": "Child-specific TOML overlay merged after comparison.base_simulation_overlay and after the shared base simulation config. Use it for solver-specific settings, child labels, child process selection, or deliberately varied method parameters. Site-wide inputs that must be identical for every child in one comparison, such as outlet coordinates, recharge forcing, mesh generation settings, or reference data paths, should be placed in comparison.base_simulation_overlay instead.",
             "title": "Overlay",
             "type": "object",
             "x-hmp-profile": "expert"
@@ -2545,6 +2552,16 @@
             "type": "boolean",
             "x-hmp-profile": "dev"
           },
+          "release_flux": {
+            "default": true,
+            "description": "Positive total groundwater release flux from drains and surface excess.",
+            "examples": [
+              true
+            ],
+            "title": "Release Flux",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
           "accumulation_flux": {
             "default": true,
             "description": "Drain flux routed on the drainage network.",
@@ -2552,6 +2569,16 @@
               true
             ],
             "title": "Accumulation Flux",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "release_accumulation_flux": {
+            "default": false,
+            "description": "Release flux routed on surface drainage paths.",
+            "examples": [
+              false
+            ],
+            "title": "Release Accumulation Flux",
             "type": "boolean",
             "x-hmp-profile": "dev"
           },
@@ -4209,7 +4236,7 @@
             "x-hmp-profile": "user"
           },
           "active_bc": {
-            "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.",
+            "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.",
             "examples": [
               [
                 "ocean"
@@ -4267,11 +4294,13 @@
           },
           "surface_interaction_model": {
             "default": "auto",
-            "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical backend-dependent default.",
+            "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experimental PETSc head-only VI obstacle formulation; 'auto' keeps the historical backend-dependent default.",
             "enum": [
               "auto",
               "regularized_partition",
-              "complementarity"
+              "complementarity",
+              "vi_obstacle",
+              "ts_vi_obstacle"
             ],
             "examples": [
               "auto",
@@ -4328,6 +4357,100 @@
             "default": null,
             "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it.",
             "title": "Runtime Tol State Update Inf",
+            "x-hmp-profile": "dev"
+          },
+          "vi_substeps_per_period": {
+            "default": 1,
+            "description": "Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep.",
+            "examples": [
+              1
+            ],
+            "title": "Vi Substeps Per Period",
+            "type": "integer",
+            "x-hmp-profile": "dev"
+          },
+          "vi_substep_on_failure": {
+            "default": false,
+            "description": "When true, retry a failed PETSc VI obstacle stress period with increasing substep counts.",
+            "examples": [
+              false
+            ],
+            "title": "Vi Substep On Failure",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "vi_max_adaptive_substeps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries.",
+            "title": "Vi Max Adaptive Substeps",
+            "x-hmp-profile": "dev"
+          },
+          "ts_vi_steps_per_period": {
+            "default": 4,
+            "description": "Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime.",
+            "examples": [
+              4
+            ],
+            "title": "Ts Vi Steps Per Period",
+            "type": "integer",
+            "x-hmp-profile": "dev"
+          },
+          "ts_vi_adapt": {
+            "default": false,
+            "description": "Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime.",
+            "examples": [
+              false
+            ],
+            "title": "Ts Vi Adapt",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "ts_vi_dt_min_fraction": {
+            "default": 0.015625,
+            "description": "Minimum TS VI time-step as a fraction of the stress-period length.",
+            "examples": [
+              0.015625
+            ],
+            "title": "Ts Vi Dt Min Fraction",
+            "type": "number",
+            "x-hmp-profile": "dev"
+          },
+          "ts_vi_dt_max_fraction": {
+            "default": 0.25,
+            "description": "Maximum TS VI time-step as a fraction of the stress-period length.",
+            "examples": [
+              0.25
+            ],
+            "title": "Ts Vi Dt Max Fraction",
+            "type": "number",
+            "x-hmp-profile": "dev"
+          },
+          "ts_vi_type": {
+            "default": "beuler",
+            "description": "PETSc TS type for the experimental TS VI obstacle runtime.",
+            "examples": [
+              "beuler"
+            ],
+            "title": "Ts Vi Type",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "ts_vi_snes_type": {
+            "default": "vinewtonrsls",
+            "description": "PETSc SNES type for the experimental TS VI obstacle runtime.",
+            "examples": [
+              "vinewtonrsls"
+            ],
+            "title": "Ts Vi Snes Type",
+            "type": "string",
             "x-hmp-profile": "dev"
           }
         },
@@ -4615,6 +4738,116 @@
         "title": "FlowICCustom",
         "type": "object"
       },
+      "FlowICSteadyState": {
+        "additionalProperties": false,
+        "description": "Initialize a transient run from a same-solver steady solve.",
+        "properties": {
+          "id": {
+            "default": "h",
+            "description": "id of the initial condition (forced to 'h' for flow)",
+            "examples": [
+              "h"
+            ],
+            "title": "Id",
+            "toml_exclude": true,
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "value": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Process-specific initial-condition value payload.",
+            "title": "Value",
+            "x-hmp-profile": "user"
+          },
+          "description": {
+            "default": "",
+            "description": "Description of the initial condition",
+            "examples": [
+              ""
+            ],
+            "title": "Description",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "units": {
+            "default": "",
+            "description": "Units of the initial condition",
+            "examples": [
+              ""
+            ],
+            "title": "Units",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "type": {
+            "const": "steady_state",
+            "default": "steady_state",
+            "description": "Initialize a transient run from a same-solver steady solve using a documented forcing strategy.",
+            "examples": [
+              "steady_state"
+            ],
+            "title": "Type",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "recharge",
+                  "mean_recharge"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Forcing source used by the initialization solve. 'mean_recharge' is an alias for source='recharge' with recharge_statistic='time_mean'.",
+            "title": "Source",
+            "x-hmp-profile": "user"
+          },
+          "recharge_statistic": {
+            "anyOf": [
+              {
+                "const": "time_mean",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Statistic applied to the recharge chronicle.",
+            "title": "Recharge Statistic",
+            "x-hmp-profile": "user"
+          },
+          "boundary_condition_policy": {
+            "anyOf": [
+              {
+                "const": "first_period",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Policy used for transient boundary-condition chronicles during the steady initialization solve.",
+            "title": "Boundary Condition Policy",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "FlowICSteadyState",
+        "type": "object"
+      },
       "FlowICTop": {
         "additionalProperties": false,
         "description": "Initialize head at the top surface (full aquifer).",
@@ -4766,6 +4999,7 @@
               "mapping": {
                 "bottom": "#/$defs/FlowICBottom",
                 "custom": "#/$defs/FlowICCustom",
+                "steady_state": "#/$defs/FlowICSteadyState",
                 "top": "#/$defs/FlowICTop",
                 "top_offset": "#/$defs/FlowICTopOffset"
               },
@@ -4783,6 +5017,9 @@
               },
               {
                 "$ref": "#/components/schemas/FlowICCustom"
+              },
+              {
+                "$ref": "#/components/schemas/FlowICSteadyState"
               }
             ],
             "title": "H",
@@ -10924,7 +11161,7 @@
           },
           "execute": {
             "default": true,
-            "description": "If False, the planner runs but no child subprocesses are launched.",
+            "description": "If False, the planner runs but no child workflows are launched.",
             "examples": [
               true
             ],
@@ -10970,38 +11207,6 @@
             ],
             "title": "Skip Completed Cases",
             "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "child_timeout_s": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": 3600,
-            "description": "Per-child subprocess timeout in seconds. Use null to disable.",
-            "examples": [
-              3600
-            ],
-            "title": "Child Timeout S",
-            "x-hmp-profile": "user"
-          },
-          "python_executable": {
-            "anyOf": [
-              {
-                "format": "path",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Python interpreter used for child subprocesses. None means current.",
-            "title": "Python Executable",
             "x-hmp-profile": "user"
           },
           "catalog": {
@@ -11968,20 +12173,32 @@
             "x-hmp-profile": "user"
           },
           "solvers": {
-            "description": "Ordered list of active solver names for this process. Each listed solver is executed in order.",
+            "description": "Ordered list of active solver names for this process. Each listed solver is executed in order. Required for solver-backed processes such as flow and transport.",
             "items": {
               "type": "string"
             },
-            "minItems": 1,
             "title": "Solvers",
             "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Backend used by non-solver orchestration processes. Currently only used by type='mesh', where backend='catchment' delegates to the [mesh_catchment] runtime.",
+            "title": "Backend",
             "x-hmp-profile": "user"
           }
         },
         "required": [
           "id",
-          "type",
-          "solvers"
+          "type"
         ],
         "title": "SimulationProcessConfig",
         "type": "object"
@@ -13819,9 +14036,7 @@
             "enum": [
               "simulation",
               "calibration",
-              "batch",
               "overview",
-              "mesh",
               "comparison",
               "testbed"
             ],

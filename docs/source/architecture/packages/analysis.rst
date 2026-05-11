@@ -31,12 +31,11 @@ Workflow placement
 
 Each analysis subsystem is reachable through:
 
-- The CLI: ``hmp run`` dispatches on ``[workflow].mode = "batch"``
-  or ``"comparison"`` or ``"testbed"`` and routes to the matching
-  launcher under ``analysis/``.
-- The Python facade:
-  ``Project.batch()`` / ``Project.compare()`` /
-  ``Project.testbed()``.
+- The CLI: ``hmp run`` dispatches on ``[workflow].mode = "comparison"``
+  or ``"testbed"`` and routes to the matching launcher under
+  ``analysis/``. Regional campaigns use ``"testbed"`` with
+  ``[testbed].profile = "regional_lab"``.
+- The Python facade: ``Project.compare()`` / ``Project.testbed()``.
 - Direct primitives under ``analysis/<subsystem>/`` for embedding
   inside another analysis loop.
 
@@ -84,5 +83,5 @@ See also
 - :doc:`/architecture/simulation/testbed-workflow-architecture` for
   the testbed pipeline.
 - :doc:`/user_guide/workflows/comparison` -- user-facing hub.
-- :doc:`/user_guide/workflows/batch` -- batch workflow page.
+- :doc:`/user_guide/workflows/regional_lab` -- regional_lab testbed profile.
 - :doc:`/user_guide/workflows/testbed` -- testbed workflow page.
