@@ -24,13 +24,33 @@ from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 class ComparisonSimulation(HydroModelBase):
     """One simulation to run or reuse in a comparison."""
 
-    id: Annotated[IdentifierStr, Profile.USER]
-    label: Annotated[OptionalText, Profile.USER] = None
-    enabled: Annotated[bool, Profile.USER] = True
-    simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
-    run_folder: Annotated[OptionalText, Profile.EXPERT] = None
-    solver: Annotated[OptionalText, Profile.EXPERT] = None
-    mesh_label: Annotated[IdentifierStr | None, Profile.USER] = None
+    id: Annotated[IdentifierStr, Profile.USER] = Field(
+        description="Unique identifier of this simulation entry inside the comparison."
+    )
+    label: Annotated[OptionalText, Profile.USER] = Field(
+        default=None,
+        description="Optional human-readable label used in plots and reports.",
+    )
+    enabled: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description="Whether this simulation participates in the comparison run.",
+    )
+    simulation_config: Annotated[OptionalText, Profile.EXPERT] = Field(
+        default=None,
+        description="Path to a standalone simulation TOML config, resolved against the base dir.",
+    )
+    run_folder: Annotated[OptionalText, Profile.EXPERT] = Field(
+        default=None,
+        description="Path to an existing run output folder reused instead of executing the solver.",
+    )
+    solver: Annotated[OptionalText, Profile.EXPERT] = Field(
+        default=None,
+        description="Solver key (e.g. modflow6, modflow_nwt) when generating from the base config.",
+    )
+    mesh_label: Annotated[IdentifierStr | None, Profile.USER] = Field(
+        default=None,
+        description="Optional mesh identifier used to align this simulation with a known mesh.",
+    )
     mesh_mode: Annotated[
         Literal[
             "mesh_catchment",
@@ -41,7 +61,10 @@ class ComparisonSimulation(HydroModelBase):
             "unknown",
         ],
         Profile.DEV,
-    ] = "unknown"
+    ] = Field(
+        default="unknown",
+        description="Mesh kind tag used to drive backend-specific post-processing.",
+    )
     overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,
         description=(
@@ -66,28 +89,75 @@ class ComparisonSimulation(HydroModelBase):
 class ComparisonObservable(HydroModelBase):
     """One quantity of interest extracted from each simulation run folder."""
 
-    name: Annotated[IdentifierStr, Profile.USER]
-    variable: Annotated[NonEmptyStr, Profile.USER]
-    source: Annotated[Literal["disk"], Profile.USER] = "disk"
-    simulations: Annotated[list[IdentifierStr] | None, Profile.USER] = None
-    support: Annotated[Literal["point", "outlet", "boundary", "cell_mask", "map"], Profile.USER] = (
-        "point"
+    name: Annotated[IdentifierStr, Profile.USER] = Field(
+        description="Unique identifier of this observable inside the comparison."
     )
-    anchor_id: Annotated[str | None, Profile.USER] = None
-    x: Annotated[float | None, Profile.USER] = None
-    y: Annotated[float | None, Profile.USER] = None
-    cell_index: Annotated[NonNegativeInt | None, Profile.USER] = None
+    variable: Annotated[NonEmptyStr, Profile.USER] = Field(
+        description="Name of the simulated variable to extract (e.g. head, discharge)."
+    )
+    source: Annotated[Literal["disk"], Profile.USER] = Field(
+        default="disk",
+        description="Backing store for the extracted values; currently only disk outputs.",
+    )
+    simulations: Annotated[list[IdentifierStr] | None, Profile.USER] = Field(
+        default=None,
+        description="Subset of simulation ids this observable applies to; null means all.",
+    )
+    support: Annotated[Literal["point", "outlet", "boundary", "cell_mask", "map"], Profile.USER] = (
+        Field(
+            default="point",
+            description="Spatial support of the observable (point, outlet, boundary, mask, map).",
+        )
+    )
+    anchor_id: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional anchor key resolved from anchors_file to provide x and y.",
+    )
+    x: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="Easting in meters (EPSG:2154 / Lambert 93).",
+    )
+    y: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description="Northing in meters (EPSG:2154 / Lambert 93).",
+    )
+    cell_index: Annotated[NonNegativeInt | None, Profile.USER] = Field(
+        default=None,
+        description="Zero-based mesh cell index for point or outlet support.",
+    )
     cell_indices: Annotated[list[NonNegativeInt] | None, Profile.USER] = Field(
         default=None,
         min_length=1,
+        description="List of zero-based mesh cell indices used for cell_mask support.",
     )
-    boundary_id: Annotated[IdentifierStr | None, Profile.USER] = None
-    allow_domain_proxy: Annotated[bool, Profile.DEV] = False
-    time: Annotated[str | int | None, Profile.USER] = "all"
-    time_window: Annotated[tuple[str, str] | tuple[float, float] | None, Profile.USER] = None
-    reducer: Annotated[OptionalText, Profile.USER] = None
-    time_reducer: Annotated[OptionalText, Profile.USER] = None
-    unit: Annotated[OptionalText, Profile.USER] = None
+    boundary_id: Annotated[IdentifierStr | None, Profile.USER] = Field(
+        default=None,
+        description="Identifier of the boundary group selected for boundary support.",
+    )
+    allow_domain_proxy: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Allow whole-domain reduction as outlet fallback when no location is set.",
+    )
+    time: Annotated[str | int | None, Profile.USER] = Field(
+        default="all",
+        description="Timestep selector (timestamp, integer index, or 'all').",
+    )
+    time_window: Annotated[tuple[str, str] | tuple[float, float] | None, Profile.USER] = Field(
+        default=None,
+        description="Optional inclusive time window as a (start, end) pair, mutually exclusive with time.",
+    )
+    reducer: Annotated[OptionalText, Profile.USER] = Field(
+        default=None,
+        description="Spatial reducer applied over the support (e.g. nearest_cell, sum, max).",
+    )
+    time_reducer: Annotated[OptionalText, Profile.USER] = Field(
+        default=None,
+        description="Temporal reducer applied over the selected timesteps (e.g. mean, sum).",
+    )
+    unit: Annotated[OptionalText, Profile.USER] = Field(
+        default=None,
+        description="Optional unit label attached to the extracted values for display.",
+    )
 
     _normalize_anchor_boundary_ids = field_validator("anchor_id", "boundary_id")(
         validate_optional_identifier
@@ -163,8 +233,14 @@ class ComparisonObservable(HydroModelBase):
 class RuntimeComparisonSection(HydroModelBase):
     """Launcher-owned comparison section."""
 
-    comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
-    base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    comparison_id: Annotated[IdentifierStr | None, Profile.USER] = Field(
+        default=None,
+        description="Identifier of the comparison; defaults to the TOML config stem when omitted.",
+    )
+    base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = Field(
+        default=None,
+        description="Path to a shared base simulation TOML used to generate child configs.",
+    )
     base_simulation_overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,
         description=(
@@ -174,12 +250,30 @@ class RuntimeComparisonSection(HydroModelBase):
             "catalog-driven testbeds."
         ),
     )
-    anchors_file: Annotated[OptionalText, Profile.EXPERT] = None
-    output_root: Annotated[OptionalText, Profile.EXPERT] = None
-    run_simulations: Annotated[bool, Profile.DEV] = True
-    continue_on_error: Annotated[bool, Profile.DEV] = False
-    reference_simulation: Annotated[IdentifierStr | None, Profile.EXPERT] = None
-    fine_raster: Annotated[ComparisonFineRaster | None, Profile.EXPERT] = None
+    anchors_file: Annotated[OptionalText, Profile.EXPERT] = Field(
+        default=None,
+        description="Path to a TOML file declaring named (x, y) anchors in EPSG:2154 meters.",
+    )
+    output_root: Annotated[OptionalText, Profile.EXPERT] = Field(
+        default=None,
+        description="Override for the comparison output root; defaults to base_dir/comparison/<id>.",
+    )
+    run_simulations: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description="Whether to actually execute simulations; if false, only reuse existing outputs.",
+    )
+    continue_on_error: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Continue the comparison when an individual simulation fails.",
+    )
+    reference_simulation: Annotated[IdentifierStr | None, Profile.EXPERT] = Field(
+        default=None,
+        description="Id of the simulation used as the reference for relative metrics and grids.",
+    )
+    fine_raster: Annotated[ComparisonFineRaster | None, Profile.EXPERT] = Field(
+        default=None,
+        description="Optional shared rasterization settings used to compare map outputs.",
+    )
     simulation: Annotated[list[ComparisonSimulation], Profile.USER] = Field(
         default_factory=list,
         description="Simulations to run or reuse in the comparison. At least one entry required.",
@@ -232,13 +326,26 @@ class RuntimeComparisonSection(HydroModelBase):
 class ComparisonFineRaster(HydroModelBase):
     """Optional common regular-grid rasterization for map comparisons."""
 
-    enabled: Annotated[bool, Profile.EXPERT] = False
-    resolution: Annotated[PositiveFloat | None, Profile.EXPERT] = None
-    extent_mode: Annotated[Literal["intersection", "union", "reference"], Profile.EXPERT] = (
-        "intersection"
+    enabled: Annotated[bool, Profile.EXPERT] = Field(
+        default=False,
+        description="Enable the shared fine raster for map comparisons.",
     )
-    interpolation: Annotated[Literal["linear", "nearest"], Profile.EXPERT] = "linear"
-    write_geotiff: Annotated[bool, Profile.EXPERT] = True
+    resolution: Annotated[PositiveFloat | None, Profile.EXPERT] = Field(
+        default=None,
+        description="Target raster cell size in meters (EPSG:2154 grid).",
+    )
+    extent_mode: Annotated[Literal["intersection", "union", "reference"], Profile.EXPERT] = Field(
+        default="intersection",
+        description="Strategy used to derive the common raster extent across simulations.",
+    )
+    interpolation: Annotated[Literal["linear", "nearest"], Profile.EXPERT] = Field(
+        default="linear",
+        description="Regridding method used to project each map onto the shared fine raster.",
+    )
+    write_geotiff: Annotated[bool, Profile.EXPERT] = Field(
+        default=True,
+        description="Write the regridded maps as GeoTIFF files alongside the comparison figures.",
+    )
 
     @model_validator(mode="after")
     def _validate_when_enabled(self) -> ComparisonFineRaster:
