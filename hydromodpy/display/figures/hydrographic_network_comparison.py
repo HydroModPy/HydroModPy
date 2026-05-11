@@ -397,7 +397,9 @@ class _HydrographicNetworkDifferenceRoleFigure(HydrographicNetworkComparisonFigu
         sim: Run,
         comparison: Any,
     ) -> None:
-        raise NotImplementedError
+        raise NotImplementedError(
+            "_draw_focus must be implemented by subclasses (defines which subset of the comparison to highlight on the axes)."
+        )
 
 
 @register
