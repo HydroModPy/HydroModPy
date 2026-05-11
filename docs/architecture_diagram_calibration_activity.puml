@@ -1,0 +1,78 @@
+@startuml
+title HydroModPy - Diagramme d'activité (Workflow de calibration)
+
+|Utilisateur|
+start
+:Soumettre une demande de calibration;
+
+|Orchestrateur|
+:Charger la configuration et le modèle de base;
+if (Configuration valide ?) then (oui)
+  :Résoudre les étapes de préparation;
+else (non)
+  stop
+endif
+:Valider la configuration;
+:Construire le contexte géographique;
+:Charger les données (observations + DataStore);
+:Construire ou importer le maillage;
+:Configurer les processus;
+:Définir les paramètres à calibrer;
+:Préparer le solveur;
+
+|CalibrationEngine|
+note right: Pattern Ask/Tell (optimiseur)
+repeat
+  :optimizer.ask(n=batch_size);
+  note right: Suggestions de paramètres
+  :Pour chaque suggestion `sugg`;
+  :run_trial_light(sugg);
+  note right: Deep copy config\nInject values\nExécution légère (lightweight=True)\nPas d'export Zarr/Parquet
+  :extract_objective_metric();
+  :TrialResult (cached si déjà évalué);
+  :optimizer.tell(results);
+  note right: Mise à jour de l'optimiseur avec les résultats
+  if (optimizer.converged() ?) then (oui)
+    :Convergence atteinte;
+    break
+  else
+    :Incrémenter n_done;
+  endif
+repeat while (n_done < max_iter?)
+
+|Promote (optionnel)|
+:Fin boucle d'optimisation;
+note right: Promote conditionnelle selon `save_runs`
+if (save_runs != "none" ?) then (oui)
+  if (save_runs == "best_n" ?) then (oui)
+    :Promote des top N → sim_id;
+  else (save_runs == "all" ?)
+    :Promote de toutes les itérations → sim_id;
+  endif
+  :promote_prepared_trial();
+  note right: Exécution COMPLÈTE pour trials promus\n(extract + derive + export + cleanup)
+else
+  :Trace-only (enregistrement minimal dans DuckDB);
+endif
+
+if (rerun_best_with_outputs ?) then (oui)
+  :Relancer le meilleur essai en mode complet;
+endif
+
+|Orchestrateur|
+:Back-fill sim_id dans `calibration_iterations`;
+:Générer rapports d'optimisation;
+:Retourner meilleurs paramètres et historique;
+stop
+
+note right
+  Flux réel de calibration avec pattern Ask/Tell.
+  Liens code (exemples) :
+  - `calibration_dispatch`: hydromodpy/calibration_dispatch.py
+  - `CalibrationEngine`: hydromodpy/calibration/engine.py
+  - `run_trial_light`: hydromodpy/calibration/runners/trial.py
+  - `promote_prepared_trial`: hydromodpy/calibration/runners/trial.py
+  - `optimizer` (ask/tell): hydromodpy/calibration/optimizer.py
+end note
+
+@enduml

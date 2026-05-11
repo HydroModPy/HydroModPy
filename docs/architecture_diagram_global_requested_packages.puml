@@ -1,0 +1,323 @@
+@startuml
+title HydroModPy - Global Component Architecture (Dev Branch - Corrected)
+left to right direction
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam dpi 140
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+skinparam titleFontSize 14
+skinparam legendFontSize 9
+skinparam packageFontSize 10
+skinparam componentFontSize 10
+skinparam interfaceFontSize 9
+skinparam noteFontSize 9
+skinparam nodesep 18
+skinparam ranksep 22
+
+skinparam package {
+  BackgroundColor #F9FAFB
+  BorderColor #94A3B8
+  FontColor #0F172A
+}
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  FontColor #0F172A
+}
+skinparam interface {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+  FontColor #0F172A
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #D4A72C
+  FontColor #111827
+}
+
+skinparam component<<entry>> {
+  BackgroundColor #FFE7B3
+  BorderColor #B45309
+  FontColor #7C2D12
+}
+skinparam component<<aggregate>> {
+  BackgroundColor #EEF2FF
+  BorderColor #6366F1
+}
+skinparam component<<facade>> {
+  BackgroundColor #E0F2FE
+  BorderColor #0284C7
+}
+skinparam interface<<real interface>> {
+  BackgroundColor #DCFCE7
+  BorderColor #16A34A
+}
+skinparam interface<<conceptual port>> {
+  BackgroundColor #F1F5F9
+  BorderColor #64748B
+}
+
+legend right
+|= Notation |= Meaning |
+| <<entry>> | Entrée exécutable (CLI/API) |
+| <<real interface>> | Protocol / ABC Python réel |
+| <<conceptual port>> | Contrat d'architecture |
+| <<aggregate>> | Groupe de modules/composants |
+| <<facade>> | Couche façade / re-export |
+| -() | Port fourni (lollipop) |
+| -( | Port requis (socket) |
+| --> | Dépend de |
+| ..> | Utilise (faible) |
+endlegend
+
+package "Requested Package Index" <<facade>> {
+  component "CLI commands\n(hydromodpy.cli.commands.*)" as PkgCLI <<aggregate,facade>>
+  component "config + workspace\n(hydromodpy.config / core.workspace)" as PkgConfigWorkspace <<aggregate>>
+  component "dataloading\n(hydromodpy.data.*)" as PkgDataLoading <<aggregate>>
+  component "spatial_support\n(hydromodpy.spatial.domain.spatial_support)" as PkgSpatialSupport
+  component "field\n(hydromodpy.spatial.field.*)" as PkgField
+  component "mesh\n(hydromodpy.spatial.mesh.* + spatial.delineation)" as PkgMesh <<aggregate>>
+  component "simulation\n(hydromodpy.simulation.*)" as PkgSimulation <<aggregate>>
+  component "solver\n(hydromodpy.solver.*)" as PkgSolver <<aggregate>>
+  component "calibration\n(hydromodpy.calibration.* + hydromodpy.calibration_dispatch)" as PkgCalibration <<aggregate>>
+  component "results\n(hydromodpy.results.*)" as PkgResults <<aggregate>>
+}
+
+package "Core Interfaces & Ports" {
+  interface "SolverAdapter\n(hydromodpy.solver.base.protocol.SolverAdapter)" as SolverAdapterProtocol <<real interface>>
+  interface "SpatialSupportProvider\n(hydromodpy.spatial.domain.spatial_support.SpatialSupportProvider)" as SpatialSupportProviderProtocol <<real interface>>
+  interface "SourceConfigProtocol\n(hydromodpy.data._base_manager_common.SourceConfigProtocol)" as SourceConfigProtocol <<real interface>>
+  interface "DelineationBackend\n(hydromodpy.spatial.delineation.base.DelineationBackend)" as DelineationBackendProtocol <<real interface>>
+  interface "Optimizer\n(hydromodpy.calibration.optimizer.Optimizer)" as OptimizerProtocol <<real interface>>
+
+  interface IConfigLoadPort <<conceptual port>>
+  interface IWorkspacePort <<conceptual port>>
+  interface IDataPlanningPort <<conceptual port>>
+  interface IDataLoadingPort <<conceptual port>>
+  interface IGeoContextBuildPort <<conceptual port>>
+  interface IStructuredMeshBuildPort <<conceptual port>>
+  interface IConformalMeshBuildPort <<conceptual port>>
+  interface ISpatialSupportResolvePort <<conceptual port>>
+  interface IFieldProjectionPort <<conceptual port>>
+  interface IForcingResolutionPort <<conceptual port>>
+  interface IPostprocessPort <<conceptual port>>
+  interface IBatchOrchestrationPort <<conceptual port>>
+  interface ICalibrationExecutionPort <<conceptual port>>
+  interface IMethodComparisonPort <<conceptual port>>
+  interface ILegacyInteropPort <<conceptual port>>
+}
+
+package "CLI Entry Points" <<facade>> {
+  component "hmp / hydromodpy\n(CLI with 25 subcommands)" as CLIEntryPoint <<entry>>
+  component "Subcommands:\nrun, compare, catalog, list,\nexport, dev, schema, etc." as CLISubcommands <<aggregate>>
+}
+
+package "Config + Workspace" {
+  component "TomlLoader" as TomlLoader
+  component "HydroModPyConfig.from_toml" as HmpConfigFactory
+  component "Workspace" as WorkspaceRuntime
+}
+
+package "Data and Domain Pipelines" {
+  component "DataManagersPlanner" as DataPlanner
+  component "DataManagersRuntimeLoader" as DataRuntimeLoader
+  component "build_domain_geographic_context" as GeoContextBuilder
+  component "SpatialSupportProviderRegistry" as SpatialSupportRegistry
+  component "Domain.resolve_spatial_support" as SpatialSupportResolver
+  component "Field Projection Engine" as FieldProjectionEngine <<aggregate>>
+  component "Data utilities" as DataUtilities <<aggregate>>
+}
+
+package "Mesh Pipelines" {
+  component "build_sgrid_from_config" as StructuredMeshBuilder
+  component "MeshRuntimeWorkflow" as MeshRuntimeWorkflow
+  component "ConformalCaseRunner" as ConformalCaseRunner
+  component "ConformalMeshCore" as ConformalMeshCore
+  component "MeshCatchmentBatchRunner" as MeshBatchRunner
+}
+
+package "Simulation Runtime + Adapters" {
+  component "SimulationPlanner" as SimulationPlannerBuild
+  component "SimulationRunner" as SimulationRunnerExec
+  component "resolve_forcing" as ForcingBridge
+  component "get_solver_adapter" as AdapterRegistry
+  component "Flow adapters" as FlowAdapters <<aggregate>>
+  component "Transport adapters" as TransportAdapters <<aggregate>>
+}
+
+package "Solver Backends" {
+  component "Boussinesq" as BoussinesqSolver
+  component "Modflow" as ModflowNwt
+  component "Modflow6" as Modflow6
+  component "TransportSolvers" as TransportSolvers <<aggregate>>
+}
+
+package "Calibration Runtime" {
+  component "CalibrationEngine" as CalibrationEngine
+  component "TrialRunner" as TrialRunner
+  component "Optimizer" as Optimizer
+  component "CalibrationAdapters" as CalibrationAdapters <<aggregate>>
+}
+
+package "Results Management" {
+  component "ResultsCatalog" as ResultsCatalog
+  component "ResultImporters" as ResultImporters
+  component "ResultExporters" as ResultExporters
+  interface "ResultsCatalog Protocol\n(Results storage/retrieval)" as ResultsCatalogProtocol <<real interface>>
+}
+
+package "Cross-cutting / Advanced" {
+  component "PostprocessRunner" as PostprocessRunner
+  component "BatchOrchestration" as BatchOrchestration
+  component "LegacyAnnex" as LegacyAnnex <<aggregate>>
+}
+
+' ---------- Main flow (numbered steps) ----------
+CLIEntryPoint -[#C2410C,thickness=2]-> TomlLoader : 1) charge TOML
+TomlLoader -[#C2410C,thickness=2]-> HmpConfigFactory : 2) valide config
+HmpConfigFactory -[#C2410C,thickness=2]-> WorkspaceRuntime : 3) initialise workspace
+WorkspaceRuntime -[#C2410C,thickness=2]-> DataPlanner : 4) plan data
+DataPlanner -[#C2410C,thickness=2]-> DataRuntimeLoader : 5) charge données
+DataRuntimeLoader -[#C2410C,thickness=2]-> GeoContextBuilder : 6) construit contexte géo
+GeoContextBuilder -[#C2410C,thickness=2]-> StructuredMeshBuilder : 7) construit maillage
+StructuredMeshBuilder -[#C2410C,thickness=2]-> SimulationPlannerBuild : 8) plan simulation
+SimulationPlannerBuild -[#C2410C,thickness=2]-> SimulationRunnerExec : 9) exécute
+SimulationRunnerExec -[#C2410C,thickness=2]-> ResultsCatalog : 10) ingère résultats
+ResultsCatalog -[#C2410C,thickness=2]-> PostprocessRunner : 11) post-process
+
+CLIEntryPoint -[#C2410C,thickness=2]-> CalibrationEngine : 12) calibrate
+CalibrationEngine -[#C2410C,thickness=2]-> Optimizer : 13) ask/tell
+CalibrationEngine -[#C2410C,thickness=2]-> TrialRunner : 14) évalue trials
+TrialRunner -[#C2410C,thickness=2]-> SimulationRunnerExec : 15) run_trial_light
+TrialRunner -[#C2410C,thickness=2]-> ResultsCatalog : 16) store history
+CLIEntryPoint -[#C2410C,thickness=2]-> BatchOrchestration : 17) compare methods
+
+' ---------- Package mappings ----------
+PkgCLI ..> CLIEntryPoint
+PkgCLI ..> CLISubcommands
+
+PkgConfigWorkspace ..> TomlLoader
+PkgConfigWorkspace ..> HmpConfigFactory
+PkgConfigWorkspace ..> WorkspaceRuntime
+
+PkgDataLoading ..> DataPlanner
+PkgDataLoading ..> DataRuntimeLoader
+PkgDataLoading ..> DataUtilities
+
+PkgSpatialSupport ..> SpatialSupportRegistry
+PkgSpatialSupport ..> SpatialSupportResolver
+PkgField ..> FieldProjectionEngine
+
+PkgMesh ..> StructuredMeshBuilder
+PkgMesh ..> MeshRuntimeWorkflow
+PkgMesh ..> ConformalCaseRunner
+PkgMesh ..> ConformalMeshCore
+PkgMesh ..> MeshBatchRunner
+
+PkgSimulation ..> SimulationPlannerBuild
+PkgSimulation ..> SimulationRunnerExec
+PkgSimulation ..> AdapterRegistry
+PkgSimulation ..> FlowAdapters
+PkgSimulation ..> TransportAdapters
+
+PkgSolver ..> BoussinesqSolver
+PkgSolver ..> ModflowNwt
+PkgSolver ..> Modflow6
+PkgSolver ..> TransportSolvers
+
+PkgCalibration ..> CalibrationEngine
+PkgCalibration ..> TrialRunner
+PkgCalibration ..> Optimizer
+PkgCalibration ..> CalibrationAdapters
+
+PkgResults ..> ResultsCatalog
+PkgResults ..> ResultImporters
+PkgResults ..> ResultExporters
+
+' ---------- Interfaces ----------
+TomlLoader -- IConfigLoadPort
+HmpConfigFactory -- IConfigLoadPort
+WorkspaceRuntime -- IWorkspacePort
+DataPlanner -- IDataPlanningPort
+DataRuntimeLoader -- IDataLoadingPort
+GeoContextBuilder -- IGeoContextBuildPort
+SpatialSupportResolver -- ISpatialSupportResolvePort
+FieldProjectionEngine -- IFieldProjectionPort
+StructuredMeshBuilder -- IStructuredMeshBuildPort
+ConformalCaseRunner -- IConformalMeshBuildPort
+ConformalMeshCore -- IConformalMeshBuildPort
+ForcingBridge -- IForcingResolutionPort
+PostprocessRunner -- IPostprocessPort
+MeshBatchRunner -- IBatchOrchestrationPort
+CLIEntryPoint -- ICalibrationExecutionPort
+CLIEntryPoint -- IMethodComparisonPort
+LegacyAnnex -- ILegacyInteropPort
+
+DataRuntimeLoader ..> SourceConfigProtocol : uses
+SpatialSupportRegistry ..> SpatialSupportProviderProtocol : register/get
+AdapterRegistry ..> SolverAdapterProtocol : resolves
+GeoContextBuilder ..> DelineationBackendProtocol : uses
+Optimizer ..|> OptimizerProtocol
+ResultsCatalog ..|> ResultsCatalogProtocol
+
+' ---------- Ports fournis / requis ----------
+CLIEntryPoint -() IConfigLoadPort
+CLIEntryPoint -() IWorkspacePort
+CLIEntryPoint -() IDataPlanningPort
+CLIEntryPoint -() IGeoContextBuildPort
+CLIEntryPoint -() IStructuredMeshBuildPort
+CLIEntryPoint -() IConformalMeshBuildPort
+CLIEntryPoint -() IBatchOrchestrationPort
+CLIEntryPoint -() ICalibrationExecutionPort
+CLIEntryPoint -() IMethodComparisonPort
+
+' ---------- Solver integrations ----------
+FlowAdapters ..> BoussinesqSolver
+FlowAdapters ..> ModflowNwt
+FlowAdapters ..> Modflow6
+TransportAdapters ..> TransportSolvers
+
+' ---------- Patterns note ----------
+note right
+  **DESIGN PATTERNS**
+
+  1) Facade: launchers and helper factories
+  2) Orchestrator: planner / runtime / calibration controllers
+  3) Pipeline: numbered steps from config to outputs
+  4) Registry: solver, spatial support, optimizer lookup
+  5) Adapter: solver backends, calibration adapters, mesh adapters
+  6) Ports & Adapters: conceptual ports and real protocols
+  7) Strategy: solver / optimizer / mesh backend selection
+end note
+
+note bottom of CLIEntryPoint
+  Pattern: Facade + Orchestrator
+  CLI with 25 subcommands:
+  run (simulation), compare, catalog,
+  dev, schema, list, export, etc.
+end note
+
+note bottom of CalibrationEngine
+  Pattern: Orchestrator + Strategy
+  Ask/tell loop with convergence and trial evaluation
+end note
+
+note bottom of AdapterRegistry
+  Pattern: Registry
+  Selects concrete solver adapters at runtime
+end note
+
+note bottom of ResultsCatalog
+  Pattern: Repository / Facade
+  Stores finished results and trial history
+end note
+
+note bottom of PkgCLI
+  Unified CLI (pyproject.toml entry point):
+  hmp = "hydromodpy.cli:main"
+  hydromodpy = "hydromodpy.cli:main"
+end note
+
+@enduml

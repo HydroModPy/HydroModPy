@@ -14,8 +14,8 @@ skinparam componentFontSize 10
 skinparam interfaceFontSize 9
 skinparam noteFontSize 9
 
-skinparam nodesep 18
-skinparam ranksep 22
+skinparam nodesep 40
+skinparam ranksep 50
 
 skinparam package {
   BackgroundColor #F9FAFB
@@ -67,7 +67,7 @@ legend right
 | <<conceptual port>> | Contrat d'architecture |
 | <<aggregate>> | Groupe de modules/composants |
 | <<facade>> | Couche façade / re-export |
-| --~|> | Réalise interface |
+| --\|> | Réalise interface |
 | -() | Port fourni (lollipop) |
 | -( | Port requis (socket) |
 | --> | Dépend de |
@@ -86,141 +86,151 @@ package "Core Infrastructure" {
   component "Workspace Runtime\n(hydromodpy.core)" as WorkspaceRuntime
   component "Workflow Orchestrator\n(hydromodpy.workflow.orchestrator)" as Orchestrator
 
-  interface "WorkflowProvider\n(dispatch, scheduler)" as WorkflowProviderProtocol <<real interface>>
-  interface "ConfigProtocol\n(TOML/Config loading)" as ConfigProtocol <<real interface>>
+  interface "WorkflowProvider" as WorkflowProviderProtocol <<real interface>>
+  interface "ConfigProtocol" as ConfigProtocol <<real interface>>
 }
 
 package "Spatial Domain & Mesh" {
-  component "Geographic Context\n(hydromodpy.spatial.geographic)\nCatchment delineation" as GeoContext
+  component "Geographic Context\n(hydromodpy.spatial.geographic)" as GeoContext
   component "Spatial Support\n(hydromodpy.spatial.domain)" as SpatialSupport
-  component "Field Abstraction\n(hydromodpy.spatial.field.*)" as FieldCore <<aggregate>>
+  component "Field Abstraction" as FieldCore <<aggregate>>
 
-  component "Cartesian Grid\n(hydromodpy.spatial.mesh.cartesian_grid)" as CartesianGrid
-  component "Gmsh Grid\n(hydromodpy.spatial.mesh.gmsh_grid)" as GmshGrid
-  component "Mesh Steps Runner\n(hydromodpy.workflow.steps.mesh)" as MeshStepsRunner <<aggregate>>
-  component "Mesh Adapters\n(FLOPY, MeshIO, Field)\n(hydromodpy.spatial.mesh.adapters)" as MeshAdapters <<aggregate>>
+  component "Cartesian Grid" as CartesianGrid
+  component "Gmsh Grid" as GmshGrid
+  component "Mesh Steps Runner" as MeshStepsRunner <<aggregate>>
+  component "Mesh Adapters" as MeshAdapters <<aggregate>>
 
-  interface "Field ABC\n(BaseField, FieldDiscretization)" as FieldABC <<real interface>>
-  interface "FieldMesh ABC\n(BaseFieldMesh, FieldMesh)" as FieldMeshABC <<real interface>>
-  interface "MeshAdapter Protocol\n(Mesh format conversion)" as MeshAdapterProtocol <<real interface>>
+  interface "Field ABC" as FieldABC <<real interface>>
+  interface "FieldMesh ABC" as FieldMeshABC <<real interface>>
+  interface "MeshAdapter Protocol" as MeshAdapterProtocol <<real interface>>
 }
 
 package "Data Loading & Registry" {
-  component "Data Registry\n(hydromodpy.data.registry)" as DataRegistry
-  component "Data Loaders\n(hydromodpy.data.loaders)" as DataLoaders
-  component "Data Adapters\n(Sources mapping)\n(hydromodpy.data.adapters)" as DataAdapters <<aggregate>>
-  component "DuckDB Catalog\n(hydromodpy.data.catalog)" as DuckDBCatalog
+  component "Data Registry" as DataRegistry
+  component "Data Loaders" as DataLoaders
+  component "Data Adapters" as DataAdapters <<aggregate>>
+  component "DuckDB Catalog" as DuckDBCatalog
 
-  interface "SourceConfig Protocol\n(Base manager)" as SourceConfigProtocol <<real interface>>
-  interface "DataStore Protocol\n(Data backend abstraction)" as DataStoreProtocol <<real interface>>
+  interface "SourceConfig Protocol" as SourceConfigProtocol <<real interface>>
+  interface "DataStore Protocol" as DataStoreProtocol <<real interface>>
 }
 
 package "Physics & Processes" {
-  component "Flow Domain\n(hydromodpy.physics.flow)" as FlowPhysics
-  component "Transport Domain\n(hydromodpy.physics.transport)" as TransportPhysics
-  component "Process Spatial ABC\n(Base abstract)" as ProcessSpatialABC <<aggregate>>
-
-  interface "ProcessSpatial ABC\n(Generic process)" as ProcessSpatialProtocol <<real interface>>
+  component "Flow Domain" as FlowPhysics
+  component "Transport Domain" as TransportPhysics
+  interface "ProcessSpatial ABC" as ProcessSpatialProtocol <<real interface>>
 }
 
 package "Simulation Execution & Dispatch" {
-  component "Simulation Planner\n(hydromodpy.simulation.planning)" as SimulationPlanner
-  component "Simulation Runner\n(hydromodpy.simulation.execution)" as SimulationRunner
+  component "Simulation Planner" as SimulationPlanner
+  component "Simulation Runner" as SimulationRunner
 
-  component "Solver Adapter Registry\n(hydromodpy.solver.base.registry)" as AdapterRegistry
-  component "Solver Registry Provider\n(DI: get/set)\n(hydromodpy.simulation._solver_protocol)" as SolverProviderDI
+  component "Solver Adapter Registry" as AdapterRegistry
+  component "Solver Registry Provider" as SolverProviderDI
 
-  interface "SolverAdapter Protocol\n(Runtime execution)" as SolverAdapterProtocol <<real interface>>
-  interface "SolverRegistryProvider\n(Dependency Injection)" as RegistryProviderProtocol <<real interface>>
+  interface "SolverAdapter Protocol" as SolverAdapterProtocol <<real interface>>
+  interface "SolverRegistryProvider" as RegistryProviderProtocol <<real interface>>
 }
 
 package "Solver Backends" {
-  component "Boussinesq Solver\n(hydromodpy.solver.boussinesq)" as BoussinesqSolver
-  component "MODFLOW NWT\n(hydromodpy.solver.modflow_nwt)" as ModflowNwt
-  component "MODFLOW 6\n(hydromodpy.solver.modflow6)" as Modflow6
+  component "Boussinesq Solver" as BoussinesqSolver
+  component "MODFLOW NWT" as ModflowNwt
+  component "MODFLOW 6" as Modflow6
 
-  component "Boussinesq Adapter\n(Flow + Extractor)" as BoussinesqAdapter <<aggregate>>
-  component "MODFLOW NWT Adapter\n(Flow + Extractor)" as ModflowNwtAdapter <<aggregate>>
-  component "MODFLOW 6 Adapter\n(Flow + Extractor)" as Modflow6Adapter <<aggregate>>
+  component "Boussinesq Adapter" as BoussinesqAdapter <<aggregate>>
+  component "MODFLOW NWT Adapter" as ModflowNwtAdapter <<aggregate>>
+  component "MODFLOW 6 Adapter" as Modflow6Adapter <<aggregate>>
 
-  component "Transport Adapters\n(hydromodpy.solver.transport)" as TransportAdapters <<aggregate>>
+  component "Transport Adapters" as TransportAdapters <<aggregate>>
 
-  interface "Solver ABC\n(Base class)" as SolverABC <<real interface>>
+  interface "Solver ABC" as SolverABC <<real interface>>
 }
 
 package "Analysis & Calibration" {
-  component "Calibration Adapters\n(scipy, optuna, cma, gp)\n(hydromodpy.calibration.adapters)" as CalibrationAdapters <<aggregate>>
-  component "Batch Orchestration\n(hydromodpy.analysis.batch)" as BatchOrchestration
-  component "Postprocess Runner\n(hydromodpy.analysis.comparison)" as PostprocessRunner
-  component "Visualization/Display\n(hydromodpy.display)" as DisplayEngine <<aggregate>>
+  component "Calibration Adapters" as CalibrationAdapters <<aggregate>>
+  component "Batch Orchestration" as BatchOrchestration
+  component "Postprocess Runner" as PostprocessRunner
+  component "Visualization Engine" as DisplayEngine <<aggregate>>
 
-  interface "BaseFigure ABC\n(Plotting abstraction)" as BaseFigureABC <<real interface>>
-  interface "CalibrationAdapter Protocol\n(Optimization backend)" as CalibrationAdapterProtocol <<real interface>>
+  interface "BaseFigure ABC" as BaseFigureABC <<real interface>>
 }
 
 package "Results Management" {
-  component "Results Catalog\n(DuckDB)\n(hydromodpy.results.catalog)" as ResultsCatalog
+  component "Results Catalog" as ResultsCatalog
+  interface "ResultsCatalog Protocol" as ResultsCatalogProtocol <<real interface>>
+}
 
-  interface "ResultsCatalog Protocol\n(Results storage/retrieval)" as ResultsCatalogProtocol <<real interface>>
+package "Calibration Runtime" {
+  component "Calibration Dispatch" as CalibrationDispatch
+  component "Calibration Engine" as CalibrationEngine
+  component "Trial Runner" as TrialRunner
+  component "Optimizer" as CalibrationOptimizer
+
+  interface "Optimizer Protocol" as OptimizerProtocol <<real interface>>
 }
 
 package "Legacy/Annex" {
-  component "Legacy Annex\n(hydromodpy_annex)\n(post-processors)" as LegacyAnnex <<aggregate>>
+  component "Legacy Annex" as LegacyAnnex <<aggregate>>
 }
 
 ' ===== MAIN FLOW (Red) =====
-CLIMain --|> WorkflowProviderProtocol : dispatch
-APIFacade --|> WorkflowProviderProtocol : invoke
-ProjectFacade --|> WorkflowProviderProtocol : interactive
+CLIMain --|> WorkflowProviderProtocol
+APIFacade --|> WorkflowProviderProtocol
+ProjectFacade --|> WorkflowProviderProtocol
 
-CLIMain -[#C2410C,thickness=2]-> TomlLoader : 1) read TOML
+CLIMain -[#C2410C,thickness=2]-> TomlLoader : 1) read
 TomlLoader -[#C2410C,thickness=2]-> ConfigFactory : 2) validate
-ConfigFactory -[#C2410C,thickness=2]-> WorkspaceRuntime : 3) setup workspace
+ConfigFactory -[#C2410C,thickness=2]-> WorkspaceRuntime : 3) setup
+WorkspaceRuntime -[#C2410C,thickness=2]-> Orchestrator : enters
 
-WorkspaceRuntime -[#C2410C,thickness=2]-> Orchestrator : enters runtime
+Orchestrator -[#C2410C,thickness=2]-> DataRegistry : 4) plan
+DataRegistry -[#C2410C,thickness=2]-> DataLoaders
+DataLoaders -[#C2410C,thickness=2]-> DataAdapters
+DataAdapters -[#C2410C,thickness=2]-> DuckDBCatalog
 
-Orchestrator -[#C2410C,thickness=2]-> DataRegistry : 4) plan data
-DataRegistry -[#C2410C,thickness=2]-> DataLoaders : resolve loaders
-DataLoaders -[#C2410C,thickness=2]-> DataAdapters : map sources
-DataAdapters -[#C2410C,thickness=2]-> DuckDBCatalog : ingest
+Orchestrator -[#C2410C,thickness=2]-> GeoContext : 5) build
+GeoContext -[#C2410C,thickness=2]-> SpatialSupport
 
-Orchestrator -[#C2410C,thickness=2]-> GeoContext : 5) build geo context
-GeoContext -[#C2410C,thickness=2]-> SpatialSupport : spatial index
+Orchestrator -[#C2410C,thickness=2]-> CartesianGrid : 6a)
+Orchestrator -[#C2410C,thickness=2]-> GmshGrid : 6b)
+CartesianGrid -[#C2410C,thickness=2]-> MeshStepsRunner
+GmshGrid -[#C2410C,thickness=2]-> MeshStepsRunner
+MeshStepsRunner -[#C2410C,thickness=2]-> MeshAdapters
 
-Orchestrator -[#C2410C,thickness=2]-> CartesianGrid : 6a) cartesian mesh
-Orchestrator -[#C2410C,thickness=2]-> GmshGrid : 6b) gmsh mesh
-CartesianGrid -[#C2410C,thickness=2]-> MeshStepsRunner : compose
-GmshGrid -[#C2410C,thickness=2]-> MeshStepsRunner : compose
-MeshStepsRunner -[#C2410C,thickness=2]-> MeshAdapters : adapt
-
-Orchestrator -[#C2410C,thickness=2]-> SimulationPlanner : 7) plan simulation
-SimulationPlanner -[#C2410C,thickness=2]-> AdapterRegistry : resolve adapters
+Orchestrator -[#C2410C,thickness=2]-> SimulationPlanner : 7) plan
+SimulationPlanner -[#C2410C,thickness=2]-> AdapterRegistry
 
 Orchestrator -[#C2410C,thickness=2]-> SimulationRunner : 8) execute
-SimulationRunner -[#C2410C,thickness=2]-> SolverProviderDI : get provider
-SolverProviderDI -[#C2410C,thickness=2]-> AdapterRegistry : lookup adapter
+SimulationRunner -[#C2410C,thickness=2]-> SolverProviderDI
+SolverProviderDI -[#C2410C,thickness=2]-> AdapterRegistry
+
+CalibrationDispatch -[#C2410C,thickness=2]-> CalibrationEngine : 11)
+CalibrationEngine -[#C2410C,thickness=2]-> CalibrationOptimizer : 12)
+CalibrationEngine -[#C2410C,thickness=2]-> TrialRunner : 13)
+TrialRunner -[#C2410C,thickness=2]-> SimulationRunner : 14)
+TrialRunner -[#C2410C,thickness=2]-> ResultsCatalog : 15)
 
 ' ===== SOLVER DISPATCH (Green) =====
-AdapterRegistry -[#0F766E,thickness=2]..> BoussinesqAdapter : flow
-AdapterRegistry -[#0F766E,thickness=2]..> ModflowNwtAdapter : flow
-AdapterRegistry -[#0F766E,thickness=2]..> Modflow6Adapter : flow
-AdapterRegistry -[#0F766E,thickness=2]..> TransportAdapters : transport
+AdapterRegistry -[#0F766E,thickness=2]..> BoussinesqAdapter
+AdapterRegistry -[#0F766E,thickness=2]..> ModflowNwtAdapter
+AdapterRegistry -[#0F766E,thickness=2]..> Modflow6Adapter
+AdapterRegistry -[#0F766E,thickness=2]..> TransportAdapters
 
 BoussinesqAdapter --|> SolverAdapterProtocol
 ModflowNwtAdapter --|> SolverAdapterProtocol
 Modflow6Adapter --|> SolverAdapterProtocol
 TransportAdapters --|> SolverAdapterProtocol
 
-BoussinesqAdapter -[#0F766E,thickness=2]..> BoussinesqSolver : execute
-ModflowNwtAdapter -[#0F766E,thickness=2]..> ModflowNwt : execute
-Modflow6Adapter -[#0F766E,thickness=2]..> Modflow6 : execute
+BoussinesqAdapter -[#0F766E,thickness=2]..> BoussinesqSolver
+ModflowNwtAdapter -[#0F766E,thickness=2]..> ModflowNwt
+Modflow6Adapter -[#0F766E,thickness=2]..> Modflow6
 
 ' ===== RESULTS & POST-PROCESSING =====
-SimulationRunner -[#C2410C,thickness=2]-> ResultsCatalog : 9) ingest results
-ResultsCatalog -[#C2410C,thickness=2]-> DisplayEngine : for visualization
+SimulationRunner -[#C2410C,thickness=2]-> ResultsCatalog : 9)
+ResultsCatalog -[#C2410C,thickness=2]-> DisplayEngine
 
-Orchestrator -[#C2410C,thickness=2]-> PostprocessRunner : 10) post-process
-PostprocessRunner -[#C2410C,thickness=2]-> DisplayEngine : generate outputs
+Orchestrator -[#C2410C,thickness=2]-> PostprocessRunner : 10)
+PostprocessRunner -[#C2410C,thickness=2]-> DisplayEngine
 
 ' ===== PROTOCOLS & IMPLEMENTATIONS =====
 GeoContext --|> ProcessSpatialProtocol
@@ -233,101 +243,53 @@ MeshAdapters --|> MeshAdapterProtocol
 
 TomlLoader --|> ConfigProtocol
 ConfigFactory --|> ConfigProtocol
-
-DataLoaders ..> SourceConfigProtocol : uses
-
 DuckDBCatalog --|> DataStoreProtocol
-
 ResultsCatalog --|> ResultsCatalogProtocol
-
-CalibrationAdapters --|> CalibrationAdapterProtocol
-
+CalibrationAdapters --|> OptimizerProtocol
+CalibrationOptimizer --|> OptimizerProtocol
 BoussinesqSolver --|> SolverABC
 ModflowNwt --|> SolverABC
 Modflow6 --|> SolverABC
-
 DisplayEngine --|> BaseFigureABC
 
-CalibrationAdapters -.-> ResultsCatalog : read for optimization
-BatchOrchestration -.-> Orchestrator : multi-run
+' ===== PORTS (LOLLIPOP & SOCKETS) =====
+' Provided Ports
+TomlLoader -() WorkflowProviderProtocol
+ConfigFactory -() WorkflowProviderProtocol
+GeoContext -() ProcessSpatialProtocol
+MeshAdapters -() MeshAdapterProtocol
+DuckDBCatalog -() DataStoreProtocol
+BoussinesqAdapter -() SolverAdapterProtocol
+ModflowNwtAdapter -() SolverAdapterProtocol
+Modflow6Adapter -() SolverAdapterProtocol
 
-LegacyAnnex -.-> PostprocessRunner : legacy post-procs
-
-' ===== PORTS FOURNIS (LOLLIPOP) =====
-TomlLoader -()- WorkflowProviderProtocol
-ConfigFactory -()- WorkflowProviderProtocol
-TomlLoader -()- ConfigProtocol
-ConfigFactory -()- ConfigProtocol
-GeoContext -()- ProcessSpatialProtocol
-CartesianGrid -()- FieldMeshABC
-GmshGrid -()- FieldMeshABC
-MeshStepsRunner -()- FieldMeshABC
-MeshAdapters -()- MeshAdapterProtocol
-DuckDBCatalog -()- DataStoreProtocol
-BoussinesqAdapter -()- SolverAdapterProtocol
-ModflowNwtAdapter -()- SolverAdapterProtocol
-Modflow6Adapter -()- SolverAdapterProtocol
-TransportAdapters -()- SolverAdapterProtocol
-DisplayEngine -()- BaseFigureABC
-ResultsCatalog -()- ResultsCatalogProtocol
-CalibrationAdapters -()- CalibrationAdapterProtocol
-
-' ===== PORTS REQUIS (SOCKET) -( =====
+' Required Ports
 CLIMain -( WorkflowProviderProtocol
 APIFacade -( WorkflowProviderProtocol
 ProjectFacade -( WorkflowProviderProtocol
 SimulationRunner -( SolverAdapterProtocol
-AdapterRegistry -( SolverAdapterProtocol
 DataLoaders -( SourceConfigProtocol
 SpatialSupport -( ProcessSpatialProtocol
 PostprocessRunner -( BaseFigureABC
 
+' ===== NOTES =====
 note bottom of Orchestrator
   **Orchestrator Pattern**:
   - prepare_runtime()
-  - prepare_run()
   - execute_run()
-  - ingest_run()
-  - render_run()
-
   Centralized state machine
-  for entire workflow
 end note
 
 note bottom of SolverProviderDI
   **Dependency Injection**:
-  set_solver_registry_provider()
-  get_solver_registry_provider()
-
-  Decouples simulation/solver
-  for testability
+  Decouples simulation from
+  specific solver backends.
 end note
 
-note bottom of AdapterRegistry
-  **Registry Pattern**:
-  - Plugin entry-points
-  - Runtime adapter lookup
-  - Multiple backends
-end note
-
-note bottom of APIFacade
+note right of APIFacade
   **Façade Pattern**:
-  - run() → Orchestrator
-  - calibrate() → DI
-  - mesh() → MeshBuilders
-  - testbed() → TestHarness
-  - batch() → BatchOrch.
-end note
-
-note right
-  **Module Path Clarifications**:
-  • Geographic: spatial.geographic.* (not hydromodpy.geographic)
-  • Cartesian Grid: spatial.mesh.cartesian_grid
-  • Gmsh Grid: spatial.mesh.gmsh_grid
-  • Mesh Steps: workflow.steps.mesh (orchestrates building)
-  • Data: data_managers, data.registry, data.sources
-  • Physics: flow, transport, hydrology, forcing
-  • Mesh root: hydromodpy.mesh.cartesian_grid also exists
+  Single entry point for
+  notebooks and scripts.
 end note
 
 @enduml
