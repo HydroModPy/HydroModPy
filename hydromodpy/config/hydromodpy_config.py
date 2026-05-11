@@ -34,6 +34,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, ValidationError, ValidationInfo, model_validator
 
 from hydromodpy.analysis.config import AnalysisConfig
+from hydromodpy.analysis.testbed.config import TestbedConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.config.toml_section_loader import (
     _deep_merge,
@@ -261,6 +262,15 @@ class HydroModPyConfig(HydroModelBase):
         description=(
             "Optional calibration settings loaded from the [calibration] "
             "section.  When present, triggers the calibration workflow."
+        ),
+    )
+    testbed: Annotated[TestbedConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional method-testbed settings loaded from the [testbed] "
+            "section. Drives the orchestration layer over child runners "
+            "(comparison or simulation) and is dispatched when "
+            "workflow.mode='testbed'."
         ),
     )
 
