@@ -103,8 +103,6 @@ CELL_FIELD_ACTIVE_METRICS_FIELDS = [
     "persistence_max",
 ]
 
-SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS = CELL_FIELD_ACTIVE_METRICS_FIELDS
-
 CELL_FIELD_NETWORK_OVERLAP_METRICS_FIELDS = [
     "comparison_id",
     "simulation_id",
@@ -172,8 +170,6 @@ CELL_FIELD_NETWORK_DISTANCE_METRICS_FIELDS = [
     "planar_distance_log10_ratio",
 ]
 
-SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS = CELL_FIELD_NETWORK_OVERLAP_METRICS_FIELDS
-SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS = CELL_FIELD_NETWORK_DISTANCE_METRICS_FIELDS
 RELEASE_FLUX_NETWORK_OVERLAP_METRICS_FIELDS = CELL_FIELD_NETWORK_OVERLAP_METRICS_FIELDS
 RELEASE_FLUX_NETWORK_DISTANCE_METRICS_FIELDS = CELL_FIELD_NETWORK_DISTANCE_METRICS_FIELDS
 
@@ -874,7 +870,7 @@ def write_simulated_active_network_metrics_export(
         return artifacts, rows
 
     path = comparison_root / "simulated_active_network_metrics.csv"
-    _write_csv(path, rows, SIMULATED_ACTIVE_NETWORK_METRICS_FIELDS)
+    _write_csv(path, rows, CELL_FIELD_ACTIVE_METRICS_FIELDS)
     artifacts.append({"kind": "simulated_active_network_metrics_csv", "path": str(path)})
     logger.info(
         "Wrote simulated-active network metrics export for %d simulation(s) to %s",
@@ -1099,7 +1095,7 @@ def write_simulated_active_network_overlap_metrics_export(
             "buffer_m": float(buffer_m),
         },
         csv_stem="simulated_active_network_overlap_metrics",
-        csv_fields=SIMULATED_ACTIVE_NETWORK_OVERLAP_METRICS_FIELDS,
+        csv_fields=CELL_FIELD_NETWORK_OVERLAP_METRICS_FIELDS,
         missing_field_reason="missing_simulated_active_field",
         failure_reason="simulated_active_overlap_metrics_failed",
         log_label="simulated-active network overlap metrics",
@@ -1150,7 +1146,7 @@ def write_simulated_active_network_distance_metrics_export(
             "network_buffer_m": float(network_buffer_m),
         },
         csv_stem="simulated_active_network_distance_metrics",
-        csv_fields=SIMULATED_ACTIVE_NETWORK_DISTANCE_METRICS_FIELDS,
+        csv_fields=CELL_FIELD_NETWORK_DISTANCE_METRICS_FIELDS,
         missing_field_reason="missing_simulated_active_field",
         failure_reason="simulated_active_distance_metrics_failed",
         log_label="simulated-active network distance metrics",
