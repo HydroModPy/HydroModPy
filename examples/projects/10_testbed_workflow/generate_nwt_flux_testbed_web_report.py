@@ -256,12 +256,16 @@ def _case_from_row(
         status=str(row.get("status", "")).strip(),
         duration_seconds=_float(row.get("duration_seconds")),
         config_path=config_path,
-        run_name=str(row.get("name") or simulation.get("name") or simulation.get("run_id") or variant_id),
+        run_name=str(
+            row.get("name") or simulation.get("name") or simulation.get("run_id") or variant_id
+        ),
         sim_id=str(row.get("sim_id") or ""),
         x_outlet=_float(geographic.get("x_outlet") or site_row.get("x_outlet")),
         y_outlet=_float(geographic.get("y_outlet") or site_row.get("y_outlet")),
         area_km2=_float(site_row.get("area_km2")),
-        tags=tuple(item.strip() for item in str(site_row.get("tags", "")).split(";") if item.strip()),
+        tags=tuple(
+            item.strip() for item in str(site_row.get("tags", "")).split(";") if item.strip()
+        ),
         display_output_dir=_resolve_path(display.get("output_dir"), base_dir=ROOT),
         workspace_root=_resolve_path(workspace.get("project_root"), base_dir=ROOT),
         metrics=metrics_by_variant.get(variant_id, {}),
@@ -320,7 +324,9 @@ def _generate_diagnostic_figures(cases: list[SiteCase]) -> None:
         _render_recharge_discharge_overlay(case, out_dir / "recharge_discharge_overlay.png")
         _render_head_timeseries_points(case, out_dir / "head_timeseries_points.png")
         _render_hydrographic_network_overlay(case, out_dir / "hydrographic_network_overlay.png")
-        _render_observed_network_seepage_overlay(case, out_dir / "observed_network_seepage_overlay.png")
+        _render_observed_network_seepage_overlay(
+            case, out_dir / "observed_network_seepage_overlay.png"
+        )
 
 
 def _site_short_label(case: SiteCase) -> str:
@@ -341,7 +347,9 @@ def _generate_regional_location_map(cases: list[SiteCase]) -> None:
     )
 
 
-def _render_site_regional_location_map(case: SiteCase, cases: list[SiteCase], output_path: Path) -> None:
+def _render_site_regional_location_map(
+    case: SiteCase, cases: list[SiteCase], output_path: Path
+) -> None:
     _render_regional_location_map(
         cases,
         output_path=output_path,
@@ -614,9 +622,11 @@ def _time_durations_seconds(index: Any):
     return np.full(len(index), 30.0 * 86400.0, dtype=float)
 
 
-def _render_catchment_flux_balance_rates_plot(balance: Any, *, case: SiteCase, output_path: Path) -> None:
-    import numpy as np
+def _render_catchment_flux_balance_rates_plot(
+    balance: Any, *, case: SiteCase, output_path: Path
+) -> None:
     import matplotlib.pyplot as plt
+    import numpy as np
 
     fig, ax = plt.subplots(figsize=(9.0, 4.9), dpi=150)
     x = balance.index
@@ -641,7 +651,9 @@ def _render_catchment_flux_balance_rates_plot(balance: Any, *, case: SiteCase, o
     ax.set_ylabel("Flux specifique (mm/j)")
     ax.set_xlabel("Date")
     ax.grid(True, ls=":", lw=0.45, color="#cfd8df")
-    max_abs = np.nanmax(np.abs(np.r_[residual, balance["total_in_mm_d"], balance["total_out_mm_d"]]))
+    max_abs = np.nanmax(
+        np.abs(np.r_[residual, balance["total_in_mm_d"], balance["total_out_mm_d"]])
+    )
     if np.isfinite(max_abs) and max_abs > 0:
         ax.set_ylim(-1.15 * max_abs, 1.15 * max_abs)
     ax.legend(loc="upper right", fontsize=8, ncols=2)
@@ -651,7 +663,9 @@ def _render_catchment_flux_balance_rates_plot(balance: Any, *, case: SiteCase, o
     plt.close(fig)
 
 
-def _signed_stack(ax: Any, x: Any, frame: Any, columns: tuple[tuple[str, str, str], ...], *, sign: float) -> None:
+def _signed_stack(
+    ax: Any, x: Any, frame: Any, columns: tuple[tuple[str, str, str], ...], *, sign: float
+) -> None:
     import numpy as np
 
     base = np.zeros(len(frame), dtype=float)
@@ -706,9 +720,7 @@ def _render_regional_location_map(
     title: str,
 ) -> None:
     valid_cases = [
-        case
-        for case in cases
-        if case.x_outlet is not None and case.y_outlet is not None
+        case for case in cases if case.x_outlet is not None and case.y_outlet is not None
     ]
     if not valid_cases:
         return
@@ -834,11 +846,17 @@ def _render_recharge_discharge_overlay(case: SiteCase, output_path: Path) -> Non
         discharge = pd.Series(discharge.values[: len(time_index)], index=time_index)
 
         fig, ax = plt.subplots(figsize=(8.2, 4.4), dpi=150)
-        ax.plot(recharge.index, recharge.values, color="#2f8f46", lw=1.8, label="recharge budgetaire")
+        ax.plot(
+            recharge.index, recharge.values, color="#2f8f46", lw=1.8, label="recharge budgetaire"
+        )
         ax.fill_between(recharge.index, recharge.values, color="#2f8f46", alpha=0.16, linewidth=0)
-        ax.plot(discharge.index, discharge.values, color="#1f5f9c", lw=1.8, label="decharge exutoire")
+        ax.plot(
+            discharge.index, discharge.values, color="#1f5f9c", lw=1.8, label="decharge exutoire"
+        )
         if drains.notna().any():
-            ax.plot(drains.index, drains.values, color="#9b5b1a", lw=1.1, ls="--", label="sortie drains")
+            ax.plot(
+                drains.index, drains.values, color="#9b5b1a", lw=1.1, ls="--", label="sortie drains"
+            )
         ax.set_title(f"Recharge et decharge - {case.label}")
         ax.set_ylabel("Flux (m3/s)")
         ax.set_xlabel("Date")
@@ -875,10 +893,14 @@ def _render_hydrographic_network_overlay(case: SiteCase, output_path: Path) -> N
         if reference is not None and not reference.empty:
             reference.plot(ax=ax, color="#1f6f78", linewidth=2.0, alpha=0.90, zorder=2)
         if candidate is not None and not candidate.empty:
-            candidate.plot(ax=ax, color="#c45a2a", linewidth=1.5, alpha=0.95, linestyle="--", zorder=3)
+            candidate.plot(
+                ax=ax, color="#c45a2a", linewidth=1.5, alpha=0.95, linestyle="--", zorder=3
+            )
         _plot_catchment_boundary(ax, run)
         if case.x_outlet is not None and case.y_outlet is not None:
-            ax.scatter([case.x_outlet], [case.y_outlet], s=42, color="#17202a", edgecolor="white", zorder=4)
+            ax.scatter(
+                [case.x_outlet], [case.y_outlet], s=42, color="#17202a", edgecolor="white", zorder=4
+            )
         ax.set_title(f"Reseau genere et observe - {case.label}")
         ax.set_xlabel("X Lambert-93 (m)")
         ax.set_ylabel("Y Lambert-93 (m)")
@@ -939,7 +961,9 @@ def _render_observed_network_seepage_overlay(case: SiteCase, output_path: Path) 
         if reference is not None and not reference.empty:
             reference.plot(ax=ax, color="#1f6f78", linewidth=1.8, alpha=0.95, zorder=3)
         if case.x_outlet is not None and case.y_outlet is not None:
-            ax.scatter([case.x_outlet], [case.y_outlet], s=42, color="#17202a", edgecolor="white", zorder=4)
+            ax.scatter(
+                [case.x_outlet], [case.y_outlet], s=42, color="#17202a", edgecolor="white", zorder=4
+            )
         ax.set_title(f"Reseau observe et zones de suintement - {case.label}")
         ax.set_xlabel("X Lambert-93 (m)")
         ax.set_ylabel("Y Lambert-93 (m)")
@@ -948,7 +972,9 @@ def _render_observed_network_seepage_overlay(case: SiteCase, output_path: Path) 
         ax.legend(
             handles=[
                 Line2D([0], [0], color="#1f6f78", lw=1.8, label="reseau observe"),
-                Line2D([0], [0], color="#d05a27", marker="s", markersize=6, lw=0, label=seepage_label),
+                Line2D(
+                    [0], [0], color="#d05a27", marker="s", markersize=6, lw=0, label=seepage_label
+                ),
                 Line2D([0], [0], color="#17202a", lw=1.6, label="bassin"),
             ],
             loc="best",
@@ -1028,7 +1054,9 @@ def _catchment_geometry(run: Any) -> Any | None:
         return None
 
 
-def _plot_shapely_boundary(ax: Any, geom: Any, *, color: str, linewidth: float, zorder: int) -> None:
+def _plot_shapely_boundary(
+    ax: Any, geom: Any, *, color: str, linewidth: float, zorder: int
+) -> None:
     geom_type = getattr(geom, "geom_type", "")
     if geom_type == "Polygon":
         x, y = geom.exterior.xy
@@ -1085,7 +1113,9 @@ def _render_head_timeseries_points(case: SiteCase, output_path: Path) -> None:
         if centroids.shape[0] != head_stack.shape[1]:
             return
         finite = np.isfinite(head_stack)
-        valid = finite.any(axis=0) & (np.nanmax(np.where(finite, head_stack, np.nan), axis=0) > -1000.0)
+        valid = finite.any(axis=0) & (
+            np.nanmax(np.where(finite, head_stack, np.nan), axis=0) > -1000.0
+        )
         valid &= np.isfinite(centroids).all(axis=1)
         valid_indices = np.flatnonzero(valid)
         if valid_indices.size == 0:
@@ -1145,7 +1175,10 @@ def _budget_component_series(budget: Any, *, component: str, column: str, time_i
     if subset.empty or column not in subset:
         return pd.Series([float("nan")] * len(time_index), index=time_index)
     values = subset.groupby("timestep")[column].sum()
-    return pd.Series([float(values.get(timestep, float("nan"))) for timestep in range(len(time_index))], index=time_index)
+    return pd.Series(
+        [float(values.get(timestep, float("nan"))) for timestep in range(len(time_index))],
+        index=time_index,
+    )
 
 
 def _compute_site_diagnostics(cases: list[SiteCase]) -> dict[str, SiteDiagnostics]:
@@ -1267,7 +1300,12 @@ def _mean_slope_percent(run: Any) -> float | None:
 
 def _peak_lag_days(recharge: Any, discharge: Any) -> float | None:
     try:
-        if recharge.empty or discharge.empty or not recharge.notna().any() or not discharge.notna().any():
+        if (
+            recharge.empty
+            or discharge.empty
+            or not recharge.notna().any()
+            or not discharge.notna().any()
+        ):
             return None
         lag = discharge.idxmax() - recharge.idxmax()
         return float(lag.total_seconds() / 86400.0)
@@ -1320,7 +1358,9 @@ def _mesh_face_centroids(mesh: Any):
     return centroids
 
 
-def _select_head_probe_indices(centroids: Any, heads: Any, *, valid_indices: Any, outlet_xy: tuple[float, float] | None):
+def _select_head_probe_indices(
+    centroids: Any, heads: Any, *, valid_indices: Any, outlet_xy: tuple[float, float] | None
+):
     import numpy as np
 
     valid_centroids = centroids[valid_indices]
@@ -1406,7 +1446,10 @@ def _asset_figure_html(filename: str, title: str, caption: str) -> str:
 
 
 def _scatter_gallery_html() -> str:
-    figures = "\n".join(_asset_figure_html(filename, title, caption) for filename, title, caption in INDEX_SCATTER_FIGURES)
+    figures = "\n".join(
+        _asset_figure_html(filename, title, caption)
+        for filename, title, caption in INDEX_SCATTER_FIGURES
+    )
     return f'<div class="figure-grid">{figures}</div>'
 
 
@@ -1454,7 +1497,12 @@ def _status_summary_html(cases: list[SiteCase]) -> str:
         ("OK", counts["ok"], "simulations terminees", "ok"),
         ("Echecs", counts["bad"], "simulations en erreur", "bad"),
         ("A verifier", pending, "non executees ou statut inconnu", "planned"),
-        ("Temps total", _format_duration(_total_duration_seconds(cases)), "temps cumule workflow", ""),
+        (
+            "Temps total",
+            _format_duration(_total_duration_seconds(cases)),
+            "temps cumule workflow",
+            "",
+        ),
     )
     return "\n".join(
         f"""
@@ -1525,7 +1573,9 @@ def _metrics_table(cases: list[SiteCase]) -> str:
             cells.append(f"<td>{_safe_text(value or '')}</td>")
         rows.append("<tr>" + "".join(cells) + "</tr>")
     header = "".join(f"<th>{_safe_text(label)}</th>" for _, label in columns)
-    body = "\n".join(rows) or f'<tr><td colspan="{len(columns)}">Aucune metrique disponible.</td></tr>'
+    body = (
+        "\n".join(rows) or f'<tr><td colspan="{len(columns)}">Aucune metrique disponible.</td></tr>'
+    )
     return f'<div class="table-wrap"><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div>'
 
 
@@ -1535,7 +1585,9 @@ def _diagnostic_value(diag: SiteDiagnostics | None, key: str) -> float | None:
     return getattr(diag, key)
 
 
-def _format_diag(value: float | None, *, digits: int = 2, scale: float = 1.0, suffix: str = "") -> str:
+def _format_diag(
+    value: float | None, *, digits: int = 2, scale: float = 1.0, suffix: str = ""
+) -> str:
     if value is None:
         return "n/a"
     return f"{_format_float(value * scale, digits=digits)}{suffix}"
@@ -1566,7 +1618,14 @@ def _site_comparison_table(cases: list[SiteCase], diagnostics: dict[str, SiteDia
                 value = _format_diag(_diagnostic_value(diag, key), digits=3, scale=1e-6)
             elif key in {"area_km2", "q_max_m3_s", "q_mean_m3_s"}:
                 value = _format_diag(_diagnostic_value(diag, key), digits=3)
-            elif key in {"outlet_elevation_m", "mean_slope_percent", "q_max_l_s_km2", "q_mean_l_s_km2", "response_lag_days", "balance_error_percent"}:
+            elif key in {
+                "outlet_elevation_m",
+                "mean_slope_percent",
+                "q_max_l_s_km2",
+                "q_mean_l_s_km2",
+                "response_lag_days",
+                "balance_error_percent",
+            }:
                 value = _format_diag(_diagnostic_value(diag, key), digits=2)
             else:
                 value = "n/a"
@@ -1577,7 +1636,9 @@ def _site_comparison_table(cases: list[SiteCase], diagnostics: dict[str, SiteDia
     return f'<div class="table-wrap"><table><thead><tr>{header}</tr></thead><tbody>{body}</tbody></table></div>'
 
 
-def _generate_index_scatter_figures(cases: list[SiteCase], diagnostics: dict[str, SiteDiagnostics]) -> None:
+def _generate_index_scatter_figures(
+    cases: list[SiteCase], diagnostics: dict[str, SiteDiagnostics]
+) -> None:
     assets = WEB_DIR / "assets"
     assets.mkdir(parents=True, exist_ok=True)
     _render_scatter(
@@ -1646,7 +1707,14 @@ def _render_scatter(
         ys = [item[2] for item in points]
         ax.scatter(xs, ys, s=54, color="#1f6f78", edgecolor="white", linewidth=0.8, zorder=3)
         for case, x_value, y_value in points:
-            ax.annotate(_site_short_label(case), (x_value, y_value), xytext=(5, 5), textcoords="offset points", fontsize=8, fontweight="bold")
+            ax.annotate(
+                _site_short_label(case),
+                (x_value, y_value),
+                xytext=(5, 5),
+                textcoords="offset points",
+                fontsize=8,
+                fontweight="bold",
+            )
         ax.set_title(title)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
@@ -1661,7 +1729,9 @@ def _render_scatter(
 def _preview_gallery(cases: list[SiteCase]) -> str:
     sections = []
     for case in cases:
-        figures = "\n".join(_figure_html(case, figure_name, compact=True) for figure_name in INDEX_PREVIEW_FIGURES)
+        figures = "\n".join(
+            _figure_html(case, figure_name, compact=True) for figure_name in INDEX_PREVIEW_FIGURES
+        )
         sections.append(
             f"""
             <section class="site-preview" id="{_safe_id(case.variant_id)}">
