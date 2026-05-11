@@ -81,7 +81,11 @@ def test_package_no_longer_exposes_whitebox_tools_alias() -> None:
         raise AssertionError("WhiteboxToolsBackend alias should no longer be exposed")
 
 
-def test_whitebox_workflows_backend_suppresses_native_stdio(capfd) -> None:
+def test_whitebox_workflows_backend_supports_native_stdio_redirection(
+    capfd,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HYDROMODPY_WHITEBOX_REDIRECT_NATIVE_STDIO", "1")
     backend = WhiteboxWorkflowsBackend()
 
     def _noisy_native_operation():

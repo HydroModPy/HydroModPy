@@ -296,9 +296,9 @@ value = "0.0 m2/s"
 
 # Diffuse recharge configuration. None = zero recharge for all periods.
 [flow.sinks_sources.recharge]
-# Period-0 policy when values is a sequence: 'mean' (series average), 'first' (first element), or
-# a numeric scalar.
-first_clim = "mean"
+# Period-0 policy for the transient forcing. The steady-state IC strategy still
+# uses the time-mean recharge internally for the auxiliary initialization solve.
+first_clim = "first"
 # When true, negative recharge values are routed to the solver EVT package and RCH receives the
 # non-negative clipped recharge.
 negative_to_evt = true

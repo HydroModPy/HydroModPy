@@ -121,6 +121,13 @@ nlay = 1
 # No steady initial stress period in this transient comparison.
 firstpersteady = false
 
+# MODFLOW 6 drainage boundary-condition override.
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+# Use a high top-drain conductance in MF6 to approximate an efficient surface outlet.
+value = "0.1 m2/s"
+# Human-readable note carried into generated child TOMLs.
+description = "MODFLOW 6 reference: high-conductance top drainage; Boussinesq keeps a zero-conductance VI obstacle."
+
 # Second child simulation: Boussinesq PETSc candidate.
 [[comparison.simulation]]
 # Stable child identifier.

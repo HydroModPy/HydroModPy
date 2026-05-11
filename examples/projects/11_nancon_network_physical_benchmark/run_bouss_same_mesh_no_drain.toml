@@ -1,0 +1,35 @@
+base_config = "base_nancon_physics.toml"
+workflow = "simulation"
+
+[workspace]
+project_root = "outputs/nancon_network_physical_benchmark/workspaces/bouss_same_mesh_no_drain"
+root = "outputs/nancon_network_physical_benchmark/workspaces/bouss_same_mesh_no_drain"
+
+[simulation]
+name = "nancon_network_physical_benchmark__bouss_same_mesh_no_drain"
+run_id = "nancon_network_physical_benchmark__bouss_same_mesh_no_drain"
+description = "Boussinesq Nancon benchmark on the same mesh, with zero drainage conductance."
+on_collision = "replace"
+
+[[simulation.process]]
+solvers = ["boussinesq"]
+
+[mesh_input]
+bundle_dir = "../09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/mesh_catchment_bundle"
+
+[flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+
+[flow]
+runtime_backend = "petsc"
+surface_interaction_model = "ts_vi_obstacle"
+ts_vi_steps_per_period = 4
+ts_vi_adapt = false
+ts_vi_type = "beuler"
+ts_vi_snes_type = "vinewtonrsls"
+
+[simulation.results.derived]
+release_flux = true
+accumulation_flux = false
+release_accumulation_flux = true
+outflow_drain = true
