@@ -43,6 +43,7 @@ from hydromodpy.config.toml_section_loader import (
     _load_optional_analysis_section,
     _load_optional_calibration_section,
     _load_optional_mesh_catchment_section,
+    _load_optional_mesh_input_section,
     _load_optional_overview_section,
     _raw_declares_dem_source,
     _validation_context,
@@ -70,7 +71,7 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig, MeshInputConfig
 
 WorkflowMode = Literal[
     "simulation",
@@ -255,6 +256,16 @@ class HydroModPyConfig(HydroModelBase):
             "section. Mesh-only public runs should use [simulation.process] "
             "with type='mesh'; the standalone mesh API can still consume this "
             "section directly."
+        ),
+    )
+    mesh_input: Annotated[MeshInputConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional external mesh declaration loaded from the [mesh_input] "
+            "section. Declares a pre-existing planar mesh (and optional solver "
+            "exchange bundle) the simulation or comparison workflow should "
+            "consume instead of running the embedded mesh-catchment workflow. "
+            "Mutually exclusive with [mesh_catchment]."
         ),
     )
     calibration: Annotated[CalibrationConfig | None, Profile.USER] = Field(
@@ -531,6 +542,7 @@ class HydroModPyConfig(HydroModelBase):
             "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),
             "mesh_catchment": (None, _load_optional_mesh_catchment_section),
+            "mesh_input": (None, _load_optional_mesh_input_section),
             "calibration": (None, _load_optional_calibration_section),
         }
 

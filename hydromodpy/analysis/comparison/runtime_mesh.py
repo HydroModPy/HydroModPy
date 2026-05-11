@@ -344,17 +344,22 @@ def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
 
 
 def _bundle_cells_from_config(config_path: Path) -> CellCentroidTable | None:
+    from hydromodpy.spatial.mesh.config import MeshInputConfig
+
     try:
         payload = load_toml_with_base_config(config_path)
     except Exception:
         return None
-    mesh_input = payload.get("mesh_input")
-    if not isinstance(mesh_input, Mapping):
+    mesh_input_raw = payload.get("mesh_input")
+    if not isinstance(mesh_input_raw, Mapping):
         return None
-    bundle_dir_raw = mesh_input.get("bundle_dir")
-    if bundle_dir_raw in (None, ""):
+    try:
+        mesh_input = MeshInputConfig.model_validate(dict(mesh_input_raw))
+    except Exception:
         return None
-    bundle_dir = _resolve_recorded_output_path(bundle_dir_raw, base_dir=config_path.parent)
+    if mesh_input.bundle_dir is None:
+        return None
+    bundle_dir = _resolve_recorded_output_path(mesh_input.bundle_dir, base_dir=config_path.parent)
     if bundle_dir is None:
         return None
     return _bundle_cells_from_dir(bundle_dir)

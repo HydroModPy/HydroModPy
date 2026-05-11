@@ -16,7 +16,7 @@ from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig, MeshInputConfig
 
 ValidationContext = Literal["toml", "api"]
 
@@ -263,6 +263,18 @@ def _load_optional_mesh_catchment_section(
     from hydromodpy.spatial.mesh.config import parse_mesh_catchment_config_data
 
     return parse_mesh_catchment_config_data(section_data)
+
+
+def _load_optional_mesh_input_section(
+    section_data: Any,
+    base: Path,
+) -> MeshInputConfig | None:
+    """Load the optional ``[mesh_input]`` section."""
+    if section_data is None:
+        return None
+    from hydromodpy.spatial.mesh.config import parse_mesh_input_config_data
+
+    return parse_mesh_input_config_data(section_data)
 
 
 def _load_optional_calibration_section(
