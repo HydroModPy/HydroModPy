@@ -344,7 +344,7 @@ def _bundle_cells_from_dir(bundle_dir: Path) -> CellCentroidTable | None:
 
 
 def _bundle_cells_from_config(config_path: Path) -> CellCentroidTable | None:
-    from hydromodpy.spatial.mesh.config import MeshInputConfig
+    from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 
     try:
         payload = load_toml_with_base_config(config_path)

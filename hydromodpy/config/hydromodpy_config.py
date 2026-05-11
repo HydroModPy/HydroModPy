@@ -56,6 +56,7 @@ from hydromodpy.core.config_kit.introspect import (
     collect_profile_violations,
     resolve_profile,
 )
+from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile, ProfileName
 from hydromodpy.core.toml_io.error_locator import format_validation_error
@@ -72,7 +73,7 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig, MeshInputConfig
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 WorkflowMode = Literal[
     "simulation",

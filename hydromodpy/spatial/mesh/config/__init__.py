@@ -31,10 +31,6 @@ from hydromodpy.spatial.mesh.config.main import (
     ZoneMeshingDomainSchema,
     parse_mesh_catchment_config_data,
 )
-from hydromodpy.spatial.mesh.config.mesh_input import (
-    MeshInputConfig,
-    parse_mesh_input_config_data,
-)
 from hydromodpy.spatial.mesh.config.rivers import MeshCatchmentRiversConfig
 from hydromodpy.spatial.mesh.config.watershed import (
     MeshCatchmentWatershedBoundaryConfig,
@@ -51,7 +47,6 @@ __all__ = [
     "MeshCatchmentHydraulicPropertiesConfig",
     "MeshCatchmentHydraulicPropertyMapping",
     "MeshCatchmentRiversConfig",
-    "MeshInputConfig",
     "MeshCatchmentStorageCoefficient",
     "MeshCatchmentWatershedBoundaryConfig",
     "MeshCatchmentWatershedBoundarySmoothingConfig",
@@ -60,5 +55,4 @@ __all__ = [
     "ZoneMeshingDomainSchema",
     "parse_mesh_catchment_batch_config_data",
     "parse_mesh_catchment_config_data",
-    "parse_mesh_input_config_data",
 ]

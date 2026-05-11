@@ -54,7 +54,7 @@ def resolve_optional_mesh_input(
     config_path: str | Path,
 ) -> dict[str, str] | None:
     """Resolve one optional external mesh-input block from raw launcher TOML."""
-    from hydromodpy.spatial.mesh.config import MeshInputConfig
+    from hydromodpy.core.config_kit.mesh_input import MeshInputConfig
 
     section = raw_toml.get("mesh_input")
     if section is None:
