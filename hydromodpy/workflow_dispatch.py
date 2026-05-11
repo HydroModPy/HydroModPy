@@ -96,13 +96,6 @@ class ProjectTestbedRunnerProvider:
         return dict(run_comparison(config_path))
 
 
-def _register_project_testbed_runner_provider() -> None:
-    """Register the workflow-backed runner provider for campaign launchers."""
-    from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
-
-    register_testbed_runner_provider(ProjectTestbedRunnerProvider())
-
-
 def run_testbed(config_path: str | Path) -> dict[str, Any]:
     """Run a method-testbed workflow from a TOML file."""
     from hydromodpy.analysis.testbed.profiles import (
@@ -115,7 +108,6 @@ def run_testbed(config_path: str | Path) -> dict[str, Any]:
 
     raw_toml = load_toml_with_base_config(Path(config_path).expanduser().resolve())
     profile = resolve_testbed_profile(raw_toml)
-    _register_project_testbed_runner_provider()
     if profile == REGIONAL_LAB_PROFILE:
         from hydromodpy.analysis.testbed.regional_lab import RegionalLabProfileLauncher
 
