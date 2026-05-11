@@ -34,6 +34,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, ValidationError, ValidationInfo, model_validator
 
 from hydromodpy.analysis.config import AnalysisConfig
+from hydromodpy.analysis.testbed.config import TestbedConfig
 from hydromodpy.calibration.config import CalibrationConfig
 from hydromodpy.config.toml_section_loader import (
     _deep_merge,
@@ -42,6 +43,7 @@ from hydromodpy.config.toml_section_loader import (
     _load_optional_analysis_section,
     _load_optional_calibration_section,
     _load_optional_mesh_catchment_section,
+    _load_optional_mesh_input_section,
     _load_optional_overview_section,
     _raw_declares_dem_source,
     _validation_context,
@@ -69,7 +71,7 @@ from hydromodpy.solver.modflow6.modflow6_config import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
-from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.mesh.config import MeshCatchmentConfig, MeshInputConfig
 
 WorkflowMode = Literal[
     "simulation",
@@ -256,11 +258,30 @@ class HydroModPyConfig(HydroModelBase):
             "section directly."
         ),
     )
+    mesh_input: Annotated[MeshInputConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional external mesh declaration loaded from the [mesh_input] "
+            "section. Declares a pre-existing planar mesh (and optional solver "
+            "exchange bundle) the simulation or comparison workflow should "
+            "consume instead of running the embedded mesh-catchment workflow. "
+            "Mutually exclusive with [mesh_catchment]."
+        ),
+    )
     calibration: Annotated[CalibrationConfig | None, Profile.USER] = Field(
         default=None,
         description=(
             "Optional calibration settings loaded from the [calibration] "
             "section.  When present, triggers the calibration workflow."
+        ),
+    )
+    testbed: Annotated[TestbedConfig | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Optional method-testbed settings loaded from the [testbed] "
+            "section. Drives the orchestration layer over child runners "
+            "(comparison or simulation) and is dispatched when "
+            "workflow.mode='testbed'."
         ),
     )
 
@@ -521,6 +542,7 @@ class HydroModPyConfig(HydroModelBase):
             "analysis": (None, _load_optional_analysis_section),
             "overview": (None, _load_optional_overview_section),
             "mesh_catchment": (None, _load_optional_mesh_catchment_section),
+            "mesh_input": (None, _load_optional_mesh_input_section),
             "calibration": (None, _load_optional_calibration_section),
         }
 

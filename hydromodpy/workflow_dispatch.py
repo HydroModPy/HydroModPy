@@ -12,11 +12,27 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.exceptions import ConfigError
-from hydromodpy.workflow.dispatch import (
-    run_calibration,
-    run_comparison,
-    run_overview,
-)
+
+
+def run_overview(config_path: str | Path) -> dict[str, Any]:
+    """Generate a watershed identity card from a TOML file."""
+    from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
+
+    return DataOverviewLauncher(config_path).run()
+
+
+def run_calibration(config_path: str | Path) -> dict[str, Any]:
+    """Run a parameter calibration campaign from a TOML file."""
+    from hydromodpy.calibration.runner import run_calibration_cli
+
+    return run_calibration_cli(config_path)
+
+
+def run_comparison(config_path: str | Path) -> dict[str, Any]:
+    """Run a comparison workflow from a TOML file."""
+    from hydromodpy.analysis.comparison.dispatch import run_comparison_config
+
+    return run_comparison_config(config_path)
 
 
 def run_simulation(
@@ -80,13 +96,6 @@ class ProjectTestbedRunnerProvider:
         return dict(run_comparison(config_path))
 
 
-def _register_project_testbed_runner_provider() -> None:
-    """Register the workflow-backed runner provider for campaign launchers."""
-    from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
-
-    register_testbed_runner_provider(ProjectTestbedRunnerProvider())
-
-
 def run_testbed(config_path: str | Path) -> dict[str, Any]:
     """Run a method-testbed workflow from a TOML file."""
     from hydromodpy.analysis.testbed.profiles import (
@@ -99,7 +108,6 @@ def run_testbed(config_path: str | Path) -> dict[str, Any]:
 
     raw_toml = load_toml_with_base_config(Path(config_path).expanduser().resolve())
     profile = resolve_testbed_profile(raw_toml)
-    _register_project_testbed_runner_provider()
     if profile == REGIONAL_LAB_PROFILE:
         from hydromodpy.analysis.testbed.regional_lab import RegionalLabProfileLauncher
 

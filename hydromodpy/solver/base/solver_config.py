@@ -15,7 +15,7 @@ class SolverConfig(HydroModelBase):
     """Configuration block defining the active groundwater solver engine."""
 
     solver_engine: Annotated[str, Profile.USER] = Field(
-        default="modflownwt",
+        default="modflow6",
         description="Groundwater flow solver backend registered for the 'flow' process.",
     )
 

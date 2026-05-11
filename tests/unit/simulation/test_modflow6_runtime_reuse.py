@@ -89,7 +89,7 @@ def test_modflow6_flow_adapter_reuses_solver_instance(monkeypatch) -> None:
     adapter = Modflow6FlowAdapter()
     ctx = _build_flow_run_context(
         flow_runtime_overrides={
-            "source": "model_calibration",
+            "source": "calibration_runtime",
             "reuse_solver_model": True,
             "model_name_override": "stable_runtime_model",
         }
