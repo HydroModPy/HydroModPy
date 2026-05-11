@@ -14,7 +14,7 @@ base_config = "compare_natural_10km2_mf6_bouss_base.toml"
 # Root directory for generated child configs, manifests, comparison outputs and HTML synthesis.
 output_root = "../../outputs/boussinesq_natural_n1_10km2_testbed"
 # False generates the comparison TOMLs and plan only; true delegates execution to the comparison runner.
-execute = false
+execute = true
 # Keep processing later variants when one variant fails.
 continue_on_error = true
 
