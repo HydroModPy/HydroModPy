@@ -40,9 +40,7 @@ class WaterBudget(BaseFigure):
         unit = _budget_unit_label(df)
         ax.set_title(f"Solver budget by component - {sim.name or sim.sim_id}")
         ax.set_ylabel(
-            f"Sum of stored timestep rates ({unit})"
-            if unit
-            else "Sum of stored timestep rates"
+            f"Sum of stored timestep rates ({unit})" if unit else "Sum of stored timestep rates"
         )
         ax.set_xlabel("")
         ax.tick_params(axis="x", rotation=30)

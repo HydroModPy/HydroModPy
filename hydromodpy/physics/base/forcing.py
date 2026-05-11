@@ -18,13 +18,18 @@ branch on ``kind`` for dispatch.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.units import FlowRate, Time
+
+ForcingKind: TypeAlias = Literal["constant", "csv", "synthetic"]
+ForcingFillMethod: TypeAlias = Literal["ffill", "bfill", "nearest", "none"]
+FlowTimeFillMethod: TypeAlias = Literal["ffill", "bfill"]
+FlowTimeAggregate: TypeAlias = Literal["mean", "last"]
 
 
 class ConstantForcing(HydroModelBase):
@@ -63,7 +68,7 @@ class CsvForcing(HydroModelBase):
         description="Optional source unit; if omitted the canonical unit is assumed.",
     )
     fill_method: Annotated[
-        Literal["ffill", "bfill", "nearest", "none"],
+        ForcingFillMethod,
         Profile.DEV,
     ] = Field(
         default="none",
@@ -106,6 +111,10 @@ Forcing = Annotated[
 __all__ = [
     "ConstantForcing",
     "CsvForcing",
+    "FlowTimeAggregate",
+    "FlowTimeFillMethod",
     "Forcing",
+    "ForcingFillMethod",
+    "ForcingKind",
     "SyntheticForcing",
 ]

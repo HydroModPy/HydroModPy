@@ -25,6 +25,11 @@ allowed:
 # rationale. Tighten over time.
 tolerances:
   - {src: cli,         tgt: "<root>", reason: "CLI dispatch delegates to public Project facade"}
+  - {src: workflow,    tgt: "<root>", reason: "sweep helper accepts Project facade instances"}
+  - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
+  - {src: analysis,    tgt: solver,   reason: "comparison runtime resolves solver families"}
+  - {src: results,     tgt: analysis, reason: "Run exposes stream-network diagnostics"}
+  - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a

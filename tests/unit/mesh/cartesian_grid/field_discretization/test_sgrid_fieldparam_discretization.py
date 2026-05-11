@@ -399,8 +399,6 @@ def test_run_discretization_case_from_toml(tmp_path: Path):
             [case.field_param.field]
             id = "K"
             kind = "heterogeneous"
-
-            [case.field_param.field_heterogeneous]
             values_source = "inline"
             values = {{ "1" = 10.0, "2" = 3.0 }}
             field_spatial_id = "field_geology"

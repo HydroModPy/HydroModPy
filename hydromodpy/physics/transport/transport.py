@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated, Any
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -27,8 +27,6 @@ class _TransportComponent:
 
 class TransportInitialConditions(HydroModelBase):
     """Transport initial-condition wrapper."""
-
-    model_config = ConfigDict(extra="forbid")
 
     payload: Annotated[dict[str, Any], Profile.USER] = Field(
         default_factory=dict,

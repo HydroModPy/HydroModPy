@@ -6,18 +6,17 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import PositiveFloat, PositiveInt
 from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 
 class Modflow6RuntimeConfig(HydroModelBase):
     """Expert runtime settings used to build and solve MODFLOW 6 packages."""
-
-    model_config = ConfigDict(extra="forbid")
 
     mf6_executable_name: Annotated[str, Profile.EXPERT] = Field(
         default="mf6",
@@ -31,24 +30,20 @@ class Modflow6RuntimeConfig(HydroModelBase):
         default=False,
         description="Enable verbose FloPy logging for MODFLOW 6 setup and execution.",
     )
-    mf6_outer_dvclose: Annotated[float, Profile.EXPERT] = Field(
+    mf6_outer_dvclose: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1e-4,
-        gt=0.0,
         description="IMS outer-iteration head-change convergence criterion.",
     )
-    mf6_inner_dvclose: Annotated[float, Profile.EXPERT] = Field(
+    mf6_inner_dvclose: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1e-4,
-        gt=0.0,
         description="IMS inner-iteration head-change convergence criterion.",
     )
-    mf6_outer_maximum: Annotated[int, Profile.EXPERT] = Field(
+    mf6_outer_maximum: Annotated[PositiveInt, Profile.EXPERT] = Field(
         default=500,
-        ge=1,
         description="Maximum number of IMS outer iterations.",
     )
-    mf6_inner_maximum: Annotated[int, Profile.EXPERT] = Field(
+    mf6_inner_maximum: Annotated[PositiveInt, Profile.EXPERT] = Field(
         default=500,
-        ge=1,
         description="Maximum number of IMS inner iterations.",
     )
     mf6_enable_rewet: Annotated[bool | None, Profile.EXPERT] = Field(
@@ -67,23 +62,20 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "non-orthogonal grids."
         ),
     )
-    mf6_rewet_wetfct: Annotated[float, Profile.EXPERT] = Field(
+    mf6_rewet_wetfct: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=0.1,
-        gt=0.0,
         description="MF6 NPF rewet WETFCT factor.",
     )
-    mf6_rewet_iwetit: Annotated[int, Profile.EXPERT] = Field(
+    mf6_rewet_iwetit: Annotated[PositiveInt, Profile.EXPERT] = Field(
         default=1,
-        ge=1,
         description="MF6 NPF rewet IWETIT interval.",
     )
     mf6_rewet_ihdwet: Annotated[int, Profile.EXPERT] = Field(
         default=0,
         description="MF6 NPF rewet IHDWET flag.",
     )
-    mf6_rewet_wetdry: Annotated[float, Profile.EXPERT] = Field(
+    mf6_rewet_wetdry: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=0.1,
-        gt=0.0,
         description="MF6 NPF WETDRY threshold used when rewetting is active.",
     )
 
@@ -91,23 +83,18 @@ class Modflow6RuntimeConfig(HydroModelBase):
 class Modflow6ProcessSpecificConfig(HydroModelBase):
     """Process-specific parameters used by selected MODFLOW 6 packages."""
 
-    model_config = ConfigDict(extra="forbid")
-
     vka: Annotated[float, Profile.EXPERT] = Field(
         default=1.0,
         description="Vertical anisotropy factor used to derive k33 from k.",
     )
-    evt_extinction_depth: Annotated[float, Profile.EXPERT] = Field(
+    evt_extinction_depth: Annotated[PositiveFloat, Profile.EXPERT] = Field(
         default=1.0,
-        gt=0.0,
         description="MF6 EVT extinction depth in meters when recharge negatives are routed to EVT.",
     )
 
 
 class Modflow6Config(HydroModelBase):
     """Expert-level MODFLOW 6 configuration organized by concern."""
-
-    model_config = ConfigDict(extra="forbid")
 
     runtime: Annotated[Modflow6RuntimeConfig, Profile.EXPERT] = Field(
         default_factory=Modflow6RuntimeConfig,

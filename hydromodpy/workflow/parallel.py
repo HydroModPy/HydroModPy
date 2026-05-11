@@ -2,7 +2,7 @@
 
 Centralizes the parameter-expansion and per-run dispatch logic shared by
 ``project.sweep`` (and, in the future, ``project.calibrate`` and
-``project.batch``). Sequential today; process-pool support lives here so
+testbed campaigns). Sequential today; process-pool support lives here so
 parallelization is a single-point change.
 """
 

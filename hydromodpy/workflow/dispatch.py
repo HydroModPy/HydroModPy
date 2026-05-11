@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
@@ -11,9 +12,7 @@ from hydromodpy.core.exceptions import ConfigError
 WorkflowName = Literal[
     "simulation",
     "calibration",
-    "batch",
     "overview",
-    "mesh",
     "comparison",
     "testbed",
 ]
@@ -21,9 +20,7 @@ WorkflowName = Literal[
 KNOWN_WORKFLOWS: tuple[str, ...] = (
     "simulation",
     "calibration",
-    "batch",
     "overview",
-    "mesh",
     "comparison",
     "testbed",
 )
@@ -34,7 +31,7 @@ class WorkflowError(ConfigError):
 
 
 class WorkflowMissingError(WorkflowError):
-    """TOML lacks the top-level workflow field."""
+    """TOML lacks the workflow mode field."""
 
 
 class WorkflowUnknownError(WorkflowError):
@@ -52,12 +49,19 @@ def load_raw_toml(config_path: Path) -> dict[str, Any]:
 
 
 def extract_workflow_field(raw_toml: dict[str, Any]) -> str | None:
-    """Return the top-level workflow field."""
-    value = raw_toml.get("workflow")
+    """Return `[workflow].mode`."""
+    section = raw_toml.get("workflow")
+    if section is None:
+        return None
+    if not isinstance(section, Mapping):
+        raise WorkflowUnknownError(f"TOML [workflow] must be a table, got {type(section).__name__}")
+    value = section.get("mode")
     if value is None:
         return None
     if not isinstance(value, str):
-        raise WorkflowUnknownError(f"TOML 'workflow' must be a string, got {type(value).__name__}")
+        raise WorkflowUnknownError(
+            f"TOML 'workflow.mode' must be a string, got {type(value).__name__}"
+        )
     return value
 
 
@@ -73,14 +77,14 @@ def resolve_workflow(
 
     if toml_workflow is not None and toml_workflow not in KNOWN_WORKFLOWS:
         raise WorkflowUnknownError(
-            f"TOML 'workflow' value {toml_workflow!r} is not one of "
+            f"TOML 'workflow.mode' value {toml_workflow!r} is not one of "
             f"{', '.join(repr(w) for w in KNOWN_WORKFLOWS)}"
         )
 
     if require_toml_field and toml_workflow is None:
         raise WorkflowMissingError(
-            f"{config_path.name} must declare a top-level "
-            f"'workflow = \"...\"' field.\n"
+            f"{config_path.name} must declare a [workflow] section with "
+            f"'mode = \"...\"'.\n"
             f"Valid values: {', '.join(KNOWN_WORKFLOWS)}."
         )
 
@@ -95,8 +99,8 @@ def resolve_workflow(
         return cli_workflow
     if toml_workflow is None:
         raise WorkflowMissingError(
-            f"{config_path.name} must declare a top-level "
-            f"'workflow = \"...\"' field.\n"
+            f"{config_path.name} must declare a [workflow] section with "
+            f"'mode = \"...\"'.\n"
             f"Valid values: {', '.join(KNOWN_WORKFLOWS)}."
         )
     return toml_workflow
@@ -109,25 +113,11 @@ def run_overview(config_path: str | Path) -> dict[str, Any]:
     return DataOverviewLauncher(config_path).run()
 
 
-def run_mesh(config_path: str | Path) -> dict[str, Any]:
-    """Generate a catchment mesh from a TOML file."""
-    from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
-
-    return MeshCatchmentLauncher(config_path).run()
-
-
 def run_calibration(config_path: str | Path) -> dict[str, Any]:
     """Run a parameter calibration campaign from a TOML file."""
     from hydromodpy.calibration.runner import run_calibration_cli
 
     return run_calibration_cli(config_path)
-
-
-def run_batch(config_path: str | Path) -> dict[str, Any]:
-    """Run a multi-site batch campaign from a TOML file."""
-    from hydromodpy.analysis.batch.runtime import RegionalLabLauncher
-
-    return RegionalLabLauncher(config_path).run()
 
 
 def run_comparison(config_path: str | Path) -> dict[str, Any]:
@@ -147,9 +137,7 @@ __all__ = (
     "extract_workflow_field",
     "load_raw_toml",
     "resolve_workflow",
-    "run_batch",
     "run_calibration",
     "run_comparison",
-    "run_mesh",
     "run_overview",
 )

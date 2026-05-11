@@ -27,6 +27,7 @@ def run_synthetic_geographic_case_from_toml(config_toml: str | Path):
         config=config,
         output_dir=output_dir,
     )
+    right_to_left_amplitude = float(getattr(config.topography, "right_to_left_amplitude", 0.0))
     summary = {
         "case_id": str(config.case_id),
         "output_dir": str(output_dir),
@@ -38,7 +39,7 @@ def run_synthetic_geographic_case_from_toml(config_toml: str | Path):
         "elevation_max_m": float(np.max(geographic.surface_topo.as_array())),
         "catchment_area_km2": float(geographic.catch_area),
         "topography_kind": str(config.topography.kind),
-        "right_to_left_amplitude": float(config.topography.right_to_left_amplitude),
+        "right_to_left_amplitude": right_to_left_amplitude,
     }
     return geographic, summary
 

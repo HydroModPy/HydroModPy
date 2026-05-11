@@ -270,6 +270,8 @@ def detect_solver(project: Project) -> str:
         for proc in sim.process:
             if proc.type == "flow" and proc.solvers:
                 return proc.solvers[0]
+        if all(proc.type == "mesh" for proc in sim.process):
+            return "mesh"
     solver_cfg = getattr(project.cfg, "solver", None)
     engine = getattr(solver_cfg, "solver_engine", None) if solver_cfg else None
     if engine:

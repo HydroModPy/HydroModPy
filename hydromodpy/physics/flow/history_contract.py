@@ -5,6 +5,9 @@ Transient flow runtimes store:
 - snapshot histories on ``t0..tN`` for state-like variables,
 - one stress-period duration per accepted step on ``dt1..dtN``.
 
+Steady flow runtimes may still expose one state-like snapshot at elapsed time
+zero. That single row is the solved steady state, not an initial condition.
+
 Downstream code should avoid inferring this relationship ad hoc. These helpers
 make the intended alignment explicit and reusable across exports, diagnostics
 and validation tooling. The contract is solver-agnostic: Boussinesq was the
@@ -67,6 +70,26 @@ def build_transient_time_axes(
         snapshot_elapsed_seconds=np.asarray(snapshot_elapsed_seconds, dtype=float),
         step_end_elapsed_seconds=np.asarray(step_end_elapsed_seconds, dtype=float),
     )
+
+
+def history_has_initial_snapshot(
+    *,
+    n_slices: int,
+    period_lengths_seconds: np.ndarray | Any | None,
+) -> bool:
+    """Return whether a history starts with an explicit initial snapshot.
+
+    A snapshot history has ``n_steps + 1`` rows: the first row is the initial
+    state, and the remaining rows are solved step-end states. A single-row
+    history is treated as a steady solved result, even if its elapsed time is
+    zero.
+    """
+    if int(n_slices) <= 1:
+        return False
+    if period_lengths_seconds is None:
+        return True
+    periods = np.asarray(period_lengths_seconds, dtype=float).reshape(-1)
+    return int(periods.size) == int(n_slices) - 1
 
 
 def step_history_from_history(
@@ -227,6 +250,7 @@ __all__ = [
     "TransientTimeAxes",
     "build_transient_time_axes",
     "elapsed_seconds_for_time_keys",
+    "history_has_initial_snapshot",
     "snapshot_elapsed_seconds_from_payload",
     "step_end_elapsed_seconds_from_payload",
     "step_history_from_history",

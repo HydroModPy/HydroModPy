@@ -2,7 +2,9 @@
 # Usage:
 #   hmp run config_hydrography_only.toml
 
-workflow = "overview"
+
+[workflow]
+mode = "overview"
 
 [workspace]
 project_root = "hydrography_only"

@@ -92,15 +92,15 @@ def include_in_comparison_report(item: Mapping[str, Any]) -> bool:
     observable = str(item.get("observable", "")).lower()
     if "case_configuration" in text:
         return True
-    if (
-        kind == "fine_raster_map_comparison" and observable == "head_map_wet_year1"
-    ) or (
+    if (kind == "fine_raster_map_comparison" and observable == "head_map_wet_year1") or (
         "head_map_wet_year1" in text and "fine_raster_map_comparison" in text
     ):
         return True
-    if (kind == "timeseries" and observable.startswith("head_") and observable.endswith("_series")) or (
-        name := Path(str(item.get("path", ""))).name.lower()
-    ).startswith("head_") and name.endswith("__timeseries.png"):
+    if (
+        (kind == "timeseries" and observable.startswith("head_") and observable.endswith("_series"))
+        or (name := Path(str(item.get("path", ""))).name.lower()).startswith("head_")
+        and name.endswith("__timeseries.png")
+    ):
         return True
     if kind in {"storage_comparison_dashboard", "total_inputs_outputs_dashboard"}:
         return True

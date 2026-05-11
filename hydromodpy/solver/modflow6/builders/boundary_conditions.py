@@ -21,9 +21,7 @@ from hydromodpy.physics.flow.time_forcing import resolve_period_values_from_forc
 
 
 def is_scalar_number(value: object) -> bool:
-    return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(
-        value, bool
-    )
+    return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool)
 
 
 def boundary_conditions_mapping(model) -> Mapping[str, object]:
@@ -55,15 +53,11 @@ def boundary_period_series(model, *, value: object, label: str) -> np.ndarray:
     if nper == 1:
         return np.asarray([float(series[0])], dtype=float)
     if series.size != nper:
-        raise ValueError(
-            f"{label} length ({series.size}) must be 1 or match nper ({nper})"
-        )
+        raise ValueError(f"{label} length ({series.size}) must be 1 or match nper ({nper})")
     return series.astype(float)
 
 
-def coerce_length_series_to_m(
-    *, values: object, units: object, label: str
-) -> np.ndarray:
+def coerce_length_series_to_m(*, values: object, units: object, label: str) -> np.ndarray:
     source_units = normalize_length_unit(str(units).strip() or "m")
     return np.asarray(
         convert_payload_to_m(values, unit=source_units, label=label),
@@ -96,17 +90,13 @@ def resolve_side_boundary_series(model, *, boundary: object, bc_id: str) -> np.n
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(
-                None if model.time_grid is None else model.time_grid.window
-            ),
+            simulation_window=(None if model.time_grid is None else model.time_grid.window),
             nper=int(model.nper),
             label=f"flow.bc.{bc_id}.forcing",
         )
         return coerce_length_series_to_m(
             values=raw_values,
-            units=forcing_units(
-                forcing, fallback=boundary_attr(boundary, "units", "m")
-            ),
+            units=forcing_units(forcing, fallback=boundary_attr(boundary, "units", "m")),
             label=f"flow.bc.{bc_id}.forcing",
         )
     return coerce_length_series_to_m(
@@ -163,10 +153,7 @@ def side_boundary_cell_ids(model, bc_id: str) -> list[int]:
         raise ValueError(f"Unsupported side boundary id: {bc_id}")
 
     support = _require_runtime_mesh_support(model, label=f"flow.bc.{bc_id}")
-    return [
-        int(cell_id)
-        for cell_id in support.boundary_cell_indices_for_side(bc_id).tolist()
-    ]
+    return [int(cell_id) for cell_id in support.boundary_cell_indices_for_side(bc_id).tolist()]
 
 
 def iter_side_boundary_cells(model, bc_id: str):
@@ -186,9 +173,7 @@ def apply_side_boundary_start_heads(model, strt: np.ndarray) -> np.ndarray:
         boundary = bc.get(bc_id)
         if boundary is None:
             continue
-        start_value = float(
-            resolve_side_boundary_series(model, boundary=boundary, bc_id=bc_id)[0]
-        )
+        start_value = float(resolve_side_boundary_series(model, boundary=boundary, bc_id=bc_id)[0])
         cell_ids = boundary_support_cell_ids(model, boundary=boundary, bc_id=bc_id)
         for ilay in range(strt.shape[0]):
             strt[ilay, cell_ids] = start_value
@@ -205,17 +190,13 @@ def resolve_ocean_boundary_series(model) -> np.ndarray | None:
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(
-                None if model.time_grid is None else model.time_grid.window
-            ),
+            simulation_window=(None if model.time_grid is None else model.time_grid.window),
             nper=int(model.nper),
             label="flow.bc.ocean.forcing",
         )
         return coerce_length_series_to_m(
             values=raw_values,
-            units=forcing_units(
-                forcing, fallback=boundary_attr(boundary, "units", "m")
-            ),
+            units=forcing_units(forcing, fallback=boundary_attr(boundary, "units", "m")),
             label="flow.bc.ocean.forcing",
         )
     return coerce_length_series_to_m(
@@ -239,17 +220,13 @@ def resolve_stream_boundary_series(model) -> np.ndarray | None:
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(
-                None if model.time_grid is None else model.time_grid.window
-            ),
+            simulation_window=(None if model.time_grid is None else model.time_grid.window),
             nper=int(model.nper),
             label="flow.bc.stream.forcing",
         )
         return coerce_length_series_to_m(
             values=raw_values,
-            units=forcing_units(
-                forcing, fallback=boundary_attr(boundary, "units", "m")
-            ),
+            units=forcing_units(forcing, fallback=boundary_attr(boundary, "units", "m")),
             label="flow.bc.stream.forcing",
         )
     return coerce_length_series_to_m(
@@ -298,9 +275,7 @@ def stream_chd_support_mask(model, stream_series: np.ndarray | None) -> np.ndarr
         return np.zeros(int(model.ncpl), dtype=bool)
     boundary = boundary_conditions_mapping(model).get("stream")
     support = _require_runtime_mesh_support(model, label="flow.bc.stream")
-    support_label = (
-        None if boundary is None else boundary_attr(boundary, "support_label", None)
-    )
+    support_label = None if boundary is None else boundary_attr(boundary, "support_label", None)
     if support_label is None:
         cell_ids = np.asarray(support.river_cell_indices(), dtype=int).reshape(-1)
     else:
@@ -350,9 +325,7 @@ def build_side_boundary_chd_spd(model) -> dict[int, list[list[float]]]:
         series = resolve_side_boundary_series(model, boundary=boundary, bc_id=bc_id)
         for kper, head in enumerate(series):
             for ilay in range(int(model.nlay)):
-                for cid in boundary_support_cell_ids(
-                    model, boundary=boundary, bc_id=bc_id
-                ):
+                for cid in boundary_support_cell_ids(model, boundary=boundary, bc_id=bc_id):
                     if bool(dem_mask_flat[cid]):
                         continue
                     spd[kper][(ilay, cid)] = [ilay, cid, float(head)]
@@ -369,9 +342,7 @@ def resolve_drainage_conductance_series(model) -> np.ndarray | None:
     if forcing is not None:
         raw_values = resolve_period_values_from_forcing(
             forcing=forcing,
-            simulation_window=(
-                None if model.time_grid is None else model.time_grid.window
-            ),
+            simulation_window=(None if model.time_grid is None else model.time_grid.window),
             nper=int(model.nper),
             label="flow.bc.drainage.forcing",
         )
@@ -415,9 +386,7 @@ def build_drain_stress_period_data(
             if configured_cond_value > 0.0:
                 cond_value = max(configured_cond_value, 1e-12)
             else:
-                cond_value = max(
-                    float(model.hk[0, cid]) * float(cell_areas[cid]), 1e-12
-                )
+                cond_value = max(float(model.hk[0, cid]) * float(cell_areas[cid]), 1e-12)
             period_cells.append([0, cid, float(top_flat[cid]), cond_value])
         drn_spd[kper] = period_cells
     return drn_spd

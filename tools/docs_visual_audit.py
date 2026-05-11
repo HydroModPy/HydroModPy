@@ -114,7 +114,7 @@ def main() -> None:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path("docs/readthedocs/source"),
+        default=Path("docs/source"),
         help="Read the Docs source root.",
     )
     parser.add_argument(

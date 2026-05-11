@@ -46,6 +46,19 @@ When these optional files are supplied, the synthesis page displays the main
 site-generation parameters and any available JSON/CSV counters in addition to
 the source links.
 
+For catalog-backed testbeds, `--site-catalog` is optional when the testbed
+manifest already records `site_catalog_path`. The page then reads the catalog
+automatically and adds a "Mode catalogue pas a pas" section explaining the loop:
+catalog row selection, template rendering, generated child TOMLs, and delegated
+execution through the configured runner. This is used by the natural
+Boussinesq/MODFLOW6 example:
+
+```powershell
+python examples\projects\10_testbed_workflow\reporting\generate_testbed_web_report.py `
+  examples\projects\10_testbed_workflow\outputs\boussinesq_natural_10km2_testbed `
+  --title "Boussinesq/MODFLOW6 natural 10km2 catalog testbed"
+```
+
 Comparison reports are auto-discovered when they are stored under:
 
 ```text

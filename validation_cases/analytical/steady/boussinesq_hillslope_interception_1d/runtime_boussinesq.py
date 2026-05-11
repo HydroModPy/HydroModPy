@@ -248,7 +248,7 @@ def run_boussinesq_hillslope_interception_case(
                         "dirichlet": {
                             "east_side": {"value": EAST_HEAD_M},
                         }
-                    }
+                    },
                 },
                 flow_regime="steady",
             ),

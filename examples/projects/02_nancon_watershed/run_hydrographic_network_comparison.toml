@@ -8,8 +8,10 @@
 # ======================================================================
 
 base_config = "project.toml"
-workflow = "simulation"
 
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "nancon_hydrographic_network_compare"

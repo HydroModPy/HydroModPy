@@ -49,17 +49,17 @@ def _resolve_geology_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dic
 
 def _resolve_field_param_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     out = dict(payload)
-    heterogeneous = out.get("field_heterogeneous")
-    if not isinstance(heterogeneous, Mapping):
+    field = out.get("field")
+    if not isinstance(field, Mapping):
         return out
-    heterogeneous_data = dict(heterogeneous)
-    source = str(heterogeneous_data.get("values_source", "inline")).strip().lower()
-    if source == "csv" and heterogeneous_data.get("values_csv_file") is not None:
-        heterogeneous_data["values_csv_file"] = resolve_path(
-            heterogeneous_data["values_csv_file"],
+    field_data = dict(field)
+    source = str(field_data.get("values_source", "inline")).strip().lower()
+    if source == "csv" and field_data.get("values_csv_file") is not None:
+        field_data["values_csv_file"] = resolve_path(
+            field_data["values_csv_file"],
             base_dir=base_dir,
         )
-    out["field_heterogeneous"] = heterogeneous_data
+    out["field"] = field_data
     return out
 
 

@@ -1,6 +1,8 @@
 base_config = "../06_vire_selune/project_simulation_steady.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/vire_natural_structured_comparison/workspace"
@@ -40,8 +42,6 @@ all_vertices = true
 id = "K"
 kind = "homogeneous"
 unit = "m/s"
-
-[flow.param.K.field_homogeneous]
 value = "1e-5 m/s"
 
 [display]

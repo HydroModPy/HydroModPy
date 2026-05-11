@@ -5,11 +5,12 @@ from __future__ import annotations
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import ConfigDict, Field, ValidationError, field_validator
+from pydantic import Field, ValidationError, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io.paths import get_nested_section, resolve_path
 from hydromodpy.spatial.field.core.field_param_config import (
     resolve_field_param_config_payload,
@@ -58,17 +59,17 @@ def _resolve_geology_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dic
 
 def _resolve_field_param_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     out = dict(payload)
-    heterogeneous = out.get("field_heterogeneous")
-    if not isinstance(heterogeneous, Mapping):
+    field = out.get("field")
+    if not isinstance(field, Mapping):
         return out
-    heterogeneous_data = dict(heterogeneous)
-    source = str(heterogeneous_data.get("values_source", "inline")).strip().lower()
-    if source == "csv" and heterogeneous_data.get("values_csv_file") is not None:
-        heterogeneous_data["values_csv_file"] = resolve_path(
-            heterogeneous_data["values_csv_file"],
+    field_data = dict(field)
+    source = str(field_data.get("values_source", "inline")).strip().lower()
+    if source == "csv" and field_data.get("values_csv_file") is not None:
+        field_data["values_csv_file"] = resolve_path(
+            field_data["values_csv_file"],
             base_dir=base_dir,
         )
-    out["field_heterogeneous"] = heterogeneous_data
+    out["field"] = field_data
     return out
 
 
@@ -82,39 +83,36 @@ def _resolve_sgrid_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[
 class SGridFieldParamDiscretizationConfig(HydroModelBase):
     """Configuration for standalone field-parameter discretization on an SGrid."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    geology: dict[str, Any] = Field(
+    geology: Annotated[dict[str, Any], Profile.USER] = Field(
         description=(
             "Embedded geology payload (same content as section `[geology]` "
             "in a geology config TOML)."
         )
     )
-    field_param: dict[str, Any] = Field(
+    field_param: Annotated[dict[str, Any], Profile.USER] = Field(
         description=(
             "Embedded field-parameter payload (same content as a full "
-            "`field_param_config.toml`: `field`, `field_homogeneous`, "
-            "`field_heterogeneous`, `field_vertical_profile`)."
+            "`field_param_config.toml`: `field`, `field_vertical_profile`)."
         )
     )
-    sgrid: dict[str, Any] = Field(
+    sgrid: Annotated[dict[str, Any], Profile.USER] = Field(
         description=(
             "Embedded SGrid payload (same keys as section `[sgrid]` in SGrid config TOML)."
         )
     )
 
-    cell_samples_per_axis: int | None = Field(
+    cell_samples_per_axis: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         ge=2,
         description=(
             "Optional override for geology_field.on_mesh(...). If omitted, geology default is used."
         ),
     )
-    depth: float = Field(
+    depth: Annotated[float, Profile.USER] = Field(
         default=0.0,
         description="Depth passed to FieldParam.to_mesh_field(..., depth=...).",
     )
-    strict_field_spatial_id_match: bool = Field(
+    strict_field_spatial_id_match: Annotated[bool, Profile.DEV] = Field(
         default=True,
         description=(
             "If true, heterogeneous field_param.field_spatial_id must match "
@@ -122,14 +120,14 @@ class SGridFieldParamDiscretizationConfig(HydroModelBase):
         ),
     )
 
-    output_npy: Path | None = Field(
+    output_npy: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
         description=(
             "Optional output `.npy` path for planar discretized values_2d "
             "(kept for existing map-based visualizations)."
         ),
     )
-    output_summary_json: Path | None = Field(
+    output_summary_json: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
         description="Optional output JSON summary path.",
     )
@@ -147,15 +145,7 @@ class SGridFieldParamDiscretizationConfig(HydroModelBase):
         if not isinstance(value, Mapping):
             raise ValueError("field_param must be a mapping")
         payload = dict(value)
-        if any(
-            key in payload
-            for key in (
-                "field",
-                "field_homogeneous",
-                "field_heterogeneous",
-                "field_vertical_profile",
-            )
-        ):
+        if any(key in payload for key in ("field", "field_vertical_profile")):
             payload = resolve_field_param_config_payload(
                 payload,
                 base_dir=Path.cwd(),

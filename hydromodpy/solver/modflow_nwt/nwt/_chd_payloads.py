@@ -28,9 +28,7 @@ if TYPE_CHECKING:
 
 def is_scalar_number(value: object) -> bool:
     """Return True for numeric scalar values (excluding booleans)."""
-    return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(
-        value, bool
-    )
+    return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool)
 
 
 def normalize_boundary_series(
@@ -53,9 +51,7 @@ def normalize_boundary_series(
     if int(nper) == 1:
         return np.asarray([float(series[0])], dtype=float)
     if series.size != nper:
-        raise ValueError(
-            f"{label} length ({series.size}) must be 1 or match nper ({nper})"
-        )
+        raise ValueError(f"{label} length ({series.size}) must be 1 or match nper ({nper})")
     return series.astype(float)
 
 
@@ -154,9 +150,7 @@ def build_initial_heads_and_sides(
         boundary = boundary_conditions.get(bc_id)
         if boundary is None:
             continue
-        side_head = float(
-            resolve_side_boundary_series(adapter, boundary=boundary, bc_id=bc_id)[0]
-        )
+        side_head = float(resolve_side_boundary_series(adapter, boundary=boundary, bc_id=bc_id)[0])
         static_boundary = side_boundary_is_static(boundary)
         if bc_id == "west_side":
             if static_boundary:
@@ -344,13 +338,9 @@ def validate_ibound_strt_contract(
     expected_2d = (nrow, ncol)
 
     if ibound.shape != expected_3d:
-        raise ValueError(
-            f"ibound shape mismatch: expected {expected_3d}, got {ibound.shape}"
-        )
+        raise ValueError(f"ibound shape mismatch: expected {expected_3d}, got {ibound.shape}")
     if strt.shape != expected_3d:
-        raise ValueError(
-            f"strt shape mismatch: expected {expected_3d}, got {strt.shape}"
-        )
+        raise ValueError(f"strt shape mismatch: expected {expected_3d}, got {strt.shape}")
     if drain_array.shape != expected_2d:
         raise ValueError(
             f"drain_array shape mismatch: expected {expected_2d}, got {drain_array.shape}"
@@ -365,9 +355,7 @@ def validate_ibound_strt_contract(
 
     drain_unique = np.unique(drain_array)
     if not np.isin(drain_unique, [0.0, 1.0]).all():
-        raise ValueError(
-            "drain_array must only contain binary activation values {0, 1}"
-        )
+        raise ValueError("drain_array must only contain binary activation values {0, 1}")
 
 
 __all__ = [

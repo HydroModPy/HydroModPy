@@ -22,9 +22,7 @@ def _read_final_head(head_path: Path, *, nlay: int, nrow: int, ncol: int) -> np.
     try:
         times = head_file.get_times()
         if not times:
-            raise RuntimeError(
-                f"No head times were written by steady initialization: {head_path}"
-            )
+            raise RuntimeError(f"No head times were written by steady initialization: {head_path}")
         raw = np.asarray(head_file.get_data(totim=times[-1]), dtype=float)
     finally:
         head_file.close()
@@ -53,9 +51,7 @@ def run_nwt_steady_state_initialization(model: object, *, verbose: bool) -> np.n
             box=bool(getattr(model.preprocess_options, "box", True)),
             sink_fill=bool(getattr(model.preprocess_options, "sink_fill", False)),
             check_grid=bool(getattr(model.preprocess_options, "check_grid", True)),
-            time_grid=single_period_mean_forcing_time_grid(
-                getattr(model, "time_grid", None)
-            ),
+            time_grid=single_period_mean_forcing_time_grid(getattr(model, "time_grid", None)),
         ),
     )
     steady_model.pre_processing(

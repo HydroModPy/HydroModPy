@@ -152,20 +152,29 @@ def test_walker_skips_whitespace_string() -> None:
 
 def test_walker_on_real_hydromodpy_config_annotations() -> None:
     """Geographic config has InputFile markers registered."""
-    from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
+    from hydromodpy.spatial.geographic.geographic_config import (
+        GeographicConfig,
+        OutletCatchDef,
+        PolygonCatchDef,
+    )
 
-    meta = [
-        (name, field_info.metadata) for name, field_info in GeographicConfig.model_fields.items()
-    ]
-    roles_by_field = {}
-    for name, metadata in meta:
-        for entry in metadata:
-            if isinstance(entry, InputFile):
-                roles_by_field[name] = entry.role
-    assert roles_by_field == {
+    def _collect_roles(model_cls) -> dict[str, str]:
+        roles: dict[str, str] = {}
+        for name, field_info in model_cls.model_fields.items():
+            for entry in field_info.metadata:
+                if isinstance(entry, InputFile):
+                    roles[name] = entry.role
+        return roles
+
+    geographic_roles = _collect_roles(GeographicConfig)
+    outlet_roles = _collect_roles(OutletCatchDef)
+    polygon_roles = _collect_roles(PolygonCatchDef)
+
+    assert geographic_roles == {"bottom_path": "aquifer_bottom"}
+    assert outlet_roles == {"dem_init_path": "dem"}
+    assert polygon_roles == {
         "dem_init_path": "dem",
         "polyg_shp_path": "watershed_polygon",
-        "bottom_path": "aquifer_bottom",
     }
 
 

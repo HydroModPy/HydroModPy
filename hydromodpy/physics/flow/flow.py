@@ -89,7 +89,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import BoundaryConditio
 from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
 from hydromodpy.physics.flow.initial_conditions import (
-    FlowInitialCondition,
+    FlowICCustom,
     FlowInitialConditions,
 )
 from hydromodpy.physics.flow.initial_conditions_config import (
@@ -257,7 +257,7 @@ class Flow(ProcessSpatial):
         self.ts_vi_snes_type = config.ts_vi_snes_type
         # Parameters are resolved in the declared order from `flow.param_list`.
         self.set_parameters_from_config(
-            config.param,
+            self._runtime_parameter_payloads(config),
             parameter_ids=config.param_list,
             context_label="flow.param",
         )
@@ -274,6 +274,21 @@ class Flow(ProcessSpatial):
         )
         # Sinks/sources are stored in a process-level dictionary namespace.
         self.set_sinks_sources(config.sinks_sources)
+
+    @staticmethod
+    def _runtime_parameter_payloads(config: FlowConfig) -> dict[str, object]:
+        """Resolve typed flow parameter sections for runtime ingestion."""
+        payloads: dict[str, object] = {}
+        for param_id, param_cfg in config.param.items():
+            resolved_payload = getattr(param_cfg, "resolved_payload", None)
+            if callable(resolved_payload):
+                payloads[param_id] = resolved_payload(
+                    param_id=param_id,
+                    section_label=f"flow.param.{param_id}",
+                )
+            else:
+                payloads[param_id] = param_cfg
+        return payloads
 
     def build_initial_conditions(
         self,
@@ -322,8 +337,9 @@ class Flow(ProcessSpatial):
             # Allow already-instantiated typed payloads.
             if isinstance(raw_payload, FlowBoundaryConditionConfig):
                 parsed[bc_id] = raw_payload
-                if raw_payload.application_domain is not None:
-                    application_domains[bc_id] = raw_payload.application_domain
+                application_domain = raw_payload.application_domain
+                if isinstance(application_domain, str) and application_domain.strip():
+                    application_domains[bc_id] = application_domain.strip()
                 continue
             if isinstance(raw_payload, BoundaryCondition):
                 parsed[bc_id] = FlowBoundaryConditionConfig.model_validate(
@@ -538,8 +554,7 @@ class Flow(ProcessSpatial):
 
 if __name__ == "__main__":
     test = Flow(FlowConfig())
-    h0 = FlowInitialCondition(
-        type="custom",
+    h0 = FlowICCustom(
         value=10,
         units="m",
     )
@@ -562,8 +577,8 @@ if __name__ == "__main__":
     well1 = SinkSource(id="W1", value=-1e-4, description="Pumping well", units="m3/s")
     test.set_parameters_from_config(
         {
-            "K": {"id": "K", "kind": "homogeneous", "value": 1e-5, "unit": "m/s"},
-            "Sy": {"id": "Sy", "kind": "homogeneous", "value": 0.1, "unit": "-"},
+            "K": {"field": {"id": "K", "kind": "homogeneous", "value": 1e-5, "unit": "m/s"}},
+            "Sy": {"field": {"id": "Sy", "kind": "homogeneous", "value": 0.1, "unit": "-"}},
         },
         parameter_ids=["K", "Sy"],
         context_label="flow.param",

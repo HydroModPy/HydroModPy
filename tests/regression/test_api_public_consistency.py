@@ -25,7 +25,6 @@ _DIRECT_EXPORTS = frozenset(
         "calibrate",
         "catalog",
         "overview",
-        "batch",
         "compare_pair",
         "mesh",
         "testbed",

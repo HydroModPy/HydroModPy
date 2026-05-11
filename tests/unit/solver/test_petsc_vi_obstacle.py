@@ -8,13 +8,13 @@ from dataclasses import dataclass
 import numpy as np
 import pytest
 
+import hydromodpy.solver.boussinesq.runtimes.petsc_vi_obstacle as vi_runtime
 from hydromodpy.solver.boussinesq.assembly import BoussinesqAssembly
 from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
     RuntimeSolveResult,
     TransientStepInputs,
 )
-import hydromodpy.solver.boussinesq.runtimes.petsc_vi_obstacle as vi_runtime
 from hydromodpy.solver.boussinesq.runtimes.petsc_vi_obstacle import (
     _projected_vi_residual,
     solve_transient_step,
@@ -260,8 +260,7 @@ def test_single_cell_recharge_uses_requested_vi_substeps(tmp_path) -> None:
         "converged_by_period": [True],
         "runtime_period_diagnostics": [{**result.diagnostics, "period_index": 0}],
         "runtime_substep_diagnostics": [
-            {**item, "period_index": 0}
-            for item in result.diagnostics["vi_substep_details"]
+            {**item, "period_index": 0} for item in result.diagnostics["vi_substep_details"]
         ],
     }
     compact = build_vi_obstacle_runtime_summary(runtime_summary)

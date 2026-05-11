@@ -1,7 +1,9 @@
 # Reduced MODFLOW-NWT / MODPATH / MT3DMS regression config.
 base_config = "config_fast_common.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [[simulation.process]]
 id = "flow_main"
@@ -34,8 +36,9 @@ mass_seepage = true
 spatial_fields = true
 
 [modflownwt.runtime]
-dis_itmuni = 1
 
+[modflownwt.runtime.dis]
+itmuni = 1
 [modflownwt.sgrid.planar]
 mode = "resample_to_shape"
 nx = 60

@@ -1,8 +1,10 @@
-workflow = "overview"
 
 # ----------------------------------------------------------------------
 # Reference case: hydrographic network extraction on Nançon.
 # ----------------------------------------------------------------------
+
+[workflow]
+mode = "overview"
 
 [workspace]
 project_root = "."

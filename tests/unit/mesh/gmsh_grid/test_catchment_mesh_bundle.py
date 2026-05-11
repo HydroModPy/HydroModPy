@@ -115,7 +115,7 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
         domain_geographic=domain_geographic,
         domain_cfg={
             "depth_model": {
-                "type": "flat_substratum",
+                "kind": "flat_substratum",
                 "substratum_elevation": 5.0,
             }
         },
@@ -171,13 +171,13 @@ def test_export_and_load_catchment_mesh_bundle(tmp_path: Path) -> None:
     assert loaded.metadata_view.geology.available is True
     assert loaded.metadata_view.topography.source_path == str(dem_path)
     assert loaded.metadata_view.vertical.derived_from == "domain.depth_model"
-    assert loaded.metadata_view.vertical.depth_model["type"] == "flat_substratum"
+    assert loaded.metadata_view.vertical.depth_model["kind"] == "flat_substratum"
     assert loaded.metadata_view.hydraulic_properties.conductivity.unit == "m/s"
     assert loaded.metadata["geology"]["available"] is True
     assert loaded.metadata["hydraulic_properties"]["available"] is True
     assert loaded.metadata["topography"]["source_path"] == str(dem_path)
     assert loaded.metadata["vertical"]["derived_from"] == "domain.depth_model"
-    assert loaded.metadata["vertical"]["depth_model"]["type"] == "flat_substratum"
+    assert loaded.metadata["vertical"]["depth_model"]["kind"] == "flat_substratum"
     assert loaded.metadata["vertical"]["depth_model"]["substratum_elevation_m"] == 5.0
     assert loaded.mesh_summary is not None
     assert loaded.mesh_summary["constraints_mode"] == "geology_only"
@@ -233,7 +233,7 @@ def test_export_catchment_mesh_bundle_uses_constant_thickness_depth_model(
         domain_geographic=domain_geographic,
         domain_cfg={
             "depth_model": {
-                "type": "constant_thickness",
+                "kind": "constant_thickness",
                 "thickness": "7 m",
             }
         },
@@ -241,7 +241,7 @@ def test_export_catchment_mesh_bundle_uses_constant_thickness_depth_model(
 
     loaded = load_catchment_mesh_bundle(bundle_summary["bundle_dir"])
 
-    assert loaded.metadata["vertical"]["depth_model"]["type"] == "constant_thickness"
+    assert loaded.metadata["vertical"]["depth_model"]["kind"] == "constant_thickness"
     assert loaded.metadata["vertical"]["depth_model"]["thickness_m"] == 7.0
     assert all(node.z_top is not None for node in loaded.nodes)
     assert all(node.z_bottom is not None for node in loaded.nodes)
@@ -294,7 +294,7 @@ def test_export_catchment_mesh_bundle_uses_bulk_surface_sampling(
         domain_geographic=domain_geographic,
         domain_cfg={
             "depth_model": {
-                "type": "constant_thickness",
+                "kind": "constant_thickness",
                 "thickness": "7 m",
             }
         },
@@ -394,6 +394,57 @@ def test_export_catchment_mesh_bundle_falls_back_to_node_mean_for_missing_centro
         )
 
 
+def test_export_catchment_mesh_bundle_fills_topography_nodata_from_nearest_cell(
+    tmp_path: Path,
+) -> None:
+    mesh_path = tmp_path / "mesh.msh"
+    _write_ascii_triangle_mesh(mesh_path)
+
+    support = RasterSupport(
+        crs="EPSG:2154",
+        dx=0.5,
+        dy=0.5,
+        xmin=0.0,
+        xmax=1.0,
+        ymin=0.0,
+        ymax=1.0,
+        nrows=2,
+        ncols=2,
+        nodata=-9999.0,
+    )
+    surface = Surface(
+        name="surface_topo",
+        values=np.array([[42.0, -9999.0], [-9999.0, -9999.0]], dtype=float),
+        support=support,
+    )
+    domain_geographic = SimpleNamespace(surface_topo=surface, watershed_box_buff_dem=None)
+
+    bundle_summary = export_catchment_mesh_bundle(
+        mesh_path=mesh_path,
+        domain_geographic=domain_geographic,
+        domain_cfg={
+            "depth_model": {
+                "type": "constant_thickness",
+                "thickness": "7 m",
+            }
+        },
+    )
+
+    loaded = load_catchment_mesh_bundle(bundle_summary["bundle_dir"])
+
+    assert loaded.n_cells == 2
+    for node in loaded.nodes:
+        assert node.z_top is not None
+        assert node.z_bottom is not None
+        assert np.isclose(float(node.z_top), 42.0)
+        assert np.isclose(float(node.z_top) - float(node.z_bottom), 7.0)
+    for cell in loaded.cells:
+        assert cell.z_top_centroid is not None
+        assert cell.z_bottom_centroid is not None
+        assert np.isclose(float(cell.z_top_centroid), 42.0)
+        assert np.isclose(float(cell.z_top_centroid) - float(cell.z_bottom_centroid), 7.0)
+
+
 def test_export_catchment_mesh_bundle_marks_river_edges(tmp_path: Path) -> None:
     mesh_path = tmp_path / "mesh.msh"
     _write_ascii_triangle_mesh(mesh_path)
@@ -423,7 +474,7 @@ def test_export_catchment_mesh_bundle_marks_river_edges(tmp_path: Path) -> None:
         domain_geographic=domain_geographic,
         domain_cfg={
             "depth_model": {
-                "type": "constant_thickness",
+                "kind": "constant_thickness",
                 "thickness": "7 m",
             }
         },
@@ -477,7 +528,7 @@ def test_export_catchment_mesh_bundle_uses_default_csv_conductivity_for_unmapped
         domain_geographic=domain_geographic,
         domain_cfg={
             "depth_model": {
-                "type": "constant_thickness",
+                "kind": "constant_thickness",
                 "thickness": "7 m",
             }
         },

@@ -112,8 +112,10 @@ def build_well_stress_period_data(
 
     normalized_wells: list[tuple[str, tuple[int, int, int], np.ndarray]] = []
     for well_id, well in wells.items():
-        if getattr(well, "cell", None) is not None:
-            cell = well.cell
+        location = getattr(well, "location", None)
+        location_kind = getattr(location, "kind", None)
+        if location_kind == "cell":
+            cell = location.cell
         else:
             if grid is None:
                 raise ValueError(

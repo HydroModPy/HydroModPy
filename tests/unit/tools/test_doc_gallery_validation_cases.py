@@ -178,10 +178,10 @@ def test_build_case_page_renders_solver_tabs_when_multiple_variants_exist() -> N
         "source_paths": ["validation_cases/synthetic/run_case.py"],
         "artifacts": {
             "image_repo_paths": [
-                "docs/readthedocs/source/_static/capability_gallery/validation/synthetic__modflownwt.png",
-                "docs/readthedocs/source/_static/capability_gallery/validation/synthetic__boussinesq.png",
+                "docs/source/_static/capability_gallery/validation/synthetic__modflownwt.png",
+                "docs/source/_static/capability_gallery/validation/synthetic__boussinesq.png",
             ],
-            "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/validation/synthetic_summary.json",
+            "summary_json_repo_path": "docs/source/_static/capability_gallery/validation/synthetic_summary.json",
         },
         "solver_runs": [
             {
@@ -342,7 +342,7 @@ def test_generate_validation_case_skips_missing_solver_figures(
     assert solver_runs["modflownwt"]["image"] is not None
     assert solver_runs["boussinesq"]["image"] is None
     assert summary["artifacts"]["image_repo_paths"] == [
-        "docs/readthedocs/source/_static/capability_gallery/validation/synthetic_validation_case__modflownwt.png"
+        "docs/source/_static/capability_gallery/validation/synthetic_validation_case__modflownwt.png"
     ]
 
     page = _build_case_page(summary)

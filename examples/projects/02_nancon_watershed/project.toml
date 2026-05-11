@@ -17,12 +17,14 @@
 # (simulation / calibration / batch / overview / mesh). Run TOMLs can
 # override this; the base value is "simulation" because most of the
 # time we just compute one MODFLOW run.
-workflow = "simulation"
 
 
 # ----------------------------------------------------------------------
 # Workspace
 # ----------------------------------------------------------------------
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 # Project root. "." means the folder that contains this TOML.
@@ -89,7 +91,7 @@ supports = {}
 [domain.depth_model]
 # Aquifer described as a constant-thickness layer below topography.
 # 30 m is a reasonable baseline for the Armorican fractured aquifer.
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = 30.0
 
 
@@ -230,36 +232,23 @@ description = "Watertable initialised at the topographic surface."
 id = "K"
 kind = "homogeneous"
 unit = "m/s"
-
-[flow.param.K.field_homogeneous]
-# Baseline. Run TOMLs (or `project.run(K=...)`) override this value.
 value = 5e-5
 
-
-# Sy (specific yield).
 [flow.param.Sy.field]
 id = "Sy"
 kind = "homogeneous"
 unit = "-"
-
-[flow.param.Sy.field_homogeneous]
 value = 0.05
 
-
-# Ss (specific storage).
 [flow.param.Ss.field]
 id = "Ss"
 kind = "homogeneous"
 unit = "m-1"
-
-[flow.param.Ss.field_homogeneous]
 value = 1e-5
 
-
-# Drainage boundary condition (Cauchy on the top face).
 [flow.bc.cauchy.drainage]
 id = "drainage"
-type = "cauchy"
+kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
 value = 0.0

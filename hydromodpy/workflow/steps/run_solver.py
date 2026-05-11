@@ -37,6 +37,8 @@ class RunSolverStep:
             ProcessCallbacks,
             SimulationRunner,
         )
+        from hydromodpy.simulation.extraction.post_run import record_run_execution_metrics
+        from hydromodpy.simulation.planning.plan import RunContext
 
         ctx = state.get("ctx")
         if ctx is None:
@@ -53,7 +55,14 @@ class RunSolverStep:
 
         t0 = time.monotonic()
         launcher = self.launcher if self.launcher is not None else SimulationRunner()
-        launcher.execute(plan, ctx, callbacks=callbacks)
+        executed_results = launcher.execute(plan, ctx, callbacks=callbacks) or ()
+        for run, result in executed_results:
+            record_run_execution_metrics(
+                ctx=RunContext(plan=plan, run=run, state=ctx),
+                sim_id=ctx.sim_id,
+                store=ctx.store,
+                result=result,
+            )
         wall_seconds = time.monotonic() - t0
 
         return state.advance(

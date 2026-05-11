@@ -4,12 +4,14 @@
 # reduces configuration ambiguity:
 #
 # - both simulations reuse the same precomputed river-constrained mesh bundle;
-# - the transient starts below the surface instead of exactly at topography;
+# - the transient starts from a same-solver steady state under mean recharge;
 # - the top drainage conductance is increased to reduce persistent ponding;
 # - the monthly recharge chronicle stays synthetic and compact.
 
 base_config = "base_nancon_transient_monthly_hydrography_mesh_input.toml"
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/nancon_transient_monthly_mf6_bouss_comparable/shared_workspace"
@@ -21,12 +23,15 @@ description = "Nancon monthly transient MF6/Boussinesq comparability pilot on on
 on_collision = "replace"
 
 [flow]
+runtime_max_iterations = 320
 runtime_tol_residual_inf = 1.0e-6
 runtime_tol_state_update_inf = 1.0e-6
 
 [flow.ic]
-type = "top_offset"
-value = "10 m"
+type = "steady_state"
+source = "mean_recharge"
+recharge_statistic = "time_mean"
+boundary_condition_policy = "first_period"
 
 [flow.sinks_sources.recharge]
 first_clim = "first"

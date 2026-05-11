@@ -1,4 +1,6 @@
-workflow = "comparison"
+
+[workflow]
+mode = "comparison"
 
 [comparison]
 comparison_id = "nancon_transient_seasonal_hydrography_extreme_k_sweep_mf6"
@@ -28,7 +30,7 @@ write_geotiff = false
 id = "k_2e6"
 label = "MF6 Nancon hydrography K=2e-6 m/s, 100x lower than reference"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -52,13 +54,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "2e-6 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
@@ -68,7 +70,7 @@ value = "3e-3 m2/s"
 id = "k_2e5"
 label = "MF6 Nancon hydrography K=2e-5 m/s, 10x lower than reference"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -92,13 +94,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "2e-5 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
@@ -108,7 +110,7 @@ value = "3e-3 m2/s"
 id = "k_2e4"
 label = "MF6 Nancon hydrography K=2e-4 m/s, reference"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -132,13 +134,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "2e-4 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
@@ -148,7 +150,7 @@ value = "3e-3 m2/s"
 id = "k_3e4"
 label = "MF6 Nancon hydrography K=3e-4 m/s, near planar distance-ratio target"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -172,13 +174,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "3e-4 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
@@ -188,7 +190,7 @@ value = "3e-3 m2/s"
 id = "k_2e2"
 label = "MF6 Nancon hydrography K=2e-2 m/s, 100x higher than reference"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -212,13 +214,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "2e-2 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
@@ -228,7 +230,7 @@ value = "3e-3 m2/s"
 id = "k_1e1"
 label = "MF6 Nancon hydrography K=1e-1 m/s, 500x higher than reference"
 solver = "modflow6"
-mesh_label = "Nancon generated catchment support"
+mesh_label = "nancon_generated_catchment_support"
 mesh_mode = "mesh_catchment"
 
 [comparison.simulation.overlay.workspace]
@@ -252,13 +254,13 @@ nlay = 1
 [comparison.simulation.overlay.modflow6.tgrid]
 firstpersteady = false
 
-[comparison.simulation.overlay.flow.param.K.field_homogeneous]
+[comparison.simulation.overlay.flow.param.K.field]
 value = "1e-1 m/s"
 
-[comparison.simulation.overlay.flow.param.Ss.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Ss.field]
 value = "1e-4 m-1"
 
-[comparison.simulation.overlay.flow.param.Sy.field_homogeneous]
+[comparison.simulation.overlay.flow.param.Sy.field]
 value = "0.05 -"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]

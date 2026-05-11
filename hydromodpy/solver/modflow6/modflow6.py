@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import os
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -139,6 +140,7 @@ class Modflow6(Solver):
         self.flow = None
         self.domain = None
         self.flow_regime: str | None = None
+        self.last_flow_solve_time_seconds: float | None = None
         self.prob_cells = 0
 
         self.full_path = os.path.join(model_folder, model_name)
@@ -177,15 +179,11 @@ class Modflow6(Solver):
         else:
             self.dem_watershed_path = self.geographic.watershed_buff_dem
 
-    def _apply_preprocess_options(
-        self, options: ModflowPreprocessOptions | None = None
-    ) -> None:
+    def _apply_preprocess_options(self, options: ModflowPreprocessOptions | None = None) -> None:
         if options is None:
             options = self.preprocess_options
         if not isinstance(options, ModflowPreprocessOptions):
-            raise TypeError(
-                "pre_processing options must be a ModflowPreprocessOptions instance."
-            )
+            raise TypeError("pre_processing options must be a ModflowPreprocessOptions instance.")
 
         self.preprocess_options = options
         self.sink_fill = bool(options.sink_fill)
@@ -230,9 +228,7 @@ class Modflow6(Solver):
 
     def _write_solver_grid_template(self) -> str:
         if self.grid_ctx is None:
-            raise ValueError(
-                "grid_ctx must exist before writing a solver grid template"
-            )
+            raise ValueError("grid_ctx must exist before writing a solver grid template")
         if not self.solver_mesh.is_structured:
             # No raster template for unstructured grids.
             return ""
@@ -253,9 +249,7 @@ class Modflow6(Solver):
         if self.routing_ctx is not None:
             return self.routing_ctx
         if self.grid_ctx is None:
-            raise ValueError(
-                "grid_ctx must exist before building solver routing products"
-            )
+            raise ValueError("grid_ctx must exist before building solver routing products")
 
         self.routing_ctx = build_solver_routing_context(
             dem_path=self.dem_watershed_path,
@@ -345,9 +339,7 @@ class Modflow6(Solver):
             time_grid=launcher_time_grid,
             flow_regime=self.flow_regime,
             firstpersteady=bool(
-                getattr(
-                    getattr(self.modflow_config, "tgrid", None), "firstpersteady", True
-                )
+                getattr(getattr(self.modflow_config, "tgrid", None), "firstpersteady", True)
             ),
         )
         self.perlen = temporal.perlen
@@ -386,9 +378,7 @@ class Modflow6(Solver):
             domain=self.domain,
             solver_mesh=solver_mesh,
             planar_mesh=self.runtime_mesh_planar,
-            required_properties=resolve_required_flow_properties(
-                flow_regime=self.flow_regime
-            ),
+            required_properties=resolve_required_flow_properties(flow_regime=self.flow_regime),
             optional_fill_values={"Sy": 0.0, "Ss": 0.0},
             runtime_property_overrides=flow_runtime_overrides,
         )
@@ -417,8 +407,7 @@ class Modflow6(Solver):
             self.sim,
             nper=int(self.nper),
             perioddata=[
-                (float(self.perlen[i]), int(self.nstp[i]), 1.0)
-                for i in range(int(self.nper))
+                (float(self.perlen[i]), int(self.nstp[i]), 1.0) for i in range(int(self.nper))
             ],
             time_units=time_units,
         )
@@ -509,9 +498,7 @@ class Modflow6(Solver):
             stream_support_mask=stream_support_mask,
         )
         if evt_spd is not None:
-            maxbound = max(
-                (len(period_cells) for period_cells in evt_spd.values()), default=0
-            )
+            maxbound = max((len(period_cells) for period_cells in evt_spd.values()), default=0)
             self.evt = flopy.mf6.ModflowGwfevt(
                 self.gwf,
                 stress_period_data=evt_spd,
@@ -609,14 +596,17 @@ class Modflow6(Solver):
             self.ic.write()
 
         success_model = False
+        self.last_flow_solve_time_seconds = None
         if options.run_model:
-            success_model, _ = self.sim.run_simulation(silent=not options.verbose)
+            solve_start = time.perf_counter()
+            try:
+                success_model, _ = self.sim.run_simulation(silent=not options.verbose)
+            finally:
+                self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
         return success_model
 
     @staticmethod
-    def _get_budget_records_or_none(
-        cbb: object, *, kstpkper: tuple[int, int], text: str
-    ):
+    def _get_budget_records_or_none(cbb: object, *, kstpkper: tuple[int, int], text: str):
         """Return one budget term, or None when the term is absent from the file."""
         return get_budget_records_or_none(cbb, kstpkper=kstpkper, text=text)
 
@@ -627,21 +617,13 @@ class Modflow6(Solver):
 
     def _build_unstructured_cell_adjacency(self) -> list[set[int]]:
         """Return cell-to-cell adjacency for one unstructured planar mesh."""
-        n_cells = int(
-            getattr(self, "ncpl", 0) or getattr(self.solver_mesh, "n_cells", 0)
-        )
+        n_cells = int(getattr(self, "ncpl", 0) or getattr(self.solver_mesh, "n_cells", 0))
         adjacency = [set() for _ in range(n_cells)]
         support = getattr(self, "runtime_mesh_support", None)
         if support is not None:
-            edge_cell_a = np.asarray(
-                getattr(support, "edge_cell_a", ()), dtype=int
-            ).reshape(-1)
-            edge_cell_b = np.asarray(
-                getattr(support, "edge_cell_b", ()), dtype=int
-            ).reshape(-1)
-            for cell_a, cell_b in zip(
-                edge_cell_a.tolist(), edge_cell_b.tolist(), strict=False
-            ):
+            edge_cell_a = np.asarray(getattr(support, "edge_cell_a", ()), dtype=int).reshape(-1)
+            edge_cell_b = np.asarray(getattr(support, "edge_cell_b", ()), dtype=int).reshape(-1)
+            for cell_a, cell_b in zip(edge_cell_a.tolist(), edge_cell_b.tolist(), strict=False):
                 if int(cell_a) < 0 or int(cell_b) < 0:
                     continue
                 if int(cell_a) >= n_cells or int(cell_b) >= n_cells:
@@ -698,9 +680,7 @@ class Modflow6(Solver):
         """
         local = np.asarray(local_values, dtype=float).reshape(-1)
         reference = np.asarray(reference_values, dtype=float).reshape(-1)
-        n_cells = int(
-            getattr(self, "ncpl", 0) or getattr(self.solver_mesh, "n_cells", 0)
-        )
+        n_cells = int(getattr(self, "ncpl", 0) or getattr(self.solver_mesh, "n_cells", 0))
         if local.size != n_cells or reference.size != n_cells:
             raise ValueError(
                 "Unstructured accumulation requires local_values/reference_values "
@@ -712,9 +692,7 @@ class Modflow6(Solver):
         else:
             mask = np.asarray(inactive_mask, dtype=bool).reshape(-1)
             if mask.size != n_cells:
-                raise ValueError(
-                    f"inactive_mask must have {n_cells} entries, got {mask.size}."
-                )
+                raise ValueError(f"inactive_mask must have {n_cells} entries, got {mask.size}.")
 
         active = (~mask) & np.isfinite(reference)
         if not np.any(active):
@@ -723,17 +701,15 @@ class Modflow6(Solver):
         adjacency = self._build_unstructured_cell_adjacency()
         centroids = None
         try:
-            centroids = np.asarray(
-                self.solver_mesh.cell_centroids(), dtype=float
-            ).reshape(n_cells, 2)
+            centroids = np.asarray(self.solver_mesh.cell_centroids(), dtype=float).reshape(
+                n_cells, 2
+            )
         except Exception:
             centroids = None
 
         ref_active = reference[active]
         ref_range = (
-            float(np.nanmax(ref_active) - np.nanmin(ref_active))
-            if ref_active.size > 0
-            else 0.0
+            float(np.nanmax(ref_active) - np.nanmin(ref_active)) if ref_active.size > 0 else 0.0
         )
         tolerance = max(1.0e-9, 1.0e-9 * max(abs(ref_range), 1.0))
         downstream = np.full(n_cells, -1, dtype=int)
@@ -753,9 +729,7 @@ class Modflow6(Solver):
                 if centroids is not None:
                     delta_x = float(centroids[cell_id, 0] - centroids[int(neighbor), 0])
                     delta_y = float(centroids[cell_id, 1] - centroids[int(neighbor), 1])
-                    distance = max(
-                        (delta_x * delta_x + delta_y * delta_y) ** 0.5, 1.0e-12
-                    )
+                    distance = max((delta_x * delta_x + delta_y * delta_y) ** 0.5, 1.0e-12)
                     score = drop / distance
                 if score > best_score:
                     best_score = float(score)
@@ -768,9 +742,7 @@ class Modflow6(Solver):
             0.0,
         )
         accumulated = np.zeros(n_cells, dtype=float)
-        order = np.argsort(
-            np.where(active, reference, -np.inf).astype(float, copy=False)
-        )[::-1]
+        order = np.argsort(np.where(active, reference, -np.inf).astype(float, copy=False))[::-1]
         for cell_id in order.tolist():
             if not bool(active[int(cell_id)]):
                 continue
@@ -802,9 +774,7 @@ class Modflow6(Solver):
             if not data_by_time:
                 continue
             stacked_rows: list[np.ndarray] = []
-            for _, values in sorted(
-                data_by_time.items(), key=lambda item: int(item[0])
-            ):
+            for _, values in sorted(data_by_time.items(), key=lambda item: int(item[0])):
                 flat = np.asarray(
                     self.solver_mesh.flatten_from_grid(np.asarray(values)),
                     dtype=float,
@@ -872,17 +842,11 @@ class Modflow6(Solver):
                 for tidx, _time_value in enumerate(times_array.tolist()):
                     cell_fields = {
                         "cell_id": cell_ids.astype(float, copy=False),
-                        "top_elevation": np.asarray(
-                            self.solver_mesh.top, dtype=float
-                        ).reshape(-1),
+                        "top_elevation": np.asarray(self.solver_mesh.top, dtype=float).reshape(-1),
                     }
                     for name, values in cell_series.items():
-                        cell_fields[str(name)] = np.asarray(
-                            values[tidx], dtype=float
-                        ).reshape(-1)
-                    mesh_with_data = self.solver_mesh.planar_mesh.with_cell_data(
-                        **cell_fields
-                    )
+                        cell_fields[str(name)] = np.asarray(values[tidx], dtype=float).reshape(-1)
+                    mesh_with_data = self.solver_mesh.planar_mesh.with_cell_data(**cell_fields)
                     write_vtu(
                         os.path.join(mesh_dir, f"{prefix}_t({int(tidx)}).vtu"),
                         mesh_with_data,
@@ -990,28 +954,18 @@ class Modflow6(Solver):
                     )
                     plt.close(fig)
 
-    def _support_edge_segments(
-        self, support: object, edge_indices: np.ndarray
-    ) -> list[np.ndarray]:
+    def _support_edge_segments(self, support: object, edge_indices: np.ndarray) -> list[np.ndarray]:
         """Return XY segments for one sequence of runtime support edge indices."""
         indices = np.asarray(edge_indices, dtype=int).reshape(-1)
         if indices.size == 0:
             return []
         node_x_m = np.asarray(getattr(support, "node_x_m", ()), dtype=float).reshape(-1)
         node_y_m = np.asarray(getattr(support, "node_y_m", ()), dtype=float).reshape(-1)
-        edge_node_a = np.asarray(
-            getattr(support, "edge_node_a_index", ()), dtype=int
-        ).reshape(-1)
-        edge_node_b = np.asarray(
-            getattr(support, "edge_node_b_index", ()), dtype=int
-        ).reshape(-1)
+        edge_node_a = np.asarray(getattr(support, "edge_node_a_index", ()), dtype=int).reshape(-1)
+        edge_node_b = np.asarray(getattr(support, "edge_node_b_index", ()), dtype=int).reshape(-1)
         segments: list[np.ndarray] = []
         for edge_index in indices.tolist():
-            if (
-                edge_index < 0
-                or edge_index >= edge_node_a.size
-                or edge_index >= edge_node_b.size
-            ):
+            if edge_index < 0 or edge_index >= edge_node_a.size or edge_index >= edge_node_b.size:
                 continue
             node_a = int(edge_node_a[edge_index])
             node_b = int(edge_node_b[edge_index])
@@ -1026,9 +980,7 @@ class Modflow6(Solver):
             )
         return segments
 
-    def _support_cell_polygons(
-        self, support: object, cell_ids: np.ndarray
-    ) -> list[np.ndarray]:
+    def _support_cell_polygons(self, support: object, cell_ids: np.ndarray) -> list[np.ndarray]:
         """Return XY polygons for one sequence of runtime support cell ids."""
         indices = np.asarray(cell_ids, dtype=int).reshape(-1)
         if indices.size == 0:
@@ -1040,9 +992,7 @@ class Modflow6(Solver):
         for cell_id in np.unique(indices).tolist():
             if cell_id < 0 or cell_id >= len(cell_node_indices):
                 continue
-            node_indices = np.asarray(
-                cell_node_indices[int(cell_id)], dtype=int
-            ).reshape(-1)
+            node_indices = np.asarray(cell_node_indices[int(cell_id)], dtype=int).reshape(-1)
             if node_indices.size < 3:
                 continue
             polygons.append(
@@ -1091,9 +1041,9 @@ class Modflow6(Solver):
         if self._is_bc_active("stream"):
             stream_series = self._resolve_stream_boundary_series()
             stream_mask = self._stream_chd_support_mask(stream_series)
-            stream_cell_ids = np.flatnonzero(
-                np.asarray(stream_mask, dtype=bool)
-            ).astype(int, copy=False)
+            stream_cell_ids = np.flatnonzero(np.asarray(stream_mask, dtype=bool)).astype(
+                int, copy=False
+            )
             if stream_cell_ids.size > 0:
                 stream_boundary = boundary_conditions.get("stream")
                 support_label = (
@@ -1149,18 +1099,12 @@ class Modflow6(Solver):
             except Exception:
                 continue
 
-            if support is not None and 0 <= int(cell_id) < int(
-                getattr(support, "n_cells", 0)
-            ):
+            if support is not None and 0 <= int(cell_id) < int(getattr(support, "n_cells", 0)):
                 x_m = float(
-                    np.asarray(support.cell_centroid_x_m, dtype=float).reshape(-1)[
-                        int(cell_id)
-                    ]
+                    np.asarray(support.cell_centroid_x_m, dtype=float).reshape(-1)[int(cell_id)]
                 )
                 y_m = float(
-                    np.asarray(support.cell_centroid_y_m, dtype=float).reshape(-1)[
-                        int(cell_id)
-                    ]
+                    np.asarray(support.cell_centroid_y_m, dtype=float).reshape(-1)[int(cell_id)]
                 )
             else:
                 continue
@@ -1174,9 +1118,7 @@ class Modflow6(Solver):
             )
         return items
 
-    def _export_runtime_support_overview(
-        self, *, options: ModflowPostprocessOptions
-    ) -> None:
+    def _export_runtime_support_overview(self, *, options: ModflowPostprocessOptions) -> None:
         """Write one diagnostic figure showing runtime gmsh supports used by the solver."""
         if not getattr(options, "native_mesh_png", False):
             return
@@ -1208,9 +1150,7 @@ class Modflow6(Solver):
         ax_active, ax_labels = axs
 
         for ax in (ax_active, ax_labels):
-            ax.add_collection(
-                LineCollection(all_segments, colors="0.80", linewidths=0.8, zorder=1)
-            )
+            ax.add_collection(LineCollection(all_segments, colors="0.80", linewidths=0.8, zorder=1))
             ax.set_aspect("equal")
             ax.set_xlim(float(np.min(node_x_m)), float(np.max(node_x_m)))
             ax.set_ylim(float(np.min(node_y_m)), float(np.max(node_y_m)))
@@ -1234,9 +1174,7 @@ class Modflow6(Solver):
                     zorder=2,
                 )
             )
-            active_handles.append(
-                Patch(facecolor=color, edgecolor=color, alpha=0.22, label=label)
-            )
+            active_handles.append(Patch(facecolor=color, edgecolor=color, alpha=0.22, label=label))
 
         river_indices = np.asarray(support.river_edge_indices(), dtype=int).reshape(-1)
         river_segments = self._support_edge_segments(support, river_indices)
@@ -1258,9 +1196,7 @@ class Modflow6(Solver):
                     zorder=3,
                 )
             )
-            active_handles.append(
-                Line2D([0], [0], color="#17becf", lw=2.0, label="river edges")
-            )
+            active_handles.append(Line2D([0], [0], color="#17becf", lw=2.0, label="river edges"))
 
         well_items = self._well_overlay_specs()
         if well_items:
@@ -1285,9 +1221,7 @@ class Modflow6(Solver):
                     zorder=5,
                 )
             active_handles.append(
-                Line2D(
-                    [0], [0], marker="x", color="black", linestyle="None", label="wells"
-                )
+                Line2D([0], [0], marker="x", color="black", linestyle="None", label="wells")
             )
 
         label_handles: list[object] = []
@@ -1309,9 +1243,7 @@ class Modflow6(Solver):
             "#bcbd22",
         )
         for index, label in enumerate(label_values):
-            edge_indices = np.asarray(
-                support.edge_indices_for_label(label), dtype=int
-            ).reshape(-1)
+            edge_indices = np.asarray(support.edge_indices_for_label(label), dtype=int).reshape(-1)
             segments = self._support_edge_segments(support, edge_indices)
             if not segments:
                 continue
@@ -1327,16 +1259,12 @@ class Modflow6(Solver):
             )
             x_mid = float(
                 np.mean(
-                    np.asarray(support.edge_midpoint_x_m, dtype=float).reshape(-1)[
-                        edge_indices
-                    ]
+                    np.asarray(support.edge_midpoint_x_m, dtype=float).reshape(-1)[edge_indices]
                 )
             )
             y_mid = float(
                 np.mean(
-                    np.asarray(support.edge_midpoint_y_m, dtype=float).reshape(-1)[
-                        edge_indices
-                    ]
+                    np.asarray(support.edge_midpoint_y_m, dtype=float).reshape(-1)[edge_indices]
                 )
             )
             ax_labels.text(
@@ -1408,8 +1336,7 @@ class Modflow6(Solver):
         if support is None:
             return set()
         return {
-            int(cell_id)
-            for cell_id in support.boundary_cell_indices_for_side("east_side").tolist()
+            int(cell_id) for cell_id in support.boundary_cell_indices_for_side("east_side").tolist()
         }
 
     def _compute_chd_outlet_discharge_east_side_m3_s(
@@ -1427,17 +1354,10 @@ class Modflow6(Solver):
         if record is None or len(record) == 0:
             return 0.0
 
-        if (
-            getattr(record, "dtype", None) is not None
-            and record.dtype.names is not None
-        ):
-            node_field = (
-                "node" if "node" in record.dtype.names else record.dtype.names[0]
-            )
+        if getattr(record, "dtype", None) is not None and record.dtype.names is not None:
+            node_field = "node" if "node" in record.dtype.names else record.dtype.names[0]
             q_field = "q" if "q" in record.dtype.names else record.dtype.names[-1]
-            iterator = (
-                (int(item[node_field]), float(item[q_field])) for item in record
-            )
+            iterator = ((int(item[node_field]), float(item[q_field])) for item in record)
         else:
             iterator = ((int(item[0]), float(item[-1])) for item in record)
 

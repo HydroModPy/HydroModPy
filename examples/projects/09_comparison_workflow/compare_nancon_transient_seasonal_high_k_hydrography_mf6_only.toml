@@ -1,5 +1,7 @@
 base_config = "compare_nancon_transient_seasonal_high_k_hydrography_mf6_bouss.toml"
-workflow = "comparison"
+
+[workflow]
+mode = "comparison"
 
 [comparison]
 comparison_id = "nancon_transient_seasonal_high_k_hydrography_mf6"

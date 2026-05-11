@@ -2,12 +2,14 @@
 Visual launcher for the pedagogical square-domain field examples.
 
 This module has two roles:
+
 - provide a direct script entrypoint for one square-field demonstration;
 - expose a reusable `run_field_demo_case(...)` helper so the root
   `field/cases/review_cases.py` launcher can chain several examples in
   blocking mode for manual review.
 
-Run from repository root:
+Run from repository root::
+
     python -m hydromodpy.spatial.field.cases.square.run_field_demo
 """
 

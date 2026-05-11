@@ -73,8 +73,8 @@ Output object:
 
 Field parameter file (`field_param_config.toml`):
 - `[field]`: `id`, `kind`, `unit`
-- `[field_homogeneous]`: `value`
-- `[field_heterogeneous]`: `field_spatial_id` + value source:
+- `[field]`: `value`
+- `[field]`: `field_spatial_id` + value source:
   - inline: `values = {...}`
   - csv: `values_source = "csv"` + `values_csv_file` + CSV column names
 - optional `[field_vertical_profile]`: depth dependency shared over whole domain
@@ -144,5 +144,5 @@ python -m pytest tests/unit/field -q
 
 ## UML
 
-- Canonical UML sources: `docs/readthedocs/source/architecture/field/diagrams/`
-- Architecture page: `docs/readthedocs/source/architecture/field/field-uml-diagrams.rst`
+- Canonical UML sources: `docs/source/architecture/field/diagrams/`
+- Architecture page: `docs/source/architecture/field/field-uml-diagrams.rst`

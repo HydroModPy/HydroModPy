@@ -362,7 +362,7 @@ def _probe_from_toml(toml_path: Path, WorkspaceConfig, WorkspaceError) -> list[d
                     resolve_declared_path(workspace_section[key], base_dir=base_dir)
                 )
         workspace_section.setdefault("project_root", str(base_dir))
-        cfg = WorkspaceConfig(**workspace_section)
+        cfg = WorkspaceConfig.model_validate(workspace_section)
     except WorkspaceError as exc:
         return [
             {

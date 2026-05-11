@@ -21,5 +21,5 @@ python -m tools.doc_gallery
 Then rebuild Sphinx:
 
 ```bash
-python -m sphinx -b html docs/readthedocs/source docs/readthedocs/build/html
+python -m sphinx -b html docs/source docs/build/html
 ```

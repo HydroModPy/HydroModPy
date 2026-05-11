@@ -1,4 +1,6 @@
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "Brutsaert recession deep validation"
@@ -36,7 +38,7 @@ base_elevation = 100.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "100.0 m"
 
 [flow]
@@ -48,22 +50,16 @@ param_list = ["K", "Ss", "Sy"]
 [flow.param.K.field]
 id = "K"
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "1e-4 m/s"
 
 [flow.param.Ss.field]
 id = "Ss"
 kind = "homogeneous"
-
-[flow.param.Ss.field_homogeneous]
 value = "1e-10 m-1"
 
 [flow.param.Sy.field]
 id = "Sy"
 kind = "homogeneous"
-
-[flow.param.Sy.field_homogeneous]
 value = "0.10 -"
 
 [flow.ic]
@@ -71,7 +67,7 @@ type = "custom"
 value = "50.0 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 
 [flow.bc.dirichlet.east_side.forcing]
 mode = "constant"

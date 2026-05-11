@@ -1,153 +1,343 @@
+# Workflow selector (mandatory). Must be one of 'simulation', 'calibration', 'overview',
+# 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers
+# that instantiate `HydroModPyConfig` from a frontend form.
 workflow = "comparison"
 
+# Top-level comparison experiment section.
 [comparison]
+# Stable identifier for this comparison run. It is used in generated child run names, output
+# paths, manifests, and HTML pages.
 comparison_id = "site_01_refined_mf6_vs_bouss"
+# Path to the shared simulation TOML used to generate child simulations. The comparison launcher
+# loads this base once, applies comparison.base_simulation_overlay, then applies each
+# comparison.simulation.overlay.
 base_simulation_config = "base_site_01_mf6_bouss_transient.toml"
+# Directory where comparison artifacts are written. In catalog-driven testbeds this is usually
+# rendered from the site id so every site gets its own comparison folder.
 output_root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_vs_bouss"
+# Simulation id used as the reference for metrics and differences. If not provided, the first
+# completed simulation is used.
 reference_simulation = "mf6_ref"
+# If True, keep running sibling child simulations after one child fails. For strict validation
+# campaigns, keep False so failures stop the case.
 continue_on_error = false
 
+# Execution settings for the comparison child runs.
 [comparison.execution]
+# Execution backend used for generated child simulations. The current production path launches
+# each generated simulation TOML through the standard hmp run command, so the comparison workflow
+# does not duplicate the simulation execution path.
 backend = "subprocess_hmp_run"
+# Number of child simulations executed in parallel. Forced to 1 in V1.
 max_parallel_runs = 1
+# If True, execute the generated child simulations before extracting observables. Set False only
+# to reuse already existing run folders or to dry-check the comparison materialization.
 run_simulations = true
+# If True, keep the generated child simulation TOMLs under the comparison output folder. Keeping
+# them is recommended for validation campaigns because they are the exact configs that were run.
 keep_generated_configs = true
+# Optional per-child timeout in seconds. None disables the timeout.
 timeout_seconds = 2400
 
+# Post-run audit policy applied to each child simulation.
 [comparison.audit]
+# Audit mode applied after all child simulations have produced comparable observables. The current
+# mode checks that the children describe the same case before reporting method differences.
 mode = "strict_same_case"
+# Policy applied when the audit detects an incompatible comparison. Use 'fail' for validation
+# gates, 'warn' for exploratory campaigns that should still write HTML reports, and 'ignore' only
+# when the audit is documented elsewhere.
 on_mismatch = "warn"
 
+# Optional common regular-grid rasterization used before comparing map observables. Enable it when
+# compared solvers use different meshes and need a shared support for map differences and figures.
 [comparison.fine_raster]
+# If True, interpolate map observables onto a common regular raster before computing map
+# differences and figures.
 enabled = true
+# Target raster resolution in project CRS units, usually metres.
 resolution = 80.0
+# Common raster extent policy: intersection compares only shared coverage, union keeps all
+# coverage, and reference follows the reference simulation.
 extent_mode = "intersection"
+# Interpolation method used when resampling map observables.
 interpolation = "linear"
+# If True, write GeoTIFF rasters in addition to CSV/PNG outputs.
 write_geotiff = false
 
+# Generated child simulations to run in the comparison. At least one entry required.
 [[comparison.simulation]]
+# Stable child simulation identifier inside this comparison. It is used in generated file names,
+# run names, metrics, figure labels, and observable rows.
 id = "mf6_ref"
+# Human-readable label for plots and HTML tables. When omitted, the child id is displayed.
 label = "MODFLOW 6 site_01 refined reference"
+# Solver name used to build the generated simulation process overlay. Use values such as
+# 'modflow6' or 'boussinesq' when simulation_config and run_folder are not supplied.
 solver = "modflow6"
+# Short label describing the mesh used by this child. It is reported in the comparison manifest
+# and HTML context.
 mesh_label = "site_01 refined generated geology-river catchment mesh"
+# Mesh provenance category for this child. Use 'mesh_catchment' when the simulation regenerates an
+# irregular catchment mesh, 'mesh_input' when it reuses an exchanged mesh bundle, or a
+# structured/unstructured category when that better describes the solver grid.
 mesh_mode = "mesh_catchment"
 
+# Strict-binary workspace configuration.
 [comparison.simulation.overlay.workspace]
+# Path to the project directory. Auto-derived from TOML location when absent.
 project_root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_vs_bouss/workspace_mf6"
+# Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result
+# catalogs stay project-local by default.
 root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_vs_bouss/workspace_mf6"
 
+# MODFLOW 6 runtime options.
 [comparison.simulation.overlay.modflow6.runtime]
+# IMS complexity keyword for MODFLOW 6 (e.g. SIMPLE, MODERATE, COMPLEX).
 mf6_ims_complexity = "COMPLEX"
+# IMS outer-iteration head-change convergence criterion.
 mf6_outer_dvclose = 0.0001
+# IMS inner-iteration head-change convergence criterion.
 mf6_inner_dvclose = 0.0001
+# Maximum number of IMS outer iterations.
 mf6_outer_maximum = 1000
+# Maximum number of IMS inner iterations.
 mf6_inner_maximum = 1000
+# Enable NPF cell rewetting. When left to None, HydroModPy keeps rewetting disabled unless
+# explicitly enabled.
 mf6_enable_rewet = false
+# Enable verbose FloPy logging for MODFLOW 6 setup and execution.
 mf_verbose = false
 
+# Process-specific controls for MODFLOW 6 flow packages.
 [comparison.simulation.overlay.modflow6.process_specific]
+# Vertical anisotropy factor used to derive k33 from k.
 vka = 1.0
 
+# Vertical layering of the solver grid.
 [comparison.simulation.overlay.modflow6.sgrid.vertical]
+# Number of layers (required for constant/decay, ignored for list).
 nlay = 1
 
+# Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are
+# driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps
+# `firstpersteady`.
 [comparison.simulation.overlay.modflow6.tgrid]
+# Whether the first stress period is treated as steady-state.
 firstpersteady = false
 
+# Generated child simulations to run in the comparison. At least one entry required.
 [[comparison.simulation]]
+# Stable child simulation identifier inside this comparison. It is used in generated file names,
+# run names, metrics, figure labels, and observable rows.
 id = "bouss_candidate"
+# Human-readable label for plots and HTML tables. When omitted, the child id is displayed.
 label = "Boussinesq site_01 refined candidate"
+# Solver name used to build the generated simulation process overlay. Use values such as
+# 'modflow6' or 'boussinesq' when simulation_config and run_folder are not supplied.
 solver = "boussinesq"
+# Short label describing the mesh used by this child. It is reported in the comparison manifest
+# and HTML context.
 mesh_label = "site_01 refined generated geology-river catchment mesh"
+# Mesh provenance category for this child. Use 'mesh_catchment' when the simulation regenerates an
+# irregular catchment mesh, 'mesh_input' when it reuses an exchanged mesh bundle, or a
+# structured/unstructured category when that better describes the solver grid.
 mesh_mode = "mesh_catchment"
 
+# Strict-binary workspace configuration.
 [comparison.simulation.overlay.workspace]
+# Path to the project directory. Auto-derived from TOML location when absent.
 project_root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_vs_bouss/workspace_bouss"
+# Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result
+# catalogs stay project-local by default.
 root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_vs_bouss/workspace_bouss"
 
+# Flow-process configuration.
 [comparison.simulation.overlay.flow]
+# Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow
+# solvers may ignore this field.
 runtime_backend = "scipy_sparse"
 
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
 value = "0.0 m2/s"
 description = "Boussinesq case 1: Cauchy drainage disabled; the upper free-surface obstacle remains active."
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_map_initial"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "map"
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = "first"
+# Display and reporting unit for this observable.
 unit = "m"
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_map_wet_year1"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "map"
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = 5
+# Display and reporting unit for this observable.
 unit = "m"
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_map_dry_late"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "map"
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = 22
+# Display and reporting unit for this observable.
 unit = "m"
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_map_wet_year2"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "map"
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = 17
+# Display and reporting unit for this observable.
 unit = "m"
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_map_last"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "map"
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = "last"
+# Display and reporting unit for this observable.
 unit = "m"
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_outlet_series"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "point"
+# X coordinate in the model/project CRS for point or outlet sampling.
 x = 131189.100
+# Y coordinate in the model/project CRS for point or outlet sampling.
 y = 6833784.400
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = "all"
+# Display and reporting unit for this observable.
 unit = "m"
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_mid_catchment_series"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "point"
+# X coordinate in the model/project CRS for point or outlet sampling.
 x = 130850.000
+# Y coordinate in the model/project CRS for point or outlet sampling.
 y = 6834450.000
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = "all"
+# Display and reporting unit for this observable.
 unit = "m"
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_ridge_series"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "point"
+# X coordinate in the model/project CRS for point or outlet sampling.
 x = 130500.000
+# Y coordinate in the model/project CRS for point or outlet sampling.
 y = 6835100.000
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = "all"
+# Display and reporting unit for this observable.
 unit = "m"
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_lower_valley_series"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "point"
+# X coordinate in the model/project CRS for point or outlet sampling.
 x = 131000.000
+# Y coordinate in the model/project CRS for point or outlet sampling.
 y = 6834000.000
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = "all"
+# Display and reporting unit for this observable.
 unit = "m"
 
+# Observables to compare across the declared simulations. At least one entry required.
 [[comparison.observable]]
+# Stable observable identifier. It becomes the group name used in metrics, differences, figures,
+# and HTML sections.
 name = "head_geology_contact_series"
+# Result variable to extract from each simulation, for example 'watertable_elevation', 'head',
+# 'accumulation_flux', or a comparison derived variable.
 variable = "watertable_elevation"
+# Spatial support used to sample the variable: point nearest-cell series, outlet aggregate,
+# boundary aggregate, cell-mask aggregate, or full map.
 support = "point"
+# X coordinate in the model/project CRS for point or outlet sampling.
 x = 131350.000
+# Y coordinate in the model/project CRS for point or outlet sampling.
 y = 6834300.000
+# Time selector: 'all', 'first', 'first_computed', 'last', or a zero-based time index.
 time = "all"
+# Display and reporting unit for this observable.
 unit = "m"

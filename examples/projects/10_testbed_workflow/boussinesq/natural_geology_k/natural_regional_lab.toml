@@ -1,0 +1,118 @@
+# Workflow selector: regional-lab plans catalog-level natural campaigns.
+workflow = "testbed"
+
+[testbed]
+profile = "regional_lab"
+
+# Regional-lab declaration. It selects sites and recipes; execution is delegated
+# to the same testbed runner provider used elsewhere.
+[regional_lab]
+# Stable id for regional-lab reports and inventories.
+lab_id = "boussinesq_natural_regional_lab"
+# Root directory for regional-lab inventories, plans and reports.
+output_root = "../../outputs/boussinesq_natural_regional_lab"
+# False writes the regional-lab plan only. Use WSL and switch to true only after
+# the referenced testbed-generated comparison TOMLs exist.
+execute = false
+# Keep processing later cases when one delegated comparison fails.
+continue_on_error = true
+# The generated comparison TOMLs are created by the N1/N2/N3 testbeds, so this
+# inventory can be planned before they exist.
+validate_config_paths = false
+# Reuse previous OK statuses when execute=true.
+resume_from_report = true
+# Do not re-run previously successful cases when execute=true.
+skip_completed_cases = true
+
+# Regional site catalog.
+[regional_lab.catalog]
+# CSV file containing the regional-lab site inventory.
+path = "natural_regional_lab_sites.csv"
+# Catalog file format.
+format = "csv"
+# Catalog column carrying the site identifier.
+site_id_field = "site_id"
+# Catalog column carrying the site label.
+site_label_field = "site_label"
+# Catalog column carrying the cluster identifier.
+cluster_id_field = "cluster_id"
+# Catalog column carrying the cluster label.
+cluster_label_field = "cluster_label"
+# Catalog column carrying the cluster family.
+cluster_family_field = "cluster_family"
+# Catalog column carrying the spatial scale.
+cluster_scale_field = "cluster_scale"
+# Catalog column carrying the region identifier.
+region_field = "region_id"
+# Catalog column carrying the upstream source-selection label.
+source_selection_field = "source_selection_id"
+# Catalog column carrying lifecycle status.
+status_field = "site_status"
+# Catalog column carrying maturity level.
+maturity_field = "maturity"
+# Catalog column carrying the X coordinate.
+x_field = "x"
+# Catalog column carrying the Y coordinate.
+y_field = "y"
+# Catalog column carrying the target area in km2 for reporting.
+area_km2_field = "target_area_km2"
+# Catalog column carrying semicolon-separated tags.
+tags_field = "tags"
+# Catalog column controlling row activation.
+enabled_field = "enabled"
+# Required site-identification fields.
+required_fields = ["site_id", "site_label", "cluster_scale", "x", "y"]
+# Path columns resolved relative to this catalog.
+path_fields = ["n1_compare_config", "n2_compare_config", "n3_compare_config_prefix"]
+# Tag separator used in the CSV.
+tag_separator = ";"
+
+# Top-level regional-lab selection.
+[regional_lab.selection]
+# Keep only natural comparison rows.
+tags = ["natural", "comparison"]
+
+# Recipe selecting generated N1 comparison TOMLs.
+[[regional_lab.recipe]]
+id = "n1_10km2_compare"
+label = "N1 10 km2 comparison"
+launcher = "comparison"
+scales = ["10km2"]
+required_fields = ["n1_compare_config"]
+config_path_template = "{n1_compare_config}"
+
+# Recipe selecting generated N2 comparison TOMLs.
+[[regional_lab.recipe]]
+id = "n2_100km2_compare"
+label = "N2 100 km2 comparison"
+launcher = "comparison"
+scales = ["100km2"]
+required_fields = ["n2_compare_config"]
+config_path_template = "{n2_compare_config}"
+
+# Recipe selecting generated N3 coarse comparison TOMLs.
+[[regional_lab.recipe]]
+id = "n3_mesh_coarse_compare"
+label = "N3 coarse mesh comparison"
+launcher = "comparison"
+tags = ["n3_anchor"]
+required_fields = ["n3_compare_config_prefix"]
+config_path_template = "{n3_compare_config_prefix}_mesh_coarse.toml"
+
+# Recipe selecting generated N3 reference comparison TOMLs.
+[[regional_lab.recipe]]
+id = "n3_mesh_reference_compare"
+label = "N3 reference mesh comparison"
+launcher = "comparison"
+tags = ["n3_anchor"]
+required_fields = ["n3_compare_config_prefix"]
+config_path_template = "{n3_compare_config_prefix}_mesh_reference.toml"
+
+# Recipe selecting generated N3 refined comparison TOMLs.
+[[regional_lab.recipe]]
+id = "n3_mesh_refined_compare"
+label = "N3 refined mesh comparison"
+launcher = "comparison"
+tags = ["n3_anchor"]
+required_fields = ["n3_compare_config_prefix"]
+config_path_template = "{n3_compare_config_prefix}_mesh_refined.toml"

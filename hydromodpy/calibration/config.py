@@ -23,7 +23,7 @@ Enriched TOML (twin-benchmark style)::
 
     [calibration.parameters.K_aquifer]
     bounds = [1e-6, 1e-3]
-    target = "flow.param.K.value"
+    target = "flow.param.K.field.value"
     mode = "replace"
 
     [calibration.outputs.head_A]
@@ -43,13 +43,14 @@ Enriched TOML (twin-benchmark style)::
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, TypeAdapter, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr, NonNegativeInt, PositiveFloat
 from hydromodpy.core.units import Length
 
 SaveRunsMode = Literal["none", "best_n", "all"]
@@ -59,7 +60,8 @@ OutputReducer = Literal["mean", "sum", "last", "none"]
 ObjectiveTransform = Literal["identity", "log", "inverse"]
 PersistIterationDetail = Literal["none", "summary", "full"]
 MetricKind = Literal["rmse", "nse", "kge", "mae"]
-CalibrationMethod = str
+CalibrationMethod = NonEmptyStr
+OutputTime = Literal["all", "last", "first"] | list[str]
 
 
 class CalibParameterDecl(HydroModelBase):
@@ -72,8 +74,6 @@ class CalibParameterDecl(HydroModelBase):
     Use ``mode="replace"`` for direct parameter values and ``mode="scale"``
     for multiplicative factors applied to an existing config value.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     bounds: Annotated[list[float] | None, Profile.USER] = Field(
         default=None,
@@ -113,66 +113,33 @@ class CalibParameterDecl(HydroModelBase):
         return self.target if self.target is not None else self.path
 
 
-class CalibOutputDecl(HydroModelBase):
-    """Observable extracted from every candidate simulation.
+class CalibOutputPoint(HydroModelBase):
+    """Observable extracted at a planar ``(x, y)`` point.
 
-    Outputs connect model results to objective blocks. A declaration selects
-    the simulated variable, the spatial support used for extraction, the time
-    slice, and optional observed values for synthetic or benchmark cases.
-
-    Supported spatial supports are ``"point"``, ``"boundary"``, and
-    ``"cell"``. Each support validates the fields it needs.
+    Use this variant for piezometric heads sampled at a single coordinate.
+    Provide either ``x`` and ``y`` or a GeoJSON ``geometry`` block.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     variable: Annotated[str, Profile.USER] = Field(
         description="Simulated variable to extract (e.g. 'head', 'outlet_discharge').",
     )
-    support: Annotated[OutputSupport, Profile.USER] = Field(
+    support: Annotated[Literal["point"], Profile.USER] = Field(
         default="point",
-        description="'point' reads at (x, y); 'boundary' sums flux at boundary_id; "
-        "'cell' reads a single cell.",
+        description="Discriminator tag. 'point' reads the variable at (x, y).",
     )
     geometry: Annotated[dict[str, Any] | None, Profile.USER] = Field(
         default=None,
-        description="GeoJSON point geometry when support='point'. Coordinates are in metres.",
+        description="GeoJSON point geometry. Coordinates are in metres.",
     )
     x: Annotated[Length | None, Profile.USER] = Field(
         default=None,
-        description="X coordinate when support='point'. Accepts a bare number "
-        "(metres) or a pint string like '100 m'.",
+        description="X coordinate. Accepts a bare number (metres) or a pint string like '100 m'.",
     )
     y: Annotated[Length | None, Profile.USER] = Field(
         default=None,
-        description="Y coordinate when support='point'. Accepts a bare number "
-        "(metres) or a pint string like '100 m'.",
+        description="Y coordinate. Accepts a bare number (metres) or a pint string like '100 m'.",
     )
-    boundary_id: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Boundary package identifier when support='boundary'.",
-    )
-    cell_id: Annotated[int | None, Profile.USER] = Field(
-        default=None,
-        ge=0,
-        description="Flat cell index when support='cell' and the backend exposes one.",
-    )
-    row: Annotated[int | None, Profile.USER] = Field(
-        default=None,
-        ge=0,
-        description="Structured row index when support='cell'.",
-    )
-    col: Annotated[int | None, Profile.USER] = Field(
-        default=None,
-        ge=0,
-        description="Structured column index when support='cell'.",
-    )
-    layer: Annotated[int, Profile.USER] = Field(
-        default=0,
-        ge=0,
-        description="Structured layer index when support='cell'.",
-    )
-    time: Annotated[Literal["all", "last", "first"] | list[str], Profile.USER] = Field(
+    time: Annotated[OutputTime, Profile.USER] = Field(
         default="all",
         description="'all' keeps every time step; 'last' / 'first' selects one; "
         "a list of ISO timestamps selects specific steps.",
@@ -187,18 +154,118 @@ class CalibOutputDecl(HydroModelBase):
     )
 
     @model_validator(mode="after")
-    def _check_support_required_fields(self) -> CalibOutputDecl:
-        if self.support == "point" and (self.x is None or self.y is None) and self.geometry is None:
+    def _check_point_selectors(self) -> CalibOutputPoint:
+        if (self.x is None or self.y is None) and self.geometry is None:
             raise ValueError("support='point' requires both 'x' and 'y', or 'geometry'.")
-        if self.support == "boundary" and self.boundary_id is None:
-            raise ValueError("support='boundary' requires 'boundary_id' to be set.")
-        if (
-            self.support == "cell"
-            and self.cell_id is None
-            and (self.row is None or self.col is None)
-        ):
+        return self
+
+
+class CalibOutputBoundary(HydroModelBase):
+    """Observable extracted from a boundary package.
+
+    Use this variant for fluxes integrated over a named boundary
+    (drains, rivers, GHB) referenced by ``boundary_id``.
+    """
+
+    variable: Annotated[str, Profile.USER] = Field(
+        description="Simulated variable to extract (e.g. 'discharge').",
+    )
+    support: Annotated[Literal["boundary"], Profile.USER] = Field(
+        default="boundary",
+        description="Discriminator tag. 'boundary' sums flux at boundary_id.",
+    )
+    boundary_id: Annotated[str, Profile.USER] = Field(
+        description="Boundary package identifier.",
+    )
+    time: Annotated[OutputTime, Profile.USER] = Field(
+        default="all",
+        description="'all' keeps every time step; 'last' / 'first' selects one; "
+        "a list of ISO timestamps selects specific steps.",
+    )
+    reducer: Annotated[OutputReducer, Profile.USER] = Field(
+        default="none",
+        description="Aggregation over the retained time slice.",
+    )
+    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
+        default=None,
+        description="Hard-coded observed values (used by twin-synthetic cases).",
+    )
+
+
+class CalibOutputCell(HydroModelBase):
+    """Observable extracted at one structured cell.
+
+    Use this variant for explicit ``(row, col)`` selectors on a structured
+    grid, optionally with a non-zero ``layer``. ``cell_id`` is a flat index
+    accepted on backends that expose one.
+    """
+
+    variable: Annotated[str, Profile.USER] = Field(
+        description="Simulated variable to extract (e.g. 'head').",
+    )
+    support: Annotated[Literal["cell"], Profile.USER] = Field(
+        default="cell",
+        description="Discriminator tag. 'cell' reads one structured cell.",
+    )
+    cell_id: Annotated[NonNegativeInt | None, Profile.USER] = Field(
+        default=None,
+        description="Flat cell index when the backend exposes one.",
+    )
+    row: Annotated[NonNegativeInt | None, Profile.USER] = Field(
+        default=None,
+        description="Structured row index.",
+    )
+    col: Annotated[NonNegativeInt | None, Profile.USER] = Field(
+        default=None,
+        description="Structured column index.",
+    )
+    layer: Annotated[NonNegativeInt, Profile.USER] = Field(
+        default=0,
+        description="Structured layer index.",
+    )
+    time: Annotated[OutputTime, Profile.USER] = Field(
+        default="all",
+        description="'all' keeps every time step; 'last' / 'first' selects one; "
+        "a list of ISO timestamps selects specific steps.",
+    )
+    reducer: Annotated[OutputReducer, Profile.USER] = Field(
+        default="none",
+        description="Aggregation over the retained time slice.",
+    )
+    observed_values: Annotated[list[float] | None, Profile.USER] = Field(
+        default=None,
+        description="Hard-coded observed values (used by twin-synthetic cases).",
+    )
+
+    @model_validator(mode="after")
+    def _check_cell_selectors(self) -> CalibOutputCell:
+        if self.cell_id is None and (self.row is None or self.col is None):
             raise ValueError("support='cell' requires 'cell_id' or both 'row' and 'col'.")
         return self
+
+
+CalibOutputDecl: TypeAlias = Annotated[
+    CalibOutputPoint | CalibOutputBoundary | CalibOutputCell,
+    Field(
+        discriminator="support",
+        description="Discriminated union of calibration output variants selected by 'support'.",
+    ),
+]
+"""Discriminated union of calibration output schemas keyed by ``support``."""
+
+
+_CALIB_OUTPUT_ADAPTER: TypeAdapter[CalibOutputDecl] = TypeAdapter(CalibOutputDecl)
+
+
+def validate_calib_output(payload: Any) -> CalibOutputPoint | CalibOutputBoundary | CalibOutputCell:
+    """Validate one output mapping and return the concrete variant instance.
+
+    A missing ``support`` key defaults to ``'point'`` so legacy TOMLs that
+    relied on the previous default keep validating cleanly.
+    """
+    if isinstance(payload, dict) and "support" not in payload:
+        payload = {"support": "point", **payload}
+    return _CALIB_OUTPUT_ADAPTER.validate_python(payload)
 
 
 class CalibObjectiveBlockDecl(HydroModelBase):
@@ -210,8 +277,6 @@ class CalibObjectiveBlockDecl(HydroModelBase):
     signals in one calibration session.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     name: Annotated[str, Profile.USER] = Field(
         description="Unique block identifier used in logs and persistence.",
     )
@@ -219,9 +284,8 @@ class CalibObjectiveBlockDecl(HydroModelBase):
         default="rmse",
         description="Metric key. One of rmse, nse, kge, mae.",
     )
-    weight: Annotated[float, Profile.USER] = Field(
+    weight: Annotated[PositiveFloat, Profile.USER] = Field(
         default=1.0,
-        gt=0.0,
         description="Relative weight of this block in the composite sum.",
     )
     uses_outputs: Annotated[list[str], Profile.USER] = Field(
@@ -250,8 +314,6 @@ class CalibrationConfig(HydroModelBase):
     When no explicit objective block is declared, HydroModPy can synthesize one
     from ``objective`` and ``variable`` if the matching output exists.
     """
-
-    model_config = ConfigDict(extra="forbid")
 
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
         default="grid",
@@ -343,19 +405,15 @@ class CalibrationConfig(HydroModelBase):
         "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
 
-    @field_validator("method")
-    @classmethod
-    def _validate_method(cls, value: str) -> str:
-        """Validate optimizer names through the runtime registry."""
-        method = str(value).strip()
+    def model_post_init(self, context: object) -> None:
+        super().model_post_init(context)
         from hydromodpy.calibration.optimizer import available_optimizers
 
         available = available_optimizers()
-        if method not in available:
+        if self.method not in available:
             raise ValueError(
-                f"Unknown calibration method {method!r}. Available methods: {available}"
+                f"Unknown calibration method {self.method!r}. Available methods: {available}"
             )
-        return method
 
     @field_validator("candidates_root", mode="before")
     @classmethod
@@ -368,6 +426,26 @@ class CalibrationConfig(HydroModelBase):
         if isinstance(value, Path):
             return PurePosixPath(value.as_posix())
         return PurePosixPath(str(value).replace("\\", "/"))
+
+    @field_validator("outputs", mode="before")
+    @classmethod
+    def _default_output_support(cls, value: Any) -> Any:
+        """Default missing 'support' to 'point' so legacy TOMLs validate.
+
+        The discriminated union requires an explicit ``support`` tag. Older
+        TOMLs that relied on the previous ``support='point'`` default get a
+        seamless upgrade by injecting the tag here.
+        """
+        if not isinstance(value, dict):
+            return value
+        return {
+            key: (
+                {"support": "point", **entry}
+                if isinstance(entry, dict) and "support" not in entry
+                else entry
+            )
+            for key, entry in value.items()
+        }
 
     @model_validator(mode="after")
     def _ensure_implicit_objective_block(self) -> CalibrationConfig:
@@ -414,13 +492,18 @@ __all__ = [
     "CalibrationConfig",
     "CalibParameterDecl",
     "CalibOutputDecl",
+    "CalibOutputPoint",
+    "CalibOutputBoundary",
+    "CalibOutputCell",
     "CalibObjectiveBlockDecl",
     "SaveRunsMode",
     "ParameterMode",
     "OutputSupport",
     "OutputReducer",
+    "OutputTime",
     "ObjectiveTransform",
     "PersistIterationDetail",
     "CalibrationMethod",
     "MetricKind",
+    "validate_calib_output",
 ]

@@ -29,6 +29,17 @@ def test_export_schema_by_section_name():
     assert "flow_regime" in schema["properties"]
 
 
+def test_model_json_schema_exposes_profile_metadata():
+    from hydromodpy.config import HydroModPyConfig
+
+    schema = HydroModPyConfig.model_json_schema()
+    props = schema["properties"]
+
+    assert props["workflow"]["x-hmp-profile"] == "user"
+    assert props["analysis"]["x-hmp-profile"] == "dev"
+    assert props["modflow6"]["x-hmp-profile"] == "expert"
+
+
 def test_export_schema_unknown_section_raises():
     from hydromodpy.config.schema_export import export_schema
 
@@ -79,6 +90,7 @@ def test_root_sections_lists_expected_keys():
     # ``flow_physical_properties`` is reachable via FlowConfig, not as a
     # root section.
     for key in (
+        "workflow",
         "workspace",
         "geographic",
         "domain",
@@ -88,4 +100,4 @@ def test_root_sections_lists_expected_keys():
         "solver",
     ):
         assert key in sections, f"missing section {key!r}"
-    assert "workflow" in scalars
+    assert scalars == {}

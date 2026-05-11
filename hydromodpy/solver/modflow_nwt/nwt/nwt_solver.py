@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import os
+import time
 from collections.abc import Mapping
 
 import flopy
@@ -112,6 +113,7 @@ class ModflowNwt(Solver):
         self.flow = None
         self.domain = None
         self.flow_regime: str | None = None
+        self.last_flow_solve_time_seconds: float | None = None
 
         self.resolution = geographic.dem_res
         self.xul = geographic.xmin
@@ -141,7 +143,7 @@ class ModflowNwt(Solver):
         self.routing_ctx: SolverRoutingContext | None = None
 
         # dis_itmuni is mutable: may be updated in _build_temporal_discretization
-        self.dis_itmuni = specif_params.runtime.dis_itmuni
+        self.dis_itmuni = specif_params.runtime.dis.itmuni
 
     def _select_active_dem(self, box: bool) -> None:
         """Select and normalize the active DEM support for the simulation."""
@@ -158,16 +160,12 @@ class ModflowNwt(Solver):
         self.nrow = int(dem.shape[0])
         self.ncol = int(dem.shape[1])
 
-    def _apply_preprocess_options(
-        self, options: ModflowPreprocessOptions | None = None
-    ) -> None:
+    def _apply_preprocess_options(self, options: ModflowPreprocessOptions | None = None) -> None:
         """Apply pre-processing options on model state."""
         if options is None:
             options = self.preprocess_options
         if not isinstance(options, ModflowPreprocessOptions):
-            raise TypeError(
-                "pre_processing options must be a ModflowPreprocessOptions instance."
-            )
+            raise TypeError("pre_processing options must be a ModflowPreprocessOptions instance.")
 
         self.preprocess_options = options
         self.sink_fill = bool(options.sink_fill)
@@ -226,25 +224,25 @@ class ModflowNwt(Solver):
         self.mf = flopy.modflow.Modflow(
             self.model_name,
             exe_name=self.exe,
-            version=r.mf_version,
-            listunit=r.mf_listunit,
-            verbose=r.mf_verbose,
+            version=r.nwt.version,
+            listunit=r.nwt.listunit,
+            verbose=r.nwt.verbose,
             model_ws=self.full_path,
         )
 
         self.nwt = flopy.modflow.ModflowNwt(
             self.mf,
-            headtol=r.nwt_headtol,
-            fluxtol=r.nwt_fluxtol,
-            maxiterout=r.nwt_maxiterout,
-            thickfact=r.nwt_thickfact,
-            linmeth=r.nwt_linmeth,
-            iprnwt=r.nwt_iprnwt,
-            ibotav=r.nwt_ibotav,
-            options=r.nwt_options,
-            Continue=r.nwt_continue,
-            backflag=r.nwt_backflag,
-            stoptol=r.nwt_stoptol,
+            headtol=r.nwt.headtol,
+            fluxtol=r.nwt.fluxtol,
+            maxiterout=r.nwt.maxiterout,
+            thickfact=r.nwt.thickfact,
+            linmeth=r.nwt.linmeth,
+            iprnwt=r.nwt.iprnwt,
+            ibotav=r.nwt.ibotav,
+            options=r.nwt.options,
+            Continue=r.nwt.continue_run,
+            backflag=r.nwt.backflag,
+            stoptol=r.nwt.stoptol,
         )
 
     def _build_temporal_discretization(self) -> dict[str, object]:
@@ -277,9 +275,7 @@ class ModflowNwt(Solver):
             raise ValueError("MODFLOW NWT requires a structured grid")
         self.solver_mesh = self.grid_ctx.solver_mesh
         self.top_elevation = self.solver_mesh.reshape_to_grid(self.solver_mesh.top)
-        self.inactive_mask = self.solver_mesh.reshape_to_grid(
-            self.solver_mesh.inactive_mask[0]
-        )
+        self.inactive_mask = self.solver_mesh.reshape_to_grid(self.solver_mesh.inactive_mask[0])
         self.nlay = self.solver_mesh.nlay
         self.nrow = self.solver_mesh.nrow
         self.ncol = self.solver_mesh.ncol
@@ -293,9 +289,7 @@ class ModflowNwt(Solver):
     def _write_solver_grid_template(self) -> str:
         """Persist one solver-grid-aligned raster template used by exports."""
         if self.grid_ctx is None:
-            raise ValueError(
-                "grid_ctx must exist before writing a solver grid template"
-            )
+            raise ValueError("grid_ctx must exist before writing a solver grid template")
         os.makedirs(self.full_path, exist_ok=True)
         template_path = os.path.join(self.full_path, "_solver_grid_template.tif")
         top_flat = np.asarray(self.grid_ctx.top_elevation, dtype=float)
@@ -314,9 +308,7 @@ class ModflowNwt(Solver):
         if self.routing_ctx is not None:
             return self.routing_ctx
         if self.grid_ctx is None:
-            raise ValueError(
-                "grid_ctx must exist before building solver routing products"
-            )
+            raise ValueError("grid_ctx must exist before building solver routing products")
 
         self.routing_ctx = build_solver_routing_context(
             dem_path=self.dem_watershed_path,
@@ -326,9 +318,7 @@ class ModflowNwt(Solver):
         )
         return self.routing_ctx
 
-    def _build_dis_package(
-        self, solver_mesh, temporal_dis: Mapping[str, object]
-    ) -> None:
+    def _build_dis_package(self, solver_mesh, temporal_dis: Mapping[str, object]) -> None:
         """Create the FLOPY DIS package from spatial and temporal discretization."""
         dis_kwargs = solver_mesh.to_dis_kwargs()
         verts = np.asarray(solver_mesh.planar_mesh.vertices, dtype=float)
@@ -427,9 +417,9 @@ class ModflowNwt(Solver):
         if options.link_mt3dms:
             flopy.modflow.ModflowLmt(
                 self.mf,
-                output_file_name=self._params.runtime.lmt_output_file_name,
-                extension=self._params.runtime.lmt_extension,
-                output_file_format=self._params.runtime.lmt_output_format,
+                output_file_name=self._params.runtime.lmt.output_file_name,
+                extension=self._params.runtime.lmt.extension,
+                output_file_format=self._params.runtime.lmt.output_format,
                 unitnumber=None,
             )
 
@@ -452,14 +442,22 @@ class ModflowNwt(Solver):
             self.bas.write_file()
 
         success_model = False
+        self.last_flow_solve_time_seconds = None
         if options.run_model:
+            solve_start = time.perf_counter()
             if options.verbose:
-                success_model, _ = run_model_with_progress(
-                    self.mf,
-                    int(self.nper),
-                )
+                try:
+                    success_model, _ = run_model_with_progress(
+                        self.mf,
+                        int(self.nper),
+                    )
+                finally:
+                    self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
             else:
-                success_model, _ = self.mf.run_model(silent=True)
+                try:
+                    success_model, _ = self.mf.run_model(silent=True)
+                finally:
+                    self.last_flow_solve_time_seconds = time.perf_counter() - solve_start
 
         return success_model
 
@@ -477,8 +475,6 @@ class ModflowNwt(Solver):
         if options is None:
             options = ModflowPostprocessOptions()
         elif not isinstance(options, ModflowPostprocessOptions):
-            raise TypeError(
-                "post_processing options must be a ModflowPostprocessOptions instance."
-            )
+            raise TypeError("post_processing options must be a ModflowPostprocessOptions instance.")
 
         run_post_processing(self, options)

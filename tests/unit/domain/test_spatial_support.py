@@ -61,7 +61,7 @@ def test_generated_bands_provider_builds_relative_breaks_from_domain_extent() ->
     provider = registry.get("generated_bands")
     domain = _build_domain()
     config = GeneratedBandsSupportConfig(
-        provider="generated_bands",
+        kind="generated_bands",
         axis="x",
         coordinate_mode="relative",
         breaks=[0.5],
@@ -87,7 +87,7 @@ def test_generated_bands_provider_rejects_breaks_outside_domain_extent() -> None
     provider = registry.get("generated_bands")
     domain = _build_domain()
     config = GeneratedBandsSupportConfig(
-        provider="generated_bands",
+        kind="generated_bands",
         axis="x",
         coordinate_mode="absolute",
         breaks=[35.0],
@@ -107,7 +107,7 @@ def test_generated_rings_provider_builds_relative_radii_from_domain_extent() -> 
     provider = registry.get("generated_rings")
     domain = _build_domain()
     config = GeneratedRingsSupportConfig(
-        provider="generated_rings",
+        kind="generated_rings",
         coordinate_mode="relative",
         radii=[0.5],
         labels=["inner", "outer"],
@@ -132,7 +132,7 @@ def test_generated_rings_provider_rejects_radii_outside_inscribed_circle() -> No
     provider = registry.get("generated_rings")
     domain = _build_domain()
     config = GeneratedRingsSupportConfig(
-        provider="generated_rings",
+        kind="generated_rings",
         coordinate_mode="absolute",
         radii=[10.0],
         labels=["inner", "outer"],
@@ -158,7 +158,7 @@ def test_catchment_zones_provider_wraps_existing_domain_zone() -> None:
             encoded_to_zone={1: "domain", 2: "buffer", 3: "core"},
         ),
     )
-    config = CatchmentZonesSupportConfig(provider="catchment_zones")
+    config = CatchmentZonesSupportConfig(kind="catchment_zones")
 
     support = provider.build(
         support_id="catchment_support",

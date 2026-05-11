@@ -174,7 +174,8 @@ def build_ts_vi_obstacle_runtime_summary(summary: Mapping[str, Any]) -> dict[str
         "runtime_engine_id_expected": "petsc_ts_vi_obstacle",
         "surface_interaction_model": summary.get("surface_interaction_model_resolved"),
         "ts_type": last_period.get("ts_type") or summary.get("ts_vi_type"),
-        "ts_adapt_type": last_period.get("ts_adapt_type") or ("none" if not summary.get("ts_vi_adapt") else ""),
+        "ts_adapt_type": last_period.get("ts_adapt_type")
+        or ("none" if not summary.get("ts_vi_adapt") else ""),
         "ts_vi_steps_per_period": _int_value(summary.get("ts_vi_steps_per_period"), 4),
         "ts_vi_adapt": bool(summary.get("ts_vi_adapt", False)),
         "snes_type": last_step.get("snes_type") or summary.get("ts_vi_snes_type"),

@@ -33,9 +33,23 @@ _LAYER_TIMEOUTS_SECONDS = {
     "regression": 300.0,
     "e2e": 1800.0,
 }
+_WHITEBOX_XDIST_GROUP = "whitebox_backend"
+_WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
+    {
+        "test_catchment_from_point.py",
+        "test_reference_river_network_nancon_case.py",
+        "test_run_geographic_case_golden.py",
+        "test_run_geographic_case_regression.py",
+        "test_run_geographic_case_river_network_regression.py",
+        "test_run_geographic_dem_processing_golden.py",
+        "test_run_geographic_river_network_golden.py",
+        "test_whitebox_workflows_backend.py",
+    }
+)
 _SCRATCH_ROOT_ENV = "HYDROMODPY_TEST_SCRATCH_ROOT"
 _SCRATCH_SESSION_ENV = "HYDROMODPY_TEST_SESSION_SCRATCH_ROOT"
 _SCRATCH_OWNER_ENV = "HYDROMODPY_TEST_SCRATCH_OWNER"
+_XDIST_WORKER_ENV = "PYTEST_XDIST_WORKER"
 _INHERITED_SCRATCH_OWNER = os.environ.get(_SCRATCH_OWNER_ENV)
 _SCRATCH_OWNER_TOKEN = _INHERITED_SCRATCH_OWNER or f"{os.getpid()}-{uuid.uuid4().hex[:12]}"
 _OWNS_TEST_SCRATCH = _INHERITED_SCRATCH_OWNER is None
@@ -74,33 +88,101 @@ def _session_owner_pid(session_name: str) -> int | None:
     return int(token)
 
 
+def _is_xdist_worker_process() -> bool:
+    """Return True when the current process is a pytest-xdist worker."""
+    worker = os.environ.get(_XDIST_WORKER_ENV)
+    return bool(worker and worker != "master")
+
+
+def _windows_process_is_running(pid: int) -> bool:
+    """Return True when *pid* appears alive, avoiding ``os.kill`` on Windows."""
+    import ctypes
+    from ctypes import wintypes
+
+    error_access_denied = 5
+    process_query_limited_information = 0x1000
+    still_active = 259
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.GetExitCodeProcess.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    kernel32.GetExitCodeProcess.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return ctypes.get_last_error() == error_access_denied
+
+    try:
+        exit_code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return True
+        return exit_code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def _windows_long_path(path: Path) -> str:
+    """Return a Windows long-path string for recursive deletion."""
+    value = str(path.resolve())
+    if value.startswith("\\\\?\\"):
+        return value
+    if value.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + value[2:]
+    return "\\\\?\\" + value
+
+
+def _rmtree_ignore_errors(path: Path) -> None:
+    """Best-effort recursive delete with Windows long-path support."""
+    target: str | Path = path
+    if platform.system().strip().lower() == "windows":
+        target = _windows_long_path(path)
+    shutil.rmtree(target, ignore_errors=True)
+
+
 def _process_is_running(pid: int) -> bool:
     """Return True when *pid* still appears to own a live process."""
     if pid <= 0 or pid == os.getpid():
         return True
     try:
+        if platform.system().strip().lower() == "windows":
+            return _windows_process_is_running(pid)
         os.kill(pid, 0)
     except PermissionError:
         return True
-    except SystemError:
-        return False
-    except OSError:
+    except (OSError, OverflowError, SystemError, ValueError):
         return False
     return True
 
 
 def _cleanup_stale_test_scratch_sessions(scratch_root: Path, current_token: str) -> None:
     """Remove managed scratch sessions whose owning process is no longer alive."""
+    if _is_xdist_worker_process() or not _OWNS_TEST_SCRATCH:
+        return
     sessions_root = scratch_root / "sessions"
     if not sessions_root.is_dir():
         return
-    for session_dir in sessions_root.iterdir():
-        if not session_dir.is_dir() or session_dir.name == current_token:
+
+    try:
+        session_dirs = list(sessions_root.iterdir())
+    except (OSError, RuntimeError, SystemError):
+        return
+
+    for session_dir in session_dirs:
+        try:
+            if not session_dir.is_dir() or session_dir.name == current_token:
+                continue
+            owner_pid = _session_owner_pid(session_dir.name)
+            if owner_pid is None or _process_is_running(owner_pid):
+                continue
+        except (OSError, RuntimeError, SystemError, ValueError):
             continue
-        owner_pid = _session_owner_pid(session_dir.name)
-        if owner_pid is None or _process_is_running(owner_pid):
-            continue
-        shutil.rmtree(session_dir, ignore_errors=True)
+        _rmtree_ignore_errors(session_dir)
 
 
 _TEST_SCRATCH_ROOT = _resolve_test_scratch_root()
@@ -185,7 +267,7 @@ def minimal_config(tmp_path: Path):
     from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 
     return HydroModPyConfig(
-        workflow="simulation",
+        workflow={"mode": "simulation"},
         workspace=WorkspaceConfig(
             project_root=tmp_path / "project",
             root=tmp_path,
@@ -250,6 +332,11 @@ def pytest_collection_modifyitems(config, items):
             elif callspec is None and "boussinesq" in item.nodeid.lower():
                 item.add_marker(pytest.mark.petsc)
 
+        if item_path.name in _WHITEBOX_XDIST_GROUP_TEST_FILES and not any(
+            mark.name == "xdist_group" for mark in item.iter_markers()
+        ):
+            item.add_marker(pytest.mark.xdist_group(name=_WHITEBOX_XDIST_GROUP))
+
         # 2) Regression tier default markers (fast vs extensive).
         is_regression_file = "regression" in parts
         is_regression_test = "regression" in item.keywords
@@ -286,4 +373,4 @@ def pytest_sessionfinish(session, exitstatus):
         return
     scratch = _TEST_SESSION_ROOT
     if scratch.exists():
-        shutil.rmtree(scratch, ignore_errors=True)
+        _rmtree_ignore_errors(scratch)

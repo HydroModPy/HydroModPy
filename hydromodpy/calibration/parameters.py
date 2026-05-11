@@ -26,15 +26,17 @@ class Calibrable:
 
     Usage::
 
+        from hydromodpy.core.config_kit.field_metadata import field_metadata
+
         k_aquifer: float = Field(
             default=1e-4,
-            json_schema_extra={
-                "calibrable": Calibrable(
+            json_schema_extra=field_metadata(
+                calibrable=Calibrable(
                     bounds=(1e-7, 1e-2),
                     transform="log",
                     prior="log_uniform",
                 ),
-            },
+            ),
         )
     """
 

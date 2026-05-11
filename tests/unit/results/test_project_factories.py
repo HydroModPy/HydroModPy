@@ -19,7 +19,8 @@ from typing import Any
 import pytest
 
 _TOML_TEMPLATE = """\
-workflow = "simulation"
+[workflow]
+mode = "simulation"
 
 [workspace]
 root = "{root}"
@@ -61,7 +62,7 @@ def _write_minimal_toml(tmp_path: Path) -> Path:
 
 def _build_payload(tmp_path: Path) -> dict:
     return {
-        "workflow": "simulation",
+        "workflow": {"mode": "simulation"},
         "workspace": {
             "project_root": str(tmp_path),
             "root": str(tmp_path),
@@ -132,7 +133,7 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
 
     parent = SimpleNamespace(
         sim_id="parent",
-        config_snapshot={"workflow": "simulation"},
+        config_snapshot={"workflow": {"mode": "simulation"}},
     )
 
     child = Project.rerun(
@@ -144,7 +145,7 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
 
     assert child.sim_id == "child"
     assert stub_project_phases["config"] is cfg
-    assert captured["snapshot"] == {"workflow": "simulation"}
+    assert captured["snapshot"] == {"workflow": {"mode": "simulation"}}
     assert captured["config_overrides"] == {"display": {"save": False}}
     assert captured["name"] == "derived"
     assert captured["parent_sim_id"] == "parent"

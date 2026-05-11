@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import numpy as np
 
+from hydromodpy.solver.initial_conditions import (
+    build_head_initial_condition_array,
+    initial_condition_field,
+    resolve_head_initial_condition,
+)
 from hydromodpy.solver.modflow6.builders.boundary_conditions import (
     apply_side_boundary_start_heads,
     ocean_chd_support_mask,
     resolve_ocean_boundary_series,
     resolve_stream_boundary_series,
     stream_chd_support_mask,
-)
-from hydromodpy.solver.initial_conditions import (
-    build_head_initial_condition_array,
-    initial_condition_field,
-    resolve_head_initial_condition,
 )
 
 
@@ -29,9 +29,7 @@ def build_start_heads(model, solver_mesh) -> np.ndarray:
     """Build MF6 starting heads as flat (nlay, ncpl) for DISV."""
     h_ic = resolve_head_initial_condition(model)
     if h_ic is None:
-        raise ValueError(
-            "flow.initial_conditions.h is required for Modflow6 pre_processing"
-        )
+        raise ValueError("flow.initial_conditions.h is required for Modflow6 pre_processing")
 
     ncpl = solver_mesh.n_cells
     top_flat = solver_mesh.top  # (ncpl,)
@@ -67,9 +65,7 @@ def resolve_rewet_npf_options(
 
     wetdry_value = abs(float(getattr(runtime, "mf6_rewet_wetdry", 0.1)))
     if wetdry_value <= 0.0:
-        raise ValueError(
-            "modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled."
-        )
+        raise ValueError("modflow6.runtime.mf6_rewet_wetdry must be > 0 when rewetting is enabled.")
 
     # FloPy injects the REWET keyword itself and expects only the labeled payload.
     rewet_record = [

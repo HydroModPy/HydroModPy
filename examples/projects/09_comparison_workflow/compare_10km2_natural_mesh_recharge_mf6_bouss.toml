@@ -1,4 +1,6 @@
-workflow = "comparison"
+
+[workflow]
+mode = "comparison"
 
 [comparison]
 comparison_id = "natural_mesh_10km2_recharge_mf6_vs_bouss"
@@ -28,7 +30,7 @@ write_geotiff = false
 id = "mf6_ref"
 label = "MODFLOW 6 recharge reference"
 solver = "modflow6"
-mesh_label = "precomputed 10 km2 natural triangular mesh"
+mesh_label = "precomputed_10km2_natural_triangular_mesh"
 mesh_mode = "mesh_input"
 
 [comparison.simulation.overlay.modflow6.runtime]
@@ -45,7 +47,7 @@ nlay = 1
 id = "bouss_candidate"
 label = "Boussinesq recharge candidate"
 solver = "boussinesq"
-mesh_label = "precomputed 10 km2 natural triangular mesh"
+mesh_label = "precomputed_10km2_natural_triangular_mesh"
 mesh_mode = "mesh_input"
 
 [comparison.simulation.overlay.flow]

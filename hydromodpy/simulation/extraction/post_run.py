@@ -8,15 +8,48 @@ cleanup → provenance.
 from __future__ import annotations
 
 import inspect
+import math
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
-from hydromodpy.simulation.planning.plan import RunContext
+from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 logger = get_logger(__name__)
+
+
+def record_run_execution_metrics(
+    *,
+    ctx: RunContext,
+    sim_id: str,
+    store: Any,
+    result: RunExecutionResult,
+) -> None:
+    """Persist lightweight solver-side execution metrics in the catalog."""
+    if not ctx.run.is_solver_backed:
+        return
+    if store is None or sim_id in (None, ""):
+        return
+    metrics = getattr(result, "metrics", None)
+    if not isinstance(metrics, Mapping):
+        return
+    for metric_name, raw_value in metrics.items():
+        try:
+            value = float(raw_value)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(value):
+            continue
+        store.write_metric(
+            sim_id,
+            station_id=str(ctx.run.id),
+            variable="runtime",
+            metric_name=str(metric_name),
+            value=value,
+        )
 
 
 def post_run_results(
@@ -46,6 +79,8 @@ def post_run_results(
         Human-readable run identifier used to name export subdirectories.
         Falls back to the first 8 characters of *sim_id* when absent.
     """
+    if not ctx.run.is_solver_backed:
+        return
     if not results_config.persistence.save_catalog:
         return
 
@@ -82,6 +117,8 @@ def extract_run_outputs(
     store: Any,
 ) -> None:
     """Extract raw solver outputs into the SimulationCatalog."""
+    if not ctx.run.is_solver_backed:
+        return
     if not results_config.persistence.save_catalog:
         return
 
@@ -116,6 +153,8 @@ def derive_run_outputs(
     store: Any,
 ) -> None:
     """Compute solver-adapter derived outputs and catchment aggregates."""
+    if not ctx.run.is_solver_backed:
+        return
     if not results_config.persistence.save_catalog:
         return
 
@@ -159,6 +198,8 @@ def cleanup_solver_outputs(
     keep_solver_files: bool | None = None,
 ) -> None:
     """Cleanup raw solver files through the matching solver adapter."""
+    if not ctx.run.is_solver_backed:
+        return
     do_keep = (
         keep_solver_files if keep_solver_files is not None else results_config.keep_solver_files
     )

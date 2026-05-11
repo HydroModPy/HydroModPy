@@ -1,6 +1,8 @@
 base_config = "project_simulation_steady.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/selune_nwt_steady"
@@ -36,13 +38,14 @@ type = "flow"
 solvers = ["modflownwt"]
 
 [modflownwt.runtime]
-mf_version = "mfnwt"
-nwt_headtol = 1e-4
-nwt_fluxtol = 500.0
-nwt_maxiterout = 5000
-nwt_thickfact = 1e-5
-nwt_options = "COMPLEX"
 
+[modflownwt.runtime.nwt]
+version = "mfnwt"
+headtol = 1e-4
+fluxtol = 500.0
+maxiterout = 5000
+thickfact = 1e-5
+options = "COMPLEX"
 [modflownwt.sgrid.vertical]
 genmtd_lay = "decay"
 nlay = 5

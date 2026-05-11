@@ -23,7 +23,8 @@ from hydromodpy.workflow.dispatch import (
 
 def _write_rich_calibration_toml(path: Path) -> Path:
     content = """
-workflow = "calibration"
+[workflow]
+mode = "calibration"
 
 [calibration]
 method = "grid"
@@ -35,7 +36,7 @@ variable = "head"
 [calibration.parameters.K_aquifer]
 bounds = [1e-6, 1e-3]
 transform = "log"
-target = "flow.param.K.value"
+target = "flow.param.K.field.value"
 mode = "replace"
 
 [calibration.outputs.head_A]
@@ -70,7 +71,7 @@ class TestDispatchCalibrationEnriched:
         cfg = CalibrationConfig.model_validate(data["calibration"])
         assert cfg.method == "grid"
         assert "K_aquifer" in cfg.parameters
-        assert cfg.parameters["K_aquifer"].target == "flow.param.K.value"
+        assert cfg.parameters["K_aquifer"].target == "flow.param.K.field.value"
         assert cfg.parameters["K_aquifer"].mode == "replace"
         assert "head_A" in cfg.outputs
         assert cfg.outputs["head_A"].observed_values == [42.1, 41.8, 41.5]

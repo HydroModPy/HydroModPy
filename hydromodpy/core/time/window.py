@@ -25,6 +25,7 @@ from typing import Any, Literal
 
 import pandas as pd
 
+from hydromodpy.core.config_kit.types import CoveragePolicy, TimePeriodUnit
 from hydromodpy.core.units import (
     normalize_time_unit,
     parse_scalar_and_unit,
@@ -49,8 +50,8 @@ class ResolvedSimulationTimeWindow:
     start: pd.Timestamp
     end: pd.Timestamp
     step_value: int
-    step_unit: Literal["hour", "day", "month", "year"]
-    coverage_policy: Literal["error", "warn", "ignore"]
+    step_unit: TimePeriodUnit
+    coverage_policy: CoveragePolicy
 
     def to_date_bounds(self) -> tuple[str, str]:
         """Return inclusive date bounds as ISO ``YYYY-MM-DD`` strings.
@@ -130,13 +131,11 @@ def _simulation_time_config(cfg: Any) -> Any | None:
     return getattr(simulation_cfg, "time", None) if simulation_cfg is not None else None
 
 
-def _normalize_policy(raw_policy: Any) -> Literal["error", "warn", "ignore"]:
+def _normalize_policy(raw_policy: Any) -> CoveragePolicy:
     """Normalize coverage-policy token and validate allowed values."""
     policy = str(raw_policy).strip().lower()
     if policy not in _VALID_POLICIES:
-        raise ValueError(
-            "simulation.time.coverage_policy must be one of: error, warn, ignore."
-        )
+        raise ValueError("simulation.time.coverage_policy must be one of: error, warn, ignore.")
     return policy  # type: ignore[return-value]
 
 
@@ -159,15 +158,13 @@ def _normalize_step_value(raw_step_value: Any) -> int:
     try:
         step_value = float(raw_step_value)
     except Exception as exc:
-        raise ValueError(
-            "simulation.time.step_value must be a positive integer."
-        ) from exc
+        raise ValueError("simulation.time.step_value must be a positive integer.") from exc
     if not step_value.is_integer() or step_value <= 0:
         raise ValueError("simulation.time.step_value must be a positive integer.")
     return int(step_value)
 
 
-def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", "year"]:
+def _normalize_step_unit(raw_step_unit: Any) -> TimePeriodUnit:
     """Normalize step-unit aliases to canonical tokens."""
     token = str(raw_step_unit).strip().lower()
     if token in {"m", "mo", "mon", "month", "months"}:
@@ -185,9 +182,7 @@ def _normalize_step_unit(raw_step_unit: Any) -> Literal["hour", "day", "month", 
     }
     step_unit = token_map.get(canonical)
     if step_unit is None:
-        raise ValueError(
-            "simulation.time.step_unit must be one of: hour, day, month, year."
-        )
+        raise ValueError("simulation.time.step_unit must be one of: hour, day, month, year.")
     return step_unit  # type: ignore[return-value]
 
 
@@ -195,7 +190,7 @@ def _parse_step_spec(
     *,
     raw_step_value: Any,
     raw_step_unit: Any,
-) -> tuple[int, Literal["hour", "day", "month", "year"]]:
+) -> tuple[int, TimePeriodUnit]:
     explicit_unit_raw: str | None = None
     if raw_step_unit is not None and str(raw_step_unit).strip() != "":
         explicit_unit_raw = str(raw_step_unit).strip()
@@ -218,9 +213,7 @@ def _parse_step_spec(
     return step_value, step_unit
 
 
-def _time_step_offset(
-    *, step_value: int, step_unit: str
-) -> pd.DateOffset | pd.Timedelta:
+def _time_step_offset(*, step_value: int, step_unit: str) -> pd.DateOffset | pd.Timedelta:
     """Build a pandas offset from one canonical step specification."""
     if step_unit == "hour":
         return pd.to_timedelta(step_value, unit="h")
@@ -295,9 +288,7 @@ def _period_lengths_in_seconds_from_boundaries(
         delta = boundaries[idx + 1] - boundaries[idx]
         seconds = timedelta_to_seconds(delta)
         if seconds <= 0:
-            raise ValueError(
-                "Computed non-positive stress-period length from simulation.time."
-            )
+            raise ValueError("Computed non-positive stress-period length from simulation.time.")
         out.append(float(seconds))
     if not out:
         raise ValueError("simulation.time resolved to an empty stress-period sequence.")
@@ -339,9 +330,7 @@ def resolve_simulation_time_grid(cfg: Any) -> ResolvedSimulationTimeGrid | None:
 def _iter_simulation_processes(cfg: Any) -> tuple[Any, ...]:
     """Return declared simulation processes as a stable tuple."""
     simulation_cfg = getattr(cfg, "simulation", None)
-    processes = (
-        getattr(simulation_cfg, "process", None) if simulation_cfg is not None else None
-    )
+    processes = getattr(simulation_cfg, "process", None) if simulation_cfg is not None else None
     if processes is None:
         return ()
     if isinstance(processes, tuple):
@@ -363,8 +352,7 @@ def _process_type(process_cfg: Any) -> str:
 def has_flow_simulation_process(cfg: Any) -> bool:
     """Return ``True`` when the simulation plan declares at least one flow process."""
     return any(
-        _process_type(process_cfg) == "flow"
-        for process_cfg in _iter_simulation_processes(cfg)
+        _process_type(process_cfg) == "flow" for process_cfg in _iter_simulation_processes(cfg)
     )
 
 
@@ -517,9 +505,7 @@ def apply_explicit_time_window_to_tgrids(
 
     for solver_section_name in ("modflownwt", "modflow6"):
         solver_cfg = getattr(cfg, solver_section_name, None)
-        tgrid_cfg = (
-            getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
-        )
+        tgrid_cfg = getattr(solver_cfg, "tgrid", None) if solver_cfg is not None else None
         if tgrid_cfg is None:
             continue
         # Persist the same canonical window in each active flow solver section.

@@ -39,11 +39,13 @@ class SimulationPlanner:
         -------
         If the user declares:
 
+        - ``mesh_main`` with ``type="mesh", backend="catchment"``
         - ``flow_main`` with ``solvers=["modflownwt"]``
         - ``transport_main`` with ``solvers=["modpath", "mt3dms"]``
 
-        then the planner emits three ordered runs:
+        then the planner emits four ordered runs:
 
+        - ``mesh_main::catchment``
         - ``flow_main::modflownwt``
         - ``transport_main::modpath``
         - ``transport_main::mt3dms``
@@ -69,6 +71,25 @@ class SimulationPlanner:
                     "Each [[simulation.process]] entry must have a unique id."
                 )
             seen_process_ids.add(process_id)
+
+            if process_cfg.type == "mesh":
+                backend = process_cfg.backend or "catchment"
+                run_id = ProcessRun.build_id(process_id, backend)
+                if run_id in seen_run_ids:
+                    raise ValueError(
+                        f"Duplicate process run id '{run_id}'. Check process ids and backends."
+                    )
+                seen_run_ids.add(run_id)
+                runs.append(
+                    ProcessRun(
+                        id=run_id,
+                        process_id=process_id,
+                        process_type=process_cfg.type,
+                        solver=backend,
+                        backend=backend,
+                    )
+                )
+                continue
 
             for solver_name in process_cfg.solvers:
                 dependencies: list[str] = []

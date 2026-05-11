@@ -10,6 +10,9 @@ from __future__ import annotations
 import importlib
 
 from hydromodpy.spatial.geographic.synthetic.config import (
+    FlatTopography,
+    LinearTopography,
+    RadialIslandTopography,
     SyntheticGeographicConfig,
     SyntheticGridConfig,
     SyntheticTopographyConfig,
@@ -41,6 +44,9 @@ def __getattr__(name: str):
 
 
 __all__ = [
+    "FlatTopography",
+    "LinearTopography",
+    "RadialIslandTopography",
     "SyntheticGeographicConfig",
     "SyntheticGridConfig",
     "SyntheticTopographyConfig",

@@ -1,7 +1,9 @@
-"""Dedicated launcher for catchment meshing workflows.
+"""Standalone launcher for catchment meshing.
 
-This module is the user-facing entry point of the mesh-only workflow. It does
-not generate meshes by itself; instead it performs the small amount of
+This module is the direct API entry point for single mesh artifacts. Public
+``hmp run`` TOMLs should express mesh-only work as a simulation process with
+``type = "mesh"``. The launcher does not generate meshes by itself; instead it
+performs the small amount of
 orchestration work that turns one launcher TOML into the concrete runtime
 objects consumed by geographic preprocessing and by the 2D conformal meshing
 case.
@@ -38,7 +40,7 @@ from hydromodpy.spatial.mesh.batch import (
 
 
 class MeshCatchmentLauncher:
-    """Run one mesh-only workflow from the ``[mesh_catchment]`` TOML section."""
+    """Run one mesh-only launcher from the ``[mesh_catchment]`` TOML section."""
 
     SECTION_NAME = "mesh_catchment"
 

@@ -1,4 +1,6 @@
-workflow = "overview"
+
+[workflow]
+mode = "overview"
 
 [workspace]
 project_root = "."
@@ -16,7 +18,7 @@ dem_correc_type = "breach"
 zone_ids = ["geology"]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "50.0 m"
 
 [data]

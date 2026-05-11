@@ -66,6 +66,7 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _cmd_update(args: argparse.Namespace) -> None:
+    from hydromodpy.config.schema_export import schema_sha256
     from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
@@ -73,7 +74,7 @@ def _cmd_update(args: argparse.Namespace) -> None:
     db_path = workspace / "data" / "cache.duckdb"
     dest = Path(args.output).expanduser().resolve() if args.output else (workspace / LOCKFILE_NAME)
     with DataCatalogDuckDB(db_path) as catalog:
-        written = write_lockfile(catalog, dest)
+        written = write_lockfile(catalog, dest, schema_sha256=schema_sha256())
     print(f"  Lockfile written: {written}")
 
 
@@ -104,7 +105,12 @@ def _cmd_restore(args: argparse.Namespace) -> None:
 
 
 def _cmd_verify(args: argparse.Namespace) -> None:
-    from hydromodpy.data.data_freeze import LOCKFILE_NAME, verify_frozen
+    from hydromodpy.config.schema_export import schema_sha256
+    from hydromodpy.data.data_freeze import (
+        LOCKFILE_NAME,
+        read_lockfile_schema_sha256,
+        verify_frozen,
+    )
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
     workspace = resolve_workspace(args.workspace)
@@ -115,6 +121,14 @@ def _cmd_verify(args: argparse.Namespace) -> None:
     if not lockfile.is_file():
         print(f"  Lockfile not found: {lockfile}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
+    locked_schema = read_lockfile_schema_sha256(lockfile)
+    current_schema = schema_sha256()
+    if locked_schema is not None and locked_schema != current_schema:
+        print(
+            f"  WARNING: configuration schema has changed since freeze "
+            f"(lockfile={locked_schema[:12]}..., current={current_schema[:12]}...).",
+            file=sys.stderr,
+        )
     with DataCatalogDuckDB(db_path) as catalog:
         mismatches = verify_frozen(catalog, lockfile)
     if not mismatches:

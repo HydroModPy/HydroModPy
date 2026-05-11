@@ -433,7 +433,7 @@ def test_well_flux_length_mismatch_raises():
 
 def test_well_relative_xy_defaults_to_layer_zero():
     well = FlowWellConfig(location_mode="relative_xy", x_rel=0.5, y_rel=0.5, flux=-1e-4)
-    assert well.layer == 0
+    assert well.location.layer == 0
 
 
 def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
@@ -444,7 +444,7 @@ def test_well_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
                 "W1": FlowWellConfig(
                     cell=(0, 0, 0),
                     units="m3/day",
-                    forcing={"mode": "constant", "value": -86400.0},
+                    forcing={"kind": "constant", "value": -86400.0},
                 )
             },
         },
@@ -558,7 +558,7 @@ def test_transient_west_side_uses_chd_and_keeps_face_active():
 def test_boundary_forcing_constant_is_resolved_in_adapter_without_runtime_binding():
     west_bc = FlowBoundaryConditionConfig(
         id="west_side",
-        type="dirichlet",
+        kind="dirichlet",
         units="cm",
         application_domain="west side",
         forcing={"mode": "constant", "value": 5.0},
@@ -579,7 +579,7 @@ def test_boundary_forcing_constant_is_resolved_in_adapter_without_runtime_bindin
 def test_boundary_forcing_csv_requires_simulation_window():
     west_bc = FlowBoundaryConditionConfig(
         id="west_side",
-        type="dirichlet",
+        kind="dirichlet",
         units="m",
         application_domain="west side",
         forcing={

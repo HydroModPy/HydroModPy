@@ -18,9 +18,9 @@ from pydantic import ValidationError
 
 from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
-    CalibOutputDecl,
     CalibParameterDecl,
     CalibrationConfig,
+    validate_calib_output,
 )
 
 # ---------------------------------------------------------------------------
@@ -38,10 +38,10 @@ class TestCalibParameterDeclExtensions:
         decl = CalibParameterDecl.model_validate(
             {
                 "path": "flow.properties.k_aquifer",
-                "target": "flow.param.K.value",
+                "target": "flow.param.K.field.value",
             }
         )
-        assert decl.resolve_target() == "flow.param.K.value"
+        assert decl.resolve_target() == "flow.param.K.field.value"
 
     def test_path_used_when_target_absent(self):
         decl = CalibParameterDecl.model_validate({"path": "flow.properties.k_aquifer"})
@@ -65,9 +65,7 @@ class TestCalibParameterDeclExtensions:
 
 class TestCalibOutputDecl:
     def test_minimal_declaration_defaults(self):
-        decl = CalibOutputDecl.model_validate(
-            {"variable": "head", "support": "cell", "row": 0, "col": 0}
-        )
+        decl = validate_calib_output({"variable": "head", "support": "cell", "row": 0, "col": 0})
         assert decl.variable == "head"
         assert decl.support == "cell"
         assert decl.time == "all"
@@ -75,7 +73,7 @@ class TestCalibOutputDecl:
         assert decl.observed_values is None
 
     def test_observed_values_round_trip(self):
-        decl = CalibOutputDecl.model_validate(
+        decl = validate_calib_output(
             {
                 "variable": "head",
                 "support": "point",
@@ -88,7 +86,7 @@ class TestCalibOutputDecl:
         assert decl.x.to("m").magnitude == 150.0
 
     def test_x_accepts_pint_string(self):
-        decl = CalibOutputDecl.model_validate(
+        decl = validate_calib_output(
             {
                 "variable": "head",
                 "support": "point",
@@ -99,7 +97,7 @@ class TestCalibOutputDecl:
         assert decl.x.to("m").magnitude == 100.0
 
     def test_time_accepts_list_of_timestamps(self):
-        decl = CalibOutputDecl.model_validate(
+        decl = validate_calib_output(
             {
                 "variable": "head",
                 "support": "cell",
@@ -119,16 +117,16 @@ class TestCalibOutputDecl:
         ],
     )
     def test_support_literal(self, support: str, extra: dict):
-        decl = CalibOutputDecl.model_validate({"variable": "head", "support": support, **extra})
+        decl = validate_calib_output({"variable": "head", "support": support, **extra})
         assert decl.support == support
 
     def test_rejects_unknown_support(self):
         with pytest.raises(ValidationError, match="support"):
-            CalibOutputDecl.model_validate({"variable": "head", "support": "area"})
+            validate_calib_output({"variable": "head", "support": "area"})
 
     def test_rejects_extra_keys(self):
         with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
-            CalibOutputDecl.model_validate(
+            validate_calib_output(
                 {
                     "variable": "head",
                     "support": "cell",
@@ -140,13 +138,13 @@ class TestCalibOutputDecl:
 
     def test_point_support_requires_xy(self):
         with pytest.raises(ValidationError, match="support='point' requires"):
-            CalibOutputDecl.model_validate({"variable": "head", "support": "point"})
+            validate_calib_output({"variable": "head", "support": "point"})
         with pytest.raises(ValidationError, match="support='point' requires"):
-            CalibOutputDecl.model_validate({"variable": "head", "support": "point", "x": 1.0})
+            validate_calib_output({"variable": "head", "support": "point", "x": 1.0})
 
     def test_boundary_support_requires_boundary_id(self):
-        with pytest.raises(ValidationError, match="support='boundary' requires"):
-            CalibOutputDecl.model_validate({"variable": "head", "support": "boundary"})
+        with pytest.raises(ValidationError, match="boundary_id"):
+            validate_calib_output({"variable": "head", "support": "boundary"})
 
 
 # ---------------------------------------------------------------------------
@@ -321,12 +319,12 @@ class TestEnrichedTomlRoundTrip:
         [calibration.parameters.K_aquifer]
         bounds = [1e-6, 1e-3]
         transform = "log"
-        target = "flow.param.K.field_homogeneous.value"
+        target = "flow.param.K.field.value"
         mode   = "replace"
 
         [calibration.parameters.K_mult]
         bounds = [0.1, 10.0]
-        target = "flow.param.K.field_homogeneous.value"
+        target = "flow.param.K.field.value"
         mode   = "scale"
 
         [calibration.outputs.head_A]
@@ -361,7 +359,7 @@ class TestEnrichedTomlRoundTrip:
         assert cfg.persist_iteration_detail == "full"
         assert cfg.materialize_candidates is True
         assert cfg.parameters["K_aquifer"].mode == "replace"
-        assert cfg.parameters["K_aquifer"].target == "flow.param.K.field_homogeneous.value"
+        assert cfg.parameters["K_aquifer"].target == "flow.param.K.field.value"
         assert cfg.parameters["K_mult"].mode == "scale"
         assert cfg.outputs["head_A"].x.to("m").magnitude == 100.0
         assert cfg.outputs["outlet"].boundary_id == "outlet_drain"

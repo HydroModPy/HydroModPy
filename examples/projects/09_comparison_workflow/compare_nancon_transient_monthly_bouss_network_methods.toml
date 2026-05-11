@@ -1,0 +1,89 @@
+workflow = "comparison"
+
+[comparison]
+comparison_id = "nancon_transient_monthly_bouss_network_methods"
+base_simulation_config = "base_nancon_transient_monthly_hydrography_mesh_input_bouss_comparable.toml"
+output_root = "outputs/nancon_transient_monthly_bouss_network_methods"
+reference_simulation = "mf6_ref"
+continue_on_error = true
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+timeout_seconds = 3600
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = false
+resolution = 250.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "mf6_ref"
+label = "MODFLOW 6 DISV Nancon monthly reference, comparable setup"
+solver = "modflow6"
+mesh_label = "Nancon river-constrained triangular mesh"
+mesh_mode = "mesh_input"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_mf6"
+root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_mf6"
+
+[comparison.simulation.overlay.simulation.results.derived]
+release_flux = true
+accumulation_flux = true
+outflow_drain = true
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[[comparison.simulation]]
+id = "bouss_candidate"
+label = "Boussinesq Nancon monthly candidate, comparable setup"
+solver = "boussinesq"
+mesh_label = "Nancon river-constrained triangular mesh"
+mesh_mode = "mesh_input"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_bouss"
+root = "outputs/nancon_transient_monthly_bouss_network_methods/workspace_bouss"
+
+[comparison.simulation.overlay.simulation.results.derived]
+release_flux = true
+
+[comparison.simulation.overlay.flow]
+runtime_backend = "petsc"
+surface_interaction_model = "ts_vi_obstacle"
+ts_vi_steps_per_period = 4
+ts_vi_adapt = false
+ts_vi_type = "beuler"
+ts_vi_snes_type = "vinewtonrsls"
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"

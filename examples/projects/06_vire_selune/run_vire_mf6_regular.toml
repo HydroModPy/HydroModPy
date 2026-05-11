@@ -1,6 +1,8 @@
 base_config = "project_simulation.toml"
 
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/vire_mf6_regular"

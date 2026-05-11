@@ -4,67 +4,59 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import (
+    IdentifierStr,
+    NonEmptyStr,
+    NonNegativeInt,
+    OptionalText,
+    PositiveFloat,
+)
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
-
-
-def _clean_optional_text(value: object) -> str | None:
-    """Normalize optional user text fields."""
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
 
 
 class ComparisonSimulation(HydroModelBase):
     """One simulation to run or reuse in a comparison."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    label: str | None = None
-    enabled: bool = True
-    simulation_config: str | None = None
-    run_folder: str | None = None
-    solver: str | None = None
-    mesh_label: str | None = None
-    mesh_mode: Literal[
-        "mesh_catchment",
-        "mesh_input",
-        "sgrid",
-        "structured",
-        "unstructured",
-        "unknown",
+    id: Annotated[IdentifierStr, Profile.USER]
+    label: Annotated[OptionalText, Profile.USER] = None
+    enabled: Annotated[bool, Profile.USER] = True
+    simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    run_folder: Annotated[OptionalText, Profile.EXPERT] = None
+    solver: Annotated[OptionalText, Profile.EXPERT] = None
+    mesh_label: Annotated[IdentifierStr | None, Profile.USER] = None
+    mesh_mode: Annotated[
+        Literal[
+            "mesh_catchment",
+            "mesh_input",
+            "sgrid",
+            "structured",
+            "unstructured",
+            "unknown",
+        ],
+        Profile.DEV,
     ] = "unknown"
-    overlay: dict[str, Any] = Field(
+    overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,
-        description="Free-form TOML overlay merged into the base simulation config when this child runs.",
+        description=(
+            "Child-specific TOML overlay merged after the shared base simulation "
+            "payload. Use it for solver- or method-specific changes; site-wide "
+            "inputs shared by all methods belong in comparison.base_simulation_overlay."
+        ),
     )
 
-    @field_validator("id")
+    @field_validator("mesh_label")
     @classmethod
-    def _validate_id(cls, value: object) -> str:
+    def _validate_optional_identifier(cls, value: object) -> str | None:
+        if value is None:
+            return None
         text = str(value).strip()
-        if not text:
-            raise ValueError("comparison.simulation.id cannot be empty")
-        if any(token in text for token in ("/", "\\")):
-            raise ValueError("comparison.simulation.id cannot contain path separators")
-        return text
-
-    @field_validator(
-        "label",
-        "simulation_config",
-        "run_folder",
-        "solver",
-        "mesh_label",
-    )
-    @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
+        return text or None
 
     @field_validator("overlay")
     @classmethod
@@ -79,60 +71,36 @@ class ComparisonSimulation(HydroModelBase):
 class ComparisonObservable(HydroModelBase):
     """One quantity of interest extracted from each simulation run folder."""
 
-    model_config = ConfigDict(extra="forbid")
+    name: Annotated[IdentifierStr, Profile.USER]
+    variable: Annotated[NonEmptyStr, Profile.USER]
+    source: Annotated[Literal["disk"], Profile.USER] = "disk"
+    simulations: Annotated[list[IdentifierStr] | None, Profile.USER] = None
+    support: Annotated[Literal["point", "outlet", "boundary", "cell_mask", "map"], Profile.USER] = (
+        "point"
+    )
+    anchor_id: Annotated[str | None, Profile.USER] = None
+    x: Annotated[float | None, Profile.USER] = None
+    y: Annotated[float | None, Profile.USER] = None
+    cell_index: Annotated[NonNegativeInt | None, Profile.USER] = None
+    cell_indices: Annotated[list[NonNegativeInt] | None, Profile.USER] = Field(
+        default=None,
+        min_length=1,
+    )
+    boundary_id: Annotated[IdentifierStr | None, Profile.USER] = None
+    allow_domain_proxy: Annotated[bool, Profile.DEV] = False
+    time: Annotated[str | int | None, Profile.USER] = "all"
+    time_window: Annotated[tuple[str, str] | tuple[float, float] | None, Profile.USER] = None
+    reducer: Annotated[OptionalText, Profile.USER] = None
+    time_reducer: Annotated[OptionalText, Profile.USER] = None
+    unit: Annotated[OptionalText, Profile.USER] = None
 
-    name: str
-    variable: str
-    source: Literal["disk"] = "disk"
-    simulations: list[str] | None = None
-    support: Literal["point", "outlet", "boundary", "cell_mask", "map"] = "point"
-    anchor_id: str | None = None
-    x: float | None = None
-    y: float | None = None
-    cell_index: int | None = None
-    cell_indices: list[int] | None = None
-    boundary_id: str | None = None
-    allow_domain_proxy: bool = False
-    time: str | int | None = "all"
-    time_window: tuple[str, str] | tuple[float, float] | None = None
-    reducer: str | None = None
-    time_reducer: str | None = None
-    unit: str | None = None
-
-    @field_validator("name", "variable")
+    @field_validator("anchor_id", "boundary_id")
     @classmethod
-    def _validate_required_text(cls, value: object) -> str:
+    def _validate_optional_identifier(cls, value: object) -> str | None:
+        if value is None:
+            return None
         text = str(value).strip()
-        if not text:
-            raise ValueError("comparison.observable value cannot be empty")
-        return text
-
-    @field_validator("anchor_id", "boundary_id", "reducer", "time_reducer", "unit")
-    @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
-
-    @field_validator("cell_index")
-    @classmethod
-    def _validate_cell_index(cls, value: object) -> int | None:
-        if value is None:
-            return None
-        index = int(value)
-        if index < 0:
-            raise ValueError("comparison.observable.cell_index must be >= 0")
-        return index
-
-    @field_validator("cell_indices")
-    @classmethod
-    def _validate_cell_indices(cls, value: object) -> list[int] | None:
-        if value is None:
-            return None
-        if not isinstance(value, list) or not value:
-            raise ValueError("comparison.observable.cell_indices must be a non-empty list")
-        indices = [int(item) for item in value]
-        if any(index < 0 for index in indices):
-            raise ValueError("comparison.observable.cell_indices must be >= 0")
-        return indices
+        return text or None
 
     @field_validator("simulations")
     @classmethod
@@ -149,6 +117,27 @@ class ComparisonObservable(HydroModelBase):
             cleaned.append(text)
         return cleaned
 
+    @model_validator(mode="before")
+    @classmethod
+    def _default_reducer(cls, value: object) -> object:
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        raw_reducer = payload.get("reducer")
+        if raw_reducer is not None and str(raw_reducer).strip():
+            return payload
+        support = str(payload.get("support", "point")).strip()
+        if support == "point":
+            payload["reducer"] = "nearest_cell"
+        elif support == "outlet":
+            variable_key = str(payload.get("variable", "")).strip().lower()
+            payload["reducer"] = "max" if "accumulation" in variable_key else "sum"
+        elif support in {"boundary", "cell_mask"}:
+            payload["reducer"] = "sum"
+        elif support == "map":
+            payload["reducer"] = "identity"
+        return payload
+
     @model_validator(mode="after")
     def _validate_support_specific_fields(self) -> ComparisonObservable:
         if self.time is not None and self.time_window is not None:
@@ -160,8 +149,6 @@ class ComparisonObservable(HydroModelBase):
                 raise ValueError(
                     "point observables require x/y coordinates, anchor_id, or cell_index"
                 )
-            if self.reducer is None:
-                object.__setattr__(self, "reducer", "nearest_cell")
         elif self.support == "outlet":
             has_coordinates = self.x is not None and self.y is not None
             has_anchor = self.anchor_id is not None
@@ -176,60 +163,60 @@ class ComparisonObservable(HydroModelBase):
                     "Set allow_domain_proxy=true only for exploratory whole-domain "
                     "reducer comparisons."
                 )
-            variable_key = self.variable.strip().lower()
-            if self.reducer is None:
-                object.__setattr__(
-                    self, "reducer", "max" if "accumulation" in variable_key else "sum"
-                )
         elif self.support == "boundary":
             if self.boundary_id is None and not self.cell_indices:
                 raise ValueError("boundary observables require boundary_id or cell_indices")
-            if self.reducer is None:
-                object.__setattr__(self, "reducer", "sum")
-        elif self.support == "cell_mask":
-            if self.reducer is None:
-                object.__setattr__(self, "reducer", "sum")
-        elif self.support == "map":
-            if self.reducer is None:
-                object.__setattr__(self, "reducer", "identity")
         return self
 
 
-class ComparisonSection(HydroModelBase):
+class RuntimeComparisonSection(HydroModelBase):
     """Launcher-owned comparison section."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    comparison_id: str | None = None
-    base_simulation_config: str | None = None
-    anchors_file: str | None = None
-    output_root: str | None = None
-    run_simulations: bool = True
-    continue_on_error: bool = False
-    reference_simulation: str | None = None
-    fine_raster: ComparisonFineRaster | None = None
-    simulation: list[ComparisonSimulation] = Field(
+    comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
+    base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    base_simulation_overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
+        default_factory=dict,
+        description=(
+            "Shared TOML overlay applied to the base simulation config before each "
+            "child-specific comparison.simulation.overlay. It carries the physical "
+            "case definition common to all compared simulations, especially in "
+            "catalog-driven testbeds."
+        ),
+    )
+    anchors_file: Annotated[OptionalText, Profile.EXPERT] = None
+    output_root: Annotated[OptionalText, Profile.EXPERT] = None
+    run_simulations: Annotated[bool, Profile.DEV] = True
+    continue_on_error: Annotated[bool, Profile.DEV] = False
+    reference_simulation: Annotated[IdentifierStr | None, Profile.EXPERT] = None
+    fine_raster: Annotated[ComparisonFineRaster | None, Profile.EXPERT] = None
+    simulation: Annotated[list[ComparisonSimulation], Profile.USER] = Field(
         default_factory=list,
         description="Simulations to run or reuse in the comparison. At least one entry required.",
     )
-    observable: list[ComparisonObservable] = Field(
+    observable: Annotated[list[ComparisonObservable], Profile.USER] = Field(
         default_factory=list,
         description="Observables to compare across the declared simulations. At least one entry required.",
     )
 
-    @field_validator(
-        "comparison_id",
-        "base_simulation_config",
-        "anchors_file",
-        "output_root",
-        "reference_simulation",
-    )
+    @field_validator("comparison_id", "reference_simulation")
     @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
+    def _validate_optional_identifier(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    @field_validator("base_simulation_overlay")
+    @classmethod
+    def _validate_base_simulation_overlay(cls, value: object) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("comparison.base_simulation_overlay must be a mapping")
+        return dict(value)
 
     @model_validator(mode="after")
-    def _validate_non_empty_lists(self) -> ComparisonSection:
+    def _validate_non_empty_lists(self) -> RuntimeComparisonSection:
         if not self.simulation:
             raise ValueError("comparison.simulation must contain at least one item")
         if not self.observable:
@@ -258,23 +245,13 @@ class ComparisonSection(HydroModelBase):
 class ComparisonFineRaster(HydroModelBase):
     """Optional common regular-grid rasterization for map comparisons."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    enabled: bool = False
-    resolution: float | None = None
-    extent_mode: Literal["intersection", "union", "reference"] = "intersection"
-    interpolation: Literal["linear", "nearest"] = "linear"
-    write_geotiff: bool = True
-
-    @field_validator("resolution")
-    @classmethod
-    def _validate_resolution(cls, value: object) -> float | None:
-        if value is None:
-            return None
-        resolution = float(value)
-        if resolution <= 0.0:
-            raise ValueError("comparison.fine_raster.resolution must be > 0")
-        return resolution
+    enabled: Annotated[bool, Profile.EXPERT] = False
+    resolution: Annotated[PositiveFloat | None, Profile.EXPERT] = None
+    extent_mode: Annotated[Literal["intersection", "union", "reference"], Profile.EXPERT] = (
+        "intersection"
+    )
+    interpolation: Annotated[Literal["linear", "nearest"], Profile.EXPERT] = "linear"
+    write_geotiff: Annotated[bool, Profile.EXPERT] = True
 
     @model_validator(mode="after")
     def _validate_when_enabled(self) -> ComparisonFineRaster:
@@ -285,21 +262,19 @@ class ComparisonFineRaster(HydroModelBase):
         return self
 
 
-class ComparisonConfig(HydroModelBase):
+class RuntimeComparisonConfig(HydroModelBase):
     """Validated top-level configuration for TOML-compatible comparisons."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    config_path: Path
-    base_dir: Path
-    comparison_root: Path
-    base_simulation_config_path: Path | None = None
-    anchors_path: Path | None = None
-    anchors: dict[str, tuple[float, float]] = Field(
+    config_path: Annotated[Path, Profile.EXPERT]
+    base_dir: Annotated[Path, Profile.EXPERT]
+    comparison_root: Annotated[Path, Profile.EXPERT]
+    base_simulation_config_path: Annotated[Path | None, Profile.EXPERT] = None
+    anchors_path: Annotated[Path | None, Profile.EXPERT] = None
+    anchors: Annotated[dict[str, tuple[float, float]], Profile.EXPERT] = Field(
         default_factory=dict,
         description="Anchor points loaded from anchors_file, keyed by anchor id, as (x, y) pairs.",
     )
-    comparison: ComparisonSection
+    comparison: Annotated[RuntimeComparisonSection, Profile.USER]
 
     @classmethod
     def from_toml(
@@ -307,7 +282,7 @@ class ComparisonConfig(HydroModelBase):
         raw_toml: Mapping[str, Any],
         *,
         config_path: str | Path,
-    ) -> ComparisonConfig:
+    ) -> RuntimeComparisonConfig:
         """Validate one raw TOML payload and resolve launcher-owned paths."""
         if not isinstance(raw_toml, Mapping):
             raise ValueError("configuration must be a mapping")
@@ -317,7 +292,7 @@ class ComparisonConfig(HydroModelBase):
 
         resolved_config_path = Path(config_path).expanduser().resolve()
         base_dir = resolved_config_path.parent
-        section = ComparisonSection.model_validate(section_payload)
+        section = RuntimeComparisonSection.model_validate(section_payload)
 
         comparison_id = section.comparison_id or resolved_config_path.stem
         section.comparison_id = comparison_id
@@ -404,10 +379,10 @@ class ComparisonConfig(HydroModelBase):
 
 
 __all__ = (
-    "ComparisonConfig",
+    "RuntimeComparisonConfig",
     "ComparisonFineRaster",
     "ComparisonObservable",
-    "ComparisonSection",
+    "RuntimeComparisonSection",
     "ComparisonSimulation",
 )
 

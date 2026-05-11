@@ -11,27 +11,32 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, ClassVar, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import (
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
-from hydromodpy.core.config_kit.base import HydroModelBase
+from hydromodpy.core.config_kit.field_metadata import field_metadata
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IdentifierStr
 from hydromodpy.physics.base import ProcessSpatialConfig
+from hydromodpy.physics.flow import flow_toml_loader
 from hydromodpy.physics.flow.boundary_condition_registry import (
     SUPPORTED_FLOW_BOUNDARY_IDS,
 )
-from hydromodpy.physics.flow.boundary_conditions import FlowBoundaryConditionConfig
-from hydromodpy.physics.flow.boundary_conditions_config import (
-    normalize_flow_boundary_conditions,
+from hydromodpy.physics.flow.boundary_conditions import (
+    BCEntry,
+    FlowBoundaryConditionConfig,
 )
+from hydromodpy.physics.flow.flow_param_config import FlowParam
+from hydromodpy.physics.flow.flow_runtime_config import FlowRuntimeConfig
 from hydromodpy.physics.flow.initial_conditions import (
     FlowInitialConditions,
 )
 from hydromodpy.physics.flow.initial_conditions_config import (
     normalize_flow_initial_conditions,
-)
-from hydromodpy.physics.flow.param_config import (
-    normalize_flow_param_payloads,
-    parse_flow_param_sections,
 )
 from hydromodpy.physics.flow.regime import FlowRegime, normalize_flow_regime
 from hydromodpy.physics.flow.sinks_sources import (
@@ -44,106 +49,12 @@ from hydromodpy.physics.flow.sinks_sources_config import (
 
 __all__ = [
     "FlowBoundaryConditionConfig",
-    "FlowWellConfig",
-    "FlowSinksSourcesConfig",
-    "FlowRuntimeConfig",
     "FlowConfig",
+    "FlowParam",
+    "FlowRuntimeConfig",
+    "FlowSinksSourcesConfig",
+    "FlowWellConfig",
 ]
-
-
-class FlowRuntimeConfig(HydroModelBase):
-    """Grouped view of the Boussinesq runtime fields on :class:`FlowConfig`.
-
-    The spec (``02_config_pydantic.md`` §3.3) groups all runtime-only
-    Boussinesq solver knobs under a single ``runtime`` sub-block so that
-    user-facing templates do not scatter ``runtime_backend``,
-    ``runtime_max_iterations`` and ``runtime_tol_*`` at the top of
-    ``[flow]``. We keep the flat flow-config fields for existing
-    consumers and expose this dataclass-style view via
-    :attr:`FlowConfig.runtime` for new call-sites.
-    """
-
-    backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = Field(
-        default="local",
-        description=("Nonlinear runtime backend used by Boussinesq-style solvers."),
-    )
-    surface_model: Annotated[
-        Literal[
-            "auto",
-            "regularized_partition",
-            "complementarity",
-            "vi_obstacle",
-            "ts_vi_obstacle",
-        ],
-        Profile.DEV,
-    ] = Field(
-        default="auto",
-        description=(
-            "Surface-interaction closure selector (Boussinesq). "
-            "``regularized_partition`` uses the Marcais-style q_ex = G_r(theta) "
-            "R(balance) law; ``complementarity`` uses the PETSc "
-            "q_ex-perp-(z_top-h) formulation; ``vi_obstacle`` uses the "
-            "experimental PETSc head-only VI obstacle formulation; ``auto`` "
-            "keeps the historical backend-dependent default."
-        ),
-    )
-    max_iterations: Annotated[int | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional override for the nonlinear iteration budget.",
-    )
-    tol_residual_inf: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional override for the inf-norm residual tolerance.",
-    )
-    tol_state_update_inf: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        description="Optional override for the inf-norm state-update tolerance.",
-    )
-    vi_substeps_per_period: Annotated[int, Profile.DEV] = Field(
-        default=1,
-        description=(
-            "Fixed number of Backward-Euler substeps per stress period for the "
-            "experimental PETSc VI obstacle runtime."
-        ),
-    )
-    vi_substep_on_failure: Annotated[bool, Profile.DEV] = Field(
-        default=False,
-        description=(
-            "Retry failed PETSc VI obstacle periods with more substeps, up to "
-            "vi_max_adaptive_substeps."
-        ),
-    )
-    vi_max_adaptive_substeps: Annotated[int | None, Profile.DEV] = Field(
-        default=None,
-        description="Maximum substeps allowed when PETSc VI adaptive retry is enabled.",
-    )
-    ts_vi_steps_per_period: Annotated[int, Profile.DEV] = Field(
-        default=4,
-        description=(
-            "Fixed PETSc TS Backward-Euler steps per stress period for the "
-            "experimental TS VI obstacle runtime."
-        ),
-    )
-    ts_vi_adapt: Annotated[bool, Profile.DEV] = Field(
-        default=False,
-        description="Enable experimental PETSc TS time-step adaptivity for TS VI obstacle.",
-    )
-    ts_vi_dt_min_fraction: Annotated[float, Profile.DEV] = Field(
-        default=1.0 / 64.0,
-        description="Minimum TS VI time-step as a fraction of the stress-period length.",
-    )
-    ts_vi_dt_max_fraction: Annotated[float, Profile.DEV] = Field(
-        default=1.0 / 4.0,
-        description="Maximum TS VI time-step as a fraction of the stress-period length.",
-    )
-    ts_vi_type: Annotated[str, Profile.DEV] = Field(
-        default="beuler",
-        description="PETSc TS type used by the experimental TS VI obstacle runtime.",
-    )
-    ts_vi_snes_type: Annotated[str, Profile.DEV] = Field(
-        default="vinewtonrsls",
-        description="PETSc SNES type used inside the experimental TS VI obstacle runtime.",
-    )
 
 
 class FlowConfig(ProcessSpatialConfig):
@@ -158,15 +69,16 @@ class FlowConfig(ProcessSpatialConfig):
         description=(
             "Global flow simulation regime used by solvers consuming [flow] (steady or transient)."
         ),
-        json_schema_extra={
-            "widget_type": "select",
-            "unit": "-",
-            "display_name_fr": "Régime d'écoulement",
-            "help_text_fr": (
+        examples=["steady", "transient"],
+        json_schema_extra=field_metadata(
+            widget_type="select",
+            unit="-",
+            display_name_fr="Régime d'écoulement",
+            help_text_fr=(
                 "Régime stationnaire (steady) ou transitoire (transient). "
                 "Le régime transitoire requiert une condition initiale [flow.ic]."
             ),
-        },
+        ),
     )
     runtime_backend: Annotated[Literal["local", "scipy", "scipy_sparse", "petsc"], Profile.DEV] = (
         Field(
@@ -175,6 +87,8 @@ class FlowConfig(ProcessSpatialConfig):
                 "Optional nonlinear runtime backend hint used by the Boussinesq "
                 "solver implementation. Other flow solvers may ignore this field."
             ),
+            examples=["local", "scipy_sparse"],
+            json_schema_extra=field_metadata(stability="experimental"),
         )
     )
     surface_interaction_model: Annotated[
@@ -196,6 +110,8 @@ class FlowConfig(ProcessSpatialConfig):
             "experimental PETSc head-only VI obstacle formulation; 'auto' "
             "keeps the historical backend-dependent default."
         ),
+        examples=["auto", "regularized_partition"],
+        json_schema_extra=field_metadata(stability="experimental"),
     )
     runtime_max_iterations: Annotated[int | None, Profile.DEV] = Field(
         default=None,
@@ -203,14 +119,14 @@ class FlowConfig(ProcessSpatialConfig):
             "Optional override for the nonlinear iteration budget used by the "
             "Boussinesq runtime backend."
         ),
-        json_schema_extra={
-            "widget_type": "input",
-            "unit": "-",
-            "display_name_fr": "Itérations max (solveur)",
-            "help_text_fr": "Budget d'itérations non-linéaires pour le solveur.",
-            "display_min": 1,
-            "display_max": 100_000,
-        },
+        json_schema_extra=field_metadata(
+            widget_type="input",
+            unit="-",
+            display_name_fr="Itérations max (solveur)",
+            help_text_fr="Budget d'itérations non-linéaires pour le solveur.",
+            display_min=1,
+            display_max=100_000,
+        ),
     )
     runtime_tol_residual_inf: Annotated[float | None, Profile.DEV] = Field(
         default=None,
@@ -244,8 +160,7 @@ class FlowConfig(ProcessSpatialConfig):
     vi_max_adaptive_substeps: Annotated[int | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Maximum number of PETSc VI obstacle substeps allowed for adaptive "
-            "failure retries."
+            "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries."
         ),
     )
     ts_vi_steps_per_period: Annotated[int, Profile.DEV] = Field(
@@ -281,29 +196,44 @@ class FlowConfig(ProcessSpatialConfig):
             "Ordered list of flow-parameter identifiers used to build runtime "
             "parameters (for example ['K', 'Ss', 'Sy'])."
         ),
+        examples=[["K", "Sy", "Ss"]],
     )
-    param: Annotated[dict[str, dict[str, object]], Profile.USER] = Field(
+    param: Annotated[dict[str, FlowParam], Profile.USER] = Field(
+        default_factory=dict,
+        description="Mapping of flow-parameter identifiers to native FieldParamConfig payloads.",
+    )
+    bc: Annotated[dict[str, BCEntry], Profile.USER] = Field(
         default_factory=dict,
         description=(
-            "Mapping of flow-parameter identifiers to resolved FieldParamConfig payloads."
-        ),
-    )
-    bc: Annotated[dict[str, object], Profile.USER] = Field(
-        default_factory=dict,
-        description=(
-            "Mapping of flow boundary-condition payloads parsed from [flow.bc]. "
-            "Supported sections are: "
-            "[flow.bc.dirichlet.<id>] with <id> in ocean, stream, north_side, "
-            "south_side, east_side, west_side; "
-            "[flow.bc.cauchy.drainage]; [flow.bc.robin.drainage]; "
-            "and generic [flow.bc.<custom_id>] payloads. "
-            "Common required key: value (numeric or '<value> <unit>'). "
-            "Dirichlet keys may omit application_domain when <id> implies it "
-            "(for example west_side -> 'west side'). "
-            "Drainage (cauchy/robin) requires application_domain explicitly. "
-            "Supported application_domain values are: top, north side, south side, "
-            "east side, west side. "
-            "Default units: m for dirichlet, m2/s for cauchy/robin."
+            "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n"
+            "\n"
+            "**Supported TOML sections**\n"
+            "\n"
+            "- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of "
+            "``ocean``, ``stream``, ``north_side``, ``south_side``, "
+            "``east_side``, ``west_side``\n"
+            "- ``[flow.bc.cauchy.drainage]``\n"
+            "- ``[flow.bc.robin.drainage]``\n"
+            "- ``[flow.bc.<custom_id>]`` for generic payloads\n"
+            "\n"
+            "**Common keys**\n"
+            "\n"
+            "- ``value`` (required): numeric or ``'<value> <unit>'``\n"
+            "- ``application_domain``: optional for dirichlet when ``<id>`` "
+            "implies it (e.g. ``west_side`` -> ``'west side'``); required "
+            "for ``cauchy`` and ``robin`` drainage\n"
+            "\n"
+            "**Allowed application_domain values:** ``top``, ``north side``, "
+            "``south side``, ``east side``, ``west side``.\n"
+            "\n"
+            "**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.\n"
+            "\n"
+            "**Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; "
+            "the distinction only matters for the Boussinesq solver, which uses "
+            "two different surface-interaction closures (``cauchy`` for the "
+            "linear formulation ``q = C(h - h_ref)``, ``robin`` for the "
+            "regularized partition / complementarity variants selected by "
+            "``flow.surface_interaction_model``)."
         ),
     )
     ic: Annotated[FlowInitialConditions, Profile.USER] = Field(
@@ -317,15 +247,16 @@ class FlowConfig(ProcessSpatialConfig):
         default_factory=FlowSinksSourcesConfig,
         description="Typed sinks/sources payload (for example pumping wells).",
     )
-    active_sinks_sources: Annotated[list[str], Profile.USER] = Field(
+    active_sinks_sources: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Explicitly activated sink/source names for this flow run. "
             "Allowed values: 'recharge', 'wells'. "
             "An empty list means no sink/source package is assembled by the solver."
         ),
+        examples=[["recharge"], ["recharge", "wells"]],
     )
-    active_bc: Annotated[list[str], Profile.USER] = Field(
+    active_bc: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,
         description=(
             "Explicitly activated boundary-condition ids for this flow run. "
@@ -334,6 +265,7 @@ class FlowConfig(ProcessSpatialConfig):
             "'south_side', 'east_side', 'west_side', 'drainage'. "
             "An empty list means no boundary-condition package is assembled by the solver."
         ),
+        examples=[["ocean"], ["west_side", "east_side", "drainage"]],
     )
 
     @model_validator(mode="before")
@@ -385,8 +317,40 @@ class FlowConfig(ProcessSpatialConfig):
     @field_validator("param", mode="before")
     @classmethod
     def _validate_param_payloads(cls, value):
-        """Normalize `flow.param` payloads into resolved FieldParamConfig mappings."""
-        return normalize_flow_param_payloads(value, location_prefix="flow.param")
+        """Normalize `flow.param` payloads into typed FlowParam mappings."""
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("flow.param must be a mapping of parameter id to payload")
+
+        out: dict[str, object] = {}
+        for raw_key, raw_payload in value.items():
+            param_id = str(raw_key).strip()
+            if param_id == "":
+                raise ValueError("flow.param cannot contain empty parameter ids")
+            if isinstance(raw_payload, FlowParam):
+                out[param_id] = raw_payload
+                continue
+            if not isinstance(raw_payload, Mapping):
+                raise ValueError(f"flow.param['{param_id}'] must be a mapping payload")
+            payload = dict(raw_payload)
+            field_payload = payload.get("field")
+            if not isinstance(field_payload, Mapping):
+                raise KeyError(
+                    f"flow.param.{param_id} requires section [flow.param.{param_id}.field]"
+                )
+            field = dict(field_payload)
+            field_id = str(field.get("id", "")).strip()
+            if field_id == "":
+                field["id"] = param_id
+            elif field_id != param_id:
+                raise ValueError(
+                    f"flow.param.{param_id}.field.id must match section key '{param_id}', "
+                    f"got '{field_id}'"
+                )
+            payload["field"] = field
+            out[param_id] = payload
+        return out
 
     @model_validator(mode="after")
     def _validate_param_consistency(self):
@@ -407,8 +371,7 @@ class FlowConfig(ProcessSpatialConfig):
         head_ic_type = str(getattr(head_ic, "type", "")).strip().lower()
         if head_ic_type == "steady_state" and self.flow_regime != "transient":
             raise ValueError(
-                "flow.ic.type='steady_state' is only supported when "
-                "flow.flow_regime='transient'"
+                "flow.ic.type='steady_state' is only supported when flow.flow_regime='transient'"
             )
         return self
 
@@ -558,9 +521,12 @@ class FlowConfig(ProcessSpatialConfig):
 
     @field_validator("bc", mode="before")
     @classmethod
-    def _validate_bc(cls, value):
+    def _validate_bc(cls, value, info: ValidationInfo):
         """Normalize boundary-condition payloads from `[flow.bc]`."""
-        return normalize_flow_boundary_conditions(value, location_prefix="flow.bc")
+        context = info.context if isinstance(info.context, Mapping) else {}
+        raw_base_dir = context.get("base_dir")
+        base_dir = raw_base_dir if isinstance(raw_base_dir, Path) else None
+        return flow_toml_loader.normalize_bc_payloads(value, base_dir=base_dir)
 
     @field_validator("ic", mode="before")
     @classmethod
@@ -684,8 +650,7 @@ class FlowConfig(ProcessSpatialConfig):
     def _homogeneous_param_entry(cls, param_id: str, value: float) -> dict:
         unit = cls._DEFAULT_PARAM_UNITS.get(param_id, "-")
         return {
-            "field": {"id": param_id, "kind": "homogeneous", "unit": unit},
-            "field_homogeneous": {"value": float(value)},
+            "field": {"id": param_id, "kind": "homogeneous", "unit": unit, "value": float(value)}
         }
 
     @classmethod
@@ -730,219 +695,5 @@ class FlowConfig(ProcessSpatialConfig):
         *,
         base_dir: Path,
     ) -> FlowConfig:
-        """
-        Build a validated `FlowConfig` from the `[flow]` TOML section.
-
-        Processing steps:
-        1. Validate raw section shapes.
-        2. Parse and resolve parameter sections (`flow.param.<id>`).
-        3. Normalize IC/BC/sinks-sources sections.
-        4. Validate the final typed model with Pydantic.
-        """
-        if flow_section is None:
-            return cls()
-        if not isinstance(flow_section, Mapping):
-            raise ValueError("TOML section 'flow' must be a mapping when provided")
-        known_keys = set(cls.model_fields) | {"param_values"}
-        unknown_keys = sorted(set(flow_section) - known_keys)
-        if unknown_keys:
-            raise ValueError(f"Unknown TOML key(s) in [flow]: {', '.join(unknown_keys)}")
-
-        raw_param_list = flow_section.get("param_list", [])
-        if raw_param_list is None:
-            raw_param_list = []
-        if not isinstance(raw_param_list, (list, tuple)):
-            raise ValueError("TOML section 'flow.param_list' must be a list of ids when provided")
-
-        raw_param = flow_section.get("param", {})
-        if raw_param is None:
-            raw_param = {}
-        if not isinstance(raw_param, Mapping):
-            raise ValueError("TOML section 'flow.param' must be a mapping when provided")
-        if flow_section.get("param_values") is not None:
-            raise ValueError("TOML section 'flow.param_values' is no longer supported.")
-
-        raw_bc = flow_section.get("bc", {})
-        if raw_bc is None:
-            raw_bc = {}
-        if not isinstance(raw_bc, Mapping):
-            raise ValueError("TOML section 'flow.bc' must be a mapping when provided")
-
-        raw_ic = flow_section.get("ic", {})
-        if raw_ic is None:
-            raw_ic = {}
-        if not isinstance(raw_ic, Mapping):
-            raise ValueError("TOML section 'flow.ic' must be a mapping when provided")
-
-        raw_sinks_sources = flow_section.get("sinks_sources", {})
-        if raw_sinks_sources is None:
-            raw_sinks_sources = {}
-        if not isinstance(raw_sinks_sources, Mapping):
-            raise ValueError("TOML section 'flow.sinks_sources' must be a mapping when provided")
-
-        raw_active_sinks_sources = flow_section.get("active_sinks_sources", [])
-        if raw_active_sinks_sources is None:
-            raw_active_sinks_sources = []
-        if not isinstance(raw_active_sinks_sources, (list, tuple)):
-            raise ValueError(
-                "TOML section 'flow.active_sinks_sources' must be a list when provided"
-            )
-
-        raw_active_bc = flow_section.get("active_bc", [])
-        if raw_active_bc is None:
-            raw_active_bc = []
-        if not isinstance(raw_active_bc, (list, tuple)):
-            raise ValueError("TOML section 'flow.active_bc' must be a list when provided")
-
-        # Parameter payloads are resolved against field-param section grammar.
-        parsed_param = parse_flow_param_sections(
-            raw_param,
-            base_dir=base_dir,
-            section_prefix="flow.param",
-        )
-        declared_param = list(raw_param_list)
-        if len(declared_param) == 0 and len(parsed_param) > 0:
-            declared_param = list(parsed_param.keys())
-
-        # Keep raw TOML payloads for IC/BC/sinks_sources here and let field
-        # validators normalize exactly once.
-        #
-        # Rationale:
-        # - `FlowConfig` already defines dedicated validators for `ic`, `bc`,
-        #   and `sinks_sources`;
-        # - pre-normalizing here and validating again may trigger false legacy
-        #   detections (for example normalized key "drainage" seen as deprecated
-        #   input on second pass).
-        parsed_ic = raw_ic
-        parsed_bc = _resolve_boundary_condition_forcing_paths(
-            raw_bc,
-            base_dir=base_dir,
-        )
-        parsed_sinks_sources = _resolve_well_forcing_paths(
-            raw_sinks_sources,
-            base_dir=base_dir,
-        )
-        raw_flow_regime = flow_section.get("flow_regime", "transient")
-        raw_runtime_backend = flow_section.get("runtime_backend", "local")
-        raw_surface_interaction_model = flow_section.get(
-            "surface_interaction_model",
-            "auto",
-        )
-        raw_runtime_max_iterations = flow_section.get("runtime_max_iterations")
-        raw_runtime_tol_residual_inf = flow_section.get("runtime_tol_residual_inf")
-        raw_runtime_tol_state_update_inf = flow_section.get("runtime_tol_state_update_inf")
-        raw_vi_substeps_per_period = flow_section.get("vi_substeps_per_period", 1)
-        raw_vi_substep_on_failure = flow_section.get("vi_substep_on_failure", False)
-        raw_vi_max_adaptive_substeps = flow_section.get("vi_max_adaptive_substeps")
-        raw_ts_vi_steps_per_period = flow_section.get("ts_vi_steps_per_period", 4)
-        raw_ts_vi_adapt = flow_section.get("ts_vi_adapt", False)
-        raw_ts_vi_dt_min_fraction = flow_section.get("ts_vi_dt_min_fraction", 1.0 / 64.0)
-        raw_ts_vi_dt_max_fraction = flow_section.get("ts_vi_dt_max_fraction", 1.0 / 4.0)
-        raw_ts_vi_type = flow_section.get("ts_vi_type", "beuler")
-        raw_ts_vi_snes_type = flow_section.get("ts_vi_snes_type", "vinewtonrsls")
-        return cls(
-            flow_regime=raw_flow_regime,
-            runtime_backend=raw_runtime_backend,
-            surface_interaction_model=raw_surface_interaction_model,
-            runtime_max_iterations=raw_runtime_max_iterations,
-            runtime_tol_residual_inf=raw_runtime_tol_residual_inf,
-            runtime_tol_state_update_inf=raw_runtime_tol_state_update_inf,
-            vi_substeps_per_period=raw_vi_substeps_per_period,
-            vi_substep_on_failure=raw_vi_substep_on_failure,
-            vi_max_adaptive_substeps=raw_vi_max_adaptive_substeps,
-            ts_vi_steps_per_period=raw_ts_vi_steps_per_period,
-            ts_vi_adapt=raw_ts_vi_adapt,
-            ts_vi_dt_min_fraction=raw_ts_vi_dt_min_fraction,
-            ts_vi_dt_max_fraction=raw_ts_vi_dt_max_fraction,
-            ts_vi_type=raw_ts_vi_type,
-            ts_vi_snes_type=raw_ts_vi_snes_type,
-            param_list=declared_param,
-            param=parsed_param,
-            ic=parsed_ic,
-            bc=parsed_bc,
-            sinks_sources=parsed_sinks_sources,
-            active_sinks_sources=list(raw_active_sinks_sources),
-            active_bc=list(raw_active_bc),
-        )
-
-
-def _parse_flow_ic_section(ic_cfg: Mapping[str, object]) -> FlowInitialConditions | None:
-    """
-    Parse and normalize one single `[flow.ic]` payload.
-
-    Supported shapes:
-    - Preferred: flat `[flow.ic]` with keys `type`, `value`, `unit|units`, `description`,
-      where `value` can be numeric or `"<value> <unit>"`.
-    """
-    return normalize_flow_initial_conditions(ic_cfg, location_prefix="flow.ic")
-
-
-def _resolve_well_forcing_paths(
-    raw_sinks_sources: Mapping[str, object],
-    *,
-    base_dir: Path,
-) -> dict[str, object]:
-    """Resolve relative CSV paths declared under flow.sinks_sources.wells.*.forcing."""
-    payload = dict(raw_sinks_sources)
-    wells = payload.get("wells")
-    if not isinstance(wells, Mapping):
-        return payload
-
-    resolved_wells: dict[str, object] = {}
-    for well_id, raw_well in wells.items():
-        if not isinstance(raw_well, Mapping):
-            resolved_wells[str(well_id)] = raw_well
-            continue
-        well_payload = dict(raw_well)
-        forcing = well_payload.get("forcing")
-        if isinstance(forcing, Mapping):
-            forcing_payload = dict(forcing)
-            path_value = forcing_payload.get("path_file")
-            if isinstance(path_value, str) and path_value.strip() != "":
-                path = Path(path_value).expanduser()
-                if not path.is_absolute():
-                    path = (base_dir / path).resolve()
-                forcing_payload["path_file"] = path
-            well_payload["forcing"] = forcing_payload
-        resolved_wells[str(well_id)] = well_payload
-    payload["wells"] = resolved_wells
-    return payload
-
-
-def _resolve_boundary_condition_forcing_paths(
-    raw_bc: Mapping[str, object],
-    *,
-    base_dir: Path,
-) -> dict[str, object]:
-    """Resolve relative CSV paths declared under flow.bc.*.forcing."""
-    payload = dict(raw_bc)
-
-    def _resolve_forcing_mapping(item: object) -> object:
-        if not isinstance(item, Mapping):
-            return item
-        item_payload = dict(item)
-        forcing = item_payload.get("forcing")
-        if isinstance(forcing, Mapping):
-            forcing_payload = dict(forcing)
-            path_value = forcing_payload.get("path_file")
-            if isinstance(path_value, str) and path_value.strip() != "":
-                path = Path(path_value).expanduser()
-                if not path.is_absolute():
-                    path = (base_dir / path).resolve()
-                forcing_payload["path_file"] = path
-            item_payload["forcing"] = forcing_payload
-        return item_payload
-
-    dirichlet = payload.get("dirichlet")
-    if isinstance(dirichlet, Mapping):
-        resolved_dirichlet: dict[str, object] = {}
-        for bc_id, raw_item in dirichlet.items():
-            resolved_dirichlet[str(bc_id)] = _resolve_forcing_mapping(raw_item)
-        payload["dirichlet"] = resolved_dirichlet
-
-    for key, raw_item in list(payload.items()):
-        if key in {"dirichlet", "cauchy", "robin"}:
-            continue
-        payload[key] = _resolve_forcing_mapping(raw_item)
-
-    return payload
+        """Build a validated `FlowConfig` from the `[flow]` TOML section."""
+        return flow_toml_loader.from_toml_section(cls, flow_section, base_dir=base_dir)

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field, field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.analysis.comparison.config import (
     ComparisonFineRaster,
@@ -15,53 +15,27 @@ from hydromodpy.analysis.comparison.config import (
     _load_comparison_anchors,
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
-
-
-def _clean_text(value: object) -> str:
-    text = str(value).strip()
-    if not text:
-        raise ValueError("comparison text fields cannot be empty")
-    return text
-
-
-def _clean_path_safe_id(value: object, *, field_name: str) -> str:
-    text = _clean_text(value)
-    if any(token in text for token in ("/", "\\")):
-        raise ValueError(f"{field_name} cannot contain path separators")
-    return text
-
-
-def _clean_optional_text(value: object) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
+from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import IdentifierStr, OptionalText
 
 
 class ComparisonExecutionConfig(HydroModelBase):
     """How comparison child simulations are executed."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    backend: Literal["subprocess_hmp_run"] = "subprocess_hmp_run"
-    max_parallel_runs: int = Field(
+    backend: Annotated[Literal["subprocess_hmp_run"], Profile.DEV] = "subprocess_hmp_run"
+    max_parallel_runs: Annotated[int, Profile.DEV] = Field(
         default=1,
         ge=1,
         description="Number of child simulations executed in parallel. Forced to 1 in V1.",
     )
-    keep_generated_configs: bool = True
-    run_simulations: bool = True
-    python_executable: str | None = None
-    timeout_seconds: float | None = Field(
+    keep_generated_configs: Annotated[bool, Profile.DEV] = True
+    run_simulations: Annotated[bool, Profile.DEV] = True
+    python_executable: Annotated[OptionalText, Profile.DEV] = None
+    timeout_seconds: Annotated[float | None, Profile.DEV] = Field(
         default=None,
         gt=0,
         description="Optional per-child timeout in seconds. None disables the timeout.",
     )
-
-    @field_validator("python_executable")
-    @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
 
     @model_validator(mode="after")
     def _validate_v1_scope(self) -> ComparisonExecutionConfig:
@@ -73,53 +47,51 @@ class ComparisonExecutionConfig(HydroModelBase):
 class ComparisonAuditConfig(HydroModelBase):
     """Post-run equivalence policy for child simulations."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    mode: Literal["strict_same_case"] = "strict_same_case"
-    on_mismatch: Literal["fail", "warn", "ignore"] = "fail"
+    mode: Annotated[Literal["strict_same_case"], Profile.DEV] = "strict_same_case"
+    on_mismatch: Annotated[Literal["fail", "warn", "ignore"], Profile.DEV] = "fail"
 
 
 class ComparisonSimulationConfig(HydroModelBase):
     """One generated child simulation in a comparison experiment."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
-    label: str | None = None
-    enabled: bool = True
-    solver: str | None = None
-    simulation_config: str | None = None
-    run_folder: str | None = None
-    mesh_label: str | None = None
-    mesh_mode: Literal[
-        "mesh_catchment",
-        "mesh_input",
-        "sgrid",
-        "structured",
-        "unstructured",
-        "unknown",
+    id: Annotated[IdentifierStr, Profile.USER]
+    label: Annotated[OptionalText, Profile.USER] = None
+    enabled: Annotated[bool, Profile.USER] = True
+    solver: Annotated[OptionalText, Profile.EXPERT] = None
+    simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    run_folder: Annotated[OptionalText, Profile.EXPERT] = None
+    mesh_label: Annotated[IdentifierStr | None, Profile.USER] = None
+    mesh_mode: Annotated[
+        Literal[
+            "mesh_catchment",
+            "mesh_input",
+            "sgrid",
+            "structured",
+            "unstructured",
+            "unknown",
+        ],
+        Profile.DEV,
     ] = "unknown"
-    overlay: dict[str, Any] = Field(
+    overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,
-        description="Free-form TOML overlay merged into the base simulation config when this child runs.",
+        description=(
+            "Child-specific TOML overlay merged after comparison.base_simulation_overlay "
+            "and after the shared base simulation config. Use it for solver-specific "
+            "settings, child labels, child process selection, or deliberately varied "
+            "method parameters. Site-wide inputs that must be identical for every "
+            "child in one comparison, such as outlet coordinates, recharge forcing, "
+            "mesh generation settings, or reference data paths, should be placed in "
+            "comparison.base_simulation_overlay instead."
+        ),
     )
 
-    @field_validator("id")
+    @field_validator("mesh_label")
     @classmethod
-    def _validate_id(cls, value: object) -> str:
-        return _clean_path_safe_id(value, field_name="comparison.simulation.id")
-
-    @field_validator("solver")
-    @classmethod
-    def _validate_solver_text(cls, value: object) -> str | None:
+    def _validate_optional_identifier(cls, value: object) -> str | None:
         if value is None:
             return None
-        return _clean_text(value)
-
-    @field_validator("label", "simulation_config", "run_folder", "mesh_label")
-    @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
+        text = str(value).strip()
+        return text or None
 
     @field_validator("overlay")
     @classmethod
@@ -143,48 +115,60 @@ class ComparisonSimulationConfig(HydroModelBase):
 class ComparisonSection(HydroModelBase):
     """Top-level comparison experiment section."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    comparison_id: str | None = None
-    base_simulation_config: str | None = None
-    anchors_file: str | None = None
-    output_root: str | None = None
-    reference_simulation: str | None = None
-    continue_on_error: bool = False
-    execution: ComparisonExecutionConfig = Field(
+    comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
+    base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
+    base_simulation_overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
+        default_factory=dict,
+        description=(
+            "Shared TOML overlay applied to the base simulation config before any "
+            "child-specific comparison.simulation.overlay. This is the preferred hook "
+            "for catalog-driven site loops: a testbed can render one comparison per "
+            "catalog row and inject the row values here, for example geographic outlet "
+            "coordinates, target basin area, recharge chronicle path, geology/K-table "
+            "paths, mesh-catchment options, initial-condition policy, or common "
+            "workspace/data roots. The overlay is intentionally broad because it "
+            "describes the physical case shared by all methods being compared; solver "
+            "or method differences remain in each comparison.simulation.overlay."
+        ),
+    )
+    anchors_file: Annotated[OptionalText, Profile.EXPERT] = None
+    output_root: Annotated[OptionalText, Profile.EXPERT] = None
+    reference_simulation: Annotated[IdentifierStr | None, Profile.EXPERT] = None
+    continue_on_error: Annotated[bool, Profile.DEV] = False
+    execution: Annotated[ComparisonExecutionConfig, Profile.DEV] = Field(
         default_factory=ComparisonExecutionConfig,
         description="Execution settings for the comparison child runs.",
     )
-    audit: ComparisonAuditConfig = Field(
+    audit: Annotated[ComparisonAuditConfig, Profile.DEV] = Field(
         default_factory=ComparisonAuditConfig,
         description="Post-run audit policy applied to each child simulation.",
     )
-    fine_raster: ComparisonFineRaster | None = None
-    simulation: list[ComparisonSimulationConfig] = Field(
+    fine_raster: Annotated[ComparisonFineRaster | None, Profile.EXPERT] = None
+    simulation: Annotated[list[ComparisonSimulationConfig], Profile.USER] = Field(
         default_factory=list,
         description="Generated child simulations to run in the comparison. At least one entry required.",
     )
-    observable: list[ComparisonObservable] = Field(
+    observable: Annotated[list[ComparisonObservable], Profile.USER] = Field(
         default_factory=list,
         description="Observables to compare across the declared simulations. At least one entry required.",
     )
 
-    @field_validator(
-        "base_simulation_config",
-        "anchors_file",
-        "output_root",
-        "reference_simulation",
-    )
+    @field_validator("comparison_id", "reference_simulation")
     @classmethod
-    def _validate_optional_text(cls, value: object) -> str | None:
-        return _clean_optional_text(value)
-
-    @field_validator("comparison_id")
-    @classmethod
-    def _validate_comparison_id(cls, value: object) -> str | None:
+    def _validate_optional_identifier(cls, value: object) -> str | None:
         if value is None:
             return None
-        return _clean_path_safe_id(value, field_name="comparison.comparison_id")
+        text = str(value).strip()
+        return text or None
+
+    @field_validator("base_simulation_overlay")
+    @classmethod
+    def _validate_base_simulation_overlay(cls, value: object) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError("comparison.base_simulation_overlay must be a mapping")
+        return dict(value)
 
     @model_validator(mode="after")
     def _validate_lists(self) -> ComparisonSection:
@@ -233,18 +217,16 @@ class ComparisonSection(HydroModelBase):
 class SimulationComparisonConfig(HydroModelBase):
     """Resolved comparison experiment config with absolute paths."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    config_path: Path
-    base_dir: Path
-    comparison_root: Path
-    base_simulation_config_path: Path | None = None
-    anchors_path: Path | None = None
-    anchors: dict[str, tuple[float, float]] = Field(
+    config_path: Annotated[Path, Profile.EXPERT]
+    base_dir: Annotated[Path, Profile.EXPERT]
+    comparison_root: Annotated[Path, Profile.EXPERT]
+    base_simulation_config_path: Annotated[Path | None, Profile.EXPERT] = None
+    anchors_path: Annotated[Path | None, Profile.EXPERT] = None
+    anchors: Annotated[dict[str, tuple[float, float]], Profile.EXPERT] = Field(
         default_factory=dict,
         description="Anchor points loaded from anchors_file, keyed by anchor id, as (x, y) pairs.",
     )
-    comparison: ComparisonSection
+    comparison: Annotated[ComparisonSection, Profile.USER]
 
     @classmethod
     def from_toml(

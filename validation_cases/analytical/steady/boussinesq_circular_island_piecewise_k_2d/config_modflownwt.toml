@@ -1,4 +1,6 @@
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "Bsq island piecewise K 2D"
@@ -39,13 +41,13 @@ island_radius = "200.0 m"
 [domain]
 
 [domain.supports.k_rings]
-provider = "generated_rings"
+kind = "generated_rings"
 coordinate_mode = "absolute"
 radii = ["70.0 m", "140.0 m"]
 labels = ["inner_ring", "middle_ring", "outer_ring"]
 
 [domain.depth_model]
-type = "flat_substratum"
+kind = "flat_substratum"
 substratum_elevation = -5.0
 
 [data]
@@ -66,8 +68,6 @@ param_list = ["K"]
 [flow.param.K.field]
 id = "K"
 kind = "heterogeneous"
-
-[flow.param.K.field_heterogeneous]
 values_source = "inline"
 values = { inner_ring = "8e-6 m/s", middle_ring = "4e-6 m/s", outer_ring = "1e-5 m/s" }
 field_spatial_id = "k_rings"
@@ -77,7 +77,7 @@ type = "custom"
 value = "1.0 m"
 
 [flow.bc.dirichlet.ocean]
-type = "dirichlet"
+kind = "dirichlet"
 value = "0.0 m"
 
 [flow.sinks_sources.recharge]
@@ -99,6 +99,3 @@ nlay = 1
 
 [display]
 enabled = false
-
-
-

@@ -77,10 +77,8 @@ def _resolve_overlay_target_path(
 
     field_name = dotted[3]
     tail = tuple(dotted[4:])
-    if field_name == "value" and isinstance(param_payload.get("field_homogeneous"), Mapping):
-        return tuple(dotted[:3]) + ("field_homogeneous", "value") + tail
-    if field_name == "values" and isinstance(param_payload.get("field_heterogeneous"), Mapping):
-        return tuple(dotted[:3]) + ("field_heterogeneous", "values") + tail
+    if field_name in {"value", "values"} and isinstance(param_payload.get("field"), Mapping):
+        return tuple(dotted[:3]) + ("field", field_name) + tail
     return tuple(dotted)
 
 
@@ -137,7 +135,7 @@ def _load_base_payload(
     """
 
     if isinstance(base_config, BaseModel):
-        payload = base_config.model_dump(mode="json", by_alias=True, exclude_none=True)
+        payload = base_config.model_dump(mode="json", exclude_none=True)
         return payload, None
     base_path = Path(base_config).expanduser().resolve()
     if not base_path.is_file():

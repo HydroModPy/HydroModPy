@@ -23,11 +23,11 @@ from hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter import (
     resolve_mesh_bundle,
     resolve_runtime_solver_mesh,
 )
-from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
-    write_vi_obstacle_diagnostic_files,
-)
 from hydromodpy.solver.boussinesq.runtimes.ts_vi_obstacle_diagnostics import (
     write_ts_vi_obstacle_diagnostic_files,
+)
+from hydromodpy.solver.boussinesq.runtimes.vi_obstacle_diagnostics import (
+    write_vi_obstacle_diagnostic_files,
 )
 
 
@@ -113,9 +113,14 @@ class BoussinesqFlowAdapter:
             )
         self._persist_obstacle_diagnostics(ctx, model)
 
+        metrics: dict[str, float] = {}
+        flow_solve_time = getattr(model, "last_flow_solve_time_seconds", None)
+        if flow_solve_time is not None:
+            metrics["flow_solve_time_seconds"] = float(flow_solve_time)
         return RunExecutionResult(
             primary_model=model,
             solver_output_dir=Path(model.full_path) if hasattr(model, "full_path") else None,
+            metrics=metrics,
         )
 
     @staticmethod

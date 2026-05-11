@@ -1,6 +1,6 @@
 """
 Flow Initial Condition Normalizers
-=================================
+==================================
 
 Normalization helpers for `[flow.ic]` payloads.
 
@@ -14,8 +14,21 @@ from collections.abc import Mapping
 
 from hydromodpy.core.units import parse_to_canonical_magnitude
 from hydromodpy.physics.flow.initial_conditions import (
-    FlowInitialCondition,
+    _FLOW_IC_ADAPTER,
+    FlowICBottom,
+    FlowICCustom,
+    FlowICSteadyState,
+    FlowICTop,
+    FlowICTopOffset,
     FlowInitialConditions,
+)
+
+_FLOW_IC_VARIANT_TYPES = (
+    FlowICTop,
+    FlowICTopOffset,
+    FlowICBottom,
+    FlowICCustom,
+    FlowICSteadyState,
 )
 
 
@@ -31,7 +44,7 @@ def normalize_flow_initial_conditions(
     ---------------------
     - `None` or `{}` -> `None`
     - `FlowInitialConditions` -> passthrough
-    - `FlowInitialCondition` -> wrapped as `{"h": ...}`
+    - any concrete `FlowInitialCondition` variant -> wrapped as `{"h": ...}`
     - flat mapping with keys `type`, `value`, `unit|units`, `description`,
       `source`, `recharge_statistic`, `boundary_condition_policy`;
       `type` is required for any non-empty mapping;
@@ -42,7 +55,7 @@ def normalize_flow_initial_conditions(
         return None
     if isinstance(value, FlowInitialConditions):
         return value
-    if isinstance(value, FlowInitialCondition):
+    if isinstance(value, _FLOW_IC_VARIANT_TYPES):
         return FlowInitialConditions(h=value)
     if not isinstance(value, Mapping):
         raise TypeError(
@@ -52,6 +65,8 @@ def normalize_flow_initial_conditions(
     payload = dict(value)
     if len(payload) == 0:
         return None
+    if set(payload) == {"h"} and isinstance(payload["h"], Mapping):
+        return FlowInitialConditions.model_validate(payload)
 
     # Flow IC is intentionally kept flat in TOML (`[flow.ic]`), hence only
     # direct keys are accepted here.
@@ -65,9 +80,7 @@ def normalize_flow_initial_conditions(
         "recharge_statistic",
         "boundary_condition_policy",
     }
-    unknown_keys = [
-        str(key).strip() for key in payload if str(key).strip() not in direct_keys
-    ]
+    unknown_keys = [str(key).strip() for key in payload if str(key).strip() not in direct_keys]
     if unknown_keys:
         unknown_text = ", ".join(unknown_keys)
         raise ValueError(
@@ -77,7 +90,7 @@ def normalize_flow_initial_conditions(
         )
 
     normalized = _normalize_single_ic_payload(payload, location_prefix=location_prefix)
-    return FlowInitialConditions(h=FlowInitialCondition.model_validate(normalized))
+    return FlowInitialConditions(h=_FLOW_IC_ADAPTER.validate_python(normalized))
 
 
 def _normalize_single_ic_payload(
@@ -93,9 +106,7 @@ def _normalize_single_ic_payload(
     payload_dict = dict(payload)
 
     if "type" not in payload_dict:
-        raise ValueError(
-            f"{location_prefix}.type is required when {location_prefix} is not empty"
-        )
+        raise ValueError(f"{location_prefix}.type is required when {location_prefix} is not empty")
     raw_type = payload_dict.get("type")
     ic_type = str(raw_type).strip().lower()
     if ic_type not in {"top", "top_offset", "bottom", "custom", "steady_state"}:
@@ -107,9 +118,7 @@ def _normalize_single_ic_payload(
     explicit_units = _extract_explicit_units(payload_dict)
     if ic_type in {"custom", "top_offset"}:
         if "value" not in payload_dict:
-            raise ValueError(
-                f"{location_prefix}.value is required when type='{ic_type}'"
-            )
+            raise ValueError(f"{location_prefix}.value is required when type='{ic_type}'")
         payload_dict["value"] = parse_to_canonical_magnitude(
             payload_dict["value"],
             location=f"{location_prefix}.value",
@@ -120,9 +129,7 @@ def _normalize_single_ic_payload(
         payload_dict["units"] = "m"
     elif ic_type == "steady_state":
         if "value" in payload_dict:
-            raise ValueError(
-                f"{location_prefix}.value is not supported when type='steady_state'"
-            )
+            raise ValueError(f"{location_prefix}.value is not supported when type='steady_state'")
         if explicit_units is not None:
             raise ValueError(
                 f"{location_prefix}.unit/units is not supported when type='steady_state'"
@@ -135,8 +142,7 @@ def _normalize_single_ic_payload(
     else:
         if "value" in payload_dict:
             raise ValueError(
-                f"{location_prefix}.value is only supported when type='custom' "
-                "or type='top_offset'"
+                f"{location_prefix}.value is only supported when type='custom' or type='top_offset'"
             )
         if explicit_units is not None:
             raise ValueError(
@@ -153,8 +159,7 @@ def _normalize_single_ic_payload(
         ):
             if strategy_key in payload_dict:
                 raise ValueError(
-                    f"{location_prefix}.{strategy_key} is only supported when "
-                    "type='steady_state'"
+                    f"{location_prefix}.{strategy_key} is only supported when type='steady_state'"
                 )
 
     # Normalize unit alias and apply process defaults.

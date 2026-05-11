@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.config_kit.types import InterpolationMethod
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (
     find_xy_dims,
@@ -19,8 +20,6 @@ if TYPE_CHECKING:
     import xarray as xr
 
 logger = get_logger(__name__)
-
-InterpolationMethod = Literal["nearest", "linear", "idw"]
 
 
 def _ensure_finite_field_values(values: object, *, label: str) -> np.ndarray:

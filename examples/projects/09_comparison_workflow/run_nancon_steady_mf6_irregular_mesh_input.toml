@@ -1,0 +1,31 @@
+base_config = "base_nancon_steady_hydrography_mesh_input.toml"
+
+workflow = "simulation"
+
+[workspace]
+project_root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_input"
+root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_input"
+
+[simulation]
+name = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_input_ref"
+run_id = "nancon_steady_mf6_irregular_network_methods__mf6_mesh_input_ref"
+description = "MODFLOW 6 Nancon steady reference on the precomputed irregular mesh-input bundle."
+on_collision = "replace"
+
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf_verbose = false
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.tgrid]
+firstpersteady = true
+
+[modflow6.sgrid.vertical]
+nlay = 1

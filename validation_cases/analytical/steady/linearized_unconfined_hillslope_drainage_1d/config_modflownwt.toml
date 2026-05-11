@@ -1,4 +1,6 @@
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "LU hillslope drainage val"
@@ -32,7 +34,7 @@ right_to_left_amplitude = 2.0
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "30.0 m"
 
 [flow]
@@ -44,8 +46,6 @@ param_list = ["K"]
 [flow.param.K.field]
 id = "K"
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "1e-4 m/s"
 
 [flow.ic]
@@ -53,16 +53,16 @@ type = "custom"
 value = "6.25 m"
 
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "7.25 m"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "5.25 m"
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
-type = "cauchy"
+kind = "cauchy"
 value = "1e-5 m2/s"
 
 [modflownwt.sgrid.planar]

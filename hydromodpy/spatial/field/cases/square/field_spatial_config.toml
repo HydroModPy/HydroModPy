@@ -7,7 +7,7 @@
 #   )
 
 [field]
-# Geometry identifier used by field_heterogeneous.field_spatial_id.
+# Geometry identifier used by field.field_spatial_id.
 id = "field_square"
 # "diag_main", "diag_anti", "axis_vertical", or "axis_horizontal"
 line = "diag_main"
@@ -16,4 +16,3 @@ zone1_side = "positive"
 # Zone names used as heterogeneous dictionary keys.
 zone1_name = "granite"
 zone2_name = "micaschists"
-

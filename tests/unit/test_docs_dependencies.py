@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PYPROJECT_PATH = ROOT / "pyproject.toml"
-RTD_REQUIREMENTS_PATH = ROOT / "docs" / "readthedocs" / "readthedocs_requirements.txt"
+RTD_REQUIREMENTS_PATH = ROOT / "docs" / "readthedocs_requirements.txt"
 EDITABLE_ENVIRONMENT_PATHS = [
     ROOT / "install" / "env_hydromodpy_pkg.yml",
     ROOT / "install" / "env_hydromodpy_light_pkg.yml",
@@ -38,9 +38,8 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
         "sphinx-gallery",
         "sphinx-copybutton",
         "sphinx-design",
-        "sphinx-tabs",
         "sphinx-togglebutton",
-        "sphinx-multiversion",
+        "sphinx-polyversion",
         "sphinxcontrib-plantuml",
         "autodoc-pydantic",
     }

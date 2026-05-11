@@ -1,4 +1,6 @@
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "lu_boundary_step_same_support__modflownwt"
@@ -40,7 +42,7 @@ base_elevation = 20.0
 
 [domain]
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "20.0 m"
 
 [flow]
@@ -53,24 +55,18 @@ param_list = ["K", "Ss", "Sy"]
 [flow.param.K.field]
 id = "K"
 kind = "homogeneous"
-
-[flow.param.K.field_homogeneous]
 value = "1e-4 m/s"
 
 [flow.param.Ss]
 [flow.param.Ss.field]
 id = "Ss"
 kind = "homogeneous"
-
-[flow.param.Ss.field_homogeneous]
 value = "1e-10 m-1"
 
 [flow.param.Sy]
 [flow.param.Sy.field]
 id = "Sy"
 kind = "homogeneous"
-
-[flow.param.Sy.field_homogeneous]
 value = "0.10 -"
 
 [flow.ic]
@@ -80,7 +76,7 @@ value = "10.0 m"
 [flow.bc]
 [flow.bc.dirichlet]
 [flow.bc.dirichlet.west_side]
-type = "dirichlet"
+kind = "dirichlet"
 
 [flow.bc.dirichlet.west_side.forcing]
 mode = "csv"
@@ -88,7 +84,7 @@ path_file = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearize
 aggregate = "last"
 
 [flow.bc.dirichlet.east_side]
-type = "dirichlet"
+kind = "dirichlet"
 value = "10.0 m"
 
 [modflownwt]

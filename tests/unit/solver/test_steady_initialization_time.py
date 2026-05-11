@@ -48,8 +48,6 @@ def test_single_period_mean_forcing_time_grid_spans_full_source_window() -> None
 
     recharge = pd.Series(
         [1.0, 2.0],
-        index=pd.DatetimeIndex(
-            [pd.Timestamp("2003-01-01"), pd.Timestamp("2003-02-28")]
-        ),
+        index=pd.DatetimeIndex([pd.Timestamp("2003-01-01"), pd.Timestamp("2003-02-28")]),
     )
     validate_recharge_coverage(recharge, steady_grid.window)

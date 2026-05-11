@@ -21,7 +21,7 @@ import pytest
 from hydromodpy.calibration import metrics as metrics_module
 from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
-    CalibOutputDecl,
+    validate_calib_output,
 )
 from hydromodpy.calibration.metrics import (
     ObservedSeries,
@@ -78,7 +78,7 @@ class TestLegacyFallback:
 class TestCompositeRouting:
     def _outputs_and_block(self):
         outputs = {
-            "head_A": CalibOutputDecl.model_validate(
+            "head_A": validate_calib_output(
                 {
                     "variable": "head",
                     "support": "cell",
@@ -131,9 +131,7 @@ class TestCompositeRouting:
 
 class TestHelpers:
     def test_coerce_length_handles_pint(self):
-        out = CalibOutputDecl.model_validate(
-            {"variable": "head", "support": "point", "x": 100.0, "y": 0.0}
-        )
+        out = validate_calib_output({"variable": "head", "support": "point", "x": 100.0, "y": 0.0})
         assert _coerce_length_to_m(out.x) == 100.0
         assert _coerce_length_to_m(out.y) == 0.0
         assert _coerce_length_to_m(None) is None
@@ -155,15 +153,13 @@ class TestHelpers:
 
     def test_extract_point_raises_when_no_flow_run(self):
         ctx = _empty_ctx()
-        out = CalibOutputDecl.model_validate(
-            {"variable": "head", "support": "point", "x": 1.0, "y": 2.0}
-        )
+        out = validate_calib_output({"variable": "head", "support": "point", "x": 1.0, "y": 2.0})
         with pytest.raises(NotImplementedError, match="No flow solver adapter"):
             _extract_point(ctx, out)
 
     def test_extract_boundary_raises_when_no_flow_run(self):
         ctx = _empty_ctx()
-        out = CalibOutputDecl.model_validate(
+        out = validate_calib_output(
             {"variable": "discharge", "support": "boundary", "boundary_id": "outlet"}
         )
         with pytest.raises(NotImplementedError, match="No flow solver adapter"):
@@ -181,16 +177,14 @@ class TestHelpers:
             "_resolve_flow_adapter",
             lambda ctx: (_Adapter(), run_ctx),
         )
-        out = CalibOutputDecl.model_validate(
+        out = validate_calib_output(
             {"variable": "discharge", "support": "boundary", "boundary_id": "outlet"}
         )
         with pytest.raises(NotImplementedError, match="cannot filter calibration boundary_id"):
             _extract_boundary(_empty_ctx(), out)
 
     def test_extract_cell_raises_when_no_flow_run(self):
-        out = CalibOutputDecl.model_validate(
-            {"variable": "head", "support": "cell", "row": 0, "col": 1}
-        )
+        out = validate_calib_output({"variable": "head", "support": "cell", "row": 0, "col": 1})
         with pytest.raises(NotImplementedError, match="No flow solver adapter"):
             _extract_cell(_empty_ctx(), out)
 

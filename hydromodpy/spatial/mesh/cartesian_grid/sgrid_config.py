@@ -16,12 +16,13 @@ import warnings
 from collections.abc import Mapping
 from math import isclose
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import Field, ValidationError, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.config_kit.types import NonEmptyStr, PositiveInt
 from hydromodpy.core.toml_io.paths import resolve_path
 
 
@@ -60,8 +61,6 @@ class VerticalGridConfig(HydroModelBase):
     All geometric quantities are interpreted in SI metres.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     genmtd_lay: Annotated[Literal["constant", "decay", "list"], Profile.USER] = Field(
         default="constant",
         description="Vertical-layering strategy.",
@@ -97,21 +96,19 @@ class VerticalGridConfig(HydroModelBase):
             raise ValueError("lay_proportions must sum to 1.0")
         return arr
 
-    @model_validator(mode="after")
-    def _validate_cross_fields(self):
-        if self.genmtd_lay in ("constant", "decay"):
-            object.__setattr__(self, "nlay", _require_positive_int(self.nlay, name="nlay"))
-        if self.genmtd_lay == "decay":
-            if self.lay_decay is None:
-                raise ValueError("lay_decay is required when genmtd_lay='decay'")
-            object.__setattr__(self, "lay_decay", float(self.lay_decay))
-            if self.lay_decay <= 1.0:
-                raise ValueError("lay_decay must be > 1.0 when genmtd_lay='decay'")
-
-        if self.genmtd_lay == "list":
-            if self.lay_proportions is None:
-                raise ValueError("lay_proportions is required when genmtd_lay='list'")
-            if self.nlay is not None:
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_payload(cls, value):
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        genmtd_lay = str(payload.get("genmtd_lay", "constant")).strip().lower()
+        if genmtd_lay in {"constant", "decay"} and payload.get("nlay") is not None:
+            payload["nlay"] = _require_positive_int(payload.get("nlay"), name="nlay")
+        if genmtd_lay == "decay" and payload.get("lay_decay") is not None:
+            payload["lay_decay"] = float(payload["lay_decay"])
+        if genmtd_lay == "list":
+            if "nlay" in payload and payload.get("nlay") is not None:
                 warnings.warn(
                     "nlay must not be provided when genmtd_lay='list' "
                     "(it is derived from lay_proportions). "
@@ -119,7 +116,22 @@ class VerticalGridConfig(HydroModelBase):
                     UserWarning,
                     stacklevel=2,
                 )
-            object.__setattr__(self, "nlay", None)
+            payload["nlay"] = None
+        return payload
+
+    @model_validator(mode="after")
+    def _validate_cross_fields(self):
+        if self.genmtd_lay in ("constant", "decay"):
+            _require_positive_int(self.nlay, name="nlay")
+        if self.genmtd_lay == "decay":
+            if self.lay_decay is None:
+                raise ValueError("lay_decay is required when genmtd_lay='decay'")
+            if self.lay_decay <= 1.0:
+                raise ValueError("lay_decay must be > 1.0 when genmtd_lay='decay'")
+
+        if self.genmtd_lay == "list":
+            if self.lay_proportions is None:
+                raise ValueError("lay_proportions is required when genmtd_lay='list'")
         return self
 
     @classmethod
@@ -131,8 +143,6 @@ class VerticalGridConfig(HydroModelBase):
 class PlanarGridConfig(HydroModelBase):
     """Planar discretization contract for solver-facing grids."""
 
-    model_config = ConfigDict(extra="forbid")
-
     mode: Annotated[Literal["keep_native", "resample_to_shape"], Profile.USER] = Field(
         default="keep_native",
         description=(
@@ -140,14 +150,12 @@ class PlanarGridConfig(HydroModelBase):
             "resample to an explicit (ny, nx) target shape."
         ),
     )
-    nx: Annotated[int | None, Profile.USER] = Field(
+    nx: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
-        ge=1,
         description="Target number of columns when planar mode is 'resample_to_shape'.",
     )
-    ny: Annotated[int | None, Profile.USER] = Field(
+    ny: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
-        ge=1,
         description="Target number of rows when planar mode is 'resample_to_shape'.",
     )
     resampling: Annotated[Literal["bilinear", "average", "nearest"], Profile.DEV] = Field(
@@ -155,11 +163,25 @@ class PlanarGridConfig(HydroModelBase):
         description="Resampling rule applied when planar mode is 'resample_to_shape'.",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_payload(cls, value):
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        mode = str(payload.get("mode", "keep_native")).strip().lower()
+        if mode == "resample_to_shape":
+            if payload.get("nx") is not None:
+                payload["nx"] = _require_positive_int(payload.get("nx"), name="nx")
+            if payload.get("ny") is not None:
+                payload["ny"] = _require_positive_int(payload.get("ny"), name="ny")
+        return payload
+
     @model_validator(mode="after")
     def _validate_cross_fields(self):
         if self.mode == "resample_to_shape":
-            object.__setattr__(self, "nx", _require_positive_int(self.nx, name="nx"))
-            object.__setattr__(self, "ny", _require_positive_int(self.ny, name="ny"))
+            _require_positive_int(self.nx, name="nx")
+            _require_positive_int(self.ny, name="ny")
         elif self.nx is not None or self.ny is not None:
             raise ValueError("nx and ny must be omitted when planar.mode='keep_native'")
         return self
@@ -167,8 +189,6 @@ class PlanarGridConfig(HydroModelBase):
 
 class SolverSGridConfig(HydroModelBase):
     """Solver-facing grid configuration split into explicit planar and vertical parts."""
-
-    model_config = ConfigDict(extra="forbid")
 
     planar: Annotated[PlanarGridConfig, Profile.USER] = Field(
         default_factory=PlanarGridConfig,
@@ -185,6 +205,179 @@ class SolverSGridConfig(HydroModelBase):
         return cls.model_validate(payload)
 
 
+class BottomFromFilepath(HydroModelBase):
+    """Bottom surface read from a raster file."""
+
+    kind: Annotated[Literal["filepath"], Profile.USER] = "filepath"
+    path: Annotated[NonEmptyStr, Profile.USER] = Field(
+        ...,
+        description="Path to bottom raster used as model bottom surface.",
+    )
+
+    @field_validator("path")
+    @classmethod
+    def _expand_user(cls, value):
+        return str(Path(value).expanduser())
+
+    @model_validator(mode="after")
+    def _check_exists(self):
+        if not Path(self.path).exists():
+            raise ValueError(f"File does not exist: {self.path}")
+        return self
+
+
+class BottomFromRaster(HydroModelBase):
+    """Bottom surface provided as in-memory raster array."""
+
+    kind: Annotated[Literal["raster"], Profile.USER] = "raster"
+    raster: Annotated[Any, Profile.USER] = Field(
+        ...,
+        description="In-memory bottom raster array.",
+    )
+
+    @field_validator("raster")
+    @classmethod
+    def _check_not_none(cls, value):
+        if value is None:
+            raise ValueError("bottom.raster must not be None when kind='raster'")
+        return value
+
+
+class BottomConstantThickness(HydroModelBase):
+    """Bottom surface defined by a constant thickness below top."""
+
+    kind: Annotated[Literal["constant_thickness"], Profile.USER] = "constant_thickness"
+    thick: Annotated[float, Profile.USER] = Field(
+        ...,
+        description="Domain thickness (top minus bottom, in metres).",
+    )
+
+
+class BottomConstantAltitude(HydroModelBase):
+    """Bottom surface defined by a constant absolute altitude."""
+
+    kind: Annotated[Literal["constant_altitude"], Profile.USER] = "constant_altitude"
+    zbot: Annotated[float, Profile.USER] = Field(
+        ...,
+        description="Constant bottom elevation (metres).",
+    )
+
+
+BottomConfig: TypeAlias = Annotated[
+    BottomFromFilepath | BottomFromRaster | BottomConstantThickness | BottomConstantAltitude,
+    Field(discriminator="kind"),
+]
+"""Discriminated union of bottom-surface generation methods."""
+
+
+class LayeringConstant(HydroModelBase):
+    """Uniform layer thickness across the vertical extent."""
+
+    kind: Annotated[Literal["constant"], Profile.USER] = "constant"
+    nlay: Annotated[PositiveInt, Profile.USER] = Field(
+        ...,
+        description="Number of model layers.",
+    )
+
+
+class LayeringDecay(HydroModelBase):
+    """Layers thicker with depth following a geometric decay."""
+
+    kind: Annotated[Literal["decay"], Profile.USER] = "decay"
+    nlay: Annotated[PositiveInt, Profile.USER] = Field(
+        ...,
+        description="Number of model layers.",
+    )
+    lay_decay: Annotated[float, Profile.DEV] = Field(
+        ...,
+        gt=1.0,
+        description="Decay exponent (>1) for progressively thicker layers with depth.",
+    )
+
+
+class LayeringList(HydroModelBase):
+    """Explicit per-layer thickness fractions."""
+
+    kind: Annotated[Literal["list"], Profile.USER] = "list"
+    lay_proportions: Annotated[list[float], Profile.DEV] = Field(
+        ...,
+        description="Per-layer thickness fractions (must sum to 1).",
+    )
+
+    @field_validator("lay_proportions")
+    @classmethod
+    def _validate_lay_proportions(cls, value):
+        arr = [float(v) for v in list(value)]
+        if len(arr) == 0:
+            raise ValueError("lay_proportions cannot be empty")
+        if any(v <= 0 for v in arr):
+            raise ValueError("lay_proportions values must be strictly positive")
+        if not isclose(sum(arr), 1.0, rel_tol=0.0, abs_tol=1e-6):
+            raise ValueError("lay_proportions must sum to 1.0")
+        return arr
+
+
+LayeringConfig: TypeAlias = Annotated[
+    LayeringConstant | LayeringDecay | LayeringList,
+    Field(discriminator="kind"),
+]
+"""Discriminated union of vertical-layering methods."""
+
+
+_LEGACY_BOTTOM_KEYS: frozenset[str] = frozenset(
+    {"genmtd_bot", "bot_path", "bot_raster", "thick", "zbot"}
+)
+_LEGACY_LAYERING_KEYS: frozenset[str] = frozenset(
+    {"genmtd_lay", "nlay", "lay_decay", "lay_proportions"}
+)
+
+
+def _migrate_legacy_bottom(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Translate legacy flat bottom keys into nested ``bottom`` mapping."""
+    if not any(key in payload for key in _LEGACY_BOTTOM_KEYS):
+        return None
+    kind = payload.pop("genmtd_bot", None)
+    bot_path = payload.pop("bot_path", None)
+    bot_raster = payload.pop("bot_raster", None)
+    thick = payload.pop("thick", None)
+    zbot = payload.pop("zbot", None)
+    nested: dict[str, Any] = {}
+    if kind is not None:
+        nested["kind"] = kind
+    if bot_path is not None:
+        nested["path"] = bot_path
+    if bot_raster is not None:
+        nested["raster"] = bot_raster
+    if thick is not None:
+        nested["thick"] = thick
+    if zbot is not None:
+        nested["zbot"] = zbot
+    return nested
+
+
+def _migrate_legacy_layering(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Translate legacy flat layering keys into nested ``layering`` mapping."""
+    if not any(key in payload for key in _LEGACY_LAYERING_KEYS):
+        return None
+    kind = payload.pop("genmtd_lay", None)
+    nlay = payload.pop("nlay", None)
+    lay_decay = payload.pop("lay_decay", None)
+    lay_proportions = payload.pop("lay_proportions", None)
+    nested: dict[str, Any] = {}
+    if kind is not None:
+        nested["kind"] = kind
+    if nlay is not None:
+        nested["nlay"] = nlay
+    if lay_decay is not None:
+        nested["lay_decay"] = lay_decay
+    if lay_proportions is not None:
+        nested["lay_proportions"] = lay_proportions
+    if str(nested.get("kind", "")).strip().lower() == "list":
+        # nlay is derived from lay_proportions length and must not be passed.
+        nested.pop("nlay", None)
+    return nested
+
+
 class SGridConfig(HydroModelBase):
     """
     Single source of truth for structured-grid configuration validation.
@@ -196,8 +389,6 @@ class SGridConfig(HydroModelBase):
     All geometric quantities are interpreted in SI metres.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     sgrid_type: Annotated[Literal["structured"], Profile.USER] = Field(
         default="structured",
         description="Spatial grid family. Only 'structured' is supported.",
@@ -206,11 +397,11 @@ class SGridConfig(HydroModelBase):
         default="filepath",
         description="Method used to define top surface. Currently only raster filepath is supported.",
     )
-    top_path: Annotated[str, Profile.USER] = Field(
+    top_path: Annotated[NonEmptyStr, Profile.USER] = Field(
         ...,
         description="Path to top DEM raster used as model top surface.",
     )
-    crs: Annotated[str | None, Profile.USER] = Field(
+    crs: Annotated[NonEmptyStr | None, Profile.USER] = Field(
         default=None,
         description="Optional CRS identifier (for example 'EPSG:2154').",
     )
@@ -223,57 +414,22 @@ class SGridConfig(HydroModelBase):
             "resample to explicit (ny, nx) target shape."
         ),
     )
-    nx: Annotated[int | None, Profile.USER] = Field(
+    nx: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
-        ge=1,
         description="Target number of columns when plan_discretization_mode='resample_to_shape'.",
     )
-    ny: Annotated[int | None, Profile.USER] = Field(
+    ny: Annotated[PositiveInt | None, Profile.USER] = Field(
         default=None,
-        ge=1,
         description="Target number of rows when plan_discretization_mode='resample_to_shape'.",
     )
 
-    genmtd_bot: Annotated[
-        Literal["filepath", "raster", "constant_thickness", "constant_altitude"], Profile.USER
-    ] = Field(
+    bottom: Annotated[BottomConfig, Profile.USER] = Field(
         ...,
-        description="Bottom-surface generation method.",
+        description="Bottom-surface generation method (discriminated by 'kind').",
     )
-    bot_path: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description="Path to bottom raster when genmtd_bot='filepath'.",
-    )
-    bot_raster: Annotated[Any | None, Profile.USER] = Field(
-        default=None,
-        description="In-memory bottom raster array when genmtd_bot='raster'.",
-    )
-    thick: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        description="Domain thickness when genmtd_bot='constant_thickness'.",
-    )
-    zbot: Annotated[float | None, Profile.USER] = Field(
-        default=None,
-        description="Constant bottom elevation when genmtd_bot='constant_altitude'.",
-    )
-
-    genmtd_lay: Annotated[Literal["constant", "decay", "list"], Profile.USER] = Field(
+    layering: Annotated[LayeringConfig, Profile.USER] = Field(
         ...,
-        description="Vertical-layering method.",
-    )
-    nlay: Annotated[int | None, Profile.USER] = Field(
-        default=None,
-        ge=1,
-        description="Number of model layers for constant/decay layering.",
-    )
-    lay_decay: Annotated[float | None, Profile.DEV] = Field(
-        default=None,
-        gt=1.0,
-        description="Decay exponent (>1) for progressively thicker layers with depth.",
-    )
-    lay_proportions: Annotated[list[float] | None, Profile.DEV] = Field(
-        default=None,
-        description="Per-layer thickness fractions when genmtd_lay='list' (must sum to 1).",
+        description="Vertical-layering method (discriminated by 'kind').",
     )
 
     nodata: Annotated[float, Profile.DEV] = Field(
@@ -283,50 +439,33 @@ class SGridConfig(HydroModelBase):
 
     @field_validator("top_path")
     @classmethod
-    def _validate_required_non_empty_text(cls, value):
-        text = str(value).strip()
-        if not text:
-            raise ValueError("value cannot be empty")
-        return text
-
-    @field_validator("crs", "bot_path")
-    @classmethod
-    def _validate_optional_non_empty_text(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            raise ValueError("value cannot be empty when provided")
-        return text
-
-    @field_validator("top_path", "bot_path")
-    @classmethod
     def _expand_user_in_paths(cls, value):
         if value is None:
             return None
         return str(Path(value).expanduser())
 
-    @field_validator("lay_proportions")
+    @model_validator(mode="before")
     @classmethod
-    def _validate_lay_proportions(cls, value):
-        if value is None:
-            return None
-        arr = [float(v) for v in list(value)]
-        if len(arr) == 0:
-            raise ValueError("lay_proportions cannot be empty")
-        if any(v <= 0 for v in arr):
-            raise ValueError("lay_proportions values must be strictly positive")
-        if not isclose(sum(arr), 1.0, rel_tol=0.0, abs_tol=1e-6):
-            raise ValueError("lay_proportions must sum to 1.0")
-        return arr
-
-    @staticmethod
-    def _require_existing_file(path_value: str | None, *, message: str):
-        if path_value is None:
-            raise ValueError(message)
-        path = Path(path_value)
-        if not path.exists():
-            raise ValueError(f"File does not exist: {path}")
+    def _migrate_legacy_payload(cls, value):
+        """Accept legacy flat payloads and remap them onto nested fields."""
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+        legacy_bottom = _migrate_legacy_bottom(payload)
+        if legacy_bottom is not None:
+            if "bottom" in payload:
+                raise ValueError(
+                    "Cannot mix legacy flat keys (genmtd_bot/...) with nested 'bottom' mapping."
+                )
+            payload["bottom"] = legacy_bottom
+        legacy_layering = _migrate_legacy_layering(payload)
+        if legacy_layering is not None:
+            if "layering" in payload:
+                raise ValueError(
+                    "Cannot mix legacy flat keys (genmtd_lay/...) with nested 'layering' mapping."
+                )
+            payload["layering"] = legacy_layering
+        return payload
 
     @model_validator(mode="after")
     def _validate_cross_fields(self):
@@ -341,32 +480,10 @@ class SGridConfig(HydroModelBase):
                     "nx and ny must not be provided when plan_discretization_mode='keep_native'"
                 )
 
-        self._require_existing_file(
-            self.top_path,
-            message="top_path is required when genmtd_top='filepath'",
-        )
+        top = Path(self.top_path)
+        if not top.exists():
+            raise ValueError(f"File does not exist: {top}")
 
-        if self.genmtd_bot == "filepath":
-            self._require_existing_file(
-                self.bot_path,
-                message="bot_path is required when genmtd_bot='filepath'",
-            )
-        if self.genmtd_bot == "raster" and self.bot_raster is None:
-            raise ValueError("bot_raster is required when genmtd_bot='raster'")
-        if self.genmtd_bot == "constant_thickness" and self.thick is None:
-            raise ValueError("thick is required when genmtd_bot='constant_thickness'")
-        if self.genmtd_bot == "constant_altitude" and self.zbot is None:
-            raise ValueError("zbot is required when genmtd_bot='constant_altitude'")
-
-        if self.genmtd_lay in ("constant", "decay") and self.nlay is None:
-            raise ValueError("nlay is required when genmtd_lay is 'constant' or 'decay'")
-        if self.genmtd_lay == "decay" and self.lay_decay is None:
-            raise ValueError("lay_decay is required when genmtd_lay='decay'")
-        if self.genmtd_lay == "list":
-            if self.lay_proportions is None:
-                raise ValueError("lay_proportions is required when genmtd_lay='list'")
-            if self.nlay is not None and self.nlay != len(self.lay_proportions):
-                raise ValueError("nlay must match len(lay_proportions) when both are provided")
         return self
 
     @classmethod
@@ -388,8 +505,15 @@ class SGridConfig(HydroModelBase):
         cfg = dict(payload["sgrid"])
         base = path.parent
         cfg["top_path"] = resolve_path(cfg["top_path"], base)
+        # Legacy flat ``bot_path`` (resolved before migration to nested ``bottom``).
         if cfg.get("bot_path") is not None:
             cfg["bot_path"] = resolve_path(cfg["bot_path"], base)
+        # Nested ``bottom.path`` (when TOML uses the new schema).
+        bottom_section = cfg.get("bottom")
+        if isinstance(bottom_section, Mapping) and bottom_section.get("path") is not None:
+            bottom_data = dict(bottom_section)
+            bottom_data["path"] = resolve_path(bottom_data["path"], base)
+            cfg["bottom"] = bottom_data
         return cls.model_validate(cfg)
 
 

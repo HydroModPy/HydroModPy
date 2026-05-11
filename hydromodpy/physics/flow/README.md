@@ -42,7 +42,7 @@ id = "K"
 kind = "heterogeneous"
 unit = "m/s"
 
-[flow.param.K.field_heterogeneous]
+[flow.param.K.field]
 values_source = "csv"
 values_csv_file = "../../data/France/geology/geology_K_dummy_demo.csv"
 csv_key_column = "zone_key"
@@ -55,12 +55,12 @@ value = "12.5 m"                    # "<value> <unit>" in one field
 
 [flow.bc.dirichlet.ocean]
 value = "1.0 m"
-type = "dirichlet"
+kind = "dirichlet"
 data_value = true
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
-type = "cauchy"
+kind = "cauchy"
 value = "0.0 m2/s"
 
 [flow.sinks_sources.wells.W1]
@@ -68,7 +68,7 @@ cell = [0, 39, 39]                  # legacy: [lay, row, col], 0-based
 units = "m3/day"
 
 [flow.sinks_sources.wells.W1.forcing]
-mode = "constant"
+kind = "constant"
 value = -200.0
 ```
 
@@ -207,8 +207,8 @@ Each well payload:
 - or `location_mode = "absolute_xy"` with `layer`, `x`, `y`.
 - or `location_mode = "relative_xy"` with `layer`, `x_rel`, `y_rel` in `[0,1]`.
 - preferred `forcing` block:
-  - `mode = "constant"` with one `value`
-  - or `mode = "csv"` with `path_file`, `date_column`, `value_column`
+  - `kind = "constant"` with one `value`
+  - or `kind = "csv"` with `path_file`, `date_column`, `value_column`
 - legacy `flux`: numeric scalar or non-empty list of numerics.
 - `units`: optional string (default `m3/s`).
 - `description`: optional string.
@@ -232,7 +232,7 @@ y = 6784182.776
 units = "m3/day"
 
 [flow.sinks_sources.wells.W1.forcing]
-mode = "constant"
+kind = "constant"
 value = -200.0
 ```
 
@@ -247,7 +247,7 @@ y_rel = 0.70
 units = "m3/day"
 
 [flow.sinks_sources.wells.W2.forcing]
-mode = "csv"
+kind = "csv"
 path_file = "data/wells/standard_wells_2003.csv"
 date_column = "date"
 date_format = "%Y-%m-%d"
@@ -270,16 +270,16 @@ description = "Initial hydraulic head"
 
 [flow.bc.dirichlet.ocean]
 value = "0.0 m"
-type = "dirichlet"
+kind = "dirichlet"
 data_value = true
 
 [flow.bc.dirichlet.west_side]
 value = "3.0 m"
-type = "dirichlet"
+kind = "dirichlet"
 
 [flow.bc.cauchy.drainage]
 application_domain = "top"
-type = "cauchy"
+kind = "cauchy"
 value = "1e-6 m2/s"
 
 [flow.sinks_sources.wells.P1]
@@ -290,7 +290,7 @@ y_rel = 0.35
 units = "m3/day"
 
 [flow.sinks_sources.wells.P1.forcing]
-mode = "constant"
+kind = "constant"
 value = -500.0
 ```
 

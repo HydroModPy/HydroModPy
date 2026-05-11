@@ -184,13 +184,9 @@ def run_transient_runtime(solver: Boussinesq) -> bool:
             if runtime_period_diagnostics:
                 solver.runtime_summary["runtime_period_diagnostics"] = runtime_period_diagnostics
             if runtime_substep_diagnostics:
-                solver.runtime_summary["runtime_substep_diagnostics"] = (
-                    runtime_substep_diagnostics
-                )
+                solver.runtime_summary["runtime_substep_diagnostics"] = runtime_substep_diagnostics
             if runtime_ts_step_diagnostics:
-                solver.runtime_summary["runtime_ts_step_diagnostics"] = (
-                    runtime_ts_step_diagnostics
-                )
+                solver.runtime_summary["runtime_ts_step_diagnostics"] = runtime_ts_step_diagnostics
             solver.runtime_summary.update(
                 build_transient_activity_flags(
                     recharge_series_m_s=recharge_series_m_s,

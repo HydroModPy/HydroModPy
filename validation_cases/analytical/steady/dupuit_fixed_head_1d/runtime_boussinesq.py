@@ -37,7 +37,9 @@ def run_boussinesq_dupuit_fixed_head_case(
         if surface_interaction_model is None
         else str(surface_interaction_model).strip().lower()
     )
-    use_ts_vi = str(runtime_backend).strip().lower() == "petsc" and surface_model == "ts_vi_obstacle"
+    use_ts_vi = (
+        str(runtime_backend).strip().lower() == "petsc" and surface_model == "ts_vi_obstacle"
+    )
 
     flow_section = {
         "flow_regime": "transient" if use_ts_vi else "steady",

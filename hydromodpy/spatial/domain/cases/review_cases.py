@@ -180,7 +180,7 @@ def run_case_reviews(
             "catchment_area_km2": float(summary["catchment_area_km2"]),
             "surface_topo_shape": tuple(int(v) for v in summary["surface_topo_shape"]),
             "substratum_shape": tuple(int(v) for v in summary["substratum_shape"]),
-            "depth_model_type": str(summary["depth_model_type"]),
+            "depth_model_kind": str(summary["depth_model_kind"]),
             "geology_loaded": bool(summary["geology_loaded"]),
             "catchment_zone_loaded": bool(summary["catchment_zone_loaded"]),
             "figure": str(fig_path),

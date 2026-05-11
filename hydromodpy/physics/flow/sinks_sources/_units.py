@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from numbers import Real
 
+from hydromodpy.physics.forcing.types import FirstClimKeyword
+
 _FIRST_CLIM_KEYWORDS: frozenset[str] = frozenset({"mean", "first"})
 
 
-def normalize_first_clim(value: object) -> str | float:
+def normalize_first_clim(value: object) -> FirstClimKeyword | float:
     """Normalize a ``first_clim`` policy: 'mean'/'first' or a numeric scalar."""
     if isinstance(value, str):
         normalized = value.strip().lower()

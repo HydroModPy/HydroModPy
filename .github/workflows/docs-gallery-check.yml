@@ -14,8 +14,8 @@ on:
       - "validation_cases/analytical/**"
       - "validation_cases/numerical/**"
       - "validation_cases/reports/latest/**"
-      - "docs/readthedocs/source/capability_gallery/**"
-      - "docs/readthedocs/source/_static/capability_gallery/**"
+      - "docs/source/capability_gallery/**"
+      - "docs/source/_static/capability_gallery/**"
   push:
     branches: [master, dev]
     paths:
@@ -27,8 +27,8 @@ on:
       - "validation_cases/analytical/**"
       - "validation_cases/numerical/**"
       - "validation_cases/reports/latest/**"
-      - "docs/readthedocs/source/capability_gallery/**"
-      - "docs/readthedocs/source/_static/capability_gallery/**"
+      - "docs/source/capability_gallery/**"
+      - "docs/source/_static/capability_gallery/**"
   workflow_dispatch:
 
 concurrency:

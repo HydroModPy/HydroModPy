@@ -25,7 +25,7 @@ import os
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field, model_validator
+from pydantic import Field, PrivateAttr, computed_field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -67,10 +67,9 @@ class WorkspaceConfig(HydroModelBase):
         per-run ``figures/``). Defaults to ``project_root``.
     """
 
-    model_config = ConfigDict(extra="forbid")
-
     project_root: Annotated[Path, Profile.USER] = Field(
-        description=("Path to the project directory. Auto-derived from TOML location when absent."),
+        description="Path to the project directory. Required in TOML configs.",
+        examples=["."],
     )
 
     root: Annotated[Path | None, Profile.USER] = Field(
@@ -79,6 +78,7 @@ class WorkspaceConfig(HydroModelBase):
             "Explicit shared data workspace root. When set, derives data_dir unless "
             "it is overridden. Result catalogs stay project-local by default."
         ),
+        examples=["../.."],
     )
 
     catalog_path: Annotated[Path | None, Profile.DEV] = Field(
@@ -109,13 +109,16 @@ class WorkspaceConfig(HydroModelBase):
             "figures/). Defaults to project_root when not set. "
             "Use this to redirect heavy outputs to a separate disk."
         ),
+        examples=["outputs/run_a"],
     )
+
+    _resolution_source: ResolutionSource = PrivateAttr(default="explicit")
 
     @model_validator(mode="after")
     def _resolve(self) -> WorkspaceConfig:
         """Resolve to absolute paths using the strict binary contract."""
         project_root = Path(self.project_root).expanduser().resolve()
-        object.__setattr__(self, "project_root", project_root)
+        _set_if_changed(self, "project_root", project_root)
 
         root, source = _resolve_root(
             project_root=project_root,
@@ -125,29 +128,21 @@ class WorkspaceConfig(HydroModelBase):
             simulations_dir=self.simulations_dir,
         )
 
-        object.__setattr__(self, "root", root)
-        object.__setattr__(
+        _set_if_changed(self, "root", root)
+        _set_if_changed(
             self,
             "catalog_path",
             _finalize(self.catalog_path, project_root / "hydromodpy.duckdb"),
         )
-        object.__setattr__(
-            self,
-            "data_dir",
-            _finalize(self.data_dir, root / "data"),
-        )
-        object.__setattr__(
+        _set_if_changed(self, "data_dir", _finalize(self.data_dir, root / "data"))
+        _set_if_changed(
             self,
             "simulations_dir",
             _finalize(self.simulations_dir, project_root / "simulations"),
         )
         if self.output_root is not None:
-            object.__setattr__(
-                self,
-                "output_root",
-                Path(self.output_root).expanduser().resolve(),
-            )
-        object.__setattr__(self, "_resolution_source", source)
+            _set_if_changed(self, "output_root", Path(self.output_root).expanduser().resolve())
+        self._resolution_source = source
         return self
 
     # -- Resolution source -------------------------------------------------
@@ -164,16 +159,19 @@ class WorkspaceConfig(HydroModelBase):
             return self.output_root
         return self.project_root
 
+    @computed_field
     @property
     def catch_name(self) -> str:
         """Project name derived from the project directory name."""
         return self.project_root.name
 
+    @computed_field
     @property
     def solver_scratch_folder(self) -> Path:
         """Path to the temporary solver scratch directory."""
         return self._effective_output_root / ".solver_scratch"
 
+    @computed_field
     @property
     def data_path(self) -> Path:
         """Path to the shared data folder (always resolved)."""
@@ -189,6 +187,11 @@ def _finalize(value: Path | None, default: Path) -> Path:
     """Return an absolute resolved path, falling back to ``default``."""
     path = Path(value).expanduser() if value is not None else default
     return path.resolve()
+
+
+def _set_if_changed(model: WorkspaceConfig, name: str, value: Path) -> None:
+    if getattr(model, name) != value:
+        setattr(model, name, value)
 
 
 def _resolve_root(

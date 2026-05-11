@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.analysis.comparison.web.context import ComparisonWebContext
 from hydromodpy.analysis.comparison.web.html_utils import (
     link_relative,
@@ -16,6 +15,7 @@ from hydromodpy.analysis.comparison.web.html_utils import (
     safe,
     short,
 )
+from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 
 @dataclass(frozen=True)
@@ -57,6 +57,13 @@ def default_sections() -> list[ReportSection]:
             30,
             _render_categorized_figures,
             lambda ctx: bool(ctx.figure_categories),
+        ),
+        ReportSection(
+            "numerical_closure",
+            "Precision de resolution",
+            45,
+            _render_numerical_closure,
+            lambda ctx: bool(ctx.numerical_closure_rows),
         ),
         ReportSection("metrics", "Metriques principales", 50, _render_metrics),
         ReportSection("simulations", "Simulations", 60, _render_simulations),
@@ -304,6 +311,28 @@ def _render_comparable_flux(ctx: ComparisonWebContext) -> str:
 """
 
 
+def _render_numerical_closure(ctx: ComparisonWebContext) -> str:
+    rows = _format_closure_rows(ctx.numerical_closure_rows)
+    columns = [
+        ("simulation_id", "simulation"),
+        ("solver", "solveur"),
+        ("n_periods", "periodes"),
+        ("max_abs_closure_m3_s", "max |residu| m3/s"),
+        ("max_abs_closure_mm_d", "max |residu| mm/j"),
+        ("relative_closure_error_p95", "erreur rel. p95"),
+        ("diagnostic", "avis"),
+    ]
+    return f"""
+  <section>
+    <div class="card">
+      <h2>Precision de resolution</h2>
+      <p class="muted">Diagnostic commun calcule apres coup sur les budgets normalises: entrees moins sorties moins variation de stockage. Il ne remplace pas les criteres internes des solveurs, mais indique si l'etat accepte ferme correctement le bilan d'eau.</p>
+      {_render_table(rows, columns, empty="Aucun diagnostic de fermeture du bilan.")}
+    </div>
+  </section>
+"""
+
+
 def _render_metrics(ctx: ComparisonWebContext) -> str:
     rows = _format_metric_rows(ctx.metrics_rows[:24])
     return f"""
@@ -334,9 +363,11 @@ def _render_figures(
             f'<img src="{safe(link_relative(ctx.web_dir, path))}" alt="{safe(title)}">'
             "</a>"
             f"<figcaption>{safe(caption)}"
-            + (f'<br><span class="muted">{safe(title)}'
-               + (f" - {safe(kind)}" if kind else "")
-               + "</span>")
+            + (
+                f'<br><span class="muted">{safe(title)}'
+                + (f" - {safe(kind)}" if kind else "")
+                + "</span>"
+            )
             + "</figcaption></figure>"
         )
     if not blocks:
@@ -472,7 +503,7 @@ def _synthetic_context_rows(payload: Mapping[str, Any]) -> list[tuple[str, str]]
         ),
         (
             "Topographie",
-            f"plan incline, altitude de base {_format_value(topography.get('base_elevation'), default='80')} m, denivele lateral {_format_value(topography.get('right_to_left_amplitude'), default='20')} m",
+            f"plan incline, altitude de base {_format_value(topography.get('base_elevation'), default='20')} m, denivele lateral {_format_value(topography.get('right_to_left_amplitude'), default='20')} m",
         ),
         (
             "Epaisseur",
@@ -480,7 +511,9 @@ def _synthetic_context_rows(payload: Mapping[str, Any]) -> list[tuple[str, str]]
         ),
         (
             "Conductivite K",
-            _format_mapping_values(k_values, default="heterogene: ouest 1e-5, centre 8e-5, est 3e-5 m/s"),
+            _format_mapping_values(
+                k_values, default="heterogene: ouest 1e-5, centre 8e-5, est 3e-5 m/s"
+            ),
         ),
         (
             "Stockage",
@@ -501,8 +534,7 @@ def _format_mapping_values(value: Any, *, default: str) -> str:
         "east_medium_k": "est",
     }
     parts = [
-        f"{labels.get(str(key), str(key))}: {_format_value(raw)}"
-        for key, raw in value.items()
+        f"{labels.get(str(key), str(key))}: {_format_value(raw)}" for key, raw in value.items()
     ]
     return "; ".join(parts)
 
@@ -534,8 +566,7 @@ def _initial_condition_text(flow: Mapping[str, Any]) -> str:
     if ic_type == "steady_state":
         if (
             str(flow.get("runtime_backend", "")).strip().lower() == "petsc"
-            and str(flow.get("surface_interaction_model", "")).strip().lower()
-            == "ts_vi_obstacle"
+            and str(flow.get("surface_interaction_model", "")).strip().lower() == "ts_vi_obstacle"
         ):
             return (
                 "charge initiale issue d'un calcul permanent auxiliaire avec "
@@ -642,12 +673,15 @@ def _render_runtime_table(
     materialized = list(rows)
     if not materialized:
         return '<p class="muted">Aucune simulation dans le manifeste.</p>'
-    values = [_runtime_seconds(row.get("wall_time_seconds")) for row in materialized]
+    runtime_items = [_row_runtime_seconds_with_scope(row) for row in materialized]
+    values = [item[0] for item in runtime_items]
     maximum = max([value for value in values if value is not None], default=None)
     body_rows: list[str] = []
-    for row, value in zip(materialized, values, strict=False):
+    for row, (value, scope) in zip(materialized, runtime_items, strict=False):
         solver = str(row.get("solver", "") or "").strip().lower()
-        bar_class = "modflow6" if solver == "modflow6" else "boussinesq" if solver == "boussinesq" else ""
+        bar_class = (
+            "modflow6" if solver == "modflow6" else "boussinesq" if solver == "boussinesq" else ""
+        )
         width = 0.0
         if value is not None and maximum not in (None, 0):
             width = max(2.0, min(100.0, 100.0 * value / maximum))
@@ -658,6 +692,7 @@ def _render_runtime_table(
             f"<td>{safe(short(row.get('solver', '')))}</td>"
             f"<td>{safe(short(row.get('status', '')))}</td>"
             f"<td>{safe(runtime)}</td>"
+            f"<td>{safe(scope)}</td>"
             "<td>"
             '<div class="runtime-bar-track">'
             f'<span class="runtime-bar {safe(bar_class)}" style="width: {width:.1f}%"></span>'
@@ -667,9 +702,29 @@ def _render_runtime_table(
         )
     return (
         '<table class="runtime-table"><thead><tr>'
-        "<th>id</th><th>solver</th><th>status</th><th>runtime</th><th>comparaison</th>"
+        "<th>id</th><th>solver</th><th>status</th><th>temps</th><th>portee</th><th>comparaison</th>"
         f"</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
     )
+
+
+def _row_runtime_seconds_with_scope(row: Mapping[str, Any]) -> tuple[float | None, str]:
+    metrics = row.get("metrics")
+    metrics_map = metrics if isinstance(metrics, Mapping) else {}
+    boussinesq_summary = row.get("boussinesq_summary")
+    boussinesq_map = boussinesq_summary if isinstance(boussinesq_summary, Mapping) else {}
+    for candidate in (
+        row.get("flow_solve_time_seconds"),
+        metrics_map.get("flow_solve_time_seconds"),
+        boussinesq_map.get("flow_solve_time_seconds"),
+    ):
+        seconds = _runtime_seconds(candidate)
+        if seconds is not None:
+            return seconds, "flux"
+    for candidate in (row.get("wall_time_seconds"), metrics_map.get("wall_time_seconds")):
+        seconds = _runtime_seconds(candidate)
+        if seconds is not None:
+            return seconds, "workflow"
+    return None, ""
 
 
 def _runtime_seconds(value: Any) -> float | None:
@@ -706,6 +761,20 @@ def _format_metric_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
             "mae_normalized_percent",
             "rmse_normalized_percent",
             "max_abs_error_normalized_percent",
+        ):
+            item[key] = _format_number(row.get(key))
+        formatted.append(item)
+    return formatted
+
+
+def _format_closure_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    formatted: list[dict[str, str]] = []
+    for row in rows:
+        item = dict(row)
+        for key in (
+            "max_abs_closure_m3_s",
+            "max_abs_closure_mm_d",
+            "relative_closure_error_p95",
         ):
             item[key] = _format_number(row.get(key))
         formatted.append(item)
@@ -751,11 +820,15 @@ def _figure_caption(item: Mapping[str, Any]) -> str:
     if observable == "case_configuration":
         return "Contexte du cas: geometrie, zones K, recharge et points d'extraction."
     if kind == "fine_raster_map_comparison":
-        return _observable_label(observable) + ": reference et candidat sur la meme grille interpolee."
+        return (
+            _observable_label(observable) + ": reference et candidat sur la meme grille interpolee."
+        )
     if "triptych" in kind or "head_map" in observable:
         return _observable_label(observable) + ": reference, candidat et ecart."
     if kind == "timeseries" or observable.endswith("_series"):
-        return _observable_label(observable) + ": comparaison temporelle MF6 / Boussinesq."
+        point_label = str(item.get("point_label", "")).strip()
+        prefix = f"Point {point_label} - " if point_label else ""
+        return prefix + _observable_label(observable) + ": comparaison temporelle MF6 / Boussinesq."
     if observable in {"storage_change_total_m3_s", "storage_comparison_dashboard"}:
         return "Stockage global: variation instantanee du volume stocke dans l'aquifere."
     if observable in {"total_inputs_outputs_m3_s", "total_inputs_outputs_dashboard"}:

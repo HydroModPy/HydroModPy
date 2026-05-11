@@ -1,0 +1,246 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "hydraulic_conductivity_square_parameterizations",
+  "title": "Square Field Parameterizations",
+  "category": "hydraulic_properties",
+  "deck": "Synthetic conductivity and storage examples comparing structured and triangular supports, inline units, and vertical profiles.",
+  "summary": "This case builds one compact two-zone square domain and maps the same conductivity field onto structured and triangular meshes. It also illustrates how inline units and depth-profile modes are normalized before the solver stage.",
+  "case_setup": [
+    "Unit-square domain split by one diagonal into granite and micaschist zones.",
+    "Structured and triangular meshes generated from the same target cell count.",
+    "Depth dependence illustrated with `none`, `exponential`, and `tabulated` profiles."
+  ],
+  "key_parameters": [],
+  "how_to_read": [],
+  "next_steps": [],
+  "what_it_shows": [
+    "How the same heterogeneous K field maps onto structured and triangular meshes.",
+    "How inline values such as `m/day` and `mm/day` are normalized to HydroModPy's SI internals.",
+    "How `none`, `exponential`, and `tabulated` depth profiles modify conductivity with depth."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": null,
+  "walkthrough_title": null,
+  "reproduction_command": "python -m tools.doc_gallery",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "hydromodpy/spatial/field/core/field_param.py",
+    "hydromodpy/spatial/field/core/field_param_config.py",
+    "hydromodpy/spatial/field/cases/square/field_mesh_square.py",
+    "hydromodpy/spatial/field/cases/square/field_spatial_square.py",
+    "hydromodpy/spatial/field/cases/square/field_param_config.toml",
+    "tests/unit/field/test_field_param.py",
+    "tests/unit/field/test_field_param_config.py"
+  ],
+  "source_hashes": {
+    "hydromodpy/spatial/field/core/field_param.py": "5e8020490e28d0d33f9240bf4b9035e2288143b85bd0be510f51dae52e50cf1d",
+    "hydromodpy/spatial/field/core/field_param_config.py": "4038744c202681f2cc7d865bd426c2a440d25ddbc2bd2efa48fcd811b2574b54",
+    "hydromodpy/spatial/field/cases/square/field_mesh_square.py": "6a96c3e7e5d091af76c1a2e2dd82d07c5008281aaf0739c0c204a2fbfa1b1271",
+    "hydromodpy/spatial/field/cases/square/field_spatial_square.py": "6a6aaed506e012b3b81263d467b21ddd77ea1f612b2081f7acc268b9b22c2f41",
+    "hydromodpy/spatial/field/cases/square/field_param_config.toml": "381cebc3c467566c2ad2db8bd3bbf8ea7f6af421f93a42c252d6c6027336cd99",
+    "tests/unit/field/test_field_param.py": "ec3826f66fefd61fe696c47a511571cc73fb3f9c6cbbbd5926cc9b9f549586e8",
+    "tests/unit/field/test_field_param_config.py": "777f073f4da8c0433dbdfcfdefc931b935d40c792e1360c5dc740b49206d966e"
+  },
+  "docname": "cases/hydraulic_conductivity_square_parameterizations",
+  "images": [
+    {
+      "filename": "hydraulic_conductivity_square_parameterizations.png",
+      "caption": "Structured and triangular conductivity maps alongside depth-profile and inline-unit examples.",
+      "alt_text": "Hydraulic conductivity parameterizations on square synthetic meshes",
+      "doc_path": "/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png",
+      "repo_path": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Structured cells",
+      "key": "structured_cell_count",
+      "value": 64,
+      "display": "64"
+    },
+    {
+      "label": "Triangular cells",
+      "key": "triangular_cell_count",
+      "value": 128,
+      "display": "128"
+    },
+    {
+      "label": "Minimum K",
+      "key": "k_min_m_per_day",
+      "value": 2.0,
+      "display": "2.0 m/day"
+    },
+    {
+      "label": "Maximum K",
+      "key": "k_max_m_per_day",
+      "value": 10.0,
+      "display": "10.0 m/day"
+    }
+  ],
+  "metadata": {
+    "property_case_kind": "square_parameterizations",
+    "parameter_ids": [
+      "K",
+      "Sy",
+      "Ss"
+    ],
+    "parameterization_modes": [
+      "inline",
+      "heterogeneous",
+      "exponential",
+      "tabulated"
+    ],
+    "supports": [
+      "structured",
+      "triangular_structured"
+    ],
+    "unit_examples": [
+      {
+        "identifier": "K",
+        "raw_value": "8.64 m/day",
+        "normalized_value": 0.0001,
+        "normalized_unit": "m/s"
+      },
+      {
+        "identifier": "K",
+        "raw_value": "8640 mm/day",
+        "normalized_value": 0.0001,
+        "normalized_unit": "m/s"
+      },
+      {
+        "identifier": "K",
+        "raw_value": "1.0e-4 m/s",
+        "normalized_value": 0.0001,
+        "normalized_unit": "m/s"
+      },
+      {
+        "identifier": "Ss",
+        "raw_value": "1.0e-6 cm-1",
+        "normalized_value": 9.999999999999999e-05,
+        "normalized_unit": "m-1"
+      },
+      {
+        "identifier": "Sy",
+        "raw_value": "0.20 -",
+        "normalized_value": 0.2,
+        "normalized_unit": "-"
+      }
+    ],
+    "vertical_profiles": [
+      "No profile",
+      "Exponential",
+      "Tabulated"
+    ]
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json",
+    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json",
+    "image_repo_paths": [
+      "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations.png"
+    ]
+  },
+  "parameter_docs": {
+    "sections": [
+      {
+        "title": "Selected Parameters",
+        "rows": [
+          {
+            "field": "property_case_kind",
+            "meaning": "Hydraulic-property rendering mode used to build this gallery figure.",
+            "value": "square_parameterizations",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+          },
+          {
+            "field": "parameter_ids",
+            "meaning": "Hydraulic parameters illustrated by the case.",
+            "value": "K, Sy, Ss",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+          },
+          {
+            "field": "parameterization_modes",
+            "meaning": "Parameterization modes intentionally demonstrated by the case.",
+            "value": "inline, heterogeneous, exponential, tabulated",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+          },
+          {
+            "field": "supports",
+            "meaning": "Spatial supports used to render the field or compare variants.",
+            "value": "structured, triangular_structured",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+          }
+        ]
+      },
+      {
+        "title": "Configuration Values",
+        "rows": [
+          {
+            "field": "[field] id",
+            "meaning": "Identifier used by FieldParam for the illustrated hydraulic property.",
+            "value": "K",
+            "source": "hydromodpy/spatial/field/cases/square/field_param_config.toml"
+          },
+          {
+            "field": "[field] kind",
+            "meaning": "Homogeneous or heterogeneous assignment mode used by the field parameter.",
+            "value": "heterogeneous",
+            "source": "hydromodpy/spatial/field/cases/square/field_param_config.toml"
+          },
+          {
+            "field": "[field] unit",
+            "meaning": "Unit declared for the property values before internal normalization.",
+            "value": "m/s",
+            "source": "hydromodpy/spatial/field/cases/square/field_param_config.toml"
+          },
+          {
+            "field": "[field] values_source",
+            "meaning": "How heterogeneous values are supplied to the field parameter.",
+            "value": "inline",
+            "source": "hydromodpy/spatial/field/cases/square/field_param_config.toml"
+          },
+          {
+            "field": "[field] values",
+            "meaning": "Inline heterogeneous values used to map zones or materials to property values.",
+            "value": "granite=10, micaschists=2",
+            "source": "hydromodpy/spatial/field/cases/square/field_param_config.toml"
+          },
+          {
+            "field": "[field_vertical_profile] mode",
+            "meaning": "Vertical-profile mode applied to the field when depth dependence is active.",
+            "value": "none",
+            "source": "hydromodpy/spatial/field/cases/square/field_param_config.toml"
+          }
+        ]
+      },
+      {
+        "title": "Displayed Values",
+        "rows": [
+          {
+            "field": "structured_cell_count",
+            "meaning": "Metric displayed on this page.",
+            "value": "64",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+          },
+          {
+            "field": "triangular_cell_count",
+            "meaning": "Metric displayed on this page.",
+            "value": "128",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+          },
+          {
+            "field": "k_min_m_per_day",
+            "meaning": "Metric displayed on this page.",
+            "value": "2.0 m/day",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+          },
+          {
+            "field": "k_max_m_per_day",
+            "meaning": "Metric displayed on this page.",
+            "value": "10.0 m/day",
+            "source": "docs/readthedocs/source/_static/capability_gallery/hydraulic_properties/hydraulic_conductivity_square_parameterizations_summary.json"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -18,9 +18,9 @@ def test_modflow_config_defaults_match_runtime_defaults():
     cfg = ModflowConfig()
     params = ModflowSpecifParams.from_config(cfg)
 
-    assert params.runtime.mf_version == "mfnwt"
-    assert params.runtime.nwt_headtol == 1e-4
-    assert params.runtime.nwt_fluxtol == 500.0
+    assert params.runtime.nwt.version == "mfnwt"
+    assert params.runtime.nwt.headtol == 1e-4
+    assert params.runtime.nwt.fluxtol == 500.0
     assert params.process_specific.vka == 1.0
     assert params.process_specific.exdp == 1.0
     assert isinstance(params.sgrid, SolverSGridConfig)
@@ -55,7 +55,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
                 f'root = "{tmp_path}"',
@@ -67,8 +67,8 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 "[solver]",
                 'solver_engine = "modflownwt"',
                 "",
-                "[modflownwt.runtime]",
-                'nwt_options = "SIMPLE"',
+                "[modflownwt.runtime.nwt]",
+                'options = "SIMPLE"',
                 "",
                 "[modflownwt.process_specific]",
                 "vka = 2.5",
@@ -104,7 +104,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
     assert cfg.solver.solver_engine == "modflownwt"
     assert cfg.modflownwt.process_specific.vka == 2.5
     assert cfg.modflownwt.process_specific.exdp == 3.0
-    assert cfg.modflownwt.runtime.nwt_options == "SIMPLE"
+    assert cfg.modflownwt.runtime.nwt.options == "SIMPLE"
     assert isinstance(cfg.modflownwt.sgrid, SolverSGridConfig)
     assert cfg.modflownwt.sgrid.planar.mode == "resample_to_shape"
     assert cfg.modflownwt.sgrid.planar.nx == 6
@@ -127,7 +127,7 @@ def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
                 f'root = "{tmp_path}"',
@@ -160,7 +160,7 @@ def test_hydromodpy_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
                 f'root = "{tmp_path}"',
@@ -197,7 +197,7 @@ def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
                 f'root = "{tmp_path}"',
@@ -226,7 +226,7 @@ def test_hydromodpy_config_rejects_legacy_flat_modflow_schema(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
                 f'root = "{tmp_path}"',
@@ -256,7 +256,7 @@ def test_hydromodpy_config_rejects_unknown_top_level_sections(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
                 f'root = "{tmp_path}"',
@@ -284,7 +284,7 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     toml_path.write_text(
         "\n".join(
             [
-                'workflow = "simulation"',
+                '[workflow]\nmode = "simulation"',
                 "[workspace]",
                 f'project_root = "{tmp_path}"',
                 f'root = "{tmp_path}"',

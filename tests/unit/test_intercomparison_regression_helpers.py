@@ -117,7 +117,7 @@ def test_write_isolated_comparison_config_redirects_outputs_and_workspace(
     source_config.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
