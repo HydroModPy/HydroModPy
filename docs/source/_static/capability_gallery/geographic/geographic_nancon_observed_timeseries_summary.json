@@ -45,9 +45,9 @@
     "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/geographic_cases.json": "d8ef3b9bd8f9fcbeef8701d9035f284d54634dc90741e82a6ffa5d1ab0372261",
-    "examples/projects/05_nancon_data_overview/config_overview.toml": "c98a19b16dfb3b2eff41a0b3ab2a184a037ee37bc08ae36cd2e487b2f562825a",
-    "examples/projects/09_capability_gallery/geographic/README.md": "07f37f4616cc9972e1d68a854ddf3ba078bd7a08178147c2939fb8a292983456",
+    "tools/doc_gallery/manifests/geographic_cases.json": "87a228bb5a5c8c8b087dbeae7693efd258f71bab1739443c6cf211b1f90f7bfe",
+    "examples/projects/05_nancon_data_overview/config_overview.toml": "611b847666a8e19f79114441d82916391a63051d27b3060c8c6098748d7fbde4",
+    "examples/projects/09_capability_gallery/geographic/README.md": "50e3977c73fbb56834de76bfb9a3e7db805b18a676547c4d695d22f1ce871572",
     "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png": "60e4641dd894bc881c0bc32d5c0dafa0c25238b049e8e4fd0413aa412b33b618",
     "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png": "811d308efa7954f55bdd603fd3d997cd14fc9200a2e8b801089a00e57d8c51a3",
     "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png": "bf56193b7835c8d755fc744543c060fefbaa7c99152991a989f2516ba532eec7",
@@ -60,28 +60,28 @@
       "caption": "Observed discharge chronicle extracted by the Nancon data-overview workflow.",
       "alt_text": "Nancon discharge time series",
       "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png"
+      "repo_path": "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png"
     },
     {
       "filename": "geographic_nancon_timeseries_piezometry.png",
       "caption": "Observed piezometric chronicle extracted by the Nancon data-overview workflow.",
       "alt_text": "Nancon piezometry time series",
       "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png"
+      "repo_path": "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png"
     },
     {
       "filename": "geographic_nancon_timeseries_intermittency.png",
       "caption": "Observed intermittency timeline extracted by the Nancon data-overview workflow.",
       "alt_text": "Nancon intermittency time series",
       "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png"
+      "repo_path": "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png"
     },
     {
       "filename": "geographic_nancon_timeseries_water_quality.png",
       "caption": "Observed water-quality chronicle extracted by the Nancon data-overview workflow.",
       "alt_text": "Nancon water quality time series",
       "doc_path": "/_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png"
+      "repo_path": "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png"
     }
   ],
   "metrics": [],
@@ -127,30 +127,30 @@
     "copied_assets": [
       {
         "source_path": "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_discharge.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png"
+        "copied_to": "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_piezometry.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png"
+        "copied_to": "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_intermittency.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png"
+        "copied_to": "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/geographic/nancon_observed_timeseries/geographic_nancon_timeseries_water_quality.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png"
+        "copied_to": "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png"
       }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/geographic/geographic_nancon_observed_timeseries_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_observed_timeseries_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/geographic/geographic_nancon_observed_timeseries_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png",
-      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png",
-      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png",
-      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png"
+      "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_discharge.png",
+      "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_piezometry.png",
+      "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_intermittency.png",
+      "docs/source/_static/capability_gallery/geographic/geographic_nancon_timeseries_water_quality.png"
     ]
   },
   "parameter_docs": {

@@ -46,14 +46,14 @@
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/code_comparison_cases.json": "6a5e969188ea5667537872db09584f8f0b4c4f702da08a0c1f2d861f9e3a1a42",
-    "tools/investigate_surface_interaction_hillslope_transient.py": "ac410886d5178f26287fdff98f178b1017de76d1ea4458e3bc186a6d5d9d38e4",
-    "tools/doc_gallery/generate_code_comparison_assets.py": "37413421db8ac3e85a382ce778d74984fce06254cb452474e740190c70abbf29",
-    "validation_cases/shared/boussinesq_budget.py": "160b26530c3675508f30fd61b432eefd0b715f2b39e54afbb58fabfd4413d38b",
+    "tools/doc_gallery/manifests/code_comparison_cases.json": "682dc842c96889f85939ef2347a5be9051f7ff923e14740dbda83b06ef896d3d",
+    "tools/investigate_surface_interaction_hillslope_transient.py": "ad15deb26e4c5e944092dc96b1af5ec2bdc1d7fa7dfbe25c8def77cd59db3145",
+    "tools/doc_gallery/generate_code_comparison_assets.py": "1adae160c1d587473b6e58eab224aca440fe6c63aa2931a3f69ff4afe3f33484",
+    "validation_cases/shared/boussinesq_budget.py": "fa6b6c31647bebf77896570cf1bf7eecbfceb59ef6a5ba915dc0ea01f884a4b9",
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png": "b60fbacd061aff3836bda3672a27ec0ac5bbc8db1b15b26a6bbd13dcb767358a",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json": "850cdbbba28d270b549b7d30df47f5b3340900998158ec4c1c52dbc85fe28a2e",
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.json": "a1e109726b943d0a5d4be7432d52ad0f4b18f136012db6fef0b89aff944b9393",
     "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png": "2fc32bc3c05d926a8b82b9fe87c7faba7d817f272f9bc82ac8847eeeeab83d7d",
-    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json": "5ee7662b5b903fb04c349c917ea61209a5a337370a662e7cb629c7180096a46d"
+    "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.json": "87c6d6e0fbe78ea76ec31d3dd8ee108168558900547108fb585dc484136aa70f"
   },
   "docname": "cases/surface_interaction_no_seepage_code_comparison",
   "images": [
@@ -62,21 +62,21 @@
       "caption": "Configuration schematic for the no-seepage benchmark, where the surface is lifted above the imposed east head.",
       "alt_text": "Configuration schematic for the no-seepage surface-interaction benchmark",
       "doc_path": "/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png"
+      "repo_path": "docs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png"
     },
     {
       "filename": "no_seepage_reference_k.png",
       "caption": "No-seepage benchmark on the four committed cross-code solvers.",
       "alt_text": "No seepage code comparison on the four-solver benchmark",
       "doc_path": "/_static/capability_gallery/code_comparison/no_seepage_reference_k.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png"
+      "repo_path": "docs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png"
     },
     {
       "filename": "no_seepage_high_k.png",
       "caption": "High-conductivity no-seepage benchmark on the same four committed solvers.",
       "alt_text": "No seepage code comparison at high hydraulic conductivity",
       "doc_path": "/_static/capability_gallery/code_comparison/no_seepage_high_k.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png"
+      "repo_path": "docs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png"
     }
   ],
   "metrics": [],
@@ -114,25 +114,25 @@
     "copied_assets": [
       {
         "source_path": "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/surface_interaction_no_seepage_configuration.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png"
+        "copied_to": "docs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_reference_k.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png"
+        "copied_to": "docs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/code_comparison/surface_interaction_no_seepage/no_seepage_high_k.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png"
+        "copied_to": "docs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png"
       }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_code_comparison_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_code_comparison_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_code_comparison_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png",
-      "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png",
-      "docs/readthedocs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png"
+      "docs/source/_static/capability_gallery/code_comparison/surface_interaction_no_seepage_configuration.png",
+      "docs/source/_static/capability_gallery/code_comparison/no_seepage_reference_k.png",
+      "docs/source/_static/capability_gallery/code_comparison/no_seepage_high_k.png"
     ]
   }
 }

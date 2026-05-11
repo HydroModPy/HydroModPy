@@ -164,6 +164,19 @@ def _format_default(field: FieldInfo) -> str:
     return repr(default)
 
 
+def _toml_literal(default: Any) -> str:
+    """Render a Python default as a single-line TOML literal."""
+    if isinstance(default, str):
+        return f'"{default}"'
+    if isinstance(default, bool):
+        return "true" if default else "false"
+    if isinstance(default, Path):
+        return f'"{default.as_posix()}"'
+    if isinstance(default, (tuple, list, set, frozenset)):
+        return "[" + ", ".join(_toml_literal(item) for item in default) + "]"
+    return repr(default)
+
+
 _TYPE_CLEAN_PATTERNS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"<class '([^']+)'>"), r"\1"),
     (re.compile(r"\bpathlib\._local\."), ""),
@@ -713,16 +726,10 @@ def _render_starter_snippet(section_name: str, model: type[BaseModel]) -> list[s
             lines.append(f"# {field_name} = ...  # uses factory default")
             continue
         default = field.default
-        if isinstance(default, str):
-            lines.append(f'# {field_name} = "{default}"')
-        elif isinstance(default, bool):
-            lines.append(f"# {field_name} = {'true' if default else 'false'}")
-        elif isinstance(default, Path):
-            lines.append(f'# {field_name} = "{default.as_posix()}"')
-        elif default is None:
+        if default is None:
             lines.append(f"# {field_name} = ...  # default = None")
         else:
-            lines.append(f"# {field_name} = {default!r}")
+            lines.append(f"# {field_name} = {_toml_literal(default)}")
 
     for header, sub_model in nested_subtables:
         lines.append("")
@@ -738,16 +745,10 @@ def _render_starter_snippet(section_name: str, model: type[BaseModel]) -> list[s
                 lines.append(f"# {sub_name} = ...  # factory default")
             else:
                 default = sub_field.default
-                if isinstance(default, str):
-                    lines.append(f'# {sub_name} = "{default}"')
-                elif isinstance(default, bool):
-                    lines.append(f"# {sub_name} = {'true' if default else 'false'}")
-                elif isinstance(default, Path):
-                    lines.append(f'# {sub_name} = "{default.as_posix()}"')
-                elif default is None:
+                if default is None:
                     lines.append(f"# {sub_name} = ...  # default = None")
                 else:
-                    lines.append(f"# {sub_name} = {default!r}")
+                    lines.append(f"# {sub_name} = {_toml_literal(default)}")
     return lines
 
 
@@ -1074,16 +1075,10 @@ def _render_couche4(top_fields: dict[str, FieldInfo]) -> str:
                 lines.append(f"      # {field_name} = ...  # uses factory default")
             else:
                 default = sub_field.default
-                if isinstance(default, str):
-                    lines.append(f'      {field_name} = "{default}"')
-                elif isinstance(default, bool):
-                    lines.append(f"      {field_name} = {'true' if default else 'false'}")
-                elif isinstance(default, Path):
-                    lines.append(f'      {field_name} = "{default.as_posix()}"')
-                elif default is None:
+                if default is None:
                     lines.append(f"      # {field_name} = ...  # default = None")
                 else:
-                    lines.append(f"      {field_name} = {default!r}")
+                    lines.append(f"      {field_name} = {_toml_literal(default)}")
         lines.append("")
     return "\n".join(lines)
 

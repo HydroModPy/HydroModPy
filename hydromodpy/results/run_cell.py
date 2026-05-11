@@ -1,7 +1,8 @@
 """Per-cell catchment views for :class:`hydromodpy.results.run.Run`.
 
 Mixin that delegates lazy per-cell metrics (saturation, drainage density,
-persistence, network overlap and distance for arbitrary cell fields) to
+persistence, network overlap and distance for arbitrary cell fields, and
+release-flux network overlap and distance) to
 :mod:`hydromodpy.results.views`. Mixed into :class:`Run`; ``self`` is the
 :class:`Run` instance the views consume.
 """
@@ -59,6 +60,21 @@ class RunCellMixin:
         from hydromodpy.results import views
 
         return views.cell_field_network_distance_metrics(self, **kwargs)
+
+    def release_flux_network_overlap_metrics(self, **kwargs) -> dict[str, float | int | str]:
+        """Lazy cell-overlap metrics for direct release flux against a vector network."""
+        from hydromodpy.results import views
+
+        return views.release_flux_network_overlap_metrics(self, **kwargs)
+
+    def release_flux_network_distance_metrics(
+        self,
+        **kwargs,
+    ) -> dict[str, float | int | str | None]:
+        """Lazy raw planar distance metrics for direct release flux."""
+        from hydromodpy.results import views
+
+        return views.release_flux_network_distance_metrics(self, **kwargs)
 
     def catchment_mean(self, variable: str, **kwargs) -> pd.Series:
         """Lazy arithmetic mean of a cell variable over active cells."""

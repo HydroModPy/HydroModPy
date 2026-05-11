@@ -135,7 +135,10 @@ class ComparisonSimulationConfig(HydroModelBase):
 class ComparisonSection(HydroModelBase):
     """Top-level comparison experiment section."""
 
-    comparison_id: Annotated[IdentifierStr | None, Profile.USER] = None
+    comparison_id: Annotated[IdentifierStr | None, Profile.USER] = Field(
+        default=None,
+        description="Stable identifier for this comparison run.",
+    )
     base_simulation_config: Annotated[OptionalText, Profile.EXPERT] = None
     base_simulation_overlay: Annotated[dict[str, Any], Profile.EXPERT] = Field(
         default_factory=dict,

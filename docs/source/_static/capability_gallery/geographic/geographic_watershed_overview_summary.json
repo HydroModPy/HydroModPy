@@ -45,9 +45,9 @@
     "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png"
   ],
   "source_hashes": {
-    "tools/doc_gallery/manifests/geographic_cases.json": "d8ef3b9bd8f9fcbeef8701d9035f284d54634dc90741e82a6ffa5d1ab0372261",
-    "examples/projects/04_data_overview/project.toml": "092103c50a3edf6b421c9999488186e12ce7433575e6f72519f5b15102a30299",
-    "examples/projects/09_capability_gallery/geographic/README.md": "07f37f4616cc9972e1d68a854ddf3ba078bd7a08178147c2939fb8a292983456",
+    "tools/doc_gallery/manifests/geographic_cases.json": "87a228bb5a5c8c8b087dbeae7693efd258f71bab1739443c6cf211b1f90f7bfe",
+    "examples/projects/04_data_overview/project.toml": "692205285148e09f687400490ed1d9c638987f9d956b8bdcf1726a4b86a6cbe4",
+    "examples/projects/09_capability_gallery/geographic/README.md": "50e3977c73fbb56834de76bfb9a3e7db805b18a676547c4d695d22f1ce871572",
     "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png": "e89a7527ccc0ce66f7c55f5acfcd4fa0c286ad83b78bcb04589a463c6c6d1979",
     "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png": "851a58eea24b3710185702557b5d74e7505f5f656507b5d2236fb537570ae92d"
   },
@@ -58,14 +58,14 @@
       "caption": "DEM-oriented watershed overview copied from versioned example outputs.",
       "alt_text": "Watershed DEM overview",
       "doc_path": "/_static/capability_gallery/geographic/geographic_watershed_dem.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png"
+      "repo_path": "docs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png"
     },
     {
       "filename": "geographic_watershed_local.png",
       "caption": "Local watershed framing copied from versioned example outputs.",
       "alt_text": "Watershed local overview",
       "doc_path": "/_static/capability_gallery/geographic/geographic_watershed_local.png",
-      "repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
+      "repo_path": "docs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
     }
   ],
   "metrics": [],
@@ -88,20 +88,20 @@
     "copied_assets": [
       {
         "source_path": "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_dem.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png"
+        "copied_to": "docs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png"
       },
       {
         "source_path": "examples/projects/09_capability_gallery/geographic/watershed_overview/geographic_watershed_local.png",
-        "copied_to": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
+        "copied_to": "docs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
       }
     ]
   },
   "artifacts": {
     "summary_json_doc_path": "/_static/capability_gallery/geographic/geographic_watershed_overview_summary.json",
-    "summary_json_repo_path": "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_overview_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/geographic/geographic_watershed_overview_summary.json",
     "image_repo_paths": [
-      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png",
-      "docs/readthedocs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
+      "docs/source/_static/capability_gallery/geographic/geographic_watershed_dem.png",
+      "docs/source/_static/capability_gallery/geographic/geographic_watershed_local.png"
     ]
   },
   "parameter_docs": {
@@ -143,12 +143,6 @@
             "field": "[domain] zone_ids",
             "meaning": "Domain layers kept on the spatial support before any meshing or solving stage.",
             "value": "geology",
-            "source": "examples/projects/04_data_overview/project.toml"
-          },
-          {
-            "field": "[domain.depth_model] type",
-            "meaning": "Depth-model strategy used to define the vertical support of the basin.",
-            "value": "constant_thickness",
             "source": "examples/projects/04_data_overview/project.toml"
           },
           {

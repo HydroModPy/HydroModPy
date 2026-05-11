@@ -316,12 +316,12 @@ class TestSimulationData:
         ):
             sim.hydrographic_network_comparison(tolerance_m=25.0)
 
-    def test_simulated_active_network_metrics_from_accumulation_flux(self, catalog):
+    def test_cell_field_active_metrics_from_accumulation_flux(self, catalog):
         sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
         _write_active_accumulation_flux_case(catalog, sid)
 
         sim = Run(sid, catalog)
-        metrics = sim.simulated_active_network_metrics(
+        metrics = sim.cell_field_active_metrics(
             threshold=0.5,
             persistence_threshold=0.5,
         )
@@ -346,22 +346,22 @@ class TestSimulationData:
         assert metrics["persistence_mean"] == pytest.approx(5.0 / 9.0)
         assert metrics["persistence_max"] == pytest.approx(1.0)
 
-    def test_simulated_active_network_mask_modes(self, catalog):
+    def test_cell_field_active_mask_modes(self, catalog):
         sid = _register(catalog, n_cells=4, n_layers=1, n_timesteps=3)
         _write_active_accumulation_flux_case(catalog, sid)
 
         sim = Run(sid, catalog)
 
         np.testing.assert_allclose(
-            sim.simulated_active_network_mask(threshold=0.5, mode="last"),
+            sim.cell_field_active_mask(threshold=0.5, mode="last"),
             np.array([0.0, 1.0, np.nan, 1.0]),
         )
         np.testing.assert_allclose(
-            sim.simulated_active_network_mask(threshold=0.5, mode="any"),
+            sim.cell_field_active_mask(threshold=0.5, mode="any"),
             np.array([1.0, 1.0, np.nan, 1.0]),
         )
         np.testing.assert_allclose(
-            sim.simulated_active_network_mask(
+            sim.cell_field_active_mask(
                 threshold=0.5,
                 mode="persistent",
                 persistence_threshold=0.5,
@@ -369,19 +369,19 @@ class TestSimulationData:
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            sim.simulated_active_network_mask(threshold=0.5, mode="always_active"),
+            sim.cell_field_active_mask(threshold=0.5, mode="always_active"),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            sim.simulated_active_network_mask(threshold=0.5, mode="perennial"),
+            sim.cell_field_active_mask(threshold=0.5, mode="perennial"),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            sim.simulated_active_network_mask(threshold=0.5, mode="persistence"),
+            sim.cell_field_active_mask(threshold=0.5, mode="persistence"),
             np.array([1.0 / 3.0, 1.0, np.nan, 1.0 / 3.0]),
         )
 
-    def test_simulated_active_network_mask_default_is_regime_aware(self, catalog):
+    def test_cell_field_active_mask_default_is_regime_aware(self, catalog):
         transient_sid = _register(
             catalog,
             n_cells=4,
@@ -403,15 +403,15 @@ class TestSimulationData:
         steady = Run(steady_sid, catalog)
 
         np.testing.assert_allclose(
-            transient.simulated_active_network_mask(threshold=0.5),
+            transient.cell_field_active_mask(threshold=0.5),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            steady.simulated_active_network_mask(threshold=0.5),
+            steady.cell_field_active_mask(threshold=0.5),
             np.array([0.0, 1.0, np.nan, 1.0]),
         )
 
-    def test_simulated_active_network_overlap_metrics_against_reference_role_by_default(
+    def test_cell_field_network_overlap_metrics_against_reference_role_by_default(
         self,
         catalog,
     ):
@@ -427,7 +427,7 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.simulated_active_network_overlap_metrics(
+        metrics = sim.cell_field_network_overlap_metrics(
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,
@@ -445,7 +445,7 @@ class TestSimulationData:
         assert metrics["cell_f1_ratio"] == pytest.approx(2.0 / 3.0)
         assert metrics["cell_jaccard_ratio"] == pytest.approx(0.5)
 
-    def test_simulated_active_network_distance_metrics_against_reference_role(
+    def test_cell_field_network_distance_metrics_against_reference_role(
         self,
         catalog,
     ):
@@ -461,7 +461,7 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.simulated_active_network_distance_metrics(
+        metrics = sim.cell_field_network_distance_metrics(
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,

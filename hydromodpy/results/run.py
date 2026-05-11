@@ -25,8 +25,8 @@ The class composes per-concern mixins to stay under the 50-method limit:
 - :class:`RunGeographicMixin` (geographic features, rasters, grid, mesh, field I/O)
 - :class:`RunTimeseriesMixin` (parameters, metrics, budgets, timeseries, time index)
 - :class:`RunHydrographicMixin` (canonical hydrographic-network roles)
-- :class:`RunCellMixin` (per-cell views: saturation, drainage density, ...)
-- :class:`RunSimulatedMixin` (simulated active network and release flux views)
+- :class:`RunCellMixin` (per-cell views: saturation, drainage density,
+  cell-field active and network metrics, release-flux network metrics)
 
 Public API
 ----------
@@ -59,7 +59,6 @@ from hydromodpy.results.run_array import RunArrayProvider
 from hydromodpy.results.run_cell import RunCellMixin
 from hydromodpy.results.run_geographic import RunGeographicMixin
 from hydromodpy.results.run_hydrographic import RunHydrographicMixin
-from hydromodpy.results.run_simulated import RunSimulatedMixin
 from hydromodpy.results.run_timeseries import RunTimeseriesMixin
 
 logger = get_logger(__name__)
@@ -75,7 +74,6 @@ class Run(
     RunTimeseriesMixin,
     RunHydrographicMixin,
     RunCellMixin,
-    RunSimulatedMixin,
 ):
     """Read one persisted simulation from a HydroModPy catalog.
 

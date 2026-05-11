@@ -105,10 +105,6 @@ Selected Parameters
      - Domain layers kept on the spatial support before any meshing or solving stage.
      - geology
      - ``examples/projects/04_data_overview/project.toml``
-   * - ``[domain.depth_model] type``
-     - Depth-model strategy used to define the vertical support of the basin.
-     - constant_thickness
-     - ``examples/projects/04_data_overview/project.toml``
    * - ``[domain.depth_model] thickness``
      - Constant basin thickness assigned by the depth model when that mode is selected.
      - 50.0 m

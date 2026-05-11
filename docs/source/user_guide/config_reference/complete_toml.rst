@@ -272,7 +272,7 @@ Sub-models are linked back to their per-section page.
 
       [solver]
       # Groundwater flow solver backend registered for the 'flow' process.
-      solver_engine = "modflownwt"
+      solver_engine = "modflow6"
 
 .. dropdown:: ``[modflownwt]`` (ModflowConfig)
    :icon: gear
@@ -441,6 +441,19 @@ Sub-models are linked back to their per-section page.
       # Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and interface refinement. Defaults are valid, but project examples typically override them to target a desired number of cells.
       # zone_meshing = ...  # uses factory default
 
+.. dropdown:: ``[mesh_input]`` (MeshInputConfig)
+   :icon: gear
+
+   See :doc:`mesh_input` for the full description.
+
+   .. code-block:: toml
+
+      [mesh_input]
+      # Path to the external planar mesh file (typically a ``.msh``). Required when ``bundle_dir`` is not provided. Relative paths are resolved against the TOML directory.
+      # mesh_path = ...  # default = None
+      # Path to the solver-exchange mesh bundle directory associated with the external mesh. Required when ``mesh_path`` is not provided. Relative paths are resolved against the TOML directory.
+      # bundle_dir = ...  # default = None
+
 .. dropdown:: ``[calibration]`` (CalibrationConfig)
    :icon: gear
 
@@ -487,3 +500,42 @@ Sub-models are linked back to their per-section page.
       # candidates_root = ...  # default = None
       # Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs.
       # persistence = ...  # uses factory default
+
+.. dropdown:: ``[testbed]`` (TestbedConfig)
+   :icon: gear
+
+   See :doc:`testbed` for the full description.
+
+   .. code-block:: toml
+
+      [testbed]
+      # Resolved path of the TOML file that produced this config.
+      # config_path = ""  # REQUIRED
+      # Directory used to resolve relative paths.
+      # base_dir = ""  # REQUIRED
+      # Stable testbed identifier.
+      # id = ""  # REQUIRED
+      # Selected testbed profile.
+      # profile = ""  # REQUIRED
+      # High-level subject covered by the testbed (flow, mesh, transport).
+      # subject = ""  # REQUIRED
+      # Stated purpose of the testbed (robustness, sensitivity, ...).
+      # purpose = ""  # REQUIRED
+      # Directory where testbed artifacts are written.
+      # output_root = ""  # REQUIRED
+      # When false, child configs are materialized but not executed.
+      execute = true
+      # When false, the first failure aborts the testbed.
+      continue_on_error = true
+      # Optional child workflow TOML used as the variant base config.
+      # base_config_path = ...  # default = None
+      # Child-runner selection for every variant.
+      # runner = ""  # REQUIRED
+      # Explicit variants declared in the TOML.
+      variants = []
+      # Optional catalog source used to expand variants from rows.
+      # catalog = ...  # default = None
+      # Variant-generation rules applied to catalog rows.
+      catalog_variants = []
+      # Metrics extracted from each child-runner summary.
+      metrics = []
