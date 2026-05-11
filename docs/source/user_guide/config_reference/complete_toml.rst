@@ -165,7 +165,7 @@ Sub-models are linked back to their per-section page.
       # example: active_sinks_sources = ["recharge"]
       # example: active_sinks_sources = ["recharge", "wells"]
       # active_sinks_sources = ...  # uses factory default
-      # Explicitly activated boundary-condition ids for this flow run. Allowed values: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
+      # Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
       # example: active_bc = ["ocean"]
       # example: active_bc = ["west_side", "east_side", "drainage"]
       # active_bc = ...  # uses factory default
@@ -177,7 +177,7 @@ Sub-models are linked back to their per-section page.
       # example: runtime_backend = "local"
       # example: runtime_backend = "scipy_sparse"
       runtime_backend = "local"
-      # Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'auto' keeps the historical backend-dependent default.
+      # Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experimental PETSc head-only VI obstacle formulation; 'auto' keeps the historical backend-dependent default.
       # example: surface_interaction_model = "auto"
       # example: surface_interaction_model = "regularized_partition"
       surface_interaction_model = "auto"
@@ -187,6 +187,24 @@ Sub-models are linked back to their per-section page.
       # runtime_tol_residual_inf = ...  # default = None
       # Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it.
       # runtime_tol_state_update_inf = ...  # default = None
+      # Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep.
+      vi_substeps_per_period = 1
+      # When true, retry a failed PETSc VI obstacle stress period with increasing substep counts.
+      vi_substep_on_failure = false
+      # Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries.
+      # vi_max_adaptive_substeps = ...  # default = None
+      # Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime.
+      ts_vi_steps_per_period = 4
+      # Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime.
+      ts_vi_adapt = false
+      # Minimum TS VI time-step as a fraction of the stress-period length.
+      ts_vi_dt_min_fraction = 0.015625
+      # Maximum TS VI time-step as a fraction of the stress-period length.
+      ts_vi_dt_max_fraction = 0.25
+      # PETSc TS type for the experimental TS VI obstacle runtime.
+      ts_vi_type = "beuler"
+      # PETSc SNES type for the experimental TS VI obstacle runtime.
+      ts_vi_snes_type = "vinewtonrsls"
 
 .. dropdown:: ``[transport]`` (TransportConfig)
    :icon: gear

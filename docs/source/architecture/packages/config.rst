@@ -25,8 +25,7 @@ Sections aggregated by ``HydroModPyConfig``
      - Pydantic model
    * - ``[workflow]``
      - ``WorkflowConfig`` (selects ``simulation`` / ``calibration`` /
-       ``batch`` / ``overview`` / ``mesh`` / ``comparison`` /
-       ``testbed``).
+       ``overview`` / ``comparison`` / ``testbed``).
    * - ``[workspace]``
      - ``WorkspaceConfig`` (paths and four-branch resolver).
    * - ``[geographic]``

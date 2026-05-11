@@ -37,9 +37,10 @@ Core concepts
 
       **Workflow families and driving modes**
       ^^^
-      Overview, simulation, testbed, calibration, batch, and comparison
-      workflows, plus the seven driving modes (CLI TOML, JSON, Python,
-      notebooks, and low-level primitives).
+      Overview, simulation, testbed, calibration, and comparison workflows
+      (with the regional_lab profile for site-catalog campaigns), plus the
+      seven driving modes (CLI TOML, JSON, Python, notebooks, and low-level
+      primitives).
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -75,8 +76,9 @@ Read the documentation in this order when you want to avoid duplicates:
    and gallery evidence.
 2. :doc:`workflows/index` explains which operation writes to those folders:
    overview for data identity cards, simulation for one persisted run, testbed
-   for controlled variants, calibration for repeated candidate runs, batch for
-   regional campaigns, and comparison for shared-case solver contrasts.
+   for controlled variants (including regional_lab profile campaigns),
+   calibration for repeated candidate runs, and comparison for shared-case
+   solver contrasts.
 3. Topic guides such as :doc:`workflows/testbed`,
    :doc:`workflows/comparison`, and :doc:`workflows/calibration` are the
    single source of truth for each workflow family. They link out to
@@ -102,8 +104,9 @@ Topic guides
 
       **Mesh diagnostics**
       ^^^
-      Mesh-only workflows, testbed-based discretization studies, refinement
-      policies, and the route to mesh scientific and architecture pages.
+      Mesh-only runs via simulation with ``[[simulation.process]]`` type=mesh,
+      testbed-based discretization studies, refinement policies, and the
+      route to mesh scientific and architecture pages.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4

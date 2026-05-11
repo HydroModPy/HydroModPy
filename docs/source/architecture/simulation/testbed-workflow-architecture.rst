@@ -59,8 +59,9 @@ The current contract accepts only explicit subject/runner pairs:
      - Generated workflow
      - Purpose
    * - ``mesh``
-     - ``mesh_catchment``
-     - ``[workflow].mode = "mesh"``
+     - ``simulation``
+     - ``[workflow].mode = "simulation"`` with ``[[simulation.process]]`` of
+       ``type = "mesh"``
      - Resolution ladders, constraint sensitivity, conformity checks.
    * - ``flow``
      - ``simulation``
@@ -69,8 +70,16 @@ The current contract accepts only explicit subject/runner pairs:
        robustness.
    * - ``flow``
      - ``comparison``
-     - ``workflow = "comparison"``
+     - ``[workflow].mode = "comparison"``
      - Pairwise comparison campaigns and method-comparison subsets.
+   * - ``transport``
+     - ``simulation``
+     - ``[workflow].mode = "simulation"``
+     - Transport parameter sensitivity and method robustness.
+   * - ``transport``
+     - ``comparison``
+     - ``[workflow].mode = "comparison"``
+     - Pairwise transport-method comparison campaigns.
 
 Generated children never contain ``[testbed]``. They are ordinary child
 workflow TOMLs that can be opened, inspected, and in many cases run directly.

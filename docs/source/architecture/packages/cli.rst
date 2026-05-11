@@ -38,8 +38,7 @@ Twenty-six verbs ship today.
      - Export JSON Schema and the companion files for frontends.
    * - ``run``
      - Execute a workflow (``simulation`` / ``calibration`` /
-       ``batch`` / ``overview`` / ``mesh`` / ``comparison`` /
-       ``testbed``).
+       ``overview`` / ``comparison`` / ``testbed``).
    * - ``dev``
      - Developer-only verbs (``run-script``, schema diagnostics,
        etc.).

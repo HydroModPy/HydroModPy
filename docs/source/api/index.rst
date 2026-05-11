@@ -23,7 +23,6 @@ Top-level entry points
    hydromodpy.calibrate
    hydromodpy.catalog
    hydromodpy.overview
-   hydromodpy.batch
    hydromodpy.compare_pair
    hydromodpy.mesh
    hydromodpy.testbed

@@ -205,12 +205,13 @@ gathers metrics under one parent run.
 8. Generate a mesh only, no simulation
 --------------------------------------
 
-Useful when iterating on conformal meshing before a full run.
+Useful when iterating on conformal meshing before a full run. Mesh-only runs
+are simulations with a single mesh process.
 
 .. code-block:: toml
 
    [workflow]
-   mode = "mesh"
+   mode = "simulation"
 
    [workspace]
    project_root = "./my_basin"
@@ -220,6 +221,11 @@ Useful when iterating on conformal meshing before a full run.
    dem_init_path = "data/regional_dem.tif"
    polyg_shp_path = "data/basin.shp"
    buff_area = "500 m"
+
+   [[simulation.process]]
+   id = "mesh_main"
+   type = "mesh"
+   backend = "catchment"
 
    [mesh_catchment]
    constraints_mode = "geology_rivers"
@@ -234,20 +240,24 @@ Useful when iterating on conformal meshing before a full run.
 9. Batch over a regional site catalog
 -------------------------------------
 
-Expand the same recipe across many sites listed in a CSV catalog.
+Expand the same recipe across many sites listed in a CSV catalog. Use the
+``regional_lab`` profile of testbed.
 
 .. code-block:: toml
 
    [workflow]
-   mode = "batch"
+   mode = "testbed"
 
-   [analysis.batch.catalog]
+   [testbed]
+   profile = "regional_lab"
+
+   [regional_lab.catalog]
    path = "sites.csv"
-   id_field = "site_id"
+   site_id_field = "site_id"
    x_field = "x"
    y_field = "y"
 
-   [[analysis.batch.recipe]]
+   [[regional_lab.recipe]]
    id = "default_simulation"
    label = "Steady simulation per site"
    launcher = "simulation"
