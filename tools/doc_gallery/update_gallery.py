@@ -837,9 +837,7 @@ def _docs_relative_static_path(*parts: str) -> str:
 
 
 def _repo_docs_artifact_path(*parts: str) -> str:
-    return (
-        Path("docs") / "readthedocs" / "source" / "_static" / "capability_gallery" / Path(*parts)
-    ).as_posix()
+    return (Path("docs") / "source" / "_static" / "capability_gallery" / Path(*parts)).as_posix()
 
 
 def _write_text(path: Path, content: str) -> None:
@@ -2540,7 +2538,7 @@ def _load_committed_simulation_comparison_payload(
 def _build_simulation_comparison_payload(
     config_path: Path,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
-    from hydromodpy.analysis.comparison.config import ComparisonConfig
+    from hydromodpy.analysis.comparison.config import RuntimeComparisonConfig
     from hydromodpy.analysis.comparison.metric_diff import build_comparison_metrics
     from hydromodpy.analysis.comparison.runtime import (
         compact_run_metrics,
@@ -2553,7 +2551,7 @@ def _build_simulation_comparison_payload(
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     raw_toml = load_toml_with_base_config(config_path)
-    cfg = ComparisonConfig.from_toml(raw_toml, config_path=config_path)
+    cfg = RuntimeComparisonConfig.from_toml(raw_toml, config_path=config_path)
     section = cfg.comparison
     committed_payload = _load_committed_simulation_comparison_payload(cfg.comparison_root)
     if committed_payload is not None:
@@ -5374,6 +5372,34 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
                 img_top=group_spec.get("thumbnail"),
             )
         )
+
+    populated_category_slugs = [
+        category_slug for category_slug in CATEGORY_SPECS if cases_by_category.get(category_slug)
+    ]
+    if populated_category_slugs:
+        lines.extend(
+            [
+                "Browse by category",
+                "------------------",
+                "",
+                "Each populated category opens its own landing page with the full case grid.",
+                "",
+                ".. grid:: 1 1 2 3",
+                "   :gutter: 2 2 3 3",
+                "",
+            ]
+        )
+        for category_slug in populated_category_slugs:
+            category = CATEGORY_SPECS[category_slug]
+            category_count = len(cases_by_category.get(category_slug, []))
+            deck = f"{category.deck} {_render_case_count(category_count)}."
+            lines.extend(
+                _render_grid_card(
+                    link=category_slug,
+                    title=category.title,
+                    deck=deck,
+                )
+            )
 
     lines.extend(
         [
