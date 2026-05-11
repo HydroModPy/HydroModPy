@@ -15,6 +15,10 @@ sphinxcontrib-bibtex
 sphinx-autodoc-typehints<3
 sphinx-issues<5
 sphinxext-rediraffe
+sphinx-favicon<1.1
+sphinx-sitemap
+sphinx-last-updated-by-git
+sphinxext-opengraph
 sphinx-lint
 doc8
 
