@@ -45,10 +45,10 @@ plottable mesh.
 
 HydroModPy does now expose a conservative computed API layer:
 
-- ``run.simulated_active_network_mask()``
-- ``run.simulated_active_network_metrics()``
-- ``run.simulated_active_network_overlap_metrics()``
-- ``run.simulated_active_network_distance_metrics()``
+- ``run.cell_field_active_mask()``
+- ``run.cell_field_active_metrics()``
+- ``run.cell_field_network_overlap_metrics()``
+- ``run.cell_field_network_distance_metrics()``
 - the ``simulated_active_network`` display figure
 - the ``simulated_active_network_reference_overlay`` validation figure
 
@@ -72,7 +72,7 @@ confuse:
 New code and documentation should use ``steady`` for the representative
 steady-flow concept. A simulated steady active network should preferably be
 defined from a representative ``flow_regime = "steady"`` run, then compared to
-``reference`` with ``run.simulated_active_network_overlap_metrics(...)`` or
+``reference`` with ``run.cell_field_network_overlap_metrics(...)`` or
 visualized with ``simulated_active_network_reference_overlay``.
 
 The computed API is now regime-aware when no ``mode`` is provided:
@@ -141,7 +141,7 @@ Lazy result views already built on top of those fields
 - ``run.persistence(variable="accumulation_flux")``: per-cell fraction of
   timesteps above a threshold; useful for transient persistent/intermittent
   behavior.
-- ``run.simulated_active_network_mask()``: per-cell active-network view with a
+- ``run.cell_field_active_mask()``: per-cell active-network view with a
   regime-aware default and optional explicit modes:
 
   - ``last`` for one timestep snapshot,
@@ -151,9 +151,9 @@ Lazy result views already built on top of those fields
     transient window,
   - ``persistence`` for the continuous active-time fraction.
 
-- ``run.simulated_active_network_metrics()``: scalar occupancy summary over the
+- ``run.cell_field_active_metrics()``: scalar occupancy summary over the
   same active field.
-- ``run.simulated_active_network_overlap_metrics()``: cell-overlap diagnostic
+- ``run.cell_field_network_overlap_metrics()``: cell-overlap diagnostic
   between the simulated active cells and the observed ``reference`` vector
   network.
 
@@ -161,12 +161,12 @@ Lazy result views already built on top of those fields
 combines the active mask, mesh geometry, and the persisted ``reference``
 network:
 
-- ``run.simulated_active_network_distance_metrics()``: planar bidirectional
+- ``run.cell_field_network_distance_metrics()``: planar bidirectional
   cell-centroid distances between active simulated cells and the selected
   vector role, usually ``reference``.
 
-``hydromodpy.analysis.stream_networks`` remains as a compatibility import path
-for older callers.
+``hydromodpy.analysis.stream_networks`` re-routes the same distance view under
+the analysis subpackage.
 
 Those views are already scientifically meaningful, but they remain scalar or
 raster-like summaries, not one canonical stored network object.
@@ -224,8 +224,8 @@ which compares persisted vector linework roles.
 
 There is also a Run-level overlap diagnostic:
 
-- ``run.simulated_active_network_overlap_metrics(network_role="reference")``
-- ``run.simulated_active_network_distance_metrics(network_role="reference")``
+- ``run.cell_field_network_overlap_metrics(network_role="reference")``
+- ``run.cell_field_network_distance_metrics(network_role="reference")``
 
 This does not vectorize the simulated network. It rasterizes the selected
 persisted vector role onto mesh cells by intersection, then compares that cell
@@ -303,7 +303,7 @@ Cons:
 Current status:
 
 - a non-persisted computed version now exists via
-  ``run.simulated_active_network_mask()`` and the
+  ``run.cell_field_active_mask()`` and the
   ``simulated_active_network`` figure;
 - the persisted canonical-mask contract is still undecided.
 
@@ -361,9 +361,9 @@ Already available without changing storage:
 
 - drainage density timeseries,
 - persistence maps,
-- ``run.simulated_active_network_mask()`` for cell-level active-network views,
-- ``run.simulated_active_network_metrics()`` scalar occupancy metrics,
-- ``run.simulated_active_network_overlap_metrics()`` against an existing
+- ``run.cell_field_active_mask()`` for cell-level active-network views,
+- ``run.cell_field_active_metrics()`` scalar occupancy metrics,
+- ``run.cell_field_network_overlap_metrics()`` against an existing
   vector role,
 - ``simulated_active_network`` display figure,
 - ``simulated_active_network_reference_overlay`` validation figure,

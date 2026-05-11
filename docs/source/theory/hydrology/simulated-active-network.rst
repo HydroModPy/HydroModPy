@@ -44,7 +44,7 @@ only means active at all timesteps of the analysed chronicle.
      - Downstream accumulation of positive drain discharge.
      - Network signal. High values mark cells that receive upstream active
        drainage contributions.
-   * - ``simulated_active_network_mask``
+   * - ``cell_field_active_mask``
      - Boolean or continuous mask derived from ``accumulation_flux``.
      - Display and metric layer. The threshold and time rule must be explicit.
 
@@ -204,7 +204,7 @@ network when that role exists:
 
 .. code-block:: python
 
-   overlap = run.simulated_active_network_overlap_metrics(
+   overlap = run.cell_field_network_overlap_metrics(
        network_role="reference",
        variable="accumulation_flux",
        mode="persistent",
@@ -212,7 +212,7 @@ network when that role exists:
        persistence_threshold=0.5,
    )
 
-   distance = run.simulated_active_network_distance_metrics(
+   distance = run.cell_field_network_distance_metrics(
        network_role="reference",
        variable="accumulation_flux",
        mode="persistent",
@@ -229,7 +229,7 @@ a diagnostic snapshot. The default is the steady-state active-network field:
 
 .. code-block:: python
 
-   mask = run.simulated_active_network_mask(
+   mask = run.cell_field_active_mask(
        variable="accumulation_flux",
        threshold=0.0,
    )
@@ -238,7 +238,7 @@ For transient runs, select the time rule explicitly:
 
 .. code-block:: python
 
-   mask = run.simulated_active_network_mask(
+   mask = run.cell_field_active_mask(
        variable="accumulation_flux",
        mode="persistent",
        threshold=0.0,

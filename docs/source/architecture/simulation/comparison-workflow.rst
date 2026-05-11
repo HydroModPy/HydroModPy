@@ -201,10 +201,10 @@ If a run only exposes one of the two canonical networks:
 
 The canonical role ``simulated_active`` is not yet persisted as a
 vector feature. The ``Run`` API does expose
-``simulated_active_network_mask()``,
-``simulated_active_network_metrics()``,
-``simulated_active_network_overlap_metrics()`` (cell-by-cell against
-``reference``), and ``simulated_active_network_distance_metrics()``.
+``cell_field_active_mask()``,
+``cell_field_active_metrics()``,
+``cell_field_network_overlap_metrics()`` (cell-by-cell against
+``reference``), and ``cell_field_network_distance_metrics()``.
 The primary target is ``reference``, because the comparison is between
 simulation and observation. ``generated`` remains useful as a
 secondary diagnostic against the DEM-derived network, but it is not an

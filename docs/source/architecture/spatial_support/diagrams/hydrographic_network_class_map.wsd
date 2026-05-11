@@ -58,7 +58,7 @@ class HydrographicNetworkComparison {
 }
 
 class StreamNetworkMetrics {
-  +simulated_active_network_distance_metrics(...)
+  +cell_field_network_distance_metrics(...)
 }
 
 class GeographicDerivedFeatures {
@@ -73,10 +73,12 @@ class Run {
   +has_hydrographic_network(role)
   +hydrographic_network(role)
   +hydrographic_network_comparison(...)
-  +simulated_active_network_mask(...)
-  +simulated_active_network_metrics(...)
-  +simulated_active_network_overlap_metrics(...)
-  +simulated_active_network_distance_metrics(...)
+  +cell_field_active_mask(...)
+  +cell_field_active_metrics(...)
+  +cell_field_network_overlap_metrics(...)
+  +cell_field_network_distance_metrics(...)
+  +release_flux_network_overlap_metrics(...)
+  +release_flux_network_distance_metrics(...)
 }
 
 HydrographyLoadResult --> HydrographyFieldRecord : contains

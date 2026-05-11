@@ -40,13 +40,13 @@ diagnostics.
    * - Simulated-active cell overlap
      - simulated active cells versus the observed ``reference`` network
        rasterized onto mesh cells
-     - ``run.simulated_active_network_overlap_metrics()``
+     - ``run.cell_field_network_overlap_metrics()``
      - Compatible as a first diagnostic, but different from the article: it
        measures cell overlap, coverage, precision, F1 and Jaccard.
    * - Simulated-active planar distance
      - active simulated cells versus the observed ``reference`` network, in
        both directions
-     - ``run.simulated_active_network_distance_metrics()``
+     - ``run.cell_field_network_distance_metrics()``
      - Intermediate: it measures planar cell-centroid distances and is
        explicitly not the downslope DEM-routing metric from the article.
    * - Legacy matching streams
