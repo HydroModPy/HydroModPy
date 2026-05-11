@@ -532,10 +532,10 @@ Sub-models are linked back to their per-section page.
       # Child-runner selection for every variant.
       # runner = ""  # REQUIRED
       # Explicit variants declared in the TOML.
-      variants = ()
+      variants = []
       # Optional catalog source used to expand variants from rows.
       # catalog = ...  # default = None
       # Variant-generation rules applied to catalog rows.
-      catalog_variants = ()
+      catalog_variants = []
       # Metrics extracted from each child-runner summary.
-      metrics = ()
+      metrics = []

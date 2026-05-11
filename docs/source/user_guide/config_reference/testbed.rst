@@ -820,12 +820,12 @@ Starter TOML snippet
       # axis_field = "axis"
       # enabled_field = "enabled"
       # tags_field = "tags"
-      # required_fields = ()
-      # path_fields = ()
+      # required_fields = []
+      # path_fields = []
       # tag_separator = ";"
-      # field_equals = ()
-      # tags = ()
-      # exclude_tags = ()
+      # field_equals = []
+      # tags = []
+      # exclude_tags = []
       # include_disabled = false
       # limit = ...  # default = None
 
@@ -835,10 +835,10 @@ Starter TOML snippet
       # axis_template = ...  # default = None
       # enabled = true
       # overlay = ...  # factory default
-      # required_fields = ()
-      # field_equals = ()
-      # tags = ()
-      # exclude_tags = ()
+      # required_fields = []
+      # field_equals = []
+      # tags = []
+      # exclude_tags = []
       # limit = ...  # default = None
 
       [testbed.metrics]

@@ -2122,14 +2122,14 @@ Starter TOML snippet
       # skip_completed_cases = true
       # catalog = ""  # REQUIRED
       # selection = ""  # REQUIRED
-      # cluster_rules = ()
+      # cluster_rules = []
       # recipes = ""  # REQUIRED
 
       [analysis.capability_gallery]
       # enabled = false
       # output_dir = ...  # default = None
       # case_slug = "launcher_simulation_flow_case"
-      # assets = ('piezometric_map.png', 'seepage_map.png', 'hydrograph.png', 'water_budget.png', 'watershed_id_card.png')
+      # assets = ["piezometric_map.png", "seepage_map.png", "hydrograph.png", "water_budget.png", "watershed_id_card.png"]
 
       [analysis.comparison]
       # comparison_id = ...  # default = None
