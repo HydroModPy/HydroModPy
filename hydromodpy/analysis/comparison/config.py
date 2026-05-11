@@ -1,4 +1,25 @@
-"""Internal configuration models for simulation-comparison workflows."""
+"""Runtime configuration models for the in-process comparison pipeline.
+
+This module owns the internal, post-resolution view of a comparison: the
+`Runtime*` schemas consumed directly by the analytical layer
+(`runtime.py`, `runtime_config.py`, `runtime_observables.py`, `visuals.py`,
+`visuals_payloads.py`). `RuntimeComparisonConfig.from_toml` accepts the
+public simulation-comparison TOML, flattens the optional `[execution]` block,
+drops the experiment-only `[audit]` section, and resolves every path against
+`config_path.parent`. The result is the canonical input fed into the
+in-process comparison runtime.
+
+The sibling module `experiment_config.py` owns a different concern: the
+verbose, user-facing experiment contract used by `experiment_launcher.py`
+to spawn child simulations as subprocesses, with its own `[execution]` and
+`[audit]` sub-configs and a stricter, enabled-only id-resolution policy.
+The launcher first builds a `SimulationComparisonConfig` from that contract,
+then constructs a `RuntimeComparisonConfig` here to drive the runtime.
+
+Both files share the leaf models `ComparisonObservable` and
+`ComparisonFineRaster`, both defined here and re-imported by
+`experiment_config.py`.
+"""
 
 from __future__ import annotations
 
