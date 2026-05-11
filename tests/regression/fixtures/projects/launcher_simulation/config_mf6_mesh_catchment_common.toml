@@ -114,7 +114,7 @@ active_bc = ["drainage"]
 [flow.sinks_sources.wells.W1.forcing]
 path_file = "../../../../../examples/data/wells/normal_wells_2003.csv"
 
-[flow.sinks_sources.wells.W2]
+[flow.sinks_sources.wells.W2.location]
 x_rel = 0.33
 y_rel = 0.33
 
