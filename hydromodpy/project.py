@@ -579,12 +579,14 @@ class Project:
 
     def compare(self, *, config_path: str | Path | None = None):
         """Run the comparison workflow declared in a TOML config."""
-        from hydromodpy.analysis.comparison.dispatch import run_comparison_config
+        from hydromodpy.analysis.comparison.experiment_launcher import (
+            SimulationComparisonLauncher,
+        )
 
         path = config_path if config_path is not None else self._config_path
         if path is None:
             raise ConfigError("project.compare() requires a TOML path for now")
-        return run_comparison_config(path)
+        return SimulationComparisonLauncher(path).run()
 
     def calibrate(
         self,
