@@ -1,0 +1,69 @@
+# ======================================================================
+# Nancon - 01 - Single transient run with MODFLOW-NWT
+# ----------------------------------------------------------------------
+# Workflow:       [workflow].mode = "simulation"
+# Solver:         MODFLOW-NWT
+# Time window:    2000-01-01 -> 2002-12-31, monthly stress periods
+# Parameters:     K, Sy, Ss (homogeneous, baseline values)
+#
+# What this TOML is:
+#   An OVERLAY. The first line `base_config = "project.toml"` pulls the
+#   full Nancon base configuration; this file only redefines the
+#   simulation orchestration block plus the parameter values used for
+#   THIS run. Anything you do not redefine here is inherited.
+#
+# Launch:
+#   hmp run examples/projects/11_nancon_watershed/01_run_simulation_nwt.toml
+#
+# Validate only (no run):
+#   hmp config check examples/projects/11_nancon_watershed/01_run_simulation_nwt.toml
+#
+# Run with an extra overlay layered on top:
+#   hmp run 01_run_simulation_nwt.toml --overlay overlays/overlay_short_window.toml
+#
+# Run with a dotted override:
+#   hmp run 01_run_simulation_nwt.toml --set flow.param.K.field.value=1e-4
+#
+# Dry-run (print the resolved plan, do not execute):
+#   hmp run 01_run_simulation_nwt.toml --dry-run
+# ======================================================================
+
+base_config = "project.toml"
+
+
+# ---- Orchestration ---------------------------------------------------
+[workflow]
+mode = "simulation"
+
+[simulation]
+# Run name. Used as the catalog entry and as the figure subfolder.
+name = "nancon_sim_nwt"
+description = "Nancon - monthly transient run with MODFLOW-NWT (baseline)."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+
+# One groundwater-flow process, solved by MODFLOW-NWT.
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
+
+
+# ---- Calibratable parameters ----------------------------------------
+# These values override the baseline from project.toml. Keep them in
+# sync with the homogeneous-field schema (one block per parameter).
+
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.K.field]
+value = 5e-5
+
+[flow.param.Sy.field]
+value = 0.05
+
+[flow.param.Ss.field]
+value = 1e-5

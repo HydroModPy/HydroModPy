@@ -1,0 +1,128 @@
+# ======================================================================
+# Nancon - 08 - Testbed (K sensitivity on the Nancon catchment)
+# ----------------------------------------------------------------------
+# Workflow:       [workflow].mode = "testbed"
+# Profile:        generic flow testbed
+# Subject:        flow  (the physical process under stress)
+# Purpose:        sensitivity (parameter sweep around a baseline K)
+# Base config:    01_run_simulation_nwt.toml (Nancon NWT baseline)
+#
+# A testbed is a method-validation harness: it materialises one child
+# simulation per `[[testbed.variant]]`, optionally executes them in
+# isolated workspaces, then collects a fixed set of metrics from each
+# child run. Use it to:
+#   * sweep a parameter across a discrete list (e.g. K low / mid / high)
+#   * stress one solver knob (e.g. mesh resolution)
+#   * benchmark several solvers on a shared base config
+#
+# `execute = false` materialises the child TOMLs without running them.
+# Flip it to `true` once you are happy with the generated configs.
+#
+# Launch:
+#   hmp run examples/projects/11_nancon_watershed/08_run_testbed.toml
+# ======================================================================
+
+
+[workflow]
+mode = "testbed"
+
+
+[testbed]
+id = "nancon_k_sensitivity"
+subject = "flow"
+purpose = "sensitivity"
+# Base TOML is resolved relative to THIS file.
+base_config = "01_run_simulation_nwt.toml"
+output_root = "outputs/nancon_k_sensitivity"
+# When `false`, child TOMLs are written but not executed (cheap audit).
+# Flip to `true` to actually run the variants.
+execute = false
+
+
+[testbed.runner]
+# 'simulation' dispatches each variant through the simulation workflow.
+type = "simulation"
+# Disable interactive display in child runners.
+no_display = true
+
+
+# ---- Variants --------------------------------------------------------
+# One child run per variant. Each variant overrides the base via the
+# dotted overlay form, identical to comparison.simulation.overlay.
+
+[[testbed.variant]]
+id = "k_low"
+axis = "hydraulic_conductivity"
+
+[testbed.variant.overlay.workspace]
+project_root = "outputs/nancon_k_sensitivity/k_low_workspace"
+
+[testbed.variant.overlay.simulation]
+name = "nancon_k_low"
+run_id = "nancon_k_low"
+on_collision = "replace"
+
+[testbed.variant.overlay.flow.param.K.field]
+value = "1e-5 m/s"
+
+
+[[testbed.variant]]
+id = "k_mid"
+axis = "hydraulic_conductivity"
+
+[testbed.variant.overlay.workspace]
+project_root = "outputs/nancon_k_sensitivity/k_mid_workspace"
+
+[testbed.variant.overlay.simulation]
+name = "nancon_k_mid"
+run_id = "nancon_k_mid"
+on_collision = "replace"
+
+[testbed.variant.overlay.flow.param.K.field]
+value = "5e-5 m/s"
+
+
+[[testbed.variant]]
+id = "k_high"
+axis = "hydraulic_conductivity"
+
+[testbed.variant.overlay.workspace]
+project_root = "outputs/nancon_k_sensitivity/k_high_workspace"
+
+[testbed.variant.overlay.simulation]
+name = "nancon_k_high"
+run_id = "nancon_k_high"
+on_collision = "replace"
+
+[testbed.variant.overlay.flow.param.K.field]
+value = "2.5e-4 m/s"
+
+
+# ---- Metrics extracted from every variant ---------------------------
+# `source` is a dotted path into the child run summary; metrics with
+# `required = true` cause the testbed to fail loudly when missing.
+
+[[testbed.metric]]
+name = "duration_s"
+source = "flow_metrics.duration_s"
+required = true
+
+[[testbed.metric]]
+name = "n_cells"
+source = "flow_metrics.n_cells"
+required = true
+
+[[testbed.metric]]
+name = "param_K"
+source = "flow_metrics.param_K"
+required = true
+
+[[testbed.metric]]
+name = "max_abs_balance_error"
+source = "flow_metrics.max_abs_mass_balance_percent_error"
+required = true
+
+[[testbed.metric]]
+name = "head_range_m"
+source = "flow_metrics.head_range_m"
+required = true
