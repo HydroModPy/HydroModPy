@@ -218,11 +218,12 @@ def run(args: argparse.Namespace) -> None:
             for var in variables:
                 if var in (
                     "mesh",
+                    "meta",
+                    "state",
                     "budget",
                     "derived",
-                    "pathlines",
+                    "particles",
                     "forcing",
-                    "geographic",
                     "crs",
                     "time",
                 ):

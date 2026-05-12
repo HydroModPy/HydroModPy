@@ -1,7 +1,7 @@
 """On-the-fly derived fields computed from stored primary variables.
 
 The store only persists primary variables (head, budget spatial fields,
-surface_top). Derived quantities like watertable_elevation and seepage_mask
+topography). Derived quantities like watertable_elevation and seepage_mask
 are computed transparently by ``query_field()`` when not found in Zarr.
 """
 
@@ -20,13 +20,13 @@ from hydromodpy.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-def _get_surface_top(store: Any, sim_id: str) -> np.ndarray:
+def _get_topography(store: Any, sim_id: str) -> np.ndarray:
     """Read per-cell surface elevation from mesh group."""
     sz = store.open_zarr(sim_id)
     try:
         mesh = sz.root["mesh"]
-        if "surface_top" in mesh:
-            return np.asarray(mesh["surface_top"][:], dtype="float64")
+        if "topography" in mesh:
+            return np.asarray(mesh["topography"][:], dtype="float64")
         if "z_interfaces" in mesh:
             z = mesh["z_interfaces"][:]
             n_cells = int(mesh.attrs.get("n_cells", 1))
@@ -50,9 +50,9 @@ def _watertable_elevation(store: Any, sim_id: str, timestep: int) -> np.ndarray:
 
 
 def _watertable_depth(store: Any, sim_id: str, timestep: int) -> np.ndarray:
-    """Depth to water table: surface_top - watertable_elevation, clipped >= 0."""
+    """Depth to water table: topography - watertable_elevation, clipped >= 0."""
     wt = store.query_field(sim_id, "watertable_elevation", timestep)
-    top = _get_surface_top(store, sim_id)
+    top = _get_topography(store, sim_id)
     return np.maximum(top - wt, 0.0)
 
 
@@ -68,9 +68,9 @@ def _seepage_mask(store: Any, sim_id: str, timestep: int) -> np.ndarray:
       seepage for those runs.
     * MODFLOW 6 / MODFLOW-NWT runs do not write a surface-excess field;
       seepage is then derived from the geometric criterion
-      ``head >= surface_top``.
+      ``head >= topography``.
     """
-    top = _get_surface_top(store, sim_id)
+    top = _get_topography(store, sim_id)
     excess = _surface_excess_mask(store, sim_id, timestep, top.size)
     if excess is not None:
         return excess.astype("float64")

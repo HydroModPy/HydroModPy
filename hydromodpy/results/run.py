@@ -296,7 +296,7 @@ class Run(
         try:
             if "concentration" in sz.root:
                 caps.append("concentration_map")
-            if "pathlines" in sz.root:
+            if "particles" in sz.root:
                 caps.append("particle_tracks")
             mesh = sz.root.get("mesh")
             derived = sz.root.get("derived")

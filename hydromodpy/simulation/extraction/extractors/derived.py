@@ -158,7 +158,7 @@ def _compute_seepage_mask(
 
     Boussinesq can persist ``budget/surface_excess`` as the explicit
     surface-release signal. When present, that field is the canonical seepage
-    source; otherwise MODFLOW-style runs use ``watertable >= surface_top``.
+    source; otherwise MODFLOW-style runs use ``watertable >= topography``.
     """
     with _zarr_root(store, sim_id) as grp:
         if "mesh" not in grp:
@@ -166,8 +166,8 @@ def _compute_seepage_mask(
             return
 
         mesh = grp["mesh"]
-        if "surface_top" in mesh:
-            top_elev = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()[:n_cells]
+        if "topography" in mesh:
+            top_elev = np.asarray(mesh["topography"][:], dtype="float64").ravel()[:n_cells]
         elif "z_interfaces" in mesh:
             z_intf = mesh["z_interfaces"][:]
             top_elev = np.full(n_cells, float(z_intf[0]))
@@ -555,9 +555,9 @@ def _accumulate_cell_stack_raster_d8(
 
     with _zarr_root(store, sim_id) as grp:
         mesh = grp.get("mesh")
-        if mesh is None or "surface_top" not in mesh:
-            raise KeyError("No mesh/surface_top for routing")
-        surface_top = np.asarray(mesh["surface_top"][:], dtype="float64")
+        if mesh is None or "topography" not in mesh:
+            raise KeyError("No mesh/topography for routing")
+        topography = np.asarray(mesh["topography"][:], dtype="float64")
         if "face_node_connectivity" in mesh:
             raise ValueError("UGRID mesh routing should use mesh graph routing")
 
@@ -580,7 +580,7 @@ def _accumulate_cell_stack_raster_d8(
         dem_path = str(Path(tmp) / "dem.tif")
         fill_path = str(Path(tmp) / "fill.tif")
 
-        dem_2d = surface_top.reshape(grid_shape)
+        dem_2d = topography.reshape(grid_shape)
         _write_bare_tif(dem_path, dem_2d, -99999.0, crs_epsg=crs_epsg)
         wb.flow.fill_depressions(dem_path, fill_path)
 
@@ -638,21 +638,21 @@ def _accumulate_cell_stack_mesh_graph(
     """Route a positive cell-flux stack on a UGRID mesh graph."""
     with _zarr_root(store, sim_id) as grp:
         mesh = grp.get("mesh")
-        if mesh is None or "surface_top" not in mesh or "face_node_connectivity" not in mesh:
+        if mesh is None or "topography" not in mesh or "face_node_connectivity" not in mesh:
             raise KeyError("No mesh topology for graph routing")
-        surface_top = np.asarray(mesh["surface_top"][:], dtype="float64").reshape(-1)[:n_cells]
+        topography = np.asarray(mesh["topography"][:], dtype="float64").reshape(-1)[:n_cells]
         face_node_connectivity = np.asarray(mesh["face_node_connectivity"][:], dtype="int32")
         vertices = np.asarray(mesh["vertices"][:], dtype="float64") if "vertices" in mesh else None
 
-    if surface_top.size != n_cells:
-        raise ValueError(f"surface_top has {surface_top.size} cells, expected {n_cells}.")
-    inactive = ~active_surface_mask(surface_top)
+    if topography.size != n_cells:
+        raise ValueError(f"topography has {topography.size} cells, expected {n_cells}.")
+    inactive = ~active_surface_mask(topography)
 
     for t in range(n_timesteps):
         local = np.maximum(np.asarray(local_stack[t], dtype="float64").reshape(-1), 0.0)
         accumulation = accumulate_downhill_on_mesh(
             local,
-            surface_top,
+            topography,
             face_node_connectivity,
             vertices=vertices,
             inactive_mask=inactive,
