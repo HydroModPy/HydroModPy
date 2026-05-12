@@ -92,7 +92,7 @@ def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False)
     try:
         mesh = sz.root.require_group("mesh")
         mesh.create_array(
-            "surface_top",
+            "topography",
             data=np.array([100.0, 100.0, -9999.0, 100.0], dtype="float64"),
             overwrite=True,
         )

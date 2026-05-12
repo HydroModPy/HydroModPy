@@ -45,10 +45,10 @@ def _make_zarr(
     path = tmp_path / "sim.zarr"
     sz = SimulationZarr.create(path, n_cells=n_cells, n_layers=1)
 
-    # surface_top
+    # topography
     mesh = sz.root["mesh"]
     mesh.create_array(
-        "surface_top",
+        "topography",
         data=np.full(n_cells, float(top_value), dtype="float64"),
         overwrite=True,
     )

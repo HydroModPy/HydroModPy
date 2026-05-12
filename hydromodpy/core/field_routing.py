@@ -52,9 +52,9 @@ def drain_budget_to_positive_outflow(
     return positive_outflow.sum(axis=0).astype("float64", copy=False)
 
 
-def active_surface_mask(surface_top: Any, *, nodata_floor: float = -9000.0) -> np.ndarray:
+def active_surface_mask(topography: Any, *, nodata_floor: float = -9000.0) -> np.ndarray:
     """Return True for cells with a finite, non-nodata surface elevation."""
-    surface = np.asarray(surface_top, dtype=float).reshape(-1)
+    surface = np.asarray(topography, dtype=float).reshape(-1)
     return np.isfinite(surface) & (surface > float(nodata_floor))
 
 

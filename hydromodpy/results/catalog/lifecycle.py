@@ -61,6 +61,72 @@ class LifecycleMixin:
             SimulationZarr(self._simulations_dir / f"{basename}{ZARR_SUFFIX}")
         )
 
+    def _fetch_simulation_row(self, sim_id: str) -> dict | None:
+        """Return the ``simulations`` row as a plain dict for ACDD composition."""
+        rows = self._db.execute(
+            """SELECT s.sim_id, s.name, s.description, s.project,
+                      sol.code AS solver, s.scientific_objective,
+                      s.study_area_name, s.period_start, s.period_end,
+                      s.time_unit, s.crs_wkt, s.crs_epsg,
+                      s.bbox_xmin, s.bbox_ymin, s.bbox_xmax, s.bbox_ymax,
+                      s.contact_email, s.doi, s.config_hash
+                 FROM simulations s
+                 LEFT JOIN solvers sol ON s.solver_id = sol.id
+                WHERE s.sim_id = ?""",
+            [sim_id],
+        ).fetchall()
+        if not rows:
+            return None
+        cols = (
+            "sim_id",
+            "name",
+            "description",
+            "project",
+            "solver",
+            "scientific_objective",
+            "study_area_name",
+            "period_start",
+            "period_end",
+            "time_unit",
+            "crs_wkt",
+            "crs_epsg",
+            "bbox_xmin",
+            "bbox_ymin",
+            "bbox_xmax",
+            "bbox_ymax",
+            "contact_email",
+            "doi",
+            "config_hash",
+        )
+        return dict(zip(cols, rows[0], strict=False))
+
+    def _fetch_runs_environment_row(self, sim_id: str) -> dict | None:
+        """Return the ``runs_environment`` row as a plain dict, or None."""
+        try:
+            rows = self._db.execute(
+                """SELECT user_name, hostname, hydromodpy_version, git_commit,
+                          rng_seed, solver_binary_sha256, solver_version_text,
+                          solver_name
+                     FROM runs_environment
+                    WHERE sim_id = ?""",
+                [sim_id],
+            ).fetchall()
+        except Exception:
+            return None
+        if not rows:
+            return None
+        cols = (
+            "user_name",
+            "hostname",
+            "hydromodpy_version",
+            "git_commit",
+            "rng_seed",
+            "mf6_binary_sha256",
+            "mf6_version_text",
+            "solver",
+        )
+        return dict(zip(cols, rows[0], strict=False))
+
     def cleanup(
         self,
         *,
@@ -101,6 +167,12 @@ class LifecycleMixin:
                     self._close_open_zarr_handles()
                     sz = SimulationZarr(zarr_dir)
                     try:
+                        sim_row = self._fetch_simulation_row(sid)
+                        runs_env = self._fetch_runs_environment_row(sid)
+                        sz.write_acdd_root_attrs(
+                            sim_row=sim_row,
+                            runs_env=runs_env,
+                        )
                         sz.consolidate_metadata()
                         zip_path = sz.pack_to_zip()
                         rel_zarr_path = f"{SIMULATIONS_DIRNAME}/{zip_path.name}"

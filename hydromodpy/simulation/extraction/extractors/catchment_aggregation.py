@@ -256,12 +256,12 @@ def _detect_n_timesteps(grp) -> int:
 
 
 def _build_active_mask(grp) -> np.ndarray | None:
-    """Build boolean mask of active cells from mesh surface_top."""
+    """Build boolean mask of active cells from mesh topography."""
     mesh = grp.get("mesh")
     if mesh is None:
         return None
-    if "surface_top" in mesh:
-        top = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()
+    if "topography" in mesh:
+        top = np.asarray(mesh["topography"][:], dtype="float64").ravel()
         return np.isfinite(top) & (top > -9000)
     return None
 

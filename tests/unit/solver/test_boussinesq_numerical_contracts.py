@@ -113,7 +113,7 @@ def test_boussinesq_extractor_writes_cellwise_interfaces_and_volumetric_budgets(
         zarr_store = catalog.open_zarr(sim_id)
         try:
             mesh = zarr_store.root["mesh"]
-            np.testing.assert_allclose(mesh["surface_top"][:], np.asarray([10.0, 12.0]))
+            np.testing.assert_allclose(mesh["topography"][:], np.asarray([10.0, 12.0]))
             np.testing.assert_allclose(
                 mesh["z_interfaces"][:],
                 np.asarray([[10.0, 12.0], [0.0, 1.0]], dtype=float),

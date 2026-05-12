@@ -74,10 +74,14 @@ PER_SIM_TABLE_NAMES: tuple[str, ...] = (
 
 # Per-simulation Parquet view aliases. Files live at
 # ``simulations/<basename>.parquet/<view>.parquet`` in the workspace.
+# Includes ``metrics`` and ``provenance``: in v2 these are no longer orphan
+# Parquet files but proper DuckDB-backed views.
 PARQUET_VIEW_NAMES: tuple[str, ...] = (
     "timeseries",
     "budgets",
     "mass_balance",
+    "metrics",
+    "provenance",
 )
 
 

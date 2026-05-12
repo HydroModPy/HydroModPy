@@ -265,7 +265,7 @@ class BoussinesqOutputAdapter:
         z_top_m: np.ndarray | None,
         z_bottom_m: np.ndarray | None,
     ) -> None:
-        """Write surface_top from Boussinesq summary for derived variables."""
+        """Write mesh/topography from Boussinesq summary for derived variables."""
         summary: dict[str, Any] = {}
         if z_top_m is None or z_bottom_m is None:
             summary_path = solver_output_dir / "_boussinesq_summary.json"
@@ -298,15 +298,12 @@ class BoussinesqOutputAdapter:
 
         sz = store.open_zarr(sim_id)
         try:
-            mesh = sz.root.require_group("mesh")
-            mesh.create_array("surface_top", data=z_top, overwrite=True)
-            mesh.create_array(
-                "z_interfaces",
-                data=np.vstack([z_top, z_bottom]),
-                overwrite=True,
+            sz.write_topography(
+                topography=z_top,
+                z_interfaces=np.vstack([z_top, z_bottom]),
+                n_cells=int(n_cells),
+                n_layers=1,
             )
-            mesh.attrs["n_cells"] = int(n_cells)
-            mesh.attrs["n_layers"] = 1
         finally:
             sz.close()
 

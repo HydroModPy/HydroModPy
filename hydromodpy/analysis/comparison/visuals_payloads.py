@@ -93,7 +93,7 @@ class CaseConfigurationPayload:
     observable_point_legend: tuple[str, ...] = ()
     vertices: np.ndarray | None = None
     faces: np.ndarray | None = None
-    surface_top: np.ndarray | None = None
+    topography: np.ndarray | None = None
     centroid_x: np.ndarray | None = None
     centroid_y: np.ndarray | None = None
     recharge_values: np.ndarray | None = None
@@ -191,7 +191,7 @@ def _mesh_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None
         mesh = grp.get("mesh") if grp is not None else None
         vertices = _read_zarr_array(mesh, "vertices")
         faces = _read_zarr_array(mesh, "face_node_connectivity")
-        surface_top = _read_zarr_array(mesh, "surface_top")
+        topography = _read_zarr_array(mesh, "topography")
     except Exception:
         return None, None, None
     finally:
@@ -204,9 +204,9 @@ def _mesh_payload_from_store(store: Any, sim_id: str) -> tuple[np.ndarray | None
         vertices = np.asarray(vertices, dtype=float)
     if faces is not None:
         faces = np.asarray(faces, dtype=int)
-    if surface_top is not None:
-        surface_top = np.asarray(surface_top, dtype=float).reshape(-1)
-    return vertices, faces, surface_top
+    if topography is not None:
+        topography = np.asarray(topography, dtype=float).reshape(-1)
+    return vertices, faces, topography
 
 
 def _bundle_dir_from_config(config_path: Path) -> Path | None:
@@ -268,7 +268,7 @@ def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | Non
 
     node_index = {node_id: index for index, node_id in enumerate(node_ids)}
     faces: list[list[int]] = []
-    surface_top: list[float] = []
+    topography: list[float] = []
     with cells_path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
@@ -286,9 +286,9 @@ def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | Non
             faces.append(face)
             top_raw = row.get("z_top_mean") or row.get("z_top_centroid")
             try:
-                surface_top.append(float(top_raw))
+                topography.append(float(top_raw))
             except Exception:
-                surface_top.append(math.nan)
+                topography.append(math.nan)
     if not faces:
         return None, None, None
 
@@ -299,7 +299,7 @@ def _mesh_payload_from_bundle(bundle_dir: Path | None) -> tuple[np.ndarray | Non
     return (
         np.asarray(vertices, dtype=float),
         face_array,
-        np.asarray(surface_top, dtype=float),
+        np.asarray(topography, dtype=float),
     )
 
 
@@ -562,7 +562,7 @@ def _build_case_configuration_payload(
     config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
     config_payload = _safe_config_payload(config_path)
 
-    vertices = faces = surface_top = None
+    vertices = faces = topography = None
     recharge_values = None
     recharge_unit = ""
     store = None
@@ -578,7 +578,7 @@ def _build_case_configuration_payload(
             ),
         )
         if store is not None and sim_id is not None:
-            vertices, faces, surface_top = _mesh_payload_from_store(store, sim_id)
+            vertices, faces, topography = _mesh_payload_from_store(store, sim_id)
             recharge_values, recharge_unit = _recharge_payload_from_store(store, sim_id)
     finally:
         if store is not None:
@@ -589,7 +589,7 @@ def _build_case_configuration_payload(
 
     run_folder = Path(str(selected.get("run_folder", "")))
     if vertices is None or faces is None:
-        vertices, faces, surface_top = _mesh_payload_from_bundle(
+        vertices, faces, topography = _mesh_payload_from_bundle(
             _bundle_dir_for_case(run_folder, config_path)
         )
     cells = resolve_bundle_cells(run_folder, config_path=config_path)
@@ -603,8 +603,8 @@ def _build_case_configuration_payload(
         recharge_values, recharge_unit = _recharge_payload_from_config(config_payload)
 
     n_cells = (
-        int(surface_top.size)
-        if surface_top is not None and surface_top.size
+        int(topography.size)
+        if topography is not None and topography.size
         else int(centroid_x.size)
         if centroid_x is not None
         else 0
@@ -634,7 +634,7 @@ def _build_case_configuration_payload(
         observable_point_legend=_observable_point_legend_lines(cfg),
         vertices=vertices,
         faces=faces,
-        surface_top=surface_top,
+        topography=topography,
         centroid_x=centroid_x,
         centroid_y=centroid_y,
         recharge_values=recharge_values,

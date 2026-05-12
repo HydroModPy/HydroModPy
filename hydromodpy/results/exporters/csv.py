@@ -53,7 +53,10 @@ def export_csv(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    query = "SELECT datetime, station_id, variable, value, unit FROM timeseries WHERE sim_id = ?"
+    query = (
+        "SELECT time AS datetime, station_id, variable, value, unit "
+        "FROM timeseries WHERE sim_id = ?"
+    )
     params: list = [sim_id]
 
     if station_id is not None:
@@ -63,7 +66,7 @@ def export_csv(
         query += " AND variable = ?"
         params.append(variable)
 
-    query += " ORDER BY station_id, variable, datetime"
+    query += " ORDER BY station_id, variable, timestep"
 
     backend = DuckDBBackend.from_connection(conn)
     result = backend.query(query, params)

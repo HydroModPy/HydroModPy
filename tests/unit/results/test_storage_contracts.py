@@ -221,4 +221,6 @@ def test_geographic_feature_uses_parquet_geometry_payload(catalog):
 
     loaded = catalog.read_geographic_feature(sid, "domain")
     assert len(loaded) == 1
-    assert str(loaded.crs) == "EPSG:2154"
+    # GeoParquet 1.1 OGC stores the CRS as PROJJSON inside the file metadata.
+    # Use pyproj to round-trip back to EPSG so the test stays format-agnostic.
+    assert loaded.crs.to_epsg() == 2154

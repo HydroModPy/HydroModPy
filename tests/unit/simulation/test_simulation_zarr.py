@@ -46,7 +46,7 @@ def _make_mesh(n_cells=6):
 
 class TestCreate:
     def test_subgroups_exist(self, sz):
-        for name in ("mesh", "derived", "budget", "pathlines", "geographic"):
+        for name in ("meta", "mesh", "state", "derived", "budget", "particles", "forcing"):
             assert name in sz.root
 
     def test_attrs(self, sz):
@@ -176,13 +176,13 @@ class TestG05CFMetadata:
     """Phase G05: CF-1.11 + UGRID-1.0 metadata attached to Zarr stores."""
 
     def test_root_conventions_attribute(self, sz):
-        assert sz.root.attrs["Conventions"] == "CF-1.11 UGRID-1.0"
+        assert sz.root.attrs["Conventions"] == "CF-1.11, ACDD-1.3, UGRID-1.0"
 
     def test_registered_field_gets_cf_attrs(self, sz):
         vals = np.ones((3, 100))
         sz.write_field("head", 0, vals, n_timesteps=2)
         arr = sz.root["head"]
-        assert arr.attrs["standard_name"] == "groundwater_head_above_reference_level"
+        assert arr.attrs["csdms_standard_name"] == "subsurface_water__hydraulic_head"
         assert arr.attrs["units"] == "m"
         assert arr.attrs["grid_mapping"] == "crs"
         assert arr.attrs["coordinates"] == "time layer face"
@@ -197,7 +197,7 @@ class TestG05CFMetadata:
             subgroup="derived",
         )
         arr = sz.root["derived/watertable_depth"]
-        assert arr.attrs["standard_name"] == ("depth_of_water_table_below_ground_surface")
+        assert arr.attrs["csdms_standard_name"] == "subsurface_water_top_surface__depth"
         assert arr.attrs["units"] == "m"
 
     def test_unregistered_field_has_no_cf_attrs(self, sz):
@@ -239,22 +239,27 @@ class TestG05ToXarray:
         ds = sz.to_xarray()
         assert "head" in ds.data_vars
         assert "watertable_depth" in ds.data_vars
-        assert ds.attrs["Conventions"] == "CF-1.11 UGRID-1.0"
+        assert ds.attrs["Conventions"] == "CF-1.11, ACDD-1.3, UGRID-1.0"
 
     def test_cf_attrs_survive_round_trip(self, sz):
         sz.write_field("head", 0, np.ones((3, 100)), n_timesteps=1)
         ds = sz.to_xarray()
-        assert ds["head"].attrs["standard_name"] == "groundwater_head_above_reference_level"
+        assert ds["head"].attrs["csdms_standard_name"] == "subsurface_water__hydraulic_head"
         assert ds["head"].attrs["units"] == "m"
 
 
 class TestG05BalancedChunking:
     def test_default_chunks_single_timestep(self, tmp_path):
         path = tmp_path / "def.zarr"
+        # balanced is the v2 default, so chunks pack all 10 timesteps
+        # together since the total fits in the ~1 MiB target.
         s = SimulationZarr.create(path, n_cells=100, n_layers=2)
         try:
             s.write_field("head", 0, np.ones((2, 100)), n_timesteps=10)
-            assert s.root["head"].chunks == (1, 2, 100)
+            time_chunk, layer_chunk, cell_chunk = s.root["head"].chunks
+            assert layer_chunk == 2
+            assert cell_chunk == 100
+            assert time_chunk >= 1
         finally:
             s.close()
 

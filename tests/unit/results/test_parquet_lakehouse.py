@@ -79,7 +79,7 @@ class TestViewSemantics:
                 cat.connection.execute(
                     "SELECT value FROM timeseries "
                     "WHERE sim_id = ? AND station_id = 'P01' AND variable = 'head' "
-                    "ORDER BY datetime",
+                    "ORDER BY timestep",
                     [sid],
                 )
                 .fetchdf()["value"]

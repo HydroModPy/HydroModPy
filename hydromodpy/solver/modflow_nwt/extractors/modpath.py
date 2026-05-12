@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 class ModpathOutputAdapter:
     """Read MODPATH pathline / endpoint files and inject into a SimulationCatalog.
 
-    Stores pathline data as Zarr arrays under the ``pathlines/`` subgroup:
+    Stores pathline data as Zarr arrays under the ``particles/`` subgroup:
     x, y, z, time - each shaped ``(n_particles, max_steps)`` with NaN
     padding for particles that terminate early.
     """
@@ -80,9 +80,9 @@ class ModpathOutputAdapter:
 
         sz = store.open_zarr(sim_id)
         try:
-            pathlines_grp = sz.root.require_group("pathlines")
+            particles_grp = sz.root.require_group("particles")
             for name, arr in [("x", x), ("y", y), ("z", z), ("time", t)]:
-                pathlines_grp.create_array(
+                particles_grp.create_array(
                     name,
                     data=arr,
                     overwrite=True,
@@ -115,29 +115,29 @@ class ModpathOutputAdapter:
 
         sz = store.open_zarr(sim_id)
         try:
-            pathlines_grp = sz.root.require_group("pathlines")
-            pathlines_grp.create_array(
+            particles_grp = sz.root.require_group("particles")
+            particles_grp.create_array(
                 "endpoint_x",
                 data=all_data["x0"].astype("float64"),
                 overwrite=True,
             )
-            pathlines_grp.create_array(
+            particles_grp.create_array(
                 "endpoint_y",
                 data=all_data["y0"].astype("float64"),
                 overwrite=True,
             )
-            pathlines_grp.create_array(
+            particles_grp.create_array(
                 "endpoint_z",
                 data=all_data["z0"].astype("float64"),
                 overwrite=True,
             )
+            particles_grp.create_array(
+                "endpoint_time",
+                data=all_data["time"].astype("float64"),
+                overwrite=True,
+            )
         finally:
             sz.close()
-        pathlines_grp.create_array(
-            "endpoint_time",
-            data=all_data["time"].astype("float64"),
-            overwrite=True,
-        )
 
         logger.info("Extracted %d endpoints for sim %s", len(all_data), sim_id)
 

@@ -195,7 +195,7 @@ def _write_case_configuration_figure(
     if payload.vertices is not None and payload.faces is not None and payload.vertices.size:
         polygons: list[np.ndarray] = []
         colors: list[float] = []
-        surface = payload.surface_top
+        surface = payload.topography
         for index, face in enumerate(np.asarray(payload.faces, dtype=int)):
             face = face[(face >= 0) & (face < payload.vertices.shape[0])]
             if face.size < 3:
@@ -221,7 +221,7 @@ def _write_case_configuration_figure(
             mesh_ax.autoscale_view()
             colorbar = figure.colorbar(collection, ax=mesh_ax, fraction=0.046, pad=0.02)
             colorbar.set_label(
-                "surface elevation [m]" if payload.surface_top is not None else "cell",
+                "surface elevation [m]" if payload.topography is not None else "cell",
                 fontsize=_LABEL_FONT_SIZE,
             )
             _style_colorbar(colorbar)

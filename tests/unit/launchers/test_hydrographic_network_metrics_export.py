@@ -110,7 +110,7 @@ def _register_completed_run(
         sz = catalog.open_zarr(sim_id)
         try:
             sz.root["mesh"].create_array(
-                "surface_top",
+                "topography",
                 data=np.array([10.0, 9.0, 8.0], dtype="float64"),
                 overwrite=True,
             )
@@ -206,7 +206,7 @@ def _register_completed_active_network_run(workspace_root: Path) -> tuple[Path, 
     sz = catalog.open_zarr(sim_id)
     try:
         sz.root["mesh"].create_array(
-            "surface_top",
+            "topography",
             data=np.array([10.0, 9.0, 8.0], dtype="float64"),
             overwrite=True,
         )

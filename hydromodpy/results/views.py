@@ -71,13 +71,13 @@ def _time_index(sim: Run, n: int) -> pd.DatetimeIndex:
 
 
 def _catchment_mask(sim: Run) -> np.ndarray | None:
-    """Boolean mask of active cells from ``mesh/surface_top``."""
+    """Boolean mask of active cells from ``mesh/topography``."""
     sz = sim._catalog.open_zarr(sim._sim_id)
     try:
         mesh = sz.root.get("mesh")
-        if mesh is None or "surface_top" not in mesh:
+        if mesh is None or "topography" not in mesh:
             return None
-        top = np.asarray(mesh["surface_top"][:], dtype="float64").ravel()
+        top = np.asarray(mesh["topography"][:], dtype="float64").ravel()
         return np.isfinite(top) & (top > -9000.0)
     finally:
         sz.close()
