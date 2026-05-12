@@ -136,7 +136,7 @@ def _make_trial_context(tmp_path: Path, *, earliest: int) -> tuple[TrialContext,
         _CallCounterStep("s8", ()),
     ]
     cfg = _FakeCfg()
-    ctx = _FakeCtx(cfg=cfg, config_path=tmp_path / "project.toml", raw_toml={})
+    ctx = _FakeCtx(cfg=cfg, config_path=tmp_path / "hydromodpy.toml", raw_toml={})
 
     trial_ctx = TrialContext(
         base_cfg=cfg,
@@ -145,7 +145,7 @@ def _make_trial_context(tmp_path: Path, *, earliest: int) -> tuple[TrialContext,
         downstream_steps=tuple(steps),
         override_paths={"K": "flow.K.value"},
         workspace=tmp_path,
-        cfg_path=tmp_path / "project.toml",
+        cfg_path=tmp_path / "hydromodpy.toml",
         raw_toml={},
     )
     return trial_ctx, steps

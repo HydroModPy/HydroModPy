@@ -187,7 +187,7 @@ def quadratic_metric():
 def project_toml(tmp_path: Path) -> Path:
     ws = tmp_path / "ws"
     ws.mkdir()
-    toml = tmp_path / "project.toml"
+    toml = tmp_path / "hydromodpy.toml"
     toml.write_text(TOML_TEMPLATE.format(workspace=str(ws).replace("\\", "/")))
     return toml
 

@@ -62,7 +62,7 @@ def test_workspace_creates_folder_structure(tmp_path) -> None:
 
 
 def test_workspace_resolves_scaffold(tmp_path) -> None:
-    """Scaffold layout: <ws>/projects/<name>/project.toml derives root."""
+    """Scaffold layout: <ws>/projects/<name>/hydromodpy.toml derives root."""
     ws_root = tmp_path / "myworkspace"
     project = _scaffold(ws_root)
     cfg = WorkspaceConfig(project_root=project)
@@ -98,7 +98,7 @@ def test_workspace_standalone_project_falls_back_to_project_root(tmp_path, monke
     project.mkdir()
     cfg = WorkspaceConfig(project_root=project)
     assert cfg.root == project.resolve()
-    assert cfg.catalog_path == (project / "hydromodpy.duckdb").resolve()
+    assert cfg.catalog_path == (project / "catalog.duckdb").resolve()
     assert cfg.resolution_source == "project"
 
 
@@ -113,7 +113,7 @@ def test_workspace_data_path_from_workspace_root(tmp_path) -> None:
     project = _scaffold(ws_root)
     cfg = WorkspaceConfig(project_root=project)
     assert cfg.data_path == (ws_root / "data").resolve()
-    assert cfg.catalog_path == (project / "hydromodpy.duckdb").resolve()
+    assert cfg.catalog_path == (project / "catalog.duckdb").resolve()
     assert cfg.simulations_dir == (project / "simulations").resolve()
 
 

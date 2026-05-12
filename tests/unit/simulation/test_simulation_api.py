@@ -739,7 +739,7 @@ class TestSimulationGroup:
         workspace = SimpleNamespace(
             root=tmp_path / "workspace",
             project_root=project_root,
-            catalog_path=project_root / "hydromodpy.duckdb",
+            catalog_path=project_root / "catalog.duckdb",
             simulations_dir=project_root / "simulations",
         )
         ctx = SimpleNamespace(
@@ -757,7 +757,7 @@ class TestSimulationGroup:
         project = SimpleNamespace(
             _ctx=ctx,
             cfg=SimpleNamespace(),
-            _config_path=tmp_path / "project.toml",
+            _config_path=tmp_path / "hydromodpy.toml",
             _spatial_support_registry=None,
             _requested_support_ids=(),
             _requested_domain_supports={},
@@ -836,7 +836,7 @@ class TestSimulationGroup:
         project = SimpleNamespace(
             _ctx=ctx,
             cfg=SimpleNamespace(),
-            _config_path=tmp_path / "project.toml",
+            _config_path=tmp_path / "hydromodpy.toml",
             _spatial_support_registry=None,
             _requested_support_ids=(),
             _requested_domain_supports={},

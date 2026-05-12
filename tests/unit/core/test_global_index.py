@@ -13,11 +13,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from hydromodpy.core.state.global_index import (
-    CATALOG_FILENAME,
-    GlobalIndex,
-    WorkspaceRecord,
-)
+from hydromodpy.core.state.global_index import GlobalIndex, WorkspaceRecord
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 
 def _seed_workspace(
