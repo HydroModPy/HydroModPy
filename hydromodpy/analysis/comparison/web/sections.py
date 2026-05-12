@@ -757,10 +757,7 @@ def _initial_condition_text(flow: Mapping[str, Any]) -> str:
                 "transitoire utilisent PETSc SNESVI avec la fermeture "
                 "vi_obstacle directe"
             )
-        if (
-            backend == "petsc"
-            and surface == "ts_vi_obstacle"
-        ):
+        if backend == "petsc" and surface == "ts_vi_obstacle":
             return (
                 "charge initiale issue d'un calcul permanent auxiliaire avec "
                 "la recharge moyenne; pour Boussinesq, ce permanent utilise "

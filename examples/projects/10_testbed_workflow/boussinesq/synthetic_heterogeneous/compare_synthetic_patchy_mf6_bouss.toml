@@ -1,4 +1,5 @@
-workflow = "comparison"
+[workflow]
+mode = "comparison"
 
 [comparison]
 comparison_id = "synthetic_patchy_long_mf6_vs_bouss"

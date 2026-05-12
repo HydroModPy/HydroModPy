@@ -1,4 +1,5 @@
-workflow = "testbed"
+[workflow]
+mode = "testbed"
 
 [testbed]
 id = "nwt_small_catchment_flux"

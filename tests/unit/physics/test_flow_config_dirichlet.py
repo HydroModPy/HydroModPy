@@ -117,13 +117,13 @@ def test_boundary_value_accepts_inline_unit() -> None:
     assert drainage.units == "m2/s"
 
 
-def test_cauchy_drainage_accepts_legacy_type_key() -> None:
+def test_cauchy_drainage_accepts_kind_key() -> None:
     cfg = _build_flow_config(
         {
             "bc": {
                 "cauchy": {
                     "drainage": {
-                        "type": "cauchy",
+                        "kind": "cauchy",
                         "value": "10 cm2/day",
                         "application_domain": "top",
                     }

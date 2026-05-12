@@ -3,7 +3,8 @@
 # Each selected site receives the same fixed candidate list from
 # compare_natural_network_site_candidates_base.toml.  This avoids a generic
 # cross-product of mesh, solver, routing and diagnostic options.
-workflow = "testbed"
+[workflow]
+mode = "testbed"
 
 [testbed]
 id = "natural_network_site_candidates_catalog"

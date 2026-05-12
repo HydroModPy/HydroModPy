@@ -1,4 +1,5 @@
-workflow = "simulation"
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "../../outputs/boussinesq_synthetic_heterogeneous/base_workspace"
@@ -58,10 +59,10 @@ right_to_left_amplitude = 20.0
 zone_ids = ["geology"]
 
 [domain.supports.field_geology]
-provider = "geology"
+kind = "geology"
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "80.0 m"
 
 [data]
@@ -145,7 +146,7 @@ boundary_condition_policy = "first_period"
 
 [flow.bc.cauchy.drainage]
 id = "drainage"
-type = "cauchy"
+kind = "cauchy"
 application_domain = "top"
 description = "Synthetic top drainage without imposed lateral head."
 value = "0.2 m2/s"

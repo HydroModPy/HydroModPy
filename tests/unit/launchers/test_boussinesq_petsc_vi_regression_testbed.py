@@ -7,12 +7,7 @@ from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 CAMPAIGN_DIR = (
-    REPO_ROOT
-    / "examples"
-    / "projects"
-    / "10_testbed_workflow"
-    / "boussinesq"
-    / "natural_geology_k"
+    REPO_ROOT / "examples" / "projects" / "10_testbed_workflow" / "boussinesq" / "natural_geology_k"
 )
 TESTBED_CONFIG = CAMPAIGN_DIR / "natural_petsc_vi_regression_testbed.toml"
 BASE_COMPARISON = CAMPAIGN_DIR / "compare_natural_mf6_bouss_petsc_vi_base.toml"

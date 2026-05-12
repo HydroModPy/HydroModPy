@@ -227,7 +227,7 @@ def _apply_scenario_to_launcher_payload(
     cauchy["drainage"] = {
         **dict(cauchy.get("drainage", {})),
         "application_domain": "top",
-        "type": "cauchy",
+        "kind": "cauchy",
         "value": f"{scenario.drainage_conductance_m2_per_s:.12g} m2/s",
     }
     bc["dirichlet"] = dirichlet
@@ -414,7 +414,7 @@ def _run_boussinesq_scenario(
                     "cauchy": {
                         "drainage": {
                             "application_domain": "top",
-                            "type": "cauchy",
+                            "kind": "cauchy",
                             "value": scenario.drainage_conductance_m2_per_s,
                         }
                     },

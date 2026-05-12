@@ -226,8 +226,9 @@ Published simulation-comparison cases can be staged under
 `examples/projects/09_capability_gallery/simulation_comparison/`.
 
 - `tools/doc_gallery/import_simulation_comparison.py` copies a reviewed
-  `comparison_manifest.json`, `comparison_metrics.json`, and `observables.csv`
-  bundle into that versioned tree. It can publish one comparison root or
+  `comparison_manifest.json` and `comparison_metrics.json` bundle into that
+  versioned tree as `comparison_manifest.json` plus compact `summary_metrics.csv`.
+  It can publish one comparison root or
   discover every comparison under a testbed output root, including the Nançon
   hydrographic-network benchmark's `comparison/` directory.
 - `tools/doc_gallery/gallery_simulation_comparison_specs.py` discovers every

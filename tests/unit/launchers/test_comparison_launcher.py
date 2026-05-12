@@ -534,7 +534,7 @@ def test_comparison_config_normalizes_legacy_human_mesh_label(tmp_path: Path) ->
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "demo_compare"',

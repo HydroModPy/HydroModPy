@@ -36,7 +36,7 @@ What It Shows
 Key Parameters
 --------------
 
-- The published comparison root provides `comparison_manifest.json`, `comparison_metrics.json`, and `observables.csv`.
+- The published comparison root provides `comparison_manifest.json` and `summary_metrics.csv`.
 - Execution-time diagnostics should use solver flow time, not whole workflow wall time.
 
 How To Read It
@@ -83,24 +83,7 @@ Source Pointers
 
 - ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/case.json``
 - ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_manifest.json``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/observables.csv``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_audit.json``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_report.md``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/execution_times.csv``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/hydrographic_network_metrics.csv``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/hydrographic_network_metrics_skipped.json``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_distance_metrics.csv``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_distance_metrics_skipped.json``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_overlap_metrics.csv``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_overlap_metrics_skipped.json``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_distance_metrics.csv``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_distance_metrics_skipped.json``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_figures_skipped.json``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_metrics.csv``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_metrics_skipped.json``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_overlap_metrics.csv``
-- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_overlap_metrics_skipped.json``
+- ``examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/summary_metrics.csv``
 
 Artifacts
 ---------

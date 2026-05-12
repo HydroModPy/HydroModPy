@@ -315,9 +315,7 @@ def discover_result_store(
                 return catalog, str(matches.iloc[-1]["sim_id"])
         if "config_source" in sims.columns:
             config_key = str(config_path_resolved).casefold()
-            config_sources = completed_sims["config_source"].fillna("").map(
-                _normalize_catalog_path
-            )
+            config_sources = completed_sims["config_source"].fillna("").map(_normalize_catalog_path)
             matches = completed_sims.loc[config_sources == config_key]
             if not matches.empty:
                 return catalog, str(matches.iloc[-1]["sim_id"])

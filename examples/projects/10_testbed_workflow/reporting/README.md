@@ -83,10 +83,10 @@ case/site identifier, for example `site_01_mf6_vs_bouss`.
 
 Implemented pages:
 
-- campaign synthesis for `workflow = "testbed"`;
+- campaign synthesis for `[workflow] mode = "testbed"`;
 - case pages for each testbed variant;
 - comparison summary and key comparison figures when comparison reports exist;
-- regional-lab synthesis for `workflow = "regional_lab"`;
+- regional-lab synthesis for `[workflow] mode = "regional_lab"`;
 - site pages for regional-lab inventories.
 
 The campaign synthesis keeps metrics compact on purpose: it reports row counts,

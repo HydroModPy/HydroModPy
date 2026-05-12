@@ -1,6 +1,7 @@
 # Workflow selector: this file defines the PETSc SNESVI-only Boussinesq
 # comparison template used before the broader Boussinesq simplification.
-workflow = "comparison"
+[workflow]
+mode = "comparison"
 
 # Top-level comparison experiment section.
 [comparison]

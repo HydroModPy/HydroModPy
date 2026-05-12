@@ -1,5 +1,6 @@
 # Workflow selector: this file defines one reusable solver-comparison template.
-workflow = "comparison"
+[workflow]
+mode = "comparison"
 
 # Top-level comparison experiment section.
 [comparison]

@@ -1,4 +1,5 @@
-workflow = "simulation"
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/nancon_steady_mf6_regular_network_methods/shared_workspace"
@@ -44,7 +45,7 @@ all_vertices = true
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "30.0 m"
 
 [flow]
@@ -85,7 +86,7 @@ type = "top"
 
 [flow.bc.cauchy.drainage]
 id = "drainage"
-type = "cauchy"
+kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
 value = "1e-5 m2/s"

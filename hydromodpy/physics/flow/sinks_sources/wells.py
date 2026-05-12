@@ -282,38 +282,6 @@ class FlowWellConfig(HydroModelBase):
         default="", description="Optional well description."
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def _strip_location_variant_leaks(cls, data):
-        """Drop stale well-location keys left by recursive TOML overlays."""
-        if not isinstance(data, Mapping):
-            return data
-        location = data.get("location")
-        if not isinstance(location, Mapping):
-            return data
-
-        kind = str(location.get("kind", "cell")).strip().lower() or "cell"
-        allowed_by_kind = {
-            "cell": {"kind", "cell"},
-            "absolute_xy": {"kind", "layer", "x", "y"},
-            "relative_xy": {"kind", "layer", "x_rel", "y_rel"},
-        }
-        allowed = allowed_by_kind.get(kind)
-        if allowed is None:
-            return data
-
-        known_variant_keys = {"cell", "layer", "x", "y", "x_rel", "y_rel"}
-        leaked_keys = known_variant_keys - allowed
-        if not any(key in location for key in leaked_keys):
-            return data
-
-        cleaned_location = {
-            key: value for key, value in location.items() if key not in leaked_keys
-        }
-        cleaned_data = dict(data)
-        cleaned_data["location"] = cleaned_location
-        return cleaned_data
-
     @field_validator("flux", mode="before")
     @classmethod
     def _validate_flux(cls, value):

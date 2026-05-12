@@ -1,3 +1,0 @@
-simulation_id,simulation_label,solver,mesh_mode,runtime_seconds,runtime_minutes,time_scope,reference_simulation,reference_time_scope,speedup_vs_reference
-mf6_ref,MODFLOW 6 reference,modflow6,mesh_catchment,73.9031895030057,1.2317198250500951,flow_solve,mf6_ref,flow_solve,1.0
-bouss_candidate,Boussinesq PETSc TS/SNESVI candidate,boussinesq,mesh_catchment,10.471896615985315,0.17453161026642192,flow_solve,mf6_ref,flow_solve,7.057287921482412

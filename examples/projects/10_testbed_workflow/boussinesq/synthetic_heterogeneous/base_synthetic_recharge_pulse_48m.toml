@@ -1,5 +1,6 @@
 base_config = "base_synthetic_patchy_mf6_bouss_transient.toml"
-workflow = "simulation"
+[workflow]
+mode = "simulation"
 
 [simulation]
 name = "synthetic_patchy_recharge_pulse_48m_mf6_bouss_shared_case"

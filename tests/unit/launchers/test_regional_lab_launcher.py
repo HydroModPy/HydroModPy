@@ -125,7 +125,7 @@ def _write_regional_lab_testbed_profile_config(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'profile = "regional_lab"',

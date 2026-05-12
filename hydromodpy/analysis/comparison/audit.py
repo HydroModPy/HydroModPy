@@ -178,17 +178,15 @@ def _is_expected_boussinesq_drainage_bc_difference(
     if candidate_solver != "boussinesq" or reference_solver not in {"modflow6", "mf6"}:
         return False
 
-    candidate_normalized, candidate_ignored = (
-        _flow_bc_without_method_specific_drainage_conductance(candidate_section)
+    candidate_normalized, candidate_ignored = _flow_bc_without_method_specific_drainage_conductance(
+        candidate_section
     )
-    reference_normalized, reference_ignored = (
-        _flow_bc_without_method_specific_drainage_conductance(reference_section)
+    reference_normalized, reference_ignored = _flow_bc_without_method_specific_drainage_conductance(
+        reference_section
     )
     if not (candidate_ignored and reference_ignored):
         return False
-    return _section_fingerprint(candidate_normalized) == _section_fingerprint(
-        reference_normalized
-    )
+    return _section_fingerprint(candidate_normalized) == _section_fingerprint(reference_normalized)
 
 
 def _config_signature(config_path: Path | None) -> dict[str, Any]:

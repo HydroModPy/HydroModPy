@@ -579,9 +579,7 @@ def _write_regridded_map_figure(
     )
     axes_array = np.asarray(axes, dtype=object).ravel()
     artist = None
-    for index, (ax, (payload, array)) in enumerate(
-        zip(axes_array, arrays, strict=False)
-    ):
+    for index, (ax, (payload, array)) in enumerate(zip(axes_array, arrays, strict=False)):
         artist = ax.imshow(
             array,
             origin="lower",
