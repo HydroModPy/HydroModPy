@@ -110,17 +110,6 @@ class Run(
         self._row: dict | None = None
         self.array = RunArrayProvider(self)
 
-    @classmethod
-    def from_id(cls, catalog: SimulationCatalog, sim_id: str) -> Run:
-        """Build a ``Run`` view from an existing ``sim_id`` in the catalog.
-
-        Validates that the simulation exists by triggering one row load.
-        Raises ``KeyError`` when the id is unknown.
-        """
-        run = cls(sim_id, catalog)
-        run._load_row()
-        return run
-
     def _load_row(self) -> dict:
         if self._row is None:
             row = self._catalog.connection.execute(
