@@ -1,0 +1,108 @@
+# ======================================================================
+# Nancon - 05 - Calibration of K against observed discharge
+# ----------------------------------------------------------------------
+# Workflow:       [workflow].mode = "calibration"
+# Method:         Optuna (Tree-structured Parzen Estimator)
+# Search space:   K only, log-uniform in [1e-6, 1e-3] m/s
+# Frozen:         Sy, Ss, aquifer thickness
+# Objective:      KGE (Kling-Gupta Efficiency) on observed discharge.
+#                 KGE decomposes the fit into correlation, bias and
+#                 variability, so a poor amplitude is not hidden by a
+#                 good mean (unlike NSE / RMSE).
+#
+# Each iteration forks the prepared context and runs a real MODFLOW-NWT
+# simulation in lightweight mode (no per-iteration Zarr / Parquet by
+# default). `save_runs = "best_n"` keeps full simulation outputs for the
+# top N iterations after the campaign and back-fills their sim_id into
+# the `calibration_iterations` table.
+#
+# Launch:
+#   hmp run examples/projects/11_nancon_watershed/05_run_calibration_k.toml
+#
+# Render the calibration HTML report after the run:
+#   hmp report <calibration_session_id> --open
+#
+# List sessions of this project:
+#   hmp catalog query "SELECT session_id, n_iterations FROM all_calibration_sessions"
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[workflow]
+mode = "calibration"
+
+[simulation]
+name = "nancon_calibration_k"
+description = "Optuna calibration of K vs KGE(discharge), Sy/Ss frozen."
+scientific_objective = "calibration"
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflownwt"]
+
+
+# ---- Frozen parameters (not calibrated) -----------------------------
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.Sy.field]
+value = 0.05
+
+[flow.param.Ss.field]
+value = 1e-5
+
+
+# ---- Calibration -----------------------------------------------------
+# The mere presence of [calibration] (with [workflow].mode = "calibration")
+# triggers the calibration workflow. Each parameter declares:
+#   bounds     : [low, high] in the physical space
+#   transform  : 'log' for K (strictly positive, multi-decade range)
+#   prior      : sampling prior used by Bayesian optimisers
+#   path       : dotted path into HydroModPyConfig - written at each ask
+#   units      : informative label
+
+[calibration]
+# Optimization method.
+# Install the calibration extra for optuna or cma_es.
+# Type: string | Default: "grid"
+method = "optuna"
+# 3 trials is a smoke-test budget; bump it for production runs.
+# Type: int | >= 1 | Default: 100
+max_iter = 3
+# One trial per ask (sequential). Increase for parallel optimisers.
+# Type: int | >= 1 | Default: 1
+batch_size = 1
+# 'best_n' promotes the top iterations to full simulations after the
+# loop, with Zarr + figures. Cheaper than 'all' for large campaigns.
+# Type: Literal['none', 'best_n', 'all'] | Default: "none"
+save_runs = "best_n"
+# Type: int | >= 0 | Default: 10
+save_best_n = 1
+# Fixed seed for reproducibility.
+# Type: int (optional) | Optional
+seed = 42
+# Objective metric on the observed discharge time-series.
+# Other choices: 'rmse' / 'mae' (scale-dependent error), 'nse'.
+# Type: string | Default: "nse"
+objective = "kge"
+# Type: string | Default: "head"
+variable = "discharge"
+# Memoise duplicate parameter samples through a content-addressed cache.
+# Type: bool | Default: true
+use_cache = true
+
+[calibration.parameters.K]
+# K spans many orders of magnitude. We sample uniformly in log10 space.
+bounds = [1e-6, 1e-3]
+transform = "log"
+prior = "log_uniform"
+# Dotted path written at each iteration.
+path = "flow.param.K.field.value"
+units = "m/s"
