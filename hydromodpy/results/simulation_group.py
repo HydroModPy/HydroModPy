@@ -171,11 +171,11 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, param_name, zone_id, value "
             f"FROM parameters WHERE sim_id IN ({placeholders})",
             self._sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["key"] = df["param_name"].where(
@@ -195,11 +195,11 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, station_id, metric_name, value "
             f"FROM metrics WHERE sim_id IN ({placeholders})",
             self._sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["key"] = df["metric_name"].where(
@@ -231,7 +231,7 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        return self._catalog.connection.execute(
+        return self._catalog.backend.query(
             f"SELECT s.sim_id, s.name, s.project, sv.code AS solver, "
             f"m.station_id, m.value "
             f"FROM simulations s "
@@ -240,7 +240,7 @@ class SimulationGroup:
             f"WHERE s.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value DESC",
             self._sim_ids + [metric],
-        ).fetchdf()
+        )
 
     def best(self, metric: str) -> Run:
         """Return the run with the highest value for ``metric``.
@@ -340,7 +340,7 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        sims = self._catalog.connection.execute(
+        sims = self._catalog.backend.query(
             f"SELECT s.sim_id, s.project, sv.code AS solver, "
             f"sv.category AS solver_category, fr.code AS flow_regime, "
             f"s.n_cells, s.n_layers "
@@ -349,7 +349,7 @@ class SimulationGroup:
             f"LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
             f"WHERE s.sim_id IN ({placeholders})",
             self._sim_ids,
-        ).fetchdf()
+        )
 
         params_df = self.parameters
         metrics_df = self.metrics

@@ -232,13 +232,13 @@ def _materialise_inputs(
     Writes ``inputs/manifest.json`` listing each bundled input. Returns
     the manifest list (also useful for the root manifest).
     """
-    rows = catalog.connection.execute(
+    rows = catalog.backend.query(
         """SELECT role, category, original_path, canonical_path,
                   sha256, size_bytes, portable
            FROM tracked_files WHERE sim_id = ?
            ORDER BY role, canonical_path""",
         [sim_id],
-    ).fetchdf()
+    )
     if rows.empty:
         return []
 
@@ -331,6 +331,7 @@ def _dump_catalog_snapshot(
     """Create a one-sim DuckDB snapshot at ``dst``."""
     import duckdb as _duckdb
 
+    from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
     from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
     from hydromodpy.results.catalog.migrations import ensure_schema
 
@@ -339,19 +340,21 @@ def _dump_catalog_snapshot(
     snap = _duckdb.connect(str(dst))
     try:
         ensure_schema(snap)
-        sim_df = conn.execute(
+        src_backend = DuckDBBackend.from_connection(conn)
+        sim_df = src_backend.query(
             "SELECT * FROM simulations WHERE sim_id = ?",
             [sim_id],
-        ).fetchdf()
+        )
         if sim_df.empty:
             raise KeyError(f"Simulation '{sim_id}' not found")
+        # DuckDB replacement scan needs the local sim_df symbol below.
         snap.execute("INSERT INTO simulations SELECT * FROM sim_df")
 
         for table in PER_SIM_TABLE_NAMES:
-            df = conn.execute(
+            df = src_backend.query(
                 f"SELECT * FROM {table} WHERE sim_id = ?",
                 [sim_id],
-            ).fetchdf()
+            )
             if df.empty:
                 continue
             snap.execute(f"INSERT INTO {table} SELECT * FROM df")
@@ -373,26 +376,29 @@ def _restore_catalog_snapshot(
 
     snap = _duckdb.connect(str(snapshot_path), read_only=True)
     try:
-        sim_row = snap.execute("SELECT sim_id FROM simulations").fetchone()
+        from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
+
+        snap_backend = DuckDBBackend.from_connection(snap)
+        sim_row = snap_backend.fetch_one("SELECT sim_id FROM simulations")
         if sim_row is None:
             raise ValueError("Snapshot contains no simulation row")
         sid = str(sim_row[0])
 
         pkg_tables = {
             r[0]
-            for r in snap.execute(
+            for r in snap_backend.fetch_all(
                 "SELECT table_name FROM information_schema.tables "
                 "WHERE table_schema='main' AND table_type='BASE TABLE'"
-            ).fetchall()
+            )
         }
 
-        sim_df = snap.execute("SELECT * FROM simulations").fetchdf()  # noqa: F841 - referenced by DuckDB replacement scan in SQL below
+        sim_df = snap_backend.query("SELECT * FROM simulations")  # noqa: F841 - referenced by DuckDB replacement scan in SQL below
         conn.execute("INSERT INTO simulations SELECT * FROM sim_df")
 
         for table in PER_SIM_TABLE_NAMES:
             if table not in pkg_tables:
                 continue
-            df = snap.execute(f"SELECT * FROM {table}").fetchdf()
+            df = snap_backend.query(f"SELECT * FROM {table}")
             if df.empty:
                 continue
             conn.execute(f"INSERT INTO {table} SELECT * FROM df")

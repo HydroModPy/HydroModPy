@@ -153,7 +153,7 @@ class DatasetLoader:
 
     def _select_simulations(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT {_SIM_META_SELECT} "
             f"FROM simulations s "
             f"JOIN solvers sv ON s.solver_id = sv.id "
@@ -161,17 +161,17 @@ class DatasetLoader:
             f"LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
             f"WHERE s.sim_id IN ({placeholders})",
             sim_ids,
-        ).fetchdf()
+        )
         df["sim_id"] = df["sim_id"].astype(str)
         return df
 
     def _select_parameters(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, param_name, zone_id, value "
             f"FROM parameters WHERE sim_id IN ({placeholders})",
             sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["sim_id"] = df["sim_id"].astype(str)
@@ -190,11 +190,11 @@ class DatasetLoader:
 
     def _select_metrics(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, station_id, metric_name, value "
             f"FROM metrics WHERE sim_id IN ({placeholders})",
             sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["sim_id"] = df["sim_id"].astype(str)
@@ -214,10 +214,10 @@ class DatasetLoader:
     def _select_environment(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
         cols = ", ".join(_ENV_META_COLUMNS)
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, {cols} FROM runs_environment WHERE sim_id IN ({placeholders})",
             sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["sim_id"] = df["sim_id"].astype(str)

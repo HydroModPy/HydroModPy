@@ -46,7 +46,7 @@ def compare_pair(
             "FROM metrics WHERE sim_id IN (?, ?) "
             "ORDER BY metric_name, station_id",
             [sid_a, sid_b],
-        ).fetchdf()
+        )
 
     if df.empty:
         return df

@@ -178,7 +178,7 @@ class ReadsMixin:
             query += " AND datetime >= ? AND datetime <= ?"
             params.extend([lo.to_pydatetime(), hi.to_pydatetime()])
         query += " ORDER BY datetime"
-        result = self._db.execute(query, params).fetchdf()
+        result = self._backend.query(query, params)
         if result.empty:
             raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
         # Strip tz back to naive so the returned series aligns with
@@ -206,13 +206,13 @@ class ReadsMixin:
         if period is not None:
             query += " AND timestep >= ? AND timestep <= ?"
             params.extend(period)
-        return self._db.execute(query, params).fetchdf()
+        return self._backend.query(query, params)
 
     def query_mass_balance(self, sim_id: str | UUID) -> pd.DataFrame:
-        return self._db.execute(
+        return self._backend.query(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [str(sim_id)],
-        ).fetchdf()
+        )
 
     def get_provenance(
         self,
@@ -224,7 +224,7 @@ class ReadsMixin:
         if variable is not None:
             query += " AND variable = ?"
             params.append(variable)
-        return self._db.execute(query, params).fetchdf()
+        return self._backend.query(query, params)
 
     def list_simulations(self, **filters) -> pd.DataFrame:
         """Return one DataFrame row per simulation matching ``filters``.
@@ -249,16 +249,16 @@ class ReadsMixin:
         clause = _order_clause(order_by)
         if clause is not None:
             query += f" ORDER BY {clause}"
-        return self._db.execute(query, params).fetchdf()
+        return self._backend.query(query, params)
 
     def list_tracked_files(self, sim_id: str | UUID) -> pd.DataFrame:
-        return self._db.execute(
+        return self._backend.query(
             """SELECT role, category, original_path, canonical_path,
                       sha256, size_bytes, portable
                FROM tracked_files WHERE sim_id = ?
                ORDER BY role, canonical_path""",
             [str(sim_id)],
-        ).fetchdf()
+        )
 
     def read_geographic_feature(
         self,
@@ -283,7 +283,7 @@ class ReadsMixin:
         if not path.is_file():
             raise FileNotFoundError(path)
         escaped = path.as_posix().replace("'", "''")
-        df = self._db.execute(f"SELECT * FROM read_parquet('{escaped}')").fetchdf()
+        df = self._backend.query(f"SELECT * FROM read_parquet('{escaped}')")
         if "geometry_wkb" not in df.columns:
             raise KeyError(f"No geometry_wkb column for feature '{feature_name}'")
         geoms = [_geometry_from_wkb(value) for value in df.pop("geometry_wkb")]
@@ -312,19 +312,17 @@ class ReadsMixin:
 
     @property
     def simulations(self) -> pd.DataFrame:
-        return self._db.execute(f"{_SIMULATIONS_VIEW_SELECT} ORDER BY s.created_at DESC").fetchdf()
+        return self._backend.query(f"{_SIMULATIONS_VIEW_SELECT} ORDER BY s.created_at DESC")
 
     @property
     def calibration_sessions(self) -> pd.DataFrame:
         """Return every calibration session row as a DataFrame."""
-        return self._db.execute(
-            "SELECT * FROM calibration_sessions ORDER BY started_at DESC"
-        ).fetchdf()
+        return self._backend.query("SELECT * FROM calibration_sessions ORDER BY started_at DESC")
 
     def calibration_iterations(self, session_id: str | UUID) -> pd.DataFrame:
         """Return the iteration history for one session as a DataFrame."""
         sid = UUID(str(session_id)) if len(str(session_id).replace("-", "")) == 32 else session_id
-        return self._db.execute(
+        return self._backend.query(
             """
             SELECT iteration, sim_id, params_hash, parameters,
                    objective_value, metrics, status, from_cache, duration_s
@@ -333,7 +331,7 @@ class ReadsMixin:
              ORDER BY iteration
             """,
             [sid],
-        ).fetchdf()
+        )
 
     def sql(self, query: str, params: list | None = None) -> pd.DataFrame:
         """Run an arbitrary SQL query against the catalog DuckDB store.
@@ -343,8 +341,8 @@ class ReadsMixin:
         :class:`pandas.DataFrame`.
         """
         if params:
-            return self._db.execute(query, params).fetchdf()
-        return self._db.execute(query).fetchdf()
+            return self._backend.query(query, params)
+        return self._backend.query(query)
 
     def export(
         self,
