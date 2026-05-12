@@ -14,7 +14,6 @@ from uuid import UUID
 
 import numpy as np
 import pandas as pd
-from shapely import wkb
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -113,18 +112,6 @@ _SIMULATIONS_VIEW_SELECT = (
 )
 
 
-def _geometry_from_wkb(value: object):
-    if value is None:
-        return None
-    try:
-        missing = pd.isna(value)
-    except (TypeError, ValueError):
-        missing = False
-    if isinstance(missing, (bool, np.bool_)) and missing:
-        return None
-    return wkb.loads(bytes(value))
-
-
 class ReadsMixin:
     """Read-only queries for :class:`SimulationCatalog`.
 
@@ -163,27 +150,27 @@ class ReadsMixin:
         period: tuple | None = None,
     ) -> pd.Series:
         query = (
-            "SELECT datetime, value FROM timeseries "
+            "SELECT time, timestep, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [str(sim_id), station_id, variable]
         if period is not None:
-            # Datetimes are stored as UTC-aware TIMESTAMPTZ; normalize the
+            # Times are stored as UTC-aware TIMESTAMPTZ; normalize the
             # caller's bounds to tz-aware UTC so the comparison is stable
             # regardless of DuckDB's session timezone.
             lo = pd.Timestamp(period[0])
             hi = pd.Timestamp(period[1])
             lo = lo.tz_localize("UTC") if lo.tz is None else lo.tz_convert("UTC")
             hi = hi.tz_localize("UTC") if hi.tz is None else hi.tz_convert("UTC")
-            query += " AND datetime >= ? AND datetime <= ?"
+            query += " AND time >= ? AND time <= ?"
             params.extend([lo.to_pydatetime(), hi.to_pydatetime()])
-        query += " ORDER BY datetime"
+        query += " ORDER BY timestep"
         result = self._backend.query(query, params)
         if result.empty:
             raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
         # Strip tz back to naive so the returned series aligns with
         # simulation-internal tz-naive time indexes.
-        idx = pd.DatetimeIndex(result["datetime"])
+        idx = pd.DatetimeIndex(result["time"])
         if idx.tz is not None:
             idx = idx.tz_convert("UTC").tz_localize(None)
         return pd.Series(
@@ -265,7 +252,8 @@ class ReadsMixin:
         sim_id: str | UUID,
         feature_name: str,
     ) -> gpd.GeoDataFrame:
-        import geopandas as gpd_mod
+        """Read a per-simulation GeoParquet 1.1 feature via geopandas."""
+        from hydromodpy.results.geoparquet_io import read_geoparquet
 
         row = self._db.execute(
             "SELECT geoparquet_path, properties, crs_wkt FROM geographic_features "
@@ -274,7 +262,7 @@ class ReadsMixin:
         ).fetchone()
         if row is None:
             raise KeyError(f"Feature '{feature_name}' not found for sim '{sim_id}'")
-        parquet_path, properties_json, crs = row
+        parquet_path, properties_json, _crs = row
         if not parquet_path:
             raise KeyError(f"No Parquet payload for feature '{feature_name}'")
         path = Path(parquet_path)
@@ -282,12 +270,7 @@ class ReadsMixin:
             path = self._workspace / path
         if not path.is_file():
             raise FileNotFoundError(path)
-        escaped = path.as_posix().replace("'", "''")
-        df = self._backend.query(f"SELECT * FROM read_parquet('{escaped}')")
-        if "geometry_wkb" not in df.columns:
-            raise KeyError(f"No geometry_wkb column for feature '{feature_name}'")
-        geoms = [_geometry_from_wkb(value) for value in df.pop("geometry_wkb")]
-        gdf = gpd_mod.GeoDataFrame(df, geometry=geoms, crs=crs)
+        gdf = read_geoparquet(path)
         if properties_json:
             props = (
                 json.loads(properties_json) if isinstance(properties_json, str) else properties_json

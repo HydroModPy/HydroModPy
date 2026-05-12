@@ -5,20 +5,25 @@ simulation is registered: the ``write_*`` family, observation-point and
 tracked-input registration, geographic metadata writes, and the shared
 atomic-Parquet helper that drives them all. ``register_simulation`` lives
 in :mod:`hydromodpy.results.catalog.registration`.
+
+In v2 every Parquet payload is built as a :class:`pyarrow.Table` matching one
+of the schemas in :mod:`hydromodpy.results.parquet_schemas`, then dispatched to
+:func:`hydromodpy.results.parquet_io.write_table_atomic`. The legacy DuckDB
+``COPY ... (FORMAT PARQUET)`` path is gone.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import os
-from datetime import UTC, datetime
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
@@ -28,11 +33,18 @@ from hydromodpy.results.array_fingerprint import fingerprint
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
+from hydromodpy.results.geoparquet_io import write_geoparquet_atomic
+from hydromodpy.results.parquet_io import read_kv_metadata, write_table_atomic
+from hydromodpy.results.parquet_schemas import (
+    BUDGETS_SCHEMA,
+    MASS_BALANCE_SCHEMA,
+    METRICS_SCHEMA,
+    PARQUET_SCHEMA_VERSION,
+    PROVENANCE_SCHEMA,
+    TIMESERIES_SCHEMA,
+)
 from hydromodpy.results.spatial_index import point_in_cell
 from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
-from hydromodpy.results.zarr_store import _windows_long_path
-
-PARQUET_SCHEMA_VERSION = "v1.0"
 
 if TYPE_CHECKING:
     import geopandas as gpd
@@ -67,8 +79,26 @@ def _path_size_bytes(path: Path) -> int:
     return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
 
 
+def _coerce_timestamp_utc(value: Any) -> pd.Timestamp | None:
+    """Return a UTC-aware :class:`pandas.Timestamp` or ``None``."""
+    if value is None:
+        return None
+    if isinstance(value, pd.Timestamp):
+        ts = value
+    else:
+        try:
+            ts = pd.Timestamp(value)
+        except (TypeError, ValueError):
+            return None
+    if ts.tz is None:
+        ts = ts.tz_localize("UTC")
+    else:
+        ts = ts.tz_convert("UTC")
+    return ts
+
+
 def _coerce_timestamp(value: Any) -> Any:
-    """Return a value suitable for a ``TIMESTAMPTZ`` column."""
+    """Return a value suitable for a ``TIMESTAMPTZ`` DuckDB column."""
     if value is None:
         return None
     if hasattr(value, "isoformat"):
@@ -117,10 +147,73 @@ def _epsg_from_crs(crs: str | None) -> int | None:
         return None
 
 
-def _json_scalar(value: object) -> object:
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    return str(value)
+def _datetime_to_ms(values: Iterable[Any]) -> list[pd.Timestamp | None]:
+    """Coerce arbitrary datetime inputs to UTC milliseconds-resolution."""
+    out: list[pd.Timestamp | None] = []
+    for v in values:
+        out.append(_coerce_timestamp_utc(v))
+    return out
+
+
+def _table_from_records(
+    records: Sequence[Mapping[str, Any]],
+    schema: pa.Schema,
+    *,
+    defaults: Mapping[str, Any] | None = None,
+) -> pa.Table:
+    """Build a pyarrow Table from a record list, conforming to ``schema``.
+
+    Missing columns fall back to ``None`` or to the provided ``defaults``. The
+    table is cast (``safe=False``) at the end so the produced Arrow types match
+    the declared schema exactly.
+    """
+    if not records:
+        return pa.Table.from_pydict({field.name: [] for field in schema}, schema=schema)
+    field_names = [field.name for field in schema]
+    timestamp_fields = {field.name for field in schema if pa.types.is_timestamp(field.type)}
+    columns: dict[str, list[Any]] = {name: [] for name in field_names}
+    for record in records:
+        for name in field_names:
+            value = record.get(name)
+            if value is None and defaults is not None and name in defaults:
+                value = defaults[name]
+            if name in timestamp_fields and value is not None:
+                value = _coerce_timestamp_utc(value)
+            columns[name].append(value)
+    arrays: dict[str, pa.Array] = {}
+    for field in schema:
+        col = columns[field.name]
+        if pa.types.is_timestamp(field.type):
+            # Convert tz-aware Timestamps to ms ints, leave None as null.
+            ms_values = [None if v is None else int(v.value // 1_000_000) for v in col]
+            arrays[field.name] = pa.array(ms_values, type=field.type)
+        else:
+            arrays[field.name] = pa.array(col, type=field.type, from_pandas=True)
+    return pa.Table.from_arrays(
+        list(arrays.values()), names=field_names, metadata=schema.metadata
+    ).replace_schema_metadata(schema.metadata)
+
+
+def _merge_with_existing(target: Path, new_table: pa.Table, pk_cols: Sequence[str]) -> pa.Table:
+    """Last-write-wins merge of an existing Parquet file with ``new_table``.
+
+    Reads the existing file with pyarrow, concatenates, drops the duplicate
+    rows on ``pk_cols`` keeping the *new* row (``keep="last"``). The merge
+    happens in memory, so the caller is responsible for keeping the per-sim
+    files small (typically <100 MB).
+    """
+    import pyarrow.parquet as pq
+
+    existing = pq.read_table(target)
+    # Ensure columns line up: project new_table onto existing's column order
+    # when both share the same names, otherwise rely on concat_tables' promote.
+    combined = pa.concat_tables([existing, new_table], promote_options="default")
+    # Use pandas to drop duplicates with deterministic last-wins semantics.
+    df = combined.to_pandas()
+    df = df.drop_duplicates(subset=list(pk_cols), keep="last")
+    return pa.Table.from_pandas(
+        df, schema=new_table.schema, preserve_index=False
+    ).replace_schema_metadata(new_table.schema.metadata)
 
 
 class WritesMixin:
@@ -176,50 +269,75 @@ class WritesMixin:
         unit: str = "",
         qflag: str = "simulated",
     ) -> None:
+        """Append a single station/variable timeseries to ``timeseries.parquet``."""
         if not self._persistence.save_parquet:
             return
-        n = len(ts)
-        if n == 0:
+        if ts is None or len(ts) == 0:
             return
         sid = str(sim_id)
-        # The timeseries.datetime column is TIMESTAMPTZ (WITH TIME ZONE).
-        # Normalize the index to a single tz-aware representation (UTC) so
-        # the Parquet file stores a deterministic timestamp regardless of
-        # the session timezone the caller runs under.
         dt_values = pd.DatetimeIndex(ts.index)
         if dt_values.tz is None:
             dt_values = dt_values.tz_localize("UTC")
         else:
             dt_values = dt_values.tz_convert("UTC")
-        insert_df = pd.DataFrame(
+        records = [
             {
-                "sim_id": np.full(n, sid, dtype=object),
-                "station_id": np.full(n, station_id, dtype=object),
-                "variable": np.full(n, variable, dtype=object),
-                "datetime": dt_values,
-                "value": ts.values.astype("float64"),
-                "unit": np.full(n, unit, dtype=object),
-                "qflag": np.full(n, qflag, dtype=object),
+                "sim_id": sid,
+                "station_id": station_id,
+                "variable": variable,
+                "component": None,
+                "timestep": idx,
+                "time": dt,
+                "value": float(val),
+                "unit": unit,
+                "qflag": qflag,
             }
+            for idx, (dt, val) in enumerate(
+                zip(dt_values.to_pydatetime(), ts.values.astype("float64"), strict=False)
+            )
+        ]
+        self._write_parquet_records(
+            target=self._paths.parquet_path_for(sid, "timeseries"),
+            records=records,
+            schema=TIMESERIES_SCHEMA,
+            pk_cols=("sim_id", "station_id", "variable", "timestep"),
+            sim_id=sid,
         )
-        select_sql = (
-            "SELECT "
-            "CAST(sim_id AS UUID) AS sim_id, "
-            "CAST(station_id AS VARCHAR) AS station_id, "
-            "CAST(variable AS VARCHAR) AS variable, "
-            "CAST(datetime AS TIMESTAMPTZ) AS datetime, "
-            "CAST(value AS DOUBLE) AS value, "
-            "CAST(unit AS VARCHAR) AS unit, "
-            "CAST(qflag AS VARCHAR) AS qflag "
-            "FROM _hmp_insert"
-        )
-        target = self._paths.parquet_path_for(sid, "timeseries")
-        self._atomic_write_parquet(
-            target,
-            insert_df,
-            select_sql,
-            pk_cols=("sim_id", "station_id", "variable", "datetime"),
-            kv_metadata=self._kv_metadata_for_sim(sid),
+
+    @with_lock_retry()
+    def write_timeseries_batch(
+        self,
+        sim_id: str | UUID,
+        records: Sequence[Mapping[str, Any]],
+    ) -> None:
+        """Write a batch of timeseries records to ``timeseries.parquet`` in one pass.
+
+        ``records`` must use the column names of :data:`TIMESERIES_SCHEMA`:
+        ``sim_id``, ``station_id``, ``variable``, ``component``, ``timestep``,
+        ``time``, ``value``, ``unit``, ``qflag``. Missing keys default to
+        ``None``. Compared to looping over :meth:`write_timeseries`, this entry
+        point avoids the O(N**2) read/merge/rewrite pattern: the merge happens
+        once against the existing file.
+        """
+        if not self._persistence.save_parquet:
+            return
+        if not records:
+            return
+        sid = str(sim_id)
+        normalised: list[dict[str, Any]] = []
+        for record in records:
+            row = dict(record)
+            row.setdefault("sim_id", sid)
+            row.setdefault("component", None)
+            row.setdefault("unit", "")
+            row.setdefault("qflag", "simulated")
+            normalised.append(row)
+        self._write_parquet_records(
+            target=self._paths.parquet_path_for(sid, "timeseries"),
+            records=normalised,
+            schema=TIMESERIES_SCHEMA,
+            pk_cols=("sim_id", "station_id", "variable", "timestep"),
+            sim_id=sid,
         )
 
     @with_lock_retry()
@@ -364,32 +482,24 @@ class WritesMixin:
         if not records:
             return
         sid = str(sim_id)
-        insert_df = pd.DataFrame(records)
-        insert_df["sim_id"] = sid
-        if "zone_id" not in insert_df.columns:
-            insert_df["zone_id"] = GLOBAL_ZONE
-        else:
-            insert_df["zone_id"] = insert_df["zone_id"].fillna(GLOBAL_ZONE)
-        if "unit" not in insert_df.columns:
-            insert_df["unit"] = "m3/s"
-        select_sql = (
-            "SELECT "
-            "CAST(sim_id AS UUID) AS sim_id, "
-            "CAST(timestep AS INTEGER) AS timestep, "
-            "CAST(zone_id AS VARCHAR) AS zone_id, "
-            "CAST(component AS VARCHAR) AS component, "
-            "CAST(flux_in AS DOUBLE) AS flux_in, "
-            "CAST(flux_out AS DOUBLE) AS flux_out, "
-            "CAST(unit AS VARCHAR) AS unit "
-            "FROM _hmp_insert"
-        )
-        target = self._paths.parquet_path_for(sid, "budgets")
-        self._atomic_write_parquet(
-            target,
-            insert_df,
-            select_sql,
+        normalised: list[dict[str, Any]] = []
+        for r in records:
+            row = dict(r)
+            row.setdefault("sim_id", sid)
+            zone = row.get("zone_id")
+            if zone is None:
+                row["zone_id"] = GLOBAL_ZONE
+            else:
+                row["zone_id"] = str(zone)
+            row.setdefault("unit", "m3/s")
+            row["timestep"] = int(row["timestep"])
+            normalised.append(row)
+        self._write_parquet_records(
+            target=self._paths.parquet_path_for(sid, "budgets"),
+            records=normalised,
+            schema=BUDGETS_SCHEMA,
             pk_cols=("sim_id", "timestep", "zone_id", "component"),
-            kv_metadata=self._kv_metadata_for_sim(sid),
+            sim_id=sid,
         )
 
     def write_mass_balance(
@@ -428,33 +538,21 @@ class WritesMixin:
         if not records:
             return
         sid = str(sim_id)
-        insert_df = pd.DataFrame(records)
-        insert_df["sim_id"] = sid
-        if "unit" not in insert_df.columns:
-            insert_df["unit"] = "m3/s"
-        if "storage_in" not in insert_df.columns:
-            insert_df["storage_in"] = 0.0
-        if "storage_out" not in insert_df.columns:
-            insert_df["storage_out"] = 0.0
-        select_sql = (
-            "SELECT "
-            "CAST(sim_id AS UUID) AS sim_id, "
-            "CAST(timestep AS INTEGER) AS timestep, "
-            "CAST(total_in AS DOUBLE) AS total_in, "
-            "CAST(total_out AS DOUBLE) AS total_out, "
-            "CAST(storage_in AS DOUBLE) AS storage_in, "
-            "CAST(storage_out AS DOUBLE) AS storage_out, "
-            "CAST(percent_error AS DOUBLE) AS percent_error, "
-            "CAST(unit AS VARCHAR) AS unit "
-            "FROM _hmp_insert"
-        )
-        target = self._paths.parquet_path_for(sid, "mass_balance")
-        self._atomic_write_parquet(
-            target,
-            insert_df,
-            select_sql,
+        normalised: list[dict[str, Any]] = []
+        for r in records:
+            row = dict(r)
+            row.setdefault("sim_id", sid)
+            row.setdefault("unit", "m3/s")
+            row.setdefault("storage_in", 0.0)
+            row.setdefault("storage_out", 0.0)
+            row["timestep"] = int(row["timestep"])
+            normalised.append(row)
+        self._write_parquet_records(
+            target=self._paths.parquet_path_for(sid, "mass_balance"),
+            records=normalised,
+            schema=MASS_BALANCE_SCHEMA,
             pk_cols=("sim_id", "timestep"),
-            kv_metadata=self._kv_metadata_for_sim(sid),
+            sim_id=sid,
         )
 
     @with_lock_retry()
@@ -602,38 +700,27 @@ class WritesMixin:
             ],
         )
         if self._persistence.save_parquet:
-            insert_df = pd.DataFrame(
-                [
-                    {
-                        "sim_id": str(sim_id),
-                        "station_id": station_id,
-                        "variable": variable,
-                        "metric_name": metric_name,
-                        "value": value,
-                        "n_samples": n_samples,
-                        "period_start": _coerce_timestamp(period_start),
-                        "period_end": _coerce_timestamp(period_end),
-                    }
-                ]
-            )
-            select_sql = (
-                "SELECT "
-                "CAST(sim_id AS UUID) AS sim_id, "
-                "CAST(station_id AS VARCHAR) AS station_id, "
-                "CAST(variable AS VARCHAR) AS variable, "
-                "CAST(metric_name AS VARCHAR) AS metric_name, "
-                "CAST(value AS DOUBLE) AS value, "
-                "CAST(n_samples AS INTEGER) AS n_samples, "
-                "CAST(period_start AS TIMESTAMPTZ) AS period_start, "
-                "CAST(period_end AS TIMESTAMPTZ) AS period_end "
-                "FROM _hmp_insert"
-            )
-            self._atomic_write_parquet(
-                self._paths.parquet_path_for(str(sim_id), "metrics"),
-                insert_df,
-                select_sql,
-                pk_cols=("sim_id", "station_id", "variable", "metric_name"),
-                kv_metadata=self._kv_metadata_for_sim(str(sim_id)),
+            sid = str(sim_id)
+            valid_from = _coerce_timestamp_utc(pd.Timestamp.now(tz="UTC"))
+            records = [
+                {
+                    "sim_id": sid,
+                    "station_id": station_id,
+                    "variable": variable,
+                    "metric": metric_name,
+                    "value": float(value),
+                    "n_samples": int(n_samples) if n_samples is not None else None,
+                    "valid_from": valid_from,
+                    "period_start": period_start,
+                    "period_end": period_end,
+                }
+            ]
+            self._write_parquet_records(
+                target=self._paths.parquet_path_for(sid, "metrics"),
+                records=records,
+                schema=METRICS_SCHEMA,
+                pk_cols=("sim_id", "station_id", "variable", "metric"),
+                sim_id=sid,
             )
 
     @with_lock_retry()
@@ -704,48 +791,30 @@ class WritesMixin:
             payload,
         )
         if self._persistence.save_parquet:
-            insert_df = pd.DataFrame(
-                [
-                    {
-                        "sim_id": payload[0],
-                        "variable": payload[1],
-                        "source_type": payload[2],
-                        "source_ref": payload[3],
-                        "source_sha256": payload[4],
-                        "loader_name": payload[5],
-                        "loader_version": payload[6],
-                        "fetched_at": payload[7],
-                        "period_start": payload[8],
-                        "period_end": payload[9],
-                        "payload_sha256": payload[10],
-                        "n_records": payload[11],
-                        "stats": payload[12],
-                    }
-                ]
-            )
-            select_sql = (
-                "SELECT "
-                "CAST(sim_id AS UUID) AS sim_id, "
-                "CAST(variable AS VARCHAR) AS variable, "
-                "CAST(source_type AS VARCHAR) AS source_type, "
-                "CAST(source_ref AS VARCHAR) AS source_ref, "
-                "CAST(source_sha256 AS VARCHAR) AS source_sha256, "
-                "CAST(loader_name AS VARCHAR) AS loader_name, "
-                "CAST(loader_version AS VARCHAR) AS loader_version, "
-                "CAST(fetched_at AS TIMESTAMPTZ) AS fetched_at, "
-                "CAST(period_start AS TIMESTAMPTZ) AS period_start, "
-                "CAST(period_end AS TIMESTAMPTZ) AS period_end, "
-                "CAST(payload_sha256 AS VARCHAR) AS payload_sha256, "
-                "CAST(n_records AS BIGINT) AS n_records, "
-                "CAST(stats AS JSON) AS stats "
-                "FROM _hmp_insert"
-            )
-            self._atomic_write_parquet(
-                self._paths.parquet_path_for(str(sim_id), "provenance"),
-                insert_df,
-                select_sql,
+            sid = str(sim_id)
+            records = [
+                {
+                    "sim_id": sid,
+                    "variable": variable,
+                    "source_type": source_type,
+                    "source_ref": source_ref,
+                    "source_sha256": source_sha256,
+                    "loader_name": loader_name,
+                    "loader_version": loader_version,
+                    "fetched_at": fetched_at,
+                    "period_start": period_start,
+                    "period_end": period_end,
+                    "payload_sha256": fp["checksum"],
+                    "n_records": int(np.prod(data.shape)),
+                    "stats": json.dumps(fp["stats"]),
+                }
+            ]
+            self._write_parquet_records(
+                target=self._paths.parquet_path_for(sid, "provenance"),
+                records=records,
+                schema=PROVENANCE_SCHEMA,
                 pk_cols=("sim_id", "variable", "source_ref"),
-                kv_metadata=self._kv_metadata_for_sim(str(sim_id)),
+                sim_id=sid,
             )
 
     @with_lock_retry()
@@ -889,7 +958,7 @@ class WritesMixin:
             geoparquet_path=geoparquet_path,
         )
         rel_path = _encode_workspace_path(self._workspace, target)
-        self._write_geographic_feature_parquet(gdf, target)
+        write_geoparquet_atomic(gdf, target)
         bounds = [float(value) for value in gdf.total_bounds]
         schema_payload = {
             "columns": [str(col) for col in gdf.columns if col != gdf.geometry.name],
@@ -904,6 +973,7 @@ class WritesMixin:
             "bbox": bounds,
             "geometry_encoding": "WKB",
             "schema_sha256": schema_hash,
+            "geoparquet_version": "1.1.0",
         }
         self._db.execute(
             """INSERT INTO geographic_features
@@ -933,6 +1003,8 @@ class WritesMixin:
         *,
         geoparquet_path: str | None,
     ) -> Path:
+        import os as _os
+
         if geoparquet_path:
             path = Path(geoparquet_path)
             return path if path.is_absolute() else self._workspace / path
@@ -940,34 +1012,10 @@ class WritesMixin:
         target = (
             self._paths.parquet_dir_for(sim_id) / f"geographic_{safe_name}{PARQUET_FILE_SUFFIX}"
         )
-        if os.name == "nt" and len(str(target.resolve())) >= 240:
+        if _os.name == "nt" and len(str(target.resolve())) >= 240:
             digest = hashlib.sha1(safe_name.encode("utf-8")).hexdigest()[:16]
             return self._paths.parquet_dir_for(sim_id) / f"geographic_{digest}{PARQUET_FILE_SUFFIX}"
         return target
-
-    def _write_geographic_feature_parquet(self, gdf: gpd.GeoDataFrame, target: Path) -> None:
-        _windows_long_path(target.parent).mkdir(parents=True, exist_ok=True)
-        tmp = target.parent / f".hmp-{uuid4().hex[:8]}.tmp"
-        if tmp.exists():
-            tmp.unlink()
-        plain = gdf.drop(columns=[gdf.geometry.name]).copy()
-        for column in plain.columns:
-            plain[column] = plain[column].map(_json_scalar)
-        plain["geometry_wkb"] = [
-            None if geom is None or geom.is_empty else bytes(geom.wkb) for geom in gdf.geometry
-        ]
-        plain["geometry_type"] = [
-            None if geom is None or geom.is_empty else str(geom.geom_type) for geom in gdf.geometry
-        ]
-        self._db.register("_hmp_geographic_feature", plain)
-        try:
-            tmp_sql = tmp.as_posix().replace("'", "''")
-            self._db.execute(
-                f"COPY (SELECT * FROM _hmp_geographic_feature) TO '{tmp_sql}' (FORMAT PARQUET)"
-            )
-        finally:
-            self._db.unregister("_hmp_geographic_feature")
-        os.replace(_windows_long_path(tmp), _windows_long_path(target))
 
     @with_lock_retry()
     def write_geographic_metadata(
@@ -1100,109 +1148,117 @@ class WritesMixin:
         ensure_parquet_views(self._db, self._simulations_dir)
 
     def _kv_metadata_for_sim(self, sim_id: str) -> dict[str, str]:
-        """Return Parquet KV metadata keys per the ML-access spec.
+        """Return Parquet KV metadata keys for ``sim_id``.
 
-        Pulled from the ``simulations`` row plus the package version. Missing
-        columns map to empty strings so the layout is stable across runs.
+        Reads the simulation row plus a few catalog joins to enrich the file
+        footer with ACDD-style geospatial/temporal coverage attributes. The
+        returned ``written_at`` is *deterministic*: it is the simulation's
+        ``ended_at`` (or ``created_at`` fallback), never ``datetime.now``, so a
+        reproducible re-run lands on a byte-identical file.
         """
         row = self._db.execute(
-            "SELECT s.project, s.name, sv.code, s.config_hash, s.scientific_objective "
-            "FROM simulations s "
-            "JOIN solvers sv ON s.solver_id = sv.id "
-            "WHERE s.sim_id = ?",
+            """SELECT s.project, s.name, sv.code, s.config_hash,
+                      s.scientific_objective, s.bbox_xmin, s.bbox_ymin,
+                      s.bbox_xmax, s.bbox_ymax, s.period_start, s.period_end,
+                      s.crs_epsg, s.created_at, s.ended_at, s.doi
+                 FROM simulations s
+                 JOIN solvers sv ON s.solver_id = sv.id
+                WHERE s.sim_id = ?""",
             [sim_id],
         ).fetchone()
-        project, name, solver, config_hash, objective = row or (None, None, None, None, None)
-        return {
+        if row is None:
+            return {
+                "sim_id": sim_id,
+                "hydromodpy_version": _HMP_VERSION,
+                "hmp.schema_version": PARQUET_SCHEMA_VERSION,
+                "Conventions": "CF-1.11",
+                "license": "CC-BY-4.0",
+                "written_at": "",
+            }
+        (
+            project,
+            name,
+            solver,
+            config_hash,
+            objective,
+            bb_xmin,
+            bb_ymin,
+            bb_xmax,
+            bb_ymax,
+            period_start,
+            period_end,
+            crs_epsg,
+            created_at,
+            ended_at,
+            doi,
+        ) = row
+        written_at_source = ended_at if ended_at is not None else created_at
+        kv: dict[str, str] = {
             "sim_id": sim_id,
-            "project": str(project) if project is not None else "",
-            "name": str(name) if name is not None else "",
-            "solver": str(solver) if solver is not None else "",
-            "config_hash": str(config_hash) if config_hash is not None else "",
+            "project": "" if project is None else str(project),
+            "name": "" if name is None else str(name),
+            "solver": "" if solver is None else str(solver),
+            "config_hash": "" if config_hash is None else str(config_hash),
             "hydromodpy_version": _HMP_VERSION,
-            "schema_version": PARQUET_SCHEMA_VERSION,
-            "written_at": datetime.now(UTC).isoformat(),
-            "scientific_objective": str(objective) if objective is not None else "",
+            "hmp.schema_version": PARQUET_SCHEMA_VERSION,
+            "Conventions": "CF-1.11",
+            "license": "CC-BY-4.0",
+            "scientific_objective": "" if objective is None else str(objective),
+            "doi": "" if doi is None else str(doi),
+            "written_at": "" if written_at_source is None else str(written_at_source),
         }
+        if bb_xmin is not None and bb_xmax is not None:
+            kv["geospatial_lon_min"] = str(bb_xmin)
+            kv["geospatial_lon_max"] = str(bb_xmax)
+        if bb_ymin is not None and bb_ymax is not None:
+            kv["geospatial_lat_min"] = str(bb_ymin)
+            kv["geospatial_lat_max"] = str(bb_ymax)
+        if crs_epsg is not None:
+            kv["geospatial_crs"] = f"EPSG:{int(crs_epsg)}"
+        if period_start is not None:
+            kv["time_coverage_start"] = str(period_start)
+        if period_end is not None:
+            kv["time_coverage_end"] = str(period_end)
+        return kv
 
-    def _atomic_write_parquet(
+    def _write_parquet_records(
         self,
+        *,
         target: Path,
-        insert_df: pd.DataFrame,
-        select_sql: str,
-        pk_cols: tuple[str, ...] | None = None,
-        kv_metadata: dict[str, str] | None = None,
+        records: Sequence[Mapping[str, Any]],
+        schema: pa.Schema,
+        pk_cols: Sequence[str],
+        sim_id: str,
     ) -> None:
-        """Write ``insert_df`` into ``target`` atomically, via ``select_sql``.
+        """Build a pyarrow Table from ``records`` and persist it atomically.
 
-        ``select_sql`` must be a ``SELECT ... FROM _hmp_insert`` that produces
-        the target Parquet schema by casting each column. The DataFrame is
-        registered on the DuckDB connection under the alias ``_hmp_insert``
-        so the query can resolve it without relying on frame-based
-        replacement scans (which look up the caller's locals).
-
-        If ``target`` already exists, its rows are merged with the new ones
-        via a portable ``ROW_NUMBER`` dedupe on ``pk_cols`` (last write
-        wins), so the semantics match the old ``INSERT OR REPLACE``
-        behaviour. The merge SQL uses ``UNION ALL`` plus an explicit column
-        projection rather than ``UNION ALL BY NAME`` / ``QUALIFY``, so the
-        same shape works on Postgres without rewrites. Writes go to a
-        sibling ``.tmp`` file first and are promoted with ``os.replace`` so
-        a crash mid-write never leaves a partial Parquet in the view.
+        If ``target`` already exists, a last-write-wins merge happens on
+        ``pk_cols`` before the write. The new file replaces the previous one
+        via :func:`os.replace` in :func:`write_table_atomic`.
         """
-        target.parent.mkdir(parents=True, exist_ok=True)
-        tmp = target.with_name(target.name + ".tmp")
+        defaults = {"sim_id": sim_id}
+        new_table = _table_from_records(records, schema, defaults=defaults)
         existing = target.exists()
-        kv_clause = _format_kv_clause(kv_metadata)
-        self._db.register("_hmp_insert", insert_df)
-        try:
-            if existing and pk_cols:
-                column_names = list(insert_df.columns)
-                col_list = ", ".join(f'"{c}"' for c in column_names)
-                existing_escaped = str(target).replace("'", "''")
-                pk_list = ", ".join(f'"{c}"' for c in pk_cols)
-                projected_select = f"SELECT {col_list} FROM ({select_sql}) AS _src"
-                merge_sql = (
-                    f"WITH combined AS ("
-                    f"  SELECT {col_list}, 0 AS _prio "
-                    f"  FROM read_parquet('{existing_escaped}') "
-                    f"  UNION ALL "
-                    f"  SELECT {col_list}, 1 AS _prio FROM ({projected_select}) AS _src2"
-                    f"), "
-                    f"ranked AS ("
-                    f"  SELECT {col_list}, "
-                    f"         ROW_NUMBER() OVER "
-                    f"         (PARTITION BY {pk_list} ORDER BY _prio DESC) AS rnk "
-                    f"  FROM combined "
-                    f") "
-                    f"SELECT {col_list} FROM ranked WHERE rnk = 1"
-                )
-                copy_sql = f"COPY ({merge_sql}) TO '{tmp}' (FORMAT PARQUET{kv_clause})"
-            else:
-                copy_sql = f"COPY ({select_sql}) TO '{tmp}' (FORMAT PARQUET{kv_clause})"
-            tmp.parent.mkdir(parents=True, exist_ok=True)
+        if existing:
             try:
-                self._db.execute(copy_sql)
+                kv_existing = read_kv_metadata(target)
             except Exception:
-                tmp.unlink(missing_ok=True)
-                raise
-        finally:
-            self._db.unregister("_hmp_insert")
-        os.replace(tmp, target)
+                kv_existing = {}
+            old_version = kv_existing.get("hmp.schema_version")
+            if old_version and old_version != PARQUET_SCHEMA_VERSION:
+                logger.warning(
+                    "Parquet file %s carries schema_version=%s; rewriting as %s",
+                    target,
+                    old_version,
+                    PARQUET_SCHEMA_VERSION,
+                )
+            merged = _merge_with_existing(target, new_table, pk_cols)
+        else:
+            merged = new_table
+        kv = self._kv_metadata_for_sim(sim_id)
+        write_table_atomic(merged, target, kv_metadata=kv, pk_cols=tuple(pk_cols))
         if not existing:
             self._refresh_parquet_view(target.stem)
 
 
-def _format_kv_clause(kv: dict[str, str] | None) -> str:
-    """Render ``KV_METADATA {{...}}`` as a DuckDB ``COPY`` option suffix.
-
-    Returns an empty string when ``kv`` is empty / None. Values must be
-    plain strings; embedded single quotes are escaped by doubling them.
-    """
-    if not kv:
-        return ""
-    pairs = []
-    for key, val in sorted(kv.items()):
-        safe_val = str(val).replace("'", "''")
-        pairs.append(f"{key}: '{safe_val}'")
-    return f", KV_METADATA {{{', '.join(pairs)}}}"
+__all__ = ["WritesMixin"]
