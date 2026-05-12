@@ -5,6 +5,13 @@ runner has applied the latest DDL. They expose denormalised projections of
 the v2 schema, joining the dimension tables (``solvers``, ``statuses``,
 ``flow_regimes``, ``mesh_topologies``) so callers can keep using the
 familiar ``solver`` / ``status`` text labels without manually JOINing.
+
+The DDL is written in a Postgres-compatible subset: no ``PIVOT``, no
+``MAP``, no ``QUALIFY``. Wide metric views are built via ``MAX(CASE
+WHEN ...)`` aggregation; wide parameter views are exposed as long-form
+``v_params_long`` with a side helper view ``v_params_keyed`` that
+materialises the ``param_name`` / ``zone_id`` join key as a single
+column (so callers can pivot in pandas without touching SQL).
 """
 
 from __future__ import annotations
@@ -15,9 +22,10 @@ if TYPE_CHECKING:
     import duckdb
 
 
-# Known metric names. PIVOT requires a fixed IN-list, so metric names
-# outside this list will not show up in ``v_metrics_wide``; they remain
-# queryable via the ``metrics`` table directly.
+# Known metric names. Wide projections require a fixed IN-list because
+# CASE WHEN aggregation needs explicit columns. Metric names outside this
+# list will not show up in ``v_metrics_wide``; they remain queryable via
+# the ``metrics`` table directly.
 _KNOWN_METRIC_NAMES: tuple[str, ...] = (
     "nse",
     "kge",
@@ -35,6 +43,15 @@ _KNOWN_METRIC_NAMES: tuple[str, ...] = (
     "closure_relative_error_p95",
     "closure_status_code",
 )
+
+
+def _wide_metric_columns() -> str:
+    """Return the ``MAX(CASE WHEN ...)`` projection clauses for metrics."""
+    lines = []
+    for name in _KNOWN_METRIC_NAMES:
+        safe = name.replace("'", "''")
+        lines.append(f"    MAX(CASE WHEN metric_name = '{safe}' THEN value END) AS {name}")
+    return ",\n".join(lines)
 
 
 _V_SIMULATION_SUMMARY_DDL = """
@@ -83,31 +100,45 @@ FROM (
 WHERE rnk = 1
 """
 
+
 _V_METRICS_WIDE_DDL = f"""
 CREATE OR REPLACE VIEW v_metrics_wide AS
-PIVOT metrics
-ON metric_name IN ({", ".join(f"'{n}'" for n in _KNOWN_METRIC_NAMES)})
-USING FIRST(value)
-"""
-
-# Parameter names vary by simulation, so PIVOT cannot be used. Aggregate
-# into a MAP keyed by ``param_name`` (or ``param_name::zone_id`` when zonal)
-# so callers can index the map directly.
-_V_PARAMS_WIDE_DDL = """
-CREATE OR REPLACE VIEW v_params_wide AS
 SELECT
     sim_id,
-    MAP(
-        LIST(
-            CASE
-                WHEN zone_id = '__global__' THEN param_name
-                ELSE param_name || '::' || zone_id
-            END
-        ),
-        LIST(value)
-    ) AS params
-FROM parameters
+{_wide_metric_columns()}
+FROM metrics
 GROUP BY sim_id
+"""
+
+
+# Parameter names vary by simulation and PIVOT/MAP are non-portable.
+# Expose a long-form view that callers can pivot in pandas (a single
+# ``pivot_table`` call) without touching dialect-specific SQL.
+_V_PARAMS_LONG_DDL = """
+CREATE OR REPLACE VIEW v_params_long AS
+SELECT
+    sim_id,
+    param_name,
+    zone_id,
+    CASE
+        WHEN zone_id = '__global__' THEN param_name
+        ELSE param_name || '::' || zone_id
+    END AS param_key,
+    value,
+    unit,
+    parameterization
+FROM parameters
+"""
+
+
+# Backwards-compatible alias kept as a SELECT-only projection so callers
+# can keep importing ``v_params_wide`` without an SQL error. The aggregated
+# wide form is intentionally not materialised at the SQL level; pandas does
+# the pivot on the long-form output from ``v_params_long``.
+_V_PARAMS_WIDE_DDL = """
+CREATE OR REPLACE VIEW v_params_wide AS
+SELECT sim_id, param_key, value
+FROM v_params_long
 """
 
 
@@ -115,6 +146,7 @@ VIEW_NAMES: tuple[str, ...] = (
     "v_simulation_summary",
     "v_best_per_project",
     "v_metrics_wide",
+    "v_params_long",
     "v_params_wide",
 )
 
@@ -122,6 +154,7 @@ _ALL_VIEW_DDL: tuple[str, ...] = (
     _V_SIMULATION_SUMMARY_DDL,
     _V_BEST_PER_PROJECT_DDL,
     _V_METRICS_WIDE_DDL,
+    _V_PARAMS_LONG_DDL,
     _V_PARAMS_WIDE_DDL,
 )
 

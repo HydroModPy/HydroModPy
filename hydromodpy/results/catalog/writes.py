@@ -1142,11 +1142,13 @@ class WritesMixin:
         replacement scans (which look up the caller's locals).
 
         If ``target`` already exists, its rows are merged with the new ones
-        via a ``QUALIFY ROW_NUMBER`` dedupe on ``pk_cols`` (last write wins),
-        so the semantics match the old ``INSERT OR REPLACE`` behaviour.
-        Writes go to a sibling ``.tmp`` file first and are promoted with
-        ``os.replace`` so a crash mid-write never leaves a partial Parquet
-        in the view.
+        via a portable ``ROW_NUMBER`` dedupe on ``pk_cols`` (last write
+        wins), so the semantics match the old ``INSERT OR REPLACE``
+        behaviour. The merge SQL uses ``UNION ALL`` plus an explicit column
+        projection rather than ``UNION ALL BY NAME`` / ``QUALIFY``, so the
+        same shape works on Postgres without rewrites. Writes go to a
+        sibling ``.tmp`` file first and are promoted with ``os.replace`` so
+        a crash mid-write never leaves a partial Parquet in the view.
         """
         target.parent.mkdir(parents=True, exist_ok=True)
         tmp = target.with_name(target.name + ".tmp")
@@ -1155,17 +1157,25 @@ class WritesMixin:
         self._db.register("_hmp_insert", insert_df)
         try:
             if existing and pk_cols:
+                column_names = list(insert_df.columns)
+                col_list = ", ".join(f'"{c}"' for c in column_names)
                 existing_escaped = str(target).replace("'", "''")
-                pk_list = ", ".join(pk_cols)
+                pk_list = ", ".join(f'"{c}"' for c in pk_cols)
+                projected_select = f"SELECT {col_list} FROM ({select_sql}) AS _src"
                 merge_sql = (
                     f"WITH combined AS ("
-                    f"  SELECT *, 0 AS _prio FROM read_parquet('{existing_escaped}')"
-                    f"  UNION ALL BY NAME "
-                    f"  SELECT *, 1 AS _prio FROM ({select_sql})"
+                    f"  SELECT {col_list}, 0 AS _prio "
+                    f"  FROM read_parquet('{existing_escaped}') "
+                    f"  UNION ALL "
+                    f"  SELECT {col_list}, 1 AS _prio FROM ({projected_select}) AS _src2"
+                    f"), "
+                    f"ranked AS ("
+                    f"  SELECT {col_list}, "
+                    f"         ROW_NUMBER() OVER "
+                    f"         (PARTITION BY {pk_list} ORDER BY _prio DESC) AS rnk "
+                    f"  FROM combined "
                     f") "
-                    f"SELECT * EXCLUDE _prio FROM combined "
-                    f"QUALIFY ROW_NUMBER() OVER "
-                    f"(PARTITION BY {pk_list} ORDER BY _prio DESC) = 1"
+                    f"SELECT {col_list} FROM ranked WHERE rnk = 1"
                 )
                 copy_sql = f"COPY ({merge_sql}) TO '{tmp}' (FORMAT PARQUET{kv_clause})"
             else:
