@@ -20,12 +20,14 @@ from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
+from hydromodpy.results.catalog.migrations import ensure_schema
 from hydromodpy.results.catalog.package_io import PackageIOMixin
+from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.catalog.reads import ReadsMixin
 from hydromodpy.results.catalog.registration import RegistrationMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
+from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.catalog.writes import WritesMixin
-from hydromodpy.results.catalog_schema import ensure_schema
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
@@ -120,7 +122,9 @@ class SimulationCatalog(
         self._open_zarr_handles: list[SimulationZarr] = []
         self._paths = StoragePathResolver(self._db, self._simulations_dir)
 
-        ensure_schema(self._db, self._workspace, simulations_dir=self._simulations_dir)
+        ensure_schema(self._db)
+        ensure_parquet_views(self._db, self._simulations_dir)
+        ensure_views(self._db)
 
     @classmethod
     def from_workspace(
@@ -297,8 +301,9 @@ class SimulationCatalog(
         try:
             count = self._db.execute(
                 "SELECT COUNT(*), "
-                "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END), "
-                "SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) FROM simulations"
+                "SUM(CASE WHEN st.code='completed' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN st.code='failed' THEN 1 ELSE 0 END) "
+                "FROM simulations s JOIN statuses st ON s.status_id = st.id"
             ).fetchone()
             total, ok, failed = count
             projects = [
