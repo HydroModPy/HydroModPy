@@ -449,7 +449,7 @@ def test_simulation_comparison_allows_flow_initial_condition_overlay(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'base_simulation_config = "base.toml"',
@@ -750,7 +750,7 @@ def test_equivalence_audit_ignores_method_specific_drainage_conductance_differen
         "cauchy": {
             "drainage": {
                 "id": "drainage",
-                "type": "cauchy",
+                "kind": "cauchy",
                 "application_domain": "top",
                 "description": "MF6 active top drainage",
                 "value": "0.2 m2/s",
@@ -761,7 +761,7 @@ def test_equivalence_audit_ignores_method_specific_drainage_conductance_differen
         "cauchy": {
             "drainage": {
                 "id": "drainage",
-                "type": "cauchy",
+                "kind": "cauchy",
                 "application_domain": "top",
                 "description": "Boussinesq obstacle case, drainage disabled",
                 "value": "0.0 m2/s",

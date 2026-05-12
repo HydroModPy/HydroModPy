@@ -16,7 +16,7 @@
     "Use the source pointers and optional source manifest to decide when the bundle needs refresh."
   ],
   "key_parameters": [
-    "The published comparison root provides `comparison_manifest.json`, `comparison_metrics.json`, and `observables.csv`.",
+    "The published comparison root provides `comparison_manifest.json` and `summary_metrics.csv`.",
     "Execution-time diagnostics should use solver flow time, not whole workflow wall time."
   ],
   "publish_full_artifacts": false,

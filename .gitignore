@@ -67,6 +67,7 @@ Thumbs.db
 .pytest*/
 .pytest_tmp*/
 pytest_tmp*/
+pytest*.log
 pytest-cache-*/
 pytestscratch*/
 pytest-temp-root/

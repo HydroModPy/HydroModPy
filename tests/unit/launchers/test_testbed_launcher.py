@@ -82,7 +82,7 @@ def _write_comparison_base(path: Path) -> None:
     path.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "comparison_base"',
@@ -158,7 +158,7 @@ def test_testbed_config_rejects_removed_mesh_catchment_runner(tmp_path: Path) ->
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "mesh_resolution"',
@@ -185,7 +185,7 @@ def test_generic_testbed_config_rejects_profile_launcher_config(tmp_path: Path) 
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'profile = "regional_lab"',
@@ -409,7 +409,7 @@ def test_testbed_launcher_expands_catalog_variants_without_execution(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "catalog_mesh_resolution"',
@@ -479,7 +479,7 @@ def test_testbed_launcher_materializes_comparison_child_configs_without_executin
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "comparison_campaign"',
@@ -524,7 +524,7 @@ def test_testbed_launcher_runs_comparison_variants_and_collects_metrics(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "comparison_campaign"',
@@ -587,7 +587,7 @@ def test_testbed_launcher_runs_catalog_backed_comparison_variants(
     base_config.write_text(
         "\n".join(
             [
-                'workflow = "comparison"',
+                '[workflow]\nmode = "comparison"',
                 "",
                 "[comparison]",
                 'comparison_id = "comparison_base"',
@@ -626,7 +626,7 @@ def test_testbed_launcher_runs_catalog_backed_comparison_variants(
     config_path.write_text(
         "\n".join(
             [
-                'workflow = "testbed"',
+                '[workflow]\nmode = "testbed"',
                 "",
                 "[testbed]",
                 'id = "natural_comparison_catalog"',

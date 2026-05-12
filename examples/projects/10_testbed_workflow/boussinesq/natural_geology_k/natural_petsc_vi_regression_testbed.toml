@@ -1,6 +1,7 @@
 # Workflow selector: catalog-driven regression campaign for the PETSc direct
 # SNESVI Boussinesq path.
-workflow = "testbed"
+[workflow]
+mode = "testbed"
 
 # Main testbed declaration. It expands selected 10 km2 and 100 km2 sites into
 # child MF6/Boussinesq comparison TOMLs. The Boussinesq child is PETSc

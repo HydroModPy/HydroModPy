@@ -11,6 +11,6 @@ Current implementation:
   `mesh_catchment`.
 - `natural_geology_k/`: natural MF6/Boussinesq regional-lab planning scaffold.
   The regional-lab part defines site selection and stratification; the generic
-  `workflow = "testbed"` loop generates one `workflow = "comparison"` case per
+  `[workflow] mode = "testbed"` loop generates one `[workflow] mode = "comparison"` case per
   selected site or mesh-sensitivity variant, and each child simulation
   regenerates its catchment mesh through `mesh_catchment`.

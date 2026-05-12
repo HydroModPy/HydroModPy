@@ -36,9 +36,9 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.analysis.comparison.config import (
     ComparisonFineRaster,
     ComparisonObservable,
-    _normalize_optional_mesh_label,
     _apply_observable_anchors,
     _load_comparison_anchors,
+    _normalize_optional_mesh_label,
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile

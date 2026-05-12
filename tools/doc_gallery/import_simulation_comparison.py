@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 from pathlib import Path
 from shutil import copy2
@@ -12,30 +13,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PUBLISHED_ROOT = (
     REPO_ROOT / "examples" / "projects" / "09_capability_gallery" / "simulation_comparison"
 )
-REQUIRED_ARTIFACTS = (
-    "comparison_manifest.json",
-    "comparison_metrics.json",
-    "observables.csv",
-)
+REQUIRED_ARTIFACTS = ("comparison_manifest.json", "comparison_metrics.json")
 OPTIONAL_ARTIFACTS = (
-    "comparison_audit.json",
-    "comparison_report.md",
-    "execution_times.csv",
     "source_manifest.json",
     "comparison.toml",
-    "hydrographic_network_metrics.csv",
-    "hydrographic_network_metrics_skipped.json",
-    "release_flux_network_distance_metrics.csv",
-    "release_flux_network_distance_metrics_skipped.json",
-    "release_flux_network_overlap_metrics.csv",
-    "release_flux_network_overlap_metrics_skipped.json",
-    "simulated_active_network_distance_metrics.csv",
-    "simulated_active_network_distance_metrics_skipped.json",
-    "simulated_active_network_figures_skipped.json",
-    "simulated_active_network_metrics.csv",
-    "simulated_active_network_metrics_skipped.json",
-    "simulated_active_network_overlap_metrics.csv",
-    "simulated_active_network_overlap_metrics_skipped.json",
 )
 
 
@@ -120,6 +101,21 @@ def _infer_focus_simulation_id(manifest: dict[str, Any]) -> str:
     return "bouss_candidate"
 
 
+def _write_summary_metrics(source_metrics_path: Path, destination_path: Path) -> None:
+    """Write the compact metric table used by generated docs pages."""
+    from hydromodpy.analysis.comparison.metric_diff import SUMMARY_METRIC_FIELDS
+
+    metrics_payload = _read_json(source_metrics_path)
+    rows = [dict(row) for row in metrics_payload.get("summary", []) if isinstance(row, dict)]
+    if not rows:
+        raise ValueError(f"{source_metrics_path} does not contain summary metrics.")
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    with destination_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=SUMMARY_METRIC_FIELDS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 def _case_payload(
     *,
     slug: str,
@@ -167,8 +163,8 @@ def _case_payload(
             "Input artifacts are copied from a reviewed comparison output directory.",
         ],
         "key_parameters": [
-            "The published comparison root provides `comparison_manifest.json`, "
-            "`comparison_metrics.json`, and `observables.csv`.",
+            "The published comparison root provides `comparison_manifest.json` "
+            "and `summary_metrics.csv`.",
             "Execution-time diagnostics should use solver flow time, not whole workflow wall time.",
         ],
         "how_to_read": [
@@ -209,18 +205,27 @@ def publish_comparison(
         )
     destination.mkdir(parents=True, exist_ok=True)
     if force:
-        for name in (*REQUIRED_ARTIFACTS, *OPTIONAL_ARTIFACTS, "case.json"):
+        for name in (
+            "case.json",
+            "comparison_manifest.json",
+            "summary_metrics.csv",
+            *OPTIONAL_ARTIFACTS,
+        ):
             (destination / name).unlink(missing_ok=True)
 
-    for name in (*REQUIRED_ARTIFACTS, *OPTIONAL_ARTIFACTS):
+    copy2(source_root / "comparison_manifest.json", destination / "comparison_manifest.json")
+    _write_summary_metrics(
+        source_root / "comparison_metrics.json",
+        destination / "summary_metrics.csv",
+    )
+
+    for name in OPTIONAL_ARTIFACTS:
         source = source_root / name
         if source.exists():
             copy2(source, destination / name)
 
     resolved_title = str(title or _title_from_slug(resolved_slug))
-    resolved_focus_simulation_id = str(
-        focus_simulation_id or _infer_focus_simulation_id(manifest)
-    )
+    resolved_focus_simulation_id = str(focus_simulation_id or _infer_focus_simulation_id(manifest))
     case_payload = _case_payload(
         slug=resolved_slug,
         title=resolved_title,

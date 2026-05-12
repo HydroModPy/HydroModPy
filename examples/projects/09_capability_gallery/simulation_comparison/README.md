@@ -9,12 +9,9 @@ outputs, then publish a compact artifact bundle here:
 
 - `case.json`
 - `comparison_manifest.json`
-- `comparison_metrics.json`
-- `observables.csv`
-- optional `comparison_audit.json`
-- optional `comparison_report.md`
-- optional `execution_times.csv`
+- `summary_metrics.csv`
 - optional `source_manifest.json`
+- optional `comparison.toml`
 
 Each case lives in its own subdirectory:
 

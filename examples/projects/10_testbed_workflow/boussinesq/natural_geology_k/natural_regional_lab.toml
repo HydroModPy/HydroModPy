@@ -1,5 +1,6 @@
 # Workflow selector: regional-lab plans catalog-level natural campaigns.
-workflow = "testbed"
+[workflow]
+mode = "testbed"
 
 [testbed]
 profile = "regional_lab"

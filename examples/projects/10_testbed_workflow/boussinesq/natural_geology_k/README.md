@@ -5,8 +5,8 @@ scaffold.
 
 Status: implemented planning scaffold, not yet a completed natural simulation
 campaign. The site selection and stratification are regional-lab concerns; the
-execution still goes through the generic `workflow = "testbed"` and
-`workflow = "comparison"` path.
+execution still goes through the generic `[workflow] mode = "testbed"` and
+`[workflow] mode = "comparison"` path.
 
 ## Files
 

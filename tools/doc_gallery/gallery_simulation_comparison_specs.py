@@ -66,28 +66,11 @@ def _published_source_paths(case_json_path: Path, *, repo_root: Path) -> tuple[s
     required = (
         case_json_path,
         case_root / "comparison_manifest.json",
-        case_root / "comparison_metrics.json",
-        case_root / "observables.csv",
+        case_root / "summary_metrics.csv",
     )
     optional_names = (
-        "comparison_audit.json",
-        "comparison_report.md",
-        "execution_times.csv",
         "source_manifest.json",
         "comparison.toml",
-        "hydrographic_network_metrics.csv",
-        "hydrographic_network_metrics_skipped.json",
-        "release_flux_network_distance_metrics.csv",
-        "release_flux_network_distance_metrics_skipped.json",
-        "release_flux_network_overlap_metrics.csv",
-        "release_flux_network_overlap_metrics_skipped.json",
-        "simulated_active_network_distance_metrics.csv",
-        "simulated_active_network_distance_metrics_skipped.json",
-        "simulated_active_network_figures_skipped.json",
-        "simulated_active_network_metrics.csv",
-        "simulated_active_network_metrics_skipped.json",
-        "simulated_active_network_overlap_metrics.csv",
-        "simulated_active_network_overlap_metrics_skipped.json",
     )
     optional = tuple(case_root / name for name in optional_names if (case_root / name).exists())
     return tuple(_repo_relative(path, repo_root=repo_root) for path in (*required, *optional))
@@ -166,7 +149,9 @@ def _published_simulation_comparison_spec(
         how_to_read=_string_tuple(payload, "how_to_read"),
         next_steps=_string_tuple(payload, "next_steps")
         or _DEFAULT_SIMULATION_COMPARISON_NEXT_STEPS,
-        walkthrough_doc=str(payload.get("walkthrough_doc", "getting_started/reading-results-pages")),
+        walkthrough_doc=str(
+            payload.get("walkthrough_doc", "getting_started/reading-results-pages")
+        ),
         walkthrough_title=str(
             payload.get("walkthrough_title", "the gallery and validation reading guide")
         ),

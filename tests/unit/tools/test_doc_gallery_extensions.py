@@ -88,13 +88,8 @@ def test_published_simulation_comparison_specs_are_discovered(tmp_path: Path) ->
         / "case"
     )
     case_root.mkdir(parents=True)
-    for name in ("comparison_manifest.json", "comparison_metrics.json", "observables.csv"):
+    for name in ("comparison_manifest.json", "summary_metrics.csv"):
         (case_root / name).write_text("", encoding="utf-8")
-    (case_root / "execution_times.csv").write_text("", encoding="utf-8")
-    (case_root / "simulated_active_network_distance_metrics.csv").write_text(
-        "",
-        encoding="utf-8",
-    )
     (case_root / "case.json").write_text(
         json.dumps(
             {
@@ -121,11 +116,7 @@ def test_published_simulation_comparison_specs_are_discovered(tmp_path: Path) ->
     assert spec.metadata["focus_simulation_id"] == "bouss_candidate"
     assert spec.metadata["publish_full_artifacts"] is False
     assert any(path.endswith("comparison_manifest.json") for path in spec.source_paths)
-    assert any(path.endswith("execution_times.csv") for path in spec.source_paths)
-    assert any(
-        path.endswith("simulated_active_network_distance_metrics.csv")
-        for path in spec.source_paths
-    )
+    assert any(path.endswith("summary_metrics.csv") for path in spec.source_paths)
     assert spec.image_assets[0].filename == "natural_site_03_mf6_bouss.png"
 
 
@@ -148,10 +139,23 @@ def test_import_simulation_comparison_publishes_bundle(
         ),
         encoding="utf-8",
     )
-    (source_root / "comparison_metrics.json").write_text("{}", encoding="utf-8")
-    (source_root / "observables.csv").write_text("simulation_id\n", encoding="utf-8")
-    (source_root / "execution_times.csv").write_text(
-        "simulation_id,runtime_seconds\n",
+    (source_root / "comparison_metrics.json").write_text(
+        json.dumps(
+            {
+                "summary": [
+                    {
+                        "simulation_id": "bouss_candidate",
+                        "observable": "head_map_last",
+                        "unit": "m",
+                        "n_pairs": 2,
+                        "bias": 0.1,
+                        "mae": 0.2,
+                        "rmse": 0.3,
+                        "max_abs_error": 0.4,
+                    }
+                ]
+            }
+        ),
         encoding="utf-8",
     )
     published_root = tmp_path / "published"
@@ -166,9 +170,9 @@ def test_import_simulation_comparison_publishes_bundle(
 
     assert destination == published_root / "natural_site_03_mf6_bouss"
     assert (destination / "comparison_manifest.json").exists()
-    assert (destination / "comparison_metrics.json").exists()
-    assert (destination / "observables.csv").exists()
-    assert (destination / "execution_times.csv").exists()
+    assert (destination / "summary_metrics.csv").exists()
+    assert not (destination / "comparison_metrics.json").exists()
+    assert not (destination / "observables.csv").exists()
     case_payload = json.loads((destination / "case.json").read_text(encoding="utf-8"))
     assert case_payload["slug"] == "natural_site_03_mf6_bouss"
     assert case_payload["title"] == "Natural Site 03 MF6/Boussinesq"

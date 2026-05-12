@@ -593,7 +593,33 @@ def _select_case_summary(
         baseline_source_root=baseline_source_root,
         source_root=source_root,
     )
-    return previous_summary
+    preserved_summary = dict(previous_summary)
+    preserved_summary["source_paths"] = list(new_summary.get("source_paths", ()))
+    preserved_summary["source_hashes"] = dict(new_summary.get("source_hashes", {}))
+    for key in (
+        "deck",
+        "summary",
+        "case_setup",
+        "key_parameters",
+        "how_to_read",
+        "next_steps",
+        "what_it_shows",
+        "reference_highlights",
+        "equations_rst",
+        "walkthrough_doc",
+        "walkthrough_title",
+        "reproduction_command",
+        "gallery_update_command",
+    ):
+        if key in new_summary:
+            preserved_summary[key] = new_summary[key]
+    previous_metadata = dict(previous_summary.get("metadata", {}))
+    new_metadata = dict(new_summary.get("metadata", {}))
+    for key in ("generation_status", "generation_reason", "missing_source_paths"):
+        previous_metadata.pop(key, None)
+        new_metadata.pop(key, None)
+    preserved_summary["metadata"] = {**previous_metadata, **new_metadata}
+    return preserved_summary
 
 
 def _generate_case_summary_with_fallback(

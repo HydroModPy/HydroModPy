@@ -1,5 +1,6 @@
 # Workflow selector: this file orchestrates a catalog-driven testbed.
-workflow = "testbed"
+[workflow]
+mode = "testbed"
 
 # Main testbed declaration. It expands catalog rows into child comparison TOMLs.
 [testbed]

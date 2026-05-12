@@ -7,10 +7,10 @@ import html
 import json
 import os
 import tomllib
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Iterable
 
 HERE = Path(__file__).resolve().parent
 BENCHMARK_ROOT = HERE / "outputs" / "nancon_network_physical_benchmark"
@@ -263,7 +263,11 @@ def mesh_summary(record: SimulationRecord) -> str:
         or row_value(record.release_accumulation_distance, "catchment_cell_count")
         or row_value(record.accumulation_distance, "catchment_cell_count")
     )
-    detail = f"{safe(fmt_m(cell_count))} cellules de calcul" if cell_count else "nombre de cellules non disponible"
+    detail = (
+        f"{safe(fmt_m(cell_count))} cellules de calcul"
+        if cell_count
+        else "nombre de cellules non disponible"
+    )
     return f"{safe(title)}; {detail}"
 
 
@@ -377,7 +381,9 @@ def comparison_table(records: list[SimulationRecord], *, group: str) -> str:
             + "</tr>"
         )
     if not rows:
-        rows.append('<tr><td colspan="3" class="missing">Aucune simulation dans ce groupe.</td></tr>')
+        rows.append(
+            '<tr><td colspan="3" class="missing">Aucune simulation dans ce groupe.</td></tr>'
+        )
     return f"""
 <table class="comparison-table">
   <thead>
@@ -387,7 +393,7 @@ def comparison_table(records: list[SimulationRecord], *, group: str) -> str:
       <th>emergences accumulees vers l'aval</th>
     </tr>
   </thead>
-  <tbody>{''.join(rows)}</tbody>
+  <tbody>{"".join(rows)}</tbody>
 </table>
 """
 
@@ -424,9 +430,10 @@ def _log10_positive(values):
 
 
 def _overlay_reference(ax, run) -> None:
+    from matplotlib.lines import Line2D
+
     from hydromodpy.display._map_axes import overlay_watershed_contour
     from hydromodpy.display.figures.hydrographic_network import _project_gdf_for_metric_operations
-    from matplotlib.lines import Line2D
 
     has_reference = False
     try:
@@ -683,7 +690,13 @@ def generate_metric_synthesis_figure(records: list[SimulationRecord]) -> bool:
             ax.scatter(xs, y_values + offset, label=method_label, color=color, marker=marker, s=34)
             for x_value, y_value in zip(xs, y_values + offset, strict=True):
                 if np.isfinite(x_value):
-                    ax.text(x_value, y_value, f" {x_value:.0f}" if xlabel == "m" else f" {x_value:.2f}", va="center", fontsize=7)
+                    ax.text(
+                        x_value,
+                        y_value,
+                        f" {x_value:.0f}" if xlabel == "m" else f" {x_value:.2f}",
+                        va="center",
+                        fontsize=7,
+                    )
         ax.set_title(title, fontsize=10)
         ax.set_xlabel(xlabel)
         ax.grid(axis="x", color="#d8dee6", linewidth=0.7, alpha=0.8)
@@ -803,7 +816,9 @@ def generate_release_accumulation_distance_metrics(records: list[SimulationRecor
                 "run_name": source_row.get("run_name", ""),
                 "run_folder": run_folder,
             }
-            row.update({key: str(value if value is not None else "") for key, value in metrics.items()})
+            row.update(
+                {key: str(value if value is not None else "") for key, value in metrics.items()}
+            )
             record.release_accumulation_distance = row
             rows.append(row)
             generated += 1
@@ -958,7 +973,7 @@ def links_section() -> str:
     <li>{report_item}</li>
     <li>{audit_item}</li>
     <li><code>{safe(str(COMPARISON_ROOT))}</code></li>
-    <li>statut audit: <strong>{safe(manifest.get('audit_status', 'non lance'))}</strong></li>
+    <li>statut audit: <strong>{safe(manifest.get("audit_status", "non lance"))}</strong></li>
   </ul>
 </section>
 """

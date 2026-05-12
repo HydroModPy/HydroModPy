@@ -22,7 +22,7 @@ import pathlib
 import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
-from functools import lru_cache
+from functools import cache, lru_cache
 
 
 @dataclass(frozen=True)
@@ -40,7 +40,7 @@ class Edge:
     in_type_checking: bool
 
 
-@lru_cache(maxsize=None)
+@cache
 def _top_level_packages(pkg_root: pathlib.Path) -> frozenset[str]:
     return frozenset(
         p.name
