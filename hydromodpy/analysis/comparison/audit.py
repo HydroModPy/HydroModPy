@@ -116,6 +116,81 @@ def _section_fingerprint(value: Any) -> str:
     return json.dumps(_canonical_payload(value), sort_keys=True, separators=(",", ":"))
 
 
+def _solver_name(subject: Mapping[str, Any]) -> str:
+    direct = str(subject.get("solver", "") or "").strip().lower()
+    if direct:
+        return direct
+    metadata = subject.get("metadata", {})
+    if isinstance(metadata, Mapping):
+        return str(metadata.get("solver", "") or "").strip().lower()
+    return ""
+
+
+def _flow_bc_without_method_specific_drainage_conductance(value: Any) -> tuple[Any, bool]:
+    """Return a normalized flow.bc payload and whether drainage conductance was ignored."""
+
+    ignored = False
+
+    def normalize(item: Any) -> Any:
+        nonlocal ignored
+        if isinstance(item, Mapping):
+            out: dict[str, Any] = {}
+            for key, raw in item.items():
+                key_text = str(key)
+                if key_text == "description":
+                    continue
+                out[key_text] = normalize(raw)
+            return out
+        if isinstance(item, list):
+            return [normalize(raw) for raw in item]
+        if isinstance(item, tuple):
+            return [normalize(raw) for raw in item]
+        return item
+
+    normalized = normalize(value)
+    if not isinstance(normalized, dict):
+        return normalized, ignored
+
+    for family in ("cauchy", "robin"):
+        family_payload = normalized.get(family)
+        if not isinstance(family_payload, dict):
+            continue
+        drainage = family_payload.get("drainage")
+        if not isinstance(drainage, dict):
+            continue
+        if "value" in drainage:
+            drainage["value"] = "<method-specific-drainage-conductance>"
+            ignored = True
+    return normalized, ignored
+
+
+def _is_expected_boussinesq_drainage_bc_difference(
+    *,
+    candidate_section: Any,
+    reference_section: Any,
+    subject: Mapping[str, Any],
+    reference: Mapping[str, Any],
+) -> bool:
+    """Return True for the deliberate MF6/Boussinesq drainage conductance delta."""
+
+    candidate_solver = _solver_name(subject)
+    reference_solver = _solver_name(reference)
+    if candidate_solver != "boussinesq" or reference_solver not in {"modflow6", "mf6"}:
+        return False
+
+    candidate_normalized, candidate_ignored = (
+        _flow_bc_without_method_specific_drainage_conductance(candidate_section)
+    )
+    reference_normalized, reference_ignored = (
+        _flow_bc_without_method_specific_drainage_conductance(reference_section)
+    )
+    if not (candidate_ignored and reference_ignored):
+        return False
+    return _section_fingerprint(candidate_normalized) == _section_fingerprint(
+        reference_normalized
+    )
+
+
 def _config_signature(config_path: Path | None) -> dict[str, Any]:
     if config_path is None:
         return {"status": "missing_config_path", "sections": {}, "fingerprints": {}}
@@ -357,7 +432,11 @@ def _head_bounds_diagnostics(
         return []
 
     cells_by_simulation = {}
+    solver_by_simulation: dict[str, str] = {}
     for summary in simulation_summaries:
+        simulation_id = str(summary.get("id", ""))
+        solver_name = str(summary.get("solver", "") or "")
+        solver_by_simulation[simulation_id] = solver_name
         run_folder_raw = summary.get("run_folder")
         if run_folder_raw in ("", None):
             continue
@@ -369,7 +448,7 @@ def _head_bounds_diagnostics(
             solver_name=str(summary.get("solver", "")) or None,
         )
         if cells is not None:
-            cells_by_simulation[str(summary.get("id", ""))] = cells
+            cells_by_simulation[simulation_id] = cells
 
     grouped: dict[tuple[str, str], list[float]] = {}
     below_grouped: dict[tuple[str, str], list[float]] = {}
@@ -407,6 +486,7 @@ def _head_bounds_diagnostics(
         diagnostics.append(
             {
                 "simulation_id": simulation_id,
+                "solver": solver_by_simulation.get(simulation_id, ""),
                 "observable": observable,
                 "n_values": n_values,
                 "above_top_fraction": (len(above_values) / n_values if n_values else None),
@@ -606,6 +686,7 @@ def _load_audit_subject(summary: Mapping[str, Any]) -> dict[str, Any]:
         if store is None or sim_id is None:
             return {
                 "id": summary.get("id", ""),
+                "solver": summary.get("solver", ""),
                 "status": "missing_store",
                 "metadata": {},
                 "parameters": [],
@@ -616,6 +697,7 @@ def _load_audit_subject(summary: Mapping[str, Any]) -> dict[str, Any]:
         recharge_series = _component_series(budget_rows, RECHARGE_COMPONENT)
         return {
             "id": summary.get("id", ""),
+            "solver": summary.get("solver", ""),
             "status": "loaded",
             "sim_id": str(sim_id),
             "metadata": _simulation_row(store, str(sim_id)),
@@ -661,6 +743,7 @@ def build_equivalence_audit(
     reference = subject_by_id.get(str(reference_id)) if reference_id else None
 
     issues: list[dict[str, Any]] = []
+    ignored_issues: list[dict[str, Any]] = []
     if reference is None:
         issues.append(
             {
@@ -709,10 +792,36 @@ def build_equivalence_audit(
                     }
                 )
             config = subject.get("physical_config", {})
+            config_sections = config.get("sections", {})
             fingerprints = config.get("fingerprints", {})
             for section_name, reference_fingerprint in ref_fingerprints.items():
                 candidate_fingerprint = fingerprints.get(section_name, "")
                 if candidate_fingerprint == reference_fingerprint:
+                    continue
+                if (
+                    section_name == "flow.bc"
+                    and isinstance(config_sections, Mapping)
+                    and isinstance(ref_config.get("sections", {}), Mapping)
+                    and _is_expected_boussinesq_drainage_bc_difference(
+                        candidate_section=config_sections.get(section_name),
+                        reference_section=ref_config.get("sections", {}).get(section_name),
+                        subject=subject,
+                        reference=reference,
+                    )
+                ):
+                    ignored_issues.append(
+                        {
+                            "level": "ignored",
+                            "kind": "config_section_mismatch",
+                            "simulation_id": simulation_id,
+                            "reference_simulation": reference_id,
+                            "field": section_name,
+                            "message": (
+                                "Ignored solver-method drainage conductance difference "
+                                "between MODFLOW 6 and Boussinesq."
+                            ),
+                        }
+                    )
                     continue
                 issues.append(
                     {
@@ -767,21 +876,32 @@ def build_equivalence_audit(
         above_fraction = _as_float(item.get("above_top_fraction")) or 0.0
         above_max = _as_float(item.get("above_top_max_m")) or 0.0
         if above_fraction > HEAD_ABOVE_TOP_FRACTION_TOL and above_max > HEAD_ABOVE_TOP_TOL_M:
-            issues.append(
-                {
-                    "level": "error" if on_mismatch == "fail" else "warning",
-                    "kind": "watertable_above_top",
-                    "simulation_id": item.get("simulation_id", ""),
-                    "field": item.get("observable", ""),
-                    "message": (
-                        "Watertable elevation is above the model top on a large fraction of cells."
-                    ),
-                    "above_top_fraction": above_fraction,
-                    "above_top_max_m": above_max,
-                    "fraction_tolerance": HEAD_ABOVE_TOP_FRACTION_TOL,
-                    "height_tolerance_m": HEAD_ABOVE_TOP_TOL_M,
-                }
-            )
+            issue = {
+                "level": "error" if on_mismatch == "fail" else "warning",
+                "kind": "watertable_above_top",
+                "simulation_id": item.get("simulation_id", ""),
+                "field": item.get("observable", ""),
+                "message": (
+                    "Watertable elevation is above the model top on a large fraction of cells."
+                ),
+                "above_top_fraction": above_fraction,
+                "above_top_max_m": above_max,
+                "fraction_tolerance": HEAD_ABOVE_TOP_FRACTION_TOL,
+                "height_tolerance_m": HEAD_ABOVE_TOP_TOL_M,
+            }
+            if _solver_name(item) in {"modflow6", "mf6"}:
+                ignored_issues.append(
+                    {
+                        **issue,
+                        "level": "ignored",
+                        "message": (
+                            "Ignored MODFLOW 6 watertable-above-top diagnostic; "
+                            "unconfined heads can be above cell top."
+                        ),
+                    }
+                )
+                continue
+            issues.append(issue)
 
     initial_state_policy = _initial_state_policy_diagnostics(
         observable_rows=observable_rows,
@@ -828,6 +948,7 @@ def build_equivalence_audit(
         ),
         "subjects": subjects,
         "issues": issues,
+        "ignored_issues": ignored_issues,
     }
 
 
@@ -852,6 +973,7 @@ def write_audit_files(
         "## Issues",
     ]
     issues = list(audit.get("issues", []))
+    ignored_issues = list(audit.get("ignored_issues", []))
     if not issues:
         lines.append("- No equivalence issue detected.")
     else:
@@ -862,6 +984,16 @@ def write_audit_files(
             lines.append(
                 f"- `{issue.get('level', '')}` / `{issue.get('kind', '')}`"
                 f" simulation=`{simulation_id}`{suffix}"
+            )
+    if ignored_issues:
+        lines.extend(["", "## Ignored Differences"])
+        for issue in ignored_issues:
+            field = issue.get("field")
+            suffix = f" field=`{field}`" if field else ""
+            simulation_id = issue.get("simulation_id", "")
+            lines.append(
+                f"- `{issue.get('kind', '')}` simulation=`{simulation_id}`{suffix}: "
+                f"{issue.get('message', '')}"
             )
     config_issue_count = sum(
         1 for issue in issues if issue.get("kind") == "config_section_mismatch"

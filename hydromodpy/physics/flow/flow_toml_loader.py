@@ -287,6 +287,8 @@ def _prepare_bc_entry_payload(
     force_dirichlet: bool = False,
 ) -> dict[str, object]:
     payload = dict(raw_payload)
+    if "kind" not in payload and "type" in payload:
+        payload["kind"] = payload.pop("type")
     raw_kind = str(payload.get("kind", default_kind)).strip().lower() or default_kind
     if force_dirichlet and raw_kind != "dirichlet":
         raise ValueError(f"{location_prefix}.kind must be 'dirichlet'")

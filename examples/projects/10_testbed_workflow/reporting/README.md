@@ -48,9 +48,7 @@ the source links.
 
 For catalog-backed testbeds, `--site-catalog` is optional when the testbed
 manifest already records `site_catalog_path`. The page then reads the catalog
-automatically and adds a "Mode catalogue pas a pas" section explaining the loop:
-catalog row selection, template rendering, generated child TOMLs, and delegated
-execution through the configured runner. This is used by the natural
+automatically to enrich the case pages. This is used by the natural
 Boussinesq/MODFLOW6 example:
 
 ```powershell

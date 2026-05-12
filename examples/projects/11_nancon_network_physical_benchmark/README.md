@@ -45,5 +45,9 @@ The generated page separates two questions:
 1. Solver comparison on the same mesh:
    `mf6_disv_drain_high` vs `bouss_same_mesh_no_drain`.
 2. MF6 mesh sensitivity at fixed physical settings:
-   DISV reference, regular grids, and generated irregular meshes.
+   DISV reference, regular grids, and the generated irregular 350 m mesh.
+
+The generated irregular 250 m candidate is kept as a draft configuration but
+is not part of the default comparison because its MF6 steady initialization is
+not robust enough yet.
 

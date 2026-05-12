@@ -14,10 +14,10 @@ These cases compare multiple modelling methods on the same saved support. The fi
 Current Coverage
 ----------------
 
-- Study areas: Example12 / Naizin, Naizin catchment.
-- Compared simulations: Boussinesq reusing the same mesh, MODFLOW 6 on committed Gmsh mesh.
-- Compared observables: Head Timeseries, Watertable Depth, Watertable Elevation.
-- Comparison families: Same Support, Different Solvers (2), Different Supports, Same Regime (2), Multi-Simulation Suites (2).
+- Study areas: Example12 / Naizin, Naizin catchment, Natural N1 10 km2 testbed.
+- Compared simulations: Boussinesq PETSc TS/SNESVI candidate, Boussinesq reusing the same mesh, MODFLOW 6 on committed Gmsh mesh, MODFLOW 6 reference.
+- Compared observables: Head Dry Late, Head First Computed, Head Last, Head Timeseries, Head Wet Year1, Watertable Depth, Watertable Elevation.
+- Comparison families: Same Support, Different Solvers (2), Different Supports, Same Regime (2), Multi-Simulation Suites (2), Natural-Geology MF6/Boussinesq Testbed (2).
 - Extend this section by adding committed comparison TOMLs to an existing family, or by declaring a new family when the comparison axis really changes.
 
 Comparison Families
@@ -106,6 +106,33 @@ These cases keep more than two simulations on one page so the reader can separat
       Diagnostic extension of the four-simulation moderate suite, adding surface-excess observables and Boussinesq budget diagnostics.
 
 
+Natural-Geology MF6/Boussinesq Testbed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These pages publish reviewed Boussinesq/MODFLOW 6 comparison outputs from the testbed workflow without running the solvers during doc generation.
+
+.. grid:: 1 1 2 2
+   :gutter: 2 2 3 3
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/site_03_natural_n1_10km2_mf6_bouss
+      :link-type: doc
+
+      **Site 03 Natural N1 10Km2 Mf6 Bouss**
+      ^^^
+      Published MODFLOW 6 and Boussinesq comparison artifacts, reused by the documentation without rerunning the solvers.
+
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: cases/site_08_natural_n1_10km2_mf6_bouss
+      :link-type: doc
+
+      **Site 08 Natural N1 10Km2 Mf6 Bouss**
+      ^^^
+      Published MODFLOW 6 and Boussinesq comparison artifacts, reused by the documentation without rerunning the solvers.
+
+
 .. toctree::
    :hidden:
    :maxdepth: 1
@@ -116,3 +143,5 @@ These cases keep more than two simulations on one page so the reader can separat
    cases/example12_mf6_vs_nwt_different_meshes_demonstrative
    cases/ex12_multi_simulation_moderate
    cases/ex12_multi_simulation_moderate_causes
+   cases/site_03_natural_n1_10km2_mf6_bouss
+   cases/site_08_natural_n1_10km2_mf6_bouss

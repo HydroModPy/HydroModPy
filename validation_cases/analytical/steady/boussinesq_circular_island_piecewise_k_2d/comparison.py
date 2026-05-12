@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hydromodpy.spatial.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
+from hydromodpy.spatial.geographic.synthetic import RadialIslandTopography, SyntheticGridConfig
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from validation_cases.shared import (
     ValidationRunResult,
@@ -67,7 +67,7 @@ def _build_reference_surfaces(
         crs=str(reference_cfg.get("crs", "EPSG:2154")),
         nodata=-9999.0,
     )
-    topography = SyntheticTopographyConfig(
+    topography = RadialIslandTopography(
         kind="radial_island",
         base_elevation=float(reference_cfg["ocean_floor_elevation_m"]),
         crest_elevation=float(reference_cfg["crest_elevation_m"]),

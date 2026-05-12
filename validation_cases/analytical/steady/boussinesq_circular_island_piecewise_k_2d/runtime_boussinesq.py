@@ -15,7 +15,7 @@ from hydromodpy.simulation.planning.plan import (
     SimulationPlan,
 )
 from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
-from hydromodpy.spatial.geographic.synthetic import SyntheticGridConfig, SyntheticTopographyConfig
+from hydromodpy.spatial.geographic.synthetic import RadialIslandTopography, SyntheticGridConfig
 from hydromodpy.spatial.geographic.synthetic.topography import build_topography_values
 from validation_cases.analytical.steady.boussinesq_fixed_head_piecewise_k_1d.runtime_boussinesq import (
     _build_flow_config,
@@ -89,7 +89,7 @@ def _reference_grid(
         crs=str(reference_cfg.get("crs", "EPSG:2154")),
         nodata=-9999.0,
     )
-    topography = SyntheticTopographyConfig(
+    topography = RadialIslandTopography(
         kind="radial_island",
         base_elevation=float(reference_cfg["ocean_floor_elevation_m"]),
         crest_elevation=float(reference_cfg["crest_elevation_m"]),

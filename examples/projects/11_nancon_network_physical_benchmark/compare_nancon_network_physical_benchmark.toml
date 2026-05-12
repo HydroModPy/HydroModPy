@@ -1,4 +1,5 @@
-workflow = "comparison"
+[workflow]
+mode = "comparison"
 
 [comparison]
 comparison_id = "nancon_network_physical_benchmark"
@@ -60,15 +61,6 @@ simulation_config = "run_mf6_regular_180_drain_high.toml"
 run_folder = "outputs/nancon_network_physical_benchmark/workspaces/mf6_regular_180_drain_high"
 mesh_label = "nancon_regular_grid_180"
 mesh_mode = "structured"
-
-[[comparison.simulation]]
-id = "mf6_irregular_250_drain_high"
-label = "MF6 irregular 250 m, high drain"
-solver = "modflow6"
-simulation_config = "run_mf6_irregular_250_drain_high.toml"
-run_folder = "outputs/nancon_network_physical_benchmark/workspaces/mf6_irregular_250_drain_high"
-mesh_label = "nancon_irregular_mesh_250"
-mesh_mode = "mesh_catchment"
 
 [[comparison.simulation]]
 id = "mf6_irregular_350_drain_high"
@@ -138,7 +130,6 @@ simulations = [
   "mf6_disv_drain_high",
   "mf6_regular_120_drain_high",
   "mf6_regular_180_drain_high",
-  "mf6_irregular_250_drain_high",
   "mf6_irregular_350_drain_high",
 ]
 
@@ -159,45 +150,3 @@ reducer = "sum"
 unit = "m3/s"
 simulations = ["bouss_same_mesh_no_drain"]
 
-[[comparison.observable]]
-name = "head_outlet_series"
-variable = "watertable_elevation"
-support = "point"
-x = 389273.126405933
-y = 6816556.61306809
-time = "all"
-unit = "m"
-
-[[comparison.observable]]
-name = "head_mid_catchment_series"
-variable = "watertable_elevation"
-support = "point"
-x = 390941.369935479
-y = 6820865.93033605
-time = "all"
-unit = "m"
-
-[[comparison.observable]]
-name = "head_eastern_plateau_series"
-variable = "watertable_elevation"
-support = "point"
-x = 396287.5136922192
-y = 6817290.185968083
-time = "all"
-unit = "m"
-
-[[comparison.observable]]
-name = "outlet_flux_series"
-variable = "outlet_flux"
-support = "outlet"
-x = 389273.126405933
-y = 6816556.61306809
-time = "all"
-unit = "m3/s"
-simulations = [
-  "mf6_disv_drain_high",
-  "mf6_regular_120_drain_high",
-  "mf6_regular_180_drain_high",
-  "mf6_irregular_250_drain_high",
-  "mf6_irregular_350_drain_high",
-]

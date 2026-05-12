@@ -1,0 +1,154 @@
+# Workflow selector: catalog-driven regression campaign for the PETSc direct
+# SNESVI Boussinesq path.
+workflow = "testbed"
+
+# Main testbed declaration. It expands selected 10 km2 and 100 km2 sites into
+# child MF6/Boussinesq comparison TOMLs. The Boussinesq child is PETSc
+# vi_obstacle only.
+[testbed]
+# Stable id used for output folders, manifests and HTML synthesis pages.
+id = "boussinesq_petsc_vi_regression_catalog"
+# Scientific subject delegated to the child runner.
+subject = "flow"
+# Free-text campaign purpose reported in manifests and pages.
+purpose = "boussinesq_petsc_vi_obstacle_regression"
+# Base comparison TOML reused for every selected site.
+base_config = "compare_natural_mf6_bouss_petsc_vi_base.toml"
+# Root directory for generated child configs, manifests, comparison outputs and HTML synthesis.
+output_root = "../../outputs/boussinesq_petsc_vi_regression_testbed"
+# False generates the comparison TOMLs and plan only; the WSL chain script executes selected sites.
+execute = false
+# Keep processing later variants when one variant fails.
+continue_on_error = true
+
+# Child workflow runner used by this testbed.
+[testbed.runner]
+# Runner type: each variant is a full MF6/Boussinesq comparison.
+type = "comparison"
+# Do not open interactive display windows from delegated child workflows.
+no_display = true
+
+# Focused catalog used to lock the PETSc vi_obstacle path on several basin sizes.
+[testbed.catalog]
+# CSV file containing selected regional-lab sites.
+path = "natural_petsc_vi_regression_sites.csv"
+# Catalog file format.
+format = "csv"
+# Column used as unique variant id.
+id_field = "site_id"
+# Column used as human-readable site label.
+label_field = "site_label"
+# Column used as grouping axis in summaries.
+axis_field = "cluster_scale"
+# Column containing semicolon-separated tags.
+tags_field = "tags"
+# Column controlling whether a row is selected.
+enabled_field = "enabled"
+# Columns required at catalog level before any variant rule is applied.
+required_fields = [
+  "site_id",
+  "site_label",
+  "cluster_family",
+  "cluster_scale",
+  "x_outlet",
+  "y_outlet",
+  "target_area_km2",
+]
+# Keep only the focused PETSc VI regression rows.
+tags = ["petsc_vi_regression", "comparison"]
+
+# Rule for the 10 km2 sites. It uses the 10 km2 defaults declared in the base comparison.
+[[testbed.variant_from_catalog]]
+# Template for the generated variant id.
+id_template = "{site_id}"
+# Template for the generated variant label.
+label_template = "{site_label}"
+# Template for the generated variant axis/group.
+axis_template = "{cluster_scale}"
+# Columns required by this generation rule.
+required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+# Select only N1 rows.
+tags = ["n1_10km2"]
+
+# Comparison-level overlay rendered for each 10 km2 catalog row.
+[testbed.variant_from_catalog.overlay.comparison]
+# Generated comparison id for the current site.
+comparison_id = "{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
+# Generated comparison output folder for the current site.
+output_root = "../../outputs/boussinesq_petsc_vi_regression_testbed/comparisons/{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
+
+# Shared simulation metadata injected before solver-specific overlays.
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+# Shared simulation name for the site, before child solver suffixes are added.
+name = "{site_id}_natural_{cluster_scale}_petsc_vi_shared_case"
+# Shared simulation description displayed in generated child TOMLs.
+description = "Regional-lab natural {cluster_scale} MF6/Boussinesq PETSc vi_obstacle regression case."
+
+# Shared geographic/site definition injected from the catalog.
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+# Outlet X coordinate in the project CRS.
+x_outlet = "{x_outlet}"
+# Outlet Y coordinate in the project CRS.
+y_outlet = "{y_outlet}"
+
+# Rule for the 100 km2 sites. It overrides scale-sensitive geographic, mesh and raster settings.
+[[testbed.variant_from_catalog]]
+# Template for the generated variant id.
+id_template = "{site_id}"
+# Template for the generated variant label.
+label_template = "{site_label}"
+# Template for the generated variant axis/group.
+axis_template = "{cluster_scale}"
+# Columns required by this generation rule.
+required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+# Select only N2 rows.
+tags = ["n2_100km2"]
+
+# Comparison-level overlay rendered for each 100 km2 catalog row.
+[testbed.variant_from_catalog.overlay.comparison]
+# Generated comparison id for the current site.
+comparison_id = "{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
+# Generated comparison output folder for the current site.
+output_root = "../../outputs/boussinesq_petsc_vi_regression_testbed/comparisons/{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
+
+# Larger natural supports need a longer per-child timeout.
+[testbed.variant_from_catalog.overlay.comparison.execution]
+# Per-child timeout in seconds.
+timeout_seconds = 7200
+
+# Shared simulation metadata injected before solver-specific overlays.
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+# Shared simulation name for the site, before child solver suffixes are added.
+name = "{site_id}_natural_{cluster_scale}_petsc_vi_shared_case"
+# Shared simulation description displayed in generated child TOMLs.
+description = "Regional-lab natural {cluster_scale} MF6/Boussinesq PETSc vi_obstacle regression case."
+
+# Shared geographic/site definition injected from the catalog.
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+# Outlet X coordinate in the project CRS.
+x_outlet = "{x_outlet}"
+# Outlet Y coordinate in the project CRS.
+y_outlet = "{y_outlet}"
+# Larger outlet snapping distance, still small relative to the target basin scale.
+snap_dist = "300.0 m"
+# Larger watershed buffer around each delineated basin.
+buff_area = "1800.0 m"
+
+# DEM-derived river-network extraction settings for 100 km2 sites.
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
+# Stream initiation threshold adapted to larger supports.
+threshold_area_km2 = 1.0
+
+# Irregular mesh sizing for 100 km2 sites.
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
+# Background target cell size in metres.
+global_size = 260.0
+# Minimum allowed local cell size in metres.
+min_size = 90.0
+# Target cell size near rivers, geology interfaces and watershed boundaries.
+interface_size = 140.0
+
+# Common raster support for 100 km2 map comparisons.
+[testbed.variant_from_catalog.overlay.comparison.fine_raster]
+# Raster resolution in metres, scaled with the larger natural supports.
+resolution = 160.0

@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
 from .gallery_schema import GalleryCaseSpec, GalleryImageAsset
 
 _SIMULATION_COMPARISON_STATIC_ROOT = "docs/source/_static/capability_gallery/simulation_comparison"
+_PUBLISHED_SIMULATION_COMPARISON_ROOT = Path(
+    "examples/projects/09_capability_gallery/simulation_comparison"
+)
+_REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_SIMULATION_COMPARISON_NEXT_STEPS = (
     "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
     "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.",
@@ -41,6 +46,147 @@ def _augment_simulation_comparison_source_paths(
             if extra_path not in expanded_paths:
                 expanded_paths.append(extra_path)
     return tuple(expanded_paths)
+
+
+def _string_tuple(payload: dict[str, Any], key: str) -> tuple[str, ...]:
+    raw = payload.get(key, ())
+    if isinstance(raw, str):
+        return (raw,)
+    if isinstance(raw, list | tuple):
+        return tuple(str(item) for item in raw)
+    return ()
+
+
+def _repo_relative(path: Path, *, repo_root: Path) -> str:
+    return path.resolve().relative_to(repo_root.resolve()).as_posix()
+
+
+def _published_source_paths(case_json_path: Path, *, repo_root: Path) -> tuple[str, ...]:
+    case_root = case_json_path.parent
+    required = (
+        case_json_path,
+        case_root / "comparison_manifest.json",
+        case_root / "comparison_metrics.json",
+        case_root / "observables.csv",
+    )
+    optional_names = (
+        "comparison_audit.json",
+        "comparison_report.md",
+        "execution_times.csv",
+        "source_manifest.json",
+        "comparison.toml",
+        "hydrographic_network_metrics.csv",
+        "hydrographic_network_metrics_skipped.json",
+        "release_flux_network_distance_metrics.csv",
+        "release_flux_network_distance_metrics_skipped.json",
+        "release_flux_network_overlap_metrics.csv",
+        "release_flux_network_overlap_metrics_skipped.json",
+        "simulated_active_network_distance_metrics.csv",
+        "simulated_active_network_distance_metrics_skipped.json",
+        "simulated_active_network_figures_skipped.json",
+        "simulated_active_network_metrics.csv",
+        "simulated_active_network_metrics_skipped.json",
+        "simulated_active_network_overlap_metrics.csv",
+        "simulated_active_network_overlap_metrics_skipped.json",
+    )
+    optional = tuple(case_root / name for name in optional_names if (case_root / name).exists())
+    return tuple(_repo_relative(path, repo_root=repo_root) for path in (*required, *optional))
+
+
+def _published_simulation_comparison_spec(
+    case_json_path: Path,
+    *,
+    repo_root: Path,
+) -> GalleryCaseSpec:
+    payload = json.loads(case_json_path.read_text(encoding="utf-8"))
+    slug = str(payload["slug"]).strip()
+    title = str(payload["title"]).strip()
+    case_root = case_json_path.parent
+    case_root_relative = _repo_relative(case_root, repo_root=repo_root)
+    comparison_config_path = str(
+        payload.get("comparison_config_path") or f"{case_root_relative}/comparison.toml"
+    )
+    metadata_payload = payload.get("metadata", {})
+    metadata = dict(metadata_payload) if isinstance(metadata_payload, dict) else {}
+    publish_full_artifacts = metadata.pop(
+        "publish_full_artifacts", payload.get("publish_full_artifacts", False)
+    )
+    metadata = {
+        "static_summary_path": f"{_SIMULATION_COMPARISON_STATIC_ROOT}/{slug}_summary.json",
+        "comparison_summary_path": f"{_SIMULATION_COMPARISON_STATIC_ROOT}/{slug}_summary.json",
+        "comparison_config_path": comparison_config_path,
+        "publish_full_artifacts": bool(publish_full_artifacts),
+        "study_area": str(payload.get("study_area", "Testbed comparison")),
+        "focus_simulation_id": str(payload.get("focus_simulation_id", "bouss_candidate")),
+        "comparison_family_key": str(
+            payload.get("comparison_family_key", "boussinesq_mf6_testbed")
+        ),
+        "comparison_family_label": str(
+            payload.get("comparison_family_label", "Boussinesq / MODFLOW 6 Testbed")
+        ),
+        "comparison_family_deck": str(
+            payload.get(
+                "comparison_family_deck",
+                "Published comparison artifacts from the Boussinesq and MODFLOW 6 testbed.",
+            )
+        ),
+        "comparison_family_order": int(payload.get("comparison_family_order", 40)),
+        "comparison_case_order": int(payload.get("comparison_case_order", 10)),
+        **metadata,
+    }
+    image_filename = str(payload.get("image_filename") or f"{slug}.png")
+    return GalleryCaseSpec(
+        slug=slug,
+        title=title,
+        category="simulation_comparison",
+        deck=str(payload.get("deck", "")),
+        summary=str(payload.get("summary", "")),
+        what_it_shows=_string_tuple(payload, "what_it_shows"),
+        reproduction_command=str(
+            payload.get("reproduction_command") or f"python -m tools.doc_gallery --only {slug}"
+        ),
+        source_paths=_published_source_paths(case_json_path, repo_root=repo_root),
+        generator="simulation_comparison_case",
+        image_assets=(
+            GalleryImageAsset(
+                filename=image_filename,
+                caption=str(
+                    payload.get(
+                        "image_caption",
+                        f"Summary comparison figure for {title.lower()}.",
+                    )
+                ),
+                alt_text=str(
+                    payload.get("image_alt_text", f"Simulation comparison summary for {title}")
+                ),
+            ),
+        ),
+        case_setup=_string_tuple(payload, "case_setup"),
+        key_parameters=_string_tuple(payload, "key_parameters"),
+        how_to_read=_string_tuple(payload, "how_to_read"),
+        next_steps=_string_tuple(payload, "next_steps")
+        or _DEFAULT_SIMULATION_COMPARISON_NEXT_STEPS,
+        walkthrough_doc=str(payload.get("walkthrough_doc", "getting_started/reading-results-pages")),
+        walkthrough_title=str(
+            payload.get("walkthrough_title", "the gallery and validation reading guide")
+        ),
+        metadata=metadata,
+    )
+
+
+def build_published_simulation_comparison_specs(
+    *, repo_root: Path | None = None
+) -> tuple[GalleryCaseSpec, ...]:
+    """Discover published comparison artifacts prepared for the documentation."""
+
+    root = (repo_root or _REPO_ROOT) / _PUBLISHED_SIMULATION_COMPARISON_ROOT
+    if not root.exists():
+        return ()
+    specs = [
+        _published_simulation_comparison_spec(path, repo_root=repo_root or _REPO_ROOT)
+        for path in sorted(root.glob("*/case.json"))
+    ]
+    return tuple(specs)
 
 
 def _build_simulation_comparison_case_spec(
@@ -421,7 +567,11 @@ def build_simulation_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
             comparison_family_order=30,
             comparison_case_order=20,
         ),
+        *build_published_simulation_comparison_specs(),
     )
 
 
-__all__ = ["build_simulation_comparison_specs"]
+__all__ = [
+    "build_published_simulation_comparison_specs",
+    "build_simulation_comparison_specs",
+]

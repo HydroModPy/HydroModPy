@@ -27,12 +27,14 @@ ALLOWED_TOP_LEVEL_OVERLAY_KEYS = {
     "simulation",
     "workspace",
     "solver",
+    "mesh_catchment",
     "mesh_input",
     "modflow6",
     "modflownwt",
     "display",
     "flow",
 }
+OVERLAY_DIRECTIVE_SUFFIXES = ("__append", "__delete")
 
 ALLOWED_SIMULATION_OVERLAY_KEYS = {
     "name",
@@ -80,7 +82,11 @@ class GeneratedChildConfig:
 
 def validate_numeric_overlay(overlay: Mapping[str, Any]) -> None:
     """Validate comparison overlays before child TOML materialization."""
-    unknown_top_keys = sorted(set(overlay) - ALLOWED_TOP_LEVEL_OVERLAY_KEYS)
+    unknown_top_keys = sorted(
+        key
+        for key in overlay
+        if _overlay_key_without_directive(key) not in ALLOWED_TOP_LEVEL_OVERLAY_KEYS
+    )
     if unknown_top_keys:
         keys = ", ".join(unknown_top_keys)
         raise ValueError(f"comparison.simulation.overlay contains forbidden sections: {keys}")
@@ -100,6 +106,13 @@ def validate_numeric_overlay(overlay: Mapping[str, Any]) -> None:
         if unknown_flow_keys:
             keys = ", ".join(unknown_flow_keys)
             raise ValueError(f"comparison.simulation.overlay.flow contains forbidden keys: {keys}")
+
+
+def _overlay_key_without_directive(key: str) -> str:
+    for suffix in OVERLAY_DIRECTIVE_SUFFIXES:
+        if key.endswith(suffix):
+            return key[: -len(suffix)]
+    return key
 
 
 def _child_run_name(*, comparison_id: str, simulation_id: str) -> str:

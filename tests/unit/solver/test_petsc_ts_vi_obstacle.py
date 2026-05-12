@@ -72,6 +72,23 @@ def _single_cell_mesh() -> _MiniMesh:
     )
 
 
+def _three_cell_line_mesh() -> _MiniMesh:
+    return _MiniMesh(
+        cell_area_m2=np.asarray([1.0, 1.0, 1.0], dtype=float),
+        z_top_m=np.asarray([2.0, 2.0, 2.0], dtype=float),
+        z_bottom_m=np.asarray([0.0, 0.0, 0.0], dtype=float),
+        hydraulic_conductivity_m_s=np.asarray([1.0, 0.8, 1.2], dtype=float),
+        storage_coefficient=np.asarray([0.2, 0.2, 0.2], dtype=float),
+        edge_ids=np.asarray([0, 1], dtype=int),
+        edge_cell_a=np.asarray([0, 1], dtype=int),
+        edge_cell_b=np.asarray([1, 2], dtype=int),
+        edge_length_m=np.asarray([1.0, 1.0], dtype=float),
+        edge_distance_m=np.asarray([1.0, 1.0], dtype=float),
+        edge_midpoint_distance_to_cell_a_m=np.asarray([0.5, 0.5], dtype=float),
+        edge_midpoint_distance_to_cell_b_m=np.asarray([0.5, 0.5], dtype=float),
+    )
+
+
 def _options(**overrides) -> NonlinearRuntimeOptions:
     payload = {
         "regularization_radius": 0.05,
@@ -208,4 +225,47 @@ def test_ts_vi_matches_manual_vi_substeps_on_single_cell() -> None:
     assert int(ts_result.diagnostics["ts_steps_taken"]) == 4
     assert int(ts_result.diagnostics["surface_active_cells"]) == int(
         manual.diagnostics["surface_active_cells"]
+    )
+
+
+@pytest.mark.petsc
+def test_ts_vi_matches_manual_vi_substeps_on_three_cell_line() -> None:
+    _require_linux_petsc4py()
+    mesh = _three_cell_line_mesh()
+    head_prev = np.asarray([0.7, 1.0, 1.3], dtype=float)
+    common = dict(
+        mesh=mesh,
+        head_prev_m=head_prev,
+        head_initial_guess_m=head_prev,
+        dt_seconds=20.0,
+        recharge_rate_m_s=np.asarray([0.003, 0.0, 0.001], dtype=float),
+        well_flux_m3_s=np.asarray([0.0, -0.0005, 0.0], dtype=float),
+    )
+
+    manual = petsc_vi_obstacle.solve_transient_step(
+        TransientStepInputs(
+            **common,
+            options=_options(vi_substeps_per_period=4),
+        )
+    )
+    ts_result = solve_transient_step(
+        TransientStepInputs(
+            **common,
+            options=_options(ts_vi_steps_per_period=4),
+        )
+    )
+
+    assert manual.converged is True
+    assert ts_result.converged is True
+    np.testing.assert_allclose(ts_result.head_m, manual.head_m, rtol=1.0e-8, atol=1.0e-8)
+    assert np.min(ts_result.head_m - mesh.z_bottom_m) >= -1.0e-10
+    assert np.max(ts_result.head_m - mesh.z_top_m) <= 1.0e-10
+    assert ts_result.diagnostics is not None
+    assert manual.diagnostics is not None
+    assert int(ts_result.diagnostics["ts_steps_taken"]) == 4
+    assert int(ts_result.diagnostics["surface_active_cells"]) == int(
+        manual.diagnostics["surface_active_cells"]
+    )
+    assert int(ts_result.diagnostics["bottom_active_cells"]) == int(
+        manual.diagnostics["bottom_active_cells"]
     )

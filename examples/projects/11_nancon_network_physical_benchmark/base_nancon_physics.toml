@@ -1,4 +1,5 @@
-workflow = "simulation"
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/nancon_network_physical_benchmark/shared_workspace"
@@ -50,7 +51,7 @@ all_vertices = true
 [domain]
 
 [domain.depth_model]
-type = "constant_thickness"
+kind = "constant_thickness"
 thickness = "30.0 m"
 
 [flow]
@@ -66,25 +67,19 @@ runtime_tol_state_update_inf = 1.0e-6
 id = "K"
 kind = "homogeneous"
 unit = "m/s"
-
-[flow.param.K.field_homogeneous]
-value = "5e-5 m/s"
+value = 5e-5
 
 [flow.param.Ss.field]
 id = "Ss"
 kind = "homogeneous"
 unit = "m-1"
-
-[flow.param.Ss.field_homogeneous]
-value = "1e-5 m-1"
+value = 1e-5
 
 [flow.param.Sy.field]
 id = "Sy"
 kind = "homogeneous"
 unit = "-"
-
-[flow.param.Sy.field_homogeneous]
-value = "0.05 -"
+value = 0.05
 
 [flow.ic]
 type = "steady_state"
@@ -94,10 +89,11 @@ boundary_condition_policy = "first_period"
 
 [flow.bc.cauchy.drainage]
 id = "drainage"
-type = "cauchy"
+kind = "cauchy"
 application_domain = "top"
 description = "Cauchy drainage on the aquifer top face."
-value = "1.0e-3 m2/s"
+value = 1.0e-3
+units = "m2/s"
 
 [flow.sinks_sources.recharge]
 first_clim = "first"

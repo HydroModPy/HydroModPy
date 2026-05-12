@@ -53,6 +53,19 @@ class Modflow6RuntimeConfig(HydroModelBase):
             "keeps rewetting disabled unless explicitly enabled."
         ),
     )
+    mf6_newton: Annotated[bool, Profile.EXPERT] = Field(
+        default=False,
+        description=(
+            "Enable the MODFLOW 6 Newton-Raphson formulation for convertible "
+            "groundwater cells."
+        ),
+    )
+    mf6_newton_under_relaxation: Annotated[bool, Profile.EXPERT] = Field(
+        default=True,
+        description=(
+            "Enable MODFLOW 6 Newton under-relaxation when mf6_newton is true."
+        ),
+    )
     mf6_enable_xt3d: Annotated[bool | None, Profile.EXPERT] = Field(
         default=None,
         description=(

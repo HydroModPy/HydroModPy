@@ -1,0 +1,28 @@
+{
+  "comparison_id": "site_08_natural_n1_10km2_mf6_bouss",
+  "network_role": "reference",
+  "source_variable": "release_flux",
+  "threshold": 0.0,
+  "mode": "auto",
+  "persistence_threshold": 0.5,
+  "timestep": null,
+  "network_buffer_m": 0.0,
+  "skipped_simulations": [
+    {
+      "simulation_id": "mf6_ref",
+      "reason": "release_flux_network_distance_metrics_failed",
+      "source_variable": "release_flux",
+      "network_role": "reference",
+      "error_type": "FileNotFoundError",
+      "error_message": "C:\\codes\\HydroModPy\\examples\\projects\\10_testbed_workflow\\outputs\\boussinesq_natural_n1_10km2_testbed\\comparisons\\site_08_natural_n1_10km2_mf6_bouss\\workspaces\\mf6_ref\\simulations\\mf6_ref__run_0001__e5a16a06.parquet\\geographic_hydrographic_network_reference.parquet"
+    },
+    {
+      "simulation_id": "bouss_candidate",
+      "reason": "release_flux_network_distance_metrics_failed",
+      "source_variable": "release_flux",
+      "network_role": "reference",
+      "error_type": "FileNotFoundError",
+      "error_message": "C:\\codes\\HydroModPy\\examples\\projects\\10_testbed_workflow\\outputs\\boussinesq_natural_n1_10km2_testbed\\comparisons\\site_08_natural_n1_10km2_mf6_bouss\\workspaces\\bouss_candidate\\simulations\\bouss_candidate__run_0001__e74b41b0.parquet\\geographic_hydrographic_network_reference.parquet"
+    }
+  ]
+}

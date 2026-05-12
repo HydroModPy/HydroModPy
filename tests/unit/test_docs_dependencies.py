@@ -59,7 +59,11 @@ def test_docs_extra_covers_local_sphinx_notebook_and_uml_build_deps() -> None:
 
 
 def test_editable_conda_environments_install_docs_extra() -> None:
-    expected_pattern = re.compile(r'^\s*-\s+-e\s+["\']?\.\.\[docs\]["\']?\s*$', re.MULTILINE)
+    expected_pattern = re.compile(
+        r'^\s*-\s+-e\s+["\']?\.\.\[(?:[A-Za-z0-9_-]+,)*docs'
+        r'(?:,[A-Za-z0-9_-]+)*\]["\']?\s*$',
+        re.MULTILINE,
+    )
 
     missing_docs_extra = [
         environment_path.name

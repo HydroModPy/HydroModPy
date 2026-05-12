@@ -170,9 +170,38 @@ class RegistrationMixin:
         zarr_tmp: Path | None = None
         zarr_final: Path | None = None
         storage_basename: str | None = None
+        precleared_replaced_sids: list[str] = []
+        main_transaction_started = False
 
         try:
+            if name and on_collision == "replace":
+                existing_rows = self._db.execute(
+                    "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
+                    [project, name],
+                ).fetchall()
+                if existing_rows:
+                    precleared_replaced_sids = [str(row[0]) for row in existing_rows]
+                    replaced_sid = precleared_replaced_sids[0]
+                    self._db.execute("BEGIN TRANSACTION")
+                    try:
+                        self._db.execute(
+                            "UPDATE simulations SET name = NULL WHERE project = ? AND name = ?",
+                            [project, name],
+                        )
+                        self._db.execute("COMMIT")
+                    except Exception:
+                        self._db.execute("ROLLBACK")
+                        raise
+                    logger.info(
+                        "Reassigning name '%s' in project '%s' "
+                        "(previous sim %s kept, name cleared)",
+                        name,
+                        project,
+                        _short_id(replaced_sid),
+                    )
+
             self._db.execute("BEGIN TRANSACTION")
+            main_transaction_started = True
 
             if name:
                 existing = self._db.execute(
@@ -312,13 +341,41 @@ class RegistrationMixin:
                 ],
             )
             self._db.execute("COMMIT")
+            main_transaction_started = False
         except Exception:
-            self._db.execute("ROLLBACK")
+            if main_transaction_started:
+                try:
+                    self._db.execute("ROLLBACK")
+                except Exception:
+                    pass
             self._paths.forget(sid)
             if zarr_tmp is not None and zarr_tmp.exists():
                 shutil.rmtree(zarr_tmp)
             if zarr_final is not None and zarr_final.exists():
                 shutil.rmtree(zarr_final)
+            if name and precleared_replaced_sids:
+                try:
+                    current = self._db.execute(
+                        "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
+                        [project, name],
+                    ).fetchone()
+                    if current is None:
+                        self._db.execute("BEGIN TRANSACTION")
+                        try:
+                            self._db.execute(
+                                "UPDATE simulations SET name = ? WHERE sim_id = ?",
+                                [name, precleared_replaced_sids[0]],
+                            )
+                            self._db.execute("COMMIT")
+                        except Exception:
+                            self._db.execute("ROLLBACK")
+                            raise
+                except Exception:
+                    logger.exception(
+                        "Could not restore name '%s' in project '%s' after failed replacement",
+                        name,
+                        project,
+                    )
             raise
 
         if storage_basename is not None:

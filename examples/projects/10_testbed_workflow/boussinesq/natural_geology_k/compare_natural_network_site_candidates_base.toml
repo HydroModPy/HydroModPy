@@ -1,0 +1,258 @@
+# Reusable comparison template for the "site x candidates" network benchmark.
+#
+# This is intentionally not a generic Cartesian product of options.  Each
+# selected site runs this fixed, named list of physically comparable candidates.
+base_config = "compare_natural_10km2_mf6_bouss_base.toml"
+
+[comparison]
+comparison_id = "natural_network_site_candidates_base"
+output_root = "../../outputs/boussinesq_natural_network_site_candidates_testbed/comparisons/base"
+reference_simulation = "mf6_unstructured_reference"
+continue_on_error = true
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+timeout_seconds = 3600
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 100.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[comparison.base_simulation_overlay.simulation.results.derived]
+release_flux = true
+release_accumulation_flux = true
+accumulation_flux = true
+outflow_drain = true
+watertable_depth = true
+watertable_elevation = true
+
+[[comparison.simulation]]
+id = "mf6_unstructured_reference"
+label = "MF6 maillage triangulaire contraint"
+solver = "modflow6"
+mesh_label = "unstructured_reference"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf6_newton = false
+mf6_newton_under_relaxation = true
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "0.1 m2/s"
+
+[[comparison.simulation]]
+id = "bouss_unstructured_same_mesh"
+label = "Boussinesq meme maillage triangulaire"
+solver = "boussinesq"
+mesh_label = "unstructured_reference"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.flow]
+runtime_backend = "petsc"
+surface_interaction_model = "ts_vi_obstacle"
+ts_vi_steps_per_period = 4
+ts_vi_adapt = false
+ts_vi_type = "beuler"
+ts_vi_snes_type = "vinewtonrsls"
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "0.0 m2/s"
+
+[[comparison.simulation]]
+id = "mf6_regular_120"
+label = "MF6 grille reguliere 120 x 120"
+solver = "modflow6"
+mesh_label = "regular_grid_120"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay]
+mesh_catchment__delete = true
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf6_newton = true
+mf6_newton_under_relaxation = true
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 120
+ny = 120
+resampling = "nearest"
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "0.1 m2/s"
+
+[[comparison.simulation]]
+id = "mf6_regular_180"
+label = "MF6 grille reguliere 180 x 180"
+solver = "modflow6"
+mesh_label = "regular_grid_180"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay]
+mesh_catchment__delete = true
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf6_newton = true
+mf6_newton_under_relaxation = true
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.planar]
+mode = "resample_to_shape"
+nx = 180
+ny = 180
+resampling = "nearest"
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "0.1 m2/s"
+
+[[comparison.simulation]]
+id = "mf6_unstructured_350m"
+label = "MF6 maillage triangulaire 350 m"
+solver = "modflow6"
+mesh_label = "unstructured_350m"
+mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay.mesh_catchment.zone_meshing]
+global_size = 350.0
+min_size = 150.0
+max_size = 800.0
+refine_interfaces = true
+interface_size = 180.0
+interface_distance = 500.0
+interface_sampling = 64
+
+[comparison.simulation.overlay.modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf6_newton = false
+mf6_newton_under_relaxation = true
+mf_verbose = false
+
+[comparison.simulation.overlay.modflow6.process_specific]
+vka = 1.0
+
+[comparison.simulation.overlay.modflow6.sgrid.vertical]
+nlay = 1
+
+[comparison.simulation.overlay.modflow6.tgrid]
+firstpersteady = false
+
+[comparison.simulation.overlay.flow.bc.cauchy.drainage]
+value = "0.1 m2/s"
+
+[[comparison.observable]]
+name = "head_map_wet_year1"
+variable = "watertable_elevation"
+support = "map"
+time = 5
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_dry_late"
+variable = "watertable_elevation"
+support = "map"
+time = 22
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "release_flux_map_last"
+variable = "release_flux"
+support = "map"
+time = "last"
+unit = "m/day"
+
+[[comparison.observable]]
+name = "release_accumulation_flux_map_last"
+variable = "release_accumulation_flux"
+support = "map"
+time = "last"
+unit = "m/day"
+
+[[comparison.observable]]
+name = "active_network_flux_map_last"
+variable = "accumulation_flux"
+support = "map"
+time = "last"
+unit = "m/day"
+simulations = [
+  "mf6_unstructured_reference",
+  "mf6_regular_120",
+  "mf6_regular_180",
+  "mf6_unstructured_350m",
+]
+
+[[comparison.observable]]
+name = "surface_excess_map_last"
+variable = "surface_excess_rate"
+support = "map"
+time = "last"
+unit = "m/day"
+simulations = ["bouss_unstructured_same_mesh"]

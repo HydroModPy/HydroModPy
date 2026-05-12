@@ -1,0 +1,54 @@
+# Catalog-driven network benchmark using the "site x candidates" layout.
+#
+# Each selected site receives the same fixed candidate list from
+# compare_natural_network_site_candidates_base.toml.  This avoids a generic
+# cross-product of mesh, solver, routing and diagnostic options.
+workflow = "testbed"
+
+[testbed]
+id = "natural_network_site_candidates_catalog"
+subject = "flow"
+purpose = "site_x_named_network_candidates"
+base_config = "compare_natural_network_site_candidates_base.toml"
+output_root = "../../outputs/boussinesq_natural_network_site_candidates_testbed"
+execute = true
+continue_on_error = true
+
+[testbed.runner]
+type = "comparison"
+no_display = true
+
+[testbed.catalog]
+path = "natural_regional_lab_sites.csv"
+format = "csv"
+id_field = "site_id"
+label_field = "site_label"
+axis_field = "site_group"
+tags_field = "tags"
+enabled_field = "enabled"
+required_fields = [
+  "site_id",
+  "site_label",
+  "x_outlet",
+  "y_outlet",
+  "target_area_km2",
+]
+tags = ["n1_10km2", "comparison", "n3_anchor"]
+
+[[testbed.variant_from_catalog]]
+id_template = "{site_id}"
+label_template = "{site_label}"
+axis_template = "{site_group}"
+required_fields = ["x_outlet", "y_outlet"]
+
+[testbed.variant_from_catalog.overlay.comparison]
+comparison_id = "{site_id}_natural_network_site_candidates"
+output_root = "../../outputs/boussinesq_natural_network_site_candidates_testbed/comparisons/{site_id}_natural_network_site_candidates"
+
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+name = "{site_id}_natural_network_shared_case"
+description = "Natural site network benchmark with one fixed set of named method candidates."
+
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"

@@ -4684,14 +4684,15 @@
             "x-hmp-profile": "user"
           },
           "units": {
-            "default": "",
-            "description": "Units of the initial condition",
+            "default": "m",
+            "description": "Runtime unit for the initial hydraulic-head field.",
             "examples": [
-              ""
+              "m"
             ],
             "title": "Units",
+            "toml_exclude": true,
             "type": "string",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "type": {
             "const": "bottom",
@@ -4825,14 +4826,15 @@
             "x-hmp-profile": "user"
           },
           "units": {
-            "default": "",
-            "description": "Units of the initial condition",
+            "default": "m",
+            "description": "Runtime unit for the initial hydraulic-head field.",
             "examples": [
-              ""
+              "m"
             ],
             "title": "Units",
+            "toml_exclude": true,
             "type": "string",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "type": {
             "const": "steady_state",
@@ -4935,14 +4937,15 @@
             "x-hmp-profile": "user"
           },
           "units": {
-            "default": "",
-            "description": "Units of the initial condition",
+            "default": "m",
+            "description": "Runtime unit for the initial hydraulic-head field.",
             "examples": [
-              ""
+              "m"
             ],
             "title": "Units",
+            "toml_exclude": true,
             "type": "string",
-            "x-hmp-profile": "user"
+            "x-hmp-profile": "dev"
           },
           "type": {
             "const": "top",
@@ -8317,6 +8320,26 @@
             "default": null,
             "description": "Enable NPF cell rewetting. When left to None, HydroModPy keeps rewetting disabled unless explicitly enabled.",
             "title": "Mf6 Enable Rewet",
+            "x-hmp-profile": "expert"
+          },
+          "mf6_newton": {
+            "default": false,
+            "description": "Enable the MODFLOW 6 Newton-Raphson formulation for convertible groundwater cells.",
+            "examples": [
+              false
+            ],
+            "title": "Mf6 Newton",
+            "type": "boolean",
+            "x-hmp-profile": "expert"
+          },
+          "mf6_newton_under_relaxation": {
+            "default": true,
+            "description": "Enable MODFLOW 6 Newton under-relaxation when mf6_newton is true.",
+            "examples": [
+              true
+            ],
+            "title": "Mf6 Newton Under Relaxation",
+            "type": "boolean",
             "x-hmp-profile": "expert"
           },
           "mf6_enable_xt3d": {
