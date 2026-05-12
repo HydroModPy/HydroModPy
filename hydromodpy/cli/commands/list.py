@@ -3,7 +3,7 @@
 Workspace discovery mirrors ``hmp display --list``:
 
 1. ``--workspace`` flag, if provided.
-2. ``HYDROMODPY_WORKSPACE`` environment variable.
+2. ``HMP_WORKSPACE`` environment variable.
 3. Walk up from the current directory looking for a workspace scaffold.
 4. Fall back to :data:`hydromodpy.data.scaffold.DEFAULT_ROOT` (``~/hydromodpy``).
 
@@ -47,7 +47,7 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
     if workspace_arg:
         return Path(workspace_arg).expanduser().resolve()
 
-    ws_override = os.environ.get("HYDROMODPY_WORKSPACE")
+    ws_override = os.environ.get("HMP_WORKSPACE")
     start = Path(ws_override).expanduser().resolve() if ws_override else Path.cwd()
     found = find_workspace_root(start)
     if (found / "projects").is_dir() or (found / "data").is_dir():

@@ -103,8 +103,8 @@ tree clean:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `HYDROMODPY_TEST_SCRATCH_ROOT` | `/tmp/hydromodpy_tests/` | Shared scratch root; set this to redirect all test artifacts. |
-| `HYDROMODPY_COVERAGE`          | unset | When `1`, enables coverage collection during regression runs. |
+| `HMP_TEST_SCRATCH_ROOT` | `/tmp/hydromodpy_tests/` | Shared scratch root; set this to redirect all test artifacts. |
+| `HMP_COVERAGE`          | unset | When `1`, enables coverage collection during regression runs. |
 | `PYTEST_DEBUG_TEMPROOT`        | `<scratch>/pytest` | Points pytest's `tmp_path` generator inside the scratch root. |
 
 The conftest sets `TMPDIR`/`TMP`/`TEMP` to a subdirectory of the scratch root

@@ -5,7 +5,7 @@ Resolution order (first match wins):
 1. **Explicit** - the TOML declares ``root`` or ``data_dir`` under
    ``[workspace]``. A declared ``root`` derives the shared data directory
    unless ``data_dir`` is explicitly overridden.
-2. **Env var** - ``HYDROMODPY_WORKSPACE`` is set and points to a
+2. **Env var** - ``HMP_WORKSPACE`` is set and points to a
    directory used as the shared data workspace.
 3. **Scaffold** - the TOML lives at
    ``<workspace>/projects/<name>/project.toml`` and the grand-grand-parent
@@ -212,7 +212,7 @@ def _resolve_root(
     if data_dir is not None:
         return Path(data_dir).expanduser().resolve().parent, "explicit"
 
-    env_root = os.environ.get("HYDROMODPY_WORKSPACE")
+    env_root = os.environ.get("HMP_WORKSPACE")
     if env_root:
         return Path(env_root).expanduser().resolve(), "env"
 
@@ -233,7 +233,7 @@ def _format_hint(project_root: Path) -> str:
         "Pick one of:\n"
         "  (a) scaffold: run `hmp init <workspace-dir>` then place\n"
         "      this TOML at <workspace>/projects/<name>/project.toml\n"
-        "  (b) env var:  export HYDROMODPY_WORKSPACE=/path/to/workspace\n"
+        "  (b) env var:  export HMP_WORKSPACE=/path/to/workspace\n"
         "  (c) explicit: add to [workspace]:\n"
         "          root = '/path/to/workspace'\n"
         "        (or per-component: catalog_path, data_dir, simulations_dir)"

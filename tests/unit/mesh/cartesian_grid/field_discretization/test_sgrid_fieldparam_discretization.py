@@ -27,7 +27,7 @@ from hydromodpy.spatial.mesh.cartesian_grid.sgrid_from_config import (
 
 GOLDEN_DIR = Path(__file__).resolve().parent / "golden"
 GOLDEN_FILE = GOLDEN_DIR / "sgrid_fieldparam_discretization_signatures.json"
-UPDATE_GOLDEN_ENV = "HYDROMODPY_UPDATE_GOLDEN"
+UPDATE_GOLDEN_ENV = "HMP_UPDATE_GOLDEN"
 
 
 def _write_tif(path: Path, arr: np.ndarray) -> None:

@@ -137,7 +137,7 @@ def auto_scan_workspace(config_path: Path) -> None:
 
 def resolve_test_scratch_root() -> Path:
     """Return the shared repository-external scratch root for test runs."""
-    override = os.environ.get("HYDROMODPY_TEST_SCRATCH_ROOT")
+    override = os.environ.get("HMP_TEST_SCRATCH_ROOT")
     if override:
         return Path(override).expanduser().resolve()
     return (Path(tempfile.gettempdir()) / "hydromodpy_tests").resolve()
@@ -145,7 +145,7 @@ def resolve_test_scratch_root() -> Path:
 
 def resolve_test_session_scratch_root(scratch_root: Path) -> Path:
     """Return the pytest scratch root for this CLI-launched test process tree."""
-    override = os.environ.get("HYDROMODPY_TEST_SESSION_SCRATCH_ROOT")
+    override = os.environ.get("HMP_TEST_SESSION_SCRATCH_ROOT")
     if override:
         return Path(override).expanduser().resolve()
     return (scratch_root / "sessions" / f"cli_{os.getpid()}_{uuid.uuid4().hex[:12]}").resolve()
@@ -167,8 +167,8 @@ def build_pytest_runtime_env() -> tuple[Path, dict[str, str]]:
         path.mkdir(parents=True, exist_ok=True)
 
     env = os.environ.copy()
-    env["HYDROMODPY_TEST_SCRATCH_ROOT"] = str(scratch_root)
-    env["HYDROMODPY_TEST_SESSION_SCRATCH_ROOT"] = str(session_root)
+    env["HMP_TEST_SCRATCH_ROOT"] = str(scratch_root)
+    env["HMP_TEST_SESSION_SCRATCH_ROOT"] = str(session_root)
     env["PYTEST_DEBUG_TEMPROOT"] = str(pytest_root)
     env["TMPDIR"] = str(tmp_root)
     env["TMP"] = str(tmp_root)

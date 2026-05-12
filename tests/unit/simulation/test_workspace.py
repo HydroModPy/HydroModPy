@@ -17,23 +17,23 @@ def _scaffold(workspace_dir: Path, project: str = "demo") -> Path:
 
 
 def test_workspace_bin_path_defaults_to_managed_cache(tmp_path, monkeypatch) -> None:
-    """Without HYDROMODPY_BIN, bin_path resolves to the managed cache."""
-    monkeypatch.delenv("HYDROMODPY_BIN", raising=False)
+    """Without HMP_BIN, bin_path resolves to the managed cache."""
+    monkeypatch.delenv("HMP_BIN", raising=False)
 
-    from hydromodpy.core.state.cache import get_cache_bin_dir
+    from hydromodpy.core.state.paths import cache_dir
 
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
     workspace = Workspace(config=cfg)
 
-    assert Path(workspace.bin_path).resolve() == get_cache_bin_dir().resolve()
+    assert Path(workspace.bin_path).resolve() == (cache_dir() / "bin").resolve()
 
 
 def test_workspace_bin_path_honours_env_override(tmp_path, monkeypatch) -> None:
-    """HYDROMODPY_BIN overrides the cache when set."""
+    """HMP_BIN overrides the cache when set."""
     custom_bin = tmp_path / "custom_bin"
     custom_bin.mkdir()
-    monkeypatch.setenv("HYDROMODPY_BIN", str(custom_bin))
+    monkeypatch.setenv("HMP_BIN", str(custom_bin))
 
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
@@ -84,7 +84,7 @@ def test_workspace_resolves_explicit_root(tmp_path) -> None:
 def test_workspace_resolves_env_var(tmp_path, monkeypatch) -> None:
     ws_root = tmp_path / "envworkspace"
     ws_root.mkdir()
-    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(ws_root))
+    monkeypatch.setenv("HMP_WORKSPACE", str(ws_root))
     project = tmp_path / "standalone_project"
     project.mkdir()
     cfg = WorkspaceConfig(project_root=project)
@@ -93,7 +93,7 @@ def test_workspace_resolves_env_var(tmp_path, monkeypatch) -> None:
 
 
 def test_workspace_standalone_project_falls_back_to_project_root(tmp_path, monkeypatch) -> None:
-    monkeypatch.delenv("HYDROMODPY_WORKSPACE", raising=False)
+    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     project = tmp_path / "standalone_project"
     project.mkdir()
     cfg = WorkspaceConfig(project_root=project)

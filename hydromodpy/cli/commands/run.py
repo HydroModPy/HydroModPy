@@ -326,9 +326,9 @@ def _parse_cli_set_overrides(items: list[str]) -> dict[str, Any]:
 
 
 def _parse_env_set_overrides(env: Mapping[str, str]) -> dict[str, Any]:
-    """Parse HYDROMODPY_SET_* environment overrides."""
+    """Parse HMP_SET_* environment overrides."""
     payload: dict[str, Any] = {}
-    prefix = "HYDROMODPY_SET_"
+    prefix = "HMP_SET_"
     for name, raw_value in env.items():
         if not name.startswith(prefix):
             continue

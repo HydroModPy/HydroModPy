@@ -29,7 +29,7 @@ def build_run_case_parser(*, description: str) -> argparse.ArgumentParser:
         default=None,
         help=(
             "Optional root directory used for validation outputs. When provided, "
-            "it overrides HYDROMODPY_OUT_PATH for this run, and results are "
+            "it overrides HMP_OUT_PATH for this run, and results are "
             "written under <output-root>/validation/..."
         ),
     )
@@ -81,11 +81,11 @@ def resolve_output_png(
 
 
 def apply_output_root_override(raw_output_root: Path | None) -> Path | None:
-    """Apply one per-run HYDROMODPY_OUT_PATH override from the CLI."""
+    """Apply one per-run HMP_OUT_PATH override from the CLI."""
     if raw_output_root is None:
         return None
     resolved = raw_output_root.expanduser().resolve()
-    os.environ["HYDROMODPY_OUT_PATH"] = str(resolved)
+    os.environ["HMP_OUT_PATH"] = str(resolved)
     return resolved
 
 

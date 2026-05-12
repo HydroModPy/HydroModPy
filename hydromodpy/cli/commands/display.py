@@ -248,7 +248,7 @@ def _list_runs() -> None:
 
     from hydromodpy.results.catalog import SimulationCatalog
 
-    ws_override = os.environ.get("HYDROMODPY_WORKSPACE")
+    ws_override = os.environ.get("HMP_WORKSPACE")
     start = Path(ws_override).expanduser() if ws_override else Path.cwd()
     workspace_root = find_catalog_root(start)
     with SimulationCatalog(workspace_root) as catalog:

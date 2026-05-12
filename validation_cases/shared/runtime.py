@@ -344,7 +344,7 @@ def _short_validation_name(value: str | Path, *, max_length: int = 28) -> str:
 
 def resolve_validation_results_dir(*, test_file: str | Path, run_name: str) -> Path:
     """Create one deterministic output directory for a validation run."""
-    base_out_path = os.environ.get("HYDROMODPY_OUT_PATH")
+    base_out_path = os.environ.get("HMP_OUT_PATH")
     if base_out_path:
         results_root = Path(base_out_path).expanduser().resolve() / "validation"
         probe_dir = results_root / f".__probe_{os.getpid()}_{time.time_ns()}"
@@ -534,15 +534,15 @@ def run_example_script(
     """Run one HydroModPy launcher script as a subprocess."""
     env = os.environ.copy()
     env[out_env_var] = str(out_path)
-    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
-    env["HYDROMODPY_WORKSPACE"] = str(out_path)
+    env["HMP_PROJECT_ROOT"] = str(out_path)
+    env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
             env[key] = str(value)
 
     run_args = [] if script_args is None else list(script_args)
-    if os.environ.get("HYDROMODPY_COVERAGE"):
+    if os.environ.get("HMP_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
         command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
@@ -714,8 +714,8 @@ def run_launcher_validation_case(
     )
 
     env = os.environ.copy()
-    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
-    env["HYDROMODPY_WORKSPACE"] = str(out_path)
+    env["HMP_PROJECT_ROOT"] = str(out_path)
+    env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
 
     command = [

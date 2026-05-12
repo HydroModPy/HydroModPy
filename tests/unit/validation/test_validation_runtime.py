@@ -159,7 +159,7 @@ def test_resolve_validation_results_dir_uses_deterministic_solver_specific_names
     expected_dir_name: str,
 ) -> None:
     out_root = tmp_path / "validation_root"
-    monkeypatch.setenv("HYDROMODPY_OUT_PATH", str(out_root))
+    monkeypatch.setenv("HMP_OUT_PATH", str(out_root))
 
     out_dir = resolve_validation_results_dir(
         test_file=tmp_path / "test_dupuit_fixed_head_1d.py",
@@ -176,7 +176,7 @@ def test_resolve_validation_results_dir_reuses_existing_run_dir(
     tmp_path: Path,
 ) -> None:
     out_root = tmp_path / "validation_root"
-    monkeypatch.setenv("HYDROMODPY_OUT_PATH", str(out_root))
+    monkeypatch.setenv("HMP_OUT_PATH", str(out_root))
 
     out_dir = resolve_validation_results_dir(
         test_file=tmp_path / "test_dupuit_fixed_head_1d.py",

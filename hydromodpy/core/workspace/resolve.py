@@ -7,7 +7,7 @@ strict binary resolution of ``WorkspaceConfig``.
 
 Lookup strategy (first match wins):
 
-1. ``HYDROMODPY_WORKSPACE`` environment variable if it points at a
+1. ``HMP_WORKSPACE`` environment variable if it points at a
    directory.
 2. ``<project_root>/../..`` when ``project_root.parent.name == "projects"``
    and the grand-grand-parent contains ``data/``.
@@ -24,7 +24,7 @@ from pathlib import Path
 
 def locate_workspace_root(project_root: Path | str) -> Path | None:
     """Best-effort lookup, returning ``None`` on miss."""
-    env = os.environ.get("HYDROMODPY_WORKSPACE")
+    env = os.environ.get("HMP_WORKSPACE")
     if env:
         env_path = Path(env).expanduser()
         if env_path.is_dir():

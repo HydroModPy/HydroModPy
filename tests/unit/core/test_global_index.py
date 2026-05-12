@@ -182,10 +182,10 @@ def test_workspace_without_simulations_table_is_skipped(tmp_path: Path) -> None:
         assert index.find().empty
 
 
-def test_index_path_uses_xdg_state_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    """The default index path resolves under ``$XDG_STATE_HOME/hydromodpy``."""
-    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "xdg_state"))
+def test_index_path_uses_hmp_state_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """The default index path resolves under ``$HMP_STATE_HOME/hydromodpy``."""
+    monkeypatch.setenv("HMP_STATE_HOME", str(tmp_path / "hmp_state"))
     from hydromodpy.core.state.global_index import _default_index_path
 
-    expected = tmp_path / "xdg_state" / "hydromodpy" / "index.duckdb"
+    expected = (tmp_path / "hmp_state").resolve() / "index.duckdb"
     assert _default_index_path() == expected
