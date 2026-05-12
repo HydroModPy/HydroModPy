@@ -10,7 +10,6 @@ view from one process without copying any data.
 
 from __future__ import annotations
 
-import os
 import re
 import uuid
 from datetime import datetime
@@ -25,6 +24,7 @@ from pydantic import BaseModel, ConfigDict
 from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.index_migrations import ensure_schema as _ensure_index_schema
+from hydromodpy.core.state.paths import state_dir
 
 if TYPE_CHECKING:
     from typing import Self
@@ -37,19 +37,8 @@ _FTS_TABLE = "_fts_simulations"
 _FTS_DOC_COLUMN = "description"
 
 
-def _state_dir_hardcoded() -> Path:
-    """Return the machine state directory.
-
-    Hard-coded XDG-compatible default used until P2 introduces
-    ``hydromodpy.core.state.paths.state_dir`` via ``platformdirs``.
-    """
-    override = os.environ.get("XDG_STATE_HOME")
-    base = Path(override).expanduser() if override else Path.home() / ".local" / "state"
-    return base / "hydromodpy"
-
-
 def _default_index_path() -> Path:
-    return _state_dir_hardcoded() / INDEX_FILENAME
+    return state_dir() / INDEX_FILENAME
 
 
 def _quote_literal(value: object) -> str:

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger, setup_simulation_log
-from hydromodpy.core.state.cache import get_cache_bin_dir
+from hydromodpy.core.state.paths import cache_dir
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.core.workspace.path_registry import WorkspacePathRegistry
 
@@ -28,17 +28,19 @@ def resolve_bin_path() -> str:
 
     Resolution order:
 
-    1. ``HYDROMODPY_BIN`` env var, if set (explicit override; useful for
+    1. ``HMP_BIN`` env var, if set (explicit override; useful for
        shared HPC deployments and CI).
     2. The HydroModPy-managed cache (``~/.cache/hydromodpy/bin/`` and
        platform equivalents). Solvers lazily populate it on first use
        via :func:`hydromodpy.solver.modflow_common.ensure_solver_binary`.
     """
-    env = os.environ.get("HYDROMODPY_BIN")
+    env = os.environ.get("HMP_BIN")
     if env:
         return str(Path(env).expanduser().resolve())
 
-    return str(get_cache_bin_dir())
+    target = cache_dir() / "bin"
+    target.mkdir(parents=True, exist_ok=True)
+    return str(target)
 
 
 class Workspace:
