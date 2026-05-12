@@ -309,7 +309,7 @@ class ModflowNwtOutputAdapter:
         nrow: int,
         ncol: int,
     ) -> None:
-        """Write surface_top array from DIS file for derived variable computation."""
+        """Write mesh/topography array from DIS file for derived variable computation."""
         try:
             import warnings
 
@@ -362,13 +362,14 @@ class ModflowNwtOutputAdapter:
 
             sz = store.open_zarr(sim_id)
             try:
-                mesh = sz.root.require_group("mesh")
-                mesh.create_array("vertices", data=vertices, overwrite=True)
-                mesh.create_array("face_node_connectivity", data=fnc, overwrite=True)
-                mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
-                mesh.create_array("surface_top", data=top, overwrite=True)
-                mesh.attrs["n_cells"] = int(n_cells)
-                mesh.attrs["n_layers"] = int(nlay)
+                sz.write_mesh(
+                    vertices=vertices,
+                    face_node_connectivity=fnc,
+                    z_interfaces=z_flat,
+                    topography=top,
+                    grid_type="dis",
+                    structured_shape=(int(nrow), int(ncol)),
+                )
             finally:
                 sz.close()
         except Exception:
