@@ -322,15 +322,15 @@ def _load_best_discharge(
     """
     try:
         sim_df = catalog.backend.query(
-            "SELECT datetime, value FROM timeseries "
+            "SELECT time AS datetime, value FROM timeseries "
             "WHERE sim_id = ? AND variable = 'discharge' AND station_id = '_catchment' "
-            "ORDER BY datetime",
+            "ORDER BY timestep",
             [sim_id],
         )
         obs_df = catalog.backend.query(
-            "SELECT datetime, value FROM timeseries "
+            "SELECT time AS datetime, value FROM timeseries "
             "WHERE sim_id = ? AND variable = 'discharge_obs' "
-            "ORDER BY datetime",
+            "ORDER BY timestep",
             [sim_id],
         )
     except Exception as exc:

@@ -103,14 +103,14 @@ class RunTimeseriesMixin:
             Raised when no matching time series exists.
         """
         query = (
-            "SELECT datetime, value FROM timeseries "
+            "SELECT time, timestep, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [self._sim_id, station, variable]
         if period is not None:
-            query += " AND datetime >= ? AND datetime <= ?"
+            query += " AND time >= ? AND time <= ?"
             params.extend([period[0], period[1]])
-        query += " ORDER BY datetime"
+        query += " ORDER BY timestep"
         result = self._catalog.backend.query(query, params)
         if result.empty:
             raise KeyError(
@@ -118,7 +118,7 @@ class RunTimeseriesMixin:
             )
         # The catalog stores datetimes as TIMESTAMPTZ (UTC); simulation
         # time_index is tz-naive, so strip the tz here to keep both aligned.
-        idx = pd.DatetimeIndex(result["datetime"])
+        idx = pd.DatetimeIndex(result["time"])
         if idx.tz is not None:
             idx = idx.tz_convert("UTC").tz_localize(None)
         return pd.Series(
@@ -164,16 +164,17 @@ class RunTimeseriesMixin:
         """
         obs_variable = f"{variable}_obs"
         query = (
-            "SELECT station_id, datetime, value FROM timeseries WHERE sim_id = ? AND variable = ?"
+            "SELECT station_id, time AS datetime, value FROM timeseries "
+            "WHERE sim_id = ? AND variable = ?"
         )
         params: list = [self._sim_id, obs_variable]
         if station is not None:
             query += " AND station_id = ?"
             params.append(station)
         if period is not None:
-            query += " AND datetime >= ? AND datetime <= ?"
+            query += " AND time >= ? AND time <= ?"
             params.extend([period[0], period[1]])
-        query += " ORDER BY station_id, datetime"
+        query += " ORDER BY station_id, timestep"
         df = self._catalog.backend.query(query, params)
         if df.empty:
             station_msg = f", station={station}" if station is not None else ""
