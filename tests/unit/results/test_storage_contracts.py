@@ -57,7 +57,7 @@ def _seed_field(catalog: SimulationCatalog) -> str:
 
 
 def test_list_simulations_rejects_unknown_filter_and_order(catalog):
-    catalog.register_simulation(_sim_id(), project="p", solver="s")
+    catalog.register_simulation(_sim_id(), project="p", solver="modflow6")
 
     with pytest.raises(ValueError, match="Unknown simulation filter"):
         catalog.list_simulations(**{"project;DROP TABLE simulations": "p"})
@@ -68,7 +68,7 @@ def test_list_simulations_rejects_unknown_filter_and_order(catalog):
 
 def test_list_simulations_accepts_whitelisted_order_tuple(catalog):
     sid = _sim_id()
-    catalog.register_simulation(sid, project="p", solver="s")
+    catalog.register_simulation(sid, project="p", solver="modflow6")
 
     rows = catalog.list_simulations(order_by=("created_at", "DESC"))
 
@@ -83,7 +83,7 @@ def test_register_simulation_rolls_back_name_collision_when_zarr_staging_fails(
 
     old = _sim_id()
     new = _sim_id()
-    catalog.register_simulation(old, project="p", solver="s", name="baseline")
+    catalog.register_simulation(old, project="p", solver="modflow6", name="baseline")
 
     def fail_create(*args, **kwargs):
         raise RuntimeError("staging failed")
@@ -94,7 +94,7 @@ def test_register_simulation_rolls_back_name_collision_when_zarr_staging_fails(
         catalog.register_simulation(
             new,
             project="p",
-            solver="s",
+            solver="modflow6",
             name="baseline",
             n_cells=1,
             n_layers=1,
