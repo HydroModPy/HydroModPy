@@ -92,7 +92,7 @@ class TestFullCycle:
 
         sz = catalog.open_zarr(sid)
         mesh = sz.root["mesh"]
-        mesh.create_array("surface_top", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True)
+        mesh.create_array("topography", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True)
 
         values = np.array([[1.0, 2.0, 3.0, 4.0]], dtype="float64")
         catalog.write_field(sid, "head", 0, values, n_timesteps=1)
@@ -105,7 +105,7 @@ class TestFullCycle:
         sz = catalog.open_zarr(sid)
         try:
             np.testing.assert_array_equal(
-                sz.root["mesh"]["surface_top"][:],
+                sz.root["mesh"]["topography"][:],
                 [10.0, 10.0, 10.0, 10.0],
             )
             np.testing.assert_array_equal(sz.read_field("head", 0), values)
