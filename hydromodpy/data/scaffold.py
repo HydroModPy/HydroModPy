@@ -15,6 +15,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from hydromodpy.core.state.paths import PROJECT_TOML_FILENAME
+
 DEFAULT_ROOT = Path.home() / "hydromodpy"
 
 
@@ -189,7 +191,7 @@ PROJECT_TOML_TEMPLATE = """\
 # geographic support, domain, data sources, and flow parameters.
 #
 # Run files (run_*.toml) inherit from this file via:
-#   base_config = "project.toml"
+#   base_config = "hydromodpy.toml"
 # ===========================================================================
 
 
@@ -237,10 +239,10 @@ RUN_TOML_TEMPLATE = """\
 # HydroModPy - Run configuration
 # ===========================================================================
 # Run : {run_name}
-# Inherits from : project.toml
+# Inherits from : hydromodpy.toml
 # ===========================================================================
 
-base_config = "project.toml"
+base_config = "hydromodpy.toml"
 
 [workflow]
 mode = "simulation"
@@ -322,7 +324,7 @@ def create_project(workspace_root: Path, name: str) -> Path:
     Structure::
 
         projects/<name>/
-            project.toml      <- base template
+            hydromodpy.toml   <- base template
             run_demo.toml     <- executable template
 
     Returns the project directory path.
@@ -331,7 +333,7 @@ def create_project(workspace_root: Path, name: str) -> Path:
     project_dir = workspace_root / "projects" / name
     project_dir.mkdir(parents=True, exist_ok=True)
 
-    project_toml = project_dir / "project.toml"
+    project_toml = project_dir / PROJECT_TOML_FILENAME
     if not project_toml.exists():
         project_toml.write_text(
             PROJECT_TOML_TEMPLATE.format(project_name=name),

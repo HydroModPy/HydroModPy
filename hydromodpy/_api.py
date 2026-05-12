@@ -20,12 +20,12 @@ def open(workspace_path: Any) -> Any:
     """Open a HydroModPy project catalog.
 
     Mirrors ``xarray.open_dataset`` / ``pandas.read_csv`` in intent: one call,
-    a ready-to-query object backed by ``hydromodpy.duckdb``.
+    a ready-to-query object backed by ``catalog.duckdb``.
 
     Parameters
     ----------
     workspace_path
-        Workspace directory, or a direct path to ``hydromodpy.duckdb``.
+        Workspace directory, or a direct path to ``catalog.duckdb``.
 
     Returns
     -------
@@ -264,7 +264,7 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     ``session_id_or_prefix`` accepts a full UUID, a unique hex prefix,
     or ``None`` to fall back to the most recently started session.
     ``workspace`` defaults to the nearest ancestor of the current
-    working directory containing ``hydromodpy.duckdb``.
+    working directory containing ``catalog.duckdb``.
 
     Parameters
     ----------
@@ -280,13 +280,14 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
         Report rendering result.
     """
     from hydromodpy.calibration.report import resolve_calibration_session_id
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 
     if workspace is None:
         workspace_root = Path.cwd()
         for parent in [workspace_root] + list(workspace_root.parents):
-            if (parent / "hydromodpy.duckdb").exists():
+            if (parent / CATALOG_FILENAME).exists():
                 workspace_root = parent
                 break
     else:

@@ -9,6 +9,8 @@ import tempfile
 import uuid
 from pathlib import Path
 
+from hydromodpy.core.state.paths import CATALOG_FILENAME
+
 # ---------------------------------------------------------------------------
 # Standardised exit codes (architecture_cible/10_ux_cli_api.md §5.1).
 # ---------------------------------------------------------------------------
@@ -53,7 +55,7 @@ def find_workspace_root(project_dir: Path) -> Path:
 def find_catalog_root(project_dir: Path) -> Path:
     """Walk up from ``project_dir`` to find a project-local catalog."""
     for parent in [project_dir] + list(project_dir.parents):
-        if (parent / "hydromodpy.duckdb").exists():
+        if (parent / CATALOG_FILENAME).exists():
             return parent
     return project_dir
 

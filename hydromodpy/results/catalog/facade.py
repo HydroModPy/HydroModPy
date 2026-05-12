@@ -17,6 +17,7 @@ import duckdb
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.io.db_retry import connect_with_retry
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
 from hydromodpy.results.catalog.package_io import PackageIOMixin
@@ -25,7 +26,7 @@ from hydromodpy.results.catalog.registration import RegistrationMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
 from hydromodpy.results.catalog.writes import WritesMixin
 from hydromodpy.results.catalog_schema import ensure_schema
-from hydromodpy.results.storage_contract import CATALOG_FILENAME, SIMULATIONS_DIRNAME
+from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
@@ -219,7 +220,7 @@ class SimulationCatalog(
 
     @property
     def catalog_path(self) -> Path:
-        """Path to the ``hydromodpy.duckdb`` catalog file."""
+        """Path to the ``catalog.duckdb`` catalog file."""
         return self._db_path
 
     @property

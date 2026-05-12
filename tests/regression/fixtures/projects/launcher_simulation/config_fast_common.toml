@@ -1,4 +1,4 @@
-base_config = "project.toml"
+base_config = "hydromodpy.toml"
 
 
 [workflow]

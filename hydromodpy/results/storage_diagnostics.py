@@ -11,8 +11,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.storage_contract import (
-    CATALOG_FILENAME,
     PARQUET_DIR_SUFFIX,
     PARQUET_FILE_SUFFIX,
     SIMULATIONS_DIRNAME,
@@ -61,7 +61,7 @@ def diagnose_result_storage(
     ----------
     workspace
         Project catalog root. By default the catalog is expected at
-        ``<workspace>/hydromodpy.duckdb`` and artefacts below
+        ``<workspace>/catalog.duckdb`` and artefacts below
         ``<workspace>/simulations``.
     catalog_path, simulations_dir
         Optional overrides for callers that resolved a TOML workspace config.

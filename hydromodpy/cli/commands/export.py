@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "export"
 HELP: str = "Export geographic data or simulation results from the project store"
@@ -60,7 +61,7 @@ def run(args: argparse.Namespace) -> None:
 
     project_dir = Path(args.project).expanduser().resolve()
     project_name = project_dir.name
-    db_path = project_dir / "hydromodpy.duckdb"
+    db_path = project_dir / CATALOG_FILENAME
     if not db_path.exists():
         print(f"No catalog found at {project_dir}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

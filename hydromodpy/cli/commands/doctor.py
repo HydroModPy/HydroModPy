@@ -250,10 +250,10 @@ def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict
 
 def _probe_workspace(workspace_arg: str | None, *, toml: str | None) -> list[dict]:
     try:
+        from hydromodpy.core.state.paths import CATALOG_FILENAME
         from hydromodpy.core.workspace.config import WorkspaceConfig
         from hydromodpy.core.workspace.exceptions import WorkspaceError
         from hydromodpy.data.scaffold import DEFAULT_ROOT
-        from hydromodpy.results.storage_contract import CATALOG_FILENAME
     except Exception as exc:  # pragma: no cover
         return [
             {

@@ -24,15 +24,18 @@ from pydantic import BaseModel, ConfigDict
 from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.index_migrations import ensure_schema as _ensure_index_schema
-from hydromodpy.core.state.paths import state_dir
+from hydromodpy.core.state.paths import (
+    CATALOG_FILENAME,
+    INDEX_FILENAME,
+    resolve_workspace,
+    state_dir,
+)
 
 if TYPE_CHECKING:
     from typing import Self
 
 logger = get_logger(__name__)
 
-INDEX_FILENAME = "index.duckdb"
-CATALOG_FILENAME = "catalog.duckdb"
 _FTS_TABLE = "_fts_simulations"
 _FTS_DOC_COLUMN = "description"
 
@@ -57,12 +60,7 @@ def _alias_from_workspace_id(workspace_id: str) -> str:
 
 
 def _resolve_local_path(workspace_uri: str) -> Path:
-    if workspace_uri.startswith("file://"):
-        from urllib.parse import unquote, urlparse
-
-        parsed = urlparse(workspace_uri)
-        return Path(unquote(parsed.path)).expanduser()
-    return Path(workspace_uri).expanduser()
+    return resolve_workspace(workspace_uri)
 
 
 class WorkspaceRecord(BaseModel):
@@ -364,4 +362,4 @@ def _generate_workspace_id() -> str:
     return str(uuid.uuid4())
 
 
-__all__ = ["CATALOG_FILENAME", "INDEX_FILENAME", "GlobalIndex", "WorkspaceRecord"]
+__all__ = ["GlobalIndex", "WorkspaceRecord"]
