@@ -1,10 +1,10 @@
-"""Typed errors raised by the catalog schema migration runner."""
+"""Typed errors raised by the generic schema migration runner."""
 
 from __future__ import annotations
 
 
 class MigrationError(Exception):
-    """Base class for every catalog migration failure."""
+    """Base class for every migration failure."""
 
 
 class SchemaIntegrityError(MigrationError):

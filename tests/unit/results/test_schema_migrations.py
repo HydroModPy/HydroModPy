@@ -8,6 +8,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from hydromodpy.core.migrations import Migration
 from hydromodpy.results.catalog.migrations import (
     CATALOG_COMPONENT,
     MigrationDiscoveryError,
@@ -20,7 +21,6 @@ from hydromodpy.results.catalog.migrations import (
     list_migrations,
     target_version,
 )
-from hydromodpy.results.catalog.migrations.runner import Migration
 
 
 @pytest.fixture

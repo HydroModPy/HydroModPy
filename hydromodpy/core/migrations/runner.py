@@ -1,10 +1,14 @@
-"""Alembic-like migration runner for the catalog DuckDB.
+"""Alembic-like migration runner generic over DuckDB databases.
 
 The runner discovers ``<NNNN>_<slug>.sql`` scripts under ``versions_dir``,
-records each application in ``schema_migrations`` and keeps the
-``_schema_version`` row for the ``catalog`` component in sync. It is
-idempotent: rerunning :func:`ensure_schema` on an up-to-date database
-applies nothing and only verifies checksum integrity.
+records each application in ``schema_migrations`` and keeps one row of
+``_schema_version`` per component in sync. It is idempotent: rerunning
+:func:`ensure_schema` on an up-to-date database applies nothing and only
+verifies checksum integrity.
+
+The same runner serves multiple components by parametrizing
+``component`` (e.g. ``"catalog"`` for project catalogs, ``"index"`` for
+the machine-wide global index).
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
-from hydromodpy.results.catalog.migrations.errors import (
+from hydromodpy.core.migrations.errors import (
     MigrationDiscoveryError,
     MigrationExecutionError,
     SchemaIntegrityError,
@@ -26,17 +30,18 @@ from hydromodpy.results.catalog.migrations.errors import (
 if TYPE_CHECKING:
     import duckdb
 
-CATALOG_COMPONENT = "catalog"
+DEFAULT_COMPONENT = "catalog"
 
-_VERSIONS_DIR = Path(__file__).resolve().parent / "versions"
 _FILENAME_RE = re.compile(r"^(?P<version>\d{4})_(?P<slug>[a-z0-9][a-z0-9_]*)\.sql$")
 
 _SYSTEM_TABLES_DDL = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
-    version     INTEGER PRIMARY KEY,
+    version     INTEGER NOT NULL,
+    component   VARCHAR NOT NULL,
     slug        VARCHAR NOT NULL,
     applied_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    checksum    VARCHAR NOT NULL
+    checksum    VARCHAR NOT NULL,
+    PRIMARY KEY (component, version)
 );
 
 CREATE TABLE IF NOT EXISTS _schema_version (
@@ -71,15 +76,14 @@ def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def discover_migrations(versions_dir: Path | None = None) -> list[Migration]:
+def discover_migrations(versions_dir: Path) -> list[Migration]:
     """Return migrations sorted by version, rejecting gaps and duplicates."""
-    root = versions_dir if versions_dir is not None else _VERSIONS_DIR
-    if not root.is_dir():
-        raise MigrationDiscoveryError(f"Migrations directory missing: {root}")
+    if not versions_dir.is_dir():
+        raise MigrationDiscoveryError(f"Migrations directory missing: {versions_dir}")
 
     migrations: list[Migration] = []
     seen: dict[int, Path] = {}
-    for path in sorted(root.glob("*.sql")):
+    for path in sorted(versions_dir.glob("*.sql")):
         match = _FILENAME_RE.match(path.name)
         if match is None:
             raise MigrationDiscoveryError(
@@ -109,20 +113,27 @@ def discover_migrations(versions_dir: Path | None = None) -> list[Migration]:
     return migrations
 
 
-def list_migrations(versions_dir: Path | None = None) -> list[Migration]:
+def list_migrations(versions_dir: Path) -> list[Migration]:
     """Public alias for :func:`discover_migrations`."""
     return discover_migrations(versions_dir)
 
 
-def current_version(connection: duckdb.DuckDBPyConnection) -> int:
-    """Return the highest applied version, or 0 if none."""
+def current_version(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    component: str = DEFAULT_COMPONENT,
+) -> int:
+    """Return the highest applied version for ``component``, 0 if none."""
     if not _has_system_tables(connection):
         return 0
-    row = connection.execute("SELECT COALESCE(MAX(version), 0) FROM schema_migrations").fetchone()
+    row = connection.execute(
+        "SELECT COALESCE(MAX(version), 0) FROM schema_migrations WHERE component = ?",
+        [component],
+    ).fetchone()
     return int(row[0]) if row is not None else 0
 
 
-def target_version(versions_dir: Path | None = None) -> int:
+def target_version(versions_dir: Path) -> int:
     """Return the highest migration version present on disk."""
     migrations = discover_migrations(versions_dir)
     return migrations[-1].version if migrations else 0
@@ -131,8 +142,10 @@ def target_version(versions_dir: Path | None = None) -> int:
 def apply_migration(
     connection: duckdb.DuckDBPyConnection,
     migration: Migration,
+    *,
+    component: str = DEFAULT_COMPONENT,
 ) -> None:
-    """Apply one migration in a transaction and record it."""
+    """Apply one migration in a transaction and record it for ``component``."""
     sql = migration.upgrade_sql
     checksum = migration.checksum
     connection.execute("BEGIN TRANSACTION")
@@ -140,8 +153,9 @@ def apply_migration(
         if sql.strip():
             connection.execute(sql)
         connection.execute(
-            "INSERT INTO schema_migrations (version, slug, checksum) VALUES (?, ?, ?)",
-            [migration.version, migration.slug, checksum],
+            "INSERT INTO schema_migrations (version, component, slug, checksum) "
+            "VALUES (?, ?, ?, ?)",
+            [migration.version, component, migration.slug, checksum],
         )
         connection.execute(
             """
@@ -151,22 +165,24 @@ def apply_migration(
                 SET version = excluded.version,
                     updated_at = excluded.updated_at
             """,
-            [CATALOG_COMPONENT, migration.version],
+            [component, migration.version],
         )
         connection.execute("COMMIT")
     except Exception as exc:
         connection.execute("ROLLBACK")
         raise MigrationExecutionError(
-            f"Failed to apply migration {migration.version:04d}_{migration.slug}: {exc}"
+            f"Failed to apply migration {migration.version:04d}_{migration.slug} "
+            f"for component {component!r}: {exc}"
         ) from exc
 
 
 def ensure_schema(
     connection: duckdb.DuckDBPyConnection,
     *,
-    versions_dir: Path | None = None,
+    versions_dir: Path,
+    component: str = DEFAULT_COMPONENT,
 ) -> None:
-    """Bring the catalog schema up to the highest available version.
+    """Bring ``component`` up to the highest available version.
 
     Creates the two system tables if missing, applies every pending
     migration in order, and verifies checksum integrity for migrations
@@ -174,17 +190,17 @@ def ensure_schema(
     """
     _create_system_tables(connection)
     migrations = discover_migrations(versions_dir)
-    applied = _load_applied(connection)
+    applied = _load_applied(connection, component=component)
 
     for migration in migrations:
         recorded = applied.get(migration.version)
         if recorded is None:
-            apply_migration(connection, migration)
+            apply_migration(connection, migration, component=component)
             continue
         if recorded != migration.checksum:
             raise SchemaIntegrityError(
-                f"Checksum mismatch for migration {migration.version:04d}_{migration.slug}: "
-                f"stored {recorded!r}, disk {migration.checksum!r}"
+                f"Checksum mismatch for migration {migration.version:04d}_{migration.slug} "
+                f"({component}): stored {recorded!r}, disk {migration.checksum!r}"
             )
 
 
@@ -202,6 +218,13 @@ def _has_system_tables(connection: duckdb.DuckDBPyConnection) -> bool:
     return bool(row and int(row[0]) == 2)
 
 
-def _load_applied(connection: duckdb.DuckDBPyConnection) -> dict[int, str]:
-    rows = connection.execute("SELECT version, checksum FROM schema_migrations").fetchall()
+def _load_applied(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    component: str,
+) -> dict[int, str]:
+    rows = connection.execute(
+        "SELECT version, checksum FROM schema_migrations WHERE component = ?",
+        [component],
+    ).fetchall()
     return {int(version): str(checksum) for version, checksum in rows}
