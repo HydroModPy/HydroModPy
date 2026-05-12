@@ -13,7 +13,8 @@ from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.catalog_schema import PER_SIM_TABLE_NAMES, ensure_parquet_views
+from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
+from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX, ZARR_ZIP_SUFFIX
 from hydromodpy.results.zarr_store import SimulationZarr
 
@@ -66,13 +67,15 @@ class LifecycleMixin:
         status: str | None = None,
         older_than: str | None = None,
     ) -> int:
-        query = "SELECT sim_id FROM simulations WHERE 1=1"
+        query = (
+            "SELECT s.sim_id FROM simulations s JOIN statuses st ON s.status_id = st.id WHERE 1=1"
+        )
         params: list = []
         if status is not None:
-            query += " AND status = ?"
+            query += " AND st.code = ?"
             params.append(status)
         if older_than is not None:
-            query += " AND created_at < ?"
+            query += " AND s.created_at < ?"
             params.append(older_than)
 
         rows = self._db.execute(query, params).fetchall()
@@ -107,7 +110,7 @@ class LifecycleMixin:
                 except Exception as exc:
                     self._db.execute(
                         """UPDATE simulations
-                              SET status = 'partial',
+                              SET status_id = (SELECT id FROM statuses WHERE code = 'partial'),
                                   duration_s = ?,
                                   ended_at = current_timestamp,
                                   updated_at = current_timestamp
@@ -138,7 +141,7 @@ class LifecycleMixin:
             if rel_zarr_path is not None:
                 self._db.execute(
                     """UPDATE simulations
-                          SET status = ?,
+                          SET status_id = (SELECT id FROM statuses WHERE code = ?),
                               duration_s = ?,
                               zarr_path = ?,
                               zarr_packed = ?,
@@ -150,7 +153,7 @@ class LifecycleMixin:
             else:
                 self._db.execute(
                     """UPDATE simulations
-                          SET status = ?,
+                          SET status_id = (SELECT id FROM statuses WHERE code = ?),
                               duration_s = ?,
                               ended_at = current_timestamp,
                               updated_at = current_timestamp

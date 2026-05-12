@@ -340,7 +340,9 @@ class TestRunCalibrationProgrammatic:
 
         with SimulationCatalog(tmp_path) as catalog:
             row = catalog.connection.execute(
-                "SELECT status, error_message FROM calibration_sessions WHERE session_id = ?",
+                "SELECT st.code, cs.error_message FROM calibration_sessions cs "
+                "JOIN statuses st ON cs.status_id = st.id "
+                "WHERE cs.session_id = ?",
                 [uuid.UUID(report.session_id)],
             ).fetchone()
         assert report.promoted == 0

@@ -75,13 +75,26 @@ def _workspace_blobs_dir(workspace: Path) -> Path:
 
 
 def _last_indexed_mtime(catalog, variable: str, source_path: Path) -> float | None:
-    """Return the stored ``file_mtime`` for a given source path, or None."""
+    """Return the stored ``file_mtime`` for a given source path, or None.
+
+    P3 stores ``file_path`` as a workspace-relative POSIX string when the
+    target falls under the workspace. We look up both the encoded form and
+    the raw absolute path so we are tolerant of legacy rows and in-memory
+    catalogs.
+    """
     conn = getattr(catalog, "_conn", None)
     if conn is None:
         return None
+    encoded = (
+        catalog._encode_path_for_storage(source_path)
+        if hasattr(catalog, "_encode_path_for_storage")
+        else str(source_path)
+    )
     row = conn.execute(
-        "SELECT file_mtime FROM entries WHERE variable = ? AND source = 'custom' AND file_path = ?",
-        [variable, str(source_path)],
+        "SELECT file_mtime FROM entries "
+        "WHERE variable = ? AND source = 'custom' "
+        "  AND file_path IN (?, ?)",
+        [variable, encoded, str(source_path)],
     ).fetchone()
     if row is None:
         return None

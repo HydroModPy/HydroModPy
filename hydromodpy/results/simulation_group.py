@@ -171,11 +171,11 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, param_name, zone_id, value "
             f"FROM parameters WHERE sim_id IN ({placeholders})",
             self._sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["key"] = df["param_name"].where(
@@ -195,11 +195,11 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, station_id, metric_name, value "
             f"FROM metrics WHERE sim_id IN ({placeholders})",
             self._sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["key"] = df["metric_name"].where(
@@ -231,14 +231,16 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        return self._catalog.connection.execute(
-            f"SELECT s.sim_id, s.name, s.project, s.solver, m.station_id, m.value "
+        return self._catalog.backend.query(
+            f"SELECT s.sim_id, s.name, s.project, sv.code AS solver, "
+            f"m.station_id, m.value "
             f"FROM simulations s "
+            f"JOIN solvers sv ON s.solver_id = sv.id "
             f"JOIN metrics m ON s.sim_id = m.sim_id "
             f"WHERE s.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value DESC",
             self._sim_ids + [metric],
-        ).fetchdf()
+        )
 
     def best(self, metric: str) -> Run:
         """Return the run with the highest value for ``metric``.
@@ -338,12 +340,16 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        sims = self._catalog.connection.execute(
-            f"SELECT sim_id, project, solver, solver_category, flow_regime, "
-            f"n_cells, n_layers "
-            f"FROM simulations WHERE sim_id IN ({placeholders})",
+        sims = self._catalog.backend.query(
+            f"SELECT s.sim_id, s.project, sv.code AS solver, "
+            f"sv.category AS solver_category, fr.code AS flow_regime, "
+            f"s.n_cells, s.n_layers "
+            f"FROM simulations s "
+            f"JOIN solvers sv ON s.solver_id = sv.id "
+            f"LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+            f"WHERE s.sim_id IN ({placeholders})",
             self._sim_ids,
-        ).fetchdf()
+        )
 
         params_df = self.parameters
         metrics_df = self.metrics

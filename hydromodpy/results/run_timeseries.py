@@ -26,11 +26,11 @@ class RunTimeseriesMixin:
         scalars are trivially looked up via
         ``sim.parameters.loc["thickness", "value"]``.
         """
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             "SELECT param_name, zone_id, value, unit, parameterization "
             "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
             [self._sim_id],
-        ).fetchdf()
+        )
         # Homogeneous params have zone_id=NULL in the DB (stored as
         # "__global__" by the writer); hide that column from the canonical
         # view unless zonal rows are present.
@@ -51,11 +51,11 @@ class RunTimeseriesMixin:
         pandas.DataFrame
             Long-form table with ``station_id``, ``metric_name``, and ``value``.
         """
-        return self._catalog.connection.execute(
+        return self._catalog.backend.query(
             "SELECT station_id, metric_name, value "
             "FROM metrics WHERE sim_id = ? ORDER BY station_id, metric_name",
             [self._sim_id],
-        ).fetchdf()
+        )
 
     @property
     def provenance(self) -> pd.DataFrame:
@@ -67,13 +67,13 @@ class RunTimeseriesMixin:
             Long-form table with source references, checksums, periods, and
             record counts.
         """
-        return self._catalog.connection.execute(
+        return self._catalog.backend.query(
             "SELECT variable, source_type, source_ref, "
             "payload_sha256 AS checksum, "
             "period_start, period_end, n_records "
             "FROM provenance WHERE sim_id = ?",
             [self._sim_id],
-        ).fetchdf()
+        )
 
     def timeseries(
         self,
@@ -111,7 +111,7 @@ class RunTimeseriesMixin:
             query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
         query += " ORDER BY datetime"
-        result = self._catalog.connection.execute(query, params).fetchdf()
+        result = self._catalog.backend.query(query, params)
         if result.empty:
             raise KeyError(
                 f"No timeseries for sim={self._sim_id}, station={station}, var={variable}"
@@ -174,7 +174,7 @@ class RunTimeseriesMixin:
             query += " AND datetime >= ? AND datetime <= ?"
             params.extend([period[0], period[1]])
         query += " ORDER BY station_id, datetime"
-        df = self._catalog.connection.execute(query, params).fetchdf()
+        df = self._catalog.backend.query(query, params)
         if df.empty:
             station_msg = f", station={station}" if station is not None else ""
             raise ValueError(
@@ -219,15 +219,15 @@ class RunTimeseriesMixin:
         if period is not None:
             query += " AND timestep >= ? AND timestep <= ?"
             params.extend(period)
-        return self._catalog.connection.execute(query, params).fetchdf()
+        return self._catalog.backend.query(query, params)
 
     @property
     def mass_balance(self) -> pd.DataFrame:
         """Mass-balance diagnostics ordered by timestep."""
-        return self._catalog.connection.execute(
+        return self._catalog.backend.query(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [self._sim_id],
-        ).fetchdf()
+        )
 
     @cached_property
     def time_index(self) -> pd.DatetimeIndex:

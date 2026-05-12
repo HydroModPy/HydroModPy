@@ -1114,11 +1114,14 @@ class _WorkspaceManagerBackend:
 
         import duckdb
 
+        from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
+
         conn = duckdb.connect(str(db_path), read_only=True)
         try:
-            df = conn.execute(
+            backend = DuckDBBackend.from_connection(conn)
+            df = backend.query(
                 f'SELECT * FROM "{table.replace(chr(34), chr(34) * 2)}" LIMIT {limit}'
-            ).fetchdf()
+            )
         finally:
             conn.close()
         rows = [

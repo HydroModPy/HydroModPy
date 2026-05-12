@@ -272,7 +272,7 @@ class TestCompare:
             reg = catalog.register_simulation(
                 sid,
                 project="test",
-                solver="test",
+                solver="modflow6",
                 n_cells=n_cells,
                 n_layers=n_layers,
                 n_timesteps=1,

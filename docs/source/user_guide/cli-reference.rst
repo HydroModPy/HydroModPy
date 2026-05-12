@@ -44,9 +44,6 @@ Command inventory
      - Developer diagnostics
      - Inspect internal configuration and workflow surfaces used during
        development.
-   * - ``hmp catalog``
-     - Catalog management
-     - Query and maintain workspace-level catalog records.
    * - ``hmp display``
      - Figure rendering
      - Render registered display figures for one persisted simulation.

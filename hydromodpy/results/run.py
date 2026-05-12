@@ -113,13 +113,30 @@ class Run(
     def _load_row(self) -> dict:
         if self._row is None:
             row = self._catalog.connection.execute(
-                "SELECT * FROM simulations WHERE sim_id = ?",
+                """SELECT s.*,
+                          sv.code AS solver,
+                          sv.category AS solver_category,
+                          st.code AS status,
+                          fr.code AS flow_regime,
+                          mt.code AS mesh_topology
+                     FROM simulations s
+                     JOIN solvers sv ON s.solver_id = sv.id
+                     JOIN statuses st ON s.status_id = st.id
+                     LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id
+                     LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id
+                    WHERE s.sim_id = ?""",
                 [self._sim_id],
             ).fetchone()
             if row is None:
                 raise KeyError(f"Simulation '{self._sim_id}' not found")
             cols = [d[0] for d in self._catalog.connection.description]
             self._row = dict(zip(cols, row, strict=False))
+            # Tags moved to a per-sim table in v2. Populate as a Python list.
+            tag_rows = self._catalog.connection.execute(
+                "SELECT tag FROM tags WHERE sim_id = ? ORDER BY tag",
+                [self._sim_id],
+            ).fetchall()
+            self._row["tags"] = [r[0] for r in tag_rows] if tag_rows else None
         return self._row
 
     # -- Metadata properties -------------------------------------------------

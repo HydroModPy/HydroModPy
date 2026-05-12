@@ -254,15 +254,22 @@ class DataCatalogDuckDB:
     def _encode_path_for_storage(self, file_path: Path | str) -> str:
         """Encode ``file_path`` as a workspace-relative POSIX string.
 
-        Falls back to ``str(file_path)`` for the in-memory catalog where no
-        workspace is anchored. When the catalog is file-backed the encoding
-        is delegated to ``core.state.paths.encode_workspace_path`` so cache
-        and state directories get explicit ``cache://`` / ``state://`` URIs.
+        Falls back to ``str(file_path)`` for the in-memory catalog or when
+        the target lies outside every supported anchor (workspace,
+        ``cache://``, ``state://``). Anchored encoding is delegated to
+        :func:`hydromodpy.core.state.paths.encode_workspace_path` and is
+        attempted first when a workspace is known.
         """
         workspace = self._workspace_root()
         if workspace is None:
             return str(file_path)
-        return encode_workspace_path(workspace, Path(file_path))
+        try:
+            return encode_workspace_path(workspace, Path(file_path))
+        except ValueError:
+            # Path lies outside every portable anchor; keep the raw string
+            # so the catalog still records something useful for ad-hoc
+            # imports of custom files (tests, exploratory usage).
+            return str(file_path)
 
     # -- register --------------------------------------------------------------
 
@@ -308,6 +315,10 @@ class DataCatalogDuckDB:
         ds = _dt_to_str(date_start)
         de = _dt_to_str(date_end)
         bx = bbox or (None, None, None, None)
+        # P3 workspace-relative encoding: anchor portable file_path on the
+        # workspace root (or cache://, state://). Falls back to ``str(path)``
+        # for in-memory catalogs (workspace unknown).
+        encoded_path = self._encode_path_for_storage(file_path)
 
         # Look for existing entry
         if station_id is not None:
@@ -319,7 +330,7 @@ class DataCatalogDuckDB:
             existing = self._conn.execute(
                 "SELECT id FROM entries WHERE variable = ? AND source = ? "
                 "AND station_id IS NULL AND file_path = ?",
-                [variable, source, str(file_path)],
+                [variable, source, encoded_path],
             ).fetchone()
 
         for attempt in range(_RETRY):
@@ -344,7 +355,7 @@ class DataCatalogDuckDB:
                             frequency,
                             unit,
                             source_unit,
-                            str(file_path),
+                            encoded_path,
                             mtime,
                             digest,
                             1 if is_custom else 0,
@@ -376,7 +387,7 @@ class DataCatalogDuckDB:
                             frequency,
                             unit,
                             source_unit,
-                            str(file_path),
+                            encoded_path,
                             mtime,
                             digest,
                             1 if is_custom else 0,

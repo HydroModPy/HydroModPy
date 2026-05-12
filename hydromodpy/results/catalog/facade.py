@@ -18,14 +18,17 @@ from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
 from hydromodpy.results.catalog.package_io import PackageIOMixin
+from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
+from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.reads import ReadsMixin
 from hydromodpy.results.catalog.registration import RegistrationMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
+from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.catalog.writes import WritesMixin
-from hydromodpy.results.catalog_schema import ensure_schema
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
@@ -110,6 +113,7 @@ class SimulationCatalog(
         self._db_path = catalog
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db = connect_with_retry(str(self._db_path))
+        self._backend: CatalogBackend = DuckDBBackend.from_connection(self._db, path=self._db_path)
 
         self._simulations_dir = (
             Path(simulations_dir).expanduser().resolve()
@@ -120,7 +124,9 @@ class SimulationCatalog(
         self._open_zarr_handles: list[SimulationZarr] = []
         self._paths = StoragePathResolver(self._db, self._simulations_dir)
 
-        ensure_schema(self._db, self._workspace, simulations_dir=self._simulations_dir)
+        self._backend.ensure_schema()
+        ensure_parquet_views(self._db, self._simulations_dir)
+        ensure_views(self._db)
 
     @classmethod
     def from_workspace(
@@ -214,6 +220,11 @@ class SimulationCatalog(
         return self._db
 
     @property
+    def backend(self) -> CatalogBackend:
+        """Return the storage backend port driving SQL reads and writes."""
+        return self._backend
+
+    @property
     def workspace_path(self) -> Path:
         """Workspace directory that owns this catalog."""
         return self._workspace
@@ -297,8 +308,9 @@ class SimulationCatalog(
         try:
             count = self._db.execute(
                 "SELECT COUNT(*), "
-                "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END), "
-                "SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) FROM simulations"
+                "SUM(CASE WHEN st.code='completed' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN st.code='failed' THEN 1 ELSE 0 END) "
+                "FROM simulations s JOIN statuses st ON s.status_id = st.id"
             ).fetchone()
             total, ok, failed = count
             projects = [

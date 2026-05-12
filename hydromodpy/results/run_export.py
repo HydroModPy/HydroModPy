@@ -33,12 +33,12 @@ class RunExportAdapter:
 
     def to_csv(self, path: Path | str | None = None) -> pd.DataFrame:
         run = self._run
-        df = run._catalog.connection.execute(
+        df = run._catalog.backend.query(
             "SELECT station_id, variable, datetime, value, unit "
             "FROM timeseries WHERE sim_id = ? "
             "ORDER BY station_id, variable, datetime",
             [run.sim_id],
-        ).fetchdf()
+        )
         if path is not None:
             df.to_csv(str(path), index=False)
         return df
