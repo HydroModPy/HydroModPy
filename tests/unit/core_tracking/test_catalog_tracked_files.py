@@ -32,7 +32,9 @@ def test_tracked_files_table_exists(tmp_path: Path) -> None:
 
 
 def test_register_tracked_files_writes_rows(tmp_path: Path) -> None:
-    src = tmp_path / "dem.tif"
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    src = ws / "dem.tif"
     src.write_bytes(b"hello world")
     sid = str(uuid4())
 
@@ -61,10 +63,13 @@ def test_register_tracked_files_writes_rows(tmp_path: Path) -> None:
     assert row["role"] == "dem"
     assert row["size_bytes"] == len(b"hello world")
     assert isinstance(row["sha256"], str) and len(row["sha256"]) == 64
+    assert row["canonical_path"] == "dem.tif"
 
 
 def test_register_tracked_files_writes_directory_rows(tmp_path: Path) -> None:
-    src = tmp_path / "hydrometry"
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    src = ws / "hydrometry"
     src.mkdir()
     (src / "hydrometry_custom_LOC.csv").write_text("id,x,y\nA,0,0\n")
     (src / "hydrometry_custom_A_20200101_20200101_D.csv").write_text(
@@ -100,7 +105,9 @@ def test_register_tracked_files_writes_directory_rows(tmp_path: Path) -> None:
 
 
 def test_register_tracked_files_is_idempotent(tmp_path: Path) -> None:
-    src = tmp_path / "dem.tif"
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    src = ws / "dem.tif"
     src.write_bytes(b"x")
     sid = str(uuid4())
 
@@ -123,6 +130,8 @@ def test_register_tracked_files_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_register_tracked_files_skips_missing(tmp_path: Path) -> None:
+    ws = tmp_path / "ws"
+    ws.mkdir()
     sid = str(uuid4())
     with _make_catalog(tmp_path) as catalog:
         catalog.register_simulation(
@@ -137,7 +146,7 @@ def test_register_tracked_files_skips_missing(tmp_path: Path) -> None:
                     role="dem",
                     category="data",
                     original_path="missing.tif",
-                    canonical_path=tmp_path / "does-not-exist.tif",
+                    canonical_path=ws / "does-not-exist.tif",
                 )
             ],
         )
@@ -147,7 +156,9 @@ def test_register_tracked_files_skips_missing(tmp_path: Path) -> None:
 
 
 def test_sha256_is_deterministic(tmp_path: Path) -> None:
-    src = tmp_path / "file.bin"
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    src = ws / "file.bin"
     src.write_bytes(b"deterministic-payload")
     sid = str(uuid4())
 
