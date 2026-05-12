@@ -49,10 +49,17 @@ def load_raw_toml(config_path: Path) -> dict[str, Any]:
 
 
 def extract_workflow_field(raw_toml: dict[str, Any]) -> str | None:
-    """Return `[workflow].mode`."""
+    """Return the declared workflow mode.
+
+    The canonical syntax is ``[workflow] mode = "..."``.  Older example and
+    generated configs still use the scalar shorthand ``workflow = "..."``; keep
+    accepting it so existing campaigns remain runnable.
+    """
     section = raw_toml.get("workflow")
     if section is None:
         return None
+    if isinstance(section, str):
+        return section
     if not isinstance(section, Mapping):
         raise WorkflowUnknownError(f"TOML [workflow] must be a table, got {type(section).__name__}")
     value = section.get("mode")

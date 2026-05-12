@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Annotated
+from collections.abc import Mapping
+from typing import Annotated, Any
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -43,6 +44,35 @@ class DomainConfig(HydroModelBase):
             "Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'."
         ),
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_legacy_domain_keys(cls, value: Any) -> Any:
+        if not isinstance(value, Mapping):
+            return value
+        payload = dict(value)
+
+        raw_supports = payload.get("supports")
+        if isinstance(raw_supports, Mapping):
+            supports: dict[str, Any] = {}
+            for support_id, raw_support in raw_supports.items():
+                if isinstance(raw_support, Mapping):
+                    support_payload = dict(raw_support)
+                    if "kind" not in support_payload and "provider" in support_payload:
+                        support_payload["kind"] = support_payload.pop("provider")
+                    supports[str(support_id)] = support_payload
+                else:
+                    supports[str(support_id)] = raw_support
+            payload["supports"] = supports
+
+        raw_depth_model = payload.get("depth_model")
+        if isinstance(raw_depth_model, Mapping):
+            depth_model = dict(raw_depth_model)
+            if "kind" not in depth_model and "type" in depth_model:
+                depth_model["kind"] = depth_model.pop("type")
+            payload["depth_model"] = depth_model
+
+        return payload
 
     @classmethod
     def with_thickness(

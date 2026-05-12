@@ -1,0 +1,180 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "site_08_natural_n1_10km2_mf6_bouss",
+  "title": "Site 08 Natural N1 10Km2 Mf6 Bouss",
+  "category": "simulation_comparison",
+  "deck": "Published MODFLOW 6 and Boussinesq comparison artifacts, reused by the documentation without rerunning the solvers.",
+  "summary": "This page republishes reviewed artifacts from `site_08_natural_n1_10km2_mf6_bouss`. The gallery generation reads committed comparison outputs only; heavy solver runs are refreshed separately before publication.",
+  "case_setup": [
+    "Reference simulation: `mf6_ref`.",
+    "Focus simulation: `bouss_candidate`.",
+    "Input artifacts are copied from a reviewed comparison output directory."
+  ],
+  "key_parameters": [
+    "The published comparison root provides `comparison_manifest.json`, `comparison_metrics.json`, and `observables.csv`.",
+    "Execution-time diagnostics should use solver flow time, not whole workflow wall time."
+  ],
+  "how_to_read": [
+    "Read the metrics as a reviewed solver-to-solver comparison, not as a validation benchmark.",
+    "Use the source pointers and optional source manifest to decide when the bundle needs refresh."
+  ],
+  "next_steps": [
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+    "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation."
+  ],
+  "what_it_shows": [
+    "How `bouss_candidate` compares against the `mf6_ref` reference.",
+    "How map metrics and runtime diagnostics can be published from stable artifacts.",
+    "How documentation pages can be regenerated without rerunning heavy simulations."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/reading-results-pages",
+  "walkthrough_title": "the gallery and validation reading guide",
+  "reproduction_command": "python -m tools.doc_gallery --only site_08_natural_n1_10km2_mf6_bouss",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/case.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_manifest.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/observables.csv",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_audit.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_report.md",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/execution_times.csv",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/hydrographic_network_metrics.csv",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/hydrographic_network_metrics_skipped.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_distance_metrics.csv",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_distance_metrics_skipped.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_overlap_metrics.csv",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_overlap_metrics_skipped.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_distance_metrics.csv",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_distance_metrics_skipped.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_figures_skipped.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_metrics.csv",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_metrics_skipped.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_overlap_metrics.csv",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_overlap_metrics_skipped.json"
+  ],
+  "source_hashes": {
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/case.json": "62b20afd151451e602304db544e1c77510fd85713f510f2bcf0f0e32d586d681",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_manifest.json": "80f1714efa3251d92c0998472e2ea24b3b435dbcf3910bc0f71cc99c60d0e900",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json": "40e042b702ded44498aec2e5bcfa2958a2fa596da2e38a98d2e2dc8c0a9886b4",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/observables.csv": "34df67560a7104be569e7dd46f1fb52b0ecae489b886f667bda70586b8a21c49",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_audit.json": "59f631a98b8e8a728ae8fa4d968b3f82b0886a99a68e090ede82b2b8801eb67f",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_report.md": "46eb4d6be68c577b59a0e25fb58bf31ff93b7c697750482d70adb04304658f18",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/execution_times.csv": "5aaa58bdba26dfa336a84e844efbfcb1e1c6eb6873bf58fd58f30a0fd0b66423",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/hydrographic_network_metrics.csv": "861ceebd4789da898c74fa67812244511192a8de501bb021b5afb33e119243e7",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/hydrographic_network_metrics_skipped.json": "5195164207675d1a7f13544b755e577d329729487fd2958bd1a45baba3b03ac1",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_distance_metrics.csv": "957dbee3b4aad41508d28e78668771de28600b9a40146cb83eb356807ee454f0",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_distance_metrics_skipped.json": "135c1d027e4c082ca4772e78ac234a010caa75d75d1613e3a41ff5c25e4a06a9",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_overlap_metrics.csv": "3d4178f6b11c1baa9f1045fe3791f8312c7139615d7a32d3c1bd596696bc1253",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/release_flux_network_overlap_metrics_skipped.json": "729126fc102bcf031e68151ac22cb244445af98fd6c4329491cef9ec99a436a3",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_distance_metrics.csv": "320ffe59ef897fcb255c134dfc56d95dafdd685fd42543f3fabc2d8e9256424f",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_distance_metrics_skipped.json": "812c29ec461030c25cb773ba9e121c35bd466932c2ea60888c5c93452a33df8b",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_figures_skipped.json": "418d14a1d78d39afa32d26a6917e8b90862345fbbb05792c83366ec920dbb390",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_metrics.csv": "7adb4b4a053e7235087f83743ea700c0fcb7f8a420ecb4ddf2361fd84e360b96",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_metrics_skipped.json": "0bab682cebd87afdf64387e6dafdf4084c6a9015715f3608b2cfada508ea8e58",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_overlap_metrics.csv": "4963682f92c0ad7c23191f564cb410c7aefa83ba5516bbed61df41d24d8e3248",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/simulated_active_network_overlap_metrics_skipped.json": "26eda49e29c1b0c667532d25d8bb7b1dfa49cba48f9d1d910cddfe4c391e75d7"
+  },
+  "docname": "cases/site_08_natural_n1_10km2_mf6_bouss",
+  "images": [
+    {
+      "filename": "site_08_natural_n1_10km2_mf6_bouss.png",
+      "caption": "Summary comparison figure for site 08 natural n1 10km2 mf6 bouss.",
+      "alt_text": "Simulation comparison summary for Site 08 Natural N1 10Km2 Mf6 Bouss",
+      "doc_path": "/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss.png",
+      "repo_path": "docs/source/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Head Dry Late RMSE",
+      "key": "head_map_dry_late_rmse",
+      "value": 2.6500078952318193,
+      "display": "2.65 m"
+    },
+    {
+      "label": "Head Dry Late MAE",
+      "key": "head_map_dry_late_mae",
+      "value": 0.8075474976912965,
+      "display": "0.8075 m"
+    },
+    {
+      "label": "Head First Computed RMSE",
+      "key": "head_map_first_computed_rmse",
+      "value": 0.813176799703601,
+      "display": "0.8132 m"
+    },
+    {
+      "label": "Head First Computed MAE",
+      "key": "head_map_first_computed_mae",
+      "value": 0.3736656569870457,
+      "display": "0.3737 m"
+    },
+    {
+      "label": "Head Last RMSE",
+      "key": "head_map_last_rmse",
+      "value": 2.7422692318496877,
+      "display": "2.742 m"
+    },
+    {
+      "label": "Head Last MAE",
+      "key": "head_map_last_mae",
+      "value": 0.8404596665362267,
+      "display": "0.8405 m"
+    },
+    {
+      "label": "Head Wet Year1 RMSE",
+      "key": "head_map_wet_year1_rmse",
+      "value": 1.4911577750266929,
+      "display": "1.491 m"
+    },
+    {
+      "label": "Head Wet Year1 MAE",
+      "key": "head_map_wet_year1_mae",
+      "value": 0.44547786364873887,
+      "display": "0.4455 m"
+    }
+  ],
+  "metadata": {
+    "static_summary_path": "docs/source/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss_summary.json",
+    "comparison_summary_path": "docs/source/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss_summary.json",
+    "comparison_config_path": "examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison.toml",
+    "publish_full_artifacts": false,
+    "study_area": "Natural N1 10 km2 testbed",
+    "focus_simulation_id": "bouss_candidate",
+    "comparison_family_key": "boussinesq_mf6_natural_testbed",
+    "comparison_family_label": "Natural-Geology MF6/Boussinesq Testbed",
+    "comparison_family_deck": "These pages publish reviewed Boussinesq/MODFLOW 6 comparison outputs from the testbed workflow without running the solvers during doc generation.",
+    "comparison_family_order": 40,
+    "comparison_case_order": 20,
+    "comparison_id": "site_08_natural_n1_10km2_mf6_bouss",
+    "reference_simulation": "mf6_ref",
+    "reference_simulation_label": "MODFLOW 6 reference",
+    "focus_simulation_label": "Boussinesq PETSc TS/SNESVI candidate",
+    "simulation_labels": {
+      "mf6_ref": "MODFLOW 6 reference",
+      "bouss_candidate": "Boussinesq PETSc TS/SNESVI candidate"
+    },
+    "observable_names": [
+      "head_map_first_computed",
+      "head_map_wet_year1",
+      "head_map_dry_late",
+      "head_map_last"
+    ],
+    "n_observable_rows": 269568,
+    "n_difference_rows": 134758
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss_summary.json",
+    "image_repo_paths": [
+      "docs/source/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss.png"
+    ],
+    "extra_repo_paths": [
+      "docs/source/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss_comparison_manifest.json",
+      "docs/source/_static/capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss_summary_metrics.csv"
+    ]
+  }
+}

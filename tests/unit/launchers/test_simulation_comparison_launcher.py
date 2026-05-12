@@ -737,6 +737,143 @@ def test_equivalence_audit_flags_physical_config_mismatch(
     )
 
 
+def test_equivalence_audit_ignores_method_specific_drainage_conductance_difference(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def physical_config(flow_bc: dict[str, object]) -> dict[str, object]:
+        return {
+            "sections": {"flow.bc": flow_bc},
+            "fingerprints": {"flow.bc": audit_module._section_fingerprint(flow_bc)},
+        }
+
+    ref_bc = {
+        "cauchy": {
+            "drainage": {
+                "id": "drainage",
+                "type": "cauchy",
+                "application_domain": "top",
+                "description": "MF6 active top drainage",
+                "value": "0.2 m2/s",
+            }
+        }
+    }
+    candidate_bc = {
+        "cauchy": {
+            "drainage": {
+                "id": "drainage",
+                "type": "cauchy",
+                "application_domain": "top",
+                "description": "Boussinesq obstacle case, drainage disabled",
+                "value": "0.0 m2/s",
+            }
+        }
+    }
+
+    def fake_load_audit_subject(summary: dict[str, object]) -> dict[str, object]:
+        flow_bc = ref_bc if summary["id"] == "mf6_ref" else candidate_bc
+        return {
+            "id": summary["id"],
+            "solver": summary["solver"],
+            "status": "loaded",
+            "metadata": {},
+            "parameters": [],
+            "physical_config": physical_config(flow_bc),
+            "budget_components": {
+                audit_module.RECHARGE_COMPONENT: {"series": {"elapsed_seconds:0": 0.0}}
+            },
+        }
+
+    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+
+    audit = build_equivalence_audit(
+        simulation_summaries=[
+            {"id": "mf6_ref", "solver": "modflow6", "status": "completed"},
+            {"id": "bouss_candidate", "solver": "boussinesq", "status": "completed"},
+        ],
+        reference_simulation="mf6_ref",
+        on_mismatch="warn",
+    )
+
+    assert audit["status"] == "pass"
+    assert audit["issues"] == []
+    assert audit["ignored_issues"] == [
+        {
+            "level": "ignored",
+            "kind": "config_section_mismatch",
+            "simulation_id": "bouss_candidate",
+            "reference_simulation": "mf6_ref",
+            "field": "flow.bc",
+            "message": (
+                "Ignored solver-method drainage conductance difference "
+                "between MODFLOW 6 and Boussinesq."
+            ),
+        }
+    ]
+
+
+def test_equivalence_audit_ignores_modflow6_watertable_above_top(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_load_audit_subject(summary: dict[str, object]) -> dict[str, object]:
+        return {
+            "id": summary["id"],
+            "solver": summary["solver"],
+            "status": "loaded",
+            "metadata": {},
+            "parameters": [],
+            "physical_config": {"sections": {}, "fingerprints": {}},
+            "budget_components": {
+                audit_module.RECHARGE_COMPONENT: {"series": {"elapsed_seconds:0": 0.0}}
+            },
+        }
+
+    def fake_head_bounds_diagnostics(**_: object) -> list[dict[str, object]]:
+        return [
+            {
+                "simulation_id": "mf6_ref",
+                "solver": "modflow6",
+                "observable": "head_map_last",
+                "above_top_fraction": 0.25,
+                "above_top_max_m": 1.2,
+            }
+        ]
+
+    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+    monkeypatch.setattr(
+        audit_module,
+        "_head_bounds_diagnostics",
+        fake_head_bounds_diagnostics,
+    )
+
+    audit = build_equivalence_audit(
+        simulation_summaries=[
+            {"id": "mf6_ref", "solver": "modflow6", "status": "completed"},
+            {"id": "bouss_candidate", "solver": "boussinesq", "status": "completed"},
+        ],
+        reference_simulation="mf6_ref",
+        on_mismatch="warn",
+    )
+
+    assert audit["status"] == "pass"
+    assert audit["issues"] == []
+    assert audit["ignored_issues"] == [
+        {
+            "level": "ignored",
+            "kind": "watertable_above_top",
+            "simulation_id": "mf6_ref",
+            "field": "head_map_last",
+            "message": (
+                "Ignored MODFLOW 6 watertable-above-top diagnostic; "
+                "unconfined heads can be above cell top."
+            ),
+            "above_top_fraction": 0.25,
+            "above_top_max_m": 1.2,
+            "fraction_tolerance": audit_module.HEAD_ABOVE_TOP_FRACTION_TOL,
+            "height_tolerance_m": audit_module.HEAD_ABOVE_TOP_TOL_M,
+        }
+    ]
+
+
 def test_equivalence_audit_treats_missing_disabled_recharge_budget_as_zero(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

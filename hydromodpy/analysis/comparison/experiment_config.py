@@ -36,6 +36,7 @@ from pydantic import Field, field_validator, model_validator
 from hydromodpy.analysis.comparison.config import (
     ComparisonFineRaster,
     ComparisonObservable,
+    _normalize_optional_mesh_label,
     _apply_observable_anchors,
     _load_comparison_anchors,
 )
@@ -111,7 +112,9 @@ class ComparisonSimulationConfig(HydroModelBase):
         ),
     )
 
-    _normalize_mesh_label = field_validator("mesh_label")(validate_optional_identifier)
+    _normalize_mesh_label = field_validator("mesh_label", mode="before")(
+        _normalize_optional_mesh_label
+    )
 
     @field_validator("overlay")
     @classmethod

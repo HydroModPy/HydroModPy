@@ -28,6 +28,26 @@ def test_domain_config_accepts_geology_supports() -> None:
     assert cfg.supports["field_geology"].kind == "geology"
 
 
+def test_domain_config_accepts_legacy_provider_and_type_keys() -> None:
+    cfg = DomainConfig.model_validate(
+        {
+            "supports": {
+                "field_geology": {
+                    "provider": "geology",
+                }
+            },
+            "depth_model": {
+                "type": "constant_thickness",
+                "thickness": "30 m",
+            },
+        }
+    )
+
+    assert cfg.supports["field_geology"].kind == "geology"
+    assert cfg.depth_model.kind == "constant_thickness"
+    assert float(cfg.depth_model.thickness) == 30.0
+
+
 def test_domain_config_accepts_generated_supports() -> None:
     cfg = DomainConfig.model_validate(
         {

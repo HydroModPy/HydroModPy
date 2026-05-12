@@ -22,6 +22,7 @@ import pathlib
 import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 
 
 @dataclass(frozen=True)
@@ -39,12 +40,13 @@ class Edge:
     in_type_checking: bool
 
 
-def _top_level_packages(pkg_root: pathlib.Path) -> set[str]:
-    return {
+@lru_cache(maxsize=None)
+def _top_level_packages(pkg_root: pathlib.Path) -> frozenset[str]:
+    return frozenset(
         p.name
         for p in pkg_root.iterdir()
         if p.is_dir() and (p / "__init__.py").is_file() and not p.name.startswith("__")
-    }
+    )
 
 
 def package_of(path: pathlib.Path, pkg_root: pathlib.Path) -> str | None:

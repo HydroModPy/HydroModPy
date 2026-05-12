@@ -105,7 +105,8 @@ fi
 conda run -n "${ENV_NAME}" python "${SCRIPT_DIR}/verify_dev_env.py" \
   --dist-name hydromodpy \
   --expected-editable-root "${REPO_ROOT}" \
-  --require-docs
+  --require-docs \
+  --require-tests
 
 cat <<EOF
 

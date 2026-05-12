@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from pathlib import Path
 from shutil import copyfile
 
+import pytest
+
+import tools.doc_gallery.import_simulation_comparison as import_simulation_comparison
 from tools.doc_gallery.gallery_manifest import build_gallery_specs
-from tools.doc_gallery.update_gallery import _build_index_page, _generate_case
+from tools.doc_gallery.gallery_simulation_comparison_specs import (
+    build_published_simulation_comparison_specs,
+)
+from tools.doc_gallery.update_gallery import (
+    _build_index_page,
+    _generate_case,
+    _should_preserve_previous_case_summary,
+)
 
 
 def _spec_by_slug(slug: str):
@@ -67,6 +78,120 @@ def test_build_index_page_lists_extended_categories_when_populated() -> None:
     assert "   simulation" in page
 
 
+def test_published_simulation_comparison_specs_are_discovered(tmp_path: Path) -> None:
+    case_root = (
+        tmp_path
+        / "examples"
+        / "projects"
+        / "09_capability_gallery"
+        / "simulation_comparison"
+        / "case"
+    )
+    case_root.mkdir(parents=True)
+    for name in ("comparison_manifest.json", "comparison_metrics.json", "observables.csv"):
+        (case_root / name).write_text("", encoding="utf-8")
+    (case_root / "execution_times.csv").write_text("", encoding="utf-8")
+    (case_root / "simulated_active_network_distance_metrics.csv").write_text(
+        "",
+        encoding="utf-8",
+    )
+    (case_root / "case.json").write_text(
+        json.dumps(
+            {
+                "slug": "natural_site_03_mf6_bouss",
+                "title": "Natural Site 03 MF6/Boussinesq",
+                "deck": "Published comparison artifacts.",
+                "summary": "Stable artifact publication for the natural testbed.",
+                "study_area": "Natural N1 10 km2 testbed",
+                "focus_simulation_id": "bouss_candidate",
+                "comparison_case_order": 30,
+                "what_it_shows": ["Published comparison artifacts drive the page."],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    specs = build_published_simulation_comparison_specs(repo_root=tmp_path)
+
+    assert len(specs) == 1
+    spec = specs[0]
+    assert spec.slug == "natural_site_03_mf6_bouss"
+    assert spec.generator == "simulation_comparison_case"
+    assert spec.metadata["comparison_config_path"].endswith("case/comparison.toml")
+    assert spec.metadata["focus_simulation_id"] == "bouss_candidate"
+    assert spec.metadata["publish_full_artifacts"] is False
+    assert any(path.endswith("comparison_manifest.json") for path in spec.source_paths)
+    assert any(path.endswith("execution_times.csv") for path in spec.source_paths)
+    assert any(
+        path.endswith("simulated_active_network_distance_metrics.csv")
+        for path in spec.source_paths
+    )
+    assert spec.image_assets[0].filename == "natural_site_03_mf6_bouss.png"
+
+
+def test_import_simulation_comparison_publishes_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source_root = tmp_path / "comparison"
+    source_root.mkdir()
+    (source_root / "comparison_manifest.json").write_text(
+        json.dumps(
+            {
+                "comparison_id": "site_03_natural_n1_10km2_mf6_bouss",
+                "reference_simulation": "mf6_ref",
+                "simulations": [
+                    {"id": "mf6_ref"},
+                    {"id": "bouss_candidate"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (source_root / "comparison_metrics.json").write_text("{}", encoding="utf-8")
+    (source_root / "observables.csv").write_text("simulation_id\n", encoding="utf-8")
+    (source_root / "execution_times.csv").write_text(
+        "simulation_id,runtime_seconds\n",
+        encoding="utf-8",
+    )
+    published_root = tmp_path / "published"
+    monkeypatch.setattr(import_simulation_comparison, "PUBLISHED_ROOT", published_root)
+
+    destination = import_simulation_comparison.publish_comparison(
+        source_root,
+        slug="natural_site_03_mf6_bouss",
+        title="Natural Site 03 MF6/Boussinesq",
+        study_area="Natural N1 10 km2 testbed",
+    )
+
+    assert destination == published_root / "natural_site_03_mf6_bouss"
+    assert (destination / "comparison_manifest.json").exists()
+    assert (destination / "comparison_metrics.json").exists()
+    assert (destination / "observables.csv").exists()
+    assert (destination / "execution_times.csv").exists()
+    case_payload = json.loads((destination / "case.json").read_text(encoding="utf-8"))
+    assert case_payload["slug"] == "natural_site_03_mf6_bouss"
+    assert case_payload["title"] == "Natural Site 03 MF6/Boussinesq"
+    assert case_payload["focus_simulation_id"] == "bouss_candidate"
+    assert case_payload["publish_full_artifacts"] is False
+
+
+def test_import_simulation_comparison_discovers_testbed_roots(tmp_path: Path) -> None:
+    first = tmp_path / "testbed" / "comparisons" / "site_03"
+    second = tmp_path / "testbed" / "comparison"
+    duplicate = tmp_path / "testbed" / "comparisons" / "site_03"
+    for root in (first, second):
+        root.mkdir(parents=True)
+        (root / "comparison_manifest.json").write_text("{}", encoding="utf-8")
+
+    roots = import_simulation_comparison.discover_comparison_roots(
+        comparison_roots=[duplicate],
+        testbed_output_roots=[tmp_path / "testbed"],
+    )
+
+    assert roots == [first.resolve(), second.resolve()]
+
+
 def test_generate_square_property_case_smoke(tmp_path: Path) -> None:
     spec = _spec_by_slug("hydraulic_conductivity_square_parameterizations")
 
@@ -121,7 +246,7 @@ def test_generate_depth_property_case_smoke(tmp_path: Path) -> None:
     ).exists()
 
 
-def test_generate_simulation_comparison_case_smoke(tmp_path: Path) -> None:
+def _simulation_comparison_generation_spec(tmp_path: Path, *, publish_full_artifacts: bool):
     spec = _spec_by_slug("example12_map_simulation_comparison")
     static_root = (
         Path(__file__).resolve().parents[3]
@@ -173,7 +298,7 @@ unit = "m"
 """,
         encoding="utf-8",
     )
-    spec = replace(
+    return replace(
         spec,
         generator="simulation_comparison_case",
         source_paths=(
@@ -183,8 +308,13 @@ unit = "m"
         metadata={
             **spec.metadata,
             "comparison_config_path": config_path.as_posix(),
+            "publish_full_artifacts": publish_full_artifacts,
         },
     )
+
+
+def test_generate_simulation_comparison_case_smoke(tmp_path: Path) -> None:
+    spec = _simulation_comparison_generation_spec(tmp_path, publish_full_artifacts=True)
 
     summary = _generate_case(spec, tmp_path)
 
@@ -192,6 +322,10 @@ unit = "m"
     assert summary["metadata"]["study_area"] == "Naizin catchment"
     assert any(metric["label"].endswith("RMSE") for metric in summary["metrics"])
     assert summary["artifacts"]["extra_repo_paths"]
+    assert any(
+        path.endswith("example12_map_simulation_comparison_comparison_metrics.json")
+        for path in summary["artifacts"]["extra_repo_paths"]
+    )
     assert (
         tmp_path
         / "_static"
@@ -199,3 +333,65 @@ unit = "m"
         / "simulation_comparison"
         / "example12_map_simulation_comparison.png"
     ).exists()
+
+
+def test_generate_simulation_comparison_case_can_publish_compact_static_artifacts(
+    tmp_path: Path,
+) -> None:
+    spec = _simulation_comparison_generation_spec(tmp_path, publish_full_artifacts=False)
+    static_dir = tmp_path / "_static" / "capability_gallery" / "simulation_comparison"
+    static_dir.mkdir(parents=True)
+    stale_names = (
+        "example12_map_simulation_comparison_comparison_metrics.json",
+        "example12_map_simulation_comparison_observables.csv",
+        "example12_map_simulation_comparison_difference_metrics.csv",
+    )
+    for name in stale_names:
+        (static_dir / name).write_text("stale\n", encoding="utf-8")
+
+    summary = _generate_case(spec, tmp_path)
+
+    extra_paths = summary["artifacts"]["extra_repo_paths"]
+    assert any(
+        path.endswith("example12_map_simulation_comparison_comparison_manifest.json")
+        for path in extra_paths
+    )
+    assert any(
+        path.endswith("example12_map_simulation_comparison_summary_metrics.csv")
+        for path in extra_paths
+    )
+    assert not any(path.endswith("observables.csv") for path in extra_paths)
+    assert not any(path.endswith("comparison_metrics.json") for path in extra_paths)
+    assert not any(path.endswith("difference_metrics.csv") for path in extra_paths)
+    assert all(not (static_dir / name).exists() for name in stale_names)
+
+
+def test_compact_simulation_comparison_summary_can_reduce_artifact_count() -> None:
+    previous_summary = {
+        "images": [{"repo_path": "docs/source/_static/capability_gallery/case.png"}],
+        "metrics": [{"key": "rmse"}],
+        "artifacts": {
+            "image_repo_paths": ["docs/source/_static/capability_gallery/case.png"],
+            "extra_repo_paths": [
+                "docs/source/_static/capability_gallery/case_manifest.json",
+                "docs/source/_static/capability_gallery/case_metrics.json",
+                "docs/source/_static/capability_gallery/case_observables.csv",
+            ],
+        },
+        "metadata": {},
+    }
+    new_summary = {
+        **previous_summary,
+        "artifacts": {
+            "image_repo_paths": ["docs/source/_static/capability_gallery/case.png"],
+            "extra_repo_paths": [
+                "docs/source/_static/capability_gallery/case_manifest.json",
+            ],
+        },
+        "metadata": {"publish_full_artifacts": False},
+    }
+
+    assert not _should_preserve_previous_case_summary(
+        previous_summary=previous_summary,
+        new_summary=new_summary,
+    )

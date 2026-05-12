@@ -529,6 +529,41 @@ def test_comparison_config_resolves_paths(tmp_path: Path) -> None:
     assert cfg.comparison.observable[1].reducer == "sum"
 
 
+def test_comparison_config_normalizes_legacy_human_mesh_label(tmp_path: Path) -> None:
+    config_path = tmp_path / "config_comparison.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                'workflow = "comparison"',
+                "",
+                "[comparison]",
+                'comparison_id = "demo_compare"',
+                'output_root = "comparison_outputs"',
+                "",
+                "[[comparison.simulation]]",
+                'id = "mf6_demo"',
+                'run_folder = "run"',
+                'mesh_label = "Generated geology-river catchment mesh"',
+                "",
+                "[[comparison.observable]]",
+                'name = "head"',
+                'variable = "head"',
+                'support = "point"',
+                "cell_index = 0",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = SimulationComparisonConfig.from_toml(
+        load_toml_with_base_config(config_path),
+        config_path=config_path,
+    )
+
+    assert cfg.comparison.simulation[0].mesh_label == "generated_geology_river_catchment_mesh"
+
+
 def test_comparison_config_applies_anchor_file(tmp_path: Path) -> None:
     anchors_path = tmp_path / "comparison_points.toml"
     _write_comparison_anchors(anchors_path)
@@ -1687,6 +1722,7 @@ def test_simulation_comparison_launcher_writes_chronicles_native_flux_and_runtim
             {
                 "mesh_output_exchange_bundle_dir": str(reference_bundle),
                 "wall_time_seconds": 12.5,
+                "flow_solve_time_seconds": 3.5,
                 "solvers": ["modflow6"],
                 "success": True,
             }
@@ -1698,6 +1734,7 @@ def test_simulation_comparison_launcher_writes_chronicles_native_flux_and_runtim
             {
                 "mesh_output_exchange_bundle_dir": str(candidate_bundle),
                 "wall_time_seconds": 25.0,
+                "flow_solve_time_seconds": 4.5,
                 "solvers": ["modflownwt"],
                 "success": True,
             }

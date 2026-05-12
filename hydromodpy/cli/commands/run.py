@@ -332,7 +332,10 @@ def _parse_env_set_overrides(env: Mapping[str, str]) -> dict[str, Any]:
     for name, raw_value in env.items():
         if not name.startswith(prefix):
             continue
-        dotted_path = name[len(prefix) :].replace("__", ".")
+        # Windows normalizes environment variable names to uppercase. TOML keys
+        # are case-sensitive, so normalize the override path back to the
+        # lowercase key convention used by HydroModPy config files.
+        dotted_path = name[len(prefix) :].lower().replace("__", ".")
         _assign_dotted_value(payload, dotted_path, _parse_override_value(raw_value))
     return payload
 

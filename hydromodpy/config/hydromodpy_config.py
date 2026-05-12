@@ -556,6 +556,8 @@ class HydroModPyConfig(HydroModelBase):
 
         if "workflow" in raw:
             workflow_section = raw["workflow"]
+            if isinstance(workflow_section, str):
+                workflow_section = {"mode": workflow_section}
             if not isinstance(workflow_section, Mapping):
                 raise ValueError("TOML section [workflow] must be a mapping with key 'mode'")
             parsed_sections["workflow"] = WorkflowConfig.model_validate(dict(workflow_section))

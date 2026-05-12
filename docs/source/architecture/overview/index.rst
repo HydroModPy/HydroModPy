@@ -84,6 +84,15 @@ Contracts and integration
       MMS, solver sanity, calibration twins, with the role and
       command per family.
 
+   .. grid-item-card:: Test inventory
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: test-inventory
+      :link-type: doc
+
+      Snapshot of the collected pytest suite: counts by family,
+      largest unit-test areas, validation subsets, and regression
+      coverage.
+
 .. toctree::
    :hidden:
    :maxdepth: 1
@@ -95,3 +104,4 @@ Contracts and integration
    schema-evolution
    frontend-hooks
    test-families-and-quality-roles
+   test-inventory

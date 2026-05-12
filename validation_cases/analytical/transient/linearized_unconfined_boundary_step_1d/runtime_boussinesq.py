@@ -25,7 +25,7 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
     surface_interaction_model: str | None = "ts_vi_obstacle",
     public_solver_label: str = "boussinesq",
 ) -> object:
-    """Run the boundary-step case through the PETSc TS VI Boussinesq backend."""
+    """Run the boundary-step case through a PETSc VI Boussinesq backend."""
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))
     output_cfg = dict(metadata.get("output", {}))
@@ -58,6 +58,13 @@ def run_boussinesq_linearized_unconfined_boundary_step_case(
                 "ts_vi_adapt": False,
                 "ts_vi_type": "beuler",
                 "ts_vi_snes_type": "vinewtonrsls",
+            }
+        )
+    if str(surface_interaction_model or "").strip().lower() == "vi_obstacle":
+        flow_section.update(
+            {
+                "vi_substeps_per_period": 4,
+                "vi_substep_on_failure": False,
             }
         )
 

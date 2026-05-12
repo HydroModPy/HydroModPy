@@ -1,0 +1,7 @@
+site_id,site_label,cluster_family,cluster_scale,x_outlet,y_outlet,target_area_km2,tags,enabled
+site_01,Site 01,headwater,10km2,131189.100,6833784.400,10.0,natural;regional_lab;n1_10km2;comparison;boussinesq;modflow6;geology_heterogeneous;petsc_vi_regression,true
+site_03,Site 03,headwater,10km2,153077.000,6832394.300,10.0,natural;regional_lab;n1_10km2;comparison;boussinesq;modflow6;geology_heterogeneous;petsc_vi_regression,true
+site_08,Site 08,headwater,10km2,164915.000,6861154.300,10.0,natural;regional_lab;n1_10km2;comparison;boussinesq;modflow6;geology_heterogeneous;petsc_vi_regression,true
+headwater_100km2_outlet_2,Headwater 100 km2 outlet 2,headwater,100km2,399562.500,6855345.833,100.0,natural;regional_lab;n2_100km2;comparison;boussinesq;modflow6;geology_heterogeneous;petsc_vi_regression,true
+headwater_100km2_outlet_4,Headwater 100 km2 outlet 4,headwater,100km2,311887.500,6818437.500,100.0,natural;regional_lab;n2_100km2;comparison;boussinesq;modflow6;geology_heterogeneous;petsc_vi_regression,true
+s3_100km2_outlet_25,Strahler 3 100 km2 outlet 25,strahler3,100km2,436230.000,6899962.500,100.0,natural;regional_lab;n2_100km2;comparison;boussinesq;modflow6;geology_heterogeneous;petsc_vi_regression,true

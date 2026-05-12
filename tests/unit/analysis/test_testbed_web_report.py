@@ -25,7 +25,7 @@ def test_testbed_web_report_includes_numerical_closure_metrics(tmp_path: Path) -
                     "variant_id": "site_01",
                     "variant_label": "Site 01",
                     "axis": "natural",
-                    "status": "ok",
+                    "status": "failed",
                     "runner": "comparison",
                 }
             ],
@@ -39,7 +39,7 @@ def test_testbed_web_report_includes_numerical_closure_metrics(tmp_path: Path) -
                 "variant_id": "site_01",
                 "variant_label": "Site 01",
                 "axis": "natural",
-                "status": "ok",
+                "status": "failed",
                 "runner": "comparison",
             }
         ],
@@ -95,11 +95,14 @@ def test_testbed_web_report_includes_numerical_closure_metrics(tmp_path: Path) -
     index_text = (web_root / "index.html").read_text(encoding="utf-8")
     case_text = (web_root / "cases" / "site_01.html").read_text(encoding="utf-8")
     assert "Precision de resolution" in index_text
-    assert "MODFLOW max mm/j" in index_text
-    assert "Boussinesq max mm/j" in index_text
+    assert "MODFLOW max" in index_text
+    assert "Boussinesq max" in index_text
+    assert "0.004 mm/j" in index_text
     assert "WARN" in index_text
+    assert '<span class="badge ok">ok</span>' in index_text
+    assert 'Status</dt><dd><span class="badge ok">ok</span>' in case_text
     assert "bouss_candidate" in case_text
-    assert "Max residu mm/j" in case_text
+    assert "0.004 mm/j" in case_text
 
 
 def _load_report_module() -> ModuleType:

@@ -16,15 +16,41 @@ from hydromodpy.solver.utils.temporal.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
 
+_STEADY_INIT_DVCLOSE_MIN = 1e-3
+_STEADY_INIT_MAXIMUM_MIN = 1000
 
-def _modflow_config_with_same_executable(model: object) -> object:
+
+def _modflow_config_for_steady_initialization(model: object) -> object:
     config = getattr(model, "modflow_config", None)
     runtime = getattr(config, "runtime", None)
     if config is None or runtime is None:
         return config
     if not hasattr(config, "model_copy") or not hasattr(runtime, "model_copy"):
         return config
-    runtime_copy = runtime.model_copy(update={"mf6_executable_name": str(model.exe)})
+    # The auxiliary steady solve only materializes an initial condition. A
+    # millimetric closure avoids rejecting physically balanced starts that do
+    # not satisfy the stricter transient-run tolerance.
+    runtime_copy = runtime.model_copy(
+        update={
+            "mf6_executable_name": str(model.exe),
+            "mf6_outer_dvclose": max(
+                float(getattr(runtime, "mf6_outer_dvclose", _STEADY_INIT_DVCLOSE_MIN)),
+                _STEADY_INIT_DVCLOSE_MIN,
+            ),
+            "mf6_inner_dvclose": max(
+                float(getattr(runtime, "mf6_inner_dvclose", _STEADY_INIT_DVCLOSE_MIN)),
+                _STEADY_INIT_DVCLOSE_MIN,
+            ),
+            "mf6_outer_maximum": max(
+                int(getattr(runtime, "mf6_outer_maximum", _STEADY_INIT_MAXIMUM_MIN)),
+                _STEADY_INIT_MAXIMUM_MIN,
+            ),
+            "mf6_inner_maximum": max(
+                int(getattr(runtime, "mf6_inner_maximum", _STEADY_INIT_MAXIMUM_MIN)),
+                _STEADY_INIT_MAXIMUM_MIN,
+            ),
+        }
+    )
     return config.model_copy(update={"runtime": runtime_copy})
 
 
@@ -62,7 +88,7 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
     init_name = "ssic"
     steady_model = model.__class__(
         geographic=model.geographic,
-        modflow_config=_modflow_config_with_same_executable(model),
+        modflow_config=_modflow_config_for_steady_initialization(model),
         model_folder=str(init_root),
         model_name=init_name,
         preprocess_options=ModflowPreprocessOptions(

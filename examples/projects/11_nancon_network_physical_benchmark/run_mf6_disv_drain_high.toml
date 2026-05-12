@@ -1,5 +1,7 @@
 base_config = "base_nancon_physics.toml"
-workflow = "simulation"
+
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/nancon_network_physical_benchmark/workspaces/mf6_disv_drain_high"
@@ -15,7 +17,7 @@ on_collision = "replace"
 bundle_dir = "../09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/mesh_catchment_bundle"
 
 [flow.bc.cauchy.drainage]
-value = "1.0e-3 m2/s"
+value = 1.0e-3
 
 [modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
@@ -24,6 +26,8 @@ mf6_inner_dvclose = 0.0001
 mf6_outer_maximum = 1000
 mf6_inner_maximum = 1000
 mf6_enable_rewet = false
+mf6_newton = false
+mf6_newton_under_relaxation = true
 mf_verbose = false
 
 [modflow6.process_specific]

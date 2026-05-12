@@ -266,6 +266,29 @@ def test_hmp_run_dispatches_comparison_workflow(monkeypatch, tmp_path) -> None:
     assert captured["run_called"] is True
 
 
+def test_hmp_run_accepts_legacy_scalar_workflow(monkeypatch, tmp_path) -> None:
+    """Legacy generated configs may still declare ``workflow = "comparison"``."""
+    config = _write_toml(
+        tmp_path / "comparison_legacy.toml",
+        'workflow = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path):
+        captured["config_path"] = Path(config_path)
+        captured["run_called"] = True
+        return {"mode": "comparison"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "comparison", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    main()
+
+    assert captured["config_path"] == config.resolve()
+    assert captured["run_called"] is True
+
+
 def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=testbed dispatches to run_testbed."""
     config = _write_toml(
