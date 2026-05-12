@@ -4,8 +4,9 @@ What
 ----
 ``capture_environment`` returns a typed snapshot of the Python runtime,
 host hardware, git commit (HydroModPy + project root), installed packages,
-and the SHA-256 of the active MODFLOW binary when known. Output matches
-the column layout of :data:`hydromodpy.results.catalog_schema._RUNS_ENVIRONMENT_DDL`.
+and the SHA-256 of the active solver binary when known. Output matches
+the column layout of the v2 ``runs_environment`` DDL declared in
+``catalog/migrations/versions/0001_initial_v2_schema.sql``.
 
 Why
 ---
@@ -32,7 +33,7 @@ logger = get_logger(__name__)
 
 
 class EnvironmentSnapshot(TypedDict, total=False):
-    """Typed dict matching ``runs_environment`` columns."""
+    """Typed dict matching v2 ``runs_environment`` columns (solver-agnostic)."""
 
     python_version: str
     hydromodpy_version: str
@@ -42,9 +43,12 @@ class EnvironmentSnapshot(TypedDict, total=False):
     cpu_info: dict
     memory_gb: float | None
     git_commit: str | None
+    git_dirty: bool | None
     project_git_commit: str | None
-    mf6_binary_sha256: str | None
-    mf6_version_text: str | None
+    solver_name: str | None
+    solver_binary_path: str | None
+    solver_binary_sha256: str | None
+    solver_version_text: str | None
     conda_env_hash: str | None
     env_packages: list[str]
     rng_seed: int | None
@@ -147,8 +151,8 @@ def _binary_sha256(path: Path | str | None) -> str | None:
     return h.hexdigest()
 
 
-def _mf6_version_text(path: Path | str | None) -> str | None:
-    """Capture the textual MF6 version banner from ``mf6 --version``."""
+def _solver_version_text(path: Path | str | None) -> str | None:
+    """Capture the textual solver version banner from ``<solver> --version``."""
     if path is None:
         return None
     p = Path(path)
@@ -192,9 +196,10 @@ def _conda_env_hash() -> str | None:
 def capture_environment(
     *,
     project_root: Path | str | None = None,
-    mf6_binary_path: Path | str | None = None,
+    solver_name: str | None = None,
+    solver_binary_path: Path | str | None = None,
 ) -> EnvironmentSnapshot:
-    """Snapshot the host environment for one simulation.
+    """Snapshot the host environment for one simulation (solver-agnostic).
 
     Parameters
     ----------
@@ -202,10 +207,14 @@ def capture_environment(
         Path to the user's project (workflow root). Used to record the
         project's git commit when the user works inside a versioned
         project. ``None`` skips that field.
-    mf6_binary_path
-        Path to the MODFLOW binary used by this run. The SHA-256 is
-        computed and stored when readable. ``None`` skips it.
+    solver_name
+        Free-form name of the solver used by this run (``modflow6``,
+        ``modflow_nwt``, ``boussinesq``, ``gr4j``, etc.). Stored as-is.
+    solver_binary_path
+        Path to the solver binary used by this run. The SHA-256 and the
+        ``--version`` text banner are computed when readable.
     """
+    binary_path_str = str(solver_binary_path) if solver_binary_path is not None else None
     snapshot: EnvironmentSnapshot = {
         "python_version": _python_version(),
         "hydromodpy_version": _hydromodpy_version(),
@@ -216,8 +225,10 @@ def capture_environment(
         "memory_gb": _memory_gb(),
         "git_commit": _git_head(_hydromodpy_root()),
         "project_git_commit": _git_head(Path(project_root)) if project_root else None,
-        "mf6_binary_sha256": _binary_sha256(mf6_binary_path),
-        "mf6_version_text": _mf6_version_text(mf6_binary_path),
+        "solver_name": solver_name,
+        "solver_binary_path": binary_path_str,
+        "solver_binary_sha256": _binary_sha256(solver_binary_path),
+        "solver_version_text": _solver_version_text(solver_binary_path),
         "conda_env_hash": _conda_env_hash(),
         "env_packages": _env_packages(),
     }

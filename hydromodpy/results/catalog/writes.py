@@ -25,8 +25,9 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.array_fingerprint import fingerprint
+from hydromodpy.results.catalog.constants import GLOBAL_ZONE
+from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
-from hydromodpy.results.catalog_schema import GLOBAL_ZONE, ensure_parquet_views
 from hydromodpy.results.spatial_index import point_in_cell
 from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
 from hydromodpy.results.zarr_store import _windows_long_path
@@ -148,7 +149,13 @@ class WritesMixin:
             self._db.execute(
                 """INSERT INTO parameters
                    (sim_id, param_name, zone_id, value, unit, parameterization)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT (sim_id, param_name, zone_id)
+                   DO UPDATE SET
+                       value = EXCLUDED.value,
+                       unit = EXCLUDED.unit,
+                       parameterization = EXCLUDED.parameterization,
+                       valid_from = now()""",
                 [
                     sid,
                     p["param_name"],
@@ -456,7 +463,8 @@ class WritesMixin:
         sim_id: str | UUID,
         *,
         project_root: Path | str | None = None,
-        mf6_binary_path: Path | str | None = None,
+        solver_name: str | None = None,
+        solver_binary_path: Path | str | None = None,
         rng_seed: int | None = None,
     ) -> None:
         """Capture and persist the host environment snapshot for ``sim_id``.
@@ -475,17 +483,22 @@ class WritesMixin:
 
         snap = capture_environment(
             project_root=project_root,
-            mf6_binary_path=mf6_binary_path,
+            solver_name=solver_name,
+            solver_binary_path=solver_binary_path,
         )
+        sid = str(sim_id)
+        self._db.execute("DELETE FROM runs_environment WHERE sim_id = ?", [sid])
         self._db.execute(
-            """INSERT OR REPLACE INTO runs_environment
+            """INSERT INTO runs_environment
                (sim_id, python_version, hydromodpy_version, platform,
                 hostname, user_name, cpu_info, memory_gb,
-                git_commit, project_git_commit, mf6_binary_sha256,
-                mf6_version_text, conda_env_hash, env_packages, rng_seed)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                git_commit, project_git_commit,
+                solver_name, solver_binary_path,
+                solver_binary_sha256, solver_version_text,
+                conda_env_hash, env_packages, rng_seed)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             [
-                str(sim_id),
+                sid,
                 snap.get("python_version"),
                 snap.get("hydromodpy_version"),
                 snap.get("platform"),
@@ -495,8 +508,10 @@ class WritesMixin:
                 snap.get("memory_gb"),
                 snap.get("git_commit"),
                 snap.get("project_git_commit"),
-                snap.get("mf6_binary_sha256"),
-                snap.get("mf6_version_text"),
+                snap.get("solver_name"),
+                snap.get("solver_binary_path"),
+                snap.get("solver_binary_sha256"),
+                snap.get("solver_version_text"),
                 snap.get("conda_env_hash"),
                 json.dumps(snap.get("env_packages") or []),
                 None if rng_seed is None else int(rng_seed),
@@ -564,10 +579,17 @@ class WritesMixin:
         if not self._persistence.save_catalog:
             return
         self._db.execute(
-            """INSERT OR REPLACE INTO metrics
+            """INSERT INTO metrics
                (sim_id, station_id, variable, metric_name, value,
                 n_samples, period_start, period_end)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (sim_id, station_id, variable, metric_name)
+               DO UPDATE SET
+                   value = EXCLUDED.value,
+                   n_samples = EXCLUDED.n_samples,
+                   period_start = EXCLUDED.period_start,
+                   period_end = EXCLUDED.period_end,
+                   valid_from = now()""",
             [
                 str(sim_id),
                 station_id,
@@ -661,11 +683,24 @@ class WritesMixin:
             json.dumps(fp["stats"]),
         ]
         self._db.execute(
-            """INSERT OR REPLACE INTO provenance
+            """INSERT INTO provenance
                (sim_id, variable, source_type, source_ref,
                 source_sha256, loader_name, loader_version, fetched_at,
                 period_start, period_end, payload_sha256, n_records, stats)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT (sim_id, variable, source_ref)
+               DO UPDATE SET
+                   source_type = EXCLUDED.source_type,
+                   source_sha256 = EXCLUDED.source_sha256,
+                   loader_name = EXCLUDED.loader_name,
+                   loader_version = EXCLUDED.loader_version,
+                   fetched_at = EXCLUDED.fetched_at,
+                   period_start = EXCLUDED.period_start,
+                   period_end = EXCLUDED.period_end,
+                   payload_sha256 = EXCLUDED.payload_sha256,
+                   n_records = EXCLUDED.n_records,
+                   stats = EXCLUDED.stats,
+                   valid_from = now()""",
             payload,
         )
         if self._persistence.save_parquet:
@@ -750,9 +785,17 @@ class WritesMixin:
             for station_id, (x, y) in points.items():
                 cell_id = mapping[station_id]
                 self._db.execute(
-                    """INSERT OR REPLACE INTO observation_points
+                    """INSERT INTO observation_points
                        (sim_id, station_id, x, y, cell_id, layer, crs_wkt, crs_epsg)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                       ON CONFLICT (sim_id, station_id)
+                       DO UPDATE SET
+                           x = EXCLUDED.x,
+                           y = EXCLUDED.y,
+                           cell_id = EXCLUDED.cell_id,
+                           layer = EXCLUDED.layer,
+                           crs_wkt = EXCLUDED.crs_wkt,
+                           crs_epsg = EXCLUDED.crs_epsg""",
                     [sid, station_id, x, y, cell_id, layer, str(crs), crs_epsg],
                 )
         finally:
@@ -793,10 +836,18 @@ class WritesMixin:
             size = _path_size_bytes(canonical)
             encoded = _encode_workspace_path(self._workspace, canonical)
             self._db.execute(
-                """INSERT OR REPLACE INTO tracked_files
+                """INSERT INTO tracked_files
                    (sim_id, role, category, original_path, canonical_path,
                     sha256, size_bytes, portable)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT (sim_id, role, canonical_path)
+                   DO UPDATE SET
+                       category = EXCLUDED.category,
+                       original_path = EXCLUDED.original_path,
+                       sha256 = EXCLUDED.sha256,
+                       size_bytes = EXCLUDED.size_bytes,
+                       portable = EXCLUDED.portable,
+                       recorded_at = now()""",
                 [
                     sid,
                     entry.role,
@@ -855,10 +906,16 @@ class WritesMixin:
             "schema_sha256": schema_hash,
         }
         self._db.execute(
-            "INSERT OR REPLACE INTO geographic_features "
-            "(sim_id, feature_name, geometry_kind, crs_wkt, "
-            " geoparquet_path, properties) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            """INSERT INTO geographic_features
+               (sim_id, feature_name, geometry_kind, crs_wkt,
+                geoparquet_path, properties)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT (sim_id, feature_name)
+               DO UPDATE SET
+                   geometry_kind = EXCLUDED.geometry_kind,
+                   crs_wkt = EXCLUDED.crs_wkt,
+                   geoparquet_path = EXCLUDED.geoparquet_path,
+                   properties = EXCLUDED.properties""",
             [
                 sid,
                 feature_name,
@@ -924,9 +981,13 @@ class WritesMixin:
         for key, value in metadata.items():
             value_type = _python_value_type(value)
             self._db.execute(
-                "INSERT OR REPLACE INTO geographic_metadata "
-                "(sim_id, key, value, value_type) "
-                "VALUES (?, ?, ?, ?)",
+                """INSERT INTO geographic_metadata
+                   (sim_id, key, value, value_type)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT (sim_id, key)
+                   DO UPDATE SET
+                       value = EXCLUDED.value,
+                       value_type = EXCLUDED.value_type""",
                 [sid, str(key), None if value is None else str(value), value_type],
             )
 
@@ -1045,8 +1106,10 @@ class WritesMixin:
         columns map to empty strings so the layout is stable across runs.
         """
         row = self._db.execute(
-            "SELECT project, name, solver, config_hash, scientific_objective "
-            "FROM simulations WHERE sim_id = ?",
+            "SELECT s.project, s.name, sv.code, s.config_hash, s.scientific_objective "
+            "FROM simulations s "
+            "JOIN solvers sv ON s.solver_id = sv.id "
+            "WHERE s.sim_id = ?",
             [sim_id],
         ).fetchone()
         project, name, solver, config_hash, objective = row or (None, None, None, None, None)

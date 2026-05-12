@@ -22,12 +22,36 @@ import duckdb
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.catalog.storage_paths import build_storage_basename
-from hydromodpy.results.catalog_schema import (
+from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
 )
+from hydromodpy.results.catalog.constants import (
+    solver_code as _resolve_solver_code,
+)
+from hydromodpy.results.catalog.storage_paths import build_storage_basename
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX
 from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
+
+# Bridge legacy v1 mesh-topology vocabulary to v2 ``mesh_topologies.code``.
+_LEGACY_MESH_TOPOLOGY_MAP: dict[str, str] = {
+    "dis": "structured_3d",
+    "disv": "unstructured_2d",
+    "disu": "unstructured_3d",
+    "lumped": "lumped",
+    "network_1d": "network_1d",
+    "structured_2d": "structured_2d",
+    "structured_3d": "structured_3d",
+    "unstructured_2d": "unstructured_2d",
+    "unstructured_3d": "unstructured_3d",
+}
+
+
+def _resolve_mesh_topology_code(value: str | None) -> str | None:
+    if value is None:
+        return None
+    key = str(value).strip().lower()
+    return _LEGACY_MESH_TOPOLOGY_MAP.get(key)
+
 
 logger = get_logger(__name__)
 
@@ -211,6 +235,7 @@ class RegistrationMixin:
 
             if solver_category is None:
                 solver_category = _resolve_solver_category(solver)
+            solver_code_v2 = _resolve_solver_code(solver)
 
             config_json = json.dumps(config) if config else None
             snapshot_source = config_snapshot if config_snapshot is not None else config
@@ -229,9 +254,10 @@ class RegistrationMixin:
             if crs_epsg is None and crs:
                 crs_epsg = _epsg_from_crs(crs)
 
-            topology = mesh_topology
-            if topology is None and mesh_type in ("dis", "disv", "disu"):
-                topology = mesh_type
+            topology_in = mesh_topology
+            if topology_in is None and mesh_type in ("dis", "disv", "disu"):
+                topology_in = mesh_type
+            topology = _resolve_mesh_topology_code(topology_in)
             p_start = _coerce_timestamp(period_start)
             p_end = _coerce_timestamp(period_end)
 
@@ -260,26 +286,36 @@ class RegistrationMixin:
 
             self._db.execute(
                 """INSERT INTO simulations
-                   (sim_id, name, project, solver, solver_category, flow_regime,
+                   (sim_id, name, project,
+                    solver_id, status_id, flow_regime_id, mesh_topology_id,
                     n_cells, n_layers, n_timesteps,
                     bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
                     crs_wkt, crs_epsg,
                     period_start, period_end, time_unit,
                     config_toml, config_snapshot, config_hash, config_source,
-                    zarr_path, storage_basename, parent_sim_id, mesh_hash, mesh_topology,
-                    geographic_fingerprint, tags, notes,
+                    zarr_path, storage_basename, parent_sim_id, mesh_hash,
+                    geographic_fingerprint, notes,
                     description, scientific_objective, contact_email, doi,
                     study_area_name, outlet_x, outlet_y)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?,
+                           (SELECT id FROM solvers WHERE code = ?),
+                           (SELECT id FROM statuses WHERE code = ?),
+                           (SELECT id FROM flow_regimes WHERE code = ?),
+                           (SELECT id FROM mesh_topologies WHERE code = ?),
+                           ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                           ?, ?, ?, ?, ?, ?, ?,
+                           ?, ?, ?, ?,
+                           ?, ?,
+                           ?, ?, ?, ?,
+                           ?, ?, ?)""",
                 [
                     sid,
                     final_name,
                     project,
-                    solver,
-                    solver_category,
+                    solver_code_v2,
+                    "running",
                     flow_regime,
+                    topology,
                     n_cells,
                     n_layers,
                     n_timesteps,
@@ -300,9 +336,7 @@ class RegistrationMixin:
                     storage_basename,
                     parent_sid,
                     mesh_hash,
-                    topology,
                     geographic_fingerprint,
-                    tags,
                     notes,
                     description,
                     scientific_objective,
@@ -313,6 +347,12 @@ class RegistrationMixin:
                     outlet_y,
                 ],
             )
+            if tags:
+                for tag in tags:
+                    self._db.execute(
+                        "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
+                        [sid, str(tag)],
+                    )
             self._db.execute("COMMIT")
             main_transaction_started = False
         except Exception:
