@@ -19,16 +19,12 @@ from shapely import wkb
 if TYPE_CHECKING:
     import geopandas as gpd
 
-_SIMULATION_FILTER_COLUMNS: frozenset[str] = frozenset(
+# Filter columns that map to a real simulations.* column (no dim join).
+_SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
     {
         "sim_id",
         "name",
         "project",
-        "solver",
-        "solver_category",
-        "flow_regime",
-        "status",
-        "mesh_topology",
         "mesh_hash",
         "n_cells",
         "n_layers",
@@ -53,6 +49,20 @@ _SIMULATION_FILTER_COLUMNS: frozenset[str] = frozenset(
         "doi",
     }
 )
+
+# Filter columns resolved via dim-table JOINs.
+_SIMULATION_DIM_FILTERS: dict[str, str] = {
+    "solver": "sv.code",
+    "solver_category": "sv.category",
+    "flow_regime": "fr.code",
+    "status": "st.code",
+    "mesh_topology": "mt.code",
+}
+
+_SIMULATION_FILTER_COLUMNS: frozenset[str] = _SIMULATION_DIRECT_FILTERS | frozenset(
+    _SIMULATION_DIM_FILTERS.keys()
+)
+
 _SIMULATION_ORDER_COLUMNS: frozenset[str] = _SIMULATION_FILTER_COLUMNS | frozenset(
     {
         "started_at",
@@ -84,7 +94,23 @@ def _order_clause(order_by: str | tuple[str, str] | None) -> str | None:
     direction = direction.upper()
     if direction not in _ORDER_DIRECTIONS:
         raise ValueError("order_by direction must be 'ASC' or 'DESC'")
-    return f"{column} {direction}"
+    if column in _SIMULATION_DIM_FILTERS:
+        return f"{_SIMULATION_DIM_FILTERS[column]} {direction}"
+    return f"s.{column} {direction}"
+
+
+_SIMULATIONS_VIEW_SELECT = (
+    "SELECT s.*, "
+    "sv.code AS solver, sv.category AS solver_category, "
+    "st.code AS status, "
+    "fr.code AS flow_regime, "
+    "mt.code AS mesh_topology "
+    "FROM simulations s "
+    "JOIN solvers sv ON s.solver_id = sv.id "
+    "JOIN statuses st ON s.status_id = st.id "
+    "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+    "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
+)
 
 
 def _geometry_from_wkb(value: object):
@@ -207,14 +233,17 @@ class ReadsMixin:
         optional ``ASC`` or ``DESC`` direction.
         """
         order_by = filters.pop("order_by", None)
-        query = "SELECT * FROM simulations"
+        query = _SIMULATIONS_VIEW_SELECT
         params: list = []
         if filters:
             clauses = []
             for key, val in filters.items():
                 if key not in _SIMULATION_FILTER_COLUMNS:
                     raise ValueError(f"Unknown simulation filter: {key!r}")
-                clauses.append(f"{key} = ?")
+                if key in _SIMULATION_DIM_FILTERS:
+                    clauses.append(f"{_SIMULATION_DIM_FILTERS[key]} = ?")
+                else:
+                    clauses.append(f"s.{key} = ?")
                 params.append(val)
             query += " WHERE " + " AND ".join(clauses)
         clause = _order_clause(order_by)
@@ -283,7 +312,7 @@ class ReadsMixin:
 
     @property
     def simulations(self) -> pd.DataFrame:
-        return self._db.execute("SELECT * FROM simulations ORDER BY created_at DESC").fetchdf()
+        return self._db.execute(f"{_SIMULATIONS_VIEW_SELECT} ORDER BY s.created_at DESC").fetchdf()
 
     @property
     def calibration_sessions(self) -> pd.DataFrame:

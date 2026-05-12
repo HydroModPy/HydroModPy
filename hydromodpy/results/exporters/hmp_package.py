@@ -105,7 +105,7 @@ def _materialise_parquet(
     simulation was registered but never had any per-sim rows, e.g. an
     overview-only run).
     """
-    from hydromodpy.results.catalog_schema import PARQUET_VIEW_NAMES
+    from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 
     if not src_dir.is_dir():
         return []
@@ -331,10 +331,8 @@ def _dump_catalog_snapshot(
     """Create a one-sim DuckDB snapshot at ``dst``."""
     import duckdb as _duckdb
 
-    from hydromodpy.results.catalog_schema import (
-        PER_SIM_TABLE_NAMES,
-        ensure_schema,
-    )
+    from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
+    from hydromodpy.results.catalog.migrations import ensure_schema
 
     if dst.exists():
         dst.unlink()
@@ -371,7 +369,7 @@ def _restore_catalog_snapshot(
     """
     import duckdb as _duckdb
 
-    from hydromodpy.results.catalog_schema import PER_SIM_TABLE_NAMES
+    from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 
     snap = _duckdb.connect(str(snapshot_path), read_only=True)
     try:
@@ -822,7 +820,7 @@ def import_hmp_package(
         # Refresh Parquet views so the freshly-materialised files become
         # visible to subsequent ``SELECT ... FROM <view>`` calls on the
         # caller's catalog connection.
-        from hydromodpy.results.catalog_schema import ensure_parquet_views
+        from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 
         ensure_parquet_views(catalog.connection, catalog.simulations_dir)
 

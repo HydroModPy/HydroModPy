@@ -149,18 +149,29 @@ class DiscoveryMixin:
     def find(self, **filters) -> SimulationGroup:
         from hydromodpy.results.simulation_group import SimulationGroup
 
-        query = "SELECT DISTINCT s.sim_id FROM simulations s"
+        # v2 dim-table joins for filters that hit text codes (solver/status/etc.).
+        # Always-on JOINs keep the WHERE clause uniform whether or not the
+        # caller filters on the joined columns.
+        query = (
+            "SELECT DISTINCT s.sim_id FROM simulations s "
+            "JOIN solvers sv ON s.solver_id = sv.id "
+            "JOIN statuses st ON s.status_id = st.id "
+            "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+            "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
+        )
         joins: list[str] = []
         clauses: list[str] = []
-        # SQL binds positional placeholders in the order they appear in the
-        # query text (JOINs before WHEREs), so keep the two bind lists separate
-        # instead of one ordered by filter-insertion.
         join_params: list = []
         clause_params: list = []
+        # v2: tags moved out of simulations into a per-sim table.
+        tag_join_added = False
 
         for key, val in filters.items():
             if key == "tags":
-                clauses.append("list_contains(s.tags, ?)")
+                if not tag_join_added:
+                    joins.append("JOIN tags tg ON s.sim_id = tg.sim_id")
+                    tag_join_added = True
+                clauses.append("tg.tag = ?")
                 clause_params.append(val)
             elif key.endswith("_gt"):
                 metric = key[:-3]
@@ -192,15 +203,25 @@ class DiscoveryMixin:
             elif key == "crs":
                 clauses.append("s.crs_wkt = ?")
                 clause_params.append(val)
+            elif key == "solver":
+                clauses.append("sv.code = ?")
+                clause_params.append(val)
+            elif key == "solver_category":
+                clauses.append("sv.category = ?")
+                clause_params.append(val)
+            elif key == "status":
+                clauses.append("st.code = ?")
+                clause_params.append(val)
+            elif key == "flow_regime":
+                clauses.append("fr.code = ?")
+                clause_params.append(val)
+            elif key == "mesh_topology":
+                clauses.append("mt.code = ?")
+                clause_params.append(val)
             elif key in (
                 "project",
-                "solver",
-                "solver_category",
-                "flow_regime",
-                "status",
                 "name",
                 "crs_wkt",
-                "mesh_topology",
                 "geographic_fingerprint",
             ):
                 clauses.append(f"s.{key} = ?")
@@ -222,9 +243,10 @@ class DiscoveryMixin:
         from hydromodpy.results.run import Run
 
         row = self._db.execute(
-            "SELECT sim_id FROM simulations "
-            "WHERE project = ? AND status = 'completed' "
-            "ORDER BY created_at DESC LIMIT 1",
+            "SELECT s.sim_id FROM simulations s "
+            "JOIN statuses st ON s.status_id = st.id "
+            "WHERE s.project = ? AND st.code = 'completed' "
+            "ORDER BY s.created_at DESC LIMIT 1",
             [project],
         ).fetchone()
         if row is None:
@@ -250,8 +272,9 @@ class DiscoveryMixin:
         order = "ASC" if ascending else "DESC"
         rows = self._db.execute(
             "SELECT s.sim_id FROM simulations s "
+            "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
-            "WHERE s.project = ? AND s.status = 'completed' "
+            "WHERE s.project = ? AND st.code = 'completed' "
             "AND m.metric_name = ? "
             f"ORDER BY m.value {order} LIMIT ?",
             [project, metric, n],
@@ -307,17 +330,35 @@ class DiscoveryMixin:
                 f"stratify_by must be one of {sorted(allowed)} or None, got {stratify_by!r}"
             )
 
+        # Map stratify_by to a join expression that resolves dim tables.
+        stratify_expr_map = {
+            "scientific_objective": "s.scientific_objective",
+            "project": "s.project",
+            "solver": "sv.code",
+            "solver_category": "sv.category",
+            "flow_regime": "fr.code",
+            "study_area_name": "s.study_area_name",
+        }
+
+        base_from = (
+            "FROM simulations s "
+            "JOIN solvers sv ON s.solver_id = sv.id "
+            "JOIN statuses st ON s.status_id = st.id "
+            "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id"
+        )
+
         if stratify_by is None:
             rows = self._db.execute(
-                "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
-                "WHERE status = 'completed' ORDER BY sim_id"
+                f"SELECT CAST(s.sim_id AS VARCHAR) {base_from} "
+                "WHERE st.code = 'completed' ORDER BY s.sim_id"
             ).fetchall()
             sim_ids = [str(r[0]) for r in rows]
             strata = None
         else:
+            expr = stratify_expr_map[stratify_by]
             rows = self._db.execute(
-                f"SELECT CAST(sim_id AS VARCHAR), {stratify_by} FROM simulations "
-                "WHERE status = 'completed' ORDER BY sim_id"
+                f"SELECT CAST(s.sim_id AS VARCHAR), {expr} {base_from} "
+                "WHERE st.code = 'completed' ORDER BY s.sim_id"
             ).fetchall()
             sim_ids = [str(r[0]) for r in rows]
             strata = [r[1] if r[1] is not None else "__missing__" for r in rows]

@@ -22,22 +22,16 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog.facade import SimulationCatalog
 
 
-_SIM_META_COLUMNS: tuple[str, ...] = (
-    "sim_id",
-    "name",
-    "project",
-    "solver",
-    "solver_category",
-    "flow_regime",
-    "status",
-    "n_cells",
-    "n_layers",
-    "n_timesteps",
-    "config_hash",
-    "scientific_objective",
-    "study_area_name",
-    "created_at",
-    "duration_s",
+# Columns selected from simulations s with dim-table joins. Some are resolved
+# to text via JOIN (solver, status, flow_regime); the bare names below are kept
+# in the output dataset so downstream ML pipelines see stable column labels.
+_SIM_META_SELECT = (
+    "s.sim_id, s.name, s.project, "
+    "sv.code AS solver, sv.category AS solver_category, "
+    "fr.code AS flow_regime, st.code AS status, "
+    "s.n_cells, s.n_layers, s.n_timesteps, "
+    "s.config_hash, s.scientific_objective, s.study_area_name, "
+    "s.created_at, s.duration_s"
 )
 
 _ENV_META_COLUMNS: tuple[str, ...] = (
@@ -47,8 +41,9 @@ _ENV_META_COLUMNS: tuple[str, ...] = (
     "hostname",
     "git_commit",
     "project_git_commit",
-    "mf6_binary_sha256",
-    "mf6_version_text",
+    "solver_name",
+    "solver_binary_sha256",
+    "solver_version_text",
     "conda_env_hash",
     "rng_seed",
 )
@@ -158,9 +153,13 @@ class DatasetLoader:
 
     def _select_simulations(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
-        cols = ", ".join(_SIM_META_COLUMNS)
         df = self._catalog.connection.execute(
-            f"SELECT {cols} FROM simulations WHERE sim_id IN ({placeholders})",
+            f"SELECT {_SIM_META_SELECT} "
+            f"FROM simulations s "
+            f"JOIN solvers sv ON s.solver_id = sv.id "
+            f"JOIN statuses st ON s.status_id = st.id "
+            f"LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+            f"WHERE s.sim_id IN ({placeholders})",
             sim_ids,
         ).fetchdf()
         df["sim_id"] = df["sim_id"].astype(str)
