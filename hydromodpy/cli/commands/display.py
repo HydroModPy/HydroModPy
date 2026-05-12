@@ -9,7 +9,7 @@ Usage
 ``hmp display <config.toml> --latest N``       N most recent runs of this TOML.
 ``hmp display <config.toml> --only a,b,c``     Restrict to figures a,b,c.
 ``hmp display <sim_id> <figure>``              One figure for one specific sim.
-``hmp display --list [--all-projects]``        Browse runs in the workspace.
+``hmp display --list``                          Browse runs in the workspace.
 
 Run selection filters by the ``config_source`` column (the absolute path of
 the TOML that produced each run) and sorts by ``created_at DESC``, so the
@@ -27,7 +27,6 @@ from hydromodpy.cli.helpers import (
     EXIT_CONFIG,
     EXIT_NOT_FOUND,
     find_catalog_root,
-    find_workspace_root,
 )
 
 NAME: str = "display"
@@ -86,12 +85,6 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="List runs matching the filters and exit.",
     )
     parser.add_argument(
-        "--all-projects",
-        action="store_true",
-        dest="all_projects",
-        help="With --list, include runs from every project in the workspace.",
-    )
-    parser.add_argument(
         "--no-show",
         action="store_true",
         help="Force show=false in the resolved DisplayConfig",
@@ -118,14 +111,14 @@ def run(args: argparse.Namespace) -> None:
     figure_name = getattr(args, "figure_name", None)
 
     if args.list_runs and target is None:
-        _list_runs(all_projects=args.all_projects)
+        _list_runs()
         return
 
     if target is None:
         print(
             "Usage: hmp display <config.toml> [--run NAME | --sim UUID | --all]\n"
             "       hmp display <sim_id> <figure>\n"
-            "       hmp display --list [--all-projects]\n"
+            "       hmp display --list\n"
             f"Available figures: {', '.join(figure_names())}",
             file=sys.stderr,
         )
@@ -250,33 +243,19 @@ def _select_sim_ids(sims, args: argparse.Namespace) -> list[str]:
     return [str(sims.iloc[0]["sim_id"])]
 
 
-def _list_runs(*, all_projects: bool) -> None:
+def _list_runs() -> None:
     import os
 
     from hydromodpy.results.catalog import SimulationCatalog
 
     ws_override = os.environ.get("HYDROMODPY_WORKSPACE")
     start = Path(ws_override).expanduser() if ws_override else Path.cwd()
-    if all_projects:
-        from hydromodpy.results.catalog import CatalogIndex
-
-        workspace_root = find_workspace_root(start)
-        with CatalogIndex() as index:
-            index.register_workspace(workspace_root)
-            sims = index.query(
-                """
-                SELECT project_slug AS project, sim_id, name, solver, status, created_at
-                FROM all_simulations
-                ORDER BY created_at DESC
-                """
-            )
-    else:
-        workspace_root = find_catalog_root(start)
-        with SimulationCatalog(workspace_root) as catalog:
-            sims = catalog.list_simulations(
-                project=Path.cwd().name,
-                order_by="created_at DESC",
-            )
+    workspace_root = find_catalog_root(start)
+    with SimulationCatalog(workspace_root) as catalog:
+        sims = catalog.list_simulations(
+            project=Path.cwd().name,
+            order_by="created_at DESC",
+        )
     if sims.empty:
         print("No simulations found.", file=sys.stderr)
         return

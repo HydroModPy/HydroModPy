@@ -68,8 +68,7 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
             self.calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
         @classmethod
-        def from_workspace(cls, workspace, *, persistence=None, register_global=False):
-            del register_global
+        def from_workspace(cls, workspace, *, persistence=None):
             return cls(workspace.project_root, persistence=persistence)
 
         def register_simulation(self, *args, **kwargs):

@@ -110,23 +110,6 @@ def run(args: argparse.Namespace) -> None:
             suffix = f"  [{', '.join(details)}]" if details else ""
             print(f"  {project_dir.name}{suffix}")
 
-    try:
-        from hydromodpy.results.catalog import CatalogIndex
-
-        with CatalogIndex() as index:
-            index.register_workspace(workspace_root)
-            sims = index.query("SELECT project_slug, sim_id FROM all_simulations")
-        if sims.empty:
-            print("# catalog: (no simulations recorded)")
-        else:
-            projects = sims["project_slug"].dropna().value_counts().sort_index()
-            print(f"# catalog: {len(sims)} run(s) across {len(projects)} project(s)")
-            for project_name, count in projects.items():
-                print(f"  {project_name}  [{count} run(s)]")
-        return
-    except Exception as exc:
-        print(f"  Error reading project catalogs: {exc}", file=sys.stderr)
-
     if not projects_dir.is_dir():
         print(
             f"No projects/ directory found in {workspace_root}",

@@ -17,7 +17,6 @@ import duckdb
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.io.db_retry import connect_with_retry
-from hydromodpy.core.logging import get_logger
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
 from hydromodpy.results.catalog.package_io import PackageIOMixin
@@ -33,8 +32,6 @@ if TYPE_CHECKING:
     from uuid import UUID
 
     import xarray as xr
-
-logger = get_logger(__name__)
 
 
 class SimulationCatalog(
@@ -70,8 +67,6 @@ class SimulationCatalog(
         Optional directory containing simulation Zarr and Parquet stores.
     persistence
         Storage policy for packed or unpacked field arrays.
-    register_global
-        Register this workspace in the user-level global catalog index.
 
     Examples
     --------
@@ -94,7 +89,6 @@ class SimulationCatalog(
         catalog_path: Path | str | None = None,
         simulations_dir: Path | str | None = None,
         persistence: PersistenceConfig | None = None,
-        register_global: bool = False,
     ) -> None:
         root = Path(workspace_path).expanduser()
         if catalog_path is None and root.suffix == ".duckdb":
@@ -126,8 +120,6 @@ class SimulationCatalog(
         self._paths = StoragePathResolver(self._db, self._simulations_dir)
 
         ensure_schema(self._db, self._workspace, simulations_dir=self._simulations_dir)
-        if register_global:
-            self._register_global_project()
 
     @classmethod
     def from_workspace(
@@ -135,7 +127,6 @@ class SimulationCatalog(
         workspace: object,
         *,
         persistence: PersistenceConfig | None = None,
-        register_global: bool = False,
     ) -> SimulationCatalog:
         """Open the project catalog declared by a runtime workspace object.
 
@@ -146,8 +137,6 @@ class SimulationCatalog(
             ``simulations_dir``.
         persistence
             Optional storage policy.
-        register_global
-            Register this workspace in the global catalog index.
 
         Returns
         -------
@@ -159,7 +148,6 @@ class SimulationCatalog(
             catalog_path=Path(workspace.catalog_path),
             simulations_dir=Path(workspace.simulations_dir),
             persistence=persistence,
-            register_global=register_global,
         )
 
     @classmethod
@@ -168,7 +156,6 @@ class SimulationCatalog(
         workspace: object,
         *,
         persistence: PersistenceConfig | None = None,
-        register_global: bool = False,
     ) -> SimulationCatalog:
         """Open the project catalog declared by a workspace configuration.
 
@@ -178,8 +165,6 @@ class SimulationCatalog(
             Workspace configuration object.
         persistence
             Optional storage policy.
-        register_global
-            Register this workspace in the global catalog index.
 
         Returns
         -------
@@ -191,7 +176,6 @@ class SimulationCatalog(
             catalog_path=Path(workspace.catalog_path),
             simulations_dir=Path(workspace.simulations_dir),
             persistence=persistence,
-            register_global=register_global,
         )
 
     @classmethod
@@ -307,18 +291,6 @@ class SimulationCatalog(
         except Exception:
             count = "?"
         return f"SimulationCatalog(workspace={str(self._workspace)!r}, simulations={count})"
-
-    def _register_global_project(self) -> None:
-        try:
-            from hydromodpy.results.catalog.global_index import CatalogIndex
-
-            CatalogIndex().register_project(
-                project_root=self._workspace,
-                catalog_path=self._db_path,
-                simulations_dir=self._simulations_dir,
-            )
-        except Exception:
-            logger.debug("Could not register project catalog in global index", exc_info=True)
 
     def _repr_html_(self) -> str:
         try:

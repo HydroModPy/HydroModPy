@@ -67,7 +67,7 @@ def _default_store_factory(workspace: Path, persistence: object) -> Any:
     """Open the default calibration store."""
     from hydromodpy.results.catalog import SimulationCatalog
 
-    return SimulationCatalog(workspace, persistence=persistence, register_global=True)
+    return SimulationCatalog(workspace, persistence=persistence)
 
 
 # ---------------------------------------------------------------------------

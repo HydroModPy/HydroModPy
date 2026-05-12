@@ -51,23 +51,27 @@ def open(workspace_path: Any) -> Any:
     return SimulationCatalog(workspace_path)
 
 
-def catalog(path: Any = None) -> Any:
-    """Open the hidden global catalog index for inter-project queries.
+def index(db_path: Any = None) -> Any:
+    """Open the machine-wide global index that federates registered workspaces.
 
     Parameters
     ----------
-    path
-        Optional path to the catalog index database. ``None`` uses the default
-        user-level index location.
+    db_path
+        Optional path to the index DuckDB file. ``None`` uses the default
+        machine-state location.
 
     Returns
     -------
-    CatalogIndex
-        Index object that can discover registered project catalogs.
+    GlobalIndex
+        Index object exposing ``register_workspace``, ``find``, ``search``,
+        ``prune`` and ``forget``.
     """
-    from hydromodpy.results.catalog import CatalogIndex
+    from pathlib import Path as _Path
 
-    return CatalogIndex(path)
+    from hydromodpy.core.state.global_index import GlobalIndex
+
+    resolved = _Path(db_path).expanduser().resolve() if db_path is not None else None
+    return GlobalIndex(resolved)
 
 
 def run(config: Any, **kwargs: Any) -> Any:
