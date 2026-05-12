@@ -49,6 +49,7 @@ __pypackages__/
 CLAUDE.md
 .codex
 AGENTS.md
+.orchestrator/
 .spyderproject
 .spyproject
 .ropeproject
