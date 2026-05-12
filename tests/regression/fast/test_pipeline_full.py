@@ -6,9 +6,11 @@ that validates the contract guaranteed by ``Pipeline``:
 
 - linear execution of a 12-step pipeline,
 - checkpoint persistence between steps,
-- DuckDB ledger capturing status + elapsed time,
 - resume-after-crash replays only the remaining steps.
 
+Pipeline status bookkeeping (formerly persisted by ``steps_ledger.duckdb``)
+moves into the project ``catalog.duckdb`` as ``workflow_steps`` in P4. The
+checkpoint store is the source of truth for completed indices until then.
 The scientific-content pipeline (``standard_steps``) is covered by the
 launcher regression tests alongside this one.
 """
@@ -21,15 +23,9 @@ import pytest
 
 from hydromodpy.core.exceptions import StepError
 from hydromodpy.workflow.internals.checkpoint import CheckpointStore
-from hydromodpy.workflow.internals.ledger import StepsLedger
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.phases import STANDARD_PIPELINE_STEP_NAMES
 from hydromodpy.workflow.runner import Pipeline
-
-# ---------------------------------------------------------------------------
-# Synthetic workflow mirroring the canonical names of the real
-# pipeline so regressions stay meaningful.
-# ---------------------------------------------------------------------------
 
 CANONICAL_NAMES = STANDARD_PIPELINE_STEP_NAMES
 
@@ -73,7 +69,7 @@ def _make_pipeline(crash_at: int | None = None):
 @pytest.mark.regression
 @pytest.mark.fast
 def test_pipeline_full_end_to_end(tmp_path: Path) -> None:
-    """Fresh run completes all 11 canonical steps with checkpoints + ledger."""
+    """Fresh run completes all canonical steps and persists checkpoints."""
     pipeline = Pipeline(
         _make_pipeline(),
         workspace=tmp_path,
@@ -88,24 +84,17 @@ def test_pipeline_full_end_to_end(tmp_path: Path) -> None:
 
     cp = CheckpointStore(tmp_path, "full-1")
     assert cp.completed_indices() == list(range(len(CANONICAL_NAMES)))
-
-    with StepsLedger(tmp_path) as led:
-        assert led.last_completed("full-1") == len(CANONICAL_NAMES) - 1
-        rows = led.rows_for("full-1")
-    assert [row[2] for row in rows] == list(CANONICAL_NAMES)
-    assert all(row[3] == "completed" for row in rows)
+    assert cp.latest() == len(CANONICAL_NAMES) - 1
 
 
 @pytest.mark.regression
 @pytest.mark.fast
 def test_pipeline_crash_then_resume_converges(tmp_path: Path) -> None:
     """A mid-pipeline crash + resume yields the same final state as a clean run."""
-    # Clean run for reference.
     ref_final = Pipeline(_make_pipeline(), workspace=tmp_path, checkpoint=True).run(
         PipelineState(run_id="ref", data={}),
     )
 
-    # Crash at step 5 (setup_process), then resume with a healthy pipeline.
     crash_pipeline = Pipeline(
         _make_pipeline(crash_at=5),
         workspace=tmp_path,
