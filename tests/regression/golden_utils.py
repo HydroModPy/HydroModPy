@@ -138,7 +138,7 @@ def remove_tree_with_retry(
 def resolve_bundled_executable(executable: str) -> Path:
     """Return the expected solver executable path for the current platform.
 
-    Looks under the HydroModPy-managed cache, or under ``HYDROMODPY_BIN``
+    Looks under the HydroModPy-managed cache, or under ``HMP_BIN``
     when that environment variable is set. ``executable`` must be one of
     the canonical solver names handled by
     :mod:`hydromodpy.solver.modflow_common.binaries` (``mfnwt``, ``mf6``,
@@ -207,16 +207,16 @@ def resolve_tiered_results_dir(
     """
     Build and prepare one deterministic output directory for a regression test.
 
-    Outputs are tiered by test location under ``HYDROMODPY_OUT_PATH`` when set:
+    Outputs are tiered by test location under ``HMP_OUT_PATH`` when set:
     - ``.../fast/<run_name>/``
     - ``.../extensive/<run_name>/``
 
-    If ``HYDROMODPY_OUT_PATH`` is not set, a deterministic temporary root is
+    If ``HMP_OUT_PATH`` is not set, a deterministic temporary root is
     used: ``<tempdir>/hydromodpy_regression_outputs``.
 
     The target directory is cleaned before each run to avoid stale artifacts.
     """
-    base_out_path = os.environ.get("HYDROMODPY_OUT_PATH")
+    base_out_path = os.environ.get("HMP_OUT_PATH")
     if base_out_path:
         results_root = Path(base_out_path).expanduser().resolve()
     else:
@@ -724,7 +724,7 @@ def assert_required_executables(
     """
     Ensure the requested solver executables are available.
 
-    Looks under the resolved bin path (``HYDROMODPY_BIN`` or the
+    Looks under the resolved bin path (``HMP_BIN`` or the
     HydroModPy-managed cache). Skips the test instead of failing when a
     binary is missing, because that is an environment issue, not a
     model-regression issue.
@@ -951,8 +951,8 @@ def run_example_script(
     env = os.environ.copy()
     # Redirect outputs into the per-test output directory via project root override.
     env[out_env_var] = str(out_path)
-    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
-    env["HYDROMODPY_WORKSPACE"] = str(out_path)
+    env["HMP_PROJECT_ROOT"] = str(out_path)
+    env["HMP_WORKSPACE"] = str(out_path)
     # Force non-interactive plotting backend for headless execution.
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
@@ -963,7 +963,7 @@ def run_example_script(
     # programmatically before any project imports.  This avoids the numpy
     # double-load crashes caused by .pth files or "coverage run".
     run_args = [] if script_args is None else list(script_args)
-    if os.environ.get("HYDROMODPY_COVERAGE"):
+    if os.environ.get("HMP_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
         command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
@@ -999,14 +999,14 @@ def run_hmp_cli(
     :class:`Simulation` - the production entry point.
     """
     env = os.environ.copy()
-    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
-    env["HYDROMODPY_WORKSPACE"] = str(out_path)
+    env["HMP_PROJECT_ROOT"] = str(out_path)
+    env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
             env[key] = str(value)
 
-    if os.environ.get("HYDROMODPY_COVERAGE"):
+    if os.environ.get("HMP_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
         command = [
             sys.executable,

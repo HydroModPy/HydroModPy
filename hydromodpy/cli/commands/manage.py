@@ -17,7 +17,8 @@ import pandas as pd
 
 from hydromodpy.cli.commands.delete import delete_simulation_artifacts
 from hydromodpy.cli.helpers import EXIT_CONFIG, resolve_workspace
-from hydromodpy.results.storage_contract import CATALOG_FILENAME, SIMULATIONS_DIRNAME
+from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME
 from hydromodpy.results.storage_diagnostics import (
     diagnose_result_storage,
     storage_artefact_basename,

@@ -27,7 +27,7 @@ def test_legacy_npy_loading_reads_when_explicitly_enabled(
     path = tmp_path / "watertable_elevation.npy"
     np.save(path, {0: np.array([1.0, 2.0], dtype=float)})
 
-    monkeypatch.setenv("HYDROMODPY_ALLOW_LEGACY_NPY_VALIDATION", "1")
+    monkeypatch.setenv("HMP_ALLOW_LEGACY_NPY_VALIDATION", "1")
     payload = load_npy_dict(path)
 
     np.testing.assert_array_equal(payload[0], np.array([1.0, 2.0], dtype=float))

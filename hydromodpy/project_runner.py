@@ -72,7 +72,6 @@ def _resolve_step_index(step: str | int, steps: tuple) -> int:
 def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
     """Locate the next step index to execute for a previously interrupted run."""
     from hydromodpy.workflow.internals.checkpoint import CheckpointStore
-    from hydromodpy.workflow.internals.ledger import StepsLedger
 
     cp = CheckpointStore(workspace, run_id)
     last = cp.latest()
@@ -81,14 +80,7 @@ def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
             f"No checkpoints found for run_id '{run_id}' in {cp.dir}. "
             "Start a fresh run instead of using resume."
         )
-    resume_from = last + 1
-
-    ledger = StepsLedger(workspace)
-    last_completed = ledger.last_completed(run_id)
-    ledger.close()
-    if last_completed is not None:
-        resume_from = max(resume_from, last_completed + 1)
-    return resume_from
+    return last + 1
 
 
 def _print_dry_run_plan(

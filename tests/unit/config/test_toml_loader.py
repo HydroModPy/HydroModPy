@@ -200,7 +200,7 @@ def test_launcher_simulation_mf6_precomputed_mesh_input_config_uses_runtime_mesh
     assert "planar" not in payload["modflow6"]["sgrid"]
     assert payload["modflow6"]["sgrid"]["vertical"]["nlay"] == 2
     assert "postprocess" not in payload
-    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path))
+    monkeypatch.setenv("HMP_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)
     assert list(cfg.simulation.process[0].solvers) == ["modflow6"]
 
@@ -235,7 +235,7 @@ def test_launcher_simulation_mf6_mesh_catchment_config_embeds_mesh_generation(
     assert payload["analysis"]["capability_gallery"]["enabled"] is True
     assert payload["analysis"]["capability_gallery"]["case_slug"] == "modflow6_gmsh_mesh_catchment"
 
-    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(tmp_path))
+    monkeypatch.setenv("HMP_WORKSPACE", str(tmp_path))
     cfg = HydroModPyConfig.from_toml(example_config)
     assert cfg.mesh_catchment is not None
 

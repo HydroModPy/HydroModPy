@@ -81,14 +81,14 @@ class TestCreateProject:
         project_dir = create_project(root, "my_project")
 
         assert project_dir.is_dir()
-        assert (project_dir / "project.toml").exists()
+        assert (project_dir / "hydromodpy.toml").exists()
         assert (project_dir / "run_demo.toml").exists()
 
     def test_project_toml_content(self, tmp_path):
         root = scaffold(tmp_path / "hydromodpy")
         project_dir = create_project(root, "canut")
 
-        content = (project_dir / "project.toml").read_text()
+        content = (project_dir / "hydromodpy.toml").read_text()
         assert "canut" in content
         assert "[geographic]" in content
         assert "[domain]" in content
@@ -99,7 +99,7 @@ class TestCreateProject:
         project_dir = create_project(root, "canut")
 
         content = (project_dir / "run_demo.toml").read_text()
-        assert 'base_config = "project.toml"' in content
+        assert 'base_config = "hydromodpy.toml"' in content
         assert "[simulation]" in content
         assert "[[simulation.process]]" in content
 
@@ -107,10 +107,10 @@ class TestCreateProject:
         root = scaffold(tmp_path / "hydromodpy")
         project_dir = create_project(root, "my_project")
 
-        (project_dir / "project.toml").write_text("# custom\n")
+        (project_dir / "hydromodpy.toml").write_text("# custom\n")
         create_project(root, "my_project")
 
-        assert (project_dir / "project.toml").read_text() == "# custom\n"
+        assert (project_dir / "hydromodpy.toml").read_text() == "# custom\n"
 
     def test_project_inside_projects_dir(self, tmp_path):
         root = scaffold(tmp_path / "hydromodpy")

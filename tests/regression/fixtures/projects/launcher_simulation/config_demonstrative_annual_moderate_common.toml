@@ -7,7 +7,7 @@
 # - lowers K and Sy moderately,
 # - keeps drainage active without pushing the basin into an extreme dry-out.
 
-base_config = "project.toml"
+base_config = "hydromodpy.toml"
 
 
 [workflow]

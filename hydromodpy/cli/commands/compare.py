@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "compare"
 HELP: str = "Compare two simulations by sim_id, prefix, or name"
@@ -33,7 +34,7 @@ def run(args: argparse.Namespace) -> None:
     workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    if not (workspace_root / "hydromodpy.duckdb").exists():
+    if not (workspace_root / CATALOG_FILENAME).exists():
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 

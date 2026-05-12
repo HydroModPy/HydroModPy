@@ -6,13 +6,14 @@ from pathlib import Path
 
 import pandas as pd
 
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.catalog import SimulationCatalog
 
 
 def _discover_catalog_root(start: Path) -> Path:
     """Walk up from ``start`` to find a project catalog."""
     for parent in [start, *start.parents]:
-        if (parent / "hydromodpy.duckdb").exists():
+        if (parent / CATALOG_FILENAME).exists():
             return parent
     return start
 
@@ -30,11 +31,11 @@ def compare_pair(
     holds no metrics for either reference, an empty DataFrame is returned.
 
     ``workspace`` defaults to the nearest ancestor of ``cwd`` containing
-    ``hydromodpy.duckdb``.
+    ``catalog.duckdb``.
     """
     start = Path(workspace).expanduser().resolve() if workspace is not None else Path.cwd()
     workspace_root = _discover_catalog_root(start)
-    if not (workspace_root / "hydromodpy.duckdb").exists():
+    if not (workspace_root / CATALOG_FILENAME).exists():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
 
     with SimulationCatalog(workspace_root) as catalog:

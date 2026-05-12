@@ -157,7 +157,7 @@ def test_main_list_respects_selection_filters(monkeypatch, capsys) -> None:
 
 def test_gallery_temp_root_respects_override(monkeypatch, tmp_path: Path) -> None:
     override = tmp_path / "gallery-temp-root"
-    monkeypatch.setenv("HYDROMODPY_DOC_GALLERY_TMPDIR", str(override))
+    monkeypatch.setenv("HMP_DOC_GALLERY_TMPDIR", str(override))
 
     resolved = update_gallery._gallery_temp_root()
 

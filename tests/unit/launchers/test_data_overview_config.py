@@ -14,7 +14,7 @@ def test_overview_config_respects_project_root_env_override(
     dem_path.write_text("dummy", encoding="utf-8")
     redirected_project_root = tmp_path / "redirected_project_root"
     monkeypatch.setenv(
-        "HYDROMODPY_PROJECT_ROOT",
+        "HMP_PROJECT_ROOT",
         str(redirected_project_root),
     )
 

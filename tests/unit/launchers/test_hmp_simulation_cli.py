@@ -110,7 +110,7 @@ def test_hmp_run_applies_overlay_set_and_env_overrides(monkeypatch, tmp_path) ->
         captured["payload"] = tomllib.loads(path.read_text(encoding="utf-8"))
         return {"name": "test", "sim_id": "abc"}
 
-    monkeypatch.setenv("HYDROMODPY_SET_simulation__run_id", "env_run")
+    monkeypatch.setenv("HMP_SET_simulation__run_id", "env_run")
     monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
     monkeypatch.setattr(
         "sys.argv",

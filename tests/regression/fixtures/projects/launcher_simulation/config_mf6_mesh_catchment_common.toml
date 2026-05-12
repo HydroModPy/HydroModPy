@@ -4,7 +4,7 @@
 # `examples/projects/launcher_simulation/` so process_simulation examples can
 # inherit it safely while still using the standard simulation launcher.
 
-base_config = "project.toml"
+base_config = "hydromodpy.toml"
 
 
 [workflow]

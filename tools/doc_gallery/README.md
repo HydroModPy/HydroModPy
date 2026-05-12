@@ -131,7 +131,7 @@ python -m tools.doc_gallery --check --only geographic_nancon_identity_card
 The gallery now uses one repo-local temporary root by default:
 
 - `.tmp-doc-gallery/` under the repository root
-- override with `HYDROMODPY_DOC_GALLERY_TMPDIR` if needed
+- override with `HMP_DOC_GALLERY_TMPDIR` if needed
 
 Scaffold one new declarative `copy_assets` case:
 

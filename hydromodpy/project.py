@@ -27,7 +27,7 @@ Example
 
     import hydromodpy as hmp
 
-    project = hmp.Project("project.toml")
+    project = hmp.Project("hydromodpy.toml")
 
     result = project.run(Sy=0.05, K=5e-5, name="baseline")
     wt = result.field("watertable_depth", timestep=12)
@@ -90,12 +90,12 @@ class Project:
 
         import hydromodpy as hmp
 
-        project = hmp.Project("project.toml")
+        project = hmp.Project("hydromodpy.toml")
         r = project.run(Sy=0.05)
 
     Same TOML, orchestration from Python::
 
-        project = hmp.Project("project.toml")
+        project = hmp.Project("hydromodpy.toml")
         r = project.simulate(
             time=("2000-01-01", "2005-12-31", "1 month"),
             processes=[("flow", "modflownwt")],
@@ -178,7 +178,7 @@ class Project:
 
         Examples
         --------
-        >>> project = Project.lazy("project.toml")
+        >>> project = Project.lazy("hydromodpy.toml")
         >>> project.build_geographic()
         >>> project.load_data()
         >>> project.build_mesh()

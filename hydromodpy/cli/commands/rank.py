@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "rank"
 HELP: str = "Rank simulations of a project by a metric (top or bottom N)"
@@ -41,7 +42,7 @@ def run(args: argparse.Namespace) -> None:
     from hydromodpy.results.catalog import SimulationCatalog
 
     workspace_root = find_catalog_root(Path(args.workspace or Path.cwd()).expanduser().resolve())
-    if not (workspace_root / "hydromodpy.duckdb").exists():
+    if not (workspace_root / CATALOG_FILENAME).exists():
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 

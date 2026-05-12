@@ -2,9 +2,14 @@
 
 Simulates a pipeline that crashes on step N and verifies that
 (a) the first N-1 steps' checkpoints exist on disk,
-(b) the ledger records them as completed + the failing one as failed,
-(c) a second pipeline invocation with ``resume_from`` replays only the
+(b) a second pipeline invocation with ``resume_from`` replays only the
     remaining steps on the restored state.
+
+Pipeline-level bookkeeping (status, elapsed, error) used to be persisted by
+a stand-alone ``steps_ledger.duckdb``. That base is being merged into the
+project ``catalog.duckdb`` as the ``workflow_steps`` table in P4. Tests that
+asserted ledger rows have been replaced by checkpoint-store assertions until
+the new table is wired.
 """
 
 from __future__ import annotations
@@ -15,7 +20,6 @@ import pytest
 
 from hydromodpy.core.exceptions import StepError
 from hydromodpy.workflow.internals.checkpoint import CheckpointStore
-from hydromodpy.workflow.internals.ledger import StepsLedger
 from hydromodpy.workflow.internals.state import PipelineState
 from hydromodpy.workflow.runner import Pipeline
 
@@ -74,17 +78,14 @@ def test_checkpoint_persists_each_step(tmp_path: Path) -> None:
     assert indices == [0, 1, 2]
 
 
-def test_ledger_records_completed_steps(tmp_path: Path) -> None:
+def test_checkpoint_records_completed_steps(tmp_path: Path) -> None:
     pipeline = _fresh_pipeline(tmp_path, [_AddOne(), _AddOne()])
     state = PipelineState(run_id="led-1", data={"counter": 0})
     pipeline.run(state)
 
-    with StepsLedger(tmp_path) as led:
-        assert led.last_completed("led-1") == 1
-        rows = led.rows_for("led-1")
-    assert len(rows) == 2
-    statuses = [row[3] for row in rows]
-    assert statuses == ["completed", "completed"]
+    cp = CheckpointStore(tmp_path, "led-1")
+    assert cp.latest() == 1
+    assert cp.completed_indices() == [0, 1]
 
 
 def test_crash_then_resume_replays_only_remaining(tmp_path: Path) -> None:
@@ -99,30 +100,18 @@ def test_crash_then_resume_replays_only_remaining(tmp_path: Path) -> None:
 
     cp = CheckpointStore(tmp_path, "crash-1")
     assert cp.completed_indices() == [0]
+    assert cp.latest() == 0
 
-    with StepsLedger(tmp_path) as led:
-        assert led.last_completed("crash-1") == 0
-        rows = led.rows_for("crash-1")
-        failed = [r for r in rows if r[3] == "failed"]
-        assert len(failed) == 1
-        assert failed[0][1] == 1  # step_index of crash
-
-    # Replace the crashing step with a working one and resume.
     fixed_pipeline = _fresh_pipeline(tmp_path, [_AddOne(), _RecoveredCrash(), _Double()])
     final = fixed_pipeline.run(
         PipelineState(run_id="crash-1"),
         resume_from=1,
     )
-    # counter was 6 after step 0; step 1 makes it 7; step 2 doubles to 14.
     assert final.data["counter"] == 14
     assert final.step_name == "double"
 
 
 def test_resume_without_checkpoint_directory_raises(tmp_path: Path) -> None:
-    # Attempting to resume a run whose checkpoints do not exist results
-    # in a pipeline that effectively starts from scratch at the requested
-    # index (the CheckpointStore silently falls back to the supplied
-    # initial state).
     pipeline = _fresh_pipeline(tmp_path, [_AddOne()])
     state = PipelineState(run_id="missing", data={"counter": 99})
     final = pipeline.run(state, resume_from=0)
@@ -134,6 +123,5 @@ def test_checkpoint_file_naming(tmp_path: Path) -> None:
     pipeline.run(PipelineState(run_id="naming", data={"counter": 1}))
     cp_dir = tmp_path / ".hmp" / "checkpoints" / "naming"
     names = sorted(p.name for p in cp_dir.iterdir())
-    # Filenames look like 00_add_one.pkl(.zst) and 01_double.pkl(.zst)
     assert any(n.startswith("00_add_one") for n in names)
     assert any(n.startswith("01_double") for n in names)

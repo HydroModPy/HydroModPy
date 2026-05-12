@@ -33,7 +33,7 @@ def test_resolve_tiered_results_dir_retries_transient_permission_error(
             raise PermissionError(32, "The process cannot access the file")
         return real_rmtree(path, *args, **kwargs)
 
-    monkeypatch.setenv("HYDROMODPY_OUT_PATH", str(tmp_path))
+    monkeypatch.setenv("HMP_OUT_PATH", str(tmp_path))
     monkeypatch.setattr(golden_utils.shutil, "rmtree", flaky_rmtree)
     monkeypatch.setattr(golden_utils.time, "sleep", sleeps.append)
     monkeypatch.setattr(golden_utils.gc, "collect", lambda: None)
@@ -159,7 +159,7 @@ def test_resolve_tiered_results_dir_retries_when_rmtree_onerror_hits_locked_file
             raise OSError(145, "Directory not empty", str(path))
         return real_rmtree(path, *args, **kwargs)
 
-    monkeypatch.setenv("HYDROMODPY_OUT_PATH", str(tmp_path))
+    monkeypatch.setenv("HMP_OUT_PATH", str(tmp_path))
     monkeypatch.setattr(golden_utils.shutil, "rmtree", flaky_rmtree)
     monkeypatch.setattr(golden_utils.time, "sleep", sleeps.append)
     monkeypatch.setattr(golden_utils.gc, "collect", lambda: None)

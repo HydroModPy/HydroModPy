@@ -17,23 +17,23 @@ def _scaffold(workspace_dir: Path, project: str = "demo") -> Path:
 
 
 def test_workspace_bin_path_defaults_to_managed_cache(tmp_path, monkeypatch) -> None:
-    """Without HYDROMODPY_BIN, bin_path resolves to the managed cache."""
-    monkeypatch.delenv("HYDROMODPY_BIN", raising=False)
+    """Without HMP_BIN, bin_path resolves to the managed cache."""
+    monkeypatch.delenv("HMP_BIN", raising=False)
 
-    from hydromodpy.core.state.cache import get_cache_bin_dir
+    from hydromodpy.core.state.paths import cache_dir
 
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
     workspace = Workspace(config=cfg)
 
-    assert Path(workspace.bin_path).resolve() == get_cache_bin_dir().resolve()
+    assert Path(workspace.bin_path).resolve() == (cache_dir() / "bin").resolve()
 
 
 def test_workspace_bin_path_honours_env_override(tmp_path, monkeypatch) -> None:
-    """HYDROMODPY_BIN overrides the cache when set."""
+    """HMP_BIN overrides the cache when set."""
     custom_bin = tmp_path / "custom_bin"
     custom_bin.mkdir()
-    monkeypatch.setenv("HYDROMODPY_BIN", str(custom_bin))
+    monkeypatch.setenv("HMP_BIN", str(custom_bin))
 
     project = _scaffold(tmp_path / "ws")
     cfg = WorkspaceConfig(project_root=project)
@@ -62,7 +62,7 @@ def test_workspace_creates_folder_structure(tmp_path) -> None:
 
 
 def test_workspace_resolves_scaffold(tmp_path) -> None:
-    """Scaffold layout: <ws>/projects/<name>/project.toml derives root."""
+    """Scaffold layout: <ws>/projects/<name>/hydromodpy.toml derives root."""
     ws_root = tmp_path / "myworkspace"
     project = _scaffold(ws_root)
     cfg = WorkspaceConfig(project_root=project)
@@ -84,7 +84,7 @@ def test_workspace_resolves_explicit_root(tmp_path) -> None:
 def test_workspace_resolves_env_var(tmp_path, monkeypatch) -> None:
     ws_root = tmp_path / "envworkspace"
     ws_root.mkdir()
-    monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(ws_root))
+    monkeypatch.setenv("HMP_WORKSPACE", str(ws_root))
     project = tmp_path / "standalone_project"
     project.mkdir()
     cfg = WorkspaceConfig(project_root=project)
@@ -93,12 +93,12 @@ def test_workspace_resolves_env_var(tmp_path, monkeypatch) -> None:
 
 
 def test_workspace_standalone_project_falls_back_to_project_root(tmp_path, monkeypatch) -> None:
-    monkeypatch.delenv("HYDROMODPY_WORKSPACE", raising=False)
+    monkeypatch.delenv("HMP_WORKSPACE", raising=False)
     project = tmp_path / "standalone_project"
     project.mkdir()
     cfg = WorkspaceConfig(project_root=project)
     assert cfg.root == project.resolve()
-    assert cfg.catalog_path == (project / "hydromodpy.duckdb").resolve()
+    assert cfg.catalog_path == (project / "catalog.duckdb").resolve()
     assert cfg.resolution_source == "project"
 
 
@@ -113,7 +113,7 @@ def test_workspace_data_path_from_workspace_root(tmp_path) -> None:
     project = _scaffold(ws_root)
     cfg = WorkspaceConfig(project_root=project)
     assert cfg.data_path == (ws_root / "data").resolve()
-    assert cfg.catalog_path == (project / "hydromodpy.duckdb").resolve()
+    assert cfg.catalog_path == (project / "catalog.duckdb").resolve()
     assert cfg.simulations_dir == (project / "simulations").resolve()
 
 

@@ -22,6 +22,7 @@ import pandas as pd
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.array_fingerprint import fingerprint
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
@@ -790,6 +791,7 @@ class WritesMixin:
                 )
                 continue
             size = _path_size_bytes(canonical)
+            encoded = _encode_workspace_path(self._workspace, canonical)
             self._db.execute(
                 """INSERT OR REPLACE INTO tracked_files
                    (sim_id, role, category, original_path, canonical_path,
@@ -800,7 +802,7 @@ class WritesMixin:
                     entry.role,
                     entry.category,
                     entry.original_path,
-                    str(canonical),
+                    encoded,
                     sha,
                     int(size),
                     bool(entry.portable),
@@ -835,11 +837,7 @@ class WritesMixin:
             feature_name,
             geoparquet_path=geoparquet_path,
         )
-        rel_path = (
-            str(target.relative_to(self._workspace))
-            if target.is_relative_to(self._workspace)
-            else str(target)
-        )
+        rel_path = _encode_workspace_path(self._workspace, target)
         self._write_geographic_feature_parquet(gdf, target)
         bounds = [float(value) for value in gdf.total_bounds]
         schema_payload = {

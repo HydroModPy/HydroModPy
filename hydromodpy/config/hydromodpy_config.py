@@ -474,14 +474,14 @@ class HydroModPyConfig(HydroModelBase):
             raise ValueError(f"Unknown top-level TOML section(s): {', '.join(unknown)}")
 
         # Auto-derive workspace.project_root from TOML location if absent.
-        # HYDROMODPY_PROJECT_ROOT env var takes precedence (used by test infra).
+        # HMP_PROJECT_ROOT env var takes precedence (used by test infra).
         workspace_section = raw.get("workspace", {})
         if workspace_section is None:
             workspace_section = {}
         if not isinstance(workspace_section, Mapping):
             raise ValueError("TOML section [workspace] must be a mapping")
         workspace_section = dict(workspace_section)
-        env_project_root = os.environ.get("HYDROMODPY_PROJECT_ROOT")
+        env_project_root = os.environ.get("HMP_PROJECT_ROOT")
         if env_project_root:
             workspace_section["project_root"] = str(Path(env_project_root).expanduser().resolve())
         elif not workspace_section.get("project_root"):

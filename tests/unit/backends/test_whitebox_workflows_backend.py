@@ -85,7 +85,7 @@ def test_whitebox_workflows_backend_supports_native_stdio_redirection(
     capfd,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("HYDROMODPY_WHITEBOX_REDIRECT_NATIVE_STDIO", "1")
+    monkeypatch.setenv("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO", "1")
     backend = WhiteboxWorkflowsBackend()
 
     def _noisy_native_operation():

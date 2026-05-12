@@ -24,9 +24,9 @@ class WhiteboxRasterBackend:
 
     def __init__(self) -> None:
         self._env = wbw.WbEnvironment()
-        self._verbose = self._is_truthy_env(os.environ.get("HYDROMODPY_WHITEBOX_VERBOSE"))
+        self._verbose = self._is_truthy_env(os.environ.get("HMP_WHITEBOX_VERBOSE"))
         self._redirect_native_stdio = self._is_truthy_env(
-            os.environ.get("HYDROMODPY_WHITEBOX_REDIRECT_NATIVE_STDIO")
+            os.environ.get("HMP_WHITEBOX_REDIRECT_NATIVE_STDIO")
         )
         try:
             self._env.verbose = bool(self._verbose)

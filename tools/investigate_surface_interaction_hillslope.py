@@ -308,7 +308,7 @@ def _run_launcher_solver_scenario(
     completed = run_example_script(
         script_path=LAUNCHER_SCRIPT,
         out_path=out_path,
-        out_env_var="HYDROMODPY_OUT_PATH",
+        out_env_var="HMP_OUT_PATH",
         extra_env={"MPLBACKEND": "Agg"},
         script_args=[str(config_path)],
         timeout=timeout,
@@ -1029,7 +1029,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     output_root = Path(args.output_root).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
-    os.environ["HYDROMODPY_OUT_PATH"] = str(output_root)
+    os.environ["HMP_OUT_PATH"] = str(output_root)
 
     metadata = load_case_metadata(CASE_DIR)
     reference_cfg = dict(metadata.get("reference", {}))

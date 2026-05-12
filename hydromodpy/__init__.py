@@ -10,9 +10,9 @@ import importlib
 # so the verbs in `hydromodpy/_api` are re-exported here on purpose.
 from hydromodpy._api import (
     calibrate,
-    catalog,
     compare_pair,
     doctor,
+    index,
     mesh,
     open,
     overview,
@@ -40,7 +40,7 @@ _DIRECT_EXPORTS = [
     "open",
     "run",
     "calibrate",
-    "catalog",
+    "index",
     "overview",
     "compare_pair",
     "mesh",

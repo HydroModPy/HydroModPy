@@ -95,7 +95,6 @@ LAZY_IMPORTS: dict[str, str] = {
     "Project": "hydromodpy.project",
     "SimulationPlan": "hydromodpy.simulation.planning.plan",
     # Catalog API
-    "CatalogIndex": "hydromodpy.results.catalog",
     "SimulationCatalog": "hydromodpy.results.catalog",
     "SimulationGroup": "hydromodpy.results.simulation_group",
     "Run": "hydromodpy.results.run",

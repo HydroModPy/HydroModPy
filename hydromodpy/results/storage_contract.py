@@ -4,6 +4,10 @@ HydroModPy keeps one workspace-level catalog database and per-simulation
 artefacts below the workspace ``simulations`` directory. This module centralises
 that vocabulary so path builders, documentation-oriented tests, and public
 facades do not drift back toward ambiguous "one database per run" language.
+
+The catalog filename itself lives in
+:mod:`hydromodpy.core.state.paths` so every layer (core, results, cli, data)
+shares one canonical definition.
 """
 
 from __future__ import annotations
@@ -11,9 +15,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from hydromodpy.core.state.paths import CATALOG_FILENAME
+
 StorageScope = Literal["workspace", "simulation"]
 
-CATALOG_FILENAME = "hydromodpy.duckdb"
 SIMULATIONS_DIRNAME = "simulations"
 
 ZARR_SUFFIX = ".zarr"
@@ -65,7 +70,6 @@ SIMULATION_STORAGE_LAYER_NAMES: tuple[str, ...] = tuple(
 
 
 __all__ = [
-    "CATALOG_FILENAME",
     "PARQUET_DIR_SUFFIX",
     "PARQUET_FILE_SUFFIX",
     "RESULT_STORAGE_LAYERS",

@@ -11,6 +11,7 @@ import duckdb
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 
 logger = get_logger(__name__)
@@ -243,6 +244,25 @@ class DataCatalogDuckDB:
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.close()
+
+    def _workspace_root(self) -> Path | None:
+        """Return the workspace root inferred from the cache DB location."""
+        if self._db_path is None:
+            return None
+        return self._db_path.parent.parent
+
+    def _encode_path_for_storage(self, file_path: Path | str) -> str:
+        """Encode ``file_path`` as a workspace-relative POSIX string.
+
+        Falls back to ``str(file_path)`` for the in-memory catalog where no
+        workspace is anchored. When the catalog is file-backed the encoding
+        is delegated to ``core.state.paths.encode_workspace_path`` so cache
+        and state directories get explicit ``cache://`` / ``state://`` URIs.
+        """
+        workspace = self._workspace_root()
+        if workspace is None:
+            return str(file_path)
+        return encode_workspace_path(workspace, Path(file_path))
 
     # -- register --------------------------------------------------------------
 

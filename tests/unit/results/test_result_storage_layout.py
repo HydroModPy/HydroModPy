@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.catalog.storage_paths import build_storage_basename
 from hydromodpy.results.storage_contract import (
-    CATALOG_FILENAME,
     PARQUET_DIR_SUFFIX,
     RESULT_STORAGE_LAYERS,
     SIMULATION_STORAGE_LAYER_NAMES,

@@ -641,8 +641,8 @@ def run_piecewise_strip_boussinesq_launcher_case(
     import subprocess as _sp
 
     env = os.environ.copy()
-    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
-    env["HYDROMODPY_WORKSPACE"] = str(out_path)
+    env["HMP_PROJECT_ROOT"] = str(out_path)
+    env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     command = [sys.executable, "-m", "hydromodpy", "run", str(config_path)]
     completed = _sp.run(

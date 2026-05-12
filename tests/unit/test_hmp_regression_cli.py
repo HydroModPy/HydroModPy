@@ -157,8 +157,8 @@ def test_hmp_unit_rejects_extensive(monkeypatch) -> None:
 
 def test_hmp_test_uses_external_pytest_basetemp(monkeypatch, tmp_path: Path) -> None:
     scratch_root = tmp_path / "external_scratch"
-    monkeypatch.setenv("HYDROMODPY_TEST_SCRATCH_ROOT", str(scratch_root))
-    monkeypatch.delenv("HYDROMODPY_TEST_SESSION_SCRATCH_ROOT", raising=False)
+    monkeypatch.setenv("HMP_TEST_SCRATCH_ROOT", str(scratch_root))
+    monkeypatch.delenv("HMP_TEST_SESSION_SCRATCH_ROOT", raising=False)
 
     args, env = _capture_pytest_invocation(
         monkeypatch,
@@ -169,12 +169,12 @@ def test_hmp_test_uses_external_pytest_basetemp(monkeypatch, tmp_path: Path) -> 
     assert "--basetemp" in args
     basetemp_index = args.index("--basetemp")
     basetemp_path = Path(args[basetemp_index + 1])
-    session_root = Path(env["HYDROMODPY_TEST_SESSION_SCRATCH_ROOT"])
+    session_root = Path(env["HMP_TEST_SESSION_SCRATCH_ROOT"])
     assert session_root.parent == (scratch_root / "sessions").resolve()
     assert session_root.name.startswith("cli_")
     assert basetemp_path.parent == (session_root / "pytest").resolve()
     assert basetemp_path.name.startswith("cli_")
-    assert env["HYDROMODPY_TEST_SCRATCH_ROOT"] == str(scratch_root.resolve())
+    assert env["HMP_TEST_SCRATCH_ROOT"] == str(scratch_root.resolve())
     assert env["PYTEST_DEBUG_TEMPROOT"] == str((session_root / "pytest").resolve())
     assert env["TMPDIR"] == str((session_root / "tmp").resolve())
     assert env["TMP"] == str((session_root / "tmp").resolve())
@@ -187,8 +187,8 @@ def test_hmp_test_reuses_inherited_pytest_session_scratch(
 ) -> None:
     scratch_root = tmp_path / "external_scratch"
     session_root = scratch_root / "sessions" / "parent-session"
-    monkeypatch.setenv("HYDROMODPY_TEST_SCRATCH_ROOT", str(scratch_root))
-    monkeypatch.setenv("HYDROMODPY_TEST_SESSION_SCRATCH_ROOT", str(session_root))
+    monkeypatch.setenv("HMP_TEST_SCRATCH_ROOT", str(scratch_root))
+    monkeypatch.setenv("HMP_TEST_SESSION_SCRATCH_ROOT", str(session_root))
 
     args, env = _capture_pytest_invocation(
         monkeypatch,
@@ -197,7 +197,7 @@ def test_hmp_test_reuses_inherited_pytest_session_scratch(
 
     assert env is not None
     basetemp_path = Path(args[args.index("--basetemp") + 1])
-    assert env["HYDROMODPY_TEST_SCRATCH_ROOT"] == str(scratch_root.resolve())
-    assert env["HYDROMODPY_TEST_SESSION_SCRATCH_ROOT"] == str(session_root.resolve())
+    assert env["HMP_TEST_SCRATCH_ROOT"] == str(scratch_root.resolve())
+    assert env["HMP_TEST_SESSION_SCRATCH_ROOT"] == str(session_root.resolve())
     assert basetemp_path.parent == (session_root / "pytest").resolve()
     assert env["TMPDIR"] == str((session_root / "tmp").resolve())

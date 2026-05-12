@@ -406,7 +406,6 @@ def step_open_store(ctx: WorkflowContext) -> None:
     ctx.store = SimulationCatalog.from_workspace(
         workspace,
         persistence=results_cfg.persistence,
-        register_global=True,
     )
     ctx.sim_id = str(uuid4())
 

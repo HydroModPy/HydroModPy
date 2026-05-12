@@ -831,7 +831,7 @@ def ensure_schema(
     Idempotent: repeated calls on the same connection are safe. Additive
     column evolutions declared in ``_SIMULATIONS_ADDITIVE_COLUMNS`` are
     back-filled into pre-existing catalogs via ``ALTER TABLE`` so that
-    upgrades don't require wiping ``hydromodpy.duckdb``. See
+    upgrades don't require wiping ``catalog.duckdb``. See
     ``docs/developers/schema_evolution.md`` for broader evolution rules.
 
     Ordering matters: ``CREATE TABLE IF NOT EXISTS`` for an already-existing

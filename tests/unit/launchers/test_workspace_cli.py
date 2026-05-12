@@ -19,7 +19,7 @@ def _seed_workspace(root: Path) -> None:
     (root / "exports").mkdir()
     (root / ".hmp").mkdir()
     (root / "projects" / "demo").mkdir(parents=True)
-    (root / "projects" / "demo" / "hydromodpy.duckdb").write_bytes(b"duckdb")
+    (root / "projects" / "demo" / "catalog.duckdb").write_bytes(b"duckdb")
     (root / "projects" / "demo" / "simulations" / "run.zarr").mkdir(parents=True)
     (root / "projects" / "demo" / ".solver_scratch").mkdir(parents=True)
     (root / "projects" / "demo" / "figures").mkdir()
@@ -36,7 +36,7 @@ def test_workspace_clean_dry_run_keeps_files(monkeypatch, tmp_path: Path, capsys
 
     out = capsys.readouterr().out
     assert "Dry-run" in out
-    assert (tmp_path / "projects" / "demo" / "hydromodpy.duckdb").exists()
+    assert (tmp_path / "projects" / "demo" / "catalog.duckdb").exists()
     assert (tmp_path / "projects" / "demo" / "simulations").exists()
     assert (tmp_path / "data" / "cache.duckdb").exists()
 
@@ -53,7 +53,7 @@ def test_workspace_clean_all_deletes_generated_artifacts(
 
     main()
 
-    assert not (tmp_path / "projects" / "demo" / "hydromodpy.duckdb").exists()
+    assert not (tmp_path / "projects" / "demo" / "catalog.duckdb").exists()
     assert not (tmp_path / "projects" / "demo" / "simulations").exists()
     assert not (tmp_path / "data" / "cache.duckdb").exists()
     assert not (tmp_path / "data" / "blobs").exists()

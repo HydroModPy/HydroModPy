@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.core.state.paths import CATALOG_FILENAME, WORKSPACE_TOML_FILENAME
+from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
 
 NAME: str = "init"
 HELP: str = "Scaffold a HydroModPy workspace (data + projects). Default: ~/hydromodpy/"
@@ -31,6 +33,21 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Overwrite an existing workspace catalog.",
     )
+    parser.add_argument(
+        "--project-name",
+        default=None,
+        help="Workspace project name written into workspace.toml.",
+    )
+    parser.add_argument(
+        "--creator-name",
+        default=None,
+        help="Workspace creator name written into workspace.toml.",
+    )
+    parser.add_argument(
+        "--creator-email",
+        default=None,
+        help="Workspace creator email written into workspace.toml.",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
@@ -48,12 +65,22 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_CONFIG)
 
     result = scaffold(target)
+    workspace_toml = write_workspace_toml(
+        result,
+        project_name=args.project_name or result.name,
+        creator_name=args.creator_name or "",
+        creator_email=args.creator_email or "",
+        force=args.force,
+    )
 
     print(f"Workspace: {result}")
     print(f"Scaffolded at {result}/. Create projects with `hmp new <name> --workspace {result}`.")
     print()
     print("Layout:")
+    print(f"  {result}/{WORKSPACE_TOML_FILENAME}")
     print(f"  {result}/data/")
     print(f"  {result}/projects/")
-    print("  <project>/hydromodpy.duckdb")
+    print(f"  <project>/{CATALOG_FILENAME}")
     print("  <project>/simulations/")
+    print()
+    print(f"Workspace metadata: {workspace_toml}")

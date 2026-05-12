@@ -159,7 +159,7 @@ def test_checkpoint_strips_live_store_without_losing_ctx(tmp_path: Path) -> None
             results=SimpleNamespace(persistence=SimpleNamespace(save_catalog=False))
         )
     )
-    ctx = WorkflowContext(cfg=cfg, config_path=tmp_path / "project.toml", raw_toml={})
+    ctx = WorkflowContext(cfg=cfg, config_path=tmp_path / "hydromodpy.toml", raw_toml={})
     ctx.sim_id = "sim-1"
     ctx.store = lambda: None
     ctx.postprocess_runner = lambda: None

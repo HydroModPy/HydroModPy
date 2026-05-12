@@ -793,9 +793,9 @@ workspace_root/                   (defaut: ~/hydromodpy)
 │   └── hydrography/
 └── projects/
     └── {nom_projet}/
-        ├── project.toml
-        ├── project.duckdb         # Resultats de simulation (par projet)
-        ├── project_results.zarr/  # Champs volumiques (par projet)
+        ├── hydromodpy.toml
+        ├── catalog.duckdb         # Resultats de simulation (par projet)
+        ├── simulations/           # Per-sim Zarr / Parquet stores
         └── run_demo.toml
 ```
 

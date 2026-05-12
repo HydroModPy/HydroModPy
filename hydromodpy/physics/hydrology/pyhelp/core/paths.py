@@ -21,6 +21,7 @@ import warnings
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 
 logger = get_logger(__name__)
 
@@ -42,19 +43,6 @@ _GITHUB_HEADERS = {
     "User-Agent": f"hydromodpy-pyhelp/{__version__}",
     "Accept": "application/vnd.github+json",
 }
-
-
-def _get_cache_dir():
-    """Get platform-specific cache directory for HydroModPy"""
-    if sys.platform == "win32":
-        cache_base = Path.home() / "AppData" / "Local" / "hydromodpy"
-    elif sys.platform == "darwin":
-        cache_base = Path.home() / "Library" / "Caches" / "hydromodpy"
-    else:  # Linux
-        cache_base = Path.home() / ".cache" / "hydromodpy"
-
-    cache_base.mkdir(parents=True, exist_ok=True)
-    return cache_base
 
 
 def _get_binary_filename():
@@ -91,7 +79,8 @@ def _download_help3o_binary():
     if not binary_filename:
         raise RuntimeError(f"Unsupported platform: {platform.system()} {platform.machine()}")
 
-    cache_dir = _get_cache_dir()
+    cache_dir = _hmp_cache_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
     binary_path = cache_dir / binary_filename
 
     # If already downloaded, return
@@ -270,7 +259,8 @@ def ensure_help3o_loaded():
         warnings.warn(str(_HELP3O_ERROR), ImportWarning, stacklevel=2)
         return None
 
-    cache_dir = _get_cache_dir()
+    cache_dir = _hmp_cache_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
     binary_path = cache_dir / binary_filename
 
     if not binary_path.exists():
