@@ -88,7 +88,7 @@ class Project:
         for fully-Python workflows.
     solver : str, optional
         Flow solver name. Auto-detected from the config, defaults to
-        ``"modflownwt"``.
+        ``"modflow_nwt"``.
     headless : bool, optional
         Disable display and postprocess runners (useful for calibration
         loops where generating figures per iteration is wasteful).
@@ -107,7 +107,7 @@ class Project:
         project = hmp.Project("hydromodpy.toml")
         r = project.simulate(
             time=("2000-01-01", "2005-12-31", "1 month"),
-            processes=[("flow", "modflownwt")],
+            processes=[("flow", "modflow_nwt")],
             Sy=0.05,
         )
 
@@ -185,6 +185,13 @@ class Project:
         Project
             Project with validated configuration and empty runtime context.
 
+        Raises
+        ------
+        FileNotFoundError
+            If ``config`` is a path that does not exist.
+        ConfigValidationError
+            If the resolved payload fails Pydantic validation.
+
         Examples
         --------
         >>> project = Project.lazy("hydromodpy.toml")
@@ -215,6 +222,18 @@ class Project:
         -------
         Project
             Project initialized from the TOML file.
+
+        Raises
+        ------
+        FileNotFoundError
+            If ``config_path`` does not exist on disk.
+        ConfigValidationError
+            If the TOML payload fails Pydantic validation.
+
+        Examples
+        --------
+        >>> import hydromodpy as hmp
+        >>> project = hmp.Project.from_toml("hydromodpy.toml")
         """
         return cls(Path(config_path), **kwargs)
 
@@ -241,6 +260,13 @@ class Project:
         -------
         Project
             Project initialized from the validated JSON payload.
+
+        Raises
+        ------
+        ConfigValidationError
+            If the JSON payload fails Pydantic validation.
+        json.JSONDecodeError
+            If ``payload`` is not valid JSON.
         """
         from hydromodpy.config import HydroModPyConfig
 
@@ -270,6 +296,11 @@ class Project:
         -------
         Project
             Project initialized from the validated mapping.
+
+        Raises
+        ------
+        ConfigValidationError
+            If the mapping fails Pydantic validation.
         """
         from hydromodpy.config import HydroModPyConfig
 
@@ -314,6 +345,13 @@ class Project:
         -------
         Run
             Persisted run view for the derived simulation.
+
+        Raises
+        ------
+        ConfigMissingError
+            If ``run`` has no persisted config snapshot.
+        PipelineError
+            If the derived pipeline produces no new Run, e.g. ``dry_run`` mode.
         """
         snapshot = run.config_snapshot
         if snapshot is None:
@@ -503,6 +541,20 @@ class Project:
             Persisted run view for simulation workflows. Dry runs and some
             non-simulation workflows may return ``None``.
 
+        Raises
+        ------
+        PipelineError
+            If a workflow step fails during execution.
+        SolverError
+            If the configured solver crashes or fails to converge.
+        ResumeError
+            If ``resume`` references an incompatible checkpoint.
+
+        Examples
+        --------
+        >>> run = project.run(Sy=0.05, name="probe")
+        >>> run.summary()
+
         See Also
         --------
         hydromodpy.run
@@ -523,7 +575,24 @@ class Project:
         )
 
     def overview(self, *, config_path: str | Path | None = None):
-        """Generate the watershed identity card."""
+        """Generate the watershed identity card.
+
+        Parameters
+        ----------
+        config_path
+            Optional path to the overview TOML. Defaults to the project's
+            originating TOML when one is available.
+
+        Returns
+        -------
+        Any
+            Overview launcher result.
+
+        Raises
+        ------
+        ConfigError
+            If no TOML path is available for the overview workflow.
+        """
         from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
 
         path = config_path if config_path is not None else self._config_path
@@ -532,7 +601,24 @@ class Project:
         return DataOverviewLauncher(path).run()
 
     def compare(self, *, config_path: str | Path | None = None):
-        """Run the comparison workflow declared in a TOML config."""
+        """Run the comparison workflow declared in a TOML config.
+
+        Parameters
+        ----------
+        config_path
+            Optional path to the comparison TOML. Defaults to the project's
+            originating TOML when one is available.
+
+        Returns
+        -------
+        Any
+            Comparison launcher result.
+
+        Raises
+        ------
+        ConfigError
+            If no TOML path is available for the comparison workflow.
+        """
         from hydromodpy.analysis.comparison.experiment_launcher import (
             SimulationComparisonLauncher,
         )
@@ -656,11 +742,41 @@ class Project:
         )
 
     def mesh(self) -> dict:
-        """Run the standalone mesh-only workflow defined by this project."""
+        """Run the standalone mesh-only workflow defined by this project.
+
+        Returns
+        -------
+        dict
+            Mesh launcher summary payload.
+
+        Raises
+        ------
+        MeshGenerationError
+            If the mesh generator fails to produce a valid mesh.
+        """
         return self._runner.mesh()
 
     def report(self, session_id: str | None = None) -> Path:
-        """Render the HTML report for a calibration session."""
+        """Render the HTML report for a calibration session.
+
+        Parameters
+        ----------
+        session_id
+            Calibration session UUID. ``None`` falls back to the latest
+            session in the workspace.
+
+        Returns
+        -------
+        pathlib.Path
+            Path to the rendered HTML report.
+
+        Raises
+        ------
+        RunNotFoundError
+            If ``session_id`` cannot be resolved in the catalog.
+        DisplayError
+            If the report template fails to render.
+        """
         return self._runner.report(session_id)
 
     # -- Lifecycle --------------------------------------------------------

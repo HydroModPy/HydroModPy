@@ -89,8 +89,14 @@ class Run(
     catalog
         Open ``SimulationCatalog`` that owns the run metadata and storage paths.
 
+    Raises
+    ------
+    hydromodpy.results.errors.RunNotFoundError
+        On first attribute access if ``sim_id`` is not present in the catalog.
+
     Examples
     --------
+    >>> import hydromodpy as hmp
     >>> catalog = hmp.open("~/hmp_workspace")
     >>> run = catalog.latest()
     >>> run.summary()
@@ -252,6 +258,22 @@ class Run(
         timing, mesh sizes, tags). Datetime values are kept as Python
         objects in dict form; with ``json=True`` they are stringified
         and the whole payload is returned as a JSON string.
+
+        Parameters
+        ----------
+        json
+            If ``True``, return a JSON string instead of a dict.
+
+        Returns
+        -------
+        dict or str
+            Headline fields as a dict, or as a JSON-encoded string when
+            ``json=True``.
+
+        Raises
+        ------
+        hydromodpy.results.errors.RunNotFoundError
+            If the run row has been deleted between catalog open and call.
         """
         row = self._load_row()
         keys = (
