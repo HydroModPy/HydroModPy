@@ -8,7 +8,7 @@ mode = "simulation"
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [[simulation.process]]
 id = "transport_main"

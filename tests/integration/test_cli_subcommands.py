@@ -122,4 +122,4 @@ def test_new_project_scaffold_writes_valid_run_config(monkeypatch, tmp_path) -> 
     cfg = HydroModPyConfig.from_toml(run_config)
     assert cfg.workflow.mode == "simulation"
     assert cfg.geographic.source_mode == "synthetic"
-    assert cfg.simulation.process[0].solvers == ["modflownwt"]
+    assert cfg.simulation.process[0].solvers == ["modflow_nwt"]

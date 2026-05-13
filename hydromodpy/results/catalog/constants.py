@@ -76,14 +76,27 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
 )
 
 
+# Canonical v2 solver codes, mirroring ``solvers.code`` rows in
+# ``catalog/migrations/versions/0001_initial_v2_schema.sql``.
+VALID_SOLVER_CODES: frozenset[str] = frozenset(
+    {
+        "boussinesq",
+        "gr4j",
+        "modflow6",
+        "modflow_nwt",
+        "modpath",
+        "mt3dms",
+    }
+)
+
+
 def solver_category(solver_name: str) -> str | None:
     """Return the category for in-tree solvers without importing solver layers."""
     known = {
         "boussinesq": "integrated",
         "gr4j": "lumped",
         "modflow6": "distributed",
-        "modflow6gwt": "distributed",
-        "modflownwt": "distributed",
+        "modflow_nwt": "distributed",
         "modpath": "distributed",
         "mt3dms": "distributed",
     }
@@ -96,25 +109,21 @@ def solver_category(solver_name: str) -> str | None:
     return None
 
 
-# Map free-form solver names (legacy v1 vocabulary) to v2 ``solvers.code``.
-# Used by the registration / discovery layers when bridging callers that still
-# pass solver names as strings, before P5 introduces a typed enum end-to-end.
-_LEGACY_SOLVER_CODE_MAP: dict[str, str] = {
-    "modflow6": "modflow6",
-    "modflow6gwt": "modflow6",
-    "modflow_nwt": "modflow_nwt",
-    "modflownwt": "modflow_nwt",
-    "boussinesq": "boussinesq",
-    "gr4j": "gr4j",
-    "mt3dms": "mt3dms",
-    "modpath": "modpath",
-}
+def validate_solver_code(solver_name: str) -> str:
+    """Validate a solver code against the canonical v2 vocabulary.
 
+    Returns the trimmed lower-case code on success.
 
-def solver_code(solver_name: str) -> str:
-    """Normalise a legacy solver name to its v2 ``solvers.code`` value."""
+    Raises
+    ------
+    ValueError
+        When *solver_name* is not a known ``solvers.code`` value.
+    """
     key = str(solver_name).strip().lower()
-    return _LEGACY_SOLVER_CODE_MAP.get(key, key)
+    if key not in VALID_SOLVER_CODES:
+        known = ", ".join(sorted(VALID_SOLVER_CODES))
+        raise ValueError(f"Unknown solver code {solver_name!r}. Expected one of: {known}.")
+    return key
 
 
 __all__ = [
@@ -123,6 +132,7 @@ __all__ = [
     "PARQUET_VIEW_NAMES",
     "PER_SIM_TABLE_NAMES",
     "TABLE_NAMES",
+    "VALID_SOLVER_CODES",
     "solver_category",
-    "solver_code",
+    "validate_solver_code",
 ]

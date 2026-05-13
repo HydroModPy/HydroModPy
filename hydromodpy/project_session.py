@@ -188,7 +188,7 @@ class ProjectSession:
             Optional ``(start, end, step)`` tuple overriding the time grid.
         processes
             Optional list of processes to activate (``["flow", ...]`` or
-            ``[("flow", "modflownwt")]`` tuples for explicit solver picks).
+            ``[("flow", "modflow_nwt")]`` tuples for explicit solver picks).
         name
             Optional run name persisted in the catalog.
         overrides

@@ -883,7 +883,7 @@ def test_extract_observable_rows_resolves_structured_xy_from_config(
                 "[[simulation.process]]",
                 'id = "flow_main"',
                 'type = "flow"',
-                'solvers = ["modflownwt"]',
+                'solvers = ["modflow_nwt"]',
                 "",
                 "[modflownwt.sgrid.planar]",
                 'mode = "resample_to_shape"',
@@ -1735,7 +1735,7 @@ def test_simulation_comparison_launcher_writes_chronicles_native_flux_and_runtim
                 "mesh_output_exchange_bundle_dir": str(candidate_bundle),
                 "wall_time_seconds": 25.0,
                 "flow_solve_time_seconds": 4.5,
-                "solvers": ["modflownwt"],
+                "solvers": ["modflow_nwt"],
                 "success": True,
             }
         ),

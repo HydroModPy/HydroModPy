@@ -49,7 +49,7 @@ def _seed_run(
         n_cells=n_cells,
         n_layers=1,
         n_timesteps=n_timesteps,
-        mesh_topology="dis",
+        mesh_topology="structured_3d",
     )
     catalog.write_run_environment(sid)
 

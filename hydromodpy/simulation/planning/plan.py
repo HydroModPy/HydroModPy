@@ -40,7 +40,7 @@ class ProcessRun:
     process_type: str
     solver: str
     backend: str | None = None
-    # Dependencies refer to concrete run ids (for example "flow_1::modflownwt").
+    # Dependencies refer to concrete run ids (for example "flow_1::modflow_nwt").
     depends_on: tuple[str, ...] = field(default_factory=tuple)
 
     @staticmethod

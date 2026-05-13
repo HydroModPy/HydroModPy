@@ -56,7 +56,7 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
     flow_adapter = _RecordingAdapter(flow_model)
     transport_adapter = _RecordingAdapter(transport_model)
     adapters = {
-        ("flow", "modflownwt"): flow_adapter,
+        ("flow", "modflow_nwt"): flow_adapter,
         ("transport", "mt3dms"): transport_adapter,
     }
     from hydromodpy.simulation import _solver_protocol
@@ -82,17 +82,17 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
         description="demo",
         runs=(
             ProcessRun(
-                id="flow_main::modflownwt",
+                id="flow_main::modflow_nwt",
                 process_id="flow_main",
                 process_type="flow",
-                solver="modflownwt",
+                solver="modflow_nwt",
             ),
             ProcessRun(
                 id="transport_main::mt3dms",
                 process_id="transport_main",
                 process_type="transport",
                 solver="mt3dms",
-                depends_on=("flow_main::modflownwt",),
+                depends_on=("flow_main::modflow_nwt",),
             ),
         ),
     )
@@ -104,7 +104,7 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
     assert flow_adapter.calls[0].dependency_models == ()
     assert transport_adapter.calls[0].dependency_models == (flow_model,)
     assert state.execution.models_by_run_id == {
-        "flow_main::modflownwt": flow_model,
+        "flow_main::modflow_nwt": flow_model,
         "transport_main::mt3dms": transport_model,
     }
 
@@ -115,10 +115,10 @@ def test_run_solver_step_uses_injected_launcher() -> None:
         description="demo",
         runs=(
             ProcessRun(
-                id="flow_main::modflownwt",
+                id="flow_main::modflow_nwt",
                 process_id="flow_main",
                 process_type="flow",
-                solver="modflownwt",
+                solver="modflow_nwt",
             ),
         ),
     )
@@ -322,10 +322,10 @@ def test_run_flow_model_forwards_flow_runtime_overrides(monkeypatch) -> None:
 
 def test_run_flow_model_links_mt3dms_only_for_downstream_mt3dms_transport() -> None:
     flow_run = ProcessRun(
-        id="flow_main::modflownwt",
+        id="flow_main::modflow_nwt",
         process_id="flow_main",
         process_type="flow",
-        solver="modflownwt",
+        solver="modflow_nwt",
     )
     transport_run = ProcessRun(
         id="transport_main::mt3dms",

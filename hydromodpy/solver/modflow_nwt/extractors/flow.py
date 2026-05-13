@@ -89,7 +89,7 @@ class ModflowNwtOutputAdapter:
     ``{model_name}.cbc``, and optionally ``{model_name}.lst``.
     """
 
-    solver_name = "modflownwt"
+    solver_name = "modflow_nwt"
     category = "distributed"
 
     def extract(

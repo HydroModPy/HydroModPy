@@ -84,7 +84,7 @@ class Modpath(Solver):
         if not hasattr(model_modflow, "mf"):
             raise ValueError(
                 "Modpath is available only with MODFLOW-NWT flow models. "
-                "Please set [solver].solver_engine = 'modflownwt' and run modflownwt first."
+                "Please set [solver].solver_engine = 'modflow_nwt' and run modflow_nwt first."
             )
 
         self.domain = domain

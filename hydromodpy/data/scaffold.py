@@ -262,7 +262,7 @@ step_value = "1 year"
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 """
 
 

@@ -22,7 +22,7 @@ from hydromodpy.solver.modflow_common.flow_translator import (
 
 @pytest.mark.parametrize(
     "solver_key",
-    ["modflownwt", "modflow-nwt", "nwt", "modflow6", "mf6"],
+    ["modflow_nwt", "nwt", "modflow6", "mf6"],
 )
 def test_resolve_package_accepts_supported_solver_keys(solver_key: str) -> None:
     """Every officially supported solver alias resolves without error."""

@@ -107,7 +107,7 @@ class GlobalIndex:
     >>> import hydromodpy as hmp
     >>> idx = hmp.index()
     >>> idx.register_workspace("~/hmp_workspace", label="default")
-    >>> idx.find(solver="modflownwt")
+    >>> idx.find(solver="modflow_nwt")
     """
 
     def __init__(self, db_path: Path | None = None, *, read_only: bool = False) -> None:

@@ -197,7 +197,7 @@ def test_compute_derived_writes_release_flux_from_drain_and_surface_excess(
 def test_compute_derived_routes_release_accumulation_on_unstructured_mesh(
     catalog: SimulationCatalog,
 ) -> None:
-    sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="disv")
+    sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="unstructured_2d")
     vertices = np.array(
         [
             [0.0, 0.0, 0.0],
@@ -260,7 +260,7 @@ def test_compute_derived_routes_release_accumulation_on_unstructured_mesh(
 def test_compute_derived_routes_accumulation_on_unstructured_mesh(
     catalog: SimulationCatalog,
 ) -> None:
-    sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="disv")
+    sim_id = _register_catalog_run(catalog, n_cells=2, mesh_topology="unstructured_2d")
     vertices = np.array(
         [
             [0.0, 0.0, 0.0],

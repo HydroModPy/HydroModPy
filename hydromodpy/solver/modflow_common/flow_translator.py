@@ -69,7 +69,7 @@ def resolve_package(kind: BoundaryKind | str, *, solver: str) -> str:
     """Return the FloPy package suffix for one ``(kind, solver)`` pair."""
     if isinstance(kind, str):
         kind = BoundaryKind(kind)
-    if solver in ("modflownwt", "modflow-nwt", "nwt"):
+    if solver in ("modflow_nwt", "nwt"):
         table = NWT_PACKAGES
     elif solver in ("modflow6", "mf6"):
         table = MF6_PACKAGES

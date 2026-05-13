@@ -128,9 +128,9 @@ def _persist(catalog, *, topology: str, vertices: np.ndarray, fnc: np.ndarray) -
 @pytest.mark.parametrize(
     ("topology", "build_mesh"),
     [
-        ("dis", lambda: _quad_mesh(nrow=2, ncol=3)),
-        ("disv", _disv_mesh),
-        ("disu", _triangle_mesh),
+        ("structured_3d", lambda: _quad_mesh(nrow=2, ncol=3)),
+        ("unstructured_2d", _disv_mesh),
+        ("unstructured_3d", _triangle_mesh),
     ],
 )
 def test_dataset_returns_ugriddataset(catalog, topology, build_mesh):
@@ -159,7 +159,7 @@ def test_dataset_returns_ugriddataset(catalog, topology, build_mesh):
 
 def test_dataset_variable_filter(catalog):
     vertices, fnc = _quad_mesh(nrow=2, ncol=2)
-    sid = _persist(catalog, topology="dis", vertices=vertices, fnc=fnc)
+    sid = _persist(catalog, topology="structured_3d", vertices=vertices, fnc=fnc)
     run = Run(sid, catalog)
 
     ds = run.array.dataset(variable="head")
@@ -169,7 +169,7 @@ def test_dataset_variable_filter(catalog):
 
 def test_dataset_unknown_variable_raises(catalog):
     vertices, fnc = _quad_mesh(nrow=2, ncol=2)
-    sid = _persist(catalog, topology="dis", vertices=vertices, fnc=fnc)
+    sid = _persist(catalog, topology="structured_3d", vertices=vertices, fnc=fnc)
     run = Run(sid, catalog)
 
     with pytest.raises(UnknownFieldError, match="not registered"):
@@ -178,7 +178,7 @@ def test_dataset_unknown_variable_raises(catalog):
 
 def test_dataset_missing_variable_raises(catalog):
     vertices, fnc = _quad_mesh(nrow=2, ncol=2)
-    sid = _persist(catalog, topology="dis", vertices=vertices, fnc=fnc)
+    sid = _persist(catalog, topology="structured_3d", vertices=vertices, fnc=fnc)
     run = Run(sid, catalog)
 
     with pytest.raises(KeyError, match="not found"):

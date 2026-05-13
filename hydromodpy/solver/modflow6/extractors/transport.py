@@ -13,4 +13,4 @@ from hydromodpy.solver.modflow_common.mt3dms_extractor_base import Mt3dmsExtract
 class Modflow6GwtOutputAdapter(Mt3dmsExtractorBase):
     """Ingest MODFLOW 6 GWT concentration outputs into a SimulationCatalog."""
 
-    solver_name = "modflow6gwt"
+    solver_name = "modflow6"

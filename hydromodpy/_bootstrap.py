@@ -141,11 +141,11 @@ def _register_analysis_contracts() -> None:
         def distributed_flow_solver_sections(self) -> tuple[str, ...]:
             flow_solvers = {name for _, name in _registry.pairs_for_process("flow")}
             sections: list[str] = []
-            for name in _registry.list_extractor_solvers():
-                if name not in flow_solvers:
+            for process_type, name in _registry.list_extractor_pairs():
+                if process_type != "flow" or name not in flow_solvers:
                     continue
                 try:
-                    extractor = _registry.get_extractor(name)
+                    extractor = _registry.get_extractor(process_type, name)
                 except KeyError:
                     continue
                 if getattr(extractor, "category", None) == "distributed":
@@ -183,8 +183,8 @@ def _register_simulation_contracts() -> None:
         def get_solver_adapter_class(self, process_type: str, solver_name: str) -> type:
             return _registry.get(process_type, solver_name)
 
-        def get_extractor_instance(self, solver_name: str):
-            return _registry.get_extractor_instance(solver_name)
+        def get_extractor_instance(self, process_type: str, solver_name: str):
+            return _registry.get_extractor_instance(process_type, solver_name)
 
     _sim_protocol.set_solver_registry_provider(_RegistryProvider())
 
