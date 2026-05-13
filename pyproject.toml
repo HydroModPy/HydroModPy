@@ -98,6 +98,11 @@ viz = [
     "datashader>=0.16,<1",
     "lttb>=0.3,<1",
 ]
+fair = [
+    "pystac>=1.10,<2",
+    "stac-validator>=3.5,<5",
+    "mlcroissant>=1.0,<2",
+]
 interactive = [
     "bokeh>=3.0,<4",
     "holoviews>=1.18,<2",
