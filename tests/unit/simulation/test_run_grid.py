@@ -27,7 +27,7 @@ def _make_dem(nrow: int = 5, ncol: int = 4) -> np.ndarray:
 def _register_sim(
     catalog: SimulationCatalog,
     *,
-    mesh_topology: str = "dis",
+    mesh_topology: str = "structured_3d",
     with_metadata: bool = True,
     with_raster: bool = True,
     dem_res: float = 50.0,
