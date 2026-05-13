@@ -27,7 +27,7 @@ def catalog_with_data(tmp_path):
     reg = c.register_simulation(
         sid,
         project="test",
-        solver="modflownwt",
+        solver="modflow_nwt",
         n_cells=n_cells,
         n_layers=n_layers,
         n_timesteps=n_ts,

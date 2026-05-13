@@ -44,7 +44,7 @@ name = "toy"
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [flow.param.K.field]
 value = 1e-4

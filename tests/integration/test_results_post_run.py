@@ -89,7 +89,7 @@ class _FakeProvider:
         self.extractor = extractor
         self.adapter = _FakeAdapter()
 
-    def get_extractor_instance(self, solver_name: str):
+    def get_extractor_instance(self, process_type: str, solver_name: str):
         if solver_name == "fake_solver":
             return self.extractor
         return None
@@ -116,9 +116,9 @@ def _install_post_run_stubs(
 class TestPostRunResults:
     def test_store_disabled_noop(self, catalog, tmp_path):
         sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
         config = ResultsConfig(persistence=PersistenceConfig(save_catalog=False))
-        ctx = _build_run_context(solver_name="modflownwt", solver_output_dir=tmp_path)
+        ctx = _build_run_context(solver_name="modflow_nwt", solver_output_dir=tmp_path)
         # Should return without doing anything
         post_run_results(
             ctx=ctx,
@@ -129,8 +129,10 @@ class TestPostRunResults:
 
     def test_unknown_solver_raises(self, catalog, tmp_path, monkeypatch):
         sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="custom_solver")
+        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
         config = ResultsConfig(export={"csv_timeseries": False})
+        # Trigger the "no extractor" path via a run-context solver name the
+        # _FakeProvider stub does not recognise.
         ctx = _build_run_context(solver_name="custom_solver", solver_output_dir=tmp_path)
         _install_post_run_stubs(monkeypatch)
         with pytest.raises(RuntimeError, match="No output adapter"):
@@ -143,7 +145,7 @@ class TestPostRunResults:
 
     def test_no_output_dir_raises(self, catalog, monkeypatch):
         sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
         config = ResultsConfig(export={"csv_timeseries": False})
         ctx = _build_run_context(solver_name="fake_solver", solver_output_dir=None)
         _install_post_run_stubs(monkeypatch, extractor=_FakeExtractor())
@@ -157,7 +159,7 @@ class TestPostRunResults:
 
     def test_cleanup_when_keep_false(self, catalog, tmp_path, monkeypatch):
         sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
 
         solver_dir = tmp_path / "solver_out"
         solver_dir.mkdir()
@@ -177,7 +179,7 @@ class TestPostRunResults:
 
     def test_keep_solver_files(self, catalog, tmp_path, monkeypatch):
         sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
 
         solver_dir = tmp_path / "solver_out"
         solver_dir.mkdir()

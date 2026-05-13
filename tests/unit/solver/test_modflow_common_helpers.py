@@ -27,7 +27,7 @@ from hydromodpy.solver.modflow_common.flow_translator import (
 
 class TestFlowTranslator:
     def test_resolve_package_nwt_for_stream(self) -> None:
-        assert resolve_package(BoundaryKind.STREAM, solver="modflownwt") == "Riv"
+        assert resolve_package(BoundaryKind.STREAM, solver="modflow_nwt") == "Riv"
 
     def test_resolve_package_mf6_for_recharge(self) -> None:
         assert resolve_package("recharge", solver="mf6") == "Rcha"
