@@ -156,15 +156,24 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
             if context.period_end
             else context.period_start
         )
+    place_nodes: list[dict[str, Any]] = []
     if context.bbox is not None:
         xmin, ymin, xmax, ymax = context.bbox
-        dataset_node["spatialCoverage"] = {
-            "@type": "Place",
-            "geo": {
+        geo_id = "#geo/bbox"
+        place_id = "#place/bbox"
+        place_nodes = [
+            {
+                "@id": geo_id,
                 "@type": "GeoShape",
                 "box": f"{ymin} {xmin} {ymax} {xmax}",
             },
-        }
+            {
+                "@id": place_id,
+                "@type": "Place",
+                "geo": {"@id": geo_id},
+            },
+        ]
+        dataset_node["spatialCoverage"] = {"@id": place_id}
 
     inputs_nodes = [_input_node(idx, entry) for idx, entry in enumerate(context.inputs)]
     asset_nodes = [_asset_node(asset, context.sim_id) for asset in context.assets]
@@ -194,6 +203,7 @@ def build_ro_crate(context: FairExportContext) -> dict[str, Any]:
     graph.extend(inputs_nodes)
     graph.extend(software_nodes)
     graph.extend(creator_nodes)
+    graph.extend(place_nodes)
     if creator_ref is not None:
         action_node = {**action_node, "agent": creator_ref}
     graph.append(action_node)

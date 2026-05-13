@@ -2,12 +2,11 @@
 
 Validation strategy:
 
-1. Try the optional ``rocrate_validator`` package when installed (the
-   official ResearchObject reference validator). This is rarely available
-   on dev machines, so the suite degrades to:
-2. JSON Schema validation of the JSON-LD payload against a minimal
-   RO-Crate v1.1 schema (covers ``@context`` / ``conformsTo`` / required
-   nodes).
+1. Parse the rendered crate with the ``rocrate`` reference package
+   (``ROCrate(directory)``). Failure to load means the JSON-LD does not
+   satisfy the RO-Crate structural contract.
+2. Run a JSON Schema check as a complementary, schema-level assertion on
+   ``@context`` / ``conformsTo`` / required nodes.
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ from hydromodpy.results.export.rocrate import (
 )
 from tests.integration.exports.conftest import populate_simulation
 
-# Minimal RO-Crate JSON Schema (fallback). Reference:
+# Minimal RO-Crate JSON Schema. Reference:
 # https://www.researchobject.org/ro-crate/1.1/structure.html
 _ROCRATE_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -52,14 +51,6 @@ _ROCRATE_SCHEMA = {
         },
     },
 }
-
-
-def _has_rocrate_validator() -> bool:
-    try:
-        import rocrate_validator  # type: ignore[import-not-found]  # noqa: F401
-    except ImportError:
-        return False
-    return True
 
 
 def test_rocrate_payload_has_required_top_level_keys(fair_catalog):
@@ -118,20 +109,28 @@ def test_rocrate_json_schema_fallback(fair_catalog):
     jsonschema.validate(instance=payload, schema=_ROCRATE_SCHEMA)
 
 
-@pytest.mark.skipif(
-    not _has_rocrate_validator(),
-    reason="rocrate_validator not installed",
-)
-def test_rocrate_external_validator(fair_catalog, tmp_path: Path):
+def test_rocrate_parsed_by_reference_library(fair_catalog, tmp_path: Path):
+    """The serialised crate loads cleanly via the ResearchObject ``rocrate`` lib."""
+    pytest.importorskip("rocrate")
+    from rocrate.rocrate import ROCrate
+
     sid = populate_simulation(fair_catalog)
     target = tmp_path / "crate"
     target.mkdir()
     write_ro_crate(fair_catalog, sid, target)
-    from rocrate_validator import services  # type: ignore[import-not-found]
 
-    settings = services.ValidationSettings(rocrate_uri=str(target))
-    report = services.validate(settings)
-    assert not report.has_issues(), report
+    crate = ROCrate(target)
+    # Root dataset is mandatory in any conformant RO-Crate.
+    assert crate.root_dataset is not None
+    assert str(crate.root_dataset.id) == "./"
+
+    entities = list(crate.get_entities())
+    ids = {str(e.id) for e in entities}
+    # ``ro-crate-metadata.json`` descriptor and ``./`` root dataset must both load.
+    assert RO_CRATE_METADATA_FILENAME in ids
+    assert "./" in ids
+    # CreateAction node from the PROV layer must be reachable.
+    assert "#action/simulation" in ids
 
 
 def test_rocrate_written_file_is_utf8_json(fair_catalog, tmp_path: Path):

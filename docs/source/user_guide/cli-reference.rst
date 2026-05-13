@@ -56,6 +56,10 @@ Command inventory
    * - ``hmp export``
      - Export
      - Export geographic data or simulation results to external formats.
+   * - ``hmp export-package``
+     - Export
+     - Bundle a simulation as a portable ``.hmp`` archive (tar.zst with
+       RO-Crate manifest).
    * - ``hmp test``
      - Test runner
      - Run unit, regression, validation, PETSc, or benchmark-oriented test
@@ -119,10 +123,6 @@ Command inventory
    * - ``hmp index``
      - Cross-workspace discovery
      - Search, forget, or prune entries of the machine-wide global index.
-   * - ``hmp ml``
-     - Machine learning (stubs)
-     - Reserve the ``split`` / ``fit-scaler`` / ``export`` / ``track`` verb
-       surface; real logic ships in v2.x.
 
 Workflow execution flags
 ------------------------

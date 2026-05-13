@@ -18,6 +18,7 @@ from hydromodpy.cli.commands import (
     display,
     doctor,
     export,
+    export_package,
     gc,
     import_cmd,
     init,
@@ -25,7 +26,6 @@ from hydromodpy.cli.commands import (
     install_binaries,
     lock,
     manage,
-    ml,
     new,
     privacy,
     rank,
@@ -55,6 +55,7 @@ ALL_COMMANDS = (
     report,
     list_cmd,
     export,
+    export_package,
     test,
     data,
     lock,
@@ -74,7 +75,6 @@ ALL_COMMANDS = (
     vacuum,
     privacy,
     index_cmd,
-    ml,
 )
 
 __all__ = ("ALL_COMMANDS",)
