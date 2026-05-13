@@ -95,6 +95,19 @@ class GlobalIndex:
         keep working without holding the write-lock. When the default
         write-lock acquisition is contended for more than a few seconds the
         constructor logs a warning and silently falls back to this mode.
+
+    Raises
+    ------
+    duckdb.IOException
+        If the index database cannot be opened for reasons other than lock
+        contention.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> idx = hmp.index()
+    >>> idx.register_workspace("~/hmp_workspace", label="default")
+    >>> idx.find(solver="modflownwt")
     """
 
     def __init__(self, db_path: Path | None = None, *, read_only: bool = False) -> None:
@@ -195,7 +208,26 @@ class GlobalIndex:
         self.close()
 
     def register_workspace(self, uri: str, label: str | None = None) -> str:
-        """Register one workspace by URI, return its workspace_id."""
+        """Register one workspace by URI, return its workspace_id.
+
+        Parameters
+        ----------
+        uri
+            Workspace URI accepted by :func:`resolve_workspace`. Local
+            directories work as plain paths.
+        label
+            Optional human-readable label persisted next to the registration.
+
+        Returns
+        -------
+        str
+            Generated workspace UUID.
+
+        Raises
+        ------
+        RuntimeError
+            If the index was opened in read-only mode.
+        """
         self._check_writable("register_workspace")
         row = self._conn.execute(
             "INSERT INTO workspaces (workspace_uri, label) VALUES (?, ?) RETURNING workspace_id",
@@ -207,17 +239,40 @@ class GlobalIndex:
         return str(row[0])
 
     def unregister_workspace(self, workspace_id: str) -> None:
-        """Remove one workspace from the registry."""
+        """Remove one workspace from the registry.
+
+        Parameters
+        ----------
+        workspace_id
+            UUID returned by :meth:`register_workspace`.
+
+        Raises
+        ------
+        RuntimeError
+            If the index was opened in read-only mode.
+        """
         self._check_writable("unregister_workspace")
         self._conn.execute("DELETE FROM workspaces WHERE workspace_id = ?", [workspace_id])
         self.refresh_federation()
 
     def forget(self, workspace_id: str) -> None:
-        """Alias of :meth:`unregister_workspace`."""
+        """Alias of :meth:`unregister_workspace`.
+
+        Parameters
+        ----------
+        workspace_id
+            UUID returned by :meth:`register_workspace`.
+        """
         self.unregister_workspace(workspace_id)
 
     def list_workspaces(self) -> list[WorkspaceRecord]:
-        """Return every registered workspace as a typed record."""
+        """Return every registered workspace as a typed record.
+
+        Returns
+        -------
+        list[WorkspaceRecord]
+            Records ordered by ``created_at`` and ``workspace_uri``.
+        """
         rows = self._conn.execute(
             """
             SELECT workspace_id, workspace_uri, label, last_scanned_at, created_at
@@ -241,7 +296,15 @@ class GlobalIndex:
     def prune(self) -> list[str]:
         """Remove workspaces whose ``catalog.duckdb`` no longer exists.
 
-        Returns the list of removed ``workspace_id``s.
+        Returns
+        -------
+        list[str]
+            Workspace UUIDs that were removed from the index.
+
+        Raises
+        ------
+        RuntimeError
+            If the index was opened in read-only mode.
         """
         self._check_writable("prune")
         removed: list[str] = []
@@ -332,7 +395,23 @@ class GlobalIndex:
         solver: str | None = None,
         **metric_filters: float,
     ) -> pd.DataFrame:
-        """Run a federated SELECT against ``all_simulations`` with equality filters."""
+        """Run a federated SELECT against ``all_simulations`` with equality filters.
+
+        Parameters
+        ----------
+        scientific_objective
+            Optional equality filter on the ``scientific_objective`` column.
+        solver
+            Optional equality filter on the ``solver`` column.
+        metric_filters
+            Extra equality filters keyed by column name. Unknown columns are
+            silently ignored.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Federated rows. Empty when the view is not yet built.
+        """
         if not self._has_view("all_simulations"):
             return pd.DataFrame()
 
@@ -358,7 +437,18 @@ class GlobalIndex:
         return self._conn.execute(sql, params).fetchdf()
 
     def search(self, term: str) -> pd.DataFrame:
-        """Full-text search across simulation descriptions via DuckDB FTS."""
+        """Full-text search across simulation descriptions via DuckDB FTS.
+
+        Parameters
+        ----------
+        term
+            Query expression accepted by DuckDB BM25 matching.
+
+        Returns
+        -------
+        pandas.DataFrame
+            Matched rows. Empty when the FTS extension or index is unavailable.
+        """
         if not self._has_view("all_simulations"):
             return pd.DataFrame()
         if _FTS_DOC_COLUMN not in self._view_columns("all_simulations"):

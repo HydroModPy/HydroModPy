@@ -72,9 +72,17 @@ class SimulationCatalog(
     persistence
         Storage policy for packed or unpacked field arrays.
 
+    Raises
+    ------
+    hydromodpy.core.exceptions.CatalogError
+        If the DuckDB catalog cannot be opened or the schema migration fails.
+    hydromodpy.results.errors.SchemaVersionMismatchError
+        If the stored catalog schema version is older than the runtime expects.
+
     Examples
     --------
-    >>> catalog = SimulationCatalog("~/hmp_workspace")
+    >>> import hydromodpy as hmp
+    >>> catalog = hmp.open("~/hmp_workspace")
     >>> latest = catalog.latest()
     >>> latest.summary()
 
@@ -198,19 +206,58 @@ class SimulationCatalog(
         -------
         SimulationCatalog
             Open catalog connected to the resolved workspace.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the TOML path does not exist.
+        ConfigValidationError
+            If the TOML payload fails Pydantic validation.
         """
         cfg = get_root_config_provider().from_toml(toml_path)
         return cls.from_workspace_config(cfg.workspace)
 
     @classmethod
     def from_json(cls, payload: str | bytes) -> SimulationCatalog:
-        """Open the project catalog declared in a JSON config string."""
+        """Open the project catalog declared in a JSON config string.
+
+        Parameters
+        ----------
+        payload
+            JSON payload validated against ``HydroModPyConfig``.
+
+        Returns
+        -------
+        SimulationCatalog
+            Open catalog connected to the resolved workspace.
+
+        Raises
+        ------
+        ConfigValidationError
+            If the JSON payload fails validation.
+        """
         cfg = get_root_config_provider().from_json(payload)
         return cls.from_workspace_config(cfg.workspace)
 
     @classmethod
     def from_dict(cls, payload: dict) -> SimulationCatalog:
-        """Open the project catalog declared in a dict config payload."""
+        """Open the project catalog declared in a dict config payload.
+
+        Parameters
+        ----------
+        payload
+            Mapping validated against ``HydroModPyConfig``.
+
+        Returns
+        -------
+        SimulationCatalog
+            Open catalog connected to the resolved workspace.
+
+        Raises
+        ------
+        ConfigValidationError
+            If the mapping fails Pydantic validation.
+        """
         cfg = get_root_config_provider().from_dict(payload)
         return cls.from_workspace_config(cfg.workspace)
 

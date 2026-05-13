@@ -40,6 +40,15 @@ def open(workspace_path: Any) -> Any:
         Catalog object used to find runs, query metadata, and open persisted
         field stores.
 
+    Raises
+    ------
+    FileNotFoundError
+        If ``workspace_path`` does not exist on disk.
+    hydromodpy.core.exceptions.CatalogError
+        If the DuckDB catalog file is locked, corrupted, or unreadable.
+    hydromodpy.results.errors.SchemaVersionMismatchError
+        If the stored catalog schema is older than the runtime expects.
+
     Examples
     --------
     >>> import hydromodpy as hmp
@@ -77,6 +86,24 @@ def index(db_path: Any = None, *, read_only: bool = False) -> Any:
     GlobalIndex
         Index object exposing ``register_workspace``, ``find``, ``search``,
         ``prune`` and ``forget``.
+
+    Raises
+    ------
+    RuntimeError
+        If a mutating method is called on a read-only handle.
+    duckdb.IOException
+        If the index database cannot be opened due to non-lock I/O errors.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> idx = hmp.index(read_only=True)
+    >>> idx.list_workspaces()
+
+    See Also
+    --------
+    hydromodpy.core.state.global_index.GlobalIndex
+        Underlying federation implementation.
     """
     from pathlib import Path as _Path
 
@@ -107,6 +134,17 @@ def run(config: Any, **kwargs: Any) -> Any:
         Workflow result. Simulation workflows usually return a ``Run`` object;
         overview, mesh, testbed, comparison, and calibration workflows return
         their own summary objects.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the TOML path does not exist.
+    hydromodpy.core.exceptions.ConfigError
+        If the TOML payload fails Pydantic validation.
+    hydromodpy.core.exceptions.PipelineError
+        If a workflow step raises during execution.
+    hydromodpy.core.exceptions.SolverError
+        If the configured solver fails to converge or crashes.
 
     Examples
     --------
@@ -155,6 +193,15 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
     Any
         Calibration report or workflow-specific result.
 
+    Raises
+    ------
+    FileNotFoundError
+        If the calibration TOML path does not exist.
+    hydromodpy.core.exceptions.ConfigMissingError
+        If neither ``config_path`` nor ``parameters`` is supplied.
+    hydromodpy.core.exceptions.CalibrationError
+        If the optimizer or objective evaluation fails.
+
     Examples
     --------
     >>> import hydromodpy as hmp
@@ -192,6 +239,18 @@ def overview(config: Any, **kwargs: Any) -> Any:
     -------
     Any
         Overview workflow summary.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the TOML path does not exist.
+    hydromodpy.core.exceptions.ConfigError
+        If the TOML payload fails validation or has the wrong workflow mode.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.overview("overview.toml")
     """
     from hydromodpy.workflow.dispatch import resolve_workflow
     from hydromodpy.workflow_dispatch import dispatch_workflow
@@ -220,6 +279,16 @@ def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     pandas.DataFrame
         Side-by-side comparison table.
 
+    Raises
+    ------
+    hydromodpy.results.errors.RunNotFoundError
+        If either simulation id cannot be resolved in the workspace.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> table = hmp.compare_pair("ab12cd34", "ef56gh78", workspace="~/hmp_workspace")
+
     See Also
     --------
     hydromodpy.analysis.comparison
@@ -242,6 +311,18 @@ def testbed(toml_path: Any) -> Any:
     -------
     Any
         Testbed launcher result.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``toml_path`` does not exist on disk.
+    hydromodpy.core.exceptions.ConfigError
+        If the testbed TOML fails validation.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.testbed("testbed_methods.toml")
     """
     from hydromodpy.analysis.testbed.runtime import TestbedLauncher
 
@@ -264,6 +345,18 @@ def mesh(toml_path: Any) -> dict:
     -------
     dict
         Mesh launcher summary.
+
+    Raises
+    ------
+    FileNotFoundError
+        If ``toml_path`` does not exist on disk.
+    hydromodpy.core.exceptions.MeshGenerationError
+        If the mesh generator (gmsh / FloPy helper) fails to build a mesh.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> summary = hmp.mesh("mesh_only.toml")
     """
     from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
 
@@ -290,6 +383,19 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
     -------
     Any
         Report rendering result.
+
+    Raises
+    ------
+    hydromodpy.results.errors.RunNotFoundError
+        If no calibration session matches ``session_id_or_prefix``.
+    hydromodpy.core.exceptions.DisplayError
+        If the report template or one of its figures fails to render.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.report()  # latest session in the current workspace
+    >>> hmp.report("ab12cd34", workspace="~/hmp_workspace")
     """
     from hydromodpy.calibration.report import resolve_calibration_session_id
     from hydromodpy.core.state.paths import CATALOG_FILENAME
@@ -388,8 +494,14 @@ def read(
 
     Raises
     ------
+    TypeError
+        If ``sim`` is not a :class:`Run` instance.
     hydromodpy.results.errors.FieldNotFoundError
-        ``var`` could not be resolved by any backend.
+        If ``var`` could not be resolved by any backend.
+    hydromodpy.results.errors.RunNotFoundError
+        If the underlying run row was deleted between catalog open and read.
+    hydromodpy.results.errors.SchemaVersionMismatchError
+        If the on-disk Zarr or Parquet schema is older than the runtime.
 
     Examples
     --------
