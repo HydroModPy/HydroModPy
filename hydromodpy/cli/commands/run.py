@@ -86,6 +86,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--no-lock",
+        action="store_true",
+        dest="no_lock",
+        help="Skip the post-run hydromodpy.lock write (default: write).",
+    )
+    parser.add_argument(
         "--no-display",
         action="store_true",
         dest="no_display",
@@ -186,6 +192,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     no_checkpoint = bool(getattr(args, "no_checkpoint", False))
     no_display = bool(getattr(args, "no_display", False))
     frozen = bool(getattr(args, "frozen", False))
+    no_lock = bool(getattr(args, "no_lock", False))
     resume_options_used = resume is not None or from_step is not None or until_step is not None
     checkpoint_enabled = bool(checkpoint or resume_options_used) and not no_checkpoint
 
@@ -258,10 +265,113 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     finally:
         _cleanup_effective_toml(effective_path, source=config_path)
 
+    if not no_lock:
+        _post_run_lockfile_write(run_path, raw_toml)
+
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
     if summary:
         for key, value in summary.items():
             print(f"  {key}: {value}", file=sys.stderr)
+
+
+def _post_run_lockfile_write(config_path: Path, raw_toml: dict[str, Any]) -> None:
+    """Persist ``hydromodpy.lock`` next to the project after a successful run.
+
+    Best-effort: any failure here is logged and does not bubble up so the run
+    output stays the source of truth. Skipped silently when no workspace
+    data catalog is present.
+    """
+    from hydromodpy.config.schema_export import schema_sha256
+    from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.results.parquet_schemas import PARQUET_SCHEMA_VERSION
+    from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
+
+    workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None
+    project_root = config_path.parent
+    if isinstance(workspace_payload, dict):
+        declared = workspace_payload.get("project_root")
+        if declared:
+            candidate = Path(declared).expanduser()
+            if not candidate.is_absolute():
+                candidate = (config_path.parent / candidate).resolve()
+            project_root = candidate
+
+    data_dir = _resolve_workspace_data_dir(workspace_payload, project_root)
+    db_path = data_dir / "cache.duckdb"
+    if not db_path.is_file():
+        return
+
+    dest = project_root / LOCKFILE_NAME
+    solvers = _collect_solver_binaries(raw_toml)
+    try:
+        with DataCatalogDuckDB(db_path) as catalog:
+            write_lockfile(
+                catalog,
+                dest,
+                project_root=project_root,
+                solvers=solvers,
+                schema_sha256=schema_sha256(),
+                zarr_schema_version=str(ZARR_SCHEMA_VERSION),
+                parquet_schema_version=str(PARQUET_SCHEMA_VERSION),
+            )
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        print(f"  WARNING: hydromodpy.lock write failed: {exc}", file=sys.stderr)
+        return
+    print(f"  Lockfile written: {dest}", file=sys.stderr)
+
+
+def _resolve_workspace_data_dir(
+    workspace_payload: dict[str, Any] | None,
+    project_root: Path,
+) -> Path:
+    """Return the workspace ``data/`` directory used for the lockfile."""
+    if isinstance(workspace_payload, dict):
+        explicit_data = workspace_payload.get("data_dir")
+        if explicit_data:
+            data = Path(explicit_data).expanduser()
+            if not data.is_absolute():
+                data = (project_root / data).resolve()
+            return data
+        explicit_root = workspace_payload.get("root")
+        if explicit_root:
+            root = Path(explicit_root).expanduser()
+            if not root.is_absolute():
+                root = (project_root / root).resolve()
+            return root / "data"
+
+    env_root = os.environ.get("HMP_WORKSPACE")
+    if env_root:
+        return Path(env_root).expanduser().resolve() / "data"
+
+    if project_root.parent.name == "projects":
+        candidate = project_root.parent.parent
+        if (candidate / "data").is_dir():
+            return candidate / "data"
+    return project_root / "data"
+
+
+def _collect_solver_binaries(raw_toml: dict[str, Any]) -> dict[str, Path]:
+    """Best-effort discovery of solver binaries declared in the config."""
+    payload: dict[str, Path] = {}
+    solver_section = raw_toml.get("solver") if isinstance(raw_toml, dict) else None
+    if not isinstance(solver_section, dict):
+        return payload
+
+    candidates: list[tuple[str, Any]] = []
+    for solver_name, sub in solver_section.items():
+        if isinstance(sub, dict):
+            for key in ("bin_path", "binary_path", "exe", "executable"):
+                if key in sub:
+                    candidates.append((str(solver_name), sub.get(key)))
+
+    for solver_name, raw in candidates:
+        if not raw:
+            continue
+        path = Path(str(raw)).expanduser()
+        if path.is_file():
+            payload[solver_name] = path
+    return payload
 
 
 def _materialize_effective_toml(
