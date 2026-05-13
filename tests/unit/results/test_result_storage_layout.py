@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.catalog.storage_paths import build_storage_basename
@@ -59,12 +57,3 @@ def test_catalog_is_workspace_scoped_and_artifacts_are_per_simulation(tmp_path):
             f"{SIMULATIONS_DIRNAME}/{basename}{ZARR_SUFFIX}",
             basename,
         )
-
-
-@pytest.mark.skip(
-    reason="v1 storage_basename back-fill: the v2 DDL declares storage_basename "
-    "NOT NULL so legacy rows without a basename can no longer enter the catalog. "
-    "Back-fill logic will be re-evaluated in P8 when the import path lands."
-)
-def test_pre_migration_storage_basename_is_backfilled_on_open(tmp_path):  # noqa: ARG001
-    """Removed: v1-only migration behavior no longer applicable under v2 DDL."""
