@@ -320,6 +320,18 @@ class DataCatalogDuckDB:
         # for in-memory catalogs (workspace unknown).
         encoded_path = self._encode_path_for_storage(file_path)
 
+        # P9 provenance sidecar: write a JSON sidecar next to every catalog
+        # input so downstream tools have the upstream metadata even without
+        # the DuckDB catalog around. Best-effort: failures stay non-fatal.
+        if digest is not None and resolved_path.is_file():
+            _emit_input_sidecar(
+                resolved_path,
+                sha256=digest,
+                source=source,
+                crs=crs,
+                bbox=bx,
+            )
+
         # Look for existing entry
         if station_id is not None:
             existing = self._conn.execute(
@@ -1013,6 +1025,39 @@ def _build_filter(variable, source, station_id):
         clauses.append("station_id = ?")
         params.append(station_id)
     return clauses, params
+
+
+def _emit_input_sidecar(
+    path: Path,
+    *,
+    sha256: str,
+    source: str,
+    crs: str | None,
+    bbox: tuple,
+) -> None:
+    """Write the P3 JSON sidecar next to a freshly registered raw input.
+
+    Best-effort: any failure is logged at debug level and never propagates,
+    so a sidecar issue cannot block the catalog registration.
+    """
+    try:
+        from datetime import UTC, datetime
+
+        from hydromodpy.data.sidecars import Sidecar, write_sidecar
+
+        bbox_payload: tuple[float, float, float, float] | None = None
+        if all(value is not None for value in bbox):
+            bbox_payload = tuple(float(v) for v in bbox)  # type: ignore[assignment]
+        sidecar = Sidecar(
+            source=str(source),
+            fetched_at=datetime.now(UTC),
+            sha256=str(sha256),
+            crs=str(crs) if crs else None,
+            bbox=bbox_payload,
+        )
+        write_sidecar(path, sidecar)
+    except Exception as exc:  # pragma: no cover - non-fatal
+        logger.debug("Sidecar write failed for %s: %s", path, exc)
 
 
 def _try_unlink(fp: str) -> None:

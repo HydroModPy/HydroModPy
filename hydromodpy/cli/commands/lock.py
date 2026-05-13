@@ -45,6 +45,11 @@ def register(subparsers) -> argparse.ArgumentParser:
     verify = sub.add_parser("verify", help="Verify the cache matches the lockfile")
     verify.add_argument("--workspace", default=None)
     verify.add_argument("--lockfile", default=None, help="Explicit lockfile path")
+    verify.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit non-zero when an [inputs] sha256 changed (no warning fallback).",
+    )
 
     parser.set_defaults(_handler=run)
     return parser
@@ -69,12 +74,20 @@ def _cmd_update(args: argparse.Namespace) -> None:
     from hydromodpy.config.schema_export import schema_sha256
     from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.results.parquet_schemas import PARQUET_SCHEMA_VERSION
+    from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
 
     workspace = resolve_workspace(args.workspace)
     db_path = workspace / "data" / "cache.duckdb"
     dest = Path(args.output).expanduser().resolve() if args.output else (workspace / LOCKFILE_NAME)
     with DataCatalogDuckDB(db_path) as catalog:
-        written = write_lockfile(catalog, dest, schema_sha256=schema_sha256())
+        written = write_lockfile(
+            catalog,
+            dest,
+            schema_sha256=schema_sha256(),
+            zarr_schema_version=str(ZARR_SCHEMA_VERSION),
+            parquet_schema_version=str(PARQUET_SCHEMA_VERSION),
+        )
     print(f"  Lockfile written: {written}")
 
 
@@ -110,6 +123,7 @@ def _cmd_verify(args: argparse.Namespace) -> None:
         LOCKFILE_NAME,
         read_lockfile_schema_sha256,
         verify_frozen,
+        verify_inputs_strict,
     )
     from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
@@ -121,20 +135,35 @@ def _cmd_verify(args: argparse.Namespace) -> None:
     if not lockfile.is_file():
         print(f"  Lockfile not found: {lockfile}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
+    strict = bool(getattr(args, "strict", False))
     locked_schema = read_lockfile_schema_sha256(lockfile)
     current_schema = schema_sha256()
-    if locked_schema is not None and locked_schema != current_schema:
+    schema_diverged = locked_schema is not None and locked_schema != current_schema
+    if schema_diverged:
+        if strict:
+            print(
+                f"  configuration schema has changed since freeze "
+                f"(lockfile={locked_schema[:12]}..., current={current_schema[:12]}...).",
+                file=sys.stderr,
+            )
+            sys.exit(EXIT_DATA_ERROR)
         print(
             f"  WARNING: configuration schema has changed since freeze "
             f"(lockfile={locked_schema[:12]}..., current={current_schema[:12]}...).",
             file=sys.stderr,
         )
     with DataCatalogDuckDB(db_path) as catalog:
-        mismatches = verify_frozen(catalog, lockfile)
+        if strict:
+            mismatches = verify_inputs_strict(catalog, lockfile)
+        else:
+            mismatches = verify_frozen(catalog, lockfile)
     if not mismatches:
         print("  OK: catalog matches lockfile")
         return
-    print(f"  {len(mismatches)} mismatch(es):")
+    label = "ERROR" if strict else "WARNING"
+    print(f"  {label}: {len(mismatches)} mismatch(es):")
     for m in mismatches:
-        print(f"    [{m.kind}] {m.variable}/{m.source}/{m.station_id}")
+        print(f"    [{m.kind}] {m.variable}/{m.source}/{m.station_id} -> {m.path}")
+    if strict:
+        sys.exit(EXIT_DATA_ERROR)
     sys.exit(EXIT_DATA_ERROR)
