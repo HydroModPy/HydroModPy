@@ -45,6 +45,25 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--feature", nargs="+", help="Geographic feature name(s) to export as shapefile"
     )
     parser.add_argument(
+        "--format",
+        dest="fair_format",
+        choices=("hmp", "stac", "rocrate", "prov", "croissant"),
+        action="append",
+        default=None,
+        help=(
+            "Emit a FAIR sidecar in addition to the per-variable exports. "
+            "Repeatable: pass --format multiple times to render several formats."
+        ),
+    )
+    parser.add_argument(
+        "--ml-dataset",
+        default=None,
+        help=(
+            "ML dataset id used by --format croissant. Pass 'latest' to pick the most "
+            "recently created ml_datasets row."
+        ),
+    )
+    parser.add_argument(
         "--output", default=None, help="Output directory (default: exports/<name>/ in the project)"
     )
     parser.set_defaults(_handler=run)
@@ -163,6 +182,8 @@ def run(args: argparse.Namespace) -> None:
                 except KeyError:
                     print(f"  Feature '{name}' not found in store", file=sys.stderr)
 
+    fair_formats: tuple[str, ...] = tuple(args.fair_format or ())
+
     if args.sim:
         sim_ref = args.sim
         try:
@@ -258,8 +279,26 @@ def run(args: argparse.Namespace) -> None:
             except Exception as exc:
                 print(f"  VTU export failed: {exc}", file=sys.stderr)
 
+        if fair_formats:
+            exported.extend(_emit_fair(catalog, sim_id, sim_dir, fair_formats, args))
+
+    # Standalone Croissant manifest (not tied to a simulation): only --ml-dataset
+    if (
+        not any([args.raster, args.feature, args.sim])
+        and fair_formats == ("croissant",)
+        and args.ml_dataset is not None
+    ):
+        from hydromodpy.results.export import write_croissant
+
+        ml_dir = output_dir or (project_dir / "exports" / "ml-datasets")
+        ml_dir.mkdir(parents=True, exist_ok=True)
+        ds = args.ml_dataset if args.ml_dataset != "latest" else None
+        out_path = write_croissant(catalog, ds, ml_dir / f"croissant_{args.ml_dataset}.json")
+        exported.append(out_path)
+        print(f"  {out_path}", file=sys.stderr)
+
     catalog.close()
-    if not any([args.raster, args.feature, args.sim]):
+    if not any([args.raster, args.feature, args.sim, exported]):
         print(
             "Usage: hmp export <project> --list | --sim NAME [--csv --netcdf] | --raster NAME",
             file=sys.stderr,
@@ -268,3 +307,45 @@ def run(args: argparse.Namespace) -> None:
 
     if exported:
         print(f"Exported {len(exported)} file(s)", file=sys.stderr)
+
+
+def _emit_fair(
+    catalog,
+    sim_id: str,
+    sim_dir: Path,
+    formats: tuple[str, ...],
+    args: argparse.Namespace,
+) -> list[Path]:
+    """Render the FAIR sidecars selected via ``--format``."""
+    from hydromodpy.results.export import (
+        build_context,
+        write_croissant,
+        write_ro_crate,
+        write_stac_item,
+    )
+    from hydromodpy.results.export.prov import write_prov
+
+    context = build_context(catalog, sim_id)
+    out_paths: list[Path] = []
+    for fmt in formats:
+        try:
+            if fmt == "hmp":
+                # Embed the RO-Crate alongside the .hmp archive root.
+                path = write_ro_crate(catalog, sim_id, sim_dir, context=context)
+            elif fmt == "rocrate":
+                path = write_ro_crate(catalog, sim_id, sim_dir, context=context)
+            elif fmt == "stac":
+                path = write_stac_item(catalog, sim_id, sim_dir, context=context)
+            elif fmt == "prov":
+                path = write_prov(catalog, sim_id, sim_dir, context=context)
+            elif fmt == "croissant":
+                ds = args.ml_dataset if args.ml_dataset != "latest" else None
+                path = write_croissant(catalog, ds, sim_dir)
+            else:
+                continue
+        except Exception as exc:  # noqa: BLE001 - surfaced to CLI
+            print(f"  FAIR export ({fmt}) failed: {exc}", file=sys.stderr)
+            continue
+        out_paths.append(path)
+        print(f"  {path}", file=sys.stderr)
+    return out_paths
