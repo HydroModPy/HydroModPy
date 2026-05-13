@@ -18,10 +18,10 @@ A standard first session looks like this:
 
 .. code-block:: bash
 
-   hmp init .                                      # scaffold this directory as a workspace
-   hmp new my_basin --workspace .                  # create projects/my_basin
-   hmp config template projects/my_basin/run_demo.toml --profile user
-   hmp run projects/my_basin/run_demo.toml         # execute the run
+   hmp init .                                            # scaffold this directory as a workspace
+   hmp new my_basin --workspace .                        # create projects/my_basin
+   hmp config template projects/my_basin/hydromodpy.toml --profile user
+   hmp run projects/my_basin/hydromodpy.toml             # execute the run
    hmp list                          # browse results
    hmp show <sim_id>                 # inspect one simulation
 
@@ -44,10 +44,9 @@ The command creates the canonical layout:
 .. code-block:: text
 
    <workspace>/
-   |-- hydromodpy.duckdb     # simulation catalog (one per workspace)
-   |-- data/                 # cached input data, one folder per variable
-   |-- projects/             # one folder per project lives here
-   `-- simulations/          # finalized Zarr archives and Parquet tables
+   |-- workspace.toml         # metadata of the research workspace
+   |-- data/                  # cache.duckdb + cached input data (one folder per variable)
+   `-- projects/              # one folder per project, each owns its catalog.duckdb
 
 See :doc:`../user_guide/concepts/workspace-layout` for the resolution rules and the role of
 each folder.
@@ -63,10 +62,11 @@ variants.
    hmp new my_basin                              # uses ~/hydromodpy/
    hmp new my_basin --workspace /mnt/shared/hmp  # custom workspace
 
-The command writes ``projects/my_basin/project.toml`` (shared settings)
-and ``projects/my_basin/run_demo.toml`` (executable run that inherits
-from ``project.toml``). See :doc:`../user_guide/concepts/project-vs-run` for the inheritance
-rules.
+The command writes ``projects/my_basin/hydromodpy.toml`` (the project
+config validated by ``HydroModPyConfig``) and an empty
+``projects/my_basin/catalog.duckdb`` deployed via the v2 migration
+runner. See :doc:`../user_guide/concepts/project-vs-run` for the
+project / run distinction.
 
 3. Generate a configuration template
 ------------------------------------
@@ -114,8 +114,8 @@ level (``[workflow].mode = "simulation"``, ``"overview"``, ``"testbed"``,
 
 .. code-block:: bash
 
-   hmp run projects/my_basin/run_demo.toml
-   hmp run projects/my_basin/run_calibration.toml
+   hmp run projects/my_basin/hydromodpy.toml
+   hmp run projects/my_basin/calibration_run.toml
 
 The catalog updates after every successful run.
 
@@ -133,12 +133,12 @@ The simulation catalog is queryable from the same CLI:
 
 .. code-block:: bash
 
-   hmp list                                    # all projects in workspace
-   hmp list --project my_basin                 # all runs of one project
+   hmp list                                    # all runs in current project
+   hmp index search "my_basin"                 # cross-workspace search via global index
    hmp show <sim_id>                           # metadata, metrics, params
    hmp inspect <sim_id>                        # files, mesh, status
-   hmp rank my_basin --metric nse --top 1      # top-ranked run
-   hmp rank my_basin --metric nse --bottom 1   # bottom-ranked run
+   hmp rank --metric nse --top 1               # top-ranked run in project
+   hmp rank --metric nse --bottom 1            # bottom-ranked run in project
    hmp compare <sim_a> <sim_b>                 # side-by-side comparison
    hmp display <sim_id> <figure>               # render one figure
 
@@ -182,11 +182,10 @@ shown above), see :doc:`../user_guide/cli-reference`.
 Where to look next
 ------------------
 
-- :doc:`../user_guide/concepts/workspace-layout` documents the resolution order between an
-  explicit workspace path, the ``HYDROMODPY_WORKSPACE`` environment
-  variable, and the default ``~/hydromodpy/`` location.
-- :doc:`../user_guide/concepts/project-vs-run` explains the TOML inheritance contract between
-  ``project.toml`` and the ``run_*.toml`` variants.
+- :doc:`../user_guide/concepts/workspace-layout` documents the
+  workspace > project > run hierarchy and the resolution rules.
+- :doc:`../user_guide/concepts/project-vs-run` explains the project
+  vs run distinction and the ``hydromodpy.toml`` contract.
 - :doc:`../user_guide/workflows/index` lists the seven supported
   user APIs (CLI, TOML, Python, notebook).
 - :doc:`../user_guide/config_reference/index` is the deep reference for

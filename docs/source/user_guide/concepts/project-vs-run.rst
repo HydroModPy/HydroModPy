@@ -1,8 +1,9 @@
 Project vs Run
 ==============
 
-HydroModPy v1 names every object in the hierarchy explicitly so the API
-stops overloading the word "simulation".
+HydroModPy v2 names every level of the hierarchy explicitly so the API
+stops overloading the word "simulation". The contract is
+**workspace > project > run**.
 
 Three levels
 ------------
@@ -16,20 +17,22 @@ Three levels
      - Role
    * - 1
      - **Workspace**
-     - One directory with ``hydromodpy.duckdb``, ``data/``, ``simulations/``,
-       and ``projects/``. Open with ``hmp.open(path)`` - returns a
-       :class:`~hydromodpy.results.catalog.SimulationCatalog`.
+     - Root directory with ``workspace.toml`` plus a shared ``data/``
+       folder (``data/cache.duckdb`` and raw inputs). Federated by the
+       machine global index ``index.duckdb``.
    * - N
      - **Project**
-     - One runnable TOML under ``projects/<name>/``. Instantiate with
+     - One ``projects/<name>/hydromodpy.toml`` plus the per-project
+       ``catalog.duckdb`` and ``simulations/`` folder. Open with
        :class:`hmp.Project <hydromodpy.project.Project>` for a
-       setup-once/run-many Python session, or fire-and-forget with
-       ``hmp run project.toml``.
+       setup-once / run-many Python session, or fire-and-forget with
+       ``hmp run hydromodpy.toml``.
    * - N
      - **Run**
-     - One simulation result in the catalog, identified by UUID. Built by
-       ``project.run(**overrides)`` or retrieved from ``catalog[sim_id]`` /
-       ``catalog.best(...)`` / ``SimulationGroup`` queries as a
+     - One simulation result in the project catalog, identified by
+       UUID v7. Built by ``project.run(**overrides)`` or retrieved
+       from ``catalog[sim_id]`` / ``catalog.best(...)`` /
+       ``SimulationGroup`` queries as a
        :class:`~hydromodpy.results.run.Run`.
 
 Programmatic flow
@@ -39,7 +42,7 @@ Programmatic flow
 
    import hydromodpy as hmp
 
-   project = hmp.Project("~/ws/projects/canut/project.toml")
+   project = hmp.Project("~/ws/projects/canut/hydromodpy.toml")
 
    # Setup-once / run-many: share the context between runs
    baseline = project.run(K=5e-5, name="baseline")
@@ -47,21 +50,25 @@ Programmatic flow
    project.close()
 
    # Open-and-query: jump straight to any run
-   catalog = hmp.open("~/ws")
-   best = catalog.best("canut", metric="nse")
-   best.plot("watertable_map")
+   catalog = hmp.open("~/ws/projects/canut")
+   best = catalog.best(metric="nse")
+
+   # Read a field through the v2 facade
+   head = hmp.read(best, "head", timestep=0)
 
 CLI equivalents
 ---------------
 
-+---------------------+-------------------------------------------+
-| CLI                 | Python                                    |
-+=====================+===========================================+
-| ``hmp run cfg.toml``| ``hmp.Project(cfg.toml).run()``           |
-+---------------------+-------------------------------------------+
-| ``hmp list``        | ``hmp.open(ws).simulations``              |
-+---------------------+-------------------------------------------+
-| ``hmp show <id>``   | ``hmp.open(ws)[sim_id]``                  |
-+---------------------+-------------------------------------------+
-| ``hmp display``     | ``hmp.open(ws)[sim_id].plot(...)``        |
-+---------------------+-------------------------------------------+
++-----------------------------+-------------------------------------------+
+| CLI                         | Python                                    |
++=============================+===========================================+
+| ``hmp run hydromodpy.toml`` | ``hmp.Project(toml).run()``               |
++-----------------------------+-------------------------------------------+
+| ``hmp list``                | ``hmp.open(project).simulations``         |
++-----------------------------+-------------------------------------------+
+| ``hmp show <id>``           | ``hmp.open(project)[sim_id]``             |
++-----------------------------+-------------------------------------------+
+| ``hmp display``             | ``hmp.viz.show(run, ...)``                |
++-----------------------------+-------------------------------------------+
+| ``hmp index search``        | ``hmp.index().search(...)``               |
++-----------------------------+-------------------------------------------+

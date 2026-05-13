@@ -3,9 +3,25 @@ Layered Architecture
 
 HydroModPy is built as a strict layered DAG. Every subpackage of
 ``hydromodpy/`` belongs to one layer and may only import from a
-restricted set of other layers. The matrix below is the v1 contract
+restricted set of other layers. The matrix below is the v2 contract
 checked by ``tests/unit/architecture/test_layer_matrix.py`` against
 ``tests/unit/architecture/layer_matrix.yaml``.
+
+Ports and Adapters at the storage edge
+--------------------------------------
+
+v2 introduces a local **Ports and Adapters** boundary between
+``results`` and any SQL store. All catalog reads and writes go through
+the :class:`~hydromodpy.results.catalog.ports.CatalogBackend` Protocol.
+The default in-tree adapter is ``DuckDBBackend`` (SQLAlchemy 2.0 Core +
+``duckdb-engine``); a ``PostgresBackend`` stub is reserved for v2.x.
+This is a structural contract (no inheritance) so alternative stores
+can plug in without changing workflow code.
+
+The same pattern applies to field stores. ``hmp.read`` is the facade
+that dispatches a logical field name to a Zarr or Parquet reader via
+the field registry. See :doc:`/architecture/packages/results` for the
+Python surface.
 
 The rules
 ---------

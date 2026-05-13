@@ -79,12 +79,15 @@ Key public symbols
 - ``hydromodpy.workflow.internals.state.PipelineState``
 - ``hydromodpy.workflow.internals.step.Step``
 - ``hydromodpy.workflow.internals.checkpoint.CheckpointStore``
-- ``hydromodpy.workflow.internals.ledger.StepsLedger``
 - ``hydromodpy.workflow.internals.dependencies.earliest_affected_step``
 - ``hydromodpy.workflow.internals.derived.DerivedRegistry``
 - ``hydromodpy.workflow.runner.Pipeline``
 - ``hydromodpy.workflow.steps.{ValidateStep, ResolveStep, ...,
   DisplayStep}``
+
+The v1 ``StepsLedger`` module is removed; workflow steps are now
+recorded in the project ``catalog.duckdb`` under the
+``workflow_steps`` table (see :doc:`/architecture/storage-layout`).
 
 Recommended reading path
 ------------------------

@@ -160,9 +160,10 @@ flags only apply to ``[workflow].mode = "simulation"``:
        ``--set workspace.project_root=/tmp/run``.
 
 Override precedence is, from lowest to highest: defaults, ``base_config``
-chain, ``--overlay`` files, ``--set`` values, then
-``HYDROMODPY_SET_<path>`` environment values. Use ``__`` for dots in shell
-environment variables, for example ``HYDROMODPY_SET_simulation__run_id``.
+chain, ``--overlay`` files, then ``--set`` values. The XDG-aligned
+environment overrides ``HMP_CACHE_HOME``, ``HMP_STATE_HOME``, and
+``HMP_BIN`` only relocate machine caches and binary directories; they
+do not patch config fields.
 
 Nested command families
 -----------------------

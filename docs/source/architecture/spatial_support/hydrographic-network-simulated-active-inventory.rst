@@ -121,7 +121,7 @@ network view to be displayed on the solver support:
 
 - ``mesh/vertices``,
 - ``mesh/face_node_connectivity``,
-- ``mesh/surface_top``,
+- ``mesh/topography`` (renamed from ``mesh/surface_top`` in v2),
 - ``mesh/z_interfaces``,
 - ``mesh.attrs["structured_shape"]`` when a regular 2D solver shape can be
   inferred.

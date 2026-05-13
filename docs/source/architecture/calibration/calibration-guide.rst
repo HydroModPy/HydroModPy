@@ -488,46 +488,43 @@ on each of the 12 ``step_<nn>_*.py`` modules.
 Storage
 -------
 
-.. mermaid::
+Calibration storage flow, by container:
 
-   flowchart LR
-       subgraph LOOP["During the loop (lightweight)"]
-           RAM[RAM: aligned vector<br/>+ scalar metrics]
-       end
+.. list-table::
+   :header-rows: 1
+   :widths: 22 28 50
 
-       subgraph DB["hydromodpy.duckdb"]
-           SESS[calibration_sessions]
-           ITER[calibration_iterations<br/>sim_id NULL]
-           SIMS[simulations]
-           PARM[parameters]
-           MET[metrics]
-           TAG[tags]
-       end
-
-       subgraph FS["Filesystem"]
-           ZARR[simulations/basename.zarr/]
-           PARQ[simulations/basename.parquet/<br/>timeseries, budgets, mass_balance]
-           FIG[projects/name/figures/session_id/]
-           HTML[reports/session_id/report.html]
-       end
-
-       RAM -->|scalars| ITER
-       LOOP -->|start/end| SESS
-
-       subgraph PROMOTE["After the loop (promote_trial x N)"]
-           PTRIAL[promote top-N]
-       end
-
-       PTRIAL --> SIMS
-       PTRIAL --> PARM
-       PTRIAL --> MET
-       PTRIAL --> TAG
-       PTRIAL --> ZARR
-       PTRIAL --> PARQ
-       PTRIAL -->|UPDATE sim_id| ITER
-
-       DB --> FIG
-       DB --> HTML
+   * - Container
+     - Component
+     - Role during the calibration loop
+   * - RAM (loop only)
+     - Aligned vector + scalar metrics
+     - Built per trial by ``run_trial_light`` and discarded at end of
+       trial. Never reaches disk.
+   * - ``catalog.duckdb``
+     - ``calibration_sessions``
+     - One row per session (start, finalize, status).
+   * - ``catalog.duckdb``
+     - ``calibration_iterations`` (``sim_id`` NULL)
+     - One row per trial: parameters, objective, scalar metrics,
+       ``params_hash``.
+   * - ``catalog.duckdb``
+     - ``simulations``, ``parameters``, ``metrics``, ``tags``
+     - Promoted top-N trials only (``promote_trial``). Updates the
+       matching ``calibration_iterations.sim_id``.
+   * - Filesystem
+     - ``simulations/<basename>.zarr/``
+     - Spatial fields written **only** for promoted trials.
+   * - Filesystem
+     - ``simulations/<basename>.parquet/``
+     - Detailed timeseries, budgets, mass balance for promoted
+       trials only.
+   * - Filesystem
+     - ``<project>/figures/<session_id>/``
+     - PNG figures rendered post-loop via the display registry.
+   * - Filesystem
+     - ``<project>/reports/<session_id>/report.html``
+     - HTML report rendered by ``hmp report <session_id>``.
 
 Rule of thumb: **RAM inside the loop, DuckDB for the trace, Zarr /
 Parquet only for promoted runs.**
