@@ -58,7 +58,7 @@ def open(workspace_path: Any) -> Any:
     return SimulationCatalog(workspace_path)
 
 
-def index(db_path: Any = None) -> Any:
+def index(db_path: Any = None, *, read_only: bool = False) -> Any:
     """Open the machine-wide global index that federates registered workspaces.
 
     Parameters
@@ -66,6 +66,11 @@ def index(db_path: Any = None) -> Any:
     db_path
         Optional path to the index DuckDB file. ``None`` uses the default
         machine-state location.
+    read_only
+        Open the index in read-only mode. Writes (``register_workspace``,
+        ``forget``, ``prune``) will raise. Pure reads (``search``, ``find``,
+        ``list_workspaces``) keep working while another process holds the
+        write-lock.
 
     Returns
     -------
@@ -78,7 +83,7 @@ def index(db_path: Any = None) -> Any:
     from hydromodpy.core.state.global_index import GlobalIndex
 
     resolved = _Path(db_path).expanduser().resolve() if db_path is not None else None
-    return GlobalIndex(resolved)
+    return GlobalIndex(resolved, read_only=read_only)
 
 
 def run(config: Any, **kwargs: Any) -> Any:

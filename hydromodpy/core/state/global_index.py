@@ -21,7 +21,7 @@ import duckdb
 import pandas as pd
 from pydantic import BaseModel, ConfigDict
 
-from hydromodpy.core.io.db_retry import connect_with_retry
+from hydromodpy.core.io.db_retry import _is_lock_contention, connect_with_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.index_migrations import ensure_schema as _ensure_index_schema
 from hydromodpy.core.state.paths import (
@@ -30,6 +30,10 @@ from hydromodpy.core.state.paths import (
     resolve_workspace,
     state_dir,
 )
+
+_CONTENDED_RETRIES = 5
+_CONTENDED_BACKOFF = 0.05
+_CONTENDED_MAX_BACKOFF = 0.5
 
 if TYPE_CHECKING:
     from typing import Self
@@ -84,24 +88,90 @@ class GlobalIndex:
         Optional override for the index DuckDB file. Defaults to
         ``<state_dir>/hydromodpy/index.duckdb`` where ``state_dir`` honors
         ``XDG_STATE_HOME`` and falls back to ``~/.local/state``.
+    read_only
+        Open the index in read-only mode. ``register_workspace``,
+        ``unregister_workspace``, ``forget``, and ``prune`` will then raise
+        :class:`RuntimeError`. ``search``, ``find`` and ``list_workspaces``
+        keep working without holding the write-lock. When the default
+        write-lock acquisition is contended for more than a few seconds the
+        constructor logs a warning and silently falls back to this mode.
     """
 
-    def __init__(self, db_path: Path | None = None) -> None:
+    def __init__(self, db_path: Path | None = None, *, read_only: bool = False) -> None:
         self._db_path: Path = (
             Path(db_path).expanduser().resolve() if db_path is not None else _default_index_path()
         )
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn: duckdb.DuckDBPyConnection = connect_with_retry(str(self._db_path))
-        _ensure_index_schema(self._conn)
+        self._read_only: bool = bool(read_only)
+        if self._read_only and not self._db_path.is_file():
+            self._bootstrap_empty_db()
+        self._conn: duckdb.DuckDBPyConnection = self._open_connection()
+        if not self._read_only:
+            _ensure_index_schema(self._conn)
         self._attached_aliases: set[str] = set()
         self._fts_loaded: bool = False
         self._ensure_fts_extension()
         self.refresh_federation()
 
+    def _bootstrap_empty_db(self) -> None:
+        """Create an empty DuckDB file with the index schema for read-only use."""
+        try:
+            conn = duckdb.connect(str(self._db_path))
+            try:
+                _ensure_index_schema(conn)
+            finally:
+                conn.close()
+        except duckdb.IOException as exc:
+            if not _is_lock_contention(exc):
+                raise
+
+    def _open_connection(self) -> duckdb.DuckDBPyConnection:
+        """Open the index DuckDB connection honoring ``read_only``.
+
+        When write mode is requested, a short retry window is allowed. If the
+        write-lock is still contended after ``_CONTENDED_RETRIES`` attempts
+        we fall back to read-only so callers performing pure reads (``search``,
+        ``find``, ``list_workspaces``) stay responsive instead of blocking for
+        the default exponential backoff.
+        """
+        if self._read_only:
+            return duckdb.connect(str(self._db_path), read_only=True)
+        try:
+            return connect_with_retry(
+                str(self._db_path),
+                retries=_CONTENDED_RETRIES,
+                backoff=_CONTENDED_BACKOFF,
+                max_backoff=_CONTENDED_MAX_BACKOFF,
+            )
+        except duckdb.IOException as exc:
+            if not _is_lock_contention(exc):
+                raise
+            logger.warning(
+                "Global index write-lock contended for >5s at %s; "
+                "falling back to read-only snapshot. "
+                "Run 'hmp index register'/'forget'/'prune' from a single process.",
+                self._db_path,
+            )
+            self._read_only = True
+            return duckdb.connect(str(self._db_path), read_only=True)
+
     @property
     def connection(self) -> duckdb.DuckDBPyConnection:
         """Underlying DuckDB connection."""
         return self._conn
+
+    @property
+    def read_only(self) -> bool:
+        """Whether the index was opened in read-only mode."""
+        return self._read_only
+
+    def _check_writable(self, op: str) -> None:
+        """Raise when a mutation is attempted on a read-only handle."""
+        if self._read_only:
+            raise RuntimeError(
+                f"GlobalIndex is open in read-only mode; '{op}' requires write access. "
+                "Close other 'hmp' processes holding the index, then reopen."
+            )
 
     def close(self) -> None:
         """Detach attached workspaces and close the connection."""
@@ -126,6 +196,7 @@ class GlobalIndex:
 
     def register_workspace(self, uri: str, label: str | None = None) -> str:
         """Register one workspace by URI, return its workspace_id."""
+        self._check_writable("register_workspace")
         row = self._conn.execute(
             "INSERT INTO workspaces (workspace_uri, label) VALUES (?, ?) RETURNING workspace_id",
             [uri, label],
@@ -137,6 +208,7 @@ class GlobalIndex:
 
     def unregister_workspace(self, workspace_id: str) -> None:
         """Remove one workspace from the registry."""
+        self._check_writable("unregister_workspace")
         self._conn.execute("DELETE FROM workspaces WHERE workspace_id = ?", [workspace_id])
         self.refresh_federation()
 
@@ -171,6 +243,7 @@ class GlobalIndex:
 
         Returns the list of removed ``workspace_id``s.
         """
+        self._check_writable("prune")
         removed: list[str] = []
         for record in self.list_workspaces():
             catalog_path = _resolve_local_path(record.workspace_uri) / CATALOG_FILENAME
@@ -186,6 +259,11 @@ class GlobalIndex:
     def refresh_federation(self) -> None:
         """Detach previous workspaces, ATTACH each registered one READ_ONLY,
         and rebuild the federated view ``all_simulations``.
+
+        In read-only mode the view rebuild and FTS index refresh are skipped
+        because they would mutate the index DB. Federation still works by
+        re-ATTACHing the per-workspace catalogs and exposing them under
+        ``all_simulations`` as a temporary view tied to the connection.
         """
         for alias in list(self._attached_aliases):
             try:
@@ -227,7 +305,13 @@ class GlobalIndex:
                     record.workspace_id,
                 )
 
-        self._conn.execute("DROP VIEW IF EXISTS all_simulations")
+        view_kw = "TEMPORARY VIEW" if self._read_only else "VIEW"
+        try:
+            self._conn.execute(f"DROP {view_kw} IF EXISTS all_simulations")
+        except duckdb.Error:
+            # Read-only sessions sometimes refuse DROP on non-temporary views;
+            # CREATE OR REPLACE below handles the rebuild.
+            pass
         if attached_parts:
             unions = []
             for alias, workspace_id in attached_parts:
@@ -236,9 +320,10 @@ class GlobalIndex:
                     f"FROM {_quote_identifier(alias)}.simulations AS t"
                 )
             self._conn.execute(
-                "CREATE OR REPLACE VIEW all_simulations AS " + " UNION ALL ".join(unions)
+                f"CREATE OR REPLACE {view_kw} all_simulations AS " + " UNION ALL ".join(unions)
             )
-        self._maybe_refresh_fts()
+        if not self._read_only:
+            self._maybe_refresh_fts()
 
     def find(
         self,
