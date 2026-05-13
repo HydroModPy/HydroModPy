@@ -631,9 +631,9 @@ class WritesMixin:
     ) -> None:
         """Record the scientific objective and related metadata for ``sim_id``.
 
-        ``objective`` is the canonical stratification key used by
-        :meth:`SimulationCatalog.training_split`. The other fields are free
-        annotations for citation, geographic context, and contact lookup.
+        ``objective`` annotates the simulation for downstream filtering. The
+        other fields are free annotations for citation, geographic context,
+        and contact lookup.
         """
         if not self._persistence.save_catalog:
             return
