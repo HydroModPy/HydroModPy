@@ -324,18 +324,27 @@ def test_metric_definitions_seeded(catalog: SimulationCatalog) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_schema_version_records_catalog_v1(catalog: SimulationCatalog) -> None:
-    """``_schema_version`` carries one ``(catalog, 1)`` row after init."""
+def test_schema_version_records_catalog_v2(catalog: SimulationCatalog) -> None:
+    """``_schema_version`` carries the latest catalog migration after init."""
     rows = catalog.connection.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert (("catalog", 1)) in rows or ("catalog", 1) in rows
+    assert ("catalog", 2) in rows
 
 
-def test_schema_migrations_records_initial_migration(catalog: SimulationCatalog) -> None:
-    """``schema_migrations`` has exactly one row for migration 0001."""
+def test_schema_migrations_records_all_known_migrations(catalog: SimulationCatalog) -> None:
+    """``schema_migrations`` records the bundled migrations in order."""
     rows = catalog.connection.execute(
         "SELECT version, slug FROM schema_migrations ORDER BY version"
     ).fetchall()
-    assert rows == [(1, "initial_v2_schema")]
+    assert rows == [
+        (1, "initial_v2_schema"),
+        (2, "workflow_artifacts"),
+    ]
+
+
+def test_workflow_steps_has_artifact_uris_column(catalog: SimulationCatalog) -> None:
+    """``workflow_steps`` exposes ``artifact_uris`` (JSON) after migration 2."""
+    cols = _columns(catalog, "workflow_steps")
+    assert "artifact_uris" in cols
 
 
 # ---------------------------------------------------------------------------
@@ -356,7 +365,7 @@ def test_double_init_is_idempotent(tmp_path: Path) -> None:
     cat2.close()
 
     assert tables_a == tables_b
-    assert rows[0] == 1, "schema_migrations should still hold exactly 1 row"
+    assert rows[0] == 2, "schema_migrations should record every bundled migration"
     assert version_rows[0] == 1
 
 
