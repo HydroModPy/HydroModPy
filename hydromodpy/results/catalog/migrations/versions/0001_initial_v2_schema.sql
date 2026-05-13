@@ -419,11 +419,12 @@ CREATE TABLE audit_log (
     event_type    VARCHAR NOT NULL
                   CHECK (event_type IN (
                       'sim.register', 'sim.finalize', 'sim.delete',
-                      'sim.rename', 'sim.tag_add', 'sim.tag_remove',
-                      'param.write', 'param.update', 'metric.write',
-                      'tracked_file.add', 'tracked_file.remove',
-                      'objective.set', 'config.replay', 'migrate',
-                      'gc', 'vacuum', 'export', 'import'
+                      'sim.purge', 'sim.rename', 'sim.tag_add',
+                      'sim.tag_remove', 'param.write', 'param.update',
+                      'metric.write', 'tracked_file.add',
+                      'tracked_file.remove', 'objective.set',
+                      'config.replay', 'migrate', 'gc', 'vacuum',
+                      'export', 'import'
                   )),
     sim_id        UUID,
     project       VARCHAR,
