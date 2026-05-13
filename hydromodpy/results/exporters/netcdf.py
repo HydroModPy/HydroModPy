@@ -66,6 +66,9 @@ def export_netcdf(
     try:
         grp = sz.root
         crs_attrs = dict(grp["crs"].attrs) if "crs" in grp else {}
+        # Propagate the ACDD/CF root attrs persisted in the Zarr store
+        # (composed by hydromodpy.results.zarr_store.acdd.compose_acdd_root_attrs).
+        root_attrs = {str(k): v for k, v in dict(grp.attrs).items()}
 
         mesh = grp.get("mesh")
         if mesh is None or "vertices" not in mesh or "face_node_connectivity" not in mesh:
@@ -86,7 +89,14 @@ def export_netcdf(
 
     # Build UGRID topology dataset
     ds = xr.Dataset()
-    ds.attrs["Conventions"] = "UGRID-1.0"
+    # Carry over every ACDD/CF root attribute from the Zarr store, then
+    # override Conventions to advertise UGRID-1.0 alongside CF/ACDD and pin
+    # the simulation_id explicitly. The Zarr root advertises
+    # ``CF-1.11, ACDD-1.3, UGRID-1.0`` already, so this is mostly defensive
+    # in case the store was migrated from an older layout.
+    for key, value in root_attrs.items():
+        ds.attrs[key] = value
+    ds.attrs.setdefault("Conventions", "CF-1.11, ACDD-1.3, UGRID-1.0")
     ds.attrs["simulation_id"] = sim_id
 
     # Mesh topology variable (scalar placeholder per UGRID convention)

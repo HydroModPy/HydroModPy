@@ -135,8 +135,8 @@ def _prune_benchmark_artifacts(
     for top_level_path in (
         benchmark_root / "simulations",
         benchmark_root / "exports",
-        benchmark_root / "hydromodpy.duckdb",
-        benchmark_root / "hydromodpy.duckdb.wal",
+        benchmark_root / "catalog.duckdb",
+        benchmark_root / "catalog.duckdb.wal",
     ):
         _remove_artifact_path(top_level_path, removed=removed)
 
