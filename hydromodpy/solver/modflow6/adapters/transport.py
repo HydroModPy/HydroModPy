@@ -1,4 +1,4 @@
-"""Adapter for the ``transport/modflow6gwt`` solver pair."""
+"""Adapter for the ``transport/modflow6`` solver pair."""
 
 from __future__ import annotations
 
@@ -19,10 +19,10 @@ from hydromodpy.solver.modflow6.transport import Modflow6Transport
 
 
 class Modflow6GwtTransportAdapter:
-    """Adapter for ``transport/modflow6gwt`` runs."""
+    """Adapter for ``transport/modflow6`` runs."""
 
     process_type = "transport"
-    solver_name = "modflow6gwt"
+    solver_name = "modflow6"
     requires: tuple[tuple[str, str], ...] = (("flow", "modflow6"),)
     produces_concentration: bool = True
 
