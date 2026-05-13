@@ -733,11 +733,16 @@ def run_launcher_validation_case(
     env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
 
+    # Validation runs never persist ``hydromodpy.lock``: the lockfile would
+    # land inside ``validation_cases/<case>/`` and pollute git status after
+    # every test invocation. Reproducibility info already lives in the case
+    # config and result store.
     command = [
         sys.executable,
         "-m",
         "hydromodpy",
         "run",
+        "--no-lock",
         str(run_config_path),
     ]
 
