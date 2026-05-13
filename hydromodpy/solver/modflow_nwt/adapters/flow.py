@@ -1,4 +1,4 @@
-"""Adapter for the ``flow/modflownwt`` solver pair.
+"""Adapter for the ``flow/modflow_nwt`` solver pair.
 
 This module contains only the MODFLOW-NWT-specific construction step. The
 shared execution lifecycle lives in
@@ -28,10 +28,10 @@ from hydromodpy.solver.modflow_nwt.nwt import ModflowNwt
 
 
 class ModflowNwtFlowAdapter:
-    """Bridge one planned ``flow/modflownwt`` run to the ``ModflowNwt`` API."""
+    """Bridge one planned ``flow/modflow_nwt`` run to the ``ModflowNwt`` API."""
 
     process_type = "flow"
-    solver_name = "modflownwt"
+    solver_name = "modflow_nwt"
     requires: tuple[tuple[str, str], ...] = ()
 
     def validate(self, ctx: RunContext) -> None:

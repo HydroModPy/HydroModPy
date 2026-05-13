@@ -23,7 +23,7 @@ class Mt3dmsTransportAdapter:
 
     process_type = "transport"
     solver_name = "mt3dms"
-    requires: tuple[tuple[str, str], ...] = (("flow", "modflownwt"),)
+    requires: tuple[tuple[str, str], ...] = (("flow", "modflow_nwt"),)
     produces_concentration: bool = True
 
     def validate(self, ctx: RunContext) -> None:
