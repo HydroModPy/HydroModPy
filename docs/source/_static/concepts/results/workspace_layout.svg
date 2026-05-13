@@ -28,7 +28,7 @@
   <text x="84" y="160" class="small">shared area for cached inputs, project intent, persisted runs, and user-facing evidence</text>
 
   <rect x="104" y="214" width="220" height="120" class="catalog"/>
-  <text x="132" y="248" class="label">hydromodpy.duckdb</text>
+  <text x="132" y="248" class="label">catalog.duckdb</text>
   <text x="132" y="278" class="small">simulation catalog</text>
   <text x="132" y="304" class="mono">runs, metrics, provenance</text>
 
