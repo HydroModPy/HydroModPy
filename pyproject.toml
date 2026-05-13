@@ -27,10 +27,7 @@ keywords = [
     "watershed",
     "modeling",
     "catchment",
-    "machine-learning",
-    "ml-friendly-storage",
     "queryable-results",
-    "reproducible-ml",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -101,7 +98,6 @@ viz = [
 fair = [
     "pystac>=1.10,<2",
     "stac-validator>=3.5,<5",
-    "mlcroissant>=1.0,<2",
     "rocrate>=0.10,<1",
 ]
 interactive = [

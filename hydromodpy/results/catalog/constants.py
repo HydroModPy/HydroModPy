@@ -47,15 +47,6 @@ TABLE_NAMES: tuple[str, ...] = (
     "calibration_sessions",
     "calibration_iterations",
     "workflow_steps",
-    "sim_configs",
-    "sim_config_paths",
-    "feature_definitions",
-    "catalog_snapshots",
-    "ml_splits",
-    "ml_scalers",
-    "ml_datasets",
-    "ml_runs",
-    "ml_predictions",
 )
 
 # Per-simulation DuckDB tables (used by lifecycle deletion and hmp_package).

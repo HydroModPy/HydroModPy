@@ -1,4 +1,4 @@
-"""Integration coverage for the four ML access patterns of HydroModPy.
+"""Integration coverage for the data access patterns of HydroModPy.
 
 Validates that ``SimulationCatalog`` exposes its results through:
 
@@ -6,7 +6,6 @@ Validates that ``SimulationCatalog`` exposes its results through:
 - Parquet files readable directly by ``pandas.read_parquet`` (with KV
   metadata).
 - Zarr stores readable directly by ``xarray.open_zarr``.
-- ``Catalog.training_split`` returning a deterministic train/val/test split.
 
 The tests run end-to-end against a tmp workspace; no solver is invoked.
 """
@@ -126,7 +125,7 @@ class TestParquetPattern:
         # Read via DuckDB (no pyarrow dependency); equivalent to
         # pd.read_parquet when pyarrow / fastparquet is installed.
         df = catalog._db.execute(f"SELECT * FROM read_parquet('{target}')").fetchdf()
-        assert {"datetime", "value", "variable", "station_id"}.issubset(df.columns)
+        assert {"time", "value", "variable", "station_id"}.issubset(df.columns)
         assert len(df) > 0
 
         # The same file is also readable by pandas when pyarrow is available.
@@ -135,7 +134,7 @@ class TestParquetPattern:
         except ImportError:
             pytest.skip("pyarrow / fastparquet not installed; pandas path is documented")
         else:
-            assert {"datetime", "value", "variable", "station_id"}.issubset(df_pd.columns)
+            assert {"time", "value", "variable", "station_id"}.issubset(df_pd.columns)
 
         rows = catalog._db.execute(
             f"SELECT key, value FROM parquet_kv_metadata('{target}')"
@@ -144,7 +143,7 @@ class TestParquetPattern:
         assert kv["sim_id"] == sid
         assert kv["project"] == "ml_p3"
         assert kv["scientific_objective"] == "exploratory"
-        assert kv["schema_version"]
+        assert kv["hmp.schema_version"]
         assert kv["hydromodpy_version"]
 
 
@@ -166,50 +165,6 @@ class TestZarrPattern:
         run = catalog[sid]
         with pytest.raises(KeyError, match="not found"):
             run.array.to_xarray_batch(("watertable_depth",))
-
-
-class TestTrainingSplit:
-    """Pattern 4: deterministic train/val/test split."""
-
-    def test_split_deterministic_and_disjoint(self, catalog):
-        for i in range(20):
-            _seed_run(
-                catalog,
-                project=f"split_{i % 2}",
-                name=f"r{i}",
-                objective="calibration" if i % 2 == 0 else "validation",
-            )
-
-        first = catalog.training_split(test_size=0.25, val_size=0.1, random_state=42)
-        second = catalog.training_split(test_size=0.25, val_size=0.1, random_state=42)
-        assert first == second  # determinism
-
-        train, val, test = first
-        all_ids = train + val + test
-        assert len(all_ids) == 20
-        assert len(set(all_ids)) == 20  # no duplicates across splits
-
-    def test_split_no_completed_returns_empty_tuples(self, catalog):
-        train, val, test = catalog.training_split()
-        assert (train, val, test) == ([], [], [])
-
-    def test_split_without_sklearn_raises(self, catalog, monkeypatch):
-        from hydromodpy.results.catalog import discovery
-
-        _seed_run(catalog, project="ms", name="r1", objective="exploratory")
-        # Force the sklearn import inside training_split to fail.
-        import builtins as _builtins
-
-        real_import = _builtins.__import__
-
-        def _broken_import(name, *args, **kwargs):
-            if name.startswith("sklearn"):
-                raise ImportError("simulated absence of sklearn")
-            return real_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(_builtins, "__import__", _broken_import)
-        with pytest.raises(discovery.MissingMLDependencyError):
-            catalog.training_split()
 
 
 class TestScientificObjective:

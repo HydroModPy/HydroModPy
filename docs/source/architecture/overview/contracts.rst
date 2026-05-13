@@ -40,8 +40,6 @@ package exposes a flat set of verbs and helpers re-exported from
    * - ``hmp.viz.show(run, figure, **kwargs)``
      - Render one figure for a run. Scalable defaults via
        datashader / LTTB.
-   * - ``hmp.ml`` (stub namespace)
-     - ML helpers: ``split``, ``fit_scaler``, ``export``, ``track``.
 
 Storage Protocol: ``CatalogBackend``
 ------------------------------------
