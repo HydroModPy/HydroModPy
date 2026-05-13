@@ -186,3 +186,96 @@ def test_index_path_uses_hmp_state_home(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
     expected = (tmp_path / "hmp_state").resolve() / "index.duckdb"
     assert _default_index_path() == expected
+
+
+def test_read_only_open_returns_existing_records(tmp_path: Path) -> None:
+    """``GlobalIndex(read_only=True)`` exposes search/find/list without writes."""
+    ws = tmp_path / "ws_a"
+    _seed_workspace(ws, rows=[("s1", "Bretagne baseline run", "mf6")])
+    index_db = _index_db(tmp_path)
+
+    with GlobalIndex(index_db) as writer:
+        writer.register_workspace(str(ws))
+
+    with GlobalIndex(index_db, read_only=True) as reader:
+        assert reader.read_only is True
+        records = reader.list_workspaces()
+        assert len(records) == 1
+        df = reader.find(solver="mf6")
+        assert not df.empty
+        assert df["sim_id"].tolist() == ["s1"]
+
+
+def test_read_only_register_raises_runtime_error(tmp_path: Path) -> None:
+    """Mutations on a read-only handle raise ``RuntimeError``."""
+    ws = tmp_path / "ws_a"
+    _seed_workspace(ws)
+    with GlobalIndex(_index_db(tmp_path)) as writer:
+        writer.register_workspace(str(ws), label="seed")
+
+    with GlobalIndex(_index_db(tmp_path), read_only=True) as ro:
+        with pytest.raises(RuntimeError, match="read-only"):
+            ro.register_workspace(str(ws / "ignored"))
+        with pytest.raises(RuntimeError, match="read-only"):
+            ro.unregister_workspace("nonexistent")
+        with pytest.raises(RuntimeError, match="read-only"):
+            ro.prune()
+
+
+def test_read_only_bootstraps_missing_db(tmp_path: Path) -> None:
+    """A read-only open on a missing DB seeds an empty schema instead of crashing."""
+    index_db = tmp_path / "state" / "missing.duckdb"
+    with GlobalIndex(index_db, read_only=True) as ro:
+        assert ro.read_only is True
+        assert ro.list_workspaces() == []
+        assert ro.find().empty
+
+
+def test_contended_writer_falls_back_to_read_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """When ``connect_with_retry`` keeps raising lock errors, we degrade to read-only."""
+    import duckdb as _duckdb
+
+    from hydromodpy.core.state import global_index as gi_mod
+
+    # Seed a real DB first via a normal writer so the file exists.
+    ws = tmp_path / "ws_a"
+    _seed_workspace(ws)
+    index_db = _index_db(tmp_path)
+    with GlobalIndex(index_db) as writer:
+        writer.register_workspace(str(ws))
+
+    def _always_contended(*_args: object, **_kwargs: object) -> _duckdb.DuckDBPyConnection:
+        raise _duckdb.IOException(
+            "IO Error: Could not set lock on file: another process is holding the lock"
+        )
+
+    monkeypatch.setattr(gi_mod, "connect_with_retry", _always_contended)
+
+    with GlobalIndex(index_db) as gi:
+        assert gi.read_only is True
+        assert len(gi.list_workspaces()) == 1
+
+
+def test_non_contention_io_error_propagates(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Non-lock IO errors are NOT swallowed by the read-only fallback."""
+    import duckdb as _duckdb
+
+    from hydromodpy.core.state import global_index as gi_mod
+
+    ws = tmp_path / "ws_a"
+    _seed_workspace(ws)
+    index_db = _index_db(tmp_path)
+    with GlobalIndex(index_db) as writer:
+        writer.register_workspace(str(ws))
+
+    def _other_io_error(*_args: object, **_kwargs: object) -> _duckdb.DuckDBPyConnection:
+        raise _duckdb.IOException("IO Error: Permission denied")
+
+    monkeypatch.setattr(gi_mod, "connect_with_retry", _other_io_error)
+
+    with pytest.raises(_duckdb.IOException):
+        GlobalIndex(index_db)

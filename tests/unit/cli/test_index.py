@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 
+import duckdb
 import pytest
 
 
@@ -20,6 +21,23 @@ def _run(monkeypatch, argv: list[str]) -> int:
     with pytest.raises(SystemExit) as exc_info:
         module.main()
     return int(exc_info.value.code or 0)
+
+
+def _seed_workspace_with_catalog(workspace: Path) -> None:
+    """Create a workspace with an empty v2 catalog so ``register`` accepts it."""
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    workspace.mkdir(parents=True, exist_ok=True)
+    conn = duckdb.connect(str(workspace / CATALOG_FILENAME))
+    try:
+        conn.execute(
+            "CREATE TABLE simulations ("
+            "sim_id VARCHAR PRIMARY KEY, "
+            "description VARCHAR, "
+            "solver VARCHAR)"
+        )
+    finally:
+        conn.close()
 
 
 @pytest.fixture
@@ -38,6 +56,7 @@ def test_index_help_displays(monkeypatch, capsys) -> None:
     assert "search" in out
     assert "forget" in out
     assert "prune" in out
+    assert "register" in out
 
 
 def test_index_search_help_displays(monkeypatch, capsys) -> None:
@@ -67,3 +86,46 @@ def test_index_forget_unknown_returns_zero(monkeypatch, capsys, isolated_state) 
     assert code == 0
     out = capsys.readouterr().out
     assert "nonexistent-id" in out
+
+
+def test_register_workspace_via_cli(monkeypatch, capsys, tmp_path, isolated_state) -> None:
+    """``hmp index register`` prints the assigned workspace_id and persists it."""
+    ws = tmp_path / "ws_a"
+    _seed_workspace_with_catalog(ws)
+
+    code = _run(monkeypatch, ["hmp", "index", "register", str(ws), "--label", "alpha"])
+    assert code == 0
+    workspace_id = capsys.readouterr().out.strip()
+    assert workspace_id
+    # The workspace_id must be a UUID-ish identifier (no spaces or punctuation lines).
+    assert "\n" not in workspace_id
+
+    from hydromodpy.core.state.global_index import GlobalIndex
+
+    with GlobalIndex() as gi:
+        records = gi.list_workspaces()
+    assert len(records) == 1
+    assert records[0].workspace_id == workspace_id
+    assert records[0].label == "alpha"
+    assert records[0].workspace_uri == str(ws)
+
+
+def test_register_missing_catalog_exits_not_found(
+    monkeypatch, capsys, tmp_path, isolated_state
+) -> None:
+    """Registering a path without ``catalog.duckdb`` returns EXIT_NOT_FOUND."""
+    ws = tmp_path / "empty_ws"
+    ws.mkdir()
+    code = _run(monkeypatch, ["hmp", "index", "register", str(ws)])
+    assert code == 3
+    err = capsys.readouterr().err
+    assert "catalog.duckdb" in err
+
+
+def test_register_help_mentions_workspace_uri(monkeypatch, capsys) -> None:
+    """``hmp index register --help`` documents the workspace_uri arg."""
+    code = _run(monkeypatch, ["hmp", "index", "register", "--help"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "workspace_uri" in out
+    assert "--label" in out
