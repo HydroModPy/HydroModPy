@@ -178,3 +178,27 @@ class ExportStep:
             step_name=self.name,
             ctx=ctx,
         )
+
+    def artifacts(self, state: PipelineState) -> tuple[str, ...]:
+        """Return workspace-relative paths exported by this step."""
+        ctx = state.get("ctx")
+        if ctx is None:
+            return ()
+        workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
+        project_root: Path | None = getattr(workspace, "project_root", None)
+        if project_root is None:
+            return ()
+        found: list[str] = []
+        for path_obj in state.get("export_paths", ()) or ():
+            try:
+                candidate = Path(path_obj)
+            except TypeError:
+                continue
+            if not candidate.exists():
+                continue
+            try:
+                rel = candidate.relative_to(project_root).as_posix()
+            except ValueError:
+                continue
+            found.append(rel)
+        return tuple(sorted(set(found)))

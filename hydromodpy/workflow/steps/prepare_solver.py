@@ -802,6 +802,43 @@ def _persist_reference_hydrographic_feature(
 # ---------------------------------------------------------------------------
 
 
+def _store_sim_artifacts(ctx: WorkflowContext, sim_id: str) -> tuple[str, ...]:
+    """Return workspace-relative paths produced for ``sim_id`` by the store."""
+    store = getattr(ctx, "store", None)
+    if store is None:
+        return ()
+    workspace = getattr(ctx, "setup", None)
+    workspace = getattr(workspace, "workspace", None)
+    project_root: Path | None = getattr(workspace, "project_root", None)
+    if project_root is None:
+        return ()
+    found: list[str] = []
+    try:
+        zarr_path = store.zarr_path_for(sim_id)
+    except Exception:
+        zarr_path = None
+    if zarr_path is not None and zarr_path.exists():
+        rel = _relative_or_none(zarr_path, project_root)
+        if rel is not None:
+            found.append(rel)
+    try:
+        parquet_dir = store.parquet_dir_for(sim_id)
+    except Exception:
+        parquet_dir = None
+    if parquet_dir is not None and parquet_dir.exists():
+        rel = _relative_or_none(parquet_dir, project_root)
+        if rel is not None:
+            found.append(rel)
+    return tuple(found)
+
+
+def _relative_or_none(path: Path, root: Path) -> str | None:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return None
+
+
 class PrepareSolverStep:
     """Build the simulation plan + open the store."""
 
@@ -847,3 +884,13 @@ class PrepareSolverStep:
             step_name=self.name,
             ctx=ctx,
         )
+
+    def artifacts(self, state: PipelineState) -> tuple[str, ...]:
+        """Return workspace-relative paths persisted by this step."""
+        ctx = state.get("ctx")
+        if ctx is None or getattr(ctx, "store", None) is None:
+            return ()
+        sim_id = getattr(ctx, "sim_id", None)
+        if not sim_id:
+            return ()
+        return _store_sim_artifacts(ctx, sim_id)

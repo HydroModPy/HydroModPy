@@ -148,3 +148,15 @@ class ExtractStep:
             ctx=ctx,
             extraction_summary={"runs": extracted},
         )
+
+    def artifacts(self, state: PipelineState) -> tuple[str, ...]:
+        """Return workspace-relative paths populated by extraction."""
+        from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
+
+        ctx = state.get("ctx")
+        if ctx is None:
+            return ()
+        sim_id = getattr(ctx, "sim_id", None)
+        if not sim_id:
+            return ()
+        return _store_sim_artifacts(ctx, sim_id)
