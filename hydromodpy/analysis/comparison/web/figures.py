@@ -182,6 +182,12 @@ def _figure_sort_key(item: Mapping[str, Any]) -> tuple[int, str]:
         score = 30
     elif "difference" in name:
         score = 40
+    elif "head_domain_low_series" in name:
+        score = 47
+    elif "head_domain_mid_series" in name:
+        score = 48
+    elif "head_domain_high_series" in name:
+        score = 49
     elif "timeseries" in name:
         score = 50
     elif "diagnostics" in name:

@@ -86,6 +86,7 @@ class _EngineBridge:
 
     def terminate(self) -> None:
         self._done.set()
+        self._pending_in.put(_SENTINEL)
         self._pending_out.put(None)
 
     def next_point(self, timeout: float | None = None) -> np.ndarray | None:
@@ -431,6 +432,10 @@ class DaMhGpOptimizer:
 
     def converged(self) -> bool:
         return self._bridge.finished() and not self._pending
+
+    def close(self) -> None:
+        self._bridge.terminate()
+        self._worker.join(timeout=1.0)
 
     # ------------------------------------------------------------------
     # Diagnostics (used by downstream workflows/tests)

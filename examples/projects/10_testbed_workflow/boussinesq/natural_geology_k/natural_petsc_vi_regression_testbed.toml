@@ -101,7 +101,7 @@ label_template = "{site_label}"
 # Template for the generated variant axis/group.
 axis_template = "{cluster_scale}"
 # Columns required by this generation rule.
-required_fields = ["x_outlet", "y_outlet", "cluster_scale"]
+required_fields = ["x_outlet", "y_outlet", "cluster_scale", "mesh_bundle_dir"]
 # Select only N2 rows.
 tags = ["n2_100km2"]
 
@@ -109,6 +109,9 @@ tags = ["n2_100km2"]
 [testbed.variant_from_catalog.overlay.comparison]
 # Generated comparison id for the current site.
 comparison_id = "{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
+# Simulation base that reuses precomputed mesh-gallery bundles instead of
+# rerunning mesh_catchment for the regional-lab 100 km2 supports.
+base_simulation_config = "base_site_01_mf6_bouss_transient_mesh_input.toml"
 # Generated comparison output folder for the current site.
 output_root = "../../outputs/boussinesq_petsc_vi_regression_testbed/comparisons/{site_id}_natural_{cluster_scale}_mf6_bouss_petsc_vi"
 
@@ -135,21 +138,32 @@ snap_dist = "300.0 m"
 # Larger watershed buffer around each delineated basin.
 buff_area = "1800.0 m"
 
+# Use the committed mesh-gallery bundles prepared by the regional-lab mesh scan.
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay]
+mesh_catchment__delete = true
+
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.mesh_input]
+bundle_dir = "{mesh_bundle_dir}"
+
+# The mesh bundle already carries river constraints, so the 100 km2 replay does
+# not need to reload clipped hydrography or regenerate stream vectors.
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.data]
+types = ["dem", "geology", "recharge"]
+
 # DEM-derived river-network extraction settings for 100 km2 sites.
 [testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.river_network]
-# Stream initiation threshold adapted to larger supports.
-threshold_area_km2 = 1.0
-
-# Irregular mesh sizing for 100 km2 sites.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.mesh_catchment.zone_meshing]
-# Background target cell size in metres.
-global_size = 260.0
-# Minimum allowed local cell size in metres.
-min_size = 90.0
-# Target cell size near rivers, geology interfaces and watershed boundaries.
-interface_size = 140.0
+# Stream vectors are supplied by the precomputed mesh bundle for these cases.
+enabled = false
 
 # Common raster support for 100 km2 map comparisons.
 [testbed.variant_from_catalog.overlay.comparison.fine_raster]
 # Raster resolution in metres, scaled with the larger natural supports.
 resolution = 160.0
+
+[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+mesh_label = "precomputed mesh-gallery geology-river bundle"
+mesh_mode = "mesh_input"
+
+[[testbed.variant_from_catalog.overlay.comparison.simulation]]
+mesh_label = "precomputed mesh-gallery geology-river bundle"
+mesh_mode = "mesh_input"
