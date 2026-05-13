@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import pickle
 import re
+import warnings
 from collections.abc import Mapping
 from copy import copy
 from dataclasses import fields, is_dataclass, replace
@@ -31,6 +32,13 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import PipelineState, UnpicklableMarker
 
 logger = get_logger(__name__)
+
+_DEPRECATION_EMITTED: bool = False
+_DEPRECATION_MESSAGE: str = (
+    "pickle-based CheckpointStore is deprecated and will be removed once every "
+    "pipeline step exposes artifacts(); rely on workflow_steps journal-driven "
+    "resume instead."
+)
 
 
 try:
@@ -66,6 +74,10 @@ class CheckpointStore:
 
     def persist(self, state: PipelineState) -> Path:
         """Write ``state`` to disk and return the written path."""
+        global _DEPRECATION_EMITTED
+        if not _DEPRECATION_EMITTED:
+            _DEPRECATION_EMITTED = True
+            warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
         stripped = _strip_unpicklable(state)
         key = load_or_create_key(self._key_path)
         blob = dumps_signed(stripped, key)
