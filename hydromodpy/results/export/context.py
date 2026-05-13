@@ -19,7 +19,13 @@ from importlib import metadata as _importlib_metadata
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
+from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import WORKSPACE_TOML_FILENAME
+from hydromodpy.core.workspace.workspace_toml import load_workspace_toml
+
+logger = get_logger(__name__)
 
 _DEFAULT_LICENSE = "https://creativecommons.org/licenses/by/4.0/"
 
@@ -99,21 +105,24 @@ def _resolve_license(workspace_meta: dict[str, Any] | None) -> str:
 def _read_workspace_toml(workspace_path: Path) -> dict[str, Any]:
     """Return parsed ``workspace.toml`` content as a flat ``[workspace]`` dict.
 
-    The function tolerates a missing or malformed file (returns an empty
-    mapping so the caller can fall back to defaults).
+    Validation runs through ``load_workspace_toml`` (Pydantic v2). When the
+    file is missing or fails validation the function logs a warning and
+    returns an empty mapping so FAIR exporters fall back to defaults.
     """
     toml_path = workspace_path / WORKSPACE_TOML_FILENAME
     if not toml_path.is_file():
         return {}
     try:
-        with open(toml_path, "rb") as fh:
-            payload = tomllib.load(fh)
-    except (OSError, tomllib.TOMLDecodeError):
+        validated = load_workspace_toml(workspace_path)
+    except (OSError, tomllib.TOMLDecodeError, ValidationError) as exc:
+        logger.warning(
+            "Invalid %s at %s; FAIR exporter falls back to defaults: %s",
+            WORKSPACE_TOML_FILENAME,
+            toml_path,
+            exc,
+        )
         return {}
-    workspace = payload.get("workspace") if isinstance(payload, dict) else {}
-    if not isinstance(workspace, dict):
-        return {}
-    return workspace
+    return validated.workspace.model_dump(mode="python")
 
 
 @dataclass(frozen=True)

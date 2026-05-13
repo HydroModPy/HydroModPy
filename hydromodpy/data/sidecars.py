@@ -12,12 +12,19 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
 SIDECAR_SUFFIX = ".json"
+
+#: Env var that, when set to ``"1"``, forces ``fetched_at`` to ``None`` for every
+#: remote source. Use it in CI and fixtures to keep sidecar payloads
+#: byte-identical across runs. Local ``custom`` sources are already
+#: deterministic and ignore the toggle.
+DETERMINISTIC_FETCHED_AT_ENV = "HMP_DETERMINISTIC_FETCHED_AT"
 
 
 class Sidecar(BaseModel):
@@ -38,6 +45,22 @@ class Sidecar(BaseModel):
     crs: str | None = None
     bbox: tuple[float, float, float, float] | None = None
     notes: str | None = None
+
+
+def resolve_fetched_at(source: str, *, now: datetime | None = None) -> datetime | None:
+    """Return the ``fetched_at`` value for a sidecar.
+
+    Local ``source == "custom"`` inputs have no network fetch event and always
+    return ``None``. Remote sources (``hubeau``, ``ign``, ``brgm``, ``meteo``,
+    ...) return a UTC timestamp unless the env var
+    :data:`DETERMINISTIC_FETCHED_AT_ENV` is set to ``"1"``, in which case
+    ``None`` is returned so the JSON stays byte-identical across runs.
+    """
+    if str(source).lower() == "custom":
+        return None
+    if os.environ.get(DETERMINISTIC_FETCHED_AT_ENV) == "1":
+        return None
+    return now if now is not None else datetime.now(UTC)
 
 
 def sidecar_path_for(file_path: Path) -> Path:
@@ -74,10 +97,12 @@ def compute_sha256(path: Path, chunk_size: int = 1 << 20) -> str:
 
 
 __all__ = [
+    "DETERMINISTIC_FETCHED_AT_ENV",
     "SIDECAR_SUFFIX",
     "Sidecar",
     "compute_sha256",
     "load_sidecar",
+    "resolve_fetched_at",
     "sidecar_path_for",
     "write_sidecar",
 ]

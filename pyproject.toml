@@ -129,7 +129,6 @@ docs = [
     "sphinxcontrib-plantuml",
     "autodoc-pydantic>=2.0",
     "sphinx-codeautolink",
-    "sphinxcontrib-mermaid",
     "sphinxcontrib-bibtex",
     "sphinx-autodoc-typehints<3",
     "sphinx-issues<5",

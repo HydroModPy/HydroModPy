@@ -29,6 +29,7 @@ from hydromodpy.cli.helpers import (
     resolve_sim_id,
 )
 from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.results.catalog.audit import emit_deletion_tombstone
 
 NAME: str = "privacy"
 HELP: str = "Privacy-preserving operations (purge a sim with audit certificate)"
@@ -111,7 +112,23 @@ def _cmd_purge(args: argparse.Namespace) -> None:
         parquet_dir = catalog.parquet_dir_for(sid)
         existing = [str(p) for p in (zarr_path, parquet_dir) if p.exists()]
 
-        catalog.delete(sid, remove_storage=True)
+        sha256_snapshot = _sha256_snapshot(snapshot)
+        catalog.delete(
+            sid,
+            remove_storage=True,
+            audit_event_type="sim.purge",
+            audit_payload={
+                "reason": args.reason,
+                "sha256_snapshot": sha256_snapshot,
+            },
+        )
+        emit_deletion_tombstone(
+            catalog._db,  # type: ignore[attr-defined]
+            sim_id=sid,
+            sha256_snapshot=sha256_snapshot,
+            reason=args.reason,
+            components={"removed_paths": existing},
+        )
 
     workspace_top = _resolve_workspace_top(workspace_root)
     extra_removed = _prune_orphan_geographic_cache(workspace_top)
@@ -122,6 +139,7 @@ def _cmd_purge(args: argparse.Namespace) -> None:
         snapshot=snapshot,
         reason=args.reason,
         removed_paths=[*existing, *extra_removed],
+        sha256_snapshot=sha256_snapshot,
     )
 
     print(f"Purged simulation {sid}")
@@ -229,6 +247,12 @@ def _referenced_fingerprints(workspace: Path) -> set[str]:
     return seen
 
 
+def _sha256_snapshot(snapshot: dict[str, object]) -> str:
+    """Return the deterministic SHA-256 digest of a simulation snapshot."""
+    payload = json.dumps(snapshot, sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _write_purge_certificate(
     *,
     workspace_root: Path,
@@ -236,13 +260,11 @@ def _write_purge_certificate(
     snapshot: dict[str, object],
     reason: str,
     removed_paths: list[str],
+    sha256_snapshot: str,
 ) -> Path:
     cert_dir = workspace_root / ".hmp" / PURGE_CERTIFICATE_DIRNAME
     cert_dir.mkdir(parents=True, exist_ok=True)
     cert_path = cert_dir / f"{sim_id}.json"
-
-    snapshot_payload = json.dumps(snapshot, sort_keys=True, default=str)
-    sha256_snapshot = hashlib.sha256(snapshot_payload.encode("utf-8")).hexdigest()
 
     certificate = {
         "sim_id": sim_id,

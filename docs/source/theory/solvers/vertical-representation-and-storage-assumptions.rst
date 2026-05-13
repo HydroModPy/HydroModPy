@@ -18,19 +18,27 @@ vertical representation controls:
 Conceptual Cross-Section
 ------------------------
 
-.. mermaid::
+The current vertical contract stacks several layers between two
+surfaces:
 
-   flowchart TB
-     Top["Topography<br/>z_top(x, y)"]
-     L1["Layer 1<br/>same planar footprint<br/>head h solved in cell"]
-     L2["Layer 2 .. n-1<br/>same planar footprint<br/>properties may vary with depth"]
-     Ln["Bottom layer<br/>same planar footprint"]
-     Bot["Substratum<br/>z_bot(x, y)"]
+- top surface: topography :math:`z_{top}(x, y)`,
+- bottom surface: substratum :math:`z_{bot}(x, y)`,
+- between them, ``n`` layers share the same planar footprint and the
+  same planar connectivity.
 
-     Top -- "local thickness z_top - z_bot" --> L1
-     L1 -- "shared vertical proportions p_l" --> L2
-     L2 -- "repeated planar connectivity" --> Ln
-     Ln --> Bot
+Layer roles, top down:
+
+- **Layer 1**: head ``h`` is solved in every cell. Same planar
+  footprint as the layers below.
+- **Layers 2 to n-1**: same planar footprint. Material properties may
+  vary with depth even when the geometry does not.
+- **Bottom layer**: same planar footprint. Sits on the substratum
+  surface.
+
+Layer geometry is driven by the local thickness
+:math:`z_{top} - z_{bot}` and by shared vertical proportions
+:math:`p_l`. The same planar connectivity is repeated at every
+layer.
 
 This diagram is intentionally schematic. It summarizes the current contract:
 one planar support is repeated vertically, while storage and material

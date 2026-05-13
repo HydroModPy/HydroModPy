@@ -13,6 +13,7 @@ from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.catalog.audit import emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX, ZARR_ZIP_SUFFIX
@@ -243,17 +244,22 @@ class LifecycleMixin:
         sim_id: str | UUID,
         *,
         remove_storage: bool = True,
+        audit_event_type: str = "sim.delete",
+        audit_payload: dict | None = None,
     ) -> None:
         """Delete a simulation row and (optionally) its on-disk artefacts.
 
         Cascades the delete across every per-sim DuckDB table and removes
         the per-sim Parquet directory and Zarr store when
-        ``remove_storage`` is true.
+        ``remove_storage`` is true. Emits one ``audit_log`` row in the same
+        transaction; callers (notably ``hmp privacy purge``) override
+        ``audit_event_type`` to ``"sim.purge"`` to distinguish a hard purge
+        from a routine delete.
         """
         sid = str(sim_id)
 
         row = self._db.execute(
-            "SELECT zarr_path FROM simulations WHERE sim_id = ?",
+            "SELECT zarr_path, project FROM simulations WHERE sim_id = ?",
             [sid],
         ).fetchone()
         # Resolve artefact paths while the row still exists so basename lookup
@@ -261,7 +267,12 @@ class LifecycleMixin:
         # resolution onto the raw-UUID fallback and miss the real folder.
         parquet_dir = self._paths.parquet_dir_for(sid) if remove_storage else None
         zarr_abs = self._workspace / row[0] if remove_storage and row and row[0] else None
+        project_name = row[1] if row else None
         self._paths.forget(sid)
+
+        payload: dict = {"remove_storage": bool(remove_storage)}
+        if audit_payload:
+            payload.update(audit_payload)
 
         self._db.execute("BEGIN TRANSACTION")
         try:
@@ -272,6 +283,13 @@ class LifecycleMixin:
                 [sid],
             )
             self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+            emit_audit_event(
+                self._db,
+                event_type=audit_event_type,  # type: ignore[arg-type]
+                sim_id=sid,
+                project=project_name,
+                payload=payload,
+            )
             self._db.execute("COMMIT")
         except Exception:
             self._db.execute("ROLLBACK")

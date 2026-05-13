@@ -1041,19 +1041,14 @@ def _emit_input_sidecar(
     so a sidecar issue cannot block the catalog registration.
     """
     try:
-        from datetime import UTC, datetime
-
-        from hydromodpy.data.sidecars import Sidecar, write_sidecar
+        from hydromodpy.data.sidecars import Sidecar, resolve_fetched_at, write_sidecar
 
         bbox_payload: tuple[float, float, float, float] | None = None
         if all(value is not None for value in bbox):
             bbox_payload = tuple(float(v) for v in bbox)  # type: ignore[assignment]
-        # ``fetched_at`` is left empty for ``source == "custom"`` so local
-        # fixture sidecars stay deterministic (no wall-clock drift in tests).
-        fetched_at = None if str(source).lower() == "custom" else datetime.now(UTC)
         sidecar = Sidecar(
             source=str(source),
-            fetched_at=fetched_at,
+            fetched_at=resolve_fetched_at(str(source)),
             sha256=str(sha256),
             crs=str(crs) if crs else None,
             bbox=bbox_payload,

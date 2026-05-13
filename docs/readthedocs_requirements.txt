@@ -10,7 +10,6 @@ sphinx-togglebutton==0.3.2
 sphinx-polyversion>=1.0
 sphinxcontrib-plantuml
 sphinx-codeautolink
-sphinxcontrib-mermaid
 sphinxcontrib-bibtex
 sphinx-autodoc-typehints<3
 sphinx-issues<5

@@ -345,6 +345,7 @@ def _cmd_fetch(args: argparse.Namespace) -> None:
     from hydromodpy.data.sidecars import (
         Sidecar,
         compute_sha256,
+        resolve_fetched_at,
         write_sidecar,
     )
 
@@ -377,7 +378,7 @@ def _cmd_fetch(args: argparse.Namespace) -> None:
 
     sidecar = Sidecar(
         source=args.source,
-        fetched_at=datetime.now(UTC),
+        fetched_at=resolve_fetched_at(args.source),
         sha256=compute_sha256(target),
         license=None,
         crs=None,

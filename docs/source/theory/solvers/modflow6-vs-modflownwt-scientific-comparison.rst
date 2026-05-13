@@ -30,22 +30,20 @@ replace them.
 Shared Scientific Core
 ----------------------
 
-.. mermaid::
+The shared HydroModPy flow payload (head unknown, ``K``/``Sy``/``Ss``,
+boundaries, recharge, wells) feeds two backend translations:
 
-   flowchart LR
-     Flow["Common HydroModPy flow payload<br/>head unknown, K/Sy/Ss,<br/>boundaries, recharge, wells"]
-     NWT["MODFLOW-NWT<br/>structured DIS<br/>UPW + NWT Newton path<br/>legacy MODFLOW-2005 ecosystem"]
-     MF6["MODFLOW 6<br/>structured DIS or layered DISV<br/>NPF + IMS<br/>optional Newton path<br/>XT3D when justified"]
-     LegacyNeed["Structured benchmark /<br/>legacy continuity"]
-     ModernNeed["Irregular support /<br/>modern default /<br/>shared natural mesh"]
-     Report["Report explicitly:<br/>support equality<br/>DIS vs DISV<br/>XT3D on/off<br/>storage regime<br/>comparison intent"]
+- **MODFLOW-NWT path**: structured ``DIS`` grid, ``UPW`` + ``NWT`` Newton
+  path, legacy MODFLOW-2005 ecosystem. Picked for structured benchmarks
+  and legacy continuity.
+- **MODFLOW 6 path**: structured ``DIS`` or layered ``DISV``,
+  ``NPF`` + ``IMS``, optional Newton path, ``XT3D`` when justified.
+  Picked for irregular support, modern default, and a shared natural
+  mesh.
 
-     Flow --> NWT
-     Flow --> MF6
-     LegacyNeed --> NWT
-     ModernNeed --> MF6
-     NWT --> Report
-     MF6 --> Report
+Both paths must report explicitly: support equality, ``DIS`` vs
+``DISV`` choice, ``XT3D`` on/off, storage regime, and the comparison
+intent.
 
 The scientific core stays comparable, but the backend choice still changes the
 discretization contract, the internal flow package, and the nonlinear path.

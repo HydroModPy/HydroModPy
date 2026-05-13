@@ -10,10 +10,12 @@ import pytest
 from pydantic import ValidationError
 
 from hydromodpy.data.sidecars import (
+    DETERMINISTIC_FETCHED_AT_ENV,
     SIDECAR_SUFFIX,
     Sidecar,
     compute_sha256,
     load_sidecar,
+    resolve_fetched_at,
     sidecar_path_for,
     write_sidecar,
 )
@@ -117,3 +119,49 @@ def test_sidecar_accepts_omitted_fetched_at(tmp_path: Path):
     assert payload["fetched_at"] is None
     restored = load_sidecar(target)
     assert restored.fetched_at is None
+
+
+def test_resolve_fetched_at_custom_source_is_none(monkeypatch: pytest.MonkeyPatch):
+    """Custom local inputs always return ``None`` regardless of env var."""
+    monkeypatch.delenv(DETERMINISTIC_FETCHED_AT_ENV, raising=False)
+    assert resolve_fetched_at("custom") is None
+    monkeypatch.setenv(DETERMINISTIC_FETCHED_AT_ENV, "1")
+    assert resolve_fetched_at("custom") is None
+
+
+def test_resolve_fetched_at_remote_source_returns_timestamp(monkeypatch: pytest.MonkeyPatch):
+    """Real remote sources keep a UTC timestamp by default for audit."""
+    monkeypatch.delenv(DETERMINISTIC_FETCHED_AT_ENV, raising=False)
+    fetched = resolve_fetched_at("hubeau")
+    assert isinstance(fetched, datetime)
+    assert fetched.tzinfo is not None
+
+
+def test_resolve_fetched_at_env_var_forces_none(monkeypatch: pytest.MonkeyPatch):
+    """``HMP_DETERMINISTIC_FETCHED_AT=1`` forces ``None`` for every source."""
+    monkeypatch.setenv(DETERMINISTIC_FETCHED_AT_ENV, "1")
+    assert resolve_fetched_at("hubeau") is None
+    assert resolve_fetched_at("ign") is None
+    assert resolve_fetched_at("brgm") is None
+    assert resolve_fetched_at("custom") is None
+
+
+def test_resolve_fetched_at_env_var_other_values_keep_timestamp(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """Only ``"1"`` activates the deterministic toggle, not ``"0"`` or empty."""
+    monkeypatch.setenv(DETERMINISTIC_FETCHED_AT_ENV, "0")
+    assert isinstance(resolve_fetched_at("hubeau"), datetime)
+    monkeypatch.setenv(DETERMINISTIC_FETCHED_AT_ENV, "")
+    assert isinstance(resolve_fetched_at("hubeau"), datetime)
+
+
+def test_resolve_fetched_at_explicit_now_is_passed_through(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    """An explicit ``now`` argument lets callers pin the timestamp."""
+    monkeypatch.delenv(DETERMINISTIC_FETCHED_AT_ENV, raising=False)
+    fixed = datetime(2026, 1, 1, 12, 0, tzinfo=UTC)
+    assert resolve_fetched_at("ign", now=fixed) == fixed
+    monkeypatch.setenv(DETERMINISTIC_FETCHED_AT_ENV, "1")
+    assert resolve_fetched_at("ign", now=fixed) is None
