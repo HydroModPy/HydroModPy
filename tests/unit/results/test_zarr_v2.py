@@ -185,8 +185,34 @@ def test_zarr_schema_version_mismatch_raises(tmp_path: Path) -> None:
     sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
     sz.root.attrs["zarr_schema_version"] = "1"
     sz.close()
-    with pytest.raises(ZarrSchemaVersionError):
+    with pytest.raises(ZarrSchemaVersionError) as exc:
         SimulationZarr(path)
+    assert exc.value.actual == "1"
+    assert exc.value.expected == ZARR_SCHEMA_VERSION
+
+
+def test_open_rejects_zarr_with_missing_schema_version(tmp_path: Path) -> None:
+    """A Zarr that already carries content but lacks the version attr raises."""
+    path = tmp_path / "no_version.zarr"
+    sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
+    del sz.root.attrs["zarr_schema_version"]
+    sz.close()
+    with pytest.raises(ZarrSchemaVersionError) as exc:
+        SimulationZarr(path)
+    assert exc.value.actual is None
+    assert exc.value.expected == ZARR_SCHEMA_VERSION
+
+
+def test_open_rejects_zarr_with_null_schema_version(tmp_path: Path) -> None:
+    """A Zarr that advertises ``zarr_schema_version=None`` is rejected."""
+    path = tmp_path / "null_version.zarr"
+    sz = SimulationZarr.create(path, n_cells=4, n_layers=1)
+    sz.root.attrs["zarr_schema_version"] = None
+    sz.close()
+    with pytest.raises(ZarrSchemaVersionError) as exc:
+        SimulationZarr(path)
+    assert exc.value.actual is None
+    assert exc.value.expected == ZARR_SCHEMA_VERSION
 
 
 def test_groups_renamed_topography_and_particles(fresh_store: SimulationZarr) -> None:

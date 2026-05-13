@@ -214,7 +214,14 @@ class SimulationZarr:
         return instance
 
     def _open_root_strict(self, *, read_only: bool) -> zarr.Group:
-        """Open the root group and validate the schema version."""
+        """Open the root group and validate the schema version.
+
+        The v2 contract requires every persisted store to carry a non-null
+        ``zarr_schema_version`` attribute matching ``ZARR_SCHEMA_VERSION`` at
+        the root. Mismatch, absence and null all raise
+        :class:`ZarrSchemaVersionError`. A freshly created empty directory is
+        the only exempted case (``__init__`` racing with ``create``).
+        """
         mode = "r" if read_only else "a"
         with warnings.catch_warnings():
             warnings.filterwarnings(
@@ -232,11 +239,15 @@ class SimulationZarr:
                 )
             except (KeyError, ValueError):
                 root = zarr.open_group(self._store, mode=mode)
+        is_empty = not dict(root.attrs) and not list(root.keys())
+        if is_empty and not read_only:
+            return root
         actual = root.attrs.get("zarr_schema_version")
-        # Fresh stores legitimately lack the attribute before ``create()``
-        # populates the root metadata; only enforce when something is set.
-        if actual is not None and str(actual) != ZARR_SCHEMA_VERSION:
-            raise ZarrSchemaVersionError(ZARR_SCHEMA_VERSION, str(actual))
+        if actual is None or str(actual) != ZARR_SCHEMA_VERSION:
+            raise ZarrSchemaVersionError(
+                ZARR_SCHEMA_VERSION,
+                None if actual is None else str(actual),
+            )
         return root
 
     # -- Public accessors ----------------------------------------------------
