@@ -78,8 +78,9 @@ class RunTimeseriesMixin:
     def timeseries(
         self,
         variable: str,
-        station: str,
-        period: tuple | None = None,
+        *,
+        station: str | None = None,
+        period: tuple | str | None = None,
     ) -> pd.Series:
         """Return one simulated time series.
 
@@ -88,9 +89,11 @@ class RunTimeseriesMixin:
         variable
             Catalog variable name, such as ``"discharge"`` or ``"head"``.
         station
-            Station id stored in the timeseries table.
+            Station id stored in the timeseries table. When the variable has
+            a single station, this can be left ``None``.
         period
-            Optional ``(start, end)`` datetime bounds.
+            Optional ``(start, end)`` datetime bounds, or a single ``"YYYY"``
+            year string applied as ``("YYYY-01-01", "YYYY-12-31")``.
 
         Returns
         -------
@@ -102,6 +105,22 @@ class RunTimeseriesMixin:
         KeyError
             Raised when no matching time series exists.
         """
+        if station is None:
+            stations = self._catalog.backend.query(
+                "SELECT DISTINCT station_id FROM timeseries WHERE sim_id = ? AND variable = ?",
+                [self._sim_id, variable],
+            )
+            if stations.empty:
+                raise KeyError(f"No timeseries for sim={self._sim_id}, var={variable}")
+            if len(stations) > 1:
+                names = ", ".join(sorted(stations["station_id"].astype(str)))
+                raise KeyError(
+                    f"Variable '{variable}' has multiple stations ({names}); "
+                    "pass station= explicitly."
+                )
+            station = str(stations["station_id"].iloc[0])
+        if isinstance(period, str):
+            period = (f"{period}-01-01", f"{period}-12-31")
         query = (
             "SELECT time, timestep, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"

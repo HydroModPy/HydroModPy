@@ -13,6 +13,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
@@ -47,6 +49,22 @@ class Grid:
     extent: tuple[float, float, float, float]
     crs: str | None
     catchment_area_m2: float
+
+    def cell_centers_xy(self) -> tuple[np.ndarray, np.ndarray]:
+        """Return ``(xs, ys)`` flat arrays of cell-centre coordinates.
+
+        Row-major ordering matches the flat cell-field layout used by Zarr
+        readers (row 0 first, then row 1, etc.). Each array has length
+        ``nrow * ncol``.
+        """
+        nrow, ncol = int(self.shape[0]), int(self.shape[1])
+        xmin, xmax, ymin, ymax = (float(v) for v in self.extent)
+        cs = float(self.cell_size)
+        x_centres = xmin + (np.arange(ncol) + 0.5) * cs
+        y_centres = ymax - (np.arange(nrow) + 0.5) * cs
+        xs = np.tile(x_centres, nrow)
+        ys = np.repeat(y_centres, ncol)
+        return xs, ys
 
 
 def build_grid(run: Run) -> Grid:

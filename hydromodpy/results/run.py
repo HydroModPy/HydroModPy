@@ -25,19 +25,20 @@ The class composes per-concern mixins to stay under the 50-method limit:
 - :class:`RunGeographicMixin` (geographic features, rasters, grid, mesh, field I/O)
 - :class:`RunTimeseriesMixin` (parameters, metrics, budgets, timeseries, time index)
 - :class:`RunHydrographicMixin` (canonical hydrographic-network roles)
-- :class:`RunCellMixin` (per-cell views: saturation, drainage density,
-  cell-field active and network metrics, release-flux network metrics)
+
+Per-cell views (``saturated_fraction``, ``drainage_density``, ``persistence``,
+``cell_field_*``, ``release_flux_*``, ``catchment_mean``) live as
+module-level functions in :mod:`hydromodpy.results.views` and consume a
+``Run`` instance as their first argument.
 
 Public API
 ----------
 - ``Run``: instantiated by ``SimulationCatalog`` resolution methods. Also
   exposes ``run.array`` for xarray / UGRID readers.
-- :class:`hydromodpy.results.run_loader.RunLoaderAdapter` builds a ``Run``
-  from a TOML / JSON / dict config payload.
 - :class:`hydromodpy.results.run_export.RunExportAdapter` writes per-run
   archives (``to_csv``, ``export``).
 - :class:`hydromodpy.results.run_array.RunArrayProvider` exposes
-  ``dataset``, ``to_xarray_batch`` and the ``at(timestep, layer)`` accessor.
+  ``dataset`` and ``to_xarray_batch``.
 
 Cross-refs
 ----------
@@ -55,8 +56,8 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.errors import RunNotFoundError
 from hydromodpy.results.run_array import RunArrayProvider
-from hydromodpy.results.run_cell import RunCellMixin
 from hydromodpy.results.run_geographic import RunGeographicMixin
 from hydromodpy.results.run_hydrographic import RunHydrographicMixin
 from hydromodpy.results.run_timeseries import RunTimeseriesMixin
@@ -73,7 +74,6 @@ class Run(
     RunGeographicMixin,
     RunTimeseriesMixin,
     RunHydrographicMixin,
-    RunCellMixin,
 ):
     """Read one persisted simulation from a HydroModPy catalog.
 
@@ -128,7 +128,9 @@ class Run(
                 [self._sim_id],
             ).fetchone()
             if row is None:
-                raise KeyError(f"Simulation '{self._sim_id}' not found")
+                raise RunNotFoundError(
+                    f"Simulation '{self._sim_id}' not found", sim_id=self._sim_id
+                )
             cols = [d[0] for d in self._catalog.connection.description]
             self._row = dict(zip(cols, row, strict=False))
             # Tags moved to a per-sim table in v2. Populate as a Python list.
@@ -273,10 +275,6 @@ class Run(
             return _json.dumps(data, default=str, indent=2, sort_keys=False)
         return data
 
-    def at(self, timestep: int = -1, layer: int | None = None):
-        """Return the chainable array accessor for one time/layer slice."""
-        return self.array.at(timestep=timestep, layer=layer)
-
     # -- Display capabilities ------------------------------------------------
 
     @property
@@ -339,13 +337,13 @@ class Run(
                 f"solver={row.get('solver')!r}, "
                 f"status={row.get('status')!r})"
             )
-        except KeyError:
+        except RunNotFoundError:
             return f"Run(sim_id={self._sim_id!r}, <not found>)"
 
     def _repr_html_(self) -> str:
         try:
             row = self._load_row()
-        except KeyError:
+        except RunNotFoundError:
             return f"<b>Run</b> <code>{self._sim_id[:8]}</code> <i>(not found)</i>"
         dur = row.get("duration_s")
         dur_str = f"{dur:.1f} s" if isinstance(dur, (int, float)) else "&mdash;"
