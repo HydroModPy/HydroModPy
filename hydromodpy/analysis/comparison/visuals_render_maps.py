@@ -817,7 +817,14 @@ def _write_geotiff(
     path: Path,
     array: np.ndarray,
     extent: tuple[float, float, float, float],
+    crs: str | int | None = None,
 ) -> bool:
+    """Write a regridded array as GeoTIFF.
+
+    ``crs`` is the projected CRS string (e.g. ``"EPSG:2154"``) or an EPSG int.
+    When ``None``, the catalog default ``EPSG:2154`` is used as a documented
+    fallback for legacy Lambert-93 testbeds.
+    """
     if rasterio is None:
         return False
     xmin, xmax, ymin, ymax = extent
@@ -833,6 +840,12 @@ def _write_geotiff(
     data_to_write = np.where(np.isfinite(data), data, nodata_value)
     transform = from_origin(xmin, ymax, resolution_x, resolution_y)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if crs is None:
+        crs_arg: str = "EPSG:2154"
+    elif isinstance(crs, int):
+        crs_arg = f"EPSG:{crs}"
+    else:
+        crs_arg = str(crs)
     with rasterio.open(
         path,
         "w",
@@ -842,7 +855,7 @@ def _write_geotiff(
         count=1,
         dtype="float32",
         transform=transform,
-        crs="EPSG:2154",
+        crs=crs_arg,
         nodata=float(nodata_value),
     ) as dataset:
         dataset.write(data_to_write, 1)
