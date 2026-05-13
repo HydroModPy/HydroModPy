@@ -18,6 +18,25 @@ NAME: str = "data"
 HELP: str = "Inspect and manage custom data artefacts in the workspace"
 
 
+def _parse_bbox(value: str) -> tuple[float, float, float, float]:
+    """Argparse type for the ``--bbox`` flag.
+
+    Validates that ``value`` is four comma-separated floats ``minx,miny,maxx,maxy``.
+    Raised errors surface as standard argparse parsing failures.
+    """
+    parts = value.split(",")
+    if len(parts) != 4:
+        raise argparse.ArgumentTypeError(
+            "bbox must be 'minx,miny,maxx,maxy' (four comma-separated floats); "
+            "use '--bbox=-1.17,48.4,-1.0,48.5' when minx is negative"
+        )
+    try:
+        floats = tuple(float(p) for p in parts)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"bbox values must be floats ({exc})") from exc
+    return (floats[0], floats[1], floats[2], floats[3])
+
+
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="data_command")
@@ -94,7 +113,13 @@ def register(subparsers) -> argparse.ArgumentParser:
     fetch.add_argument(
         "--bbox",
         default=None,
-        help="Bounding box xmin,ymin,xmax,ymax in the workspace CRS",
+        type=_parse_bbox,
+        metavar="MINX,MINY,MAXX,MAXY",
+        help=(
+            "Bounding box minx,miny,maxx,maxy in the workspace CRS. "
+            "When minx is negative, use '--bbox=-1.17,48.4,-1.0,48.5' (= sign) "
+            "so argparse does not treat the value as a flag."
+        ),
     )
     fetch.add_argument("--workspace", default=None)
     fetch.add_argument(
@@ -331,17 +356,7 @@ def _cmd_fetch(args: argparse.Namespace) -> None:
         print(f"Unknown variable {args.variable!r}. Available: {names}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
-    bbox: tuple[float, float, float, float] | None = None
-    if args.bbox is not None:
-        try:
-            parts = [float(p) for p in args.bbox.split(",")]
-        except ValueError:
-            print("--bbox must be 'xmin,ymin,xmax,ymax' (floats)", file=sys.stderr)
-            sys.exit(EXIT_CONFIG)
-        if len(parts) != 4:
-            print("--bbox needs exactly four comma-separated floats", file=sys.stderr)
-            sys.exit(EXIT_CONFIG)
-        bbox = (parts[0], parts[1], parts[2], parts[3])
+    bbox: tuple[float, float, float, float] | None = args.bbox
 
     raw_dir = workspace / "data" / spec.name / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
