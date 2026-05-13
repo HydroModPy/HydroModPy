@@ -63,6 +63,7 @@ to a module to read its direct members.
 
 .. autosummary::
    :toctree: generated
+   :recursive:
 
    hydromodpy.analysis
    hydromodpy.core
