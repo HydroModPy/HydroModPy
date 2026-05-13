@@ -107,7 +107,7 @@ Pathline or particle-track outputs.
      - Required inputs
    * - ``particle_tracks``
      - Particle pathlines
-     - fields ``pathlines``
+     - fields ``particles``
 
 Comparisons and overlays
 ~~~~~~~~~~~~~~~~~~~~~~~~
