@@ -50,6 +50,20 @@ def show(
     Returns
     -------
     matplotlib.figure.Figure
+        Figure produced by the dispatched backend.
+
+    Raises
+    ------
+    TypeError
+        If ``data`` is not one of the supported types.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> da = hmp.read(run, "head", time=-1, lazy=True)
+    >>> fig = hmp.viz.show(da)
+    >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})
+    >>> hmp.viz.show(ts, downsample="lttb", n_out=2_000)
     """
     import matplotlib.pyplot as plt
 
