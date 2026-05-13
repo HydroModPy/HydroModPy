@@ -55,16 +55,6 @@ _EXPECTED_TABLES: frozenset[str] = frozenset(
         "calibration_iterations",
         # Workflow
         "workflow_steps",
-        # ML-ready stubs (DDL only)
-        "sim_configs",
-        "sim_config_paths",
-        "feature_definitions",
-        "catalog_snapshots",
-        "ml_splits",
-        "ml_scalers",
-        "ml_datasets",
-        "ml_runs",
-        "ml_predictions",
     }
 )
 
@@ -102,7 +92,7 @@ def _columns(cat: SimulationCatalog, table: str) -> dict[str, str]:
 
 
 def test_every_expected_table_exists(catalog: SimulationCatalog) -> None:
-    """All v2 tables (33 base + 2 system) are created by the migration."""
+    """All v2 catalog tables are created by the migration."""
     present = _table_set(catalog)
     missing = _EXPECTED_TABLES - present
     assert not missing, f"Missing tables: {sorted(missing)}"
@@ -244,14 +234,14 @@ def test_calibration_sessions_v2_enrichment(catalog: SimulationCatalog) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ML-ready stub tables
+# ML stub tables removed in v2.0; assert their absence.
 # ---------------------------------------------------------------------------
 
 
-def test_ml_stub_tables_present(catalog: SimulationCatalog) -> None:
-    """ML-ready stub tables are declared at DDL time (DDL only, no rows)."""
+def test_no_ml_stub_tables(catalog: SimulationCatalog) -> None:
+    """The DDL must not declare any ML-ready stub tables."""
     present = _table_set(catalog)
-    for table in (
+    forbidden = {
         "ml_splits",
         "ml_scalers",
         "ml_datasets",
@@ -261,8 +251,9 @@ def test_ml_stub_tables_present(catalog: SimulationCatalog) -> None:
         "sim_config_paths",
         "feature_definitions",
         "catalog_snapshots",
-    ):
-        assert table in present, f"ML stub table missing: {table}"
+    }
+    intersection = forbidden & present
+    assert not intersection, f"ML stub tables must not be present: {sorted(intersection)}"
 
 
 # ---------------------------------------------------------------------------
