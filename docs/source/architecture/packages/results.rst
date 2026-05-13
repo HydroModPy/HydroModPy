@@ -1,7 +1,7 @@
 results
 =======
 
-``hydromodpy.results`` owns the workspace-level catalog and the
+``hydromodpy.results`` owns the project-level catalog and the
 per-run ``Run`` facade. It is the read-write layer between solver
 outputs and downstream consumers (display, analysis, exports).
 
@@ -9,16 +9,28 @@ Sub-modules
 -----------
 
 - ``results/catalog/`` -- ``SimulationCatalog`` facade plus
-  read / write mixins. One DuckDB file per workspace
-  (``hydromodpy.duckdb``); see :doc:`/architecture/storage-layout`.
-- ``results/catalog_schema.py`` -- canonical column definitions for
-  every table (``simulations``, ``parameters``, ``metrics``,
-  ``calibration_sessions``, ``calibration_iterations``,
-  ``provenance``, etc.).
+  read / write mixins. One DuckDB file per project
+  (``catalog.duckdb``); see :doc:`/architecture/storage-layout`.
+- ``results/catalog/ports.py`` -- :class:`CatalogBackend` Protocol
+  (Ports and Adapters port) consumed by every catalog operation.
+- ``results/catalog/adapters/`` -- ``DuckDBBackend`` default v2
+  adapter (SQLAlchemy 2.0 Core + ``duckdb-engine``) and
+  ``PostgresBackend`` stub reserved for v2.x.
+- ``results/catalog/migrations/`` -- Alembic-like SQL migrations
+  applied by the runner in ``hydromodpy/core/migrations/runner.py``.
 - ``results/run.py`` -- ``Run`` facade exposing read-only access to
-  one persisted simulation.
-- ``results/run_array.py`` and ``run_export.py`` -- supporting
-  modules for array access and ``Run.export``.
+  one persisted simulation. Stays below the 50-method limit.
+- ``results/run_array.py``, ``run_timeseries.py``, ``run_export.py``,
+  ``run_geographic.py``, ``run_hydrographic.py``,
+  ``run_environment.py`` -- focused mixins behind the ``Run`` facade.
+- ``results/field_registry.py`` -- maps a logical field name to a
+  Zarr or Parquet reader. Used by the ``hmp.read`` facade.
+- ``results/zarr_store/`` -- Zarr v2 store with atomic writes,
+  filelock, ACDD and CF metadata, ``ZARR_SCHEMA_VERSION``.
+- ``results/parquet_io.py`` and ``parquet_schemas.py`` -- Parquet
+  v2.6 writers, KV-metadata mixin, ``PARQUET_SCHEMA_VERSION``.
+- ``results/geoparquet_io.py`` -- GeoParquet 1.1 writers
+  (``GEOPARQUET_SCHEMA_VERSION``).
 - ``results/simulation_group.py`` -- ``SimulationGroup`` view across
   multiple runs (used by comparison and calibration analysis).
 - ``results/exporters/`` -- format writers: ``csv``, ``netcdf``,
@@ -56,14 +68,13 @@ Catalog operations
 
 ``SimulationCatalog`` exposes:
 
-- ``open(workspace)`` -- entry point
-  (``hydromodpy.open(workspace)``).
-- ``list_simulations(project=..., status=..., order_by=...)``
+- ``open(project_path)`` -- entry point
+  (``hydromodpy.open(project_path)``).
+- ``list_simulations(status=..., order_by=...)``
 - ``resolve(prefix)`` -- expand a sim id prefix.
 - ``__getitem__(sim_id)`` -- return a ``Run``.
-- ``latest(project=...)``, ``best(project, metric)``.
-- ``query_field(sim_id, variable, timestep)``,
-  ``query_timeseries(sim_id, variable, station=...)``,
+- ``latest()``, ``best(metric)``.
+- ``query_timeseries(sim_id, station=..., variable=...)``,
   ``query_budget(sim_id, component=...)``,
   ``query_mass_balance(sim_id)``.
 - ``calibration_sessions()``,
@@ -72,9 +83,19 @@ Catalog operations
   ``import_package(path)``.
 - ``sql(query, params)`` for cross-run analytics.
 
+Field reads go through the ``hmp.read`` facade (see ``hydromodpy.read``
+re-export). The facade dispatches to a Zarr or Parquet reader via
+``field_registry.py`` so the same call works regardless of where the
+field lives. The legacy ``catalog.query_field`` is removed in v2.
+
 Companion DuckDB views (``v_simulation_summary``,
 ``v_best_per_project``, ``v_metrics_wide``, ``v_params_wide``)
 remain available for ad-hoc SQL.
+
+Cross-project / cross-workspace queries go through the
+:class:`~hydromodpy.core.state.global_index.GlobalIndex` exposed as
+``hmp.index()``. The index federates every registered workspace via
+ATTACH read-only and rebuilds ``all_simulations`` on refresh.
 
 Concurrency
 -----------
@@ -86,12 +107,18 @@ resolves transparently.
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/results/catalog_schema.py`` for the table layout.
-2. ``hydromodpy/results/catalog/facade.py`` (``SimulationCatalog``).
-3. ``hydromodpy/results/run.py`` (``Run`` facade).
-4. ``hydromodpy/results/exporters/csv.py`` for an exporter
+1. ``hydromodpy/results/catalog/migrations/versions/0001_initial_v2_schema.sql``
+   for the canonical table layout.
+2. ``hydromodpy/results/catalog/ports.py`` (Protocol).
+3. ``hydromodpy/results/catalog/adapters/duckdb_backend.py``
+   (SQLAlchemy 2.0 Core implementation).
+4. ``hydromodpy/results/catalog/facade.py`` (``SimulationCatalog``).
+5. ``hydromodpy/results/run.py`` (``Run`` facade).
+6. ``hydromodpy/results/field_registry.py`` for the field dispatch
+   used by ``hmp.read``.
+7. ``hydromodpy/results/exporters/csv.py`` for an exporter
    reference.
-5. ``hydromodpy/results/exporters/hmp_package.py`` for the bundle
+8. ``hydromodpy/results/exporters/hmp_package.py`` for the bundle
    format.
 
 Layer-matrix neighbours

@@ -45,13 +45,14 @@ Foundations
       Recommended package-by-package reading paths through the
       source tree.
 
-   .. grid-item-card:: Two databases
+   .. grid-item-card:: Three databases
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: two-databases
       :link-type: doc
 
-      The workspace layout with one input cache and one simulation
-      catalog, and why this split exists.
+      The three-level v2 layout: machine global index, workspace
+      input cache, per-project simulation catalog. Why the split
+      exists.
 
 Contracts and integration
 -------------------------
@@ -64,8 +65,17 @@ Contracts and integration
       :link: schema-evolution
       :link-type: doc
 
-      Versioning policy applied to the Pydantic configuration schema
-      and to future storage migrations.
+      Alembic-like migration runner that applies versioned SQL
+      migrations on every catalog DuckDB plus the
+      ``ZARR_SCHEMA_VERSION`` and ``PARQUET_SCHEMA_VERSION`` pins.
+
+   .. grid-item-card:: Protocols and contracts
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: contracts
+      :link-type: doc
+
+      ``CatalogBackend`` Protocol, ``SimulationStore`` Protocol, and
+      the field registry consumed by the ``hmp.read`` facade.
 
    .. grid-item-card:: Frontend hooks
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -102,6 +112,7 @@ Contracts and integration
    code-reading-guide
    two-databases
    schema-evolution
+   contracts
    frontend-hooks
    test-families-and-quality-roles
    test-inventory

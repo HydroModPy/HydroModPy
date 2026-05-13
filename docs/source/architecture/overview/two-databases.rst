@@ -1,30 +1,50 @@
-The two workspace databases
-===========================
+The three workspace databases
+=============================
 
-A HydroModPy workspace carries two DuckDB databases with symmetric APIs:
+HydroModPy v2 splits SQL state across three levels: machine, workspace,
+project. Each level has its own DuckDB file with a focused role and an
+independent lifecycle.
 
-Input cache - ``workspace/data/cache.duckdb``
----------------------------------------------
+For the complete layout, see :doc:`../storage-layout`. For the migration
+policy applied to every database below, see :doc:`schema-evolution`.
 
-Tracks downloaded or custom datasets. Exposed through:
+Machine global index - ``$XDG_STATE_HOME/hydromodpy/index.duckdb``
+------------------------------------------------------------------
+
+Federates registered workspaces and exposes cross-workspace queries
+through ATTACH read-only. Exposed through:
+
+- :class:`~hydromodpy.core.state.global_index.GlobalIndex`
+- ``hmp.index()`` Python facade
+- ``hmp index search / forget / prune`` CLI verbs
+
+Workspace input cache - ``<workspace>/data/cache.duckdb``
+---------------------------------------------------------
+
+Tracks downloaded or custom datasets used as model inputs. One per
+workspace, scope ``data/`` mutualised across projects. Exposed through:
 
 - ``DataCatalogDuckDB`` (low-level)
 - ``DataStore`` (facade)
 - ``DataEntry`` (view on one row)
 - ``project.data`` / ``workspace.data`` accessors
 
-Output catalog - ``workspace/hydromodpy.duckdb``
-------------------------------------------------
+Each row carries a workspace-relative POSIX ``file_path`` so caches
+remain portable between machines.
 
-Holds the simulation metadata, parameters, metrics, provenance, and
-calibration history. It is scoped to the workspace, not to one simulation.
-Each simulation gets a row in this catalog plus per-simulation Zarr/Parquet
-artefacts under ``workspace/simulations/``. Exposed through:
+Project simulation catalog - ``<project>/catalog.duckdb``
+---------------------------------------------------------
+
+Holds simulation metadata, parameters, metrics, provenance, calibration
+history, and the workflow ledger. Scoped to one project (typically one
+catchment) and irreplaceable. Each simulation gets a row plus
+per-simulation Zarr and Parquet artefacts under
+``<project>/simulations/``. Exposed through:
 
 - :class:`~hydromodpy.results.catalog.SimulationCatalog`
 - :class:`~hydromodpy.results.run.Run`
 - :class:`~hydromodpy.results.simulation_group.SimulationGroup`
-- ``project.runs`` / ``workspace.runs`` accessors
+- ``project.runs`` / ``hmp.open(project_path)`` accessors
 
 Provenance bridge
 -----------------
@@ -32,4 +52,19 @@ Provenance bridge
 Each simulation records, in its ``provenance`` rows, which input-cache
 entries it consumed. ``run.input_entries()`` walks the bridge to list
 them, and ``entry.used_by()`` returns the simulations that referenced a
-given entry.
+given entry. Cross-workspace lookups go through the global index.
+
+Why three levels
+----------------
+
+- Machine index: cross-workspace discovery without copying data.
+- Workspace cache: input mutualisation between projects sharing a
+  geographic area.
+- Project catalog: irreplaceable results that warrant their own backup
+  policy.
+
+The split also matches three distinct lifecycles: the index is fully
+recreatable from registered workspaces, the cache is purgeable and
+reconstructible from upstream sources, the project catalog is the only
+SQL store that holds science output that cannot be regenerated without
+re-running simulations.
