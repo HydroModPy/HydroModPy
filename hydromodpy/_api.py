@@ -322,17 +322,35 @@ def read(
     layer: int | None = None,
     sel: dict | None = None,
     bbox: tuple[float, float, float, float] | None = None,
+    lazy: bool | None = None,
 ) -> Any:
     """Read a variable from a simulation with auto-dispatch.
 
     Single entry point for reads: dispatches on the variable kind via the
     canonical :mod:`hydromodpy.results.field_registry` (Zarr fields), the
     DuckDB ``timeseries`` table, and the GeoParquet ``geographic_features``
-    table. The return type tracks the storage kind:
+    table.
 
-    - registered Zarr field -> :class:`xarray.DataArray` (lazy, dask-backed)
-    - DuckDB timeseries -> :class:`pandas.Series`
-    - GeoParquet feature -> :class:`geopandas.GeoDataFrame`
+    Return type depends on the storage kind AND on the ``time``/``layer``
+    selectors when reading a Zarr field:
+
+    +----------------+--------------------+------------------------+----------------------+
+    | storage        | time / layer       | ``lazy`` value         | return type          |
+    +================+====================+========================+======================+
+    | Zarr field     | both ``None``      | ``None`` or ``True``   | ``xr.DataArray``     |
+    +----------------+--------------------+------------------------+----------------------+
+    | Zarr field     | ``slice`` only     | ``None`` or ``True``   | ``xr.DataArray``     |
+    +----------------+--------------------+------------------------+----------------------+
+    | Zarr field     | ``time`` is ``int``| ``None`` (auto)        | ``np.ndarray``       |
+    +----------------+--------------------+------------------------+----------------------+
+    | Zarr field     | any                | ``True``               | ``xr.DataArray``     |
+    +----------------+--------------------+------------------------+----------------------+
+    | Zarr field     | any                | ``False``              | ``np.ndarray``       |
+    +----------------+--------------------+------------------------+----------------------+
+    | timeseries     | n/a                | any                    | ``pd.Series``        |
+    +----------------+--------------------+------------------------+----------------------+
+    | geo. feature   | n/a                | any                    | ``gpd.GeoDataFrame`` |
+    +----------------+--------------------+------------------------+----------------------+
 
     Parameters
     ----------
@@ -356,12 +374,17 @@ def read(
     bbox
         Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS;
         restricts Zarr fields to faces whose centroid lies in the box.
+    lazy
+        Force the return type for Zarr fields. ``True`` -> always
+        ``xr.DataArray`` (load values manually via ``.values``); ``False``
+        -> always ``np.ndarray`` (eager load); ``None`` -> auto (eager
+        when ``time`` is an int, lazy otherwise). Ignored for timeseries
+        and geographic features.
 
     Returns
     -------
     object
-        ``xr.DataArray`` for Zarr fields, ``pd.Series`` for timeseries,
-        ``gpd.GeoDataFrame`` for vector features.
+        See the table above for the resolved return type.
 
     Raises
     ------
@@ -375,6 +398,8 @@ def read(
     >>> run = catalog.latest()
     >>> da = hmp.read(run, "head")  # xr.DataArray lazy
     >>> arr = hmp.read(run, "head", time=-1, layer=0)  # numpy via DataArray
+    >>> da2 = hmp.read(run, "head", time=-1, lazy=True)  # force DataArray
+    >>> arr2 = hmp.read(run, "head", lazy=False)  # force eager ndarray
     >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})
     >>> gdf = hmp.read(run, "watershed_polygon")  # geographic feature
     """
@@ -390,7 +415,7 @@ def read(
     sel_kw: dict = dict(sel or {})
 
     if field_registry.has(var):
-        return _read_zarr_field(sim, var, time=time, layer=layer, bbox=bbox)
+        return _read_zarr_field(sim, var, time=time, layer=layer, bbox=bbox, lazy=lazy)
 
     if _has_timeseries_var(sim, var):
         station = sel_kw.pop("station", None)
@@ -416,16 +441,41 @@ def _read_zarr_field(
     time: int | slice | None,
     layer: int | None,
     bbox: tuple[float, float, float, float] | None,
+    lazy: bool | None,
 ) -> Any:
-    """Dispatch a Zarr field read to the lazy xarray loader."""
-    if isinstance(time, int):
-        return sim.field(var, timestep=time, layer=layer, bbox=bbox)
-    da = sim.array.to_xarray_batch((var,), bbox=bbox)[var]
-    if isinstance(time, slice):
-        da = da.isel(time=time)
-    if layer is not None and "layer" in da.dims:
-        da = da.isel(layer=layer)
-    return da
+    """Dispatch a Zarr field read to the lazy xarray loader.
+
+    ``lazy`` controls the return type:
+
+    - ``None`` (auto): eager ``np.ndarray`` when ``time`` is an int (single
+      timestep selection), lazy ``xr.DataArray`` otherwise.
+    - ``True``: always return an ``xr.DataArray`` (call ``.values`` for the
+      eager numpy equivalent).
+    - ``False``: always return an ``np.ndarray`` (eager load).
+    """
+    if lazy is False:
+        if isinstance(time, int):
+            return sim.field(var, timestep=time, layer=layer, bbox=bbox)
+        da = sim.array.to_xarray_batch((var,), bbox=bbox)[var]
+        if isinstance(time, slice):
+            da = da.isel(time=time)
+        if layer is not None and "layer" in da.dims:
+            da = da.isel(layer=layer)
+        import numpy as np
+
+        return np.asarray(da.values)
+
+    if lazy is True or not isinstance(time, int):
+        da = sim.array.to_xarray_batch((var,), bbox=bbox)[var]
+        if isinstance(time, int):
+            da = da.isel(time=time)
+        elif isinstance(time, slice):
+            da = da.isel(time=time)
+        if layer is not None and "layer" in da.dims:
+            da = da.isel(layer=layer)
+        return da
+
+    return sim.field(var, timestep=time, layer=layer, bbox=bbox)
 
 
 def _has_timeseries_var(sim: Any, variable: str) -> bool:
