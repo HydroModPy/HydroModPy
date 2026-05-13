@@ -10,11 +10,14 @@ checkpointing, and resume live in :mod:`hydromodpy.workflow.runner.Pipeline`.
 Both routes use the same ``workflow.steps`` helpers so interactive notebooks
 and full pipeline runs do not fork the scientific logic.
 
-The facade is composed of three cohesive helpers:
+The facade is composed of four cohesive helpers:
 
+- :class:`hydromodpy.project_session.ProjectSession`: run-phase orchestrator
+  exposed via :meth:`Project.session`. Owns ``simulate``, ``sweep`` and the
+  prepared-run primitives (``prepare`` / ``execute`` / ``ingest`` /
+  ``render`` / ``cleanup``).
 - :class:`hydromodpy.project_runner.ProjectRunner` (``project._runner``):
-  the heavy run-phase methods (``run``, ``simulate``, ``sweep``,
-  ``calibrate``, ``mesh``, ``report``, prepared-run primitives).
+  internal runner for ``run`` / ``calibrate`` / ``mesh`` / ``report``.
 - :class:`hydromodpy.project_catalog.ProjectCatalog` (``project._catalog``):
   catalog access (``store``, ``runs``, ``data``) and lifecycle (``close``).
 - :mod:`hydromodpy.project_phases`: model-phase verbs that mutate the
@@ -33,6 +36,11 @@ Example
     wt = result.field("watertable_depth", timestep=12)
     ts = result.timeseries("discharge", station="_catchment")
 
+    # Low-level prepared-run primitives
+    session = project.session()
+    sim_id = session.prepare(name="probe")
+    session.execute(sim_id)
+
     project.close()
 """
 
@@ -47,6 +55,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project_catalog import ProjectCatalog
 from hydromodpy.project_runner import ProjectRunner, _pin_parent_sim_id
+from hydromodpy.project_session import ProjectSession
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.data import LoadedDataContext
@@ -434,42 +443,20 @@ class Project:
         """Mutable workflow runtime state threaded through workflow steps."""
         return self._ctx
 
+    # -- Run-phase session ------------------------------------------------
+
+    def session(self) -> ProjectSession:
+        """Return the run-phase orchestration facade bound to this project.
+
+        ``session`` exposes the prepared-run primitives (``prepare``,
+        ``execute``, ``ingest``, ``render``, ``cleanup``) plus
+        ``simulate`` and ``sweep``. The top-level verbs ``run``,
+        ``calibrate``, ``mesh``, ``report``, ``overview`` and
+        ``compare`` remain on :class:`Project` for the common case.
+        """
+        return ProjectSession(self)
+
     # -- Run-phase API (delegates to ProjectRunner) -----------------------
-
-    def prepare(self, *, name: str | None = None, **overrides) -> str:
-        """Reserve a sim_id, register the simulation and persist all inputs."""
-        return self._runner.prepare(name=name, **overrides)
-
-    def execute(self, sim_id: str) -> float:
-        """Run the solver for a previously prepared simulation."""
-        return self._runner.execute(sim_id)
-
-    def ingest(self, sim_id: str, *, extractors: list[str] | None = None) -> None:
-        """Ingest observations for a completed simulation."""
-        return self._runner.ingest(sim_id, extractors=extractors)
-
-    def render(
-        self,
-        sim_id: str,
-        *,
-        figures: list[str] | None = None,
-    ) -> list[Path]:
-        """Render the display figures attached to this simulation."""
-        return self._runner.render(sim_id, figures=figures)
-
-    def cleanup(
-        self,
-        sim_id: str,
-        *,
-        keep_solver_files: bool = False,
-        status: str = "completed",
-    ) -> None:
-        """Finalize the run status and remove the scratch directory."""
-        return self._runner.cleanup(
-            sim_id,
-            keep_solver_files=keep_solver_files,
-            status=status,
-        )
 
     def run(
         self,
@@ -533,39 +520,6 @@ class Project:
             frozen=frozen,
             no_display=no_display,
             **overrides,
-        )
-
-    def sweep(
-        self,
-        parameters: dict[str, list[float] | dict],
-        *,
-        strategy: str = "enumerate",
-        name_template: str = "{param}_{value:.4g}",
-        parallel: int = 1,
-    ):
-        """Run a parameter sweep from one project configuration.
-
-        Parameters
-        ----------
-        parameters
-            Mapping from parameter name to sampled values or sweep descriptor.
-        strategy
-            Sweep strategy. ``"enumerate"`` runs one simulation per value.
-        name_template
-            Format string used to name generated runs.
-        parallel
-            Maximum number of concurrent workers.
-
-        Returns
-        -------
-        SimulationGroup
-            Group containing the simulations created by the sweep.
-        """
-        return self._runner.sweep(
-            parameters,
-            strategy=strategy,
-            name_template=name_template,
-            parallel=parallel,
         )
 
     def overview(self, *, config_path: str | Path | None = None):
@@ -708,45 +662,6 @@ class Project:
     def report(self, session_id: str | None = None) -> Path:
         """Render the HTML report for a calibration session."""
         return self._runner.report(session_id)
-
-    def simulate(
-        self,
-        *,
-        time: tuple | None = None,
-        processes: list | None = None,
-        name: str | None = None,
-        **overrides,
-    ) -> Run:
-        """Run one simulation with orchestration specified from Python.
-
-        Parameters
-        ----------
-        time
-            Optional simulation time declaration.
-        processes
-            Optional list of process declarations such as
-            ``[("flow", "modflownwt")]``.
-        name
-            Optional run name persisted in the catalog.
-        overrides
-            Parameter overrides applied to the simulation plan.
-
-        Returns
-        -------
-        Run
-            Persisted result view for the completed simulation.
-
-        See Also
-        --------
-        Project.run
-            Main workflow entry point.
-        """
-        return self._runner.simulate(
-            time=time,
-            processes=processes,
-            name=name,
-            **overrides,
-        )
 
     # -- Lifecycle --------------------------------------------------------
 

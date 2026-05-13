@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 from shapely.geometry import LineString
 
+from hydromodpy.results import views
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.run import Run
 from hydromodpy.results.simulation_group import SimulationGroup
@@ -321,7 +322,8 @@ class TestSimulationData:
         _write_active_accumulation_flux_case(catalog, sid)
 
         sim = Run(sid, catalog)
-        metrics = sim.cell_field_active_metrics(
+        metrics = views.cell_field_active_metrics(
+            sim,
             threshold=0.5,
             persistence_threshold=0.5,
         )
@@ -353,15 +355,16 @@ class TestSimulationData:
         sim = Run(sid, catalog)
 
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="last"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="last"),
             np.array([0.0, 1.0, np.nan, 1.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="any"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="any"),
             np.array([1.0, 1.0, np.nan, 1.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(
+            views.cell_field_active_mask(
+                sim,
                 threshold=0.5,
                 mode="persistent",
                 persistence_threshold=0.5,
@@ -369,15 +372,15 @@ class TestSimulationData:
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="always_active"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="always_active"),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="perennial"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="perennial"),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="persistence"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="persistence"),
             np.array([1.0 / 3.0, 1.0, np.nan, 1.0 / 3.0]),
         )
 
@@ -403,11 +406,11 @@ class TestSimulationData:
         steady = Run(steady_sid, catalog)
 
         np.testing.assert_allclose(
-            transient.cell_field_active_mask(threshold=0.5),
+            views.cell_field_active_mask(transient, threshold=0.5),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            steady.cell_field_active_mask(threshold=0.5),
+            views.cell_field_active_mask(steady, threshold=0.5),
             np.array([0.0, 1.0, np.nan, 1.0]),
         )
 
@@ -427,7 +430,8 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.cell_field_network_overlap_metrics(
+        metrics = views.cell_field_network_overlap_metrics(
+            sim,
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,
@@ -461,7 +465,8 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.cell_field_network_distance_metrics(
+        metrics = views.cell_field_network_distance_metrics(
+            sim,
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,
@@ -498,7 +503,8 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.release_flux_network_overlap_metrics(
+        metrics = views.release_flux_network_overlap_metrics(
+            sim,
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,
@@ -526,7 +532,8 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.release_flux_network_distance_metrics(
+        metrics = views.release_flux_network_distance_metrics(
+            sim,
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,

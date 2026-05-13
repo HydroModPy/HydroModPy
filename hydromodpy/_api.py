@@ -11,9 +11,16 @@ import importlib
 import platform
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.version import __version__
+
+if TYPE_CHECKING:
+    import geopandas as gpd
+    import pandas as pd
+    import xarray as xr
+
+    Readable = xr.DataArray | pd.Series | pd.DataFrame | gpd.GeoDataFrame
 
 
 def open(workspace_path: Any) -> Any:
@@ -300,6 +307,138 @@ def report(session_id_or_prefix: Any = None, *, workspace: Any = None) -> Any:
             session_id=full_id,
             workspace_root=workspace_root,
         )
+
+
+def read(
+    sim: Any,
+    var: str,
+    *,
+    time: int | slice | None = None,
+    layer: int | None = None,
+    sel: dict | None = None,
+    bbox: tuple[float, float, float, float] | None = None,
+) -> Any:
+    """Read a variable from a simulation with auto-dispatch.
+
+    Single entry point for reads: dispatches on the variable kind via the
+    canonical :mod:`hydromodpy.results.field_registry` (Zarr fields), the
+    DuckDB ``timeseries`` table, and the GeoParquet ``geographic_features``
+    table. The return type tracks the storage kind:
+
+    - registered Zarr field -> :class:`xarray.DataArray` (lazy, dask-backed)
+    - DuckDB timeseries -> :class:`pandas.Series`
+    - GeoParquet feature -> :class:`geopandas.GeoDataFrame`
+
+    Parameters
+    ----------
+    sim
+        :class:`hydromodpy.results.run.Run` or simulation id resolvable
+        through a :class:`SimulationCatalog`. When passing an id, callers
+        must have set the catalog through ``sim=("sim_id", catalog)``.
+    var
+        Variable name. Looked up against ``field_registry`` first, then
+        against the DuckDB timeseries variables, then against the
+        ``geographic_features`` table.
+    time
+        Timestep index (``int``) or slice for Zarr fields. ``None`` means
+        load every persisted timestep (lazy).
+    layer
+        Optional layer index for three-dimensional fields.
+    sel
+        Optional kwargs forwarded to the appropriate reader:
+        ``{"station": ...}`` for timeseries, ``{"feature_name": ...}`` for
+        geographic features.
+    bbox
+        Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS;
+        restricts Zarr fields to faces whose centroid lies in the box.
+
+    Returns
+    -------
+    object
+        ``xr.DataArray`` for Zarr fields, ``pd.Series`` for timeseries,
+        ``gpd.GeoDataFrame`` for vector features.
+
+    Raises
+    ------
+    hydromodpy.results.errors.FieldNotFoundError
+        ``var`` could not be resolved by any backend.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> catalog = hmp.open("~/hmp_workspace")
+    >>> run = catalog.latest()
+    >>> da = hmp.read(run, "head")  # xr.DataArray lazy
+    >>> arr = hmp.read(run, "head", time=-1, layer=0)  # numpy via DataArray
+    >>> ts = hmp.read(run, "discharge", sel={"station": "outlet"})
+    >>> gdf = hmp.read(run, "watershed_polygon")  # geographic feature
+    """
+    from hydromodpy.results import field_registry
+    from hydromodpy.results.errors import FieldNotFoundError
+    from hydromodpy.results.run import Run
+
+    if not isinstance(sim, Run):
+        raise TypeError(
+            f"hmp.read expects a Run object as first argument, got {type(sim).__name__}"
+        )
+
+    sel_kw: dict = dict(sel or {})
+
+    if field_registry.has(var):
+        return _read_zarr_field(sim, var, time=time, layer=layer, bbox=bbox)
+
+    if _has_timeseries_var(sim, var):
+        station = sel_kw.pop("station", None)
+        period = sel_kw.pop("period", None)
+        return sim.timeseries(var, station=station, period=period)
+
+    if _has_geographic_feature(sim, var):
+        return sim.geographic(var)
+
+    available = ", ".join(sorted(field_registry.all_names()))
+    raise FieldNotFoundError(
+        f"Variable '{var}' not found in any backend (field_registry, timeseries, "
+        f"geographic_features). Known field-registry names: {available}.",
+        sim_id=sim.sim_id,
+        variable=var,
+    )
+
+
+def _read_zarr_field(
+    sim: Any,
+    var: str,
+    *,
+    time: int | slice | None,
+    layer: int | None,
+    bbox: tuple[float, float, float, float] | None,
+) -> Any:
+    """Dispatch a Zarr field read to the lazy xarray loader."""
+    if isinstance(time, int):
+        return sim.field(var, timestep=time, layer=layer, bbox=bbox)
+    da = sim.array.to_xarray_batch((var,), bbox=bbox)[var]
+    if isinstance(time, slice):
+        da = da.isel(time=time)
+    if layer is not None and "layer" in da.dims:
+        da = da.isel(layer=layer)
+    return da
+
+
+def _has_timeseries_var(sim: Any, variable: str) -> bool:
+    """True when ``variable`` appears in the simulation ``timeseries`` table."""
+    df = sim._catalog.backend.query(
+        "SELECT 1 FROM timeseries WHERE sim_id = ? AND variable = ? LIMIT 1",
+        [sim.sim_id, variable],
+    )
+    return not df.empty
+
+
+def _has_geographic_feature(sim: Any, feature_name: str) -> bool:
+    """True when ``feature_name`` is a persisted geographic feature."""
+    try:
+        names = sim._catalog.list_geographic_features(sim.sim_id)
+    except Exception:
+        return False
+    return feature_name in names
 
 
 def doctor() -> dict:

@@ -16,6 +16,7 @@ from hydromodpy._api import (
     mesh,
     open,
     overview,
+    read,
     report,
     run,
     testbed,
@@ -38,6 +39,7 @@ log_manager = _log_manager
 
 _DIRECT_EXPORTS = [
     "open",
+    "read",
     "run",
     "calibrate",
     "index",

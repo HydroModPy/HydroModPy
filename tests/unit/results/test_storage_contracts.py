@@ -115,15 +115,18 @@ def test_run_array_batch_is_dask_backed(catalog):
     assert ds["head"].shape == (2, 1, 2)
 
 
-def test_run_fields_is_dask_backed(catalog):
+def test_run_array_to_xarray_batch_is_dask_backed(catalog):
     DaskArray = pytest.importorskip("dask.array").Array
     sid = _seed_field(catalog)
 
-    stack = catalog[sid].fields("head")
+    ds = catalog[sid].array.to_xarray_batch(("head",))
 
-    assert isinstance(stack.data, DaskArray)
-    assert stack.data.shape == (2, 1, 2)
-    np.testing.assert_allclose(stack.data.compute(), np.array([[[1.0, 2.0]], [[3.0, 4.0]]]))
+    assert isinstance(ds["head"].data, DaskArray)
+    assert ds["head"].shape == (2, 1, 2)
+    np.testing.assert_allclose(
+        ds["head"].compute().values,
+        np.array([[[1.0, 2.0]], [[3.0, 4.0]]]),
+    )
 
 
 def test_simulation_zarr_to_xarray_is_dask_backed(catalog):

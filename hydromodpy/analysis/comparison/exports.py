@@ -6,7 +6,7 @@ import csv
 import json
 import math
 import shutil
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
@@ -907,7 +907,7 @@ def _write_cell_field_network_metrics_export(
     simulation_summaries: Iterable[Mapping[str, Any]],
     network_role: str,
     variable: str,
-    metric_method: str,
+    metric_callable: Callable[..., dict[str, Any]],
     metric_kwargs: dict[str, Any],
     payload_parameters: dict[str, Any],
     csv_stem: str,
@@ -977,7 +977,7 @@ def _write_cell_field_network_metrics_export(
                 )
                 continue
 
-            metrics = getattr(run, metric_method)(**metric_kwargs)
+            metrics = metric_callable(run, **metric_kwargs)
             row = _simulation_metric_row_base(
                 comparison_id=comparison_id,
                 summary=summary,
@@ -1063,13 +1063,15 @@ def write_simulated_active_network_overlap_metrics_export(
 
     The default mode is resolved from each run flow regime.
     """
+    from hydromodpy.results import views
+
     return _write_cell_field_network_metrics_export(
         comparison_id=comparison_id,
         comparison_root=comparison_root,
         simulation_summaries=simulation_summaries,
         network_role=network_role,
         variable=variable,
-        metric_method="cell_field_network_overlap_metrics",
+        metric_callable=views.cell_field_network_overlap_metrics,
         metric_kwargs={
             "network_role": network_role,
             "variable": variable,
@@ -1114,13 +1116,15 @@ def write_simulated_active_network_distance_metrics_export(
     Abherve et al.; it only uses currently persisted mesh, field and reference
     linework artifacts.
     """
+    from hydromodpy.results import views
+
     return _write_cell_field_network_metrics_export(
         comparison_id=comparison_id,
         comparison_root=comparison_root,
         simulation_summaries=simulation_summaries,
         network_role=network_role,
         variable=variable,
-        metric_method="cell_field_network_distance_metrics",
+        metric_callable=views.cell_field_network_distance_metrics,
         metric_kwargs={
             "network_role": network_role,
             "variable": variable,
@@ -1159,13 +1163,15 @@ def write_release_flux_network_overlap_metrics_export(
     buffer_m: float = 0.0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write cell-overlap metrics between direct release cells and a vector role."""
+    from hydromodpy.results import views
+
     return _write_cell_field_network_metrics_export(
         comparison_id=comparison_id,
         comparison_root=comparison_root,
         simulation_summaries=simulation_summaries,
         network_role=network_role,
         variable=variable,
-        metric_method="cell_field_network_overlap_metrics",
+        metric_callable=views.cell_field_network_overlap_metrics,
         metric_kwargs={
             "network_role": network_role,
             "variable": variable,
@@ -1203,13 +1209,15 @@ def write_release_flux_network_distance_metrics_export(
     timestep: int | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write raw planar distance metrics between release cells and a vector role."""
+    from hydromodpy.results import views
+
     return _write_cell_field_network_metrics_export(
         comparison_id=comparison_id,
         comparison_root=comparison_root,
         simulation_summaries=simulation_summaries,
         network_role=network_role,
         variable=variable,
-        metric_method="cell_field_network_distance_metrics",
+        metric_callable=views.cell_field_network_distance_metrics,
         metric_kwargs={
             "network_role": network_role,
             "variable": variable,
@@ -1249,13 +1257,15 @@ def write_release_accumulation_network_overlap_metrics_export(
     buffer_m: float = 0.0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write overlap metrics for downstream-routed release cells."""
+    from hydromodpy.results import views
+
     return _write_cell_field_network_metrics_export(
         comparison_id=comparison_id,
         comparison_root=comparison_root,
         simulation_summaries=simulation_summaries,
         network_role=network_role,
         variable=variable,
-        metric_method="cell_field_network_overlap_metrics",
+        metric_callable=views.cell_field_network_overlap_metrics,
         metric_kwargs={
             "network_role": network_role,
             "variable": variable,
@@ -1293,13 +1303,15 @@ def write_release_accumulation_network_distance_metrics_export(
     timestep: int | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write raw planar distance metrics for downstream-routed release cells."""
+    from hydromodpy.results import views
+
     return _write_cell_field_network_metrics_export(
         comparison_id=comparison_id,
         comparison_root=comparison_root,
         simulation_summaries=simulation_summaries,
         network_role=network_role,
         variable=variable,
-        metric_method="cell_field_network_distance_metrics",
+        metric_callable=views.cell_field_network_distance_metrics,
         metric_kwargs={
             "network_role": network_role,
             "variable": variable,
