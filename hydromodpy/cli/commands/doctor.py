@@ -7,6 +7,7 @@ import importlib
 import platform
 import shutil
 import sys
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 NAME: str = "doctor"
@@ -33,6 +34,8 @@ _OPTIONAL_DEPS = ("gmsh", "whitebox_workflows", "geopandas", "pyvista")
 
 _SOLVER_BINARIES = ("mfnwt", "mf6", "mp6", "mp7", "mt3dusgs")
 
+_STALE_HEARTBEAT_MINUTES = 10
+
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
@@ -41,12 +44,27 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     parser.add_argument("--toml", default=None, help="Resolve the workspace from a project TOML")
     parser.add_argument("--json", action="store_true", help="Emit a JSON report")
+    parser.add_argument(
+        "--cross-catalog",
+        action="store_true",
+        help="Cross-check the global index against per-project catalogs",
+    )
+    parser.add_argument(
+        "--lifecycle",
+        action="store_true",
+        help="Surface lifecycle issues (orphan sims, tmp parquet, stale running rows)",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
     report = _build_report(args.workspace, toml=args.toml)
+
+    if getattr(args, "cross_catalog", False):
+        report["checks"].extend(_cross_catalog_checks(args.workspace))
+    if getattr(args, "lifecycle", False):
+        report["checks"].extend(_lifecycle_checks(args.workspace))
 
     if args.json:
         import json as _json
@@ -414,6 +432,223 @@ def _path_check(name: str, path: Path, *, required: bool = True) -> dict:
         detail = f"{path} (missing)"
         hint = "Created lazily when first used" if not required else None
     return {"name": name, "status": status, "detail": detail, "hint": hint}
+
+
+def _iter_project_catalogs(workspace: Path) -> list[Path]:
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    catalogs: list[Path] = []
+    if (workspace / CATALOG_FILENAME).is_file():
+        catalogs.append(workspace / CATALOG_FILENAME)
+    projects_dir = workspace / "projects"
+    if projects_dir.is_dir():
+        for entry in sorted(projects_dir.iterdir()):
+            cat = entry / CATALOG_FILENAME
+            if cat.is_file():
+                catalogs.append(cat)
+    return catalogs
+
+
+def _resolve_doctor_workspace(workspace_arg: str | None) -> Path | None:
+    try:
+        from hydromodpy.data.scaffold import DEFAULT_ROOT
+    except Exception:
+        return None
+    if workspace_arg is not None:
+        candidate = Path(workspace_arg).expanduser().resolve()
+    else:
+        candidate = Path(DEFAULT_ROOT).expanduser()
+    return candidate if candidate.is_dir() else None
+
+
+def _cross_catalog_checks(workspace_arg: str | None) -> list[dict]:
+    workspace = _resolve_doctor_workspace(workspace_arg)
+    if workspace is None:
+        return [
+            {
+                "name": "cross_catalog:workspace",
+                "status": "WARN",
+                "detail": "no workspace resolved",
+                "hint": "Pass --workspace <path>",
+            }
+        ]
+
+    try:
+        import duckdb
+
+        from hydromodpy.core.state.global_index import GlobalIndex
+        from hydromodpy.core.state.paths import resolve_workspace as _resolve_uri
+    except Exception as exc:  # pragma: no cover - defensive
+        return [
+            {
+                "name": "cross_catalog:imports",
+                "status": "KO",
+                "detail": f"{exc}",
+                "hint": "Reinstall hydromodpy",
+            }
+        ]
+
+    project_catalogs = _iter_project_catalogs(workspace)
+    project_sim_ids: set[str] = set()
+    for catalog_path in project_catalogs:
+        try:
+            conn = duckdb.connect(str(catalog_path), read_only=True)
+        except duckdb.Error:
+            continue
+        try:
+            rows = conn.execute("SELECT sim_id FROM simulations").fetchall()
+            project_sim_ids.update(str(r[0]) for r in rows)
+        except duckdb.Error:
+            pass
+        finally:
+            conn.close()
+
+    index_sim_ids: set[str] = set()
+    try:
+        with GlobalIndex() as gi:
+            df = gi.find()
+            if df is not None and not df.empty and "sim_id" in df.columns:
+                index_sim_ids = {str(v) for v in df["sim_id"].tolist()}
+            try:
+                workspace_ids_local = {
+                    record.workspace_id
+                    for record in gi.list_workspaces()
+                    if _resolve_uri(record.workspace_uri) == workspace
+                }
+            except Exception:
+                workspace_ids_local = set()
+    except Exception as exc:
+        return [
+            {
+                "name": "cross_catalog:index_open",
+                "status": "KO",
+                "detail": f"{exc}",
+                "hint": "Re-create the global index via hmp index search/forget/prune",
+            }
+        ]
+
+    checks: list[dict] = []
+    only_in_projects = project_sim_ids - index_sim_ids
+    only_in_index = index_sim_ids - project_sim_ids
+
+    checks.append(
+        {
+            "name": "cross_catalog:workspace_registered",
+            "status": "OK" if workspace_ids_local else "WARN",
+            "detail": (
+                f"{len(workspace_ids_local)} registration(s) match {workspace}"
+                if workspace_ids_local
+                else "workspace not registered in the global index"
+            ),
+            "hint": "Register via the manage verb if needed",
+        }
+    )
+    checks.append(
+        {
+            "name": "cross_catalog:projects_vs_index",
+            "status": "OK" if not only_in_projects else "WARN",
+            "detail": (
+                f"{len(project_sim_ids)} sim(s) in projects, "
+                f"{len(only_in_projects)} missing from index"
+            ),
+            "hint": "Refresh the index federation (open and close a GlobalIndex)",
+        }
+    )
+    checks.append(
+        {
+            "name": "cross_catalog:index_vs_projects",
+            "status": "OK" if not only_in_index else "WARN",
+            "detail": (
+                f"{len(index_sim_ids)} sim(s) in index, {len(only_in_index)} missing from projects"
+            ),
+            "hint": "Run 'hmp index prune' to drop stale registrations",
+        }
+    )
+    return checks
+
+
+def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
+    workspace = _resolve_doctor_workspace(workspace_arg)
+    if workspace is None:
+        return [
+            {
+                "name": "lifecycle:workspace",
+                "status": "WARN",
+                "detail": "no workspace resolved",
+                "hint": "Pass --workspace <path>",
+            }
+        ]
+
+    try:
+        import duckdb
+    except Exception as exc:
+        return [
+            {
+                "name": "lifecycle:duckdb",
+                "status": "KO",
+                "detail": f"{exc}",
+                "hint": "Reinstall duckdb",
+            }
+        ]
+
+    project_catalogs = _iter_project_catalogs(workspace)
+    cutoff = datetime.now(UTC) - timedelta(minutes=_STALE_HEARTBEAT_MINUTES)
+    stale_running = 0
+    orphan_sessions = 0
+    for catalog_path in project_catalogs:
+        try:
+            conn = duckdb.connect(str(catalog_path), read_only=True)
+        except duckdb.Error:
+            continue
+        try:
+            stale = conn.execute(
+                """
+                SELECT COUNT(*)
+                  FROM simulations s
+                  JOIN statuses st ON s.status_id = st.id
+                 WHERE st.code = 'running'
+                   AND (s.last_heartbeat IS NULL OR s.last_heartbeat < ?)
+                """,
+                [cutoff],
+            ).fetchone()
+            stale_running += int(stale[0]) if stale else 0
+
+            orphans = conn.execute(
+                """
+                SELECT COUNT(*)
+                  FROM calibration_sessions cs
+             LEFT JOIN simulations s ON s.sim_id = cs.best_sim_id
+                 WHERE cs.best_sim_id IS NOT NULL AND s.sim_id IS NULL
+                """,
+            ).fetchone()
+            orphan_sessions += int(orphans[0]) if orphans else 0
+        except duckdb.Error:
+            pass
+        finally:
+            conn.close()
+
+    tmp_parquet = sum(1 for _ in workspace.rglob("*.tmp-*"))
+
+    return [
+        {
+            "name": "lifecycle:stale_running_sims",
+            "status": "OK" if stale_running == 0 else "WARN",
+            "detail": f"{stale_running} sim(s) running >{_STALE_HEARTBEAT_MINUTES} min without heartbeat",
+            "hint": "Run 'hmp gc --workspace <ws>' to mark them failed",
+        },
+        {
+            "name": "lifecycle:orphan_calibration_sessions",
+            "status": "OK" if orphan_sessions == 0 else "WARN",
+            "detail": f"{orphan_sessions} calibration session(s) reference a missing best_sim_id",
+            "hint": "Run 'hmp gc --workspace <ws>' to drop them",
+        },
+        {
+            "name": "lifecycle:tmp_parquet",
+            "status": "OK" if tmp_parquet == 0 else "WARN",
+            "detail": f"{tmp_parquet} stale tmp-* artefact(s) on disk",
+            "hint": "Run 'hmp gc --workspace <ws>' to clean them up",
+        },
+    ]
 
 
 def _print_report(report: dict) -> None:
