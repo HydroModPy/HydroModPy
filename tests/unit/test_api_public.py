@@ -84,8 +84,9 @@ def test_simulation_group_fluent_methods_present() -> None:
 def test_simulation_view_fluent_methods_present() -> None:
     from hydromodpy.results.run import Run
 
-    assert hasattr(Run, "at")
     assert hasattr(Run, "field")
+    assert hasattr(Run, "summary")
+    assert hasattr(Run, "metrics")
     assert hasattr(Run, "_repr_html_")
 
 

@@ -209,23 +209,21 @@ class TestFields:
             sz.write_field(variable, t, values, n_timesteps=n_timesteps)
         return sid
 
-    def test_fields_stack_shape(self, catalog):
-        from hydromodpy.results.contracts import Stack
-
+    def test_xarray_batch_shape(self, catalog):
         sid = self._register_with_fields(catalog, nrow=5, ncol=4, n_timesteps=3)
         run = Run(sid, catalog)
-        stack = run.fields("head")
-        assert isinstance(stack, Stack)
-        assert stack.variable == "head"
-        assert stack.data.shape == (3, 5, 4)
+        ds = run.array.to_xarray_batch(("head",))
+        assert "head" in ds.data_vars
+        assert ds["head"].dims == ("time", "layer", "cell")
+        assert ds["head"].shape == (3, 1, 20)
 
-    def test_fields_values_match_field(self, catalog):
+    def test_xarray_batch_values_match_field(self, catalog):
         sid = self._register_with_fields(catalog, nrow=5, ncol=4, n_timesteps=3)
         run = Run(sid, catalog)
-        stack = run.fields("head")
+        ds = run.array.to_xarray_batch(("head",))
         for t in range(3):
-            frame = np.asarray(run.field("head", timestep=t)).reshape(5, 4)
-            np.testing.assert_array_equal(stack.data[t], frame)
+            frame = np.asarray(run.field("head", timestep=t)).ravel()
+            np.testing.assert_array_equal(ds["head"].isel(time=t, layer=0).values, frame)
 
 
 class TestTimeIndex:
