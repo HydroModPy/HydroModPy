@@ -7,6 +7,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 if __package__ is None or __package__ == "":
     sys.path.insert(0, str(Path(__file__).resolve().parents[5]))
@@ -63,10 +64,15 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Reuse existing child run folders and rerun comparison extraction/HTML only.",
     )
+    parser.add_argument(
+        "--continue-on-error",
+        action="store_true",
+        help="Continue with later sites after a site-level launcher failure.",
+    )
     return parser
 
 
-def _ensure_plan() -> dict[str, object]:
+def _ensure_plan() -> dict[str, Any]:
     return TestbedLauncher(TESTBED_CONFIG).run()
 
 
@@ -104,6 +110,7 @@ def _write_testbed_html() -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    failures: list[tuple[str, str]] = []
     if not args.html_only:
         summary = _ensure_plan()
         print(
@@ -118,7 +125,15 @@ def main(argv: list[str] | None = None) -> int:
             config_path = GENERATED_CONFIGS / f"{site_id}.toml"
             if not config_path.is_file():
                 raise FileNotFoundError(f"Generated comparison config not found: {config_path}")
-            manifest = _run_comparison(config_path, reuse_runs=bool(args.reuse_runs))
+            try:
+                manifest = _run_comparison(config_path, reuse_runs=bool(args.reuse_runs))
+            except Exception as exc:
+                message = f"{type(exc).__name__}: {exc}"
+                failures.append((site_id, message))
+                print(f"{site_id}: failed {message}", file=sys.stderr)
+                if not args.continue_on_error:
+                    raise
+                continue
             print(
                 f"{site_id}: audit={manifest.get('audit_status', '')} "
                 f"root={manifest.get('comparison_root', '')}"
@@ -126,6 +141,11 @@ def main(argv: list[str] | None = None) -> int:
 
     page = _write_testbed_html()
     print(f"Testbed synthesis page: {page}")
+    if failures:
+        print("Failed site-level launchers:", file=sys.stderr)
+        for site_id, message in failures:
+            print(f"- {site_id}: {message}", file=sys.stderr)
+        return 1
     return 0
 
 

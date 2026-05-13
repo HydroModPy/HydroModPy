@@ -146,6 +146,8 @@ def _store_variable_mapping(variable_name: str) -> str | None:
         "seepage_mask": "seepage_mask",
         "head": "head",
         "accumulation_flux": "accumulation_flux",
+        "release_flux": "release_flux",
+        "release_accumulation_flux": "release_accumulation_flux",
         "outflow_drain": "outflow_drain",
         "groundwater_flux": "groundwater_flux",
         "outlet_discharge_east_side_m3_s": "outlet_discharge_east_side_m3_s",

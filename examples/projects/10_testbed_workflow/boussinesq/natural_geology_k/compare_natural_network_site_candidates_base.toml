@@ -36,6 +36,15 @@ outflow_drain = true
 watertable_depth = true
 watertable_elevation = true
 
+[comparison.base_simulation_overlay.flow.param.K]
+field__delete = true
+
+[comparison.base_simulation_overlay.flow.param.K.field]
+id = "K"
+kind = "homogeneous"
+unit = "m/s"
+value = "5e-5 m/s"
+
 [[comparison.simulation]]
 id = "mf6_unstructured_reference"
 label = "MF6 maillage triangulaire contraint"
@@ -93,6 +102,7 @@ mesh_mode = "structured"
 
 [comparison.simulation.overlay]
 mesh_catchment__delete = true
+mesh_input__delete = true
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
@@ -132,6 +142,7 @@ mesh_mode = "structured"
 
 [comparison.simulation.overlay]
 mesh_catchment__delete = true
+mesh_input__delete = true
 
 [comparison.simulation.overlay.modflow6.runtime]
 mf6_ims_complexity = "COMPLEX"
@@ -168,6 +179,9 @@ label = "MF6 maillage triangulaire 350 m"
 solver = "modflow6"
 mesh_label = "unstructured_350m"
 mesh_mode = "mesh_catchment"
+
+[comparison.simulation.overlay]
+mesh_input__delete = true
 
 [comparison.simulation.overlay.mesh_catchment.zone_meshing]
 global_size = 350.0

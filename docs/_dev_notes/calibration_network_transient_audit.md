@@ -72,6 +72,8 @@ Ce qui existe deja:
   `objective_blocks`;
 - des objectifs composites ponderes avec normalisation par bloc;
 - des extracteurs legers pour MODFLOW-NWT et MODFLOW 6 sur charge/debit;
+- des sorties Boussinesq deja riches dans les runtimes et rapports:
+  historiques d'etat, flux de drainage, diagnostics PETSc/VI;
 - des cas de validation synthetiques "twin" deja orientes tete/flux et
   permanent/transitoire.
 
@@ -88,11 +90,13 @@ Ce qui manque ou reste incomplet:
 
 Donc:
 
-- a tres court terme, on peut calibrer sur une chronique de debit transitoire
-  avec MODFLOW-NWT/MODFLOW 6, et on peut faire des benchmarks synthetiques
-  tete/flux avec les outils de validation;
-- avec un petit developpement cible, on peut ajouter une metrique reseau sur
-  une seule simulation candidate;
+- a tres court terme, le choix retenu est de partir en Boussinesq seul, pour
+  profiter de runs rapides et evaluer directement la robustesse du solveur
+  cible;
+- cela impose de brancher en priorite un extracteur Boussinesq leger pour les
+  flux, les charges et les cartes de drainage;
+- avec ce developpement cible, on peut ajouter une metrique reseau sur une
+  seule simulation candidate;
 - avec un developpement plus structurant, on peut faire la calibration
   conjointe stricte "permanent reseau + transitoire debit".
 
@@ -188,6 +192,12 @@ Points d'attention:
   `variable = "discharge"` que par le chemin composite `outputs.boundary`,
   sauf metric function specifique.
 
+Pour le plan Boussinesq seul, il ne faut pas dependre de ce chemin legacy
+MODFLOW. La premiere implementation peut passer par une `metric_fn` dediee qui
+lit directement les historiques Boussinesq, calcule `Q_sim(t)` et retourne
+`C_debit_phys`. Une fois ce prototype stabilise, on pourra le faire rentrer
+dans le contrat standard d'extraction calibration.
+
 ### 3.4. Reseau hydrographique permanent
 
 HydroModPy sait deja produire et comparer des sorties liees au reseau:
@@ -223,9 +233,21 @@ Cela veut dire qu'il manque l'adaptateur qui lirait, par exemple:
 - les etats transitoires sauvegardes;
 - les flux agreges sur un support de reseau.
 
-Pour un premier chantier, il est plus prudent de commencer avec MODFLOW 6 comme
-solveur de reference, puis de brancher Boussinesq quand les observables et les
-metriques sont stables.
+Le choix de planification retenu ici est maintenant different: commencer avec
+Boussinesq seul. Cela demande un petit developpement d'extraction, mais c'est
+coherent avec l'objectif de robustesse:
+
+- les evaluations seront plus rapides qu'une campagne MF6 equivalente;
+- on teste directement le solveur que l'on veut rendre operationnel;
+- on evite de confondre le premier test inverse avec une comparaison de modele
+  MF6/Boussinesq;
+- les echecs eventuels seront informatifs sur la stabilite numerique, les
+  sorties disponibles et l'identifiabilite `K/Sy` dans la formulation cible.
+
+La limite est claire: un twin Boussinesq -> Boussinesq ne teste pas l'erreur de
+modele. Il teste d'abord la robustesse de l'objectif, de l'extraction et de
+l'inversion dans le moteur cible. Les comparaisons MF6 restent utiles ensuite,
+mais comme validation externe, pas comme premiere verite synthetique.
 
 ## 4. Definition possible des deux observables
 
@@ -509,9 +531,16 @@ T     = duree de la fenetre transitoire
 Qbar_ref = V_ref / T
 ```
 
+Dans la phase Boussinesq seule, `Q_ref(t)` et `Q_sim(t)` designent le debit
+total relache par le modele:
+
+```text
+Q(t) = Q_drain(t) + Q_excess(t)
+```
+
 `D_ref` est la lame d'eau ecoulee de reference sur la fenetre transitoire. On
-peut construire trois erreurs classiques sur toute la chronique de debit, sans
-extraire au depart de fenetres de recession:
+peut construire trois erreurs classiques sur toute la chronique de debit total,
+sans extraire au depart de fenetres de recession:
 
 ```text
 E_Q_forme =
@@ -766,10 +795,42 @@ En pratique, on doit donc analyser `J`, mais aussi les surfaces
 meilleur parametre: c'est une demonstration de ce que chaque observable
 contraint.
 
+### Choix du moteur numerique initial
+
+Le premier cycle synthetique doit etre mene en Boussinesq seul:
+
+```text
+truth model     = Boussinesq
+candidate model = Boussinesq
+theta           = {K, Sy}
+```
+
+Ce choix est volontairement pragmatique. Il maximise la vitesse des evaluations
+et permet de tester la robustesse du solveur cible avant d'ajouter une
+comparaison inter-modele. Le but n'est pas encore de montrer que Boussinesq
+reproduit MF6. Le but est de verifier que, dans un cadre controle, Boussinesq
+peut supporter une boucle inverse sur:
+
+- un debit transitoire hebdomadaire de 3 a 4 ans;
+- un reseau permanent extrait d'un run permanent Boussinesq;
+- deux parametres `K` et `Sy`;
+- un objectif composite `J = 0.5 * C_reseau_phys + 0.5 * C_debit_phys`.
+
+Les diagnostics de robustesse deviennent donc des sorties de premier rang:
+
+- temps moyen par evaluation;
+- taux d'echec solveur;
+- nombre d'iterations ou sous-pas PETSc/VI;
+- fermeture de bilan;
+- sensibilite au pas hebdomadaire et aux sous-pas internes;
+- stabilite du reseau actif vis-a-vis du seuil `tau_network`.
+
+La comparaison avec MODFLOW 6 peut venir ensuite comme phase externe, une fois
+que les metriques et l'inversion Boussinesq -> Boussinesq sont stables.
+
 ### S0 - Banc objectif sans solveur
 
-But: tester la construction des metriques avant d'impliquer MODFLOW ou
-Boussinesq.
+But: tester la construction des metriques avant d'impliquer un solveur.
 
 Question physique:
 
@@ -802,9 +863,9 @@ Condition de passage:
 Ce niveau peut vivre hors workflow HydroModPy, dans `validation_cases` ou
 `scratch_tests`, car il valide d'abord la mathematique de l'objectif.
 
-### S1 - Twin transitoire debit avec MODFLOW 6
+### S1 - Twin transitoire debit avec Boussinesq
 
-But: reutiliser les benchmarks deja existants.
+But: construire un premier twin transitoire rapide avec le solveur cible.
 
 Question physique:
 
@@ -814,9 +875,59 @@ Question physique:
 
 Base disponible:
 
-- `validation_cases/calibration/twin/transient/linearized_unconfined_recharge_step_1d`;
-- cas K + Sy avec tete et flux;
-- variante flux-only bruitee, utile pour montrer la faible identifiabilite.
+- validations transitoires Boussinesq existantes: recharge step, recharge
+  periodique, recession de type Brutsaert, cas de pulse/overflow;
+- testbeds Boussinesq synthetiques deja capables de produire des chroniques de
+  recharge et des historiques d'etat;
+- sorties Boussinesq deja disponibles dans les scratchs ou le catalogue, a
+  aligner avec le contrat calibration.
+
+Definition retenue pour le debit de calibration:
+
+```text
+Q(t) = Q_drain(t) + Q_excess(t)
+
+Q_drain(t)  = sum_i drainage_flux_i(t)
+Q_excess(t) = sum_i surface_excess_i(t)
+```
+
+ou, si l'on repart des historiques Boussinesq bruts:
+
+```text
+Q_drain(t)  = sum_i drainage_flux_history_m3_s[t, i]
+Q_excess(t) = sum_i saturation_excess_history_m_s[t, i] * area_i
+```
+
+Le debit calibre est donc le flux total qui quitte l'aquifere vers la surface:
+drainage explicite plus exces de surface/saturation si le modele en produit.
+C'est le choix le plus coherent pour un premier twin Boussinesq, car il evite
+de calibrer seulement la composante drain tout en ignorant une sortie de masse
+physiquement produite par la formulation VI/obstacle.
+
+Les deux composantes doivent rester exportees separement:
+
+```text
+Q_drain(t)
+Q_excess(t)
+Q_total_release(t) = Q_drain(t) + Q_excess(t)
+```
+
+mais le cout principal `C_debit_phys` utilise `Q_total_release(t)`. Cela permet
+de verifier si un candidat reproduit le bon debit total pour de mauvaises
+raisons, par exemple trop d'exces de surface et pas assez de drainage.
+
+Chemin d'extraction recommande:
+
+1. lire `release_flux` si le champ derive est disponible, puis sommer sur le
+   domaine ou le support choisi;
+2. sinon reconstruire `Q_total_release` depuis `drainage_flux_history_m3_s` et
+   `saturation_excess_history_m_s`;
+3. conserver en diagnostic les series separees `drainage_flux` et
+   `surface_excess`.
+
+Dans un premier twin rapide, on utilise le total domaine. Dans une version plus
+hydrologique, on route ce flux vers un exutoire et on utilise
+`release_accumulation_flux` ou un equivalent routable au point aval.
 
 Evolution cible pour un signal plus realiste:
 
@@ -903,6 +1014,7 @@ Sorties attendues:
 - surface `C_debit_phys(log10 K, log10 Sy)`;
 - orientation des vallees d'equifinalite;
 - contribution separee de `E_Q_forme`, `E_Q_lame` et `E_Q_bilan`;
+- decomposition du debit total en `Q_drain(t)` et `Q_excess(t)`;
 - figure recharge-debit montrant le decalage entre les pics de recharge et les
   pics de debit;
 - comparaison avec une metrique statistique classique, par exemple NSE ou KGE,
@@ -931,7 +1043,7 @@ inverse, par rejet de candidats manifestement incompatibles. Ils ne doivent pas
 remplacer le cout principal `C_debit_phys`, qui reste une calibration classique
 sur `Q(t)`.
 
-### S2 - Twin permanent reseau avec MODFLOW 6
+### S2 - Twin permanent reseau avec Boussinesq
 
 But: creer une reference de reseau actif a partir d'un cas permanent
 synthetique.
@@ -944,16 +1056,86 @@ Question physique:
 Principe:
 
 1. definir un petit domaine synthetique 2D;
-2. lancer un run "truth" permanent avec `K_true` et recharge moyenne;
+2. lancer un run Boussinesq "truth" permanent avec `K_true` et
+   `R_steady_ref`;
 3. extraire `outflow_drain` ou `accumulation_flux`;
 4. seuiller pour obtenir un masque actif reference;
 5. calibrer un candidat sur ce masque.
+
+Question suivante a trancher: comment definit-on le reseau actif de reference?
+Il faut eviter un seuil choisi apres coup pour rendre les cartes jolies. Le
+seuil doit etre defini avant la calibration, puis applique identiquement a la
+reference et a tous les candidats.
+
+Pour le twin synthetique, la reference devrait contenir trois objets figes:
+
+```text
+q_ref_i       = flux de drainage permanent de reference
+R_ref         = support actif reference
+tau_network   = seuil d'activation du reseau
+```
+
+Le choix le plus robuste est de definir `tau_network` relativement au drainage
+total de reference ou a une aire contributive equivalente, par exemple:
+
+```text
+tau_network = max(
+  tau_abs,
+  f_tau * Q_ref_steady
+)
+```
+
+ou `tau_abs` evite d'activer des pixels numeriquement residuels, et `f_tau`
+fixe une fraction minimale du drainage permanent total. Dans un premier
+testbed, `f_tau` peut etre tres faible, par exemple `1e-4` a `1e-3`, puis teste
+en sensibilite. Une autre option est de retenir un quantile de
+`q_ref_i[q_ref_i > 0]`, mais il faut alors garder ce quantile et le seuil
+resultant fixes pour tous les candidats.
+
+Pour un candidat, on calcule donc:
+
+```text
+R_sim(theta) = {i | q_sim_i >= tau_network}
+```
+
+et non un seuil recalcule sur `q_sim_i`. C'est le meme principe que pour les
+normalisations: le seuil appartient au probleme inverse, pas au candidat.
+
+Il faut aussi conserver le champ continu `q_i`, pas seulement le masque
+binaire. Le masque sert a la longueur et a la distance; le flux continu sert a
+ponderer les erreurs et evite qu'une petite branche numerique ait le meme poids
+qu'un axe de drainage majeur.
+
+Sur le choix de la variable:
+
+- `outflow_drain` est le plus proche de l'exfiltration locale; il mesure ou
+  l'eau sort du domaine souterrain vers la surface;
+- `accumulation_flux` est plus proche d'une emprise hydrographique routable; il
+  integre l'organisation aval du drainage;
+- pour un premier test, il faut choisir une variable principale et garder
+  l'autre comme diagnostic. La recommandation est de partir de
+  `accumulation_flux` pour le masque reseau, tout en conservant `outflow_drain`
+  pour controler la distribution locale des sorties.
 
 Metriques minimales:
 
 - Jaccard sur masque actif;
 - distance moyenne au reseau reference;
 - longueur active relative.
+
+Dans la version normalisee proposee plus haut, ces metriques minimales sont
+remplacees ou completees par:
+
+```text
+C_reseau_phys =
+  a_flux * E_flux / eta_flux
+  + a_dist * E_dist / eta_dist
+  + a_len  * E_len  / eta_len
+```
+
+Le Jaccard peut rester affiche comme diagnostic de lisibilite, mais il ne doit
+pas etre le score principal: il donne le meme poids a une erreur sur une petite
+branche marginale et a une erreur sur un axe de drainage majeur.
 
 Dans cette etape, on garde deja le vecteur candidat `theta = {K, Sy}` meme si
 le score permanent ne devrait pratiquement contraindre que `K`. C'est un test
@@ -962,6 +1144,21 @@ presque plate, selon `Sy`. Si `Sy` influence fortement le score permanent, c'est
 probablement que le scenario n'est pas vraiment permanent ou que la condition
 initiale/transitoire contamine l'observable reseau.
 
+Points de controle specifiques:
+
+- la recharge permanente utilisee par S2 est definie comme une entree propre
+  du probleme permanent, notee `R_steady_ref`; elle n'est pas estimee a partir
+  du debit transitoire;
+- toute la reference reseau est construite exclusivement depuis le run
+  permanent: `q_ref_i`, `R_ref`, `Q_ref_steady`, `L_ref`, `tau_network` et les
+  normalisations reseau;
+- la conductance de drainage reste fixe, sinon elle absorbera une partie du
+  role de `K`;
+- la maille, le reseau de routage et le seuil `tau_network` restent fixes pour
+  tous les candidats;
+- `Sy` est present dans `theta` mais ne doit pas etre interprete depuis S2
+  seul.
+
 Sorties attendues:
 
 - surface `C_reseau_phys(log10 K, log10 Sy)`;
@@ -969,6 +1166,8 @@ Sorties attendues:
 - cartes du reseau actif pour quelques candidats: trop diffus, trop court,
   decale, ou trop ramifie;
 - diagnostic separe `c_flux`, `c_dist`, `c_len`.
+- sensibilite au seuil `tau_network`, realisee hors calibration en relancant
+  seulement l'analyse pour 2 ou 3 seuils fixes.
 
 Condition de passage:
 
@@ -976,6 +1175,8 @@ Condition de passage:
 - la dependance a `Sy` doit etre faible en regime permanent;
 - les erreurs de localisation doivent etre lisibles spatialement, pas seulement
   dans une valeur scalaire.
+- le minimum reseau seul doit etre coherent avec `K_true`, meme si la direction
+  `Sy` reste plate.
 
 ### S3 - Twin conjoint sur une seule simulation transitoire
 
@@ -988,7 +1189,8 @@ Question physique:
 
 Approche:
 
-- utiliser un run transitoire MF6 avec une premiere periode representative;
+- utiliser un run transitoire Boussinesq avec une premiere periode
+  representative;
 - scorer le reseau sur le premier pas ou sur un pas moyen;
 - scorer le debit sur toute la chronique;
 - composer les deux couts.
@@ -1022,23 +1224,37 @@ Pour chaque candidat:
 
 ```text
 theta = {K, Sy}
-  -> run A: steady_network(theta)
+  -> run A: steady_network_boussinesq(theta)
        -> score_network
-  -> run B: transient_discharge(theta)
+  -> run B: transient_discharge_boussinesq(theta)
        -> score_Q
   -> score_total = w_network * score_network + w_Q * score_Q
 ```
 
-Le run permanent A doit utiliser une recharge coherente avec la chronique
-transitoire B. Le choix le plus propre pour le twin synthetique est:
+Dans la premiere phase, les deux runs sont donc Boussinesq. On conserve le meme
+moteur numerique pour la verite synthetique et les candidats, afin de tester
+d'abord l'inversion et la robustesse du solveur sans erreur de modele externe.
+
+Le run permanent A doit rester la source exclusive de la reference reseau. On
+definit donc d'abord une recharge permanente de reference:
 
 ```text
-R_steady = mean(R_transient(t))
+R_steady_ref = recharge permanente choisie pour le scenario reseau
 ```
 
-ou une moyenne sur les memes 3-4 ans de recharge hebdomadaire. Ainsi le reseau
-permanent represente la structure de drainage moyenne du meme systeme force,
-tandis que le debit transitoire teste la dynamique autour de cet etat moyen.
+Puis on genere la chronique transitoire B de facon coherente avec ce permanent,
+par exemple en la rescalant pour que sa moyenne temporelle egale
+`R_steady_ref`:
+
+```text
+mean(R_transient(t)) = R_steady_ref
+```
+
+Ainsi le reseau permanent ne depend pas de la simulation transitoire. Le
+permanent definit la structure moyenne de drainage; le transitoire teste la
+dynamique du meme systeme autour de cette recharge moyenne. Cette orientation
+est plus propre que de calculer d'abord la chronique transitoire puis d'en
+deduire le permanent, car elle preserve l'autonomie du bloc reseau.
 
 Cela demande une extension du moteur de calibration:
 
@@ -1100,13 +1316,18 @@ But: passer du twin synthetique a des cas naturels sans perdre le controle.
 Etapes recommandees:
 
 1. choisir 2 ou 3 bassins du testbed naturel;
-2. utiliser MF6 haute resolution comme reference pseudo-observee;
+2. utiliser Boussinesq haute resolution ou une parametrisation Boussinesq
+   "truth" comme reference pseudo-observee;
 3. degrader volontairement la parametrisation candidate;
 4. calibrer `K` et `Sy`, ou des multiplicateurs globaux de `K` et `Sy`;
 5. comparer ce que le reseau ajoute par rapport a une calibration debit seul.
 
 Ce n'est qu'apres ce niveau qu'il faut utiliser simultanement hydrographie
 observee et hydrometrie reelle.
+
+Une comparaison MF6 haute resolution peut etre ajoutee plus tard comme test
+externe de fidelite physique, mais elle n'est pas necessaire pour la premiere
+evaluation de robustesse Boussinesq.
 
 ## 8. Extensions techniques a prevoir
 
@@ -1158,7 +1379,8 @@ Ces metriques doivent retourner des couts finis, normalises et bien documentes.
 
 ### 8.3. Extraction MODFLOW
 
-Le chemin actuel lit les budgets binaires pour sommer DRAIN. Pour le reseau, il
+Non prioritaire pour la phase Boussinesq seule. Le chemin actuel lit les
+budgets binaires pour sommer DRAIN. Pour le reseau, il
 faudra aussi extraire le champ spatial par pas de temps:
 
 - DRAIN par cellule;
@@ -1171,13 +1393,21 @@ catalogue complet, afin de garder les iterations rapides.
 
 ### 8.4. Extraction Boussinesq
 
-Ajouter au `BoussinesqFlowAdapter.extract_calibration_series` ou a un extracteur
-dedie:
+Prioritaire pour la phase initiale. Ajouter au
+`BoussinesqFlowAdapter.extract_calibration_series` ou a un extracteur dedie:
 
-- serie de drainage total;
+- serie de debit total de calibration:
+  `Q_total_release = drainage + surface_excess`;
+- series separees de diagnostic: `Q_drain` et `Q_excess`;
 - champ `drainage_flux_m3_s`;
+- champ ou budget `surface_excess`, ou reconstruction depuis
+  `saturation_excess_history_m_s`;
+- champ derive `release_flux` si disponible;
 - serie de charge a un point ou une cellule;
 - selection temporelle compatible avec `time = "all"`, `first`, `last`.
+- champ reseau permanent derive ou relu depuis les sorties:
+  `outflow_drain`, `release_flux`, `accumulation_flux`,
+  `release_accumulation_flux`, ou equivalent routable.
 
 Le module Boussinesq a deja des historiques de flux et d'etat. Le travail est
 principalement d'aligner ces sorties avec le contrat calibration.
@@ -1196,14 +1426,16 @@ maintenance et pour des campagnes naturelles reproductibles.
 ## 9. Premier plan de travail
 
 1. Documenter le probleme et les limites actuelles: ce fichier.
-2. Rejouer ou inspecter les benchmarks synthetiques existants:
-   `calibration_twin_linearized_recharge_step_modflow6` et
-   `calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6`.
-3. Ajouter un micro-benchmark objectif sans solveur pour les metriques reseau.
-4. Ajouter un cas synthetique permanent MF6 qui produit un masque de drainage
-   reference.
-5. Brancher une `metric_fn` prototype reseau + debit sur un seul run.
-6. Decider ensuite si l'extension declarative multi-scenario est justifiee.
+2. Auditer les sorties Boussinesq disponibles pour charge, flux total,
+   drainage local et etats transitoires.
+3. Ajouter un extracteur Boussinesq leger pour la calibration debit.
+4. Ajouter un micro-benchmark objectif sans solveur pour les metriques reseau.
+5. Ajouter un cas synthetique permanent Boussinesq qui produit un masque de
+   drainage reference.
+6. Brancher une `metric_fn` prototype reseau + debit sur un seul run
+   Boussinesq.
+7. Brancher le prototype S4 avec deux runs Boussinesq par candidat.
+8. Decider ensuite si l'extension declarative multi-scenario est justifiee.
 
 Le critere de passage n'est pas seulement "le meilleur cout baisse". Il faut
 verifier:
@@ -1223,11 +1455,13 @@ jalon doit rester oriente vers cette cible:
 
 ```text
 objectif mathematique simple
-  -> twin debit transitoire existant
-  -> twin reseau permanent
-  -> objectif conjoint K+Sy sur un run
-  -> objectif conjoint K+Sy sur deux scenarios
-  -> pseudo-observations naturelles
+  -> extraction Boussinesq calibration
+  -> twin Boussinesq debit transitoire
+  -> twin Boussinesq reseau permanent
+  -> objectif conjoint Boussinesq K+Sy sur un run
+  -> objectif conjoint Boussinesq K+Sy sur deux scenarios
+  -> pseudo-observations naturelles Boussinesq
+  -> comparaison externe MF6 optionnelle
   -> observations reelles
 ```
 

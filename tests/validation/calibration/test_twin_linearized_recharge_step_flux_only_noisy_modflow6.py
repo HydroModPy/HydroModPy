@@ -33,7 +33,7 @@ def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benc
     benchmark = run_lightweight_twin_benchmark_case(
         TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
         caller_file=__file__,
-        evaluation_budget=18,
+        evaluation_budget=6,
     )
 
     assert benchmark.observations_truth["q_east"]

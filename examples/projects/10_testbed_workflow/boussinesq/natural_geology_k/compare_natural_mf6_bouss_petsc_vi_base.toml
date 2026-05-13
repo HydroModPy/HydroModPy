@@ -13,8 +13,8 @@ base_simulation_config = "base_site_01_mf6_bouss_transient.toml"
 output_root = "../../outputs/boussinesq_petsc_vi_regression_testbed/comparisons/base"
 # Reference simulation used for metrics and differences.
 reference_simulation = "mf6_ref"
-# Stop this comparison if one child simulation fails.
-continue_on_error = false
+# Keep comparison artifacts and HTML diagnostics when a child simulation fails.
+continue_on_error = true
 
 # Execution settings for child simulations.
 [comparison.execution]
@@ -125,10 +125,11 @@ firstpersteady = false
 
 # MODFLOW 6 drainage boundary-condition override.
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
-# Use a high top-drain conductance in MF6 to approximate an efficient surface outlet.
+# Use a shared top-drain conductance so MF6 and Boussinesq compare the same
+# surface-exchange physics.
 value = "0.1 m2/s"
 # Human-readable note carried into generated child TOMLs.
-description = "MODFLOW 6 reference: high-conductance top drainage; Boussinesq keeps a zero-conductance VI obstacle."
+description = "Shared top-drain conductance used by MF6 and Boussinesq."
 
 # Second child simulation: Boussinesq PETSc SNESVI candidate.
 [[comparison.simulation]]
@@ -158,10 +159,10 @@ vi_max_adaptive_substeps = 32
 
 # Boussinesq drainage boundary-condition override.
 [comparison.simulation.overlay.flow.bc.cauchy.drainage]
-# Disable Cauchy drainage for Boussinesq case 1.
-value = "0.0 m2/s"
+# Use the same top-drain conductance as the MF6 reference.
+value = "0.1 m2/s"
 # Human-readable note carried into generated child TOMLs.
-description = "Boussinesq PETSc vi_obstacle case: Cauchy drainage disabled; SNESVI enforces h <= z_top."
+description = "Shared top-drain conductance used by MF6 and Boussinesq; the VI upper obstacle is relaxed by the positive drainage conductance."
 
 # Initial hydraulic-head map comparison.
 [[comparison.observable]]

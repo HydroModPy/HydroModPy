@@ -120,22 +120,7 @@ def render_testbed_report(
 
     web_root.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    if bool(context.get("comparison_index_only")):
-        _remove_generated_case_pages(web_root)
-    else:
-        case_dir = web_root / "cases"
-        case_dir.mkdir(parents=True, exist_ok=True)
-        for case in enriched_cases:
-            case_html = _render_testbed_case_page(
-                case=case,
-                output_root=output_root,
-                web_root=web_root,
-                page_dir=case_dir,
-                context=context,
-            )
-            path = case_dir / f"{case['page_id']}.html"
-            _write_text(path, case_html)
-            written.append(path)
+    _remove_generated_case_pages(web_root)
 
     index_html = _render_testbed_index(
         output_root=output_root,
@@ -266,48 +251,26 @@ def _render_testbed_index(
         ("Echecs", manifest.get("failed_count")),
         ("Comparaisons", len(comparisons)),
     ]
-    comparison_index_only = bool(context.get("comparison_index_only"))
-
     artifacts_html = _render_artifact_links(artifacts, from_dir=web_root)
     sections = [
         _hero(title, subtitle=_path_text(output_root)),
         _cards(summary_cards),
+        _section(
+            "Synthese des comparaisons",
+            _render_testbed_unified_comparison_table(cases, web_root=web_root),
+        ),
     ]
-    if comparison_index_only:
-        sections.extend(
-            [
-                _section(
-                    "Comparaisons",
-                    _render_testbed_comparison_overview_table(cases, web_root=web_root),
-                ),
-                _section(
-                    "Precision de resolution",
-                    _render_comparison_closure_overview(comparisons, from_dir=web_root),
-                ),
-                _section("Artefacts", artifacts_html),
-            ]
-        )
-    else:
-        sections.extend(
-            [
-                _section(
-                    "Vue d'ensemble des cas",
-                    _render_testbed_case_overview_table(cases, web_root=web_root),
-                ),
-                _render_testbed_comparison_interpretation(comparisons),
-                _section(
-                    "Precision de resolution",
-                    _render_comparison_closure_overview(comparisons, from_dir=web_root),
-                ),
-                _section("Artefacts", artifacts_html),
-                _section(
-                    "Contrat du rapport",
-                    "<p>This page is generated after the simulations. It reads the standard "
-                    "testbed artifacts and the generated child TOML files; it does not create "
-                    "meshes, run solvers, or add a second execution path.</p>",
-                ),
-            ]
-        )
+    sections.extend(
+        [
+            _section("Artefacts", artifacts_html),
+            _section(
+                "Contrat du rapport",
+                "<p>This page is generated after the simulations. It reads the standard "
+                "testbed artifacts and the generated child TOML files; it does not create "
+                "meshes, run solvers, or add a second execution path.</p>",
+            ),
+        ]
+    )
     body = "\n".join(sections)
     return _page(title, body)
 
@@ -1835,6 +1798,83 @@ def _render_comparison_closure_overview(
     ) + note
 
 
+def _render_testbed_unified_comparison_table(
+    cases: Sequence[Mapping[str, Any]],
+    *,
+    web_root: Path,
+) -> str:
+    rows = []
+    for case in cases:
+        comparisons = [
+            comparison
+            for comparison in case.get("comparisons", [])
+            if isinstance(comparison, Mapping)
+        ]
+        comparison = comparisons[0] if comparisons else {}
+        report = comparison.get("web_index") if comparison else None
+        status = _case_display_status(case, comparison)
+        head_summary = _comparison_head_summary(comparison) if comparison else None
+        rows.append(
+            [
+                _display_value(case.get("variant_label") or case.get("variant_id")),
+                _link(report, "Rapport detaille", web_root)
+                if isinstance(report, Path)
+                else '<span class="muted">non disponible</span>',
+                _status_badge(status),
+                _display_value(comparison.get("audit_status")) if comparison else "",
+                _format_with_unit(_comparison_solver_flow_time(comparison, "modflow6"), "s"),
+                _format_with_unit(_comparison_solver_flow_time(comparison, "boussinesq"), "s"),
+                _format_with_unit(
+                    (head_summary or {}).get("last_rmse_percent"),
+                    "%",
+                ),
+                _format_with_unit(
+                    (head_summary or {}).get("last_rmse_m"),
+                    "m",
+                ),
+                _format_with_unit(
+                    (head_summary or {}).get("last_bias_m"),
+                    "m",
+                ),
+                _format_with_unit(
+                    (head_summary or {}).get("max_rmse_percent"),
+                    "%",
+                ),
+                _format_with_unit(
+                    _closure_solver_metric(comparison, ("modflow", "mf6", "nwt")),
+                    "mm/j",
+                ),
+                _format_with_unit(
+                    _closure_solver_metric(comparison, ("bouss",)),
+                    "mm/j",
+                ),
+            ]
+        )
+    note = (
+        '<p class="muted">Table unique de synthese: le lien Comparaison ouvre le rapport '
+        "detaille MF6/Boussinesq; les colonnes Final et Max restent en pourcentage, "
+        "tandis que RMSE final et Biais final donnent l'ecart de charge en metres. "
+        "Les colonnes de fermeture conservent seulement les maxima MODFLOW et Boussinesq.</p>"
+    )
+    return _table_from_rows(
+        [
+            "Cas",
+            "Comparaison",
+            "Statut",
+            "Audit",
+            "MF6 flow",
+            "Bouss. flow",
+            "Final",
+            "RMSE final",
+            "Biais final",
+            "Max",
+            "MODFLOW max",
+            "Boussinesq max",
+        ],
+        rows,
+    ) + note
+
+
 def _render_testbed_case_overview_table(
     cases: Sequence[Mapping[str, Any]],
     *,
@@ -2027,11 +2067,17 @@ def _comparison_head_summary(comparison: Mapping[str, Any]) -> dict[str, Any] | 
     if not head_rows:
         return None
 
-    def value_for(token: str) -> float | None:
+    def row_for(token: str) -> Mapping[str, Any] | None:
         for row in head_rows:
             if token in _display_value(row.get("observable")).lower():
-                return _float_or_none(row.get("rmse_normalized_percent"))
+                return row
         return None
+
+    def value_for(token: str, field: str) -> float | None:
+        row = row_for(token)
+        if row is None:
+            return None
+        return _float_or_none(row.get(field))
 
     values = [
         _float_or_none(row.get("rmse_normalized_percent"))
@@ -2049,12 +2095,20 @@ def _comparison_head_summary(comparison: Mapping[str, Any]) -> dict[str, Any] | 
         interpretation = "coherent, ecarts de surface visibles"
     else:
         interpretation = "ecarts marques"
+    max_row = max(
+        head_rows,
+        key=lambda row: _float_or_none(row.get("rmse_normalized_percent")) or -math.inf,
+    )
     return {
         "comparison_id": _display_value(comparison.get("comparison_id")),
-        "first_rmse_percent": value_for("first"),
-        "wet_rmse_percent": value_for("wet"),
-        "dry_rmse_percent": value_for("dry"),
-        "last_rmse_percent": value_for("last"),
+        "first_rmse_percent": value_for("first", "rmse_normalized_percent"),
+        "wet_rmse_percent": value_for("wet", "rmse_normalized_percent"),
+        "dry_rmse_percent": value_for("dry", "rmse_normalized_percent"),
+        "last_rmse_percent": value_for("last", "rmse_normalized_percent"),
+        "last_rmse_m": value_for("last", "rmse"),
+        "last_bias_m": value_for("last", "bias"),
+        "max_rmse_m": _float_or_none(max_row.get("rmse")),
+        "max_bias_m": _float_or_none(max_row.get("bias")),
         "max_rmse_percent": max_value,
         "interpretation": interpretation,
     }
@@ -2857,9 +2911,9 @@ def _format_float(value: Any) -> str:
         return _display_value(value)
     if not math.isfinite(number):
         return str(number)
-    if abs(number) >= 1000 or (0 < abs(number) < 0.001):
-        return f"{number:.4g}"
-    return f"{number:.4f}".rstrip("0").rstrip(".")
+    if 0 < abs(number) < 0.01:
+        return f"{number:.1e}"
+    return f"{number:.1f}"
 
 
 def _format_percent(value: Any) -> str:
@@ -2869,11 +2923,7 @@ def _format_percent(value: Any) -> str:
         return ""
     if not math.isfinite(number):
         return ""
-    if abs(number) >= 100.0:
-        return f"{number:.1f}"
-    if abs(number) >= 10.0:
-        return f"{number:.2f}"
-    return f"{number:.3f}".rstrip("0").rstrip(".")
+    return f"{number:.1f}"
 
 
 def _format_with_unit(value: Any, unit: str) -> str:
@@ -2971,8 +3021,8 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         "--comparison-index-only",
         action="store_true",
         help=(
-            "For testbed reports, generate only one comparison-oriented index "
-            "and skip per-case HTML pages."
+            "Deprecated no-op: testbed reports now always generate one "
+            "comparison-oriented index and skip per-case HTML pages."
         ),
     )
     return parser.parse_args(argv)

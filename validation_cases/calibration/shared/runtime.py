@@ -370,22 +370,18 @@ def _apply_evaluation_budget(
         kwargs["n_init"] = int(n_init)
         kwargs["n_refine"] = int(remaining // batch_size)
     elif method == "da_mh_gp":
-        base_init = max(1, int(kwargs.get("n_init", max(1, budget // 5))))
-        base_iter = max(1, int(kwargs.get("max_iter", max(1, budget))))
-        scale = float(budget) / float(base_init + base_iter)
-        kwargs["n_init"] = max(1, int(round(base_init * scale)))
-        kwargs["max_iter"] = max(1, int(round(base_iter * scale)))
+        base_init = max(2, int(kwargs.get("n_init", max(2, budget // 3))))
+        n_init = min(base_init, max(2, int(budget) // 3))
+        kwargs["n_init"] = int(n_init)
+        kwargs["max_iter"] = max(1, int(budget) - int(n_init))
         burn_in = kwargs.get("burn_in")
         if burn_in is not None:
-            kwargs["burn_in"] = min(int(burn_in), max(0, int(kwargs["max_iter"]) - 1))
-        thin = max(1, int(kwargs.get("thin", 1)))
-        retained_target = max(8, min(32, int(budget)))
-        retained_count = max(
-            0,
-            (int(kwargs["max_iter"]) - int(kwargs.get("burn_in", 0)) + thin - 1) // thin,
-        )
-        if retained_count < retained_target:
-            kwargs["max_iter"] = int(kwargs.get("burn_in", 0)) + thin * retained_target
+            base_iter = max(1, int(profile.method_kwargs.get("max_iter", kwargs["max_iter"])))
+            burn_fraction = max(0.0, min(0.8, float(burn_in) / float(base_iter)))
+            kwargs["burn_in"] = min(
+                int(round(int(kwargs["max_iter"]) * burn_fraction)),
+                max(0, int(kwargs["max_iter"]) - 1),
+            )
     else:
         raise ValueError(f"Unsupported evaluation-budget adaptation for method '{profile.name}'.")
 

@@ -66,13 +66,6 @@ def default_sections() -> list[ReportSection]:
             lambda ctx: bool(ctx.numerical_closure_rows),
         ),
         ReportSection("metrics", "Metriques principales", 50, _render_metrics),
-        ReportSection(
-            "coherence_analysis",
-            "Lecture physique des ecarts",
-            55,
-            _render_coherence_analysis,
-            lambda ctx: bool(ctx.metrics_rows),
-        ),
         ReportSection("simulations", "Simulations", 60, _render_simulations),
         ReportSection("audit", "Audit format", 70, _render_audit),
         ReportSection("files", "Fichiers", 80, _render_files),
@@ -985,13 +978,9 @@ def _format_number(value: Any) -> str:
         return str(value if value is not None else "")
     if not math.isfinite(number):
         return ""
-    if abs(number) >= 1000 or (abs(number) > 0 and abs(number) < 0.01):
-        return f"{number:.2e}"
-    if abs(number) >= 100:
-        return f"{number:.0f}"
-    if abs(number) >= 10:
-        return f"{number:.1f}"
-    return f"{number:.3g}"
+    if abs(number) > 0 and abs(number) < 0.01:
+        return f"{number:.1e}"
+    return f"{number:.1f}"
 
 
 def _float_or_none(value: Any) -> float | None:
@@ -1033,6 +1022,9 @@ def _observable_label(name: str) -> str:
         "head_central_high_k_series": "chronique de charge dans le couloir central conducteur",
         "head_east_interface_series": "chronique de charge pres de l'interface centre/est",
         "head_east_medium_k_series": "chronique de charge dans la zone est intermediaire",
+        "head_domain_low_series": "chronique de charge dans la partie basse du domaine",
+        "head_domain_mid_series": "chronique de charge dans la partie mediane du domaine",
+        "head_domain_high_series": "chronique de charge dans la partie haute du domaine",
     }
     return labels.get(name, name.replace("_", " "))
 

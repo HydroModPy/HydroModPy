@@ -31,6 +31,13 @@ from hydromodpy.calibration.optimizer import (
 from hydromodpy.calibration.parameters import ParameterSpace
 
 
+class _BridgeClosed(RuntimeError):
+    """Internal signal used to stop a background SciPy worker."""
+
+
+_SENTINEL = object()
+
+
 class _AskTellBridge:
     """Bridges SciPy's push-style API to an ask/tell pull-style API.
 
@@ -41,7 +48,7 @@ class _AskTellBridge:
 
     def __init__(self, method: Callable[[Callable], object]):
         self._method = method
-        self._in_q: queue.Queue[float] = queue.Queue()
+        self._in_q: queue.Queue[float | object] = queue.Queue()
         self._out_q: queue.Queue[np.ndarray | None] = queue.Queue()
         self._done = threading.Event()
         self._thread = threading.Thread(target=self._worker, daemon=True)
@@ -49,12 +56,19 @@ class _AskTellBridge:
         self._thread.start()
 
     def _obj(self, x: np.ndarray) -> float:
+        if self._done.is_set():
+            raise _BridgeClosed
         self._out_q.put(np.array(x, dtype=float))
-        return self._in_q.get()
+        value = self._in_q.get()
+        if value is _SENTINEL:
+            raise _BridgeClosed
+        return float(value)
 
     def _worker(self) -> None:
         try:
             self._result = self._method(self._obj)
+        except _BridgeClosed:
+            self._result = None
         finally:
             self._done.set()
             self._out_q.put(None)
@@ -68,6 +82,12 @@ class _AskTellBridge:
 
     def finished(self) -> bool:
         return self._done.is_set()
+
+    def close(self) -> None:
+        self._done.set()
+        self._in_q.put(_SENTINEL)
+        self._out_q.put(None)
+        self._thread.join(timeout=1.0)
 
 
 class _ScipyAdapterBase:
@@ -128,6 +148,9 @@ class _ScipyAdapterBase:
 
     def converged(self) -> bool:
         return self._bridge.finished() and not self._pending
+
+    def close(self) -> None:
+        self._bridge.close()
 
 
 @register_optimizer("scipy_de")

@@ -134,6 +134,10 @@ examples/*.duckdb
 examples/data/cache.duckdb
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 
+# Large generated comparison payloads kept out of Git.
+examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json
+examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/observables.csv
+
 # Generated images from output directories
 **/output/*.png
 **/output/**/*.png
