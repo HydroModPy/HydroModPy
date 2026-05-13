@@ -80,7 +80,7 @@ Streamlit is the shortest path because it runs in the same process:
 
    if st.button("Run"):
        toml_payload = {"flow": {"k_aquifer": k}}
-       hmp.run("project.toml", set=toml_payload)
+       hmp.run("hydromodpy.toml", set=toml_payload)
 
 A worked example lives at
 ``examples/integrations/streamlit_app.py`` (when shipped).
