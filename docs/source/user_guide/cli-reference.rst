@@ -106,6 +106,23 @@ Command inventory
    * - ``hmp completion``
      - Shell integration
      - Emit completion scripts for bash, zsh, or fish.
+   * - ``hmp gc``
+     - Maintenance
+     - Garbage-collect orphan calibration sessions, geographic_cache, tmp
+       parquet, and stale running simulations.
+   * - ``hmp vacuum``
+     - Maintenance
+     - CHECKPOINT DuckDB catalogs and consolidate Zarr metadata.
+   * - ``hmp privacy``
+     - Data governance
+     - Hard-delete a simulation and emit a JSON purge certificate.
+   * - ``hmp index``
+     - Cross-workspace discovery
+     - Search, forget, or prune entries of the machine-wide global index.
+   * - ``hmp ml``
+     - Machine learning (stubs)
+     - Reserve the ``split`` / ``fit-scaler`` / ``export`` / ``track`` verb
+       surface; real logic ships in v2.x.
 
 Workflow execution flags
 ------------------------

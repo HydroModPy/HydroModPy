@@ -1,0 +1,14 @@
+{
+  "bbox": [
+    -1.85,
+    48.1,
+    -1.85,
+    48.1
+  ],
+  "crs": "EPSG:4326",
+  "fetched_at": "2026-05-13T07:21:47.633742Z",
+  "license": null,
+  "notes": null,
+  "sha256": "5ad723c8100531431e7e9358e58ca6cac6c748630603f18dded3e8b51b5d6cac",
+  "source": "custom"
+}
