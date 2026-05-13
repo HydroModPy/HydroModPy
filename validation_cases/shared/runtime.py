@@ -150,6 +150,11 @@ def _merge_toml_payloads(
     base: Mapping[str, Any],
     override: Mapping[str, Any],
 ) -> dict[str, Any]:
+    # When the override changes a discriminator (``kind``), drop the inherited
+    # body so leftover sibling keys do not leak into the new variant. Pydantic
+    # v2 ``extra='forbid'`` rejects them on the next load otherwise.
+    if "kind" in override and "kind" in base and override["kind"] != base["kind"]:
+        return {key: _clone_toml_value(value) for key, value in override.items()}
     merged: dict[str, Any] = dict(base)
     for key, value in override.items():
         existing = merged.get(key)
@@ -172,6 +177,14 @@ def _merge_toml_payloads(
         else:
             merged[key] = value
     return merged
+
+
+def _clone_toml_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _clone_toml_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_clone_toml_value(item) for item in value]
+    return value
 
 
 def _format_toml_key(parts: list[str] | tuple[str, ...]) -> str:
