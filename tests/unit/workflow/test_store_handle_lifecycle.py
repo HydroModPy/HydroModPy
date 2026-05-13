@@ -40,7 +40,7 @@ def test_step_register_simulation_closes_unused_bootstrap_zarr(monkeypatch) -> N
         cfg=SimpleNamespace(simulation=SimpleNamespace(on_collision="replace")),
         setup=SimpleNamespace(time_grid=None, workspace=SimpleNamespace(project_root=None)),
     )
-    plan = SimpleNamespace(runs=[SimpleNamespace(solver="boussinesq")])
+    plan = SimpleNamespace(runs=[SimpleNamespace(solver="boussinesq", process_type="flow")])
 
     monkeypatch.setattr(prepare_solver_module, "collect_registration_kwargs", lambda ctx: {})
 
@@ -95,7 +95,9 @@ def test_step_open_store_closes_unused_bootstrap_zarr(monkeypatch, tmp_path: Pat
             flow=None,
         ),
         execution=SimpleNamespace(
-            simulation_plan=SimpleNamespace(runs=[SimpleNamespace(solver="boussinesq")])
+            simulation_plan=SimpleNamespace(
+                runs=[SimpleNamespace(solver="boussinesq", process_type="flow")]
+            )
         ),
     )
 

@@ -21,12 +21,18 @@ SIDECAR_SUFFIX = ".json"
 
 
 class Sidecar(BaseModel):
-    """Provenance metadata stored next to a ``data/<var>/raw/`` input file."""
+    """Provenance metadata stored next to a ``data/<var>/raw/`` input file.
+
+    ``fetched_at`` is omitted (``None``) for local ``source == "custom"`` inputs
+    that have no network fetch event, so the sidecar stays byte-identical across
+    test runs and never appears in ``git status``. Real remote fetches keep a
+    real ISO timestamp.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     source: str
-    fetched_at: datetime
+    fetched_at: datetime | None = None
     sha256: str
     license: str | None = None
     crs: str | None = None
@@ -45,7 +51,8 @@ def write_sidecar(file_path: Path, sidecar: Sidecar) -> Path:
     target = sidecar_path_for(file_path)
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = sidecar.model_dump(mode="json")
-    target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
+    target.write_text(text, encoding="utf-8")
     return target
 
 

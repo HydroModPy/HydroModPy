@@ -11,7 +11,7 @@ Site 03 Natural N1 10Km2 Mf6 Bouss
 This page republishes reviewed artifacts from `site_03_natural_n1_10km2_mf6_bouss`. The gallery generation reads committed comparison outputs only; heavy solver runs are refreshed separately before publication.
 
 .. seealso::
-   Read :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
+   Read :doc:`the gallery and validation reading guide </user_guide/concepts/reading-results-pages>` if you want the parameter mapping, a recommended reading order, and the first modifications to try.
 
 .. gallery-figure:: /_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss.png
    :alt: Simulation comparison summary for Site 03 Natural N1 10Km2 Mf6 Bouss
@@ -60,7 +60,7 @@ Key Metrics
 Next Steps
 ----------
 
-- Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
+- Use :doc:`the gallery and validation reading guide </user_guide/concepts/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.
 - Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.
 
 Reproduce

@@ -136,6 +136,12 @@ examples/*.duckdb
 examples/data/cache.duckdb
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 
+# Lockfiles emitted by validation and regression test runs (``hmp run`` writes
+# ``hydromodpy.lock`` next to the project config; tests should opt out via
+# ``--no-lock`` but this is a safety net).
+validation_cases/**/hydromodpy.lock
+tests/regression/**/hydromodpy.lock
+
 # Generated images from output directories
 **/output/*.png
 **/output/**/*.png

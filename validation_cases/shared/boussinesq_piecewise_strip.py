@@ -644,7 +644,8 @@ def run_piecewise_strip_boussinesq_launcher_case(
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
-    command = [sys.executable, "-m", "hydromodpy", "run", str(config_path)]
+    # Skip post-run lockfile write: regression/validation runs don't need it.
+    command = [sys.executable, "-m", "hydromodpy", "run", "--no-lock", str(config_path)]
     completed = _sp.run(
         command,
         cwd=str(REPO_ROOT),

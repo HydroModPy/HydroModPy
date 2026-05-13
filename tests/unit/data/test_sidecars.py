@@ -104,3 +104,16 @@ def test_load_sidecar_missing_file_raises(tmp_path: Path):
     target.write_bytes(b"r")
     with pytest.raises(FileNotFoundError):
         load_sidecar(target)
+
+
+def test_sidecar_accepts_omitted_fetched_at(tmp_path: Path):
+    """``fetched_at`` is optional so custom-source sidecars stay deterministic."""
+    target = tmp_path / "custom.csv"
+    target.write_bytes(b"a,b\n1,2\n")
+    sc = Sidecar(source="custom", sha256="0" * 64)
+    assert sc.fetched_at is None
+    sidecar_path = write_sidecar(target, sc)
+    payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
+    assert payload["fetched_at"] is None
+    restored = load_sidecar(target)
+    assert restored.fetched_at is None

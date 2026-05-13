@@ -29,6 +29,7 @@ def _assert_modflow6_runtime_available() -> None:
 @pytest.mark.validation
 @pytest.mark.steady
 @pytest.mark.mf6
+@pytest.mark.xdist_group(name="twin_dupuit_steady")
 def test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth() -> None:
     """Run the steady twin benchmark and verify standardized methods recover the truth."""
     pytest.importorskip("cma")
@@ -64,6 +65,7 @@ def test_calibration_twin_dupuit_fixed_head_modflow6_benchmark_recovers_truth() 
 @pytest.mark.steady
 @pytest.mark.fast
 @pytest.mark.mf6
+@pytest.mark.xdist_group(name="twin_dupuit_steady")
 def test_calibration_twin_dupuit_fixed_head_modflow6_fast_grid_search_smoke() -> None:
     """Run one budget-capped smoke benchmark that stays genuinely quick."""
     _assert_modflow6_runtime_available()

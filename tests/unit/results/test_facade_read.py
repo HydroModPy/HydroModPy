@@ -188,3 +188,46 @@ def test_read_attribute_exposed_on_module_top_level():
     """``hmp.read`` must be exported at the top-level facade."""
     assert callable(hmp.read)
     assert "read" in hmp.__all__
+
+
+def test_facade_read_lazy_explicit_overrides_default(catalog):
+    """``lazy=True`` keeps the DataArray even when ``time`` is an int."""
+    import xarray as xr
+
+    sid = _seed_field(catalog)
+    run = Run(sid, catalog)
+    da = hmp.read(run, "head", time=0, layer=0, lazy=True)
+    assert isinstance(da, xr.DataArray)
+    np.testing.assert_array_equal(da.values, [1.0, 2.0])
+
+
+def test_facade_read_lazy_false_forces_ndarray_when_default_lazy(catalog):
+    """``lazy=False`` returns numpy even with the lazy default selectors."""
+    sid = _seed_field(catalog)
+    run = Run(sid, catalog)
+    arr = hmp.read(run, "head", lazy=False)
+    assert isinstance(arr, np.ndarray)
+    assert arr.shape == (2, 1, 2)
+
+
+def test_facade_read_lazy_false_with_time_slice_returns_ndarray(catalog):
+    """``lazy=False`` collapses a sliced lazy view to numpy."""
+    sid = _seed_field(catalog)
+    run = Run(sid, catalog)
+    arr = hmp.read(run, "head", time=slice(0, 1), lazy=False)
+    assert isinstance(arr, np.ndarray)
+    assert arr.shape == (1, 1, 2)
+
+
+def test_facade_read_lazy_none_default_preserves_existing_dispatch(catalog):
+    """``lazy=None`` keeps the historical eager-vs-lazy split documented in the table."""
+    import xarray as xr
+
+    sid = _seed_field(catalog)
+    run = Run(sid, catalog)
+
+    arr = hmp.read(run, "head", time=0, layer=0)
+    assert isinstance(arr, np.ndarray)
+
+    da = hmp.read(run, "head")
+    assert isinstance(da, xr.DataArray)

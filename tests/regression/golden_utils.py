@@ -1006,6 +1006,9 @@ def run_hmp_cli(
         for key, value in extra_env.items():
             env[key] = str(value)
 
+    # Regression runs never persist ``hydromodpy.lock``: the file is opaque
+    # noise for golden comparisons and would otherwise pollute git status under
+    # tests/regression/fixtures/.
     if os.environ.get("HMP_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
         command = [
@@ -1014,6 +1017,7 @@ def run_hmp_cli(
             "-m",
             "hydromodpy",
             "run",
+            "--no-lock",
             str(config_path),
         ]
     else:
@@ -1022,6 +1026,7 @@ def run_hmp_cli(
             "-m",
             "hydromodpy",
             "run",
+            "--no-lock",
             str(config_path),
         ]
 

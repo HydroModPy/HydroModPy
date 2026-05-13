@@ -2,6 +2,8 @@
 
 Sub-commands:
 
+* ``register <workspace_uri>``: register a workspace catalog in the global
+  index. Prints the assigned ``workspace_id``;
 * ``search <term>``: full-text search across registered workspace catalogs
   via the DuckDB FTS index on ``simulations.description``;
 * ``forget <workspace_id>``: drop a workspace registration from the global
@@ -17,15 +19,25 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_OK
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_OK
 
 NAME: str = "index"
-HELP: str = "Search/forget/prune entries in the machine-wide global index"
+HELP: str = "Register/search/forget/prune entries in the machine-wide global index"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="index_command")
+
+    register_p = sub.add_parser(
+        "register",
+        help="Register a workspace catalog.duckdb in the global index",
+    )
+    register_p.add_argument(
+        "workspace_uri",
+        help="Workspace path or URI (file://, s3://, ...). Must contain catalog.duckdb.",
+    )
+    register_p.add_argument("--label", default=None, help="Optional human-readable label")
 
     search = sub.add_parser("search", help="Full-text search over all workspaces")
     search.add_argument("term", help="Free-form search term")
@@ -47,6 +59,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 def run(args: argparse.Namespace) -> None:
     sub = getattr(args, "index_command", None)
+    if sub == "register":
+        _cmd_register(args)
+        return
     if sub == "search":
         _cmd_search(args)
         return
@@ -56,14 +71,41 @@ def run(args: argparse.Namespace) -> None:
     if sub == "prune":
         _cmd_prune(args)
         return
-    print("Usage: hmp index {search|forget|prune} [options]", file=sys.stderr)
+    print("Usage: hmp index {register|search|forget|prune} [options]", file=sys.stderr)
     sys.exit(EXIT_CONFIG)
+
+
+def _cmd_register(args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from hydromodpy.core.state.global_index import GlobalIndex
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, resolve_workspace
+
+    uri = args.workspace_uri
+    try:
+        local = resolve_workspace(uri)
+    except Exception as exc:
+        print(f"Cannot resolve workspace {uri!r}: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    catalog = Path(local) / CATALOG_FILENAME
+    if not catalog.is_file():
+        print(
+            f"Workspace {uri!r} has no {CATALOG_FILENAME} at {catalog}. "
+            "Run 'hmp init' or 'hmp run' first.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_NOT_FOUND)
+
+    with GlobalIndex() as gi:
+        workspace_id = gi.register_workspace(uri, label=args.label)
+    print(workspace_id)
+    sys.exit(EXIT_OK)
 
 
 def _cmd_search(args: argparse.Namespace) -> None:
     from hydromodpy.core.state.global_index import GlobalIndex
 
-    with GlobalIndex() as gi:
+    with GlobalIndex(read_only=True) as gi:
         df = gi.search(args.term)
     if df is None or df.empty:
         print(f"No matches for {args.term!r}.")
