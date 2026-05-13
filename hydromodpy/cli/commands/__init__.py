@@ -18,20 +18,27 @@ from hydromodpy.cli.commands import (
     display,
     doctor,
     export,
+    gc,
     import_cmd,
     init,
     inspect,
     install_binaries,
     lock,
     manage,
+    ml,
     new,
+    privacy,
     rank,
     report,
     run,
     schema,
     show,
     test,
+    vacuum,
     workspace,
+)
+from hydromodpy.cli.commands import (
+    index as index_cmd,
 )
 from hydromodpy.cli.commands import (
     list as list_cmd,
@@ -63,6 +70,11 @@ ALL_COMMANDS = (
     delete,
     workspace,
     completion,
+    gc,
+    vacuum,
+    privacy,
+    index_cmd,
+    ml,
 )
 
 __all__ = ("ALL_COMMANDS",)
