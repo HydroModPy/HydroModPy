@@ -115,6 +115,7 @@ docs/source/_generated/
 out/
 **/simulations/
 **/exports/
+!tests/integration/exports/
 **/results_simulations/
 **/results_stable/
 **/projects/**/figures/
