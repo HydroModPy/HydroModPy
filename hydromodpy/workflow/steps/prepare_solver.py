@@ -157,6 +157,25 @@ def step_persist_geographic(ctx: WorkflowContext, sim_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _primary_solver_for_simulation(plan: SimulationPlan) -> str:
+    """Return the primary solver code stored on ``simulations.solver_id``.
+
+    Multi-solver plans (flow + transport, flow + particle tracking) record
+    only their main flow run in the catalog dimension column. Companion
+    transport / particle solvers are still inspected via the per-run rows
+    written by the runner. Mesh-only backends (catchment, etc.) are skipped
+    so the chosen code matches one of the rows seeded in the ``solvers``
+    dimension table.
+    """
+    for run in plan.runs:
+        if run.process_type == "mesh":
+            continue
+        return run.solver
+    if plan.runs:
+        return plan.runs[0].solver
+    raise PipelineError("Cannot register simulation: SimulationPlan has no runs")
+
+
 def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     """Gather all available metadata from ctx for register_simulation()."""
     kwargs: dict = {"flow_regime": ctx.cfg.flow.flow_regime}
@@ -327,11 +346,11 @@ def step_register_simulation(
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
 
-    solvers = ",".join(r.solver for r in plan.runs)
+    primary_solver = _primary_solver_for_simulation(plan)
     registration = ctx.store.register_simulation(
         sim_id,
         project=project_name,
-        solver=solvers,
+        solver=primary_solver,
         name=name,
         on_collision=ctx.cfg.simulation.on_collision,
         **reg_kwargs,
@@ -416,10 +435,11 @@ def step_open_store(ctx: WorkflowContext) -> None:
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
     on_collision = getattr(ctx.cfg.simulation, "on_collision", "replace")
+    primary_solver = _primary_solver_for_simulation(plan)
     registration = ctx.store.register_simulation(
         ctx.sim_id,
         project=project_name,
-        solver=",".join(r.solver for r in plan.runs),
+        solver=primary_solver,
         name=ctx.setup.run_id,
         on_collision=on_collision,
         **reg_kwargs,

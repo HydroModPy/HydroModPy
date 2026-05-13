@@ -903,7 +903,15 @@ class WritesMixin:
                 )
                 continue
             size = _path_size_bytes(canonical)
-            encoded = _encode_workspace_path(self._workspace, canonical)
+            portable = bool(entry.portable)
+            try:
+                encoded = _encode_workspace_path(self._workspace, canonical)
+            except ValueError:
+                # Tracked file lives outside workspace/cache/state anchors.
+                # Persist absolute canonical path and downgrade portability so
+                # cross-machine consumers know the record cannot be replayed.
+                encoded = str(canonical)
+                portable = False
             self._db.execute(
                 """INSERT INTO tracked_files
                    (sim_id, role, category, original_path, canonical_path,
@@ -925,7 +933,7 @@ class WritesMixin:
                     encoded,
                     sha,
                     int(size),
-                    bool(entry.portable),
+                    portable,
                 ],
             )
             written += 1
