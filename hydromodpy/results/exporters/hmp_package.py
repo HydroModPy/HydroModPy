@@ -63,7 +63,8 @@ GEOGRAPHIC_SUBDIR = "geographic"
 INPUTS_SUBDIR = "inputs"
 INPUTS_MANIFEST_NAME = "manifest.json"
 PARQUET_SUBDIR = "parquet"
-HMP_FORMAT_VERSION = "1.2"
+RO_CRATE_METADATA_NAME = "ro-crate-metadata.json"
+HMP_FORMAT_VERSION = "1.3"
 HMP_MAGIC = "hydromodpy/hmp"
 SHAPEFILE_SIDECAR_EXTS = (".shp", ".shx", ".dbf", ".prj", ".cpg", ".sbn", ".sbx")
 
@@ -439,6 +440,21 @@ def _build_manifest(
     }
 
 
+def _write_ro_crate(catalog: Any, sim_id: str, staging: Path) -> Path | None:
+    """Best-effort RO-Crate v1.1 sidecar at the staging root.
+
+    Failures are logged and the package keeps going: the RO-Crate is a
+    metadata bonus, never a hard requirement of the .hmp container.
+    """
+    try:
+        from hydromodpy.results.export import write_ro_crate
+
+        return write_ro_crate(catalog, sim_id, staging / RO_CRATE_METADATA_NAME)
+    except Exception as exc:  # noqa: BLE001 - keep export resilient
+        logger.warning("Failed to write RO-Crate inside .hmp staging: %s", exc)
+        return None
+
+
 def _write_readme(
     sim_id: str,
     dst: Path,
@@ -566,6 +582,7 @@ def export_hmp_package(
         _materialise_geographic(workspace, geo_fp, staging)
         _materialise_parquet(catalog.parquet_dir_for(sid), staging)
         inputs_manifest = _materialise_inputs(catalog, sid, staging)
+        _write_ro_crate(catalog, sid, staging)
         _write_readme(
             sid,
             staging / README_NAME,
