@@ -55,21 +55,4 @@ def populate_simulation(catalog: SimulationCatalog, *, project: str = "test") ->
     return sid
 
 
-def populate_ml_dataset(catalog: SimulationCatalog) -> str:
-    """Insert one ``ml_datasets`` row with non-empty features and targets."""
-    ds_id = str(uuid.uuid4())
-    catalog.connection.execute(
-        "INSERT INTO ml_datasets (dataset_id, name, catalog_hash, features, targets) "
-        "VALUES (?, ?, ?, ?, ?)",
-        [
-            ds_id,
-            "fair-ml-dataset",
-            "deadbeefcafebabe",
-            ["recharge", "precipitation", "temperature"],
-            ["head"],
-        ],
-    )
-    return ds_id
-
-
-__all__ = ["fair_catalog", "populate_ml_dataset", "populate_simulation"]
+__all__ = ["fair_catalog", "populate_simulation"]

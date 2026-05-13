@@ -47,20 +47,12 @@ def register(subparsers) -> argparse.ArgumentParser:
     parser.add_argument(
         "--format",
         dest="fair_format",
-        choices=("hmp", "stac", "rocrate", "prov", "croissant"),
+        choices=("hmp", "stac", "rocrate", "prov"),
         action="append",
         default=None,
         help=(
             "Emit a FAIR sidecar in addition to the per-variable exports. "
             "Repeatable: pass --format multiple times to render several formats."
-        ),
-    )
-    parser.add_argument(
-        "--ml-dataset",
-        default=None,
-        help=(
-            "ML dataset id used by --format croissant. Pass 'latest' to pick the most "
-            "recently created ml_datasets row."
         ),
     )
     parser.add_argument(
@@ -280,22 +272,7 @@ def run(args: argparse.Namespace) -> None:
                 print(f"  VTU export failed: {exc}", file=sys.stderr)
 
         if fair_formats:
-            exported.extend(_emit_fair(catalog, sim_id, sim_dir, fair_formats, args))
-
-    # Standalone Croissant manifest (not tied to a simulation): only --ml-dataset
-    if (
-        not any([args.raster, args.feature, args.sim])
-        and fair_formats == ("croissant",)
-        and args.ml_dataset is not None
-    ):
-        from hydromodpy.results.export import write_croissant
-
-        ml_dir = output_dir or (project_dir / "exports" / "ml-datasets")
-        ml_dir.mkdir(parents=True, exist_ok=True)
-        ds = args.ml_dataset if args.ml_dataset != "latest" else None
-        out_path = write_croissant(catalog, ds, ml_dir / f"croissant_{args.ml_dataset}.json")
-        exported.append(out_path)
-        print(f"  {out_path}", file=sys.stderr)
+            exported.extend(_emit_fair(catalog, sim_id, sim_dir, fair_formats))
 
     catalog.close()
     if not any([args.raster, args.feature, args.sim, exported]):
@@ -314,12 +291,10 @@ def _emit_fair(
     sim_id: str,
     sim_dir: Path,
     formats: tuple[str, ...],
-    args: argparse.Namespace,
 ) -> list[Path]:
     """Render the FAIR sidecars selected via ``--format``."""
     from hydromodpy.results.export import (
         build_context,
-        write_croissant,
         write_ro_crate,
         write_stac_item,
     )
@@ -338,9 +313,6 @@ def _emit_fair(
                 path = write_stac_item(catalog, sim_id, sim_dir, context=context)
             elif fmt == "prov":
                 path = write_prov(catalog, sim_id, sim_dir, context=context)
-            elif fmt == "croissant":
-                ds = args.ml_dataset if args.ml_dataset != "latest" else None
-                path = write_croissant(catalog, ds, sim_dir)
             else:
                 continue
         except Exception as exc:  # noqa: BLE001 - surfaced to CLI
