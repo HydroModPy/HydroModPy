@@ -69,8 +69,26 @@ def _resolve_step_index(step: str | int, steps: tuple) -> int:
     raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
 
 
-def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
-    """Locate the next step index to execute for a previously interrupted run."""
+def _resolve_resume_step_index(
+    workspace: Path,
+    run_id: str,
+    *,
+    steps_blueprint: tuple[str, ...] | None = None,
+) -> int:
+    """Locate the next step index to execute for a previously interrupted run.
+
+    The workflow journal in ``catalog.duckdb`` is consulted first; only when
+    no journal entry exists does the planner fall back to the legacy pickle
+    ``CheckpointStore``.
+    """
+    journal_index = _journal_resume_index(
+        workspace,
+        run_id,
+        steps_blueprint=steps_blueprint,
+    )
+    if journal_index is not None:
+        return journal_index
+
     from hydromodpy.workflow.internals.checkpoint import CheckpointStore
 
     cp = CheckpointStore(workspace, run_id)
@@ -81,6 +99,41 @@ def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
             "Start a fresh run instead of using resume."
         )
     return last + 1
+
+
+def _journal_resume_index(
+    workspace: Path,
+    run_id: str,
+    *,
+    steps_blueprint: tuple[str, ...] | None,
+) -> int | None:
+    """Return the resume index computed from ``workflow_steps``, or None."""
+    try:
+        from hydromodpy.results.catalog import SimulationCatalog
+        from hydromodpy.workflow.journal import WorkflowJournal
+        from hydromodpy.workflow.resume import ResumePlanner
+    except Exception:
+        return None
+    try:
+        catalog = SimulationCatalog(workspace)
+    except Exception:
+        return None
+    try:
+        journal = WorkflowJournal(catalog)
+        planner = ResumePlanner(journal, workspace)
+        plan = planner.compute(
+            run_id=run_id,
+            current_config_sha256=None,
+            steps_blueprint=steps_blueprint or (),
+        )
+        if plan.reason == "no journal entries" and plan.restart_index == 0:
+            return None
+        return plan.restart_index
+    finally:
+        try:
+            catalog.close()
+        except Exception:
+            pass
 
 
 def _print_dry_run_plan(
@@ -208,7 +261,11 @@ class ProjectRunner:
             resume_from: int | None = _resolve_step_index(from_step, all_steps)
             run_id = resume or name
         elif resume is not None:
-            resume_from = _resolve_resume_step_index(workspace_path, resume)
+            resume_from = _resolve_resume_step_index(
+                workspace_path,
+                resume,
+                steps_blueprint=tuple(getattr(step, "name", "") for step in all_steps),
+            )
             run_id = resume
         elif self._is_model_phase_ready():
             resume_from = _resolve_step_index("setup_process", all_steps)
