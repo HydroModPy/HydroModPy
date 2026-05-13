@@ -12,6 +12,12 @@ from functools import cached_property
 
 import pandas as pd
 
+from hydromodpy.results.timeseries_downsample import (
+    DEFAULT_TARGET_POINTS,
+    lttb_downsample,
+    should_downsample,
+)
+
 
 class RunTimeseriesMixin:
     """Tabular and time-series accessors mixed into :class:`Run`."""
@@ -81,6 +87,8 @@ class RunTimeseriesMixin:
         *,
         station: str | None = None,
         period: tuple | str | None = None,
+        downsample: str | None = None,
+        n_out: int | None = None,
     ) -> pd.Series:
         """Return one simulated time series.
 
@@ -94,6 +102,14 @@ class RunTimeseriesMixin:
         period
             Optional ``(start, end)`` datetime bounds, or a single ``"YYYY"``
             year string applied as ``("YYYY-01-01", "YYYY-12-31")``.
+        downsample
+            Optional decimation strategy. ``"lttb"`` runs Largest Triangle
+            Three Buckets on the series; ``"auto"`` enables LTTB only when
+            the series exceeds 50_000 points; ``None`` (default) returns the
+            untouched full-resolution series.
+        n_out
+            Target sample count for ``downsample="lttb"`` or ``"auto"``.
+            Defaults to ``5000``.
 
         Returns
         -------
@@ -140,11 +156,14 @@ class RunTimeseriesMixin:
         idx = pd.DatetimeIndex(result["time"])
         if idx.tz is not None:
             idx = idx.tz_convert("UTC").tz_localize(None)
-        return pd.Series(
+        series = pd.Series(
             result["value"].values,
             index=idx,
             name=variable,
         )
+        if downsample is not None:
+            series = _apply_downsample(series, mode=downsample, n_out=n_out)
+        return series
 
     def observed(
         self,
@@ -294,3 +313,26 @@ class RunTimeseriesMixin:
         from hydromodpy.results import views
 
         return views.recharge_forcing(self)
+
+
+def _apply_downsample(
+    series: pd.Series,
+    *,
+    mode: str,
+    n_out: int | None,
+) -> pd.Series:
+    """Apply the requested downsampling mode to a pandas Series.
+
+    ``mode``:
+    - ``"lttb"``: always run LTTB.
+    - ``"auto"``: run LTTB only when the series exceeds the default
+      threshold (50_000 points by default).
+    """
+    target = int(n_out) if n_out is not None else DEFAULT_TARGET_POINTS
+    if mode == "lttb":
+        return lttb_downsample(series, n_out=target)
+    if mode == "auto":
+        if should_downsample(len(series)):
+            return lttb_downsample(series, n_out=target)
+        return series
+    raise ValueError(f"Unknown downsample mode '{mode}'. Expected 'lttb', 'auto', or None.")

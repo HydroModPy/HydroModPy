@@ -16,6 +16,7 @@ MODULE_EXPORTS: dict[str, str] = {
     "simulation": "hydromodpy.simulation",
     "solver": "hydromodpy.solver",
     "spatial": "hydromodpy.spatial",
+    "viz": "hydromodpy.display.viz",
     "workflow": "hydromodpy.workflow",
 }
 
