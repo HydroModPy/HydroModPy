@@ -90,7 +90,7 @@ def test_crash_then_resume_skips_completed_prefix(tmp_path: Path) -> None:
         _ArtifactStep("step3"),
         _ArtifactStep("step4"),
     )
-    pipeline = Pipeline(blueprint, workspace=workspace, checkpoint=False)
+    pipeline = Pipeline(blueprint, workspace=workspace)
     with pytest.raises(StepError):
         pipeline.run(_initial_state(workspace, "run-A"))
 
@@ -121,7 +121,7 @@ def test_crash_then_resume_skips_completed_prefix(tmp_path: Path) -> None:
         _ArtifactStep("step3"),
         _ArtifactStep("step4"),
     )
-    pipeline = Pipeline(recovery_blueprint, workspace=workspace, checkpoint=False)
+    pipeline = Pipeline(recovery_blueprint, workspace=workspace)
     final = pipeline.run(_initial_state(workspace, "run-A"), resume_from=2)
     completed = final.get("completed")
     assert completed == ["step2", "step3", "step4"]
@@ -153,7 +153,7 @@ def test_heartbeat_keeps_sim_fresh_during_run(tmp_path: Path) -> None:
         _ArtifactStep("step1"),
         _ArtifactStep("step2"),
     )
-    pipeline = Pipeline(blueprint, workspace=workspace, checkpoint=False)
+    pipeline = Pipeline(blueprint, workspace=workspace)
     pipeline.run(_initial_state(workspace, "run-B", sim_id=SIM_ID))
 
     catalog = SimulationCatalog(workspace)
@@ -214,7 +214,7 @@ def test_artifact_deletion_triggers_partial_redo(tmp_path: Path) -> None:
         _ArtifactStep("beta"),
         _ArtifactStep("gamma"),
     )
-    pipeline = Pipeline(blueprint, workspace=workspace, checkpoint=False)
+    pipeline = Pipeline(blueprint, workspace=workspace)
     pipeline.run(_initial_state(workspace, "run-C"))
 
     (workspace / "artefacts" / "beta.txt").unlink()
@@ -242,7 +242,7 @@ def test_artifact_deletion_triggers_partial_redo(tmp_path: Path) -> None:
         _ArtifactStep("beta"),
         _ArtifactStep("gamma"),
     )
-    pipeline = Pipeline(recovery, workspace=workspace, checkpoint=False)
+    pipeline = Pipeline(recovery, workspace=workspace)
     final = pipeline.run(_initial_state(workspace, "run-C"), resume_from=1)
     assert final.get("completed") == ["beta", "gamma"]
 
