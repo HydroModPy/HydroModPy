@@ -11,8 +11,6 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.exceptions import ConfigError
-
 
 def run_overview(config_path: str | Path) -> dict[str, Any]:
     """Generate a watershed identity card from a TOML file."""
@@ -41,8 +39,6 @@ def run_simulation(
     resume: str | None = None,
     from_step: str | int | None = None,
     until_step: str | int | None = None,
-    checkpoint: bool = False,
-    no_checkpoint: bool = False,
     no_display: bool = False,
     frozen: bool = False,
     dry_run: bool = False,
@@ -50,14 +46,8 @@ def run_simulation(
     """Execute a single simulation from a TOML file."""
     from hydromodpy.project import Project
 
-    resume_options_used = resume is not None or from_step is not None or until_step is not None
-    if no_checkpoint and resume_options_used:
-        raise ConfigError("Resume options require checkpoint persistence.")
-    checkpoint_enabled = bool(checkpoint or resume_options_used) and not no_checkpoint
-
     with Project(config_path, no_display=no_display) as project:
         result = project.run(
-            checkpoint=checkpoint_enabled,
             resume=resume,
             from_step=from_step,
             until_step=until_step,

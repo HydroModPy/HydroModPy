@@ -3,7 +3,7 @@
 ``Project`` and ``Pipeline`` do not have the same job:
 
 - ``Project`` owns the user-facing session state and exposes interactive verbs.
-- ``Pipeline`` owns ordered execution, checkpointing, and resume.
+- ``Pipeline`` owns ordered execution and journal-driven resume.
 
 Both still need to speak the same phase vocabulary. This module is the small
 source of truth for that vocabulary so docs, tests, and orchestration code do

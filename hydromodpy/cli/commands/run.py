@@ -64,19 +64,6 @@ def register(subparsers) -> argparse.ArgumentParser:
         dest="dry_run",
         help="Print the resolved workflow plan without executing it.",
     )
-    checkpoint_group = parser.add_mutually_exclusive_group()
-    checkpoint_group.add_argument(
-        "--checkpoint",
-        action="store_true",
-        dest="checkpoint",
-        help="Persist pipeline checkpoints so the run can be resumed.",
-    )
-    checkpoint_group.add_argument(
-        "--no-checkpoint",
-        action="store_true",
-        dest="no_checkpoint",
-        help=argparse.SUPPRESS,
-    )
     parser.add_argument(
         "--frozen",
         action="store_true",
@@ -188,13 +175,9 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     resume = getattr(args, "resume", None)
     from_step = getattr(args, "from_step", None)
     until_step = getattr(args, "until_step", None)
-    checkpoint = bool(getattr(args, "checkpoint", False))
-    no_checkpoint = bool(getattr(args, "no_checkpoint", False))
     no_display = bool(getattr(args, "no_display", False))
     frozen = bool(getattr(args, "frozen", False))
     no_lock = bool(getattr(args, "no_lock", False))
-    resume_options_used = resume is not None or from_step is not None or until_step is not None
-    checkpoint_enabled = bool(checkpoint or resume_options_used) and not no_checkpoint
 
     if dry_run:
         _print_dry_run(
@@ -204,7 +187,6 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             resume=resume,
             from_step=from_step,
             until_step=until_step,
-            checkpoint=checkpoint_enabled,
         )
         _cleanup_effective_toml(effective_path, source=config_path)
         return
@@ -217,20 +199,10 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
-    if (from_step is not None or until_step is not None or checkpoint or no_checkpoint) and (
-        workflow != "simulation"
-    ):
+    if (from_step is not None or until_step is not None) and workflow != "simulation":
         print(
-            f"--from / --until / --checkpoint are only supported for the "
+            f"--from / --until are only supported for the "
             f"'simulation' workflow (detected '{workflow}').",
-            file=sys.stderr,
-        )
-        _cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
-
-    if no_checkpoint and resume_options_used:
-        print(
-            "--no-checkpoint cannot be combined with --resume, --from or --until.",
             file=sys.stderr,
         )
         _cleanup_effective_toml(effective_path, source=config_path)
@@ -245,8 +217,6 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
                 resume=resume,
                 from_step=from_step,
                 until_step=until_step,
-                checkpoint=checkpoint_enabled,
-                no_checkpoint=no_checkpoint,
                 no_display=no_display,
                 frozen=frozen,
             )
@@ -501,7 +471,6 @@ def _print_dry_run(
     resume: str | None,
     from_step: str | None,
     until_step: str | None,
-    checkpoint: bool,
 ) -> None:
     """Print the resolved workflow plan without executing it."""
     print(f"[dry-run] workflow: {workflow}")
@@ -513,7 +482,6 @@ def _print_dry_run(
         print(f"[dry-run] from    : {from_step}")
     if until_step is not None:
         print(f"[dry-run] until   : {until_step}")
-    print(f"[dry-run] checkpoint: {'enabled' if checkpoint else 'disabled'}")
     if workflow == "simulation":
         try:
             from hydromodpy.workflow.orchestrator import standard_steps

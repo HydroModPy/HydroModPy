@@ -77,47 +77,21 @@ def _resolve_resume_step_index(
 ) -> int:
     """Locate the next step index to execute for a previously interrupted run.
 
-    The workflow journal in ``catalog.duckdb`` is consulted first; only when
-    no journal entry exists does the planner fall back to the legacy pickle
-    ``CheckpointStore``.
+    The workflow journal in ``catalog.duckdb`` is the single source of truth:
+    when no row exists for ``run_id`` the run is treated as fresh and starts
+    from step 0.
     """
-    journal_index = _journal_resume_index(
-        workspace,
-        run_id,
-        steps_blueprint=steps_blueprint,
-    )
-    if journal_index is not None:
-        return journal_index
+    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.workflow.journal import WorkflowJournal
+    from hydromodpy.workflow.resume import ResumePlanner
 
-    from hydromodpy.workflow.internals.checkpoint import CheckpointStore
-
-    cp = CheckpointStore(workspace, run_id)
-    last = cp.latest()
-    if last is None:
-        raise ResumeError(
-            f"No checkpoints found for run_id '{run_id}' in {cp.dir}. "
-            "Start a fresh run instead of using resume."
-        )
-    return last + 1
-
-
-def _journal_resume_index(
-    workspace: Path,
-    run_id: str,
-    *,
-    steps_blueprint: tuple[str, ...] | None,
-) -> int | None:
-    """Return the resume index computed from ``workflow_steps``, or None."""
-    try:
-        from hydromodpy.results.catalog import SimulationCatalog
-        from hydromodpy.workflow.journal import WorkflowJournal
-        from hydromodpy.workflow.resume import ResumePlanner
-    except Exception:
-        return None
     try:
         catalog = SimulationCatalog(workspace)
-    except Exception:
-        return None
+    except Exception as exc:
+        raise ResumeError(
+            f"Could not open the catalog at {workspace} to resume '{run_id}': {exc}"
+        ) from exc
+
     try:
         journal = WorkflowJournal(catalog)
         planner = ResumePlanner(journal, workspace)
@@ -126,14 +100,12 @@ def _journal_resume_index(
             current_config_sha256=None,
             steps_blueprint=steps_blueprint or (),
         )
-        if plan.reason == "no journal entries" and plan.restart_index == 0:
-            return None
-        return plan.restart_index
     finally:
         try:
             catalog.close()
         except Exception:
             pass
+    return plan.restart_index
 
 
 def _print_dry_run_plan(
@@ -141,11 +113,9 @@ def _print_dry_run_plan(
     run_id: str,
     steps: tuple,
     resume_from: int | None,
-    checkpoint: bool,
 ) -> None:
     """Emit the resolved Pipeline plan without executing any step."""
     print(f"[dry-run] run_id    : {run_id}")
-    print(f"[dry-run] checkpoint: {'enabled' if checkpoint else 'disabled'}")
     if resume_from is not None:
         print(f"[dry-run] resume_from: {resume_from}")
     print("[dry-run] steps     :")
@@ -219,7 +189,6 @@ class ProjectRunner:
         self,
         *,
         name: str | None = None,
-        checkpoint: bool = False,
         resume: str | None = None,
         from_step: str | int | None = None,
         until_step: str | int | None = None,
@@ -237,9 +206,6 @@ class ProjectRunner:
         project = self._project
 
         skip_display = bool(project._no_display) or bool(no_display)
-        checkpoint = bool(checkpoint or resume is not None or from_step is not None)
-        if until_step is not None:
-            checkpoint = True
 
         thickness = overrides.pop("thickness", None)
         first_clim = overrides.pop("first_clim", None)
@@ -279,7 +245,6 @@ class ProjectRunner:
                 run_id=run_id,
                 steps=steps,
                 resume_from=resume_from,
-                checkpoint=checkpoint,
             )
             return None
 
@@ -321,7 +286,7 @@ class ProjectRunner:
             },
         )
 
-        pipeline = Pipeline(steps, workspace=workspace_path, checkpoint=checkpoint)
+        pipeline = Pipeline(steps, workspace=workspace_path)
         previous_frozen_mode: bool | None = None
         if frozen:
             from hydromodpy.data.data_freeze import is_frozen_mode, set_frozen_mode
