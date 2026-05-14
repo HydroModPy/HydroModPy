@@ -160,3 +160,27 @@ class ExtractStep:
         if not sim_id:
             return ()
         return _store_sim_artifacts(ctx, sim_id)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Restore the post-extraction state without re-running extraction.
+
+        The extraction artefacts already live in the Zarr / Parquet store
+        opened by :class:`PrepareSolverStep`. The summary is rebuilt as a
+        marker so downstream steps know the rows are durable.
+        """
+        ctx = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("ExtractStep.rebuild_state requires 'ctx' in state.data")
+        summary = {"rebuilt_from_artifacts": True, "step": self.name}
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+            extraction_summary=summary,
+        )

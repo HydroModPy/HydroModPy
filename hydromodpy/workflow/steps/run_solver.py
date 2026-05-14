@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hydromodpy.core.exceptions import ConfigError
@@ -43,6 +44,44 @@ class RunSolverStep:
         if not sim_id:
             return ()
         return _store_sim_artifacts(ctx, sim_id)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Rebuild the state without re-running the solver.
+
+        Reads ``runs_environment.duration_s`` from the catalog to restore
+        ``wall_seconds``. ``solver_result`` stays ``None``: downstream steps
+        (extract, derive, export) read directly from the Zarr / solver
+        workdir and do not need a live :class:`RunResult` object.
+        """
+        ctx = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("RunSolverStep.rebuild_state requires 'ctx' in state.data")
+        wall_seconds: float | None = None
+        store = getattr(ctx, "store", None)
+        sim_id = getattr(ctx, "sim_id", None)
+        if store is not None and sim_id is not None:
+            try:
+                row = store.connection.execute(
+                    "SELECT duration_s FROM runs_environment WHERE sim_id = ? "
+                    "ORDER BY recorded_at DESC LIMIT 1",
+                    [sim_id],
+                ).fetchone()
+            except Exception:
+                row = None
+            if row is not None and row[0] is not None:
+                wall_seconds = float(row[0])
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+            wall_seconds=wall_seconds,
+        )
 
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.simulation.execution.runner import (

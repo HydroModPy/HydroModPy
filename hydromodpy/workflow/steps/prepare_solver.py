@@ -894,3 +894,48 @@ class PrepareSolverStep:
         if not sim_id:
             return ()
         return _store_sim_artifacts(ctx, sim_id)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Reopen the simulation store written by a previous ``run`` call.
+
+        Reads the existing Zarr and the catalog row for the active ``sim_id``,
+        so the heavy persistence work (provenance, forcings) is not redone.
+        """
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        ctx = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("PrepareSolverStep.rebuild_state requires 'ctx' in state.data")
+
+        ws = getattr(getattr(ctx, "setup", None), "workspace", None)
+        if ws is None:
+            raise ConfigError(
+                "PrepareSolverStep.rebuild_state requires a resolved workspace on the context"
+            )
+
+        sim_id = getattr(ctx, "sim_id", None)
+        results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
+        if ctx.store is None and results_cfg.persistence.save_catalog:
+            ctx.store = SimulationCatalog.from_workspace(
+                ws,
+                persistence=results_cfg.persistence,
+            )
+            if sim_id is None:
+                row = ctx.store.connection.execute(
+                    "SELECT sim_id FROM simulations WHERE project = ? ORDER BY created_at DESC LIMIT 1",
+                    [ws.project_root.name],
+                ).fetchone()
+                if row is not None:
+                    ctx.sim_id = str(row[0])
+
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )
