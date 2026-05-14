@@ -42,7 +42,7 @@ def _write_migration(versions_dir: Path, version: int, slug: str, sql: str) -> P
 def test_ensure_schema_on_empty_db_creates_system_tables_and_applies_initial(
     conn: duckdb.DuckDBPyConnection,
 ) -> None:
-    """First call seeds system tables and registers the bundled migration."""
+    """First call seeds system tables and registers the bundled migrations."""
     assert current_version(conn) == 0
 
     ensure_schema(conn)
@@ -57,28 +57,30 @@ def test_ensure_schema_on_empty_db_creates_system_tables_and_applies_initial(
     assert tables == {"schema_migrations", "_schema_version"}
 
     rows = conn.execute("SELECT version, slug FROM schema_migrations ORDER BY version").fetchall()
-    assert rows == [(1, "initial_v2_schema")]
+    assert rows == [(1, "initial_v2_schema"), (2, "workflow_artifacts")]
 
     version_rows = conn.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert version_rows == [(CATALOG_COMPONENT, 1)]
+    assert version_rows == [(CATALOG_COMPONENT, 2)]
 
-    assert current_version(conn) == 1
-    assert target_version() == 1
+    assert current_version(conn) == 2
+    assert target_version() == 2
 
 
 def test_ensure_schema_is_idempotent(conn: duckdb.DuckDBPyConnection) -> None:
     """A second call applies nothing and preserves the original applied_at."""
     ensure_schema(conn)
     first_applied_at = conn.execute(
-        "SELECT applied_at FROM schema_migrations WHERE version = 1"
-    ).fetchone()[0]
+        "SELECT version, applied_at FROM schema_migrations ORDER BY version"
+    ).fetchall()
 
     time.sleep(0.01)
     ensure_schema(conn)
 
-    rows = conn.execute("SELECT version, applied_at FROM schema_migrations").fetchall()
-    assert len(rows) == 1
-    assert rows[0][1] == first_applied_at
+    rows = conn.execute(
+        "SELECT version, applied_at FROM schema_migrations ORDER BY version"
+    ).fetchall()
+    assert len(rows) == 2
+    assert rows == first_applied_at
 
 
 def test_apply_in_order(conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None:

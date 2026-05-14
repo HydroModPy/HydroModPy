@@ -178,3 +178,58 @@ class ExportStep:
             step_name=self.name,
             ctx=ctx,
         )
+
+    def artifacts(self, state: PipelineState) -> tuple[str, ...]:
+        """Return workspace-relative paths exported by this step."""
+        ctx = state.get("ctx")
+        if ctx is None:
+            return ()
+        workspace = getattr(getattr(ctx, "setup", None), "workspace", None)
+        project_root: Path | None = getattr(workspace, "project_root", None)
+        if project_root is None:
+            return ()
+        found: list[str] = []
+        for path_obj in state.get("export_paths", ()) or ():
+            try:
+                candidate = Path(path_obj)
+            except TypeError:
+                continue
+            if not candidate.exists():
+                continue
+            try:
+                rel = candidate.relative_to(project_root).as_posix()
+            except ValueError:
+                continue
+            found.append(rel)
+        return tuple(sorted(set(found)))
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Restore the post-export state without re-finalising the store.
+
+        Lists the export artefacts currently on disk (parquet, ro-crate
+        directories under the simulation root) and exposes them on the new
+        state so callers can inspect them.
+        """
+        ctx = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("ExportStep.rebuild_state requires 'ctx' in state.data")
+        existing: list[Path] = []
+        ws = getattr(getattr(ctx, "setup", None), "workspace", None)
+        project_root: Path | None = getattr(ws, "project_root", None)
+        sim_id = getattr(ctx, "sim_id", None)
+        if project_root is not None and sim_id:
+            for sub in (project_root / "simulations").glob(f"*{sim_id[:8]}*"):
+                if sub.is_dir():
+                    existing.append(sub)
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+            export_paths=existing,
+        )

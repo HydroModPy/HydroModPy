@@ -696,10 +696,9 @@ class TestSimulationGroup:
         class _Pipeline:
             counter = 0
 
-            def __init__(self, steps, *, workspace, checkpoint):
+            def __init__(self, steps, *, workspace):
                 self.steps = steps
                 self.workspace = workspace
-                self.checkpoint = checkpoint
 
             def run(self, state, *, resume_from=None):
                 _Pipeline.counter += 1
@@ -800,10 +799,9 @@ class TestSimulationGroup:
         observed: list[str | None] = []
 
         class _Pipeline:
-            def __init__(self, steps, *, workspace, checkpoint):
+            def __init__(self, steps, *, workspace):
                 self.steps = steps
                 self.workspace = workspace
-                self.checkpoint = checkpoint
 
             def run(self, state, *, resume_from=None):
                 ctx = state.get("ctx")

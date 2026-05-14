@@ -5,8 +5,8 @@ Setup-once, run-many interface that keeps the user-facing session state
 clean API. The TOML-driven workflow (``hmp run``) is unchanged; this module
 provides the **programmatic** equivalent.
 
-``Project`` is intentionally not the execution engine. Ordered execution,
-checkpointing, and resume live in :mod:`hydromodpy.workflow.runner.Pipeline`.
+``Project`` is intentionally not the execution engine. Ordered execution
+and resume live in :mod:`hydromodpy.workflow.runner.Pipeline`.
 Both routes use the same ``workflow.steps`` helpers so interactive notebooks
 and full pipeline runs do not fork the scientific logic.
 
@@ -500,7 +500,6 @@ class Project:
         self,
         *,
         name: str | None = None,
-        checkpoint: bool = False,
         resume: str | None = None,
         from_step: str | int | None = None,
         until_step: str | int | None = None,
@@ -520,10 +519,8 @@ class Project:
         ----------
         name
             Optional run name persisted in the catalog.
-        checkpoint
-            Persist step checkpoints for later resume.
         resume
-            Existing checkpoint or run identifier to resume from.
+            Existing run identifier to resume from the workflow journal.
         from_step, until_step
             Optional step bounds for partial workflow execution.
         dry_run
@@ -548,7 +545,7 @@ class Project:
         SolverError
             If the configured solver crashes or fails to converge.
         ResumeError
-            If ``resume`` references an incompatible checkpoint.
+            If ``resume`` references an incompatible journal state.
 
         Examples
         --------
@@ -564,7 +561,6 @@ class Project:
         """
         return self._runner.run(
             name=name,
-            checkpoint=checkpoint,
             resume=resume,
             from_step=from_step,
             until_step=until_step,

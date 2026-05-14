@@ -595,6 +595,9 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
     cutoff = datetime.now(UTC) - timedelta(minutes=_STALE_HEARTBEAT_MINUTES)
     stale_running = 0
     orphan_sessions = 0
+    wf_running = 0
+    wf_failed = 0
+    wf_recent: list[tuple[str, str, str, str]] = []
     for catalog_path in project_catalogs:
         try:
             conn = duckdb.connect(str(catalog_path), read_only=True)
@@ -622,6 +625,45 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
                 """,
             ).fetchone()
             orphan_sessions += int(orphans[0]) if orphans else 0
+
+            try:
+                wf_status_rows = conn.execute(
+                    """
+                    SELECT st.code, COUNT(*)
+                      FROM workflow_steps ws
+                      JOIN statuses st ON ws.status_id = st.id
+                  GROUP BY st.code
+                    """,
+                ).fetchall()
+            except duckdb.Error:
+                wf_status_rows = []
+            for code, count in wf_status_rows:
+                if code == "running":
+                    wf_running += int(count)
+                elif code == "failed":
+                    wf_failed += int(count)
+
+            try:
+                recent_rows = conn.execute(
+                    """
+                    SELECT ws.run_id, ws.step_name, st.code, ws.started_at
+                      FROM workflow_steps ws
+                      JOIN statuses st ON ws.status_id = st.id
+                  ORDER BY ws.started_at DESC NULLS LAST
+                     LIMIT 5
+                    """,
+                ).fetchall()
+            except duckdb.Error:
+                recent_rows = []
+            for run_id, step_name, code, started_at in recent_rows:
+                wf_recent.append(
+                    (
+                        str(run_id),
+                        str(step_name),
+                        str(code),
+                        str(started_at) if started_at is not None else "",
+                    )
+                )
         except duckdb.Error:
             pass
         finally:
@@ -629,7 +671,7 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
 
     tmp_parquet = sum(1 for _ in workspace.rglob("*.tmp-*"))
 
-    return [
+    checks = [
         {
             "name": "lifecycle:stale_running_sims",
             "status": "OK" if stale_running == 0 else "WARN",
@@ -648,7 +690,32 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
             "detail": f"{tmp_parquet} stale tmp-* artefact(s) on disk",
             "hint": "Run 'hmp gc --workspace <ws>' to clean them up",
         },
+        {
+            "name": "lifecycle:workflow_steps_running",
+            "status": "OK" if wf_running == 0 else "WARN",
+            "detail": f"{wf_running} workflow step(s) marked running",
+            "hint": "Stale entries get aborted on next resume; use 'hmp run --resume <run_id>'",
+        },
+        {
+            "name": "lifecycle:workflow_steps_failed",
+            "status": "OK" if wf_failed == 0 else "WARN",
+            "detail": f"{wf_failed} workflow step(s) marked failed",
+            "hint": "Inspect catalog.workflow_steps for the error_message column",
+        },
     ]
+    if wf_recent:
+        formatted = "; ".join(
+            f"{run_id[:8]}:{step}={code}" for run_id, step, code, _ts in wf_recent
+        )
+        checks.append(
+            {
+                "name": "lifecycle:workflow_steps_recent",
+                "status": "OK",
+                "detail": formatted,
+                "hint": None,
+            }
+        )
+    return checks
 
 
 def _print_report(report: dict) -> None:

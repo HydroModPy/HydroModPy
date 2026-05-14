@@ -89,15 +89,17 @@ def test_pipeline_run_without_workspace_skips_ledger() -> None:
     assert final.data["counter"] == 1
 
 
-def test_pipeline_workspace_without_checkpoint_does_not_create_runtime_state(
+def test_pipeline_workspace_does_not_create_pickle_state(
     tmp_path: Path,
 ) -> None:
     state = PipelineState(run_id="r", data={"counter": 0})
-    pipeline = Pipeline([_AddOne()], workspace=tmp_path, checkpoint=False)
+    pipeline = Pipeline([_AddOne()], workspace=tmp_path)
     final = pipeline.run(state)
 
     assert final.data["counter"] == 1
-    assert not (tmp_path / ".hmp").exists()
+    checkpoint_dir = tmp_path / ".hmp" / "checkpoints" / "r"
+    if checkpoint_dir.exists():
+        assert not any(p.suffix in (".pkl", ".pkl.zst") for p in checkpoint_dir.iterdir())
 
 
 def test_pipeline_wraps_step_failure_in_step_error() -> None:
@@ -112,12 +114,13 @@ def test_pipeline_wraps_step_failure_in_step_error() -> None:
     assert isinstance(err.__cause__, RuntimeError)
 
 
-def test_pipeline_resume_from_skips_early_steps() -> None:
+def test_pipeline_resume_from_replays_in_memory_prefix() -> None:
+    # In the state-from-artifacts model, the in-memory prefix is re-executed
+    # idempotently. counter=100 -> +1 +1 = 102 -> *10 = 1020.
     state = PipelineState(run_id="r", data={"counter": 100})
     pipeline = Pipeline([_AddOne(), _AddOne(), _Multiply(10)])
-    # resume_from=2 → only Multiply runs on the supplied state as-is.
     final = pipeline.run(state, resume_from=2)
-    assert final.data["counter"] == 1000
+    assert final.data["counter"] == 1020
     assert final.step_name == "multiply"
 
 
