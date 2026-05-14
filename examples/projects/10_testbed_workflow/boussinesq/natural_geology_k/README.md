@@ -34,6 +34,15 @@ execution still goes through the generic `[workflow] mode = "testbed"` and
 - `compare_natural_mf6_bouss_petsc_vi_base.toml`: comparison template used by
   that focused testbed. The Boussinesq child is restricted to
   `runtime_backend = "petsc"` and `surface_interaction_model = "vi_obstacle"`.
+- `natural_drainage_k_mesh_matrix_sites.csv`: two-site diagnostic catalog with
+  low/base/high homogeneous hydraulic conductivity values.
+- `natural_drainage_k_mesh_matrix_testbed.toml`: testbed that generates one
+  MF6/Boussinesq diagnostic comparison TOML per site/K row.
+- `compare_natural_drainage_k_mesh_matrix_base.toml`: comparison template that
+  varies solver, drainage conductance, constrained triangles and
+  quasi-uniform triangles inside each site/K row.
+- `run_natural_drainage_k_mesh_matrix_chain.py`: WSL-oriented execution chain
+  for that diagnostic matrix.
 - `base_site_01_mf6_bouss_transient.toml`: shared physical simulation base:
   DEM, hydrography, geology, recharge, domain, flow parameters and simulation
   window.
@@ -130,6 +139,61 @@ The synthesis page is written to:
 
 ```text
 examples/projects/10_testbed_workflow/outputs/boussinesq_petsc_vi_regression_testbed/web_synthesis/index.html
+```
+
+## Drainage/K/Mesh Diagnostic Matrix
+
+This matrix isolates the stronger natural-case MF6/Boussinesq divergence by
+crossing two natural 10 km2 sites with three homogeneous K values:
+`1e-5 m/s`, `5e-5 m/s` and `2e-4 m/s`. Each generated comparison contains:
+
+- MF6 on the constrained irregular triangular mesh with top DRN conductance
+  `0.1 m2/s`, used as the reference.
+- Boussinesq/PETSc `vi_obstacle` on the same constrained irregular triangular
+  mesh with drainage `0`, `0.01` and `0.1 m2/s`.
+- MF6 and Boussinesq/PETSc on river-constrained quasi-uniform triangular
+  meshes at 180 m target size.
+
+The quasi-uniform triangular cases use the existing Gmsh Delaunay mesher with
+fixed target size and refinement disabled. They are not exact clipped
+triangular lattices, but they remove most size-grading and interface-refinement
+effects from the current natural mesh path.
+
+From WSL, materialize the six comparison TOMLs only:
+
+```bash
+/home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python \
+  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_natural_drainage_k_mesh_matrix_chain.py \
+  --plan-only
+```
+
+Run selected matrix rows and rebuild the HTML synthesis:
+
+```bash
+/home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python \
+  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_natural_drainage_k_mesh_matrix_chain.py \
+  --cases site_01_k_base site_02_k_low
+```
+
+Reuse existing child run folders and rerun extraction plus HTML only:
+
+```bash
+/home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python \
+  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_natural_drainage_k_mesh_matrix_chain.py \
+  --cases site_01_k_base site_02_k_low \
+  --reuse-runs
+```
+
+The generated comparison TOMLs are written under:
+
+```text
+examples/projects/10_testbed_workflow/outputs/boussinesq_natural_drainage_k_mesh_matrix_testbed/_generated_configs/
+```
+
+The synthesis page is written to:
+
+```text
+examples/projects/10_testbed_workflow/outputs/boussinesq_natural_drainage_k_mesh_matrix_testbed/web_synthesis/index.html
 ```
 
 ## Automated Natural N1 Gallery Chain

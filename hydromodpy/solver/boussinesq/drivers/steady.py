@@ -13,6 +13,12 @@ from hydromodpy.solver.boussinesq.drivers.forcing import (
 from hydromodpy.solver.boussinesq.drivers.state import build_steady_runtime_state
 from hydromodpy.solver.boussinesq.runtime_contract import SteadySolveInputs
 from hydromodpy.solver.boussinesq.runtime_summary import record_runtime_backend_summary
+from hydromodpy.solver.boussinesq.runtimes.stationary_failure_diagnostics import (
+    write_stationary_failure_diagnostics,
+)
+from hydromodpy.solver.steady_initial_conditions import (
+    steady_state_initial_condition_strategy,
+)
 
 if TYPE_CHECKING:
     from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -83,7 +89,56 @@ def run_steady_runtime(solver: Boussinesq) -> bool:
     )
     solver.runtime_summary["active_ocean"] = bool(np.any(ocean_supported_cell_mask))
     solver.runtime_summary["active_drainage"] = bool(drainage_value != 0.0)
+    if not bool(steady.converged):
+        _write_stationary_failure_diagnostics(
+            solver,
+            steady=steady,
+            runtime_backend=runtime_backend,
+            recharge_rate_m_s=recharge_rate_m_s,
+            well_flux_m3_s=well_flux_m3_s,
+            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+            drainage_conductance_m2_s=drainage_conductance,
+        )
     return bool(steady.converged)
+
+
+def _write_stationary_failure_diagnostics(
+    solver: Boussinesq,
+    *,
+    steady,
+    runtime_backend,
+    recharge_rate_m_s,
+    well_flux_m3_s,
+    prescribed_head_m_by_cell,
+    drainage_conductance_m2_s,
+) -> None:
+    """Persist post-mortem files without replacing the original solve failure."""
+    if solver.mesh is None:
+        return
+    try:
+        strategy = steady_state_initial_condition_strategy(solver.flow)
+        strategy_payload = None if strategy is None else dict(strategy.__dict__)
+        generated = write_stationary_failure_diagnostics(
+            solver.full_path,
+            mesh=solver.mesh,
+            result=steady,
+            runtime_backend=runtime_backend,
+            options=solver._runtime_options(),
+            runtime_summary=solver.runtime_summary,
+            case_id=str(getattr(solver, "model_name", "") or ""),
+            simulation_id=str(getattr(solver, "model_name", "") or ""),
+            initialization_strategy=strategy_payload,
+            recharge_rate_m_s=recharge_rate_m_s,
+            well_flux_m3_s=well_flux_m3_s,
+            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+            drainage_conductance_m2_s=drainage_conductance_m2_s,
+        )
+    except Exception as exc:  # pragma: no cover - diagnostic best effort
+        solver.runtime_summary["stationary_failure_diagnostics_error"] = (
+            f"{type(exc).__name__}: {exc}"
+        )
+        return
+    solver.runtime_summary["stationary_failure_diagnostic_files"] = generated
 
 
 __all__ = ["run_steady_runtime"]

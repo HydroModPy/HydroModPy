@@ -48,6 +48,7 @@ class CompactNetworkSynthesisConfig:
     interpretation_cards: Sequence[InfoCard] = ()
     base_config: Path | None = None
     comparison_id: str | None = None
+    context_watershed_path: Path | None = None
 
 
 @dataclass
@@ -130,9 +131,11 @@ class CompactNetworkSynthesisBuilder:
         self.comparison_root = Path(config.comparison_root)
         self.page_path = Path(config.page_path)
         self.figure_root = self.page_path.parent / "field_figures"
+        self.context_figure_path = self.page_path.parent / "topographic_context.png"
         self.recharge_figure_path = self.page_path.parent / "recharge_forcing.png"
         self.metric_synthesis_figure_path = self.page_path.parent / "distance_ratio_synthesis.png"
         self.meta_by_id = {item.simulation_id: item for item in config.simulations}
+        self._context_watershed_cache = None
 
     def read_csv(self, path: Path) -> list[dict[str, str]]:
         if not path.exists():
@@ -664,12 +667,128 @@ class CompactNetworkSynthesisBuilder:
             "planar_distance_log10_ratio": distance_log10_ratio,
         }
 
+    def _context_watershed_gdf(self):
+        if self._context_watershed_cache is not None:
+            return self._context_watershed_cache
+
+        path = self.config.context_watershed_path
+        if path is None:
+            self._context_watershed_cache = None
+            return None
+        path = Path(path)
+        if not path.exists():
+            self._context_watershed_cache = None
+            return None
+
+        try:
+            import geopandas as gpd
+
+            gdf = gpd.read_file(path)
+        except Exception:
+            gdf = None
+        self._context_watershed_cache = gdf
+        return gdf
+
+    def _context_dem_path(self) -> Path | None:
+        path = self.config.context_watershed_path
+        if path is None:
+            return None
+        path = Path(path)
+        candidates = (
+            path.parent / "watershed_box_buff_dem.tif",
+            path.parent / "context_dem.tif",
+        )
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _run_topography(self, run):
+        import numpy as np
+
+        dem = np.asarray(run.dem, dtype="float64")
+        dem = np.where(np.isfinite(dem), dem, np.nan)
+        grid = run.grid
+        extent = (
+            float(grid.extent[0]),
+            float(grid.extent[1]),
+            float(grid.extent[2]),
+            float(grid.extent[3]),
+        )
+        return dem, extent
+
+    def _context_topography_layers(self, run):
+        import numpy as np
+
+        layers = [self._run_topography(run)]
+        dem_path = self._context_dem_path()
+        if dem_path is not None:
+            try:
+                import rasterio
+
+                with rasterio.open(dem_path) as src:
+                    data = src.read(1, masked=True).astype("float64")
+                    dem = data.filled(np.nan)
+                    bounds = src.bounds
+                    extent = (
+                        float(bounds.left),
+                        float(bounds.right),
+                        float(bounds.bottom),
+                        float(bounds.top),
+                    )
+                layers.append((dem, extent))
+            except Exception:
+                pass
+
+        return [
+            (np.where(np.isfinite(dem), dem, np.nan), extent)
+            for dem, extent in layers
+        ]
+
     @staticmethod
-    def _overlay_reference(ax, run, reference_gdf=None) -> None:
-        from hydromodpy.display._map_axes import overlay_watershed_contour
+    def _project_for_plot(gdf, fallback_crs=None):
+        if gdf is None or gdf.empty:
+            return gdf
         from hydromodpy.display.figures.hydrographic_network import (
             _project_gdf_for_metric_operations,
         )
+
+        return _project_gdf_for_metric_operations(gdf, fallback_crs=fallback_crs)
+
+    def _run_watershed_gdf(self, run):
+        try:
+            return run.geographic("watershed")
+        except Exception:
+            return None
+
+    def _plot_watershed_context(self, ax, run) -> str:
+        from hydromodpy.display._map_axes import overlay_watershed_contour
+
+        context_watershed = self._context_watershed_gdf()
+        if context_watershed is not None and not context_watershed.empty:
+            fallback = self._run_watershed_gdf(run)
+            fallback_crs = None if fallback is None or fallback.empty else fallback.crs
+            context_watershed = self._project_for_plot(
+                context_watershed,
+                fallback_crs=fallback_crs,
+            )
+            if context_watershed is not None and not context_watershed.empty:
+                context_watershed.boundary.plot(
+                    ax=ax,
+                    color="#111827",
+                    linewidth=1.35,
+                    alpha=0.95,
+                    zorder=7,
+                )
+                return "external"
+
+        try:
+            overlay_watershed_contour(ax, run, color="#111827", linewidth=1.15, alpha=0.9)
+        except Exception:
+            return "none"
+        return "support"
+
+    def _overlay_reference(self, ax, run, reference_gdf=None) -> None:
         from matplotlib.lines import Line2D
 
         has_reference = False
@@ -678,24 +797,49 @@ class CompactNetworkSynthesisBuilder:
         except Exception:
             reference = reference_gdf
         if reference is not None and not reference.empty:
-            try:
-                watershed = run.geographic("watershed")
-                fallback_crs = None if watershed is None or watershed.empty else watershed.crs
-            except Exception:
-                fallback_crs = None
-            reference = _project_gdf_for_metric_operations(reference, fallback_crs=fallback_crs)
+            watershed = self._run_watershed_gdf(run)
+            fallback_crs = None if watershed is None or watershed.empty else watershed.crs
+            reference = self._project_for_plot(reference, fallback_crs=fallback_crs)
             reference.plot(ax=ax, color="#9b1c1c", linewidth=1.25, alpha=0.98, zorder=6)
             has_reference = True
-        overlay_watershed_contour(ax, run, color="#404040", linewidth=0.9, alpha=0.65)
-        if has_reference:
-            handle = Line2D([0], [0], color="#9b1c1c", lw=1.6, label="reseau observe")
+        watershed_context = self._plot_watershed_context(ax, run)
+        if has_reference or watershed_context != "none":
+            handles = []
+            if has_reference:
+                handles.append(Line2D([0], [0], color="#9b1c1c", lw=1.6, label="reseau observe"))
+            if watershed_context == "external":
+                handles.append(
+                    Line2D([0], [0], color="#111827", lw=1.4, label="limite bassin versant")
+                )
+            elif watershed_context == "support":
+                handles.append(
+                    Line2D([0], [0], color="#111827", lw=1.4, label="limite bassin versant")
+                )
             ax.legend(
-                handles=[handle],
+                handles=handles,
                 loc="upper right",
                 frameon=True,
                 framealpha=0.9,
                 fontsize=8,
             )
+
+    @staticmethod
+    def _remove_map_frame(ax) -> None:
+        """Keep map coordinates, but avoid a second visual frame inside the HTML card."""
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+    def _reference_network_for_run(self, run):
+        try:
+            reference = run.hydrographic_network("reference")
+            if reference is not None and not reference.empty:
+                return reference
+        except Exception:
+            pass
+        fallback = self._fallback_reference_network()
+        if fallback is None or fallback.empty:
+            return None
+        return fallback
 
     def _render_log_flux_figure(
         self,
@@ -748,6 +892,7 @@ class CompactNetworkSynthesisBuilder:
             fig.axes[-1].yaxis.set_major_formatter(FormatStrFormatter("%.1f"))
         self._overlay_reference(ax, run, reference_gdf=reference_gdf)
         style_map_axes(ax)
+        self._remove_map_frame(ax)
         ax.set_title(title)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(save_path, dpi=180, bbox_inches="tight")
@@ -864,6 +1009,101 @@ class CompactNetworkSynthesisBuilder:
         fig.savefig(self.recharge_figure_path, dpi=180, bbox_inches="tight")
         plt.close(fig)
         return True
+
+    def generate_context_figure(self, records: list[SimulationRecord]) -> bool:
+        try:
+            from hydromodpy.results.catalog import SimulationCatalog
+        except Exception:
+            return False
+
+        for record in records:
+            source_row = self._source_row(record)
+            run_folder = source_row.get("run_folder", "")
+            sim_id = source_row.get("sim_id", "")
+            if not run_folder or not sim_id:
+                continue
+            catalog = None
+            try:
+                catalog = SimulationCatalog(resolve_recorded_path(run_folder))
+                run = catalog[str(sim_id)]
+                self._render_topographic_context_figure(run)
+                return True
+            except Exception:
+                continue
+            finally:
+                if catalog is not None:
+                    try:
+                        catalog.close()
+                    except Exception:
+                        pass
+        return False
+
+    def _render_topographic_context_figure(self, run) -> None:
+        import matplotlib
+
+        matplotlib.use("Agg", force=True)
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from matplotlib.lines import Line2D
+
+        from hydromodpy.display._map_axes import style_map_axes
+
+        layers = self._context_topography_layers(run)
+        finite_values = [
+            dem[np.isfinite(dem)]
+            for dem, _extent in layers
+            if dem[np.isfinite(dem)].size
+        ]
+        finite = np.concatenate(finite_values) if finite_values else np.asarray([])
+        if finite.size:
+            vmin = float(np.nanpercentile(finite, 2.0))
+            vmax = float(np.nanpercentile(finite, 98.0))
+        else:
+            vmin, vmax = 0.0, 1.0
+
+        fig, ax = plt.subplots(figsize=(8.2, 6.1), dpi=180, constrained_layout=True)
+        image = None
+        for index, (dem, extent) in enumerate(layers):
+            image = ax.imshow(
+                dem,
+                extent=extent,
+                origin="upper",
+                cmap="terrain",
+                vmin=vmin,
+                vmax=vmax,
+                zorder=1 + index,
+            )
+        if image is None:
+            return
+        colorbar = fig.colorbar(image, ax=ax, fraction=0.042, pad=0.015)
+        colorbar.set_label("altitude (m)")
+        colorbar.ax.tick_params(labelsize=8)
+
+        reference = self._reference_network_for_run(run)
+        has_reference = False
+        if reference is not None and not reference.empty:
+            watershed = self._run_watershed_gdf(run)
+            fallback_crs = None if watershed is None or watershed.empty else watershed.crs
+            reference = self._project_for_plot(reference, fallback_crs=fallback_crs)
+            reference.plot(ax=ax, color="#9b1c1c", linewidth=1.25, alpha=0.98, zorder=6)
+            has_reference = True
+
+        watershed_context = self._plot_watershed_context(ax, run)
+        handles = []
+        if has_reference:
+            handles.append(Line2D([0], [0], color="#9b1c1c", lw=1.6, label="reseau observe"))
+        if watershed_context == "external":
+            handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="limite bassin versant"))
+        elif watershed_context == "support":
+            handles.append(Line2D([0], [0], color="#111827", lw=1.4, label="limite bassin versant"))
+        if handles:
+            ax.legend(handles=handles, loc="upper right", frameon=True, framealpha=0.92, fontsize=8)
+        style_map_axes(ax)
+        self._remove_map_frame(ax)
+        ax.set_title("Contexte topographique")
+        self.context_figure_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(self.context_figure_path, dpi=180, bbox_inches="tight")
+        plt.close(fig)
 
     @staticmethod
     def short_configuration_label(record: SimulationRecord) -> str:
@@ -1190,6 +1430,24 @@ class CompactNetworkSynthesisBuilder:
 </section>
 """
 
+    def context_section(self) -> str:
+        if not self.context_figure_path.exists():
+            return ""
+        rel = self.relative_path(self.context_figure_path)
+        title = "Contexte topographique"
+        return f"""
+<section>
+  <h2>Contexte spatial</h2>
+  <p>Carte topographique du support de calcul, avec le reseau hydrographique observe en rouge et la limite du bassin versant.</p>
+  <figure class="wide-figure context-figure">
+    <a href="{_safe(rel)}" class="figure-link" data-lightbox-src="{_safe(rel)}" data-lightbox-title="{_safe(title)}" title="Cliquer pour agrandir">
+      <img src="{_safe(rel)}" alt="{_safe(title)}" loading="lazy">
+    </a>
+    <figcaption>{_safe(title)}</figcaption>
+  </figure>
+</section>
+"""
+
     def recharge_section(self) -> str:
         if not self.recharge_figure_path.exists():
             return ""
@@ -1431,6 +1689,7 @@ figcaption {
   font-size: 13px;
 }
 .wide-figure { max-width: 720px; }
+.context-figure { max-width: 860px; }
 .figure-missing {
   color: var(--muted);
   background: repeating-linear-gradient(
@@ -1533,6 +1792,7 @@ figcaption {
   <h1>{_safe(self.config.title)}</h1>
   <p>{_safe(self.config.intro)}</p>
   {self.contract_section()}
+  {self.context_section()}
   {self.recharge_section()}
   {not_run}
   {groups}
@@ -1551,6 +1811,7 @@ figcaption {
         generated_metrics = self.generate_missing_distance_metrics(records)
         if generated_metrics:
             records = self.records_by_simulation()
+        generated_context = self.generate_context_figure(records)
         generated_recharge = self.generate_recharge_figure()
         generated_synthesis = self.generate_metric_synthesis_figure(records)
         generated_figures = self.generate_field_figures(records)
@@ -1559,6 +1820,7 @@ figcaption {
         print(f"Wrote {self.page_path}")
         print(f"Rows: {len(records)}")
         print(f"Release-accumulation metric rows generated: {generated_metrics}")
+        print(f"Context figure generated: {generated_context}")
         print(f"Recharge figure generated: {generated_recharge}")
         print(f"Metric synthesis figure generated: {generated_synthesis}")
         print(f"Field figures generated: {generated_figures}")

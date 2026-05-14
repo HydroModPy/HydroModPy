@@ -1,0 +1,21 @@
+# Contract stub for the B0 steady truth run.
+
+[b0]
+role = "truth_steady_network"
+site_id = "site_05"
+solver = "modflow6"
+regime = "steady"
+output_root = "../outputs/truth_steady_network"
+
+[truth.parameters]
+mK = 1.0
+Sy = 0.05
+
+[truth.recharge]
+source = "mean_of_transient_chronicle"
+
+[truth.outputs]
+drain_by_cell = true
+active_network_mask = true
+cell_geometry = true
+
