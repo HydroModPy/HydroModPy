@@ -66,6 +66,13 @@ def default_sections() -> list[ReportSection]:
             lambda ctx: bool(ctx.numerical_closure_rows),
         ),
         ReportSection("metrics", "Metriques principales", 50, _render_metrics),
+        ReportSection(
+            "coherence_analysis",
+            "Lecture physique des ecarts",
+            55,
+            _render_coherence_analysis,
+            _has_head_error_metrics,
+        ),
         ReportSection("simulations", "Simulations", 60, _render_simulations),
         ReportSection("audit", "Audit format", 70, _render_audit),
         ReportSection("files", "Fichiers", 80, _render_files),
@@ -490,6 +497,14 @@ def _render_coherence_analysis(ctx: ComparisonWebContext) -> str:
     </div>
   </section>
 """
+
+
+def _has_head_error_metrics(ctx: ComparisonWebContext) -> bool:
+    return any(
+        str(row.get("observable", "")).startswith("head")
+        and _float_or_none(row.get("rmse_normalized_percent")) is not None
+        for row in ctx.metrics_rows
+    )
 
 
 def _metric_analysis_row(row: Mapping[str, Any]) -> dict[str, Any]:

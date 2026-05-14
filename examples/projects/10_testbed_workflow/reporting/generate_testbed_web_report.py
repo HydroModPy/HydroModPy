@@ -122,6 +122,19 @@ def render_testbed_report(
     written: list[Path] = []
     _remove_generated_case_pages(web_root)
 
+    cases_dir = web_root / "cases"
+    for case in enriched_cases:
+        case_html = _render_testbed_case_page(
+            case=case,
+            output_root=output_root,
+            web_root=web_root,
+            page_dir=cases_dir,
+            context=context,
+        )
+        case_path = cases_dir / f"{case['page_id']}.html"
+        _write_text(case_path, case_html)
+        written.append(case_path)
+
     index_html = _render_testbed_index(
         output_root=output_root,
         web_root=web_root,
@@ -258,6 +271,14 @@ def _render_testbed_index(
         _section(
             "Synthese des comparaisons",
             _render_testbed_unified_comparison_table(cases, web_root=web_root),
+        ),
+        _section(
+            "Fiches de cas",
+            _render_testbed_case_overview_table(cases, web_root=web_root),
+        ),
+        _section(
+            "Precision de resolution",
+            _render_comparison_closure_overview(comparisons, from_dir=web_root),
         ),
     ]
     sections.extend(
@@ -2912,6 +2933,8 @@ def _format_float(value: Any) -> str:
     if not math.isfinite(number):
         return str(number)
     if 0 < abs(number) < 0.01:
+        if abs(number) >= 1.0e-4:
+            return f"{number:.4f}".rstrip("0").rstrip(".")
         return f"{number:.1e}"
     return f"{number:.1f}"
 

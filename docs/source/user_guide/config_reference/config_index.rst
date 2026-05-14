@@ -403,13 +403,13 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `domain <domain.html#domain-zone-ids>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L25>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L24>`__
    * - ``domain.supports``
      - ``dict[str, GeneratedBandsSupportConfig | GeneratedRingsSupportConfig | CatchmentZonesSupportConfig | GeologySupportConfig]``
      - user
      - -
      - `domain <domain.html#domain-supports>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L34>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L33>`__
    * - ``domain.supports.<id>.kind``
      - ``Literal['generated_bands']``
      - user
@@ -517,7 +517,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `domain <domain.html#domain-depth-model>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/domain/domain_config.py#L40>`__
    * - ``domain.depth_model.constant_thickness.kind``
      - ``Literal['constant_thickness']``
      - user
@@ -4345,7 +4345,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L112>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L109>`__
    * - ``modflow6.runtime.mf6_executable_name``
      - ``str``
      - expert
@@ -4405,61 +4405,61 @@ per-section page (anchor) and to the source declaration on GitHub.
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-newton-under-relaxation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L63>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L62>`__
    * - ``modflow6.runtime.mf6_enable_xt3d``
      - ``bool | None``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-enable-xt3d>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L69>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L66>`__
    * - ``modflow6.runtime.mf6_rewet_wetfct``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-wetfct>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L78>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L75>`__
    * - ``modflow6.runtime.mf6_rewet_iwetit``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-iwetit>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L82>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L79>`__
    * - ``modflow6.runtime.mf6_rewet_ihdwet``
      - ``int``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-ihdwet>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L86>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L83>`__
    * - ``modflow6.runtime.mf6_rewet_wetdry``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-runtime-mf6-rewet-wetdry>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L87>`__
    * - ``modflow6.process_specific``
      - ``Modflow6ProcessSpecificConfig``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L116>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L113>`__
    * - ``modflow6.process_specific.vka``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific-vka>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L99>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L96>`__
    * - ``modflow6.process_specific.evt_extinction_depth``
      - ``float``
      - expert
      - -
      - `modflow6 <modflow6.html#modflow6-process-specific-evt-extinction-depth>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L103>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L100>`__
    * - ``modflow6.sgrid``
      - ``SolverSGridConfig``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L120>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L117>`__
    * - ``modflow6.sgrid.planar``
      - ``PlanarGridConfig``
      - user
@@ -4531,7 +4531,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L124>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L121>`__
    * - ``modflow6.tgrid.itmuni``
      - ``str``
      - dev

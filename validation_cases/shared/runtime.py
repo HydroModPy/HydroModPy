@@ -153,6 +153,15 @@ def _merge_toml_payloads(
     merged: dict[str, Any] = dict(base)
     for key, value in override.items():
         existing = merged.get(key)
+        if (
+            isinstance(existing, Mapping)
+            and isinstance(value, Mapping)
+            and "kind" in existing
+            and "kind" in value
+            and existing.get("kind") != value.get("kind")
+        ):
+            merged[key] = dict(value)
+            continue
         if isinstance(existing, Mapping) and isinstance(value, Mapping):
             merged[key] = _merge_toml_payloads(existing, value)
         elif (

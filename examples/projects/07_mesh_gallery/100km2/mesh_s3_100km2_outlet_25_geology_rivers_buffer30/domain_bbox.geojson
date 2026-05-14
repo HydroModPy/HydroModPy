@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "name": "mesh_s3_100km2_outlet_25_domain_bbox",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::2154"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": 1,
+        "label": "s3_100km2_outlet_25_domain_bbox"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [438112.5, 6882787.5],
+            [438112.5, 6899962.5],
+            [419287.5, 6899962.5],
+            [419287.5, 6882787.5],
+            [438112.5, 6882787.5]
+          ]
+        ]
+      }
+    }
+  ]
+}

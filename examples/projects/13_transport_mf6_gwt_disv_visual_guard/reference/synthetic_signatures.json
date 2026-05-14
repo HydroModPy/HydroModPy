@@ -1,0 +1,122 @@
+{
+  "cases": {
+    "case_01_uniform_tri_constant_source": {
+      "final": {
+        "area_weighted_mass": 59.38508681,
+        "c_max": 0.47442538,
+        "c_mean": 0.02061982,
+        "c_min": 0.0,
+        "c_p05": 0.0,
+        "c_p50": 0.0,
+        "c_p95": 0.24020281,
+        "center_x_m": 3.20315984,
+        "snapshot": 5,
+        "time_days": 60.0,
+        "width_x_m": 1.58143169
+      },
+      "flow": {
+        "flux_proxy_mean_m_per_day": 0.01,
+        "head_max_m": 1.17777778,
+        "head_min_m": 0.02222222
+      },
+      "mesh": {
+        "area_max_m2": 13.33333333,
+        "area_min_m2": 13.33333333,
+        "area_ratio": 1.0,
+        "left_boundary_cells": 12,
+        "n_cells": 216,
+        "n_vertices": 133,
+        "right_boundary_cells": 12
+      }
+    },
+    "case_02_perturbed_tri_constant_source": {
+      "final": {
+        "area_weighted_mass": 59.36384928,
+        "c_max": 0.49124424,
+        "c_mean": 0.02071882,
+        "c_min": 0.0,
+        "c_p05": 0.0,
+        "c_p50": 0.0,
+        "c_p95": 0.22480741,
+        "center_x_m": 3.19559885,
+        "snapshot": 5,
+        "time_days": 60.0,
+        "width_x_m": 1.59663265
+      },
+      "flow": {
+        "flux_proxy_mean_m_per_day": 0.01,
+        "head_max_m": 1.17923966,
+        "head_min_m": 0.02112181
+      },
+      "mesh": {
+        "area_max_m2": 17.40906439,
+        "area_min_m2": 9.54112197,
+        "area_ratio": 1.82463493,
+        "left_boundary_cells": 12,
+        "n_cells": 216,
+        "n_vertices": 133,
+        "right_boundary_cells": 12
+      }
+    },
+    "case_03_perturbed_tri_pulse": {
+      "final": {
+        "area_weighted_mass": 20.67193822,
+        "c_max": 0.11663367,
+        "c_mean": 0.0072,
+        "c_min": 0.0,
+        "c_p05": 0.0,
+        "c_p50": 0.0,
+        "c_p95": 0.09682736,
+        "center_x_m": 4.45781756,
+        "snapshot": 6,
+        "time_days": 72.0,
+        "width_x_m": 2.51249832
+      },
+      "flow": {
+        "flux_proxy_mean_m_per_day": 0.01,
+        "head_max_m": 1.17844639,
+        "head_min_m": 0.0225144
+      },
+      "mesh": {
+        "area_max_m2": 17.27228852,
+        "area_min_m2": 10.27178173,
+        "area_ratio": 1.68152799,
+        "left_boundary_cells": 12,
+        "n_cells": 216,
+        "n_vertices": 133,
+        "right_boundary_cells": 12
+      }
+    },
+    "case_04_perturbed_tri_dispersion": {
+      "final": {
+        "area_weighted_mass": 82.68121851,
+        "c_max": 0.49175143,
+        "c_mean": 0.02908459,
+        "c_min": 0.0,
+        "c_p05": 0.0,
+        "c_p50": 0.0,
+        "c_p95": 0.33881389,
+        "center_x_m": 4.53853808,
+        "snapshot": 5,
+        "time_days": 60.0,
+        "width_x_m": 3.147996
+      },
+      "flow": {
+        "flux_proxy_mean_m_per_day": 0.01,
+        "head_max_m": 1.17875934,
+        "head_min_m": 0.02072481
+      },
+      "mesh": {
+        "area_max_m2": 16.89560221,
+        "area_min_m2": 10.33283251,
+        "area_ratio": 1.63513753,
+        "left_boundary_cells": 12,
+        "n_cells": 216,
+        "n_vertices": 133,
+        "right_boundary_cells": 12
+      }
+    }
+  },
+  "mode": "synthetic",
+  "schema": "hydromodpy.transport_visual_guard.reference.v1"
+}
