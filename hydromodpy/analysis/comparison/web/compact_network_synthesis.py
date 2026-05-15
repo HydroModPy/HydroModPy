@@ -7,10 +7,10 @@ import html
 import json
 import os
 import tomllib
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Iterable, Sequence
 
 
 @dataclass(frozen=True)
@@ -182,8 +182,7 @@ class CompactNetworkSynthesisBuilder:
                     continue
                 record = self._record_for(records, simulation_id)
                 record.run_info = {
-                    str(key): "" if value is None else str(value)
-                    for key, value in item.items()
+                    str(key): "" if value is None else str(value) for key, value in item.items()
                 }
                 record.simulation_label = record.simulation_label or _first(
                     record.run_info,
@@ -208,9 +207,7 @@ class CompactNetworkSynthesisBuilder:
                 if not simulation_id:
                     continue
                 record = self._record_for(records, simulation_id)
-                record.simulation_label = record.simulation_label or _first(
-                    row, "simulation_label"
-                )
+                record.simulation_label = record.simulation_label or _first(row, "simulation_label")
                 record.solver = record.solver or _first(row, "solver")
                 record.mesh_mode = record.mesh_mode or _first(row, "mesh_mode")
                 record.mesh_label = record.mesh_label or _first(row, "mesh_label")
@@ -221,16 +218,13 @@ class CompactNetworkSynthesisBuilder:
             if not simulation_id:
                 continue
             record = self._record_for(records, simulation_id)
-            record.simulation_label = record.simulation_label or _first(
-                row, "simulation_label"
-            )
+            record.simulation_label = record.simulation_label or _first(row, "simulation_label")
             record.solver = record.solver or _first(row, "solver")
             record.closure = row
 
         if self.config.simulations:
             ordered = [
-                self._record_for(records, meta.simulation_id)
-                for meta in self.config.simulations
+                self._record_for(records, meta.simulation_id) for meta in self.config.simulations
             ]
             seen = {record.meta.simulation_id for record in ordered}
             ordered.extend(record for key, record in sorted(records.items()) if key not in seen)
@@ -410,7 +404,9 @@ class CompactNetworkSynthesisBuilder:
                 + "</tr>"
             )
         if not rows:
-            rows.append('<tr><td colspan="3" class="missing">Aucune simulation dans ce groupe.</td></tr>')
+            rows.append(
+                '<tr><td colspan="3" class="missing">Aucune simulation dans ce groupe.</td></tr>'
+            )
         return f"""
 <table class="comparison-table">
   <thead>
@@ -420,7 +416,7 @@ class CompactNetworkSynthesisBuilder:
       <th>emergences accumulees vers l'aval</th>
     </tr>
   </thead>
-  <tbody>{''.join(rows)}</tbody>
+  <tbody>{"".join(rows)}</tbody>
 </table>
 """
 
@@ -485,10 +481,12 @@ class CompactNetworkSynthesisBuilder:
                         candidates.append(run_folder / "mesh" / "mesh_catchment_bundle")
             return candidates
 
+        # Lambert 93 default for French mesh bundles missing CRS metadata.
+        default_projection = "EPSG:2154"
         for bundle_dir in bundle_candidates():
             mesh_path = bundle_dir / "mesh_2d.msh"
             metadata = self.read_json(bundle_dir / "metadata.json")
-            crs = str(metadata.get("crs") or "EPSG:2154")
+            current_crs = str(metadata.get("crs") or default_projection)
             files = metadata.get("files")
             if isinstance(files, dict) and files.get("mesh"):
                 mesh_path = bundle_dir / str(files["mesh"])
@@ -500,12 +498,14 @@ class CompactNetworkSynthesisBuilder:
             gdf = gpd.GeoDataFrame(
                 {"role": ["reference"] * len(lines)},
                 geometry=[LineString(line) for line in lines],
-                crs=crs,
+                crs=current_crs,
             )
             self._fallback_reference_network_cache = gdf
             return gdf
 
-        self._fallback_reference_network_cache = gpd.GeoDataFrame(geometry=[], crs="EPSG:2154")
+        self._fallback_reference_network_cache = gpd.GeoDataFrame(
+            geometry=[], crs=default_projection
+        )
         return self._fallback_reference_network_cache
 
     @staticmethod
@@ -740,10 +740,7 @@ class CompactNetworkSynthesisBuilder:
             except Exception:
                 pass
 
-        return [
-            (np.where(np.isfinite(dem), dem, np.nan), extent)
-            for dem, extent in layers
-        ]
+        return [(np.where(np.isfinite(dem), dem, np.nan), extent) for dem, extent in layers]
 
     @staticmethod
     def _project_for_plot(gdf, fallback_crs=None):
@@ -969,7 +966,10 @@ class CompactNetworkSynthesisBuilder:
             start = raw_start
         else:
             start = date.fromisoformat(str(raw_start)[:10])
-        return [f"{self._add_months(start, index):%b} {self._add_months(start, index).year}" for index in range(n_values)]
+        return [
+            f"{self._add_months(start, index):%b} {self._add_months(start, index).year}"
+            for index in range(n_values)
+        ]
 
     def recharge_summary_text(self) -> str:
         values = self.recharge_values_from_config()
@@ -1050,9 +1050,7 @@ class CompactNetworkSynthesisBuilder:
 
         layers = self._context_topography_layers(run)
         finite_values = [
-            dem[np.isfinite(dem)]
-            for dem, _extent in layers
-            if dem[np.isfinite(dem)].size
+            dem[np.isfinite(dem)] for dem, _extent in layers if dem[np.isfinite(dem)].size
         ]
         finite = np.concatenate(finite_values) if finite_values else np.asarray([])
         if finite.size:
@@ -1115,9 +1113,7 @@ class CompactNetworkSynthesisBuilder:
             release = record.release_distance
             routed = self.routed_distance(record)
             release_distance = _parse_float(_row_value(release, "bidirectional_distance_mean_m"))
-            routed_distance_mean = _parse_float(
-                _row_value(routed, "bidirectional_distance_mean_m")
-            )
+            routed_distance_mean = _parse_float(_row_value(routed, "bidirectional_distance_mean_m"))
             release_ratio = _parse_float(_row_value(release, "planar_distance_ratio"))
             routed_ratio = _parse_float(_row_value(routed, "planar_distance_ratio"))
             if any(
@@ -1163,14 +1159,22 @@ class CompactNetworkSynthesisBuilder:
         )
         for ax, title, xlabel, first, second in (
             (axes[0], "Distance moyenne symetrique", "m", release_distances, routed_distances),
-            (axes[1], "Ratio des distances", "calc -> obs / obs -> calc", release_ratios, routed_ratios),
+            (
+                axes[1],
+                "Ratio des distances",
+                "calc -> obs / obs -> calc",
+                release_ratios,
+                routed_ratios,
+            ),
         ):
             for values, (method_label, color, marker), offset in (
                 (first, styles[0], -0.12),
                 (second, styles[1], 0.12),
             ):
                 xs = [float(value) if value is not None else np.nan for value in values]
-                ax.scatter(xs, y_values + offset, label=method_label, color=color, marker=marker, s=34)
+                ax.scatter(
+                    xs, y_values + offset, label=method_label, color=color, marker=marker, s=34
+                )
                 for x_value, y_value in zip(xs, y_values + offset, strict=True):
                     if np.isfinite(x_value):
                         label = f" {x_value:.0f}" if xlabel == "m" else f" {x_value:.2f}"
@@ -1292,7 +1296,9 @@ class CompactNetworkSynthesisBuilder:
         fallback_reference = None
         for filename, variable, attr in outputs:
             output_path = self.comparison_root / filename
-            if output_path.exists() and self._distance_csv_matches_current_runs(output_path, records):
+            if output_path.exists() and self._distance_csv_matches_current_runs(
+                output_path, records
+            ):
                 continue
             rows: list[dict[str, str]] = []
             for record in records:
@@ -1530,7 +1536,7 @@ class CompactNetworkSynthesisBuilder:
     <li>{report_item}</li>
     <li>{audit_item}</li>
     <li><code>{_safe(str(self.comparison_root))}</code></li>
-    <li>statut audit: <strong>{_safe(manifest.get('audit_status', 'non lance'))}</strong></li>
+    <li>statut audit: <strong>{_safe(manifest.get("audit_status", "non lance"))}</strong></li>
   </ul>
 </section>
 """
@@ -1778,7 +1784,9 @@ figcaption {
 """
         else:
             not_run = ""
-        groups = "".join(self.group_section(records, section) for section in self.config.group_sections)
+        groups = "".join(
+            self.group_section(records, section) for section in self.config.group_sections
+        )
         return f"""<!doctype html>
 <html lang="fr">
 <head>
