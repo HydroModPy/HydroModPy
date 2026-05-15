@@ -1,0 +1,66 @@
+base_config = "../09_comparison_workflow/base_nancon_steady_hydrography_mesh_input.toml"
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "outputs/mf6_prt_pathlines/workspace"
+root = "../../"
+
+[simulation]
+name = "nancon_steady_mf6_prt_pathlines"
+run_id = "nancon_steady_mf6_prt_pathlines"
+description = "Nancon steady MODFLOW 6 flow followed by MODFLOW 6 PRT pathline tracking."
+on_collision = "replace"
+
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+[[simulation.process]]
+id = "prt_main"
+type = "transport"
+solvers = ["modflow6prt"]
+
+[simulation.results]
+keep_solver_files = true
+
+[modflow6.runtime]
+mf6_executable_name = "/home/dreuzy/.local/bin/mf6"
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf_verbose = false
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.tgrid]
+firstpersteady = true
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[mesh_input]
+bundle_dir = "../09_comparison_workflow/outputs/nancon_transient_seasonal_hydrography/workspace_mf6/mesh/mesh_catchment_bundle"
+
+[transport.modflow6prt.parameters]
+release_zone = "upstream_nonriver"
+upstream_top_quantile = 0.88
+track_dir = "forward"
+porosity = 0.01
+local_z = 0.5
+max_particles = 100
+release_times_days = [0.0]
+track_time_step_days = 2.0
+stop_time_days = 3650.0
+stop_travel_time_days = 3650.0
+extend_tracking = true
+dry_tracking_method = "drop"
+exit_solve_tolerance = 1.0e-10
+write_track_csv = true
+write_track_binary = true
