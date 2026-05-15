@@ -15,12 +15,12 @@ logger = get_logger(__name__)
 
 
 class Modflow6PrtOutputAdapter:
-    """Read MF6 PRT track CSV files and inject pathlines into a catalog.
+    """Read MF6 PRT track CSV files and inject particle tracks into a catalog.
 
     Stored Zarr layout matches the existing MODPATH extractor:
-    ``pathlines/x``, ``pathlines/y``, ``pathlines/z`` and ``pathlines/time``
+    ``particles/x``, ``particles/y``, ``particles/z`` and ``particles/time``
     are two-dimensional arrays shaped ``(n_particles, max_steps)`` with NaN
-    padding for shorter pathlines.
+    padding for shorter tracks.
     """
 
     solver_name = "modflow6prt"
@@ -81,27 +81,27 @@ class Modflow6PrtOutputAdapter:
 
         sz = store.open_zarr(sim_id)
         try:
-            pathlines_grp = sz.root.require_group("pathlines")
+            particles_grp = sz.root.require_group("particles")
             for name, arr in [
                 ("x", arrays.x),
                 ("y", arrays.y),
                 ("z", arrays.z),
                 ("time", arrays.time),
             ]:
-                pathlines_grp.create_array(name, data=arr, overwrite=True)
+                particles_grp.create_array(name, data=arr, overwrite=True)
             if arrays.status is not None:
-                pathlines_grp.create_array("status", data=arrays.status, overwrite=True)
+                particles_grp.create_array("status", data=arrays.status, overwrite=True)
             if arrays.reason is not None:
-                pathlines_grp.create_array("reason", data=arrays.reason, overwrite=True)
-            pathlines_grp.attrs["source_solver"] = self.solver_name
-            pathlines_grp.attrs["source_file"] = csv_path.name
-            pathlines_grp.attrs["source_time_units"] = arrays.source_time_units
-            pathlines_grp.attrs["time_units"] = "days"
+                particles_grp.create_array("reason", data=arrays.reason, overwrite=True)
+            particles_grp.attrs["source_solver"] = self.solver_name
+            particles_grp.attrs["source_file"] = csv_path.name
+            particles_grp.attrs["source_time_units"] = arrays.source_time_units
+            particles_grp.attrs["time_units"] = "days"
         finally:
             sz.close()
 
         logger.info(
-            "Extracted %d MODFLOW 6 PRT pathlines (max %d steps) for sim %s",
+            "Extracted %d MODFLOW 6 PRT particle tracks (max %d steps) for sim %s",
             arrays.n_particles,
             arrays.max_steps,
             sim_id,
