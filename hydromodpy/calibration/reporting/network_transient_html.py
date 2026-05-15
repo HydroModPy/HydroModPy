@@ -1,4 +1,17 @@
-"""Build diagnostic HTML pages for transient network calibration runs."""
+"""Build diagnostic HTML pages for transient network calibration runs.
+
+The module-level path constants below (``REAL_ROOT``, ``WEB_ROOT``,
+``FIGURE_ROOT``, ``TRUTH_PACKAGE_CANDIDATES``, ``SCORE_TABLE_CANDIDATES``,
+``REFERENCE_RUN_ROOT``, ``STEADY_SUMMARY_CSV``, ``PATH_BASE``, ``PAGE_TITLE``
+and ``SOURCE_TRANSIENT_CONFIG``) are *defaults* pointing at the B0 example
+project (``examples/projects/12_calibration_network_transient_b0``). The
+public entry points :func:`build_network_transient_html` and
+:func:`build_network_transient_html_from_args` rebind them at runtime via
+:func:`_configure_from_args`, so callers must pass explicit paths when the
+report targets a different project. Only ``SOURCE_TRANSIENT_CONFIG`` is read
+from outside the module (the workflow calibration step uses it as a fallback
+default).
+"""
 
 from __future__ import annotations
 
