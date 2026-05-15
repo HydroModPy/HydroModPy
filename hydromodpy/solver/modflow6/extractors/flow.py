@@ -246,7 +246,15 @@ class Modflow6OutputAdapter:
         ``(nlay, n_cells)`` array.
         """
         names = rec.dtype.names
-        q = np.asarray(rec["q"] if "q" in names else rec[names[-1]], dtype="float64")
+        if names is not None and {"qx", "qy", "qz"}.issubset(names):
+            qx = np.asarray(rec["qx"], dtype="float64")
+            qy = np.asarray(rec["qy"], dtype="float64")
+            qz = np.asarray(rec["qz"], dtype="float64")
+            q = np.sqrt(qx * qx + qy * qy + qz * qz)
+        else:
+            q = np.asarray(
+                rec["q"] if names is not None and "q" in names else rec[names[-1]], dtype="float64"
+            )
 
         if n_cells == 0:
             return q

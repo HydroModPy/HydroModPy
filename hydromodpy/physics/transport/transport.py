@@ -41,6 +41,7 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
         self.modpath = _TransportComponent()
         self.mt3dms = _TransportComponent()
         self.modflow6gwt = _TransportComponent()
+        self.modflow6prt = _TransportComponent()
         if config is not None:
             self.set_config(config)
 
@@ -56,10 +57,12 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
         self.modpath.set_parameters(transport_cfg.modpath.parameters.model_dump())
         self.mt3dms.set_parameters(transport_cfg.mt3dms.parameters.model_dump())
         self.modflow6gwt.set_parameters(transport_cfg.modflow6gwt.parameters.model_dump())
+        self.modflow6prt.set_parameters(transport_cfg.modflow6prt.parameters.model_dump())
 
         self.parameters["modpath"] = self.modpath.parameters
         self.parameters["mt3dms"] = self.mt3dms.parameters
         self.parameters["modflow6gwt"] = self.modflow6gwt.parameters
+        self.parameters["modflow6prt"] = self.modflow6prt.parameters
 
     def set_parameters(self, parameters: dict):
         if not isinstance(parameters, Mapping):
@@ -83,10 +86,17 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
             if isinstance(nested, Mapping):
                 self.modflow6gwt.set_parameters(nested)
 
+        modflow6prt_payload = parameters.get("modflow6prt")
+        if isinstance(modflow6prt_payload, Mapping):
+            nested = modflow6prt_payload.get("parameters", modflow6prt_payload)
+            if isinstance(nested, Mapping):
+                self.modflow6prt.set_parameters(nested)
+
         self.parameters.update(dict(parameters))
         self.parameters["modpath"] = self.modpath.parameters
         self.parameters["mt3dms"] = self.mt3dms.parameters
         self.parameters["modflow6gwt"] = self.modflow6gwt.parameters
+        self.parameters["modflow6prt"] = self.modflow6prt.parameters
 
     def build_initial_conditions(
         self,
@@ -123,3 +133,8 @@ class Transport(ProcessSpatial[TransportInitialConditions]):
         """Update `transport.modflow6gwt.parameters`."""
         self.modflow6gwt.set_parameters(kwargs)
         self.parameters["modflow6gwt"] = self.modflow6gwt.parameters
+
+    def update_modflow6prt_parameters(self, **kwargs) -> None:
+        """Update `transport.modflow6prt.parameters`."""
+        self.modflow6prt.set_parameters(kwargs)
+        self.parameters["modflow6prt"] = self.modflow6prt.parameters
