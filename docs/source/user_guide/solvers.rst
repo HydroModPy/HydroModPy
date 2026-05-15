@@ -139,6 +139,11 @@ dispersion, or decay.
      - Concentration transport.
      - Earlier ``flow/modflow6`` run.
      - MODFLOW 6 GWT route aligned with a MODFLOW 6 GWF flow model.
+   * - ``modflow6prt``
+     - Particle tracking.
+     - Earlier ``flow/modflow6`` run.
+     - MODFLOW 6 PRT route aligned with a MODFLOW 6 GWF flow model. It writes
+       PRT track output, which HydroModPy ingests as ``pathlines/`` arrays.
 
 The planner does not reorder processes. Declare the upstream ``flow``
 process before the downstream ``transport`` process so dependency
@@ -174,6 +179,26 @@ resolution can bind the transport adapter to the correct flow model.
          type = "transport"
          solvers = ["modflow6gwt"]
 
+   .. tab-item:: MODFLOW 6 + PRT
+
+      .. code-block:: toml
+
+         [[simulation.process]]
+         id = "flow_main"
+         type = "flow"
+         solvers = ["modflow6"]
+
+         [[simulation.process]]
+         id = "prt_main"
+         type = "transport"
+         solvers = ["modflow6prt"]
+
+         [transport.modflow6prt.parameters]
+         release_zone = "upstream_nonriver"
+         track_dir = "forward"
+         track_time_step_days = 10.0
+         stop_time_days = 3650.0
+
 Solver-specific transport parameters
 ------------------------------------
 
@@ -200,6 +225,13 @@ options.
    sconc_init = 0.0
    sconc_input = 30.0
    disp_long = 10.0
+
+   [transport.modflow6prt.parameters]
+   release_zone = "upstream_nonriver"
+   porosity = 0.01
+   release_times_days = [0.0]
+   track_time_step_days = 10.0
+   stop_time_days = 3650.0
 
 Generalized categories
 ----------------------
@@ -305,6 +337,7 @@ See also
 --------
 
 - :doc:`workflows/index` for the workflow-family map.
+- :doc:`modflow6-prt` for the MODFLOW 6 PRT particle-tracking workflow.
 - :doc:`../theory/solvers/flow/index` and
   :doc:`../theory/solvers/flow/modflow-family` for solver-family theory.
 - :doc:`../architecture/process/process-architecture` for the process planner.
