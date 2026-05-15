@@ -55,10 +55,6 @@ _TIME_UNIT_SECONDS = {
 # stop_time_days without losing it to floating-point rounding.
 _TRACK_TIME_TOLERANCE_DAYS = 1.0e-9
 
-# Bottom percentile of cell top elevations used to seed particles at the
-# catchment outlet when release_zone == "outlet".
-_OUTLET_BOTTOM_PERCENTILE = 10.0
-
 
 class Modflow6Prt:
     """Particle tracking based on MODFLOW 6 PRT and `transport.modflow6prt`.
@@ -103,6 +99,7 @@ class Modflow6Prt:
 
         self.release_zone = str(prt_params.get("release_zone", "domain"))
         self.upstream_top_quantile = float(prt_params.get("upstream_top_quantile", 0.90))
+        self.outlet_bottom_quantile = float(prt_params.get("outlet_bottom_quantile", 0.10))
         self.track_dir = str(prt_params.get("track_dir", "forward"))
         self.porosity = prt_params.get("porosity")
         self.local_z = float(prt_params.get("local_z", 0.5))
@@ -210,7 +207,9 @@ class Modflow6Prt:
             candidate = active & river_mask
             if not np.any(candidate):
                 candidate = active
-            cutoff = np.nanpercentile(top[candidate], _OUTLET_BOTTOM_PERCENTILE)
+            # ``np.nanpercentile`` expects [0, 100]; convert the [0, 1] user quantile.
+            percentile = 100.0 * float(self.outlet_bottom_quantile)
+            cutoff = np.nanpercentile(top[candidate], percentile)
             selected = np.flatnonzero(candidate & (top <= cutoff))
         elif zone == "domain":
             selected = all_active
