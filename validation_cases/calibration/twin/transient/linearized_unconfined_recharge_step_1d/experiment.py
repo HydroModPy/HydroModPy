@@ -69,6 +69,20 @@ def _cma_es_profile(*, seed: int = 13) -> CalibrationMethodProfile:
     )
 
 
+def _optuna_profile(*, seed: int = 13, max_iter: int = 40) -> CalibrationMethodProfile:
+    """Return one compact Optuna/TPE profile for transient K+Sy recovery."""
+    return CalibrationMethodProfile(
+        name="optuna",
+        method_kwargs={
+            "sampler": "tpe",
+            "max_iter": int(max_iter),
+            "seed": int(seed),
+        },
+        persist_model_distribution=True,
+        success_metric="best_fit_or_distribution",
+    )
+
+
 _TRANSIENT_PARAMETER_TARGETS = {
     "K_global": TwinParameterTarget(
         target="flow.param.K.field.value",
@@ -175,6 +189,7 @@ TRANSIENT_RECHARGE_STEP_TWIN_CASE = TwinCalibrationCaseDefinition(
             method_kwargs={"max_iter": 16, "seed": 11},
             persist_model_distribution=True,
         ),
+        _optuna_profile(seed=13, max_iter=40),
         _cma_es_profile(seed=13),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
@@ -221,6 +236,7 @@ TRANSIENT_RECHARGE_STEP_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
             persist_model_distribution=True,
             repeat_seeds=(11, 23, 37),
         ),
+        _optuna_profile(seed=13, max_iter=40),
         _cma_es_profile(seed=13),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
@@ -271,6 +287,7 @@ TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE = TwinCalibrationCaseDefinitio
             persist_model_distribution=True,
             success_metric="best_fit_or_distribution",
         ),
+        _optuna_profile(seed=13, max_iter=48),
         CalibrationMethodProfile(
             name="cma_es",
             method_kwargs={
