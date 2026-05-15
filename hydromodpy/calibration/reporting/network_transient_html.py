@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import csv
-import html
 import json
-import os
 import tomllib
 from argparse import ArgumentParser, Namespace
 from collections.abc import Iterable
@@ -20,6 +18,7 @@ from hydromodpy.calibration.network_transient_truth import (
     q_total_release_from_drain_by_cell,
 )
 from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.html_helpers import link_relative, safe_html
 from hydromodpy.results.run import Run
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -52,24 +51,6 @@ PATH_BASE = ROOT
 
 REFERENCE_RUN_ROOT = REAL_ROOT / "candidate_mK_0p65_Sy_0p05_steady_mf6"
 STEADY_SUMMARY_CSV = REAL_ROOT / "steady_mK_network_extent_summary.csv"
-
-
-def safe(value: Any) -> str:
-    """Escape a value for insertion in static HTML."""
-
-    return html.escape(str(value if value is not None else ""))
-
-
-def link_relative(web_dir: Path, path: Path) -> str:
-    """Return a path usable from the HTML report location."""
-
-    try:
-        return Path(path).resolve().relative_to(web_dir.resolve()).as_posix()
-    except Exception:
-        try:
-            return os.path.relpath(Path(path).resolve(), web_dir.resolve()).replace("\\", "/")
-        except Exception:
-            return str(path)
 
 
 @dataclass(frozen=True)
@@ -1750,7 +1731,7 @@ def _page(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{safe(PAGE_TITLE)}</title>
+  <title>{safe_html(PAGE_TITLE)}</title>
   <style>
     :root {{
       color-scheme: light;
@@ -1868,8 +1849,8 @@ def _page(
 </head>
 <body>
   <header>
-    <h1>{safe(PAGE_TITLE)}</h1>
-    <p class="lead">Diagnostic reproductible de calibration. La cible synthetique est construite avec <code>{safe(truth_label)}</code>; les autres simulations sont lues comme candidats dans la table de score.</p>
+    <h1>{safe_html(PAGE_TITLE)}</h1>
+    <p class="lead">Diagnostic reproductible de calibration. La cible synthetique est construite avec <code>{safe_html(truth_label)}</code>; les autres simulations sont lues comme candidats dans la table de score.</p>
   </header>
   <main>
     <section class="panel">
@@ -1877,7 +1858,7 @@ def _page(
       <p>On cherche deux parametres globaux: le multiplicateur de conductivite hydraulique <code>mK</code> et le stockage specifique libre <code>Sy</code>. Le permanent sert a definir le reseau de drainage/affleurement cible, puis le transitoire mensuel compare la chronique de flux total <code>Q_total_release</code>.</p>
       <div class="equation">J(mK, Sy) = 0.5 C_reseau_phys(mK) + 0.5 C_debit_phys(mK, Sy)</div>
       {_best_candidate_summary(score_rows, truth_dir)}
-      <p class="note">Normalisation et reference: <code>{safe(str(truth_dir or ""))}</code>. Table de scores: <code>{safe(score_label)}</code>.</p>
+      <p class="note">Normalisation et reference: <code>{safe_html(str(truth_dir or ""))}</code>. Table de scores: <code>{safe_html(score_label)}</code>.</p>
       {_artifact_contract_summary(artifact_report)}
     </section>
 
@@ -1954,7 +1935,7 @@ def _artifact_contract_summary(report: NetworkTransientHtmlArtifactReport) -> st
         missing = list(report.required_missing) + list(report.optional_missing)
         details = (
             '<p class="note">Artefacts absents ou non exploitables: '
-            f"<code>{safe(', '.join(missing[:8]))}</code>"
+            f"<code>{safe_html(', '.join(missing[:8]))}</code>"
             f"{' ...' if len(missing) > 8 else ''}</p>"
         )
     return f'<div class="metric-row">{"".join(cells)}</div>{details}'
@@ -1978,7 +1959,7 @@ def _best_candidate_summary(score_rows: list[dict[str, str]], truth_dir: Path | 
         target_text,
         f'<div class="metric"><span>points termines</span><strong>{len(completed)} / {len(score_rows)}</strong></div>',
         f'<div class="metric"><span>points en echec</span><strong>{failed_count}</strong></div>',
-        f'<div class="metric"><span>meilleur candidat non cible</span><strong>{safe(best.get("candidate_id", ""))}</strong></div>',
+        f'<div class="metric"><span>meilleur candidat non cible</span><strong>{safe_html(best.get("candidate_id", ""))}</strong></div>',
         f'<div class="metric"><span>mK trouve</span><strong>{_fmt(best.get("mK"), 2)}</strong></div>',
         f'<div class="metric"><span>Sy trouve</span><strong>{_fmt(best.get("Sy"), 3)}</strong></div>',
         f'<div class="metric"><span>J minimum</span><strong>{_fmt(best.get("J"), 5)}</strong></div>',
@@ -2021,8 +2002,8 @@ def _configuration_metrics(normalization: dict[str, Any], truth_dir: Path | None
     cells = []
     for label, value in values:
         cells.append(
-            f'<div class="metric"><span>{safe(str(label))}</span>'
-            f"<strong>{safe(str(value))}</strong></div>"
+            f'<div class="metric"><span>{safe_html(str(label))}</span>'
+            f"<strong>{safe_html(str(value))}</strong></div>"
         )
     return f'<div class="metric-row">{"".join(cells)}</div>'
 
@@ -2063,13 +2044,13 @@ def _source_k_values() -> np.ndarray:
 def _figure_card(path: Path | None, title: str, caption: str) -> str:
     if path is None or not path.is_file():
         return (
-            f'<div class="figure-card"><h3>{safe(title)}</h3>'
+            f'<div class="figure-card"><h3>{safe_html(title)}</h3>'
             '<p class="muted">Figure non disponible pour cette relance.</p></div>'
         )
-    href = safe(link_relative(WEB_ROOT, path))
+    href = safe_html(link_relative(WEB_ROOT, path))
     return (
-        f'<figure class="figure-card"><h3>{safe(title)}</h3>'
-        f'<a href="{href}"><img src="{href}" alt="{safe(title)}"></a>'
+        f'<figure class="figure-card"><h3>{safe_html(title)}</h3>'
+        f'<a href="{href}"><img src="{href}" alt="{safe_html(title)}"></a>'
         f'<figcaption class="caption">{caption}</figcaption></figure>'
     )
 
