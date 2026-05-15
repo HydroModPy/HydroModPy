@@ -2739,6 +2739,124 @@ n_ref_active  = 31
 n_sim_active  = 15
 ```
 
+### 12.10. Grille reelle minimale `{mK, Sy}` et diagnostic HTML enrichi
+
+Une premiere grille reelle minimale a ete lancee autour de la reference
+`mK_truth = 0.65`, `Sy_truth = 0.05`:
+
+```text
+mK in [0.50, 0.65]
+Sy in [0.03, 0.05]
+```
+
+Les permanents existants ont ete reutilises pour le terme reseau, puis deux
+transitoires manquants ont ete ajoutes:
+
+```text
+candidate_mK_0p50_Sy_0p03_transient_mf6
+candidate_mK_0p50_Sy_0p05_transient_mf6
+candidate_mK_0p65_Sy_0p03_transient_mf6
+candidate_mK_0p65_Sy_0p05_transient_mf6  # reference deja disponible
+```
+
+Un driver local reproductible a ete ajoute:
+
+```text
+examples/projects/12_calibration_network_transient_b0/run_real_parameter_grid.py
+```
+
+Il garde la logique B0 dans l'exemple: generation des CSV `K_value * mK`,
+generation des overlays, lancement des runs steady/transient manquants, table
+des candidats, scoring, et JSON de timings. Le score de grille est ecrit dans:
+
+```text
+examples/projects/12_calibration_network_transient_b0/outputs/real_runs/site_01_parameter_grid_scores_mK_0p65.csv
+```
+
+Scores obtenus apres relance persistante complete 5 x 4:
+
+| candidat | `mK` | `Sy` | `J` | `C_reseau_phys` | `C_debit_phys` |
+|---|---:|---:|---:|---:|---:|
+| `truth_mK_0p65_Sy_0p05` | 0.65 | 0.05 | `~0` | `0` | `~0` |
+| `mK_0p60_Sy_0p05` | 0.60 | 0.05 | `0.333` | `0.626` | `0.0398` |
+| `mK_0p65_Sy_0p08` | 0.65 | 0.08 | `0.336` | `0` | `0.671` |
+| `mK_0p70_Sy_0p05` | 0.70 | 0.05 | `0.410` | `0.778` | `0.0428` |
+| `mK_0p65_Sy_0p03` | 0.65 | 0.03 | `0.481` | `0` | `0.962` |
+
+Cette grille confirme la separation attendue:
+
+- `mK` agit fortement sur le terme reseau permanent, car il change le support
+  spatial de `outflow_drain > tau_network`;
+- `Sy` n'agit pas sur le permanent, mais modifie la reponse transitoire et donc
+  le terme debit;
+- la ligne `truth_*` reste une verification d'identite, pas un candidat
+  d'inversion a proprement parler.
+
+Temps mesures pendant la relance persistante Windows courante:
+
+| run | duree workflow complete | duree MODFLOW 6 seule |
+|---|---:|---:|
+| transitoires nouveaux 5 x 4 restants | `42-61 s/run` | `~1-2 s/run` |
+
+Le cout dominant n'est donc pas le solveur MF6, mais la relance complete du
+workflow HydroModPy: preparation geographique, forcages, extraction et
+catalogage. Une grille 5 x 4 naive couterait environ:
+
+```text
+20 transitoires * ~45-60 s ~= 15-20 min
+```
+
+avec les permanents reutilises par valeur de `mK`. Dans cette passe, les 20
+points de la grille ont ete effectivement calcules et scores.
+
+Ce qui existait deja dans calibration:
+
+- `prepare_trials()` factorise le prefixe de workflow commun une seule fois;
+- `run_trial_light()` relance uniquement les etapes aval a partir de l'etape
+  parametree;
+- le stockage leger evite le catalogage complet pour des essais rapides.
+
+Ce qui manquait pour ce cas B0:
+
+- les sections de maillage optionnelles (`mesh_catchment` / `mesh_input`)
+  n'etaient pas retransmises depuis `prepare_trials()` vers `BuildMeshStep`;
+- le prototype leger pouvait donc reconstruire un chemin de maillage different
+  du workflow complet, ce qui cassait la comparaison scientifique.
+
+La correction ajoute `resolve_mesh_runtime_sections()` au provider de workflow et
+propage ces sections dans `TrialContext`, `run_trial_light()` et
+`promote_prepared_trial()`. Cela reste une extension de plomberie: le solveur,
+les algorithmes de calibration et les metriques ne changent pas.
+
+Un driver leger local existe aussi:
+
+```text
+examples/projects/12_calibration_network_transient_b0/run_real_parameter_grid_light.py
+```
+
+Il factorise preparation, maillage et permanent par `mK`; un transitoire leger
+B0 passe alors a environ `2 s` de solveur/post-traitement apres preparation.
+Pour l'instant, il sert au diagnostic de cout. La page HTML conserve les runs
+persistants comme source scientifique principale.
+
+La page HTML lit maintenant ce score de grille en priorite:
+
+```text
+examples/projects/12_calibration_network_transient_b0/outputs/real_runs/web/index.html
+```
+
+Ameliorations ajoutees:
+
+- rappel de `K` moyen/median cible et du rapport adimensionnel
+  `K_moyen / recharge_moyenne`;
+- objectif flux, objectif reseau et objectif combine sous forme de fonds colores
+  dans le plan `(mK, Sy)` quand une grille est disponible;
+- etoile pour la valeur cible, cercle rouge pour le meilleur candidat non-cible;
+- courbe noire pour la cible de flux, courbe rouge pour le meilleur candidat
+  non-cible, autres chroniques en gris;
+- explication que le balayage steady de `mK` n'est pas la calibration complete
+  et que `Sy` n'y intervient pas.
+
 La page HTML B0 utilise maintenant automatiquement cette reference `mK=0.65`
 quand le dossier existe, avec repli vers l'ancien package `mK=1.0` sinon.
 
@@ -2748,3 +2866,59 @@ principal a termine normalement sur les 24 periodes. Pour une grille reelle
 plus large, il faudra persister ce diagnostic dans le tableau des runs, car il
 peut signaler une fragilite d'initialisation meme quand le run final est
 exploitable.
+
+Le scoring persistant dispose maintenant d'un repli B0 quand `dask` n'est pas
+installe localement: le champ steady `outflow_drain` est lu directement dans le
+catalogue et la chronique `Q_total_release` est relue depuis la serie catalogue
+`_catchment/discharge`. La verification d'identite sur `truth_mK_0p65_Sy_0p05`
+donne `J ~= 1.6e-14`, ce qui valide ce repli pour ce prototype.
+
+## Extension dense du balayage B0
+
+Une grille dense legere a ete lancee pour repondre au besoin de cartes objectif
+plus continues:
+
+- `mK`: 25 valeurs entre `0.1` et `5.0`, avec `0.65` inclus explicitement;
+- `Sy`: 20 valeurs de `0.01` a `0.20`;
+- total demande: `500` couples de parametres.
+
+Commande:
+
+```powershell
+python examples/projects/12_calibration_network_transient_b0/run_real_parameter_grid_light.py --force-light-steady --also-write-main-score
+```
+
+Resultat:
+
+```text
+500 points demandes
+460 points termines
+40 points en echec
+temps total ~= 1991 s, soit environ 33 min
+meilleur = truth_mK_0p65_Sy_0p05, J ~= 2.3e-09
+meilleur non-cible = mK_0p65_Sy_0p06, J ~= 0.141
+```
+
+Les echecs sont concentres sur deux colonnes de `mK`:
+
+- `mK ~= 4.573913`;
+- `mK ~= 4.786957`.
+
+Le log signale un `floating overflow` Fortran dans le calcul steady leger de ces
+colonnes. La colonne `mK = 5.0` converge, donc il ne s'agit pas d'une limite
+monotone simple en conductivite. Ces points doivent etre affiches comme echecs
+numeriques plutot que remplaces par interpolation.
+
+La page HTML a ete regeneree sur cette grille dense:
+
+```text
+examples/projects/12_calibration_network_transient_b0/outputs/real_runs/web/index.html
+```
+
+Modifications visuelles associees:
+
+- cartes objectif sans etiquettes individuelles quand la grille devient dense;
+- table HTML limitee aux 120 meilleurs candidats, avec CSV complet en source;
+- compte explicite des points termines/echecs dans le resume;
+- courbe noire pour la cible de flux, courbe rouge pour le meilleur candidat
+  non-cible, autres chroniques en gris.
