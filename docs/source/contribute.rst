@@ -83,6 +83,7 @@ the recipe that matches your platform.
          * - ``env_hydromodpy.yml``
            - Runtime stack (Spyder included). Use it when you run
              scripts and notebooks but do not edit the source tree.
+             Includes the default Optuna calibration sampler.
          * - ``env_hydromodpy_pkg.yml``
            - Editable stack: same packages plus
              ``pip install -e "..[docs,test]"`` for local doc builds

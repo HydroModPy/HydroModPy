@@ -6808,7 +6808,7 @@
     "section": "transport",
     "anchor": "transport-active-sinks-sources",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L124",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L239",
     "description": "Ordered list of sink/source identifiers that are explicitly activated for this process. An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig) validate the allowed values."
   },
   {
@@ -6820,7 +6820,7 @@
     "section": "transport",
     "anchor": "transport-active-bc",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L124",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L239",
     "description": "Ordered list of boundary-condition identifiers that are explicitly activated for this process. An empty list means no boundary-condition package is assembled. Concrete process configs (e.g. FlowConfig) validate the allowed values."
   },
   {
@@ -6832,7 +6832,7 @@
     "section": "transport",
     "anchor": "transport-modpath",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L155",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L270",
     "description": "Modpath solver configuration block."
   },
   {
@@ -6940,7 +6940,7 @@
     "section": "transport",
     "anchor": "transport-mt3dms",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L159",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L274",
     "description": "MT3DMS solver configuration block."
   },
   {
@@ -7084,7 +7084,7 @@
     "section": "transport",
     "anchor": "transport-modflow6gwt",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L163",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L278",
     "description": "MODFLOW 6 GWT solver configuration block."
   },
   {
@@ -7218,6 +7218,246 @@
     "page": "transport.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L100",
     "description": "Enable concentration plotting outputs."
+  },
+  {
+    "path": "transport.modflow6prt",
+    "name": "modflow6prt",
+    "type": "TransportModflow6PrtConfig",
+    "profile": "user",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L282",
+    "description": "MODFLOW 6 PRT particle-tracking solver configuration block."
+  },
+  {
+    "path": "transport.modflow6prt.parameters",
+    "name": "parameters",
+    "type": "Modflow6PrtParametersConfig",
+    "profile": "user",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L233",
+    "description": "Solver parameter block used by Modflow6Prt."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.release_zone",
+    "name": "release_zone",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-release-zone",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L127",
+    "description": "Particle release selector: 'domain', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.upstream_top_quantile",
+    "name": "upstream_top_quantile",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-upstream-top-quantile",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L134",
+    "description": "Top-elevation quantile used by upstream release zones. A value of 0.90 selects cells in the highest 10 percent of active cell-top elevations."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.track_dir",
+    "name": "track_dir",
+    "type": "Literal['forward']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-track-dir",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L143",
+    "description": "Particle tracking direction. MF6 PRT support is currently forward only."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.porosity",
+    "name": "porosity",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-porosity",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L147",
+    "description": "Optional uniform particle-tracking porosity. When omitted, the flow model specific yield is used where positive."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.local_z",
+    "name": "local_z",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-local-z",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L155",
+    "description": "Local vertical release coordinate within the cell."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.particle_cell_ids",
+    "name": "particle_cell_ids",
+    "type": "list[int] | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-particle-cell-ids",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L161",
+    "description": "Optional zero-based DISV cell2d ids for explicit particle release. Used when release_zone is 'custom'."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.max_particles",
+    "name": "max_particles",
+    "type": "int | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-max-particles",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L168",
+    "description": "Optional maximum number of release cells after zone selection."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.sel_slice",
+    "name": "sel_slice",
+    "type": "int | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-sel-slice",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L173",
+    "description": "Optional deterministic slicing step for selected release cells."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.release_times_days",
+    "name": "release_times_days",
+    "type": "list[float] | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-release-times-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L178",
+    "description": "Optional particle release times in model time units. Existing MODFLOW 6 models in HydroModPy use days."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.track_times_days",
+    "name": "track_times_days",
+    "type": "list[float] | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-track-times-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L185",
+    "description": "Optional user tracking output times in model time units."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.track_time_step_days",
+    "name": "track_time_step_days",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-track-time-step-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L189",
+    "description": "Optional regular spacing, in days, for generated PRT tracking output times. Used only when track_times_days is omitted."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.stop_time_days",
+    "name": "stop_time_days",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-stop-time-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L197",
+    "description": "Optional absolute particle stop time in model time units."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.stop_travel_time_days",
+    "name": "stop_travel_time_days",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-stop-travel-time-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L202",
+    "description": "Optional maximum particle travel time in model time units."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.extend_tracking",
+    "name": "extend_tracking",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-extend-tracking",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L207",
+    "description": "Track particles beyond the final flow time step when MF6 permits it."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.dry_tracking_method",
+    "name": "dry_tracking_method",
+    "type": "Literal['drop', 'stop', 'stay']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-dry-tracking-method",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L211",
+    "description": "MF6 PRT behavior for dry-but-active cells."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.exit_solve_tolerance",
+    "name": "exit_solve_tolerance",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-exit-solve-tolerance",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L215",
+    "description": "PRT generalized Pollock exit solve tolerance."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.write_track_csv",
+    "name": "write_track_csv",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-write-track-csv",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L220",
+    "description": "Write the PRT track CSV file used by the HydroModPy extractor."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.write_track_binary",
+    "name": "write_track_binary",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-write-track-binary",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L224",
+    "description": "Write the binary PRT track file."
   },
   {
     "path": "simulation.name",
@@ -12861,7 +13101,7 @@
     "anchor": "calibration-method",
     "page": "calibration.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L318",
-    "description": "Optimization method. Install the calibration extra for optuna or cma_es."
+    "description": "Optimization method. Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler."
   },
   {
     "path": "calibration.max_iter",
@@ -12872,7 +13112,7 @@
     "section": "calibration",
     "anchor": "calibration-max-iter",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L322",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L325",
     "description": "Maximum number of calibration iterations."
   },
   {
@@ -12884,7 +13124,7 @@
     "section": "calibration",
     "anchor": "calibration-batch-size",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L327",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L330",
     "description": "Number of suggestions drawn per ask (for parallel optimizers)."
   },
   {
@@ -12896,7 +13136,7 @@
     "section": "calibration",
     "anchor": "calibration-seed",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L332",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L335",
     "description": "Random seed for reproducibility."
   },
   {
@@ -12908,7 +13148,7 @@
     "section": "calibration",
     "anchor": "calibration-save-runs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L336",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L339",
     "description": "How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included)."
   },
   {
@@ -12920,7 +13160,7 @@
     "section": "calibration",
     "anchor": "calibration-save-best-n",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L345",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L348",
     "description": "Number of top iterations to promote when save_runs='best_n'."
   },
   {
@@ -12932,7 +13172,7 @@
     "section": "calibration",
     "anchor": "calibration-use-cache",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L350",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L353",
     "description": "Enable params_hash content-addressable cache."
   },
   {
@@ -12944,7 +13184,7 @@
     "section": "calibration",
     "anchor": "calibration-objective",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L354",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L357",
     "description": "Metric key used by the default ScalarObjective."
   },
   {
@@ -12956,7 +13196,7 @@
     "section": "calibration",
     "anchor": "calibration-variable",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L358",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L361",
     "description": "Observed variable (for ObservationSet)."
   },
   {
@@ -12968,7 +13208,7 @@
     "section": "calibration",
     "anchor": "calibration-optimizer-kwargs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L362",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L365",
     "description": "Extra keyword arguments forwarded to the optimizer adapter."
   },
   {
@@ -12980,7 +13220,7 @@
     "section": "calibration",
     "anchor": "calibration-parameters",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L366",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L369",
     "description": "Per-parameter declarations (bounds, transform, prior, path)."
   },
   {
@@ -13076,7 +13316,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L370",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L373",
     "description": "Named observables extracted from each candidate run."
   },
   {
@@ -13364,7 +13604,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L374",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L377",
     "description": "Weighted blocks making up a composite objective. When empty, a single implicit block is built from 'objective' and 'variable'."
   },
   {
@@ -13448,7 +13688,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-iteration-detail",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L379",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L382",
     "description": "'none' skips component metrics; 'summary' keeps block totals; 'full' also stores per-block raw and normalized costs."
   },
   {
@@ -13460,7 +13700,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-model-distribution",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L384",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L387",
     "description": "Persist the candidate distribution alongside the session."
   },
   {
@@ -13472,7 +13712,7 @@
     "section": "calibration",
     "anchor": "calibration-rerun-best-with-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L388",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L391",
     "description": "Replay the best candidate with full outputs after the loop."
   },
   {
@@ -13484,7 +13724,7 @@
     "section": "calibration",
     "anchor": "calibration-materialize-candidates",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L392",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L395",
     "description": "Write a standalone override TOML for each candidate under 'candidates_root' so runs can be replayed later."
   },
   {
@@ -13496,7 +13736,7 @@
     "section": "calibration",
     "anchor": "calibration-candidates-root",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L397",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L400",
     "description": "Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True."
   },
   {
@@ -13508,7 +13748,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L402",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L405",
     "description": "Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs."
   },
   {
