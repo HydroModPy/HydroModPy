@@ -250,7 +250,9 @@ def write_network_transient_truth_package(
 
     np.savez_compressed(out_dir / "steady_network_drain_by_cell.npz", outflow_drain=d_ref)
     np.savez_compressed(out_dir / "steady_network_active_mask.npz", active_mask=active_mask)
-    np.savez_compressed(out_dir / "cell_geometry.npz", centroids=centroids_arr, cell_area=cell_area_arr)
+    np.savez_compressed(
+        out_dir / "cell_geometry.npz", centroids=centroids_arr, cell_area=cell_area_arr
+    )
     q_frame.to_csv(out_dir / "transient_q_total_release.csv", index=False)
     _write_json(out_dir / "normalization.json", normalization)
     _write_json(out_dir / "metadata.json", metadata_out)
@@ -280,9 +282,9 @@ def score_network_transient_candidate(
     geometry = np.load(truth_path / "cell_geometry.npz")
     centroids = geometry["centroids"]
     cell_area = geometry["cell_area"]
-    q_ref = pd.read_csv(truth_path / "transient_q_total_release.csv")[
-        "q_total_release"
-    ].to_numpy(dtype=float)
+    q_ref = pd.read_csv(truth_path / "transient_q_total_release.csv")["q_total_release"].to_numpy(
+        dtype=float
+    )
 
     network = network_cost(
         candidate_steady_drain_by_cell,
@@ -304,7 +306,9 @@ def score_network_transient_candidate(
     stop = int(normalization["score_stop_index"])
     q_sim = np.asarray(candidate_q_total_release, dtype=float).reshape(-1)
     if q_sim.size != q_ref.size:
-        raise ValueError(f"candidate_q_total_release length must be {q_ref.size}, got {q_sim.size}.")
+        raise ValueError(
+            f"candidate_q_total_release length must be {q_ref.size}, got {q_sim.size}."
+        )
     discharge_cost, discharge_components = discharge_rmse_cost(
         q_sim[start:stop],
         q_ref[start:stop],
@@ -329,7 +333,9 @@ def score_network_transient_candidate(
         "w_debit": w_discharge,
     }
     components.update({f"network.{key}": float(value) for key, value in network.components.items()})
-    components.update({f"discharge.{key}": float(value) for key, value in discharge_components.items()})
+    components.update(
+        {f"discharge.{key}": float(value) for key, value in discharge_components.items()}
+    )
     return CandidateScore(total=total, components=components)
 
 
@@ -341,11 +347,10 @@ def score_network_transient_candidate_from_runs(
 ) -> CandidateScore:
     """Score a candidate represented by two catalog ``Run`` objects."""
 
-    steady_drain = np.asarray(steady_run.field("outflow_drain", timestep=-1), dtype=float).reshape(-1)
-    transient_drain_stack = transient_run.fields("outflow_drain").data
-    if hasattr(transient_drain_stack, "compute"):
-        transient_drain_stack = transient_drain_stack.compute()
-    q_total_release = q_total_release_from_drain_by_cell(transient_drain_stack)
+    steady_drain = np.asarray(steady_run.field("outflow_drain", timestep=-1), dtype=float).reshape(
+        -1
+    )
+    q_total_release = _transient_q_total_release_from_run(transient_run)
     return score_network_transient_candidate(
         truth_dir,
         candidate_steady_drain_by_cell=steady_drain,
@@ -363,11 +368,10 @@ def write_network_transient_truth_package_from_runs(
 ) -> TruthPackageSummary:
     """Build a truth package from two catalog ``Run`` objects."""
 
-    steady_drain = np.asarray(steady_run.field("outflow_drain", timestep=-1), dtype=float).reshape(-1)
-    transient_drain_stack = transient_run.fields("outflow_drain").data
-    if hasattr(transient_drain_stack, "compute"):
-        transient_drain_stack = transient_drain_stack.compute()
-    q_total_release = q_total_release_from_drain_by_cell(transient_drain_stack)
+    steady_drain = np.asarray(steady_run.field("outflow_drain", timestep=-1), dtype=float).reshape(
+        -1
+    )
+    q_total_release = _transient_q_total_release_from_run(transient_run)
 
     mesh = steady_run.mesh
     centroids, cell_area = mesh_cell_geometry(mesh.vertices, mesh.face_node_connectivity)
@@ -396,6 +400,24 @@ def write_network_transient_truth_package_from_runs(
         metadata=metadata_out,
         **kwargs,
     )
+
+
+def _transient_q_total_release_from_run(transient_run: Any) -> np.ndarray:
+    """Read total release from a run, falling back to persisted catchment discharge."""
+
+    try:
+        transient_drain_stack = transient_run.fields("outflow_drain").data
+        if hasattr(transient_drain_stack, "compute"):
+            transient_drain_stack = transient_drain_stack.compute()
+        return q_total_release_from_drain_by_cell(transient_drain_stack)
+    except ModuleNotFoundError as exc:
+        if exc.name != "dask":
+            raise
+    except Exception as exc:
+        if "No module named 'dask'" not in str(exc):
+            raise
+
+    return np.asarray(transient_run.timeseries("discharge", "_catchment"), dtype=float).reshape(-1)
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:

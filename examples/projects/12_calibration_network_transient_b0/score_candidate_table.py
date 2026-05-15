@@ -12,6 +12,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -19,6 +20,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from hydromodpy.calibration.network_transient_truth import (
+    CandidateScore,
+    score_network_transient_candidate,
     score_network_transient_candidate_from_runs,
 )
 from hydromodpy.results.catalog import SimulationCatalog
@@ -123,7 +126,7 @@ def _score_one_spec(
                 project=_empty_to_none(spec.get("transient_project")),
             )
         ]
-        score = score_network_transient_candidate_from_runs(
+        score = _score_from_runs_with_b0_fallback(
             truth_dir,
             steady_run=steady_run,
             transient_run=transient_run,
@@ -135,6 +138,45 @@ def _score_one_spec(
     base.update({"status": "completed", "objective": float(score.total), "error": ""})
     base.update({key: float(value) for key, value in score.components.items()})
     return base
+
+
+def _score_from_runs_with_b0_fallback(
+    truth_dir: Path,
+    *,
+    steady_run: Any,
+    transient_run: Any,
+) -> CandidateScore:
+    """Score a B0 pair, falling back to persisted catchment discharge.
+
+    The canonical helper reads the full transient ``outflow_drain`` field stack.
+    That path imports ``dask`` for lazy field access.  The B0 MF6 runs also
+    persist the total catchment discharge as a catalog time series, which is the
+    same ``Q_total_release`` quantity used by the current truth package.  Use it
+    only when the full field-stack path is unavailable.
+    """
+
+    try:
+        return score_network_transient_candidate_from_runs(
+            truth_dir,
+            steady_run=steady_run,
+            transient_run=transient_run,
+        )
+    except ModuleNotFoundError as exc:
+        if exc.name != "dask":
+            raise
+    except Exception as exc:
+        if "No module named 'dask'" not in str(exc):
+            raise
+
+    steady_drain = np.asarray(steady_run.field("outflow_drain", timestep=-1), dtype=float).reshape(
+        -1
+    )
+    q_total_release = transient_run.timeseries("discharge", "_catchment").to_numpy(dtype=float)
+    return score_network_transient_candidate(
+        truth_dir,
+        candidate_steady_drain_by_cell=steady_drain,
+        candidate_q_total_release=q_total_release,
+    )
 
 
 def _catalog_for(path_value: str, cache: dict[Path, SimulationCatalog]) -> SimulationCatalog:
