@@ -124,6 +124,9 @@ class CalibrationEngine:
         finally:
             session.finished_at = time.time()
             reporter.close()
+            close_optimizer = getattr(self.optimizer, "close", None)
+            if callable(close_optimizer):
+                close_optimizer()
         return session
 
     def _evaluate_with_cache(self, sugg: ParamSuggestion) -> EvaluationResult:

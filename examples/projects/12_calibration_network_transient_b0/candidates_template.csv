@@ -1,0 +1,2 @@
+candidate_id,mK,Sy,steady_catalog,steady_ref,steady_project,transient_catalog,transient_ref,transient_project
+mK_1p0_Sy_0p05,1.0,0.05,path/to/steady/hydromodpy.duckdb,candidate_steady,,,path/to/transient/hydromodpy.duckdb,candidate_transient,

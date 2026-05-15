@@ -15,50 +15,41 @@ Coverage
 --------
 
 - Cases compared: 2
-- Method rows: 9
+- Method rows: 11
 - Timing now separates candidate runtime from calibration-method overhead, and further splits actualize, launcher preparation, runtime patch, simulation, output selection, and objective scoring.
-
-How To Read These Summary Figures
----------------------------------
-
-- ``benchmark_target_success_rates`` tells you which methods reliably reach their declared success criterion in this benchmark family.
-- ``benchmark_cost_vs_budget`` compares final objective quality at similar search effort, so it is the right place to judge efficiency under a fixed evaluation budget.
-- ``benchmark_time_vs_cost`` separates methods that are numerically effective from methods that are merely cheap because they evaluate fewer candidates.
-- ``benchmark_calibration_time_closure`` is a bookkeeping check: the reported calibration time should roughly match candidate runtime plus method overhead.
-- ``benchmark_candidate_timing_breakdown`` shows whether time is spent in the solver itself or in framework overhead such as candidate preparation and scoring.
 
 Summary Figures
 ---------------
 
 .. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_target_success_rates.png
-   :alt: Calibration summary figure showing target success rates by method across cases
+   :alt: Calibration intercomparison figure benchmark_target_success_rates
    :width: 100%
 
-   Success rate by method across the selected calibration cases. Read this first to see which methods consistently reach their declared target within the configured evaluation budget.
+   Calibration intercomparison figure `benchmark_target_success_rates` derived from the curated capability-gallery cases.
 
 .. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_cost_vs_budget.png
-   :alt: Calibration summary figure showing best objective cost versus evaluation budget
+   :alt: Calibration intercomparison figure benchmark_cost_vs_budget
    :width: 100%
 
-   Best objective cost reached by each method relative to the evaluation budget. Lower is better, so this figure compares solution quality at comparable search effort.
+   Calibration intercomparison figure `benchmark_cost_vs_budget` derived from the curated capability-gallery cases.
 
 .. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_time_vs_cost.png
-   :alt: Calibration summary figure showing calibration time versus best objective cost
+   :alt: Calibration intercomparison figure benchmark_time_vs_cost
    :width: 100%
 
-   Calibration wall-clock time versus best objective cost. Use it to compare the trade-off between final fit quality and total time spent to obtain it.
+   Calibration intercomparison figure `benchmark_time_vs_cost` derived from the curated capability-gallery cases.
 
 .. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_calibration_time_closure.png
-   :alt: Calibration summary figure checking calibration time closure
+   :alt: Calibration intercomparison figure benchmark_calibration_time_closure
    :width: 100%
 
-   Closure check comparing total calibration time with the sum of candidate runtime and algorithm overhead. Large mismatches indicate timing-accounting issues rather than better calibration.
+   Calibration intercomparison figure `benchmark_calibration_time_closure` derived from the curated capability-gallery cases.
 
 .. gallery-figure:: /_static/capability_gallery/calibration/intercomparison/calibration_data_rich_no_uncertainty/benchmark_candidate_timing_breakdown.png
-   :alt: Calibration summary figure showing per-candidate timing breakdown
+   :alt: Calibration intercomparison figure benchmark_candidate_timing_breakdown
    :width: 100%
 
-   Mean per-candidate timing breakdown split into actualization, launcher preparation, runtime patching, simulation, output selection, and objective scoring. Use it to see where each method really spends time.
+   Calibration intercomparison figure `benchmark_candidate_timing_breakdown` derived from the curated capability-gallery cases.
 
 Linked Cases
 ------------
@@ -111,13 +102,28 @@ Method Rows
      - 0
      - 0.529874
      - 16
-     - 50.36 s
-     - 50.2 s
-     - 0.1557 s
-     - 0.2314 s
-     - 0.2314 s
+     - 24.95 s
+     - 24.53 s
+     - 0.419 s
      - 0 s
-     - 2.906 s
+     - 0 s
+     - 0 s
+     - 1.533 s
+     - 0 s
+     - 0 s
+   * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
+     - optuna
+     - best_fit_or_distribution
+     - 1
+     - 0.206196
+     - 40
+     - 68.87 s
+     - 67.64 s
+     - 1.228 s
+     - 0 s
+     - 0 s
+     - 0 s
+     - 1.691 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
@@ -126,58 +132,58 @@ Method Rows
      - 1
      - 0.214878
      - 40
-     - 134.2 s
-     - 133.7 s
-     - 0.505 s
-     - 0.2334 s
-     - 0.2334 s
+     - 107.8 s
+     - 105.7 s
+     - 2.05 s
      - 0 s
-     - 3.109 s
+     - 0 s
+     - 0 s
+     - 2.644 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
-     - simplex
+     - scipy_nelder_mead
      - best_fit
      - 1
      - 0.219763
      - 12
-     - 106.3 s
-     - 106.1 s
-     - 0.1661 s
-     - 0.3435 s
-     - 0.3435 s
+     - 35.57 s
+     - 35.03 s
+     - 0.5338 s
      - 0 s
-     - 8.498 s
+     - 0 s
+     - 0 s
+     - 2.92 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - gp_mapping
      - best_fit_or_distribution
-     - 1
-     - 0.320649
+     - 0
+     - 0.569137
      - 16
-     - 74.27 s
-     - 68.21 s
-     - 6.054 s
-     - 0.2249 s
-     - 0.2249 s
+     - 32.19 s
+     - 24.77 s
+     - 7.423 s
      - 0 s
-     - 4.038 s
+     - 0 s
+     - 0 s
+     - 1.548 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Recharge-Step K+Sy 1D <cases/calibration_twin_linearized_recharge_step_modflow6>`
      - da_mh_gp
      - best_fit_or_distribution
-     - 1
+     - 0
      - 2.22364
-     - 72
-     - 310.1 s
-     - 300.9 s
-     - 9.273 s
-     - 0.2962 s
-     - 0.2962 s
+     - 10
+     - 15.55 s
+     - 15.22 s
+     - 0.3297 s
      - 0 s
-     - 3.883 s
+     - 0 s
+     - 0 s
+     - 1.522 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
@@ -186,13 +192,13 @@ Method Rows
      - 1
      - 0.0451974
      - 48
-     - 28.63 s
-     - 28.21 s
-     - 0.4188 s
-     - 0.04864 s
-     - 0.04864 s
+     - 16.22 s
+     - 15.06 s
+     - 1.155 s
      - 0 s
-     - 0.5391 s
+     - 0 s
+     - 0 s
+     - 0.3138 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
@@ -201,13 +207,28 @@ Method Rows
      - 0
      - 0.0289115
      - 48
-     - 28.65 s
-     - 28.22 s
-     - 0.4379 s
-     - 0.04993 s
-     - 0.04993 s
+     - 15.98 s
+     - 15.07 s
+     - 0.9074 s
      - 0 s
-     - 0.5379 s
+     - 0 s
+     - 0 s
+     - 0.3139 s
+     - 0 s
+     - 0 s
+   * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
+     - optuna
+     - best_fit_or_distribution
+     - 1
+     - 0.0211372
+     - 48
+     - 15.97 s
+     - 14.56 s
+     - 1.41 s
+     - 0 s
+     - 0 s
+     - 0 s
+     - 0.3034 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
@@ -216,28 +237,28 @@ Method Rows
      - 0
      - 0.0271745
      - 48
-     - 27.91 s
-     - 27.4 s
-     - 0.5064 s
-     - 0.04994 s
-     - 0.04994 s
+     - 19.68 s
+     - 18.18 s
+     - 1.502 s
      - 0 s
-     - 0.5209 s
+     - 0 s
+     - 0 s
+     - 0.3787 s
      - 0 s
      - 0 s
    * - :doc:`Calibration Twin: Piecewise-K 1D <cases/calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6>`
-     - simplex
+     - scipy_nelder_mead
      - best_fit
      - 1
      - 0.00225239
      - 48
-     - 31.71 s
-     - 31.25 s
-     - 0.4651 s
-     - 0.05449 s
-     - 0.05449 s
+     - 22.09 s
+     - 20.59 s
+     - 1.5 s
      - 0 s
-     - 0.5965 s
+     - 0 s
+     - 0 s
+     - 0.4289 s
      - 0 s
      - 0 s
 

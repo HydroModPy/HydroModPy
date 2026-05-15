@@ -119,14 +119,16 @@ Data and storage
 Calibration and runtime
 -----------------------
 
-.. dropdown:: ``Install the calibration extra for optuna or cma_es``
+.. dropdown:: ``Install the calibration extra for cma_es or Optuna CMA-ES``
    :icon: zap
 
-   **Cause.** ``[calibration] method`` was set to ``optuna`` or
-   ``cma_es`` but the optional dependencies are not installed.
+   **Cause.** ``[calibration] method`` was set to ``cma_es`` or
+   ``[calibration.optimizer_kwargs] sampler = "cmaes"`` for ``optuna``,
+   but the optional CMA-ES dependencies are not installed. The default
+   ``optuna`` TPE sampler is installed by the base package.
 
    **Fix.** Run ``pip install -e ".[calibration]"`` or
-   ``conda install -c conda-forge optuna cma`` and retry.
+   ``conda install -c conda-forge cma cmaes`` and retry.
 
 .. dropdown:: ``mode must be one of: family_priority_local_budget, grid_local_budget``
    :icon: alert

@@ -46,6 +46,8 @@ _PERIOD_VALUE_VARIABLES = {
     "groundwater_flux",
     "outflow_drain",
     "outlet_flux",
+    "release_accumulation_flux",
+    "release_flux",
     "recharge_rate_history_m_s",
     "saturation_excess_history_m_s",
     "surface_excess_flux",

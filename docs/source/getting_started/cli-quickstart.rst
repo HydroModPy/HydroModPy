@@ -102,6 +102,7 @@ eagerly:
 
    hmp install-binaries                            # fetch everything
    hmp install-binaries --subset mf6,mfnwt         # subset only
+   hmp install-binaries --mf6-prt                  # mf6 for MODFLOW 6 PRT
    hmp install-binaries --bindir /opt/hmp_bin      # custom location
    hmp install-binaries --upgrade                  # force re-download
 

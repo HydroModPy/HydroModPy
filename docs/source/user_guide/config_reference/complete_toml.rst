@@ -224,6 +224,8 @@ Sub-models are linked back to their per-section page.
       # mt3dms = ...  # uses factory default
       # MODFLOW 6 GWT solver configuration block.
       # modflow6gwt = ...  # uses factory default
+      # MODFLOW 6 PRT particle-tracking solver configuration block.
+      # modflow6prt = ...  # uses factory default
 
 .. dropdown:: ``[simulation]`` (SimulationConfig)
    :icon: gear
@@ -462,7 +464,7 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [calibration]
-      # Optimization method. Install the calibration extra for optuna or cma_es.
+      # Optimization method. Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.
       method = "grid"
       # Maximum number of calibration iterations.
       max_iter = 100

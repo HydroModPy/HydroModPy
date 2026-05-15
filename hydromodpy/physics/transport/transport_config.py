@@ -121,6 +121,121 @@ class TransportModflow6GwtConfig(HydroModelBase):
     )
 
 
+class Modflow6PrtParametersConfig(HydroModelBase):
+    """Configuration payload for MODFLOW 6 PRT particle tracking."""
+
+    release_zone: Annotated[str, Profile.DEV] = Field(
+        default="domain",
+        description=(
+            "Particle release selector: 'domain', 'upstream', 'upstream_nonriver', "
+            "'river', 'outlet', or 'custom'."
+        ),
+    )
+    upstream_top_quantile: Annotated[float, Profile.DEV] = Field(
+        default=0.90,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Top-elevation quantile used by upstream release zones. A value of 0.90 "
+            "selects cells in the highest 10 percent of active cell-top elevations."
+        ),
+    )
+    track_dir: Annotated[Literal["forward"], Profile.DEV] = Field(
+        default="forward",
+        description="Particle tracking direction. MF6 PRT support is currently forward only.",
+    )
+    porosity: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Optional uniform particle-tracking porosity. When omitted, the "
+            "flow model specific yield is used where positive."
+        ),
+    )
+    local_z: Annotated[float, Profile.DEV] = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Local vertical release coordinate within the cell.",
+    )
+    particle_cell_ids: Annotated[list[int] | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Optional zero-based DISV cell2d ids for explicit particle release. "
+            "Used when release_zone is 'custom'."
+        ),
+    )
+    max_particles: Annotated[int | None, Profile.DEV] = Field(
+        default=None,
+        ge=1,
+        description="Optional maximum number of release cells after zone selection.",
+    )
+    sel_slice: Annotated[int | None, Profile.DEV] = Field(
+        default=None,
+        ge=1,
+        description="Optional deterministic slicing step for selected release cells.",
+    )
+    release_times_days: Annotated[list[float] | None, Profile.DEV] = Field(
+        default=None,
+        description=(
+            "Optional particle release times in model time units. Existing "
+            "MODFLOW 6 models in HydroModPy use days."
+        ),
+    )
+    track_times_days: Annotated[list[float] | None, Profile.DEV] = Field(
+        default=None,
+        description="Optional user tracking output times in model time units.",
+    )
+    track_time_step_days: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Optional regular spacing, in days, for generated PRT tracking output times. "
+            "Used only when track_times_days is omitted."
+        ),
+    )
+    stop_time_days: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        gt=0.0,
+        description="Optional absolute particle stop time in model time units.",
+    )
+    stop_travel_time_days: Annotated[float | None, Profile.DEV] = Field(
+        default=None,
+        gt=0.0,
+        description="Optional maximum particle travel time in model time units.",
+    )
+    extend_tracking: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description="Track particles beyond the final flow time step when MF6 permits it.",
+    )
+    dry_tracking_method: Annotated[Literal["drop", "stop", "stay"], Profile.DEV] = Field(
+        default="drop",
+        description="MF6 PRT behavior for dry-but-active cells.",
+    )
+    exit_solve_tolerance: Annotated[float, Profile.DEV] = Field(
+        default=1.0e-10,
+        gt=0.0,
+        description="PRT generalized Pollock exit solve tolerance.",
+    )
+    write_track_csv: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description="Write the PRT track CSV file used by the HydroModPy extractor.",
+    )
+    write_track_binary: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description="Write the binary PRT track file.",
+    )
+
+
+class TransportModflow6PrtConfig(HydroModelBase):
+    """Container for MODFLOW 6 PRT particle-tracking settings."""
+
+    parameters: Annotated[Modflow6PrtParametersConfig, Profile.USER] = Field(
+        default_factory=Modflow6PrtParametersConfig,
+        description="Solver parameter block used by Modflow6Prt.",
+    )
+
+
 class TransportConfig(ProcessSpatialConfig):
     """Transport-process configuration."""
 
@@ -163,4 +278,8 @@ class TransportConfig(ProcessSpatialConfig):
     modflow6gwt: Annotated[TransportModflow6GwtConfig, Profile.USER] = Field(
         default_factory=TransportModflow6GwtConfig,
         description="MODFLOW 6 GWT solver configuration block.",
+    )
+    modflow6prt: Annotated[TransportModflow6PrtConfig, Profile.USER] = Field(
+        default_factory=TransportModflow6PrtConfig,
+        description="MODFLOW 6 PRT particle-tracking solver configuration block.",
     )

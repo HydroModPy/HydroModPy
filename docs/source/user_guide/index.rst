@@ -230,4 +230,5 @@ Use these pages once you have generated or opened result pages:
    figures
    project-api
    solvers
+   modflow6-prt
    troubleshooting

@@ -9,24 +9,16 @@ Calibration Benchmarks
 These cases focus on inverse modelling rather than forward validation: synthetic observations are generated first, then recovered with one or more calibration strategies on the same solver family.
 
 .. seealso::
-   Read :doc:`How to read gallery, comparison, and validation pages <../user_guide/concepts/reading-results-pages>` if you want a guided entry point before opening the case pages below.
+   Read :doc:`How to read gallery, comparison, and validation pages </getting_started/reading-results-pages>` if you want a guided entry point before opening the case pages below.
 
 Current Coverage
 ----------------
 
 - Solvers: modflow6.
 - Regimes: steady, transient.
-- Benchmarked methods: cma_es, da_mh_gp, gp_mapping, grid_search, nelder_mead, random_search, simplex.
+- Benchmarked methods: cma_es, da_mh_gp, gp_mapping, grid, optuna, random_search, scipy_nelder_mead.
 - Each page combines one configuration figure, one tab set per method, and explicit timing diagnostics.
 - Primary benchmark families: No-Uncertainty, Data-Rich Benchmarks, Uncertain, Sparse-Data Benchmarks.
-
-How To Read These Pages
------------------------
-
-- Start with the configuration figure on each case page to identify the truth parameters, observation block, search bounds, and weighting before looking at method performance.
-- Then use the objective landscape and objective trace together: the landscape shows where evaluated candidates concentrate, while the trace shows when the search stabilizes or keeps improving.
-- On distribution-valued methods, the posterior figure shows the full retained ensemble of plausible parameter values. Its spread matters as much as its peak because it reveals identifiability and uncertainty.
-- Use the benchmark-family pages to compare methods across several inverse problems, then open the individual case pages when you need parameter-level interpretation and timing details.
 
 Benchmark Families
 ------------------

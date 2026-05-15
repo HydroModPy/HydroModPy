@@ -28,6 +28,8 @@ dependencies:
   - rasterio
   - rioxarray
   - cma
+  - cmaes>=0.12
+  - optuna>=4.8
   - scikit-learn
   - scipy
   - spyder-kernels

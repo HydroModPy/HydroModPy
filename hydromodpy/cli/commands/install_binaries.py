@@ -25,6 +25,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Comma-separated solver names to install (default: all). Example: --subset mf6,mfnwt",
     )
     parser.add_argument(
+        "--mf6-prt",
+        action="store_true",
+        help=(
+            "Install only the MODFLOW 6 executable used by MF6-PRT. PRT is part "
+            "of MODFLOW 6 itself; no separate prt executable is installed."
+        ),
+    )
+    parser.add_argument(
         "--bindir",
         default=None,
         help="Target directory (default: HydroModPy-managed cache).",
@@ -58,7 +66,16 @@ def run(args: argparse.Namespace) -> None:
         read_manifest,
     )
 
-    if args.subset:
+    if args.mf6_prt and args.subset:
+        print(
+            "[install-binaries] --mf6-prt already selects --subset mf6; do not pass both options.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
+
+    if args.mf6_prt:
+        subset = ["mf6"]
+    elif args.subset:
         subset = [name.strip() for name in args.subset.split(",") if name.strip()]
         known = set(available_solvers())
         unknown = [name for name in subset if name not in known]
