@@ -35,7 +35,7 @@ def _regular_track_times_days(
         raise ValueError("stop_time_days must be positive when track_time_step_days is used.")
 
     values = np.arange(0.0, stop + 0.5 * step, step, dtype=float)
-    values = values[values <= stop + 1.0e-9]
+    values = values[values <= stop + _TRACK_TIME_TOLERANCE_DAYS]
     if values.size == 0 or not np.isclose(values[-1], stop):
         values = np.append(values, stop)
     return [float(value) for value in values]
@@ -50,6 +50,14 @@ _TIME_UNIT_SECONDS = {
     "DAYS": _SECONDS_PER_DAY,
     "YEARS": 31557600.0,
 }
+
+# Numerical tolerance (days) used to clip the last regular track time to
+# stop_time_days without losing it to floating-point rounding.
+_TRACK_TIME_TOLERANCE_DAYS = 1.0e-9
+
+# Bottom percentile of cell top elevations used to seed particles at the
+# catchment outlet when release_zone == "outlet".
+_OUTLET_BOTTOM_PERCENTILE = 10.0
 
 
 class Modflow6Prt:
@@ -70,8 +78,11 @@ class Modflow6Prt:
         model_name: str = "Default_modflow6",
         suffix_name: str = "_prt",
         bin_path: str | None = None,
-        **kwargs,
-    ):
+        **kwargs: object,
+    ) -> None:
+        # The ``object`` annotations on domain/transport/model_modflow follow
+        # the duck-typed pattern already used by ``Modflow6Transport``; the
+        # attributes are accessed via getattr/hasattr at runtime.
         del bin_path
         self.domain = domain
         self.transport = transport
@@ -169,7 +180,9 @@ class Modflow6Prt:
         valid = active & np.isfinite(top)
         if not np.any(valid):
             raise ValueError("MODFLOW 6 PRT upstream release zone has no finite active top cells.")
-        cutoff = np.nanpercentile(top[valid], 100.0 * self.upstream_top_quantile)
+        # ``np.nanpercentile`` expects [0, 100]; convert the [0, 1] user quantile.
+        percentile = 100.0 * float(self.upstream_top_quantile)
+        cutoff = np.nanpercentile(top[valid], percentile)
         return active & (top >= cutoff)
 
     def _select_release_cells(self) -> np.ndarray:
@@ -197,7 +210,7 @@ class Modflow6Prt:
             candidate = active & river_mask
             if not np.any(candidate):
                 candidate = active
-            cutoff = np.nanpercentile(top[candidate], 10.0)
+            cutoff = np.nanpercentile(top[candidate], _OUTLET_BOTTOM_PERCENTILE)
             selected = np.flatnonzero(candidate & (top <= cutoff))
         elif zone == "domain":
             selected = all_active
@@ -240,7 +253,7 @@ class Modflow6Prt:
             )
         return packagedata
 
-    def pre_processing(self):
+    def pre_processing(self) -> None:
         if self.track_dir != "forward":
             raise NotImplementedError(
                 "MODFLOW 6 PRT integration currently supports forward tracking."
@@ -336,7 +349,12 @@ class Modflow6Prt:
             exgmnameb=self.prt.name,
         )
 
-    def processing(self, write_model: bool = True, run_model: bool = False, verbose: bool = True):
+    def processing(
+        self,
+        write_model: bool = True,
+        run_model: bool = False,
+        verbose: bool = True,
+    ) -> bool:
         if write_model:
             self.model_modflow.sim.write_simulation(silent=not verbose)
         success = False
