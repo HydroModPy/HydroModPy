@@ -4,16 +4,22 @@ Calibration Methods Implemented In HydroModPy
 Scope
 -----
 
-This page documents the methods currently registered in
-``hydromodpy.analysis.calibration.core.methods_dispatcher``:
+This page documents the calibration methods exposed through
+``hydromodpy.calibration.optimizer`` and selectable from
+``[calibration] method``:
 
-- ``grid_search``
+- ``grid``
 - ``random_search``
+- ``optuna``
+- ``scipy_de``
+- ``scipy_nelder_mead``
 - ``cma_es``
-- ``nelder_mead``
-- ``simplex``
 - ``gp_mapping``
 - ``da_mh_gp``
+
+Some historical gallery pages and older scripts may still use display labels
+such as ``grid_search``, ``nelder_mead``, or ``simplex``. The current TOML
+names are the names listed above.
 
 The intent is deliberately practical. The question is not "what does the
 method look like in an optimization textbook?" but rather:
@@ -33,7 +39,7 @@ Method Selection At A Glance
      - What it does in practice
      - Good fit for
      - Poor fit for
-   * - ``grid_search``
+   * - ``grid``
      - Evaluates every point on a regular parameter grid.
      - One or two parameters, teaching cases, objective-landscape mapping.
      - More than a few parameters or tight evaluation budgets.
@@ -41,11 +47,19 @@ Method Selection At A Glance
      - Draws many independent candidates inside bounds and keeps the best one.
      - Wide search boxes, rough first pass, simple global baseline.
      - Fine local refinement or strong uncertainty analysis.
+   * - ``optuna``
+     - Uses an Optuna study, with TPE as the default adaptive sampler, through HydroModPy's ask/tell loop.
+     - General-purpose bounded calibration when you want a stronger default than random search.
+     - Exact posterior inference, or cases where a deterministic exhaustive map is required.
+   * - ``scipy_de``
+     - Runs SciPy differential evolution behind the same ask/tell interface.
+     - Robust global search on continuous bounded problems.
+     - Very small budgets or local polishing only.
    * - ``cma_es``
      - Adapts a multivariate Gaussian search distribution around promising regions.
      - Expensive non-smooth objectives with moderate parameter dimension.
      - Exact posterior inference or highly constrained/discrete parameter spaces.
-   * - ``nelder_mead``
+   * - ``scipy_nelder_mead``
      - Moves a local simplex from one starting point until improvement stalls.
      - Fast local refinement once a plausible basin is already known.
      - Multimodal problems with poor initialization.
@@ -141,6 +155,60 @@ still a blunt instrument:
 - precision improves slowly;
 - samples are spent everywhere, including bad regions;
 - the method does not return a native uncertainty estimate.
+
+Optuna
+------
+
+What HydroModPy Does
+^^^^^^^^^^^^^^^^^^^^
+
+``optuna`` delegates candidate selection to an `Optuna study
+<https://optuna.org/>`_, while HydroModPy keeps ownership of the hydrogeologic
+workflow:
+
+- TOML parsing and parameter declarations stay in ``CalibrationConfig``;
+- sampled values are injected into the HydroModPy project configuration;
+- each candidate is run by the normal simulation/calibration engine;
+- objectives, traces, reports, and saved candidate distributions keep the same
+  structure as the other methods.
+
+The default sampler is Optuna's TPE sampler. The adapter also accepts
+``sampler = "random"``, ``sampler = "cmaes"``, or ``sampler = "nsga"`` through
+``[calibration.optimizer_kwargs]`` when the corresponding Optuna dependencies
+are installed. The standard platform install includes Optuna and the default
+TPE sampler; the ``calibration`` extra adds packages such as ``cma`` and
+``cmaes`` for the CMA-ES variants.
+
+When It Fits
+^^^^^^^^^^^^
+
+Use ``optuna`` as the normal adaptive default when the inverse problem is
+bounded, derivative-free, and not clearly better served by a specialized
+posterior sampler.
+
+Typical situations:
+
+- a first serious calibration after a grid or random sanity check;
+- two to a few continuous hydrogeologic parameters;
+- objectives where useful regions can be learned progressively from previous
+  evaluations;
+- runs where consistent reporting matters more than using Optuna's full study
+  storage and dashboard ecosystem.
+
+What To Expect
+^^^^^^^^^^^^^^
+
+Compared with ``random_search``, Optuna spends later evaluations more
+selectively because the sampler learns from completed trials. Compared with
+``da_mh_gp``, it is still an optimizer: it returns a best candidate and a trace
+of evaluated candidates, not a corrected posterior distribution.
+
+Its main limits are:
+
+- the answer remains budget-dependent;
+- the default TPE sampler needs enough trials before it becomes informative;
+- sampler-specific options belong in ``optimizer_kwargs`` and should not
+  replace HydroModPy's objective and persistence configuration.
 
 CMA-ES
 ------
@@ -350,45 +418,52 @@ Choosing A Method As A Workflow
 In practice, the methods are often most useful as a sequence rather than as
 competing one-shot choices.
 
-1. Use ``grid_search`` or ``random_search`` to understand scale, rough
+1. Use ``grid`` or ``random_search`` to understand scale, rough
    parameter ranges, and basic multimodality.
-2. Use ``cma_es`` when the box is still broad but the problem is too irregular
+2. Use ``optuna`` as the general adaptive default once you have physically
+   defensible bounds.
+3. Use ``cma_es`` when the box is still broad but the problem is too irregular
    for a local simplex to be trusted.
-3. Use ``simplex`` or ``nelder_mead`` when the problem already looks local and
+4. Use ``scipy_nelder_mead`` when the problem already looks local and
    a best-fit point estimate is the main target.
-4. Use ``gp_mapping`` when the simulator is expensive and you want a practical,
+5. Use ``gp_mapping`` when the simulator is expensive and you want a practical,
    approximate uncertainty picture.
-5. Use ``da_mh_gp`` when the final deliverable is a posterior sample and an
+6. Use ``da_mh_gp`` when the final deliverable is a posterior sample and an
    uncertainty statement, not only one calibrated optimum.
 
 Implementation Provenance And References
 ----------------------------------------
 
-- ``grid_search`` is implemented directly in
-  ``hydromodpy.analysis.calibration.core.methods.grid_search`` using NumPy and
+- ``grid`` is implemented directly in
+  ``hydromodpy.calibration.adapters.grid_adapter`` using NumPy and
   ``itertools.product``. It does not wrap a dedicated external optimization
   library.
 - ``random_search`` is implemented directly in
-  ``hydromodpy.analysis.calibration.core.methods.random_search`` using NumPy's
+  ``hydromodpy.calibration.adapters.random_search_adapter`` using NumPy's
   random generator. It is intentionally kept as a pragmatic Monte Carlo
   baseline. For the practical argument that random search is a strong baseline
   for bounded search spaces, see :cite:`bergstra2012`.
+- ``optuna`` is implemented in
+  ``hydromodpy.calibration.adapters.optuna_adapter`` and delegates sampler
+  state to Optuna's native ask/tell API. HydroModPy still owns configuration
+  injection, simulation execution, objective evaluation, and result
+  persistence. Reference: :cite:`akiba2019`.
 - ``cma_es`` is implemented in
-  ``hydromodpy.analysis.calibration.core.methods.cma_es`` and delegates the
+  ``hydromodpy.calibration.adapters.cma_adapter`` and delegates the
   covariance-update logic to the `CMA-ES package <https://cma-es.github.io/>`_,
   while HydroModPy keeps bound normalization and result packaging consistent
   with the other methods. Reference: :cite:`hansen2016`.
-- ``simplex`` and ``nelder_mead`` are thin wrappers around SciPy optimizers:
-  ``scipy.optimize.fmin`` and
+- ``scipy_de`` and ``scipy_nelder_mead`` are ask/tell wrappers around SciPy
+  optimizers, including ``scipy.optimize.differential_evolution`` and
   ``scipy.optimize.minimize(..., method="Nelder-Mead")``. References:
   :cite:`virtanen2020`; :cite:`neldermead1965`.
 - ``gp_mapping`` is a HydroModPy-specific orchestration implemented in
-  ``hydromodpy.analysis.calibration.core.methods.gp_mapping``. It uses
+  ``hydromodpy.calibration.adapters.gp_mapping_adapter``. It uses
   ``sklearn.gaussian_process.GaussianProcessRegressor`` when available and
   otherwise falls back to an internal inverse-distance-weighted surrogate.
   References: :cite:`pedregosa2011`; :cite:`rasmussen2006`.
 - ``da_mh_gp`` is reimplemented in HydroModPy in
-  ``hydromodpy.analysis.calibration.core.methods.da_mh_gp`` as a
+  ``hydromodpy.calibration.adapters.da_mh_gp_adapter`` as a
   delayed-acceptance random-walk Metropolis-Hastings workflow with an internal
   lightweight Gaussian-process surrogate. Its initial design uses
   ``scipy.stats.qmc.Sobol`` when SciPy is available. References:
