@@ -130,7 +130,7 @@ def test_transport_capabilities_are_explicit() -> None:
 
 def test_modflow6prt_adapter_and_extractor_are_registered() -> None:
     adapter_cls = registry.get("transport", "modflow6prt")
-    extractor_cls = registry.get_extractor("modflow6prt")
+    extractor_cls = registry.get_extractor("transport", "modflow6prt")
 
     assert adapter_cls.__name__ == "Modflow6PrtTransportAdapter"
     assert extractor_cls.__name__ == "Modflow6PrtOutputAdapter"
