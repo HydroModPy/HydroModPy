@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import html
 import json
 import os
 import tomllib
@@ -11,6 +10,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+
+from hydromodpy.results.html_helpers import link_relative, safe_html
 
 
 @dataclass(frozen=True)
@@ -64,10 +65,6 @@ class SimulationRecord:
     accumulation_distance: dict[str, str] | None = None
     release_accumulation_distance: dict[str, str] | None = None
     vector_network: dict[str, str] | None = None
-
-
-def _safe(value: object) -> str:
-    return html.escape(str(value if value is not None else ""))
 
 
 def _first(row: dict[str, str], *names: str) -> str:
@@ -158,7 +155,7 @@ class CompactNetworkSynthesisBuilder:
         return data if isinstance(data, dict) else {}
 
     def relative_path(self, path: Path) -> str:
-        return os.path.relpath(path, self.page_path.parent).replace(os.sep, "/")
+        return link_relative(self.page_path.parent, path)
 
     def _record_for(
         self, records: dict[str, SimulationRecord], simulation_id: str
@@ -271,17 +268,17 @@ class CompactNetworkSynthesisBuilder:
             or _row_value(record.accumulation_distance, "catchment_cell_count")
         )
         detail = (
-            f"{_safe(_fmt_m(cell_count))} cellules de calcul"
+            f"{safe_html(_fmt_m(cell_count))} cellules de calcul"
             if cell_count
             else "nombre de cellules non disponible"
         )
-        return f"{_safe(title.replace('_', ' '))}; {detail}"
+        return f"{safe_html(title.replace('_', ' '))}; {detail}"
 
     def configuration_cell(self, record: SimulationRecord) -> str:
         return (
             '<td class="config-cell">'
-            f"<strong>{_safe(record.meta.label)}</strong>"
-            f'<span class="sub">{_safe(self.solver_summary(record))}; '
+            f"<strong>{safe_html(record.meta.label)}</strong>"
+            f'<span class="sub">{safe_html(self.solver_summary(record))}; '
             f"{self.mesh_summary(record)}</span>"
             "</td>"
         )
@@ -314,10 +311,10 @@ class CompactNetworkSynthesisBuilder:
 <div class="metric-box">
   {self.metric_bar(row, max_distance)}
   <div class="metric-grid">
-    <div><span>calc &rarr; obs moy.</span><strong>{_safe(_fmt_m(row.get("sim_to_network_distance_mean_m", "")))} m</strong></div>
-    <div><span>obs &rarr; calc moy.</span><strong>{_safe(_fmt_m(row.get("network_to_sim_distance_mean_m", "")))} m</strong></div>
-    <div><span>ratio</span><strong>{_safe(_fmt_ratio(row.get("planar_distance_ratio", "")))}</strong></div>
-    <div><span>moyenne sym.</span><strong>{_safe(_fmt_m(row.get("bidirectional_distance_mean_m", "")))} m</strong></div>
+    <div><span>calc &rarr; obs moy.</span><strong>{safe_html(_fmt_m(row.get("sim_to_network_distance_mean_m", "")))} m</strong></div>
+    <div><span>obs &rarr; calc moy.</span><strong>{safe_html(_fmt_m(row.get("network_to_sim_distance_mean_m", "")))} m</strong></div>
+    <div><span>ratio</span><strong>{safe_html(_fmt_ratio(row.get("planar_distance_ratio", "")))}</strong></div>
+    <div><span>moyenne sym.</span><strong>{safe_html(_fmt_m(row.get("bidirectional_distance_mean_m", "")))} m</strong></div>
   </div>
 </div>
 """
@@ -333,10 +330,10 @@ class CompactNetworkSynthesisBuilder:
         title = f"{record.meta.label} - {label}"
         return f"""
 <figure class="method-figure">
-  <a href="{_safe(rel)}" class="figure-link" data-lightbox-src="{_safe(rel)}" data-lightbox-title="{_safe(title)}" title="Cliquer pour agrandir">
-    <img src="{_safe(rel)}" alt="{_safe(title)}" loading="lazy">
+  <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Cliquer pour agrandir">
+    <img src="{safe_html(rel)}" alt="{safe_html(title)}" loading="lazy">
   </a>
-  <figcaption>{_safe(label)}</figcaption>
+  <figcaption>{safe_html(label)}</figcaption>
 </figure>
 """
 
@@ -354,15 +351,15 @@ class CompactNetworkSynthesisBuilder:
         if row is None:
             return f"""
 <td class="method-cell">
-  <div class="method-title">{_safe(label)}</div>
-  <p>{_safe(description)}</p>
-  <div class="figure-missing">{_safe(missing)}</div>
+  <div class="method-title">{safe_html(label)}</div>
+  <p>{safe_html(description)}</p>
+  <div class="figure-missing">{safe_html(missing)}</div>
 </td>
 """
         return f"""
 <td class="method-cell">
-  <div class="method-title">{_safe(label)}</div>
-  <p>{_safe(description)}</p>
+  <div class="method-title">{safe_html(label)}</div>
+  <p>{safe_html(description)}</p>
   {self.figure_preview(record, variable, label)}
   {self.metric_grid(row, max_distance)}
 </td>
@@ -1426,7 +1423,7 @@ class CompactNetworkSynthesisBuilder:
         if not self.config.contract_cards:
             return ""
         cards = "".join(
-            f"<article><h3>{_safe(card.title)}</h3><p>{card.body_html}</p></article>"
+            f"<article><h3>{safe_html(card.title)}</h3><p>{card.body_html}</p></article>"
             for card in self.config.contract_cards
         )
         return f"""
@@ -1446,10 +1443,10 @@ class CompactNetworkSynthesisBuilder:
   <h2>Contexte spatial</h2>
   <p>Carte topographique du support de calcul, avec le reseau hydrographique observe en rouge et la limite du bassin versant.</p>
   <figure class="wide-figure context-figure">
-    <a href="{_safe(rel)}" class="figure-link" data-lightbox-src="{_safe(rel)}" data-lightbox-title="{_safe(title)}" title="Cliquer pour agrandir">
-      <img src="{_safe(rel)}" alt="{_safe(title)}" loading="lazy">
+    <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Cliquer pour agrandir">
+      <img src="{safe_html(rel)}" alt="{safe_html(title)}" loading="lazy">
     </a>
-    <figcaption>{_safe(title)}</figcaption>
+    <figcaption>{safe_html(title)}</figcaption>
   </figure>
 </section>
 """
@@ -1462,12 +1459,12 @@ class CompactNetworkSynthesisBuilder:
         return f"""
 <section>
   <h2>Recharge imposee</h2>
-  <p>{_safe(self.recharge_summary_text())}. Cette chronique est commune aux configurations de ce benchmark.</p>
+  <p>{safe_html(self.recharge_summary_text())}. Cette chronique est commune aux configurations de ce benchmark.</p>
   <figure class="wide-figure">
-    <a href="{_safe(rel)}" class="figure-link" data-lightbox-src="{_safe(rel)}" data-lightbox-title="{_safe(title)}" title="Cliquer pour agrandir">
-      <img src="{_safe(rel)}" alt="{_safe(title)}" loading="lazy">
+    <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Cliquer pour agrandir">
+      <img src="{safe_html(rel)}" alt="{safe_html(title)}" loading="lazy">
     </a>
-    <figcaption>{_safe(title)}</figcaption>
+    <figcaption>{safe_html(title)}</figcaption>
   </figure>
 </section>
 """
@@ -1475,8 +1472,8 @@ class CompactNetworkSynthesisBuilder:
     def group_section(self, records: list[SimulationRecord], section: GroupSection) -> str:
         return f"""
 <section>
-  <h2>{_safe(section.title)}</h2>
-  <p>{_safe(section.intro)}</p>
+  <h2>{safe_html(section.title)}</h2>
+  <p>{safe_html(section.intro)}</p>
   {self.comparison_table(records, group=section.group_id)}
 </section>
 """
@@ -1485,7 +1482,7 @@ class CompactNetworkSynthesisBuilder:
         if not self.config.interpretation_cards:
             return ""
         cards = "".join(
-            f"<article><h3>{_safe(card.title)}</h3><p>{card.body_html}</p></article>"
+            f"<article><h3>{safe_html(card.title)}</h3><p>{card.body_html}</p></article>"
             for card in self.config.interpretation_cards
         )
         return f"""
@@ -1506,10 +1503,10 @@ class CompactNetworkSynthesisBuilder:
   <h2>Synthese des metriques</h2>
   <p>La figure compare, pour chaque configuration, les deux diagnostics de reseau avec la distance moyenne symetrique et le ratio directionnel.</p>
   <figure class="wide-figure synthesis-figure">
-    <a href="{_safe(rel)}" class="figure-link" data-lightbox-src="{_safe(rel)}" data-lightbox-title="{_safe(title)}" title="Cliquer pour agrandir">
-      <img src="{_safe(rel)}" alt="{_safe(title)}" loading="lazy">
+    <a href="{safe_html(rel)}" class="figure-link" data-lightbox-src="{safe_html(rel)}" data-lightbox-title="{safe_html(title)}" title="Cliquer pour agrandir">
+      <img src="{safe_html(rel)}" alt="{safe_html(title)}" loading="lazy">
     </a>
-    <figcaption>{_safe(title)}</figcaption>
+    <figcaption>{safe_html(title)}</figcaption>
   </figure>
 </section>
 """
@@ -1519,12 +1516,12 @@ class CompactNetworkSynthesisBuilder:
         report = self.comparison_root / "web" / "index.html"
         audit = self.comparison_root / "comparison_audit.md"
         report_item = (
-            f'<a href="{_safe(self.relative_path(report))}">Rapport HTML complet</a>'
+            f'<a href="{safe_html(self.relative_path(report))}">Rapport HTML complet</a>'
             if report.exists()
             else "Rapport HTML complet non encore produit"
         )
         audit_item = (
-            f'<a href="{_safe(self.relative_path(audit))}">Audit de comparaison</a>'
+            f'<a href="{safe_html(self.relative_path(audit))}">Audit de comparaison</a>'
             if audit.exists()
             else "Audit de comparaison non encore produit"
         )
@@ -1535,8 +1532,8 @@ class CompactNetworkSynthesisBuilder:
   <ul>
     <li>{report_item}</li>
     <li>{audit_item}</li>
-    <li><code>{_safe(str(self.comparison_root))}</code></li>
-    <li>statut audit: <strong>{_safe(manifest.get("audit_status", "non lance"))}</strong></li>
+    <li><code>{safe_html(str(self.comparison_root))}</code></li>
+    <li>statut audit: <strong>{safe_html(manifest.get("audit_status", "non lance"))}</strong></li>
   </ul>
 </section>
 """
@@ -1792,13 +1789,13 @@ figcaption {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{_safe(self.config.title)}</title>
+  <title>{safe_html(self.config.title)}</title>
   <style>{self.css()}</style>
 </head>
 <body>
 <main>
-  <h1>{_safe(self.config.title)}</h1>
-  <p>{_safe(self.config.intro)}</p>
+  <h1>{safe_html(self.config.title)}</h1>
+  <p>{safe_html(self.config.intro)}</p>
   {self.contract_section()}
   {self.context_section()}
   {self.recharge_section()}

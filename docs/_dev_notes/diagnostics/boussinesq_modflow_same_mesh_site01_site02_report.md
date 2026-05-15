@@ -51,4 +51,3 @@ Les m?triques comparent `h_Boussinesq - h_MF6`. Quand les deux maillages sont st
 - CSV: `examples/projects/10_testbed_workflow/outputs/boussinesq_natural_drainage_k_mesh_matrix_testbed/web_synthesis/same_mesh_direct_metrics.csv`
 - JSON: `examples/projects/10_testbed_workflow/outputs/boussinesq_natural_drainage_k_mesh_matrix_testbed/web_synthesis/same_mesh_direct_metrics.json`
 - Synth?se HTML testbed: `examples/projects/10_testbed_workflow/outputs/boussinesq_natural_drainage_k_mesh_matrix_testbed/web_synthesis/index.html`
-
