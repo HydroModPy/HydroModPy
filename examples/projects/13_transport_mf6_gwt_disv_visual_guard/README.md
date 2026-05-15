@@ -11,13 +11,21 @@ to inspect before refactoring the production transport code.
 
 For each case, the runner writes:
 
-- `index.html` with the configuration, checks, figures and signatures;
-- `figures/mesh_area.png`;
+- `index.html` with the configuration, key parameters, figures and signatures;
+- `figures/domain_context.png`;
+- `figures/mesh_overview.png`;
+- `figures/hydraulic_conductivity.png`;
 - `figures/head_final.png`;
 - `figures/flux_proxy.png`;
+- `figures/cell_peclet.png`;
 - `figures/concentration_snapshots.png`;
 - `figures/concentration_profiles.png`;
-- `figures/mass_front.png`;
+- `figures/probe_breakthrough.png`;
+- `figures/plume_evolution.png`;
+- `figures/analytical_profile_comparison.png` for cases with a closed-form
+  reference;
+- `figures/analytical_error_diagnostics.png` for cases with a closed-form
+  reference;
 - `signatures.json`;
 - `signatures.csv`.
 
@@ -28,14 +36,21 @@ same mesh and case definition.
 
 ## Cases
 
-- `case_01_uniform_tri_constant_source`: uniform triangular mesh, constant
-  upstream source.
-- `case_02_perturbed_tri_constant_source`: same physics, lightly perturbed
-  triangular mesh.
-- `case_03_perturbed_tri_pulse`: pulse source, useful for checking temporal
-  concentration mapping visually.
-- `case_04_perturbed_tri_dispersion`: stronger dispersion, useful for checking
-  front spreading.
+- `case_01_homogeneous_k_pulse`: fine lightly perturbed triangular DISV mesh,
+  homogeneous K and a compact internal pulse.
+- `case_02_longitudinal_channel_kx5_pulse`: high-K longitudinal channel aligned
+  with mesh rows.
+- `case_03_transverse_bands_kx5_pulse`: alternating transverse K bands aligned
+  with mesh columns.
+- `case_04_random_blocks_kx5_pulse`: deterministic blocky random K aligned with
+  coarse mesh blocks.
+
+All cases use the same diffusion coefficient. In heterogeneous cases, the cell
+Peclet number varies because K varies by up to a factor of five.
+
+The homogeneous internal-pulse case also includes a closed-form 2D infinite-domain
+Gaussian advection-diffusion reference. Heterogeneous K cases do not use an
+analytical comparison because the uniform-velocity assumption no longer holds.
 
 ## Usage
 
@@ -48,7 +63,7 @@ python examples/projects/13_transport_mf6_gwt_disv_visual_guard/run_visual_guard
 Generate only one case:
 
 ```powershell
-python examples/projects/13_transport_mf6_gwt_disv_visual_guard/run_visual_guard.py --case case_03_perturbed_tri_pulse
+python examples/projects/13_transport_mf6_gwt_disv_visual_guard/run_visual_guard.py --case case_01_homogeneous_k_pulse
 ```
 
 Run the optional direct MF6/FloPy backend:
@@ -81,3 +96,9 @@ The HTML report is for human inspection. The JSON/CSV signatures are for
 non-regression tests. The committed synthetic baseline lives in
 `reference/synthetic_signatures.json`; update it only after intentionally
 changing the visual guard assumptions.
+
+The synthetic cases deliberately use a homogeneous-case pore velocity of about
+`0.1 m/day`, a domain length of `120 m`, fine `96 x 24` triangular grids
+(`4608` cells), and `61` output times. The homogeneous case targets a mean cell
+Peclet number near `20`; heterogeneous cases keep the same diffusion coefficient
+and let the Peclet number vary with K.
