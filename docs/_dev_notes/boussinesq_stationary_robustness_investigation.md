@@ -1,6 +1,6 @@
 # Investigation de robustesse stationnaire Boussinesq
 
-Date : 2026-05-14
+Date : 2026-05-15
 
 Statut : investigation basée sur l'inspection du code local, les artefacts de
 campagnes naturelles existants, un nouveau point d'accroche de diagnostic d'échec stationnaire
@@ -638,3 +638,252 @@ Recommandation P2 : évaluer la complémentarité comme initialiseur de repli
 uniquement après implémentation du pseudo-transitoire et de la continuation
 drainage avec contrôle adaptatif des pas, et mesure sur `site_01_k_high`,
 `site_01_k10` et un cas de stress `site_02`.
+
+## Mise a jour 2026-05-15: bilan apres les tests `b_min = 0.10 m`
+
+Une deuxieme passe ciblee a teste une option plus pragmatique que les
+continuations vers le modele strict: conserver en permanence une epaisseur
+saturee minimale de `0.10 m` dans le modele Boussinesq, puis verifier que le
+champ stationnaire peut demarrer un court transitoire avec le meme modele
+regularise.
+
+Le rapport detaille correspondant est:
+
+- `docs/_dev_notes/boussinesq_bmin010_drain_zero_test_report.md`.
+
+La piste de charge imposee a l'exutoire a ete retiree du code et des rapports.
+Elle avait ete testee comme condition aval experimentale, mais elle ne
+recuperait pas les echecs principaux et degradant `site_02_network`; elle ne fait
+donc plus partie du bilan recommande.
+
+### Synthese des resultats `b_min = 0.10 m`
+
+| cas | drainage | meilleur chemin | resultat | lecture |
+|---|---:|---|---|---|
+| `site_01_k_low` | 0 | VI direct | succes, residu `2.88e-9` | robuste |
+| `site_01_k_base` | 0 | VI direct | succes, residu `1.72e-7` | robuste |
+| `site_01_k_high` | 0 | VI direct | succes, residu `1.42e-8` | robuste |
+| `site_02_k_low` | 0 | VI direct | succes, residu `1.62e-9` | robuste |
+| `site_02_network` | scenario reseau | `TSPSEUDO -> VI` | succes, residu `6.65e-8` | TSPSEUDO indispensable |
+| `site_01_k_base` uniforme rivieres | 0 | aucun | echec proche, residu `3.14e-4` | maillage/support defavorable |
+| `site_02_k_base` | 0 | aucun | echec massif, residu `9.28` | drainage nul trop dur |
+| `site_02_k_high` | 0 | aucun | echec massif, residu `33.7` | K fort + drainage nul trop raide |
+
+Quand VI direct et `TSPSEUDO -> VI` convergent tous les deux, les champs de
+charge sont pratiquement identiques. Sur `site_01_k_low`, la RMSE entre les deux
+chemins est d'environ `1.0e-5 m`; sur `site_02_k_low`, elle est d'environ
+`2.6e-7 m`. Cela suggere que le chemin numerique ne change pas le champ utile
+tant qu'il converge vers le meme bassin.
+
+Quand un chemin echoue, il echoue souvent vers un champ quasi sec global:
+`site_02_k_base` et `site_02_k_high` gardent environ `12880` cellules actives au
+fond ou sous le fond sur environ `13200` cellules. Ces echecs ne sont donc pas
+des echecs "proches" qu'un simple ajout d'iterations ou de sous-pas devrait
+resoudre.
+
+### Role du drainage faible
+
+Le contraste le plus operationnel concerne `site_02_k_base`:
+
+| configuration | meilleur residu | probe transitoire | lecture |
+|---|---:|---|---|
+| `b_min=0.10 m`, `drain_0` | `9.28` | non | echec massif |
+| `b_min=0.10 m`, `drain_0.01` | `4.75e-7` | oui | robuste |
+| `b_min=0.10 m`, `drain_0.1` | `1.35e-7` | oui | robuste |
+
+Le drainage nul reste donc utile comme stress test, mais il n'est pas le meilleur
+choix si l'objectif prioritaire est une initialisation naturelle robuste.
+
+### Bilan actualise
+
+Le meilleur chemin pratique actuel est:
+
+1. utiliser explicitement le modele regularise `b_min = 0.10 m`;
+2. essayer d'abord le VI stationnaire direct;
+3. si le VI direct echoue, essayer `TSPSEUDO -> VI` avec le meme `b_min`;
+4. si `drain_0` echoue massivement, tester un drainage explicite faible
+   (`0.01 m2/s`) plutot que d'empiler des iterations;
+5. valider systematiquement par un probe transitoire utilisant le meme
+   `b_min`.
+
+Ce bilan change legerement les recommandations initiales. Le pseudo-transitoire
+reste utile, mais il ne doit pas etre impose systematiquement: sur plusieurs cas
+compacts, le VI direct converge alors que TSPSEUDO tombe dans un mauvais bassin.
+La vraie option candidate production est plutot `b_min=0.10 m` comme
+regularisation assumee, avec `TSPSEUDO -> VI` en secours et drainage faible pour
+les cas naturels `site_02` les plus raides.
+
+## Mise a jour 2026-05-15: equilibre sec et interpretation de `b_min`
+
+Une passe complementaire a isole le cas recharge nulle. Elle ajoute un helper
+experimental de detection de l'equilibre sec, un court-circuit stationnaire pour
+les cas secs evidents sans entree positive, et un probe synthetique des flux de
+film induits par un plancher d'epaisseur effective:
+
+- `hydromodpy/solver/boussinesq/runtimes/dry_equilibrium.py`;
+- `hydromodpy/solver/boussinesq/runtimes/petsc_vi_obstacle.py`;
+- `tests/unit/solver/test_boussinesq_dry_equilibrium.py`;
+- `examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_dry_equilibrium_probe.py`;
+- `docs/_dev_notes/boussinesq_dry_equilibrium_and_bmin.md`.
+
+Le point mathematique important est que `h = z_bottom` est une solution VI
+admissible en recharge nulle si le residu sur la borne inferieure respecte
+`R >= 0`. Ce n'est pas une solution classique `R = 0` partout. Les nouveaux
+diagnostics permettent donc de distinguer un aquifere sec admissible d'un mauvais
+bassin quasi sec non convergent.
+
+La distinction `b_min` est maintenant explicite:
+
+- `physical_saturated_thickness` decrit l'etat hydrologique reel;
+- `effective_saturated_thickness` decrit la regularisation numerique utilisee
+  pour la transmissivite.
+
+Sur fond plat, `b_min = 0.10 m` ne cree pas de flux si `h = z_bottom` est
+constant. Sur fond incline, il cree un flux de film proportionnel a
+`K * b_min * pente_h`. Dans le probe synthetique avec `K = 1e-5 m/s`,
+`b_min = 0.10 m` produit environ `1e-7 m3/s` pour une pente `0.1 m/m` et
+`1e-6 m3/s` pour une pente `1 m/m`.
+
+Ce resultat ne disqualifie pas `b_min = 0.10 m` comme regularisation robuste, mais
+il interdit de le presenter comme hydrologiquement neutre sans quantifier ces
+flux sur les maillages naturels. Les echecs `site_02_k_base/high / drain_0`
+restent des mauvais bassins quasi secs: beaucoup de cellules sont au fond, mais
+le residu VI reste trop grand pour etre lu comme un equilibre sec admissible.
+
+## Mise a jour 2026-05-15: bilan apres retrait de la borne `z_bottom + b_min`
+
+La variante qui deplacait la borne basse VI vers `z_bottom + b_min` a ete
+retiree des scripts d'investigation. On conserve donc la contrainte physique:
+
+```text
+h >= z_bottom
+```
+
+Le bilan reste que le plancher `b_min = 0.10 m` doit etre compris comme une
+regularisation numerique de la transmissivite effective, pas comme une epaisseur
+saturee physique minimale. Les diagnostics doivent continuer a distinguer:
+
+- `physical_saturated_thickness`, qui peut etre nulle;
+- `effective_saturated_thickness`, qui peut etre bornee par `b_min`.
+
+Il n'existe pas encore de strategie qui fonctionne systematiquement sur tous les
+cas naturels testes. Le meilleur chemin pratique actuel est conditionnel:
+
+| situation | chemin le plus robuste observe | statut |
+|---|---|---|
+| cas compacts ou moderes (`site_01`, `site_02_k_low`) | VI direct avec `b_min=0.10 m` | robuste sur les cas testes |
+| `site_02_network` | `b_min=0.10 m` avec `TSPSEUDO -> VI` | robuste sur ce cas precis |
+| `site_02_k_base/high` avec `drain_0` | aucun chemin teste ne converge proprement | echec massif |
+| `site_02_k_base` avec drainage faible | `b_min=0.10 m` et drainage explicite `0.01` ou `0.1 m2/s` | robuste sur les tests disponibles |
+
+La conclusion operationnelle est donc:
+
+1. garder `h >= z_bottom`;
+2. utiliser `b_min=0.10 m` comme option explicite de robustesse numerique;
+3. essayer d'abord le VI direct;
+4. essayer `TSPSEUDO -> VI` seulement si le VI direct echoue;
+5. si `drain_0` donne un echec massif sur `site_02`, tester un drainage faible
+   plutot que d'augmenter seulement les iterations ou les sous-pas;
+6. continuer a documenter les echecs comme des echecs, car aucune sequence
+   actuelle ne couvre tous les couples site/K/drainage.
+
+## Mise a jour 2026-05-15: essai d'un champ MODFLOW 6 comme warm start
+
+Une passe supplementaire a teste l'idee d'utiliser un champ MODFLOW 6 comme
+condition initiale Boussinesq, avec le modele Boussinesq regularise
+`b_min = 0.10 m`. Le rapport detaille est:
+
+- `docs/_dev_notes/boussinesq_mf6_warm_start_initial_condition_probe.md`.
+
+Les artefacts MF6 disponibles ne conservent pas clairement le champ permanent
+auxiliaire comme fichier directement reutilisable. Les tests utilisent donc le
+dernier champ de charge MF6 stocke dans le Zarr de reference quand
+`_steady_state_initial_conditions.npz` est absent. Ce point limite la conclusion:
+l'essai teste un warm start MF6 de reference disponible, pas encore une vraie
+interface production "MF6 permanent -> Boussinesq".
+
+Resultat principal: la strategie n'est pas systematique.
+
+| cas | champ MF6 direct comme base transitoire `b_min=0.10` | MF6 -> VI `b_min=0.10` | lecture |
+|---|---:|---:|---|
+| `site_01_k_high / drain_0` | oui | oui, residu `4.70e-7` | utile mais pas meilleur que `b_min` direct |
+| `site_01_k_high / drain_0.1` | oui | non, residu `1.65e-4` | demarrage transitoire possible, stationnaire non |
+| `site_02_k_low / drain_0` | oui | non, residu `1.87` | le VI final retombe dans le mauvais bassin |
+| `site_02_k_low / drain_0.01` | oui | non, residu `0.139` | warm start transitoire seulement |
+| `site_02_k_base / drain_0` | non | non, residu `9.32` | echec massif inchange |
+| `site_02_k_base / drain_0.01` | non | non, residu `0.139` | pas robuste |
+| `site_02_k_base / drain_0.1` | non | non, residu `1.39` | pas robuste |
+| `site_02_k_high / drain_0` | non | non, residu `36.7` | echec massif |
+| `site_02_network` | non | non, residu `9.32` | moins bon que `b_min=0.10 + TSPSEUDO -> VI` |
+
+Conclusion actualisee: MODFLOW 6 peut fournir un champ initial utile pour
+certains probes transitoires, mais il ne corrige pas le probleme stationnaire
+Boussinesq dominant. Sur les cas difficiles, le solveur VI final retombe encore
+dans un etat quasi sec non admissible. La strategie ne doit donc pas etre promue
+comme solution robuste principale.
+
+Si cette piste est poursuivie, il faut d'abord persister explicitement le champ
+MF6 stationnaire auxiliaire, documenter la projection MF6 -> Boussinesq et
+continuer a separer deux validations: demarrage transitoire direct et controle
+stationnaire Boussinesq final.
+
+## Mise a jour 2026-05-15: fermeture de surface DRN-like avec `b_min = 0.10 m`
+
+Une nouvelle passe a teste une fermeture de surface plus proche de MODFLOW 6:
+conserver la borne basse physique `h >= z_bottom`, relacher la borne superieure
+quand une conductance de drainage est positive, et utiliser:
+
+```text
+q_drain = C max(h - z_top, 0)
+```
+
+avec `b_min = 0.10 m` dans la transmissivite effective. Le rapport detaille est:
+
+- `docs/_dev_notes/boussinesq_surface_drain_bmin010_test_report.md`.
+
+Cette piste est la plus robuste observee jusqu'ici. Avec `C = 1e-4 m2/s`, le VI
+stationnaire direct converge sur tous les cas testes, et le probe transitoire
+court avec le meme modele regularise converge aussi:
+
+| cas | statut `C=1e-4` | residu | lecture |
+|---|---:|---:|---|
+| `site_01_k_low / drain_0` | OK | `3.29e-8` | robuste |
+| `site_01_k_base / drain_0` | OK | `2.13e-7` | robuste |
+| `site_01_k_base uniform rivers / drain_0` | OK | `8.64e-11` | robuste numeriquement |
+| `site_01_k_high / drain_0` | OK | `2.05e-7` | robuste |
+| `site_02_k_low / drain_0` | OK | `1.73e-7` | robuste |
+| `site_02_k_base / drain_0` | OK | `7.93e-8` | robuste |
+| `site_02_k_high / drain_0` | OK | `5.16e-8` | robuste numeriquement |
+| `site_02_network` | OK | `3.88e-8` | robuste |
+
+La limite principale est hydrologique: `C = 1e-4 m2/s` est tres faible et laisse
+des charges parfois tres au-dessus de la surface. Sur `site_02_k_high`, le
+maximum `h - z_top` atteint environ `59 m` et le p95 environ `3.8 m`. Cette
+fermeture est donc robuste, mais elle doit etre presentee comme une regularisation
+de surface tres souple, pas comme une fermeture physique neutre.
+
+Pour `site_02_k_base` et `site_02_network`, des conductances plus fortes passent
+aussi et reduisent fortement les depassements:
+
+| cas | conductance robuste testee | effet |
+|---|---:|---|
+| `site_02_k_base` | `1e-3`, `1e-2`, `1e-1 m2/s` | convergence et depassement maximum reduit jusqu'a `0.65 m` a `1e-1` |
+| `site_02_network` | `1e-3`, `1e-2`, `1e-1 m2/s` | convergence et depassement maximum reduit jusqu'a `0.61 m` a `1e-1` |
+| `site_02_k_high` | `1e-4` direct ou `2e-4` avec `TSPSEUDO -> VI` | convergence, mais charges encore tres hautes localement |
+
+`site_02_k_high` reste le cas verrou. Les conductances fortes `1e-3`, `1e-2` et
+`1e-1 m2/s` echouent encore avec des residus de `1.38e-2`, `1.39e-1` et `1.39`.
+La continuation simple de conductance n'est pas une solution generale: elle
+echoue a `5e-3` sur `site_01_k_high`, a `2e-4` sur `site_02_k_base` et a
+`5e-4` sur `site_02_k_high`.
+
+Le bilan actualise devient donc:
+
+1. aucune strategie strictement physique et forte en drainage ne passe encore
+   tous les cas;
+2. `b_min=0.10 m + drainage de surface DRN-like tres faible` est la premiere
+   strategie numerique qui passe tout l'echantillon teste;
+3. pour une production, il faut chercher la plus grande conductance robuste par
+   cas ou par famille de cas, et reporter explicitement les depassements
+   `h-z_top`;
+4. `site_02_k_high` reste le stress test principal avant promotion.

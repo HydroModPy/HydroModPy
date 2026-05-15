@@ -25,6 +25,12 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     NonlinearRuntimeOptions,
     RuntimeSolveResult,
 )
+from hydromodpy.solver.boussinesq.runtimes.dry_equilibrium import (
+    detect_dry_equilibrium,
+    effective_saturated_thickness,
+    physical_saturated_thickness,
+    saturated_thickness_diagnostics,
+)
 
 _DEFAULT_TOP_N_RESIDUAL_CELLS = 500
 _OBSTACLE_ACTIVE_TOL_M = 1.0e-9
@@ -153,6 +159,32 @@ def build_stationary_failure_diagnostics(
     residual = _array(assembly.solver_residual, mesh.n_cells, default=np.nan)
     saturated_thickness = _array(assembly.saturated_thickness_m, mesh.n_cells, default=np.nan)
     transmissivity = _array(assembly.transmissivity_m2_s, mesh.n_cells, default=np.nan)
+    minimum_saturated_thickness_m = _diagnostic_float(
+        result.diagnostics,
+        runtime_summary,
+        keys=("minimum_saturated_thickness_m", "b_min_m"),
+        default=0.0,
+    )
+    physical_thickness = physical_saturated_thickness(mesh, head)
+    effective_thickness = effective_saturated_thickness(
+        mesh,
+        head,
+        minimum_saturated_thickness_m=minimum_saturated_thickness_m,
+    )
+    thickness_diag = saturated_thickness_diagnostics(
+        mesh,
+        head,
+        minimum_saturated_thickness_m=minimum_saturated_thickness_m,
+    )
+    dry_equilibrium = detect_dry_equilibrium(
+        mesh,
+        recharge_rate_m_s=recharge_rate_m_s,
+        well_flux_m3_s=well_flux_m3_s,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+        drainage_conductance_m2_s=drainage_conductance_m2_s,
+        minimum_saturated_thickness_m=minimum_saturated_thickness_m,
+        tol_bottom_vi=max(float(options.tol_residual_inf), 1.0e-12),
+    )
     prescribed = _prescribed_array(prescribed_head_m_by_cell, mesh.n_cells)
     prescribed_mask = np.isfinite(prescribed)
     drainage_conductance = _broadcast_optional(drainage_conductance_m2_s, mesh.n_cells)
@@ -234,6 +266,8 @@ def build_stationary_failure_diagnostics(
         projected_residual=projected_residual,
         saturated_thickness=saturated_thickness,
         transmissivity=transmissivity,
+        physical_saturated_thickness=physical_thickness,
+        effective_saturated_thickness=effective_thickness,
         drainage_rate=drainage_rate,
         surface_reaction=surface_reaction,
         bottom_reaction=bottom_reaction,
@@ -286,6 +320,13 @@ def build_stationary_failure_diagnostics(
         "residual_norm_final": float(result.residual_norm_inf),
         "projected_residual_norm_final": _finite_norm_inf(projected_residual),
         "tolerance": float(options.tol_residual_inf),
+        "dry_equilibrium_candidate_checked": dry_equilibrium.candidate_checked,
+        "dry_equilibrium_detected": dry_equilibrium.detected,
+        "dry_equilibrium_rejected_reason": dry_equilibrium.rejected_reason,
+        "dry_equilibrium_positive_forcing_detected": (dry_equilibrium.positive_forcing_detected),
+        "dry_equilibrium_min_R": dry_equilibrium.min_residual_m3_s,
+        "dry_equilibrium_projected_residual_inf": dry_equilibrium.projected_residual_inf,
+        "dry_equilibrium_vi_violations_count": dry_equilibrium.vi_violations_count,
         "converged": bool(result.converged),
         "termination_reason": str(result.termination_reason),
         "n_cells": int(mesh.n_cells),
@@ -310,6 +351,17 @@ def build_stationary_failure_diagnostics(
         "saturated_thickness_min": _finite_min(saturated_thickness),
         "saturated_thickness_max": _finite_max(saturated_thickness),
         "saturated_thickness_quantiles": _quantiles(saturated_thickness),
+        "minimum_saturated_thickness_m": minimum_saturated_thickness_m,
+        "physical_saturated_thickness_min": thickness_diag["physical_saturated_thickness_min"],
+        "physical_saturated_thickness_q01": thickness_diag["physical_saturated_thickness_q01"],
+        "physical_saturated_thickness_q50": thickness_diag["physical_saturated_thickness_q50"],
+        "physical_saturated_thickness_max": thickness_diag["physical_saturated_thickness_max"],
+        "effective_saturated_thickness_min": thickness_diag["effective_saturated_thickness_min"],
+        "effective_saturated_thickness_q01": thickness_diag["effective_saturated_thickness_q01"],
+        "effective_saturated_thickness_q50": thickness_diag["effective_saturated_thickness_q50"],
+        "effective_saturated_thickness_max": thickness_diag["effective_saturated_thickness_max"],
+        "cells_physically_dry_count": thickness_diag["cells_physically_dry_count"],
+        "cells_at_effective_floor_count": thickness_diag["cells_at_effective_floor_count"],
         "transmissivity_min": _finite_min(transmissivity),
         "transmissivity_max": _finite_max(transmissivity),
         "transmissivity_quantiles": _quantiles(transmissivity),
@@ -409,6 +461,21 @@ def _field_stats(**fields: np.ndarray) -> dict[str, Any]:
         }
         for name, values in fields.items()
     }
+
+
+def _diagnostic_float(
+    diagnostics: Mapping[str, Any] | None,
+    runtime_summary: Mapping[str, Any],
+    *,
+    keys: tuple[str, ...],
+    default: float,
+) -> float:
+    for source in (diagnostics or {}, runtime_summary):
+        for key in keys:
+            value = _float_or_none(source.get(key))
+            if value is not None:
+                return value
+    return float(default)
 
 
 def _active_state(
