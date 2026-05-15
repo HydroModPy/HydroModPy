@@ -1,0 +1,35 @@
+[case]
+name = "case_03_transverse_bands_kx5_pulse"
+title = "Fine perturbed DISV mesh, transverse K bands x5"
+description = "Internal pulse on a fine DISV mesh with alternating transverse K bands aligned with mesh columns; K varies by a factor of five while diffusion is unchanged."
+
+[domain]
+length_m = 120.0
+width_m = 24.0
+nx = 96
+ny = 24
+perturbation_fraction = 0.08
+seed = 303
+max_area_ratio = 2.20
+
+[flow]
+head_left_m = 3.6
+head_right_m = 0.0
+hydraulic_conductivity_m_per_day = 1.0
+hydraulic_conductivity_pattern = "transverse_bands"
+hydraulic_conductivity_factor = 5.0
+porosity = 0.30
+
+[transport]
+duration_days = 800.0
+n_snapshots = 61
+source_concentration = 1.0
+source_schedule = "internal_pulse"
+pulse_end_day = 0.0
+pulse_center_m = 35.0
+pulse_width_m = 1.2
+pulse_y_center_m = 12.0
+pulse_y_width_m = 3.0
+longitudinal_dispersivity_m = 0.0
+transverse_dispersivity_m = 0.0
+diffusion_m2_per_day = 0.00395
