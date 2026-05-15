@@ -97,7 +97,7 @@ Optional dependencies
 ---------------------
 
 If your method depends on a heavy or optional package
-(``optuna``, ``cma``, ``scikit-learn``, ``torch``), import it
+(``cma``, ``cmaes``, ``scikit-learn``, ``torch``), import it
 inside ``configure`` and raise a clear ``ImportError`` when it is
 missing:
 
@@ -105,7 +105,7 @@ missing:
 
    def configure(self, params, options):
        try:
-           import optuna  # noqa: F401
+           import cma  # noqa: F401
        except ImportError as exc:
            raise ImportError(
                "method 'mymethod' requires the 'calibration' extra "

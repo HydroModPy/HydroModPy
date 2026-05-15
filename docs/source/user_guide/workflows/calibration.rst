@@ -171,8 +171,8 @@ Important Parameters
      - Calibration still needs a valid forward simulation definition.
    * - ``[calibration].method``
      - Selects optimizer or sampler.
-     - ``optuna`` is the general default; grid/random/simplex/CMA-ES variants
-       are useful for controlled benchmarks.
+     - ``optuna`` is the general default; grid/random/local-simplex/CMA-ES
+       variants are useful for controlled benchmarks.
    * - ``max_iter``
      - Number of candidate evaluations.
      - Keep small for smoke tests; increase for production calibration.

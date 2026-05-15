@@ -71,7 +71,7 @@ def default_sections() -> list[ReportSection]:
             "Lecture physique des ecarts",
             55,
             _render_coherence_analysis,
-            lambda ctx: bool(ctx.metrics_rows),
+            _has_head_error_metrics,
         ),
         ReportSection("simulations", "Simulations", 60, _render_simulations),
         ReportSection("audit", "Audit format", 70, _render_audit),
@@ -497,6 +497,14 @@ def _render_coherence_analysis(ctx: ComparisonWebContext) -> str:
     </div>
   </section>
 """
+
+
+def _has_head_error_metrics(ctx: ComparisonWebContext) -> bool:
+    return any(
+        str(row.get("observable", "")).startswith("head")
+        and _float_or_none(row.get("rmse_normalized_percent")) is not None
+        for row in ctx.metrics_rows
+    )
 
 
 def _metric_analysis_row(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -985,13 +993,9 @@ def _format_number(value: Any) -> str:
         return str(value if value is not None else "")
     if not math.isfinite(number):
         return ""
-    if abs(number) >= 1000 or (abs(number) > 0 and abs(number) < 0.01):
-        return f"{number:.2e}"
-    if abs(number) >= 100:
-        return f"{number:.0f}"
-    if abs(number) >= 10:
-        return f"{number:.1f}"
-    return f"{number:.3g}"
+    if abs(number) > 0 and abs(number) < 0.01:
+        return f"{number:.1e}"
+    return f"{number:.1f}"
 
 
 def _float_or_none(value: Any) -> float | None:
@@ -1033,6 +1037,9 @@ def _observable_label(name: str) -> str:
         "head_central_high_k_series": "chronique de charge dans le couloir central conducteur",
         "head_east_interface_series": "chronique de charge pres de l'interface centre/est",
         "head_east_medium_k_series": "chronique de charge dans la zone est intermediaire",
+        "head_domain_low_series": "chronique de charge dans la partie basse du domaine",
+        "head_domain_mid_series": "chronique de charge dans la partie mediane du domaine",
+        "head_domain_high_series": "chronique de charge dans la partie haute du domaine",
     }
     return labels.get(name, name.replace("_", " "))
 

@@ -25,3 +25,11 @@ to keep around but that does not belong in the public docs.
 Move a file to `docs/source/developer/` (or another section under
 `docs/source/`) only when it becomes a stable, contributor-facing
 reference. Otherwise it stays here.
+
+## Current diagnostics
+
+- `diagnostics/boussinesq_failing_cases_inventory.md`: inventory of current
+  Boussinesq failing cases to preserve as robustness/regression seeds.
+- `boussinesq_stationary_robustness_investigation.md`: investigation of
+  stationary Boussinesq initialization failures and recommended robust
+  initialization path.

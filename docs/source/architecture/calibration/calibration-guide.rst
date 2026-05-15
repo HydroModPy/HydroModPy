@@ -223,8 +223,9 @@ Exhaustive option reference:
    * - ``method``
      - ``grid`` / ``random_search`` / ``optuna`` / ``scipy_de`` / ``scipy_nelder_mead``
      - ``grid``
-     - Sampler backing the ask/tell loop. ``optuna`` and ``cma_es``
-       require the calibration extra.
+     - Sampler backing the ask/tell loop. ``optuna`` is installed by
+       default; ``cma_es`` and the Optuna ``cmaes`` sampler require the
+       calibration extra.
    * - ``max_iter``
      - integer >= 1
      - ``100``
@@ -693,7 +694,8 @@ Optimization methods
   granularity. Defaults to a uniform count across all parameters.
 - ``optuna``:
   ``{ "sampler": "tpe" | "cmaes" | "random", "pruner": "median" }``.
-  Default sampler is TPE; ``cmaes`` is strongly recommended when you
+  Default sampler is TPE and is available in the base install; ``cmaes``
+  requires the calibration extra and is strongly recommended when you
   have 3+ continuous parameters.
 - ``scipy_de``:
   ``{ "popsize": 15, "mutation": [0.5, 1.0], "recombination": 0.7 }``,

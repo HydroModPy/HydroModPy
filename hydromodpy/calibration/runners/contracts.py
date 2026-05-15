@@ -81,6 +81,13 @@ class TrialPipelineProvider(Protocol):
     def build_default_spatial_support_provider_registry(self) -> object:
         """Return the default spatial-support provider registry."""
 
+    def resolve_mesh_runtime_sections(
+        self,
+        raw_toml: Mapping[str, Any],
+        config_path: str | Path,
+    ) -> dict[str, Any]:
+        """Resolve optional mesh sections consumed by the workflow mesh step."""
+
     def apply_structural_updates_from_data(self, ctx: Any) -> None:
         """Bind freshly loaded data objects to runtime structures on ``ctx``."""
 

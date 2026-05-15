@@ -8,6 +8,8 @@ from hydromodpy.solver.modflow6.modflow6_config import (
 )
 from hydromodpy.solver.modflow6.steady_initial_conditions import (
     _modflow_config_for_steady_initialization,
+    _read_final_percent_discrepancy,
+    _steady_initialization_balance_is_acceptable,
 )
 
 
@@ -30,6 +32,8 @@ def test_modflow6_steady_initialization_relaxes_auxiliary_solver_only() -> None:
     assert steady_config.runtime.mf6_inner_dvclose == 1e-3
     assert steady_config.runtime.mf6_outer_maximum == 1000
     assert steady_config.runtime.mf6_inner_maximum == 1000
+    assert steady_config.runtime.mf6_newton is True
+    assert steady_config.runtime.mf6_newton_under_relaxation is True
     assert config.runtime.mf6_outer_dvclose == 1e-4
     assert config.runtime.mf6_inner_dvclose == 1e-4
 
@@ -51,3 +55,30 @@ def test_modflow6_steady_initialization_preserves_looser_user_settings() -> None
     assert steady_config.runtime.mf6_inner_dvclose == 3e-3
     assert steady_config.runtime.mf6_outer_maximum == 1200
     assert steady_config.runtime.mf6_inner_maximum == 1300
+
+
+def test_modflow6_steady_initialization_accepts_closed_nonconverged_budget(
+    tmp_path,
+) -> None:
+    list_path = tmp_path / "ssic.lst"
+    list_path.write_text(
+        """
+ PERCENT DISCREPANCY =        -200.00     PERCENT DISCREPANCY =        -200.00
+ PERCENT DISCREPANCY =          -0.00     PERCENT DISCREPANCY =          -0.00
+""",
+        encoding="utf-8",
+    )
+
+    assert _read_final_percent_discrepancy(list_path) == -0.0
+    assert _steady_initialization_balance_is_acceptable(list_path) is True
+
+
+def test_modflow6_steady_initialization_rejects_open_budget(tmp_path) -> None:
+    list_path = tmp_path / "ssic.lst"
+    list_path.write_text(
+        "PERCENT DISCREPANCY = -12.5     PERCENT DISCREPANCY = -12.5\n",
+        encoding="utf-8",
+    )
+
+    assert _read_final_percent_discrepancy(list_path) == -12.5
+    assert _steady_initialization_balance_is_acceptable(list_path) is False

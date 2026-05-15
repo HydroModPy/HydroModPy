@@ -1,0 +1,35 @@
+[case]
+name = "case_01_homogeneous_k_pulse"
+title = "Fine perturbed DISV mesh, homogeneous K, internal pulse"
+description = "Reference visual guard on a fine lightly perturbed triangular DISV mesh with homogeneous hydraulic conductivity and one compact internal pulse."
+
+[domain]
+length_m = 120.0
+width_m = 24.0
+nx = 96
+ny = 24
+perturbation_fraction = 0.08
+seed = 101
+max_area_ratio = 2.20
+
+[flow]
+head_left_m = 3.6
+head_right_m = 0.0
+hydraulic_conductivity_m_per_day = 1.0
+hydraulic_conductivity_pattern = "homogeneous"
+hydraulic_conductivity_factor = 5.0
+porosity = 0.30
+
+[transport]
+duration_days = 800.0
+n_snapshots = 61
+source_concentration = 1.0
+source_schedule = "internal_pulse"
+pulse_end_day = 0.0
+pulse_center_m = 35.0
+pulse_width_m = 1.2
+pulse_y_center_m = 12.0
+pulse_y_width_m = 3.0
+longitudinal_dispersivity_m = 0.0
+transverse_dispersivity_m = 0.0
+diffusion_m2_per_day = 0.00395

@@ -53,6 +53,7 @@ dependencies = [
     "numpy>=2.4.4,<3",
     "pandas>=2.3.3,<3",
     "Pillow>=12.0.0,<13",
+    "optuna>=4.8.0,<5",
     "plotly>=6.7.0,<7",
     "pint>=0.25.3,<1",
     "pydantic-pint>=0.4,<1",
@@ -82,7 +83,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1", "optuna>=4.8.0,<5"]
+calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1"]
 delineation = ["whitebox-workflows>=1.3.5,<2"]
 mesh = ["gmsh>=4.15.2,<5"]
 ui = ["streamlit>=1.51.0,<2"]

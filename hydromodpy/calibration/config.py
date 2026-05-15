@@ -317,7 +317,10 @@ class CalibrationConfig(HydroModelBase):
 
     method: Annotated[CalibrationMethod, Profile.USER] = Field(
         default="grid",
-        description="Optimization method. Install the calibration extra for optuna or cma_es.",
+        description=(
+            "Optimization method. Optuna is installed by default; install the "
+            "calibration extra for cma_es and Optuna's cmaes sampler."
+        ),
     )
     max_iter: Annotated[int, Profile.USER] = Field(
         default=100,

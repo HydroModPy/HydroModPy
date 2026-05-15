@@ -37,6 +37,8 @@ CLI entry points become available straight away:
 Need an IDE bundle (Spyder + JupyterLab)? Use ``pip install
 "hydromodpy[ide]"`` instead. The full list of optional extras is
 :ref:`below <install-extras>`.
+The default install includes the ``optuna`` calibration sampler used by
+the Nancon calibration example.
 
 Choose your installer
 ---------------------
@@ -168,6 +170,9 @@ them inside one ``pip install`` command, for example
      - ``ipykernel``, ``jupyterlab``, Spyder, and PySide6.
    * - ``[viewer3d]``
      - ``pyvista`` for 3D mesh visualization.
+   * - ``[calibration]``
+     - ``cma`` and ``cmaes`` for CMA-ES calibration variants. The
+       default ``optuna`` TPE sampler is installed by the base package.
    * - ``[test]``
      - ``pytest``, ``pytest-xdist``, ``pytest-timeout``, ``coverage``
        for running the test tiers.
@@ -264,9 +269,15 @@ explicit commands and the air-gapped flow.
 
       hmp install-binaries                      # fetch everything now
       hmp install-binaries --subset mf6,mfnwt   # restrict to a subset
+      hmp install-binaries --mf6-prt            # fetch mf6 for MODFLOW 6 PRT
       hmp install-binaries --bindir <dir>       # fetch into a custom directory
       hmp install-binaries --upgrade            # force re-download
       hmp install-binaries --release <tag>      # pin a specific release tag
+
+   MF6-PRT does not install a separate ``prt`` program. The Particle
+   Tracking model is built into recent ``mf6`` executables, so
+   ``--mf6-prt`` is a readable shortcut for installing ``mf6`` only. If
+   an older ``mf6`` is already cached, combine it with ``--upgrade``.
 
    Binaries are pulled from the ``MODFLOW-ORG/executables`` GitHub
    release. The release tag is pinned by the installed HydroModPy

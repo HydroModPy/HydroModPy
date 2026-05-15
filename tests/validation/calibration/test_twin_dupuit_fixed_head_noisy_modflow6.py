@@ -21,6 +21,7 @@ from validation_cases.calibration.twin.steady.dupuit_fixed_head_1d.experiment im
 @pytest.mark.mf6
 def test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_truth() -> None:
     """Run the noisy steady twin benchmark and verify repeated methods stay usable."""
+    pytest.importorskip("optuna")
     pytest.importorskip("cma")
 
     assert_required_executables(
@@ -38,12 +39,16 @@ def test_calibration_twin_dupuit_fixed_head_noisy_modflow6_benchmark_recovers_tr
     assert benchmark.observations_truth["q_east"]
     assert benchmark.observations_used["q_east"]
     assert benchmark.observations_truth != benchmark.observations_used
-    assert len(benchmark.method_results) == 6
+    assert len(benchmark.method_results) == 7
 
     random_results = [
         result for result in benchmark.method_results if result.method_name == "random_search"
     ]
+    optuna_result = next(
+        result for result in benchmark.method_results if result.method_name == "optuna"
+    )
     assert len(random_results) == 3
+    assert optuna_result.model_distribution_sample_count >= 1
     for result in benchmark.method_results:
         assert result.cost_best is not None
         assert math.isfinite(float(result.cost_best)), result.to_mapping()

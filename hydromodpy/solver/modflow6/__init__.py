@@ -8,12 +8,14 @@ from .modflow6_config import (
     Modflow6RuntimeConfig,
     Modflow6SpecifParams,
 )
+from .prt import Modflow6Prt
 from .transport import Modflow6Transport
 
 __all__ = [
     "Modflow6",
     "Modflow6RuntimeParams",
     "Modflow6Transport",
+    "Modflow6Prt",
     "Modflow6Config",
     "Modflow6RuntimeConfig",
     "Modflow6ProcessSpecificConfig",

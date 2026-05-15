@@ -129,6 +129,7 @@ class TrialContext:
     requested_spatial_support_ids: tuple[str, ...] = ()
     requested_domain_supports: Mapping[str, object] = field(default_factory=dict)
     spatial_support_registry: Any = None
+    mesh_runtime_sections: Mapping[str, object] = field(default_factory=dict)
 
     def fork(self, values: Mapping[str, float]) -> TrialContext:
         """Return a new trial context isolated for one evaluation.
@@ -208,6 +209,7 @@ class TrialContext:
             requested_spatial_support_ids=self.requested_spatial_support_ids,
             requested_domain_supports=self.requested_domain_supports,
             spatial_support_registry=self.spatial_support_registry,
+            mesh_runtime_sections=self.mesh_runtime_sections,
         )
 
 
@@ -270,6 +272,7 @@ def prepare_trials(
         requested_support_ids,
     )
     spatial_support_registry = provider.build_default_spatial_support_provider_registry()
+    mesh_runtime_sections = provider.resolve_mesh_runtime_sections(raw_toml, cfg_path)
 
     pipeline_steps: tuple[TrialStep, ...] = tuple(
         steps if steps is not None else provider.standard_steps()
@@ -289,6 +292,7 @@ def prepare_trials(
             "requested_spatial_support_ids": requested_support_ids,
             "requested_domain_supports": requested_domain_supports,
             "spatial_support_registry": spatial_support_registry,
+            **mesh_runtime_sections,
         },
     )
     if prep_slice:
@@ -332,6 +336,7 @@ def prepare_trials(
         requested_spatial_support_ids=requested_support_ids,
         requested_domain_supports=requested_domain_supports,
         spatial_support_registry=spatial_support_registry,
+        mesh_runtime_sections=mesh_runtime_sections,
     )
 
 
@@ -399,6 +404,7 @@ def run_trial_light(
             "config_path": forked.cfg_path,
             "raw_toml": dict(forked.raw_toml),
             "ctx": forked.ctx,
+            **dict(forked.mesh_runtime_sections),
         },
     )
 
@@ -504,6 +510,7 @@ def promote_prepared_trial(
             "spatial_support_registry": forked.spatial_support_registry,
             "requested_spatial_support_ids": forked.requested_spatial_support_ids,
             "requested_domain_supports": forked.requested_domain_supports,
+            **dict(forked.mesh_runtime_sections),
         },
     )
     prepare_index = _step_index_by_name(forked.downstream_steps, "prepare_solver")

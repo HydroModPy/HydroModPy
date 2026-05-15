@@ -67,6 +67,8 @@ _PERIOD_VALUE_VARIABLES = {
     "groundwater_flux",
     "outflow_drain",
     "outlet_flux",
+    "release_accumulation_flux",
+    "release_flux",
     "recharge_rate_history_m_s",
     "saturation_excess_history_m_s",
     "surface_excess_flux",
@@ -1079,7 +1081,13 @@ def _native_unit_for_variable(variable_name: str) -> str:
         "dry_deficit_map",
     }:
         return "m/day"
-    if key in {"accumulation_flux", "outflow_drain", "seepage_areas"}:
+    if key in {
+        "accumulation_flux",
+        "outflow_drain",
+        "release_accumulation_flux",
+        "release_flux",
+        "seepage_areas",
+    }:
         return "m/day"
     if key == "seepage_mask":
         return "1"
@@ -1592,6 +1600,8 @@ def _store_variable_mapping(variable_name: str) -> str | None:
         "seepage_mask": "seepage_mask",
         "head": "head",
         "accumulation_flux": "accumulation_flux",
+        "release_flux": "release_flux",
+        "release_accumulation_flux": "release_accumulation_flux",
         "outlet_discharge_east_side_m3_s": "outlet_discharge_east_side_m3_s",
         "drainage_flux_history_m3_s": "drainage_flux_history_m3_s",
         "drainage_flux_m3_s": "drainage_flux_m3_s",
