@@ -589,21 +589,190 @@ Ce n'est pas encore un etat stationnaire cible. C'est plutot une strategie de
 warm-up transitoire robuste a explorer si l'objectif pratique est de demarrer
 une simulation transitoire naturelle difficile.
 
+### Mise a jour: piste robuste `b_min = 0.10 m`
+
+Une derniere passe a teste explicitement l'objectif "robuste plutot qu'exact":
+garder une epaisseur saturee minimale permanente de `0.10 m`, l'utiliser pour
+le champ permanent, puis verifier un probe transitoire avec **la meme
+formulation**. Cette fois, la solution n'est pas comparee comme cible physique
+au VI strict: elle est traitee comme un modele Boussinesq regularise assume.
+
+Les variantes testees sont:
+
+- `bmin_floor_0p10_vi`: Newton/SNESVI stationnaire direct avec plancher
+  `b_min = 0.10 m`;
+- `bmin_floor_0p10_tspseudo`: TSPSEUDO avec le meme plancher, sans controle VI
+  final;
+- `bmin_floor_0p10_tspseudo_then_vi`: TSPSEUDO avec le plancher, puis VI
+  stationnaire avec le meme plancher;
+- `bmin_floor_0p10_pseudo_transient_*_warm`: warm-up transitoire avec le meme
+  plancher.
+
+Resultat synthetique:
+
+| cas | meilleur chemin `b_min=0.10 m` | stationnaire | probe transitoire meme modele | residu stationnaire |
+|---|---|---:|---:|---:|
+| `site_01_k_high / drain_0` | `bmin_floor_0p10_vi` | oui | oui | `1.42e-8` |
+| `site_01_k_high / drain_0.1` | `bmin_floor_0p10_vi` | oui | oui | `7.19e-7` |
+| `site_02_k_low / drain_0` | `bmin_floor_0p10_vi` | oui | oui | `1.62e-9` |
+| `site_02_network` | `bmin_floor_0p10_tspseudo_then_vi` | oui | oui | `6.65e-8` |
+
+Une relance additionnelle sur les variantes non couvertes de `site_02` precise
+la zone de robustesse:
+
+| cas | chemin direct `bmin_floor_0p10_vi` | chemin `TSPSEUDO -> VI b_min` | probe transitoire meme modele | lecture |
+|---|---:|---:|---:|---|
+| `site_01_k_high / drain_0.01` | non, residu `1.65e-4` | oui, residu `8.62e-10` | oui | le warm start TSPSEUDO est necessaire malgre le drainage intermediaire |
+| `site_02_k_low / drain_0.01` | oui, residu `1.28e-9` | non, residu `0.139` | oui pour les deux champs | ne pas imposer TSPSEUDO si le VI direct converge deja |
+| `site_02_k_base / drain_0` | non, residu `9.28` | non, residu `9.30` | non pour le modele coherent | cas toujours bloque, domine par le fond |
+| `site_02_k_base / drain_0.01` | oui, residu `4.75e-7` | oui, residu `1.19e-9` | oui | la combinaison `b_min=10 cm` + drainage explicite faible est robuste |
+| `site_02_k_base / drain_0.1` | oui, residu `1.35e-7` | oui, residu `2.74e-8` | oui | la robustesse se maintient avec drainage plus fort |
+
+Pour `site_02_k_base / drain_0.01` et `drain_0.1`, les champs obtenus par VI
+direct et par `TSPSEUDO -> VI` sont pratiquement identiques: RMSE respectivement
+`2.95e-5 m` et `5.71e-6 m`, avec des maxima de `2.6 mm` et `0.54 mm`. Cela
+renforce l'idee qu'il existe un bassin de solution regularisee bien defini
+lorsque le drainage explicite n'est pas nul. A l'inverse, `site_02_k_base /
+drain_0` reste loin: les deux chemins restent dans le meme mauvais voisinage de
+champ, avec environ `12883` cellules au fond et un residu autour de `9.3`. Ce
+n'est pas un probleme que quelques pseudo-pas supplementaires devraient resoudre
+facilement.
+
+### Mise a jour: strategie `b_min = 0.10 m` avec drainage nul
+
+Une passe specifique a ensuite teste uniquement les deux chemins robustes avec
+drainage nul sur tous les cas drain `0` disponibles dans la matrice
+drainage/K/maillage. Le cas `site_01_k_low` n'avait pas de bundle de maillage
+persistant dans les artefacts initiaux; il a ete regenere par la chaine testbed
+`run_natural_drainage_k_mesh_matrix_chain.py --cases site_01_k_low`, puis relu
+par la matrice stationnaire. `site_02_network` est ajoute comme reference
+difficile, meme s'il ne provient pas de la matrice nommee `drain_00`.
+
+| cas | VI direct `b_min=10 cm` | `TSPSEUDO -> VI b_min` | meilleur residu | probe transitoire | lecture |
+|---|---:|---:|---:|---:|---|
+| `site_01_k_base / drain_0` | oui | non | `1.72e-7` | oui | robuste par VI direct |
+| `site_01_k_base / drain_0` uniforme rivieres | non | non | `3.14e-4` | non | maillage/support defavorable, proche mais non converge |
+| `site_01_k_low / drain_0` | oui | oui | `2.88e-9` | oui | robuste |
+| `site_01_k_high / drain_0` | oui | non | `1.42e-8` | oui | robuste par VI direct |
+| `site_02_k_low / drain_0` | oui | oui | `1.62e-9` | oui | robuste |
+| `site_02_k_base / drain_0` | non | non | `9.28` | non | echec massif, fond actif dominant |
+| `site_02_k_high / drain_0` | non | non | `33.7` | non | echec massif, K fort + drainage nul |
+| `site_02_network` | non | oui | `6.65e-8` | oui | TSPSEUDO est indispensable |
+
+La conclusion est plus nuancee que "le drain 0 marche" ou "le drain 0 ne marche
+pas". Avec `b_min=10 cm`, le drainage nul passe bien sur `site_01` et sur
+`site_02_k_low`, mais il ne passe pas sur `site_02_k_base` et `site_02_k_high`.
+Ces deux echecs ne sont pas proches de la convergence: les residus restent
+respectivement autour de `9.3` et `34`, avec environ `12880` cellules actives au
+fond. A l'inverse, `site_02_network` montre que `TSPSEUDO -> VI b_min` peut
+sortir du mauvais bassin sur un grand cas, mais cette reussite ne se transpose
+pas automatiquement aux variantes `site_02_k_base/high` a drainage nul.
+
+En pratique, la strategie "permanent ou pseudo-transitoire avec drain 0" peut
+etre conservee comme stress test, mais elle n'est pas encore une strategie de
+production robuste sur l'ensemble des cas naturels. La combinaison `b_min=10 cm`
+avec un drainage explicite faible reste plus robuste pour `site_02_k_base`.
+
+### Possibilite de testbed elargi
+
+Un testbed plus large est faisable, mais il faut distinguer deux niveaux.
+
+Niveau investigation, disponible tout de suite:
+
+- reutiliser les configurations et bundles existants;
+- executer la matrice stationnaire `bmin_floor_0p10_vi` puis
+  `bmin_floor_0p10_tspseudo_then_vi`;
+- produire des CSV/JSON et un resume HTML ou Markdown;
+- couvrir tous les scenarios drainage/K deja materialises, les candidats reseau
+  et quelques N1/N2 disposant de bundles.
+
+Ce niveau est leger et sert a classer les cas: robuste direct, robuste via
+TSPSEUDO, proche de la convergence, ou echec massif. Il ne remplace pas une
+simulation transitoire complete.
+
+Niveau testbed physique/transitoire, a implementer avant campagne:
+
+- ajouter une option de configuration explicite du solveur, par exemple
+  `flow.numerics.minimum_saturated_thickness_m = 0.10`;
+- appliquer exactement ce plancher dans le stationnaire, le transitoire, la
+  jacobienne, les diagnostics et les bilans;
+- ajouter une variante Boussinesq `bmin010_drain00` dans les comparaisons;
+- ajouter une variante `bmin010_drain001` comme garde-fou, car les tests
+  montrent que `drain_0` seul echoue sur `site_02_k_base/high`;
+- reconstruire les pages HTML de comparaison et la synthese testbed.
+
+La campagne recommandee serait:
+
+1. matrice drainage/K existante: `site_01` et `site_02`, K low/base/high,
+   variantes `drain_0`, `drain_0.01`, eventuellement `drain_0.1`;
+2. candidats reseau: au moins `site_01`, `site_02`, `site_03`, `site_05`,
+   `site_02_low_k`, `site_03_low_k`;
+3. N1 10 km2: les sites deja termines et un ou deux sites en echec pour voir si
+   l'initialisation stationnaire est recuperee;
+4. seulement ensuite quelques 100 km2, car le cout et les echecs de maillage ou
+   de statut peuvent brouiller le diagnostic.
+
+Critere de promotion: une methode n'est candidate production que si elle
+converge au modele regularise declare, passe un probe transitoire coherent,
+produit des champs proches entre chemins direct/TSPSEUDO quand les deux
+convergent, et ne cache pas les echecs massifs `site_02_k_base/high` avec drain
+nul.
+
+Cette passe change la conclusion pratique. Le plancher `b_min = 0.10 m` ne
+sauve pas `site_02_network` avec un Newton direct depuis `z_top`: il retombe
+dans le mauvais champ avec `12865` cellules au fond et un residu `9.27`. En
+revanche, le chemin `TSPSEUDO -> VI b_min` converge sur ce meme cas:
+
+| methode `site_02_network` | converge | probe transitoire | residu stationnaire | actif fond | actif toit |
+|---|---:|---:|---:|---:|---:|
+| `bmin_floor_0p10_vi` | non | non | `9.27` | `12865` | `2` |
+| `bmin_floor_0p10_tspseudo` | non | oui | `1.25e-4` | `89` | `615` |
+| `bmin_floor_0p10_tspseudo_then_vi` | oui | oui | `6.65e-8` | `120` | `542` |
+| `pseudo_transient_vi_730d_warm` | warm-up seulement | oui | `8.22e-6` en check stationnaire strict | `108` | `544` |
+
+Le champ `bmin_floor_0p10_tspseudo_then_vi` est proche du warm-up
+pseudo-transitoire strict a `730` jours: RMSE `0.160 m`, p95 absolu `0.407 m`,
+maximum `0.556 m`. Il est beaucoup plus eloigne du TSPSEUDO non finalise
+(`1.72 m RMSE`) et evidemment tres eloigne du mauvais champ Newton direct
+(`49.7 m RMSE`). Cela suggere que le VI final avec `b_min=0.10 m` ramene le
+champ vers une solution stationnaire regularisee coherente, tout en conservant
+un ensemble actif raisonnable.
+
+La strategie robuste qui ressort est donc:
+
+1. utiliser le modele regularise `b_eff = max(h - z_bottom, 0.10 m)`;
+2. garder un drainage explicite faible ou physique lorsque le cas le permet:
+   `site_02_k_base` montre que `drain_0` reste pathologique alors que
+   `drain_0.01` et `drain_0.1` convergent proprement;
+3. essayer d'abord le Newton/SNESVI stationnaire direct avec ce plancher;
+4. si le Newton direct echoue, lancer `TSPSEUDO` avec le meme plancher;
+5. relancer ensuite un VI stationnaire avec le meme plancher;
+6. verifier un probe transitoire avec la meme formulation;
+7. ne pas presenter ce champ comme la solution du VI strict sans plancher.
+
+Cette piste est la meilleure candidate actuelle pour l'objectif "robuste et
+acceptable si les ecarts restent faibles". Elle demande cependant une
+implementation de production coherente: le meme `b_min` doit etre utilise dans
+le stationnaire, dans le transitoire, dans la jacobienne, dans les diagnostics et
+dans le rapport de methode.
+
 ## Recommended robust initialization architecture
 
 Architecture recommandee apres cette passe:
 
-1. Essayer `vi_obstacle` direct.
-2. Si echec et drainage cible different d'un drainage facile, essayer
-   `drainage_continuation_vi`.
-3. Si echec compact, essayer `pseudo_transient_vi_then_steady_vi`.
-4. Sur les cas compacts, terminer par un controle VI cible final.
-5. Sur les cas grands ou le controle VI final retombe systematiquement au fond,
-   separer explicitement deux objectifs: etat stationnaire cible strict, ou
-   warm-up transitoire utilisable.
-6. Si tous les chemins echouent, ecrire les diagnostics stationnaires et arreter.
-7. Garder `petsc_regularized`, `TSPSEUDO`, Picard, smoothing et complementarite
-   comme chemins de diagnostic tant qu'ils ne convergent pas au modele cible.
+1. Essayer `vi_obstacle` direct si l'objectif reste le VI strict.
+2. Si l'objectif prioritaire est la robustesse, activer explicitement le modele
+   regularise `b_min = 0.10 m`.
+3. Eviter le drainage strictement nul dans les cas naturels stressants sauf si
+   c'est l'objet scientifique du test. Un drainage faible explicite, combine au
+   plancher de transmissivite, transforme `site_02_k_base` d'un echec massif en
+   cas convergent.
+4. Dans ce modele regularise, essayer d'abord `bmin_floor_0p10_vi`.
+5. Si ce Newton direct echoue, essayer `bmin_floor_0p10_tspseudo_then_vi`.
+6. Verifier systematiquement un probe transitoire avec le meme `b_min`.
+7. Si tous les chemins echouent, ecrire les diagnostics stationnaires et arreter.
+8. Garder `petsc_regularized`, Picard, smoothing et complementarite comme
+   chemins de diagnostic tant qu'ils ne convergent pas au modele choisi.
 
 Pour `site_02_network`, la prochaine investigation devrait cibler une version
 plus controlee de TSPSEUDO:
@@ -701,6 +870,22 @@ wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydr
 wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_02_network__bouss_unstructured_same_mesh --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_site02_network --probe-dt-days 30"
 ```
 
+Exploration ciblee `b_min = 0.10 m`:
+
+```powershell
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_01_k_high__bouss_tri_irregular_drain_00 --case site_01_k_high__bouss_tri_irregular_drain_01 --case site_02_k_low__bouss_tri_irregular_drain_00 --case site_02_network__bouss_unstructured_same_mesh --method bmin_floor_0p10_vi --method bmin_floor_0p10_tspseudo --method bmin_floor_0p10_pseudo_transient_730d_warm --method bmin_floor_0p10_pseudo_transient_superfine_warm --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_focus --probe-dt-days 30"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_02_network__bouss_unstructured_same_mesh --method bmin_floor_0p10_tspseudo_then_vi --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_tspseudo_then_vi_site02_network --probe-dt-days 30"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_01_k_high__bouss_tri_irregular_drain_00 --case site_01_k_high__bouss_tri_irregular_drain_01 --case site_02_k_low__bouss_tri_irregular_drain_00 --method bmin_floor_0p10_tspseudo_then_vi --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_tspseudo_then_vi_compacts --probe-dt-days 30"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_02_network__bouss_unstructured_same_mesh --method bmin_floor_0p10_tspseudo --method bmin_floor_0p10_tspseudo_then_vi --method bmin_floor_0p10_vi --method pseudo_transient_vi_730d_warm --method tspseudo_vi_fine --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_site02_network_compare --probe-dt-days 30"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_01_k_high__bouss_tri_irregular_drain_001 --case site_02_k_low__bouss_tri_irregular_drain_001 --case site_02_k_base__bouss_tri_irregular_drain_00 --method bmin_floor_0p10_vi --method bmin_floor_0p10_tspseudo_then_vi --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_more_cases --probe-dt-days 30"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_02_k_base__bouss_tri_irregular_drain_001 --case site_02_k_base__bouss_tri_irregular_drain_01 --method bmin_floor_0p10_vi --method bmin_floor_0p10_tspseudo_then_vi --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_site02_base_drains --probe-dt-days 30"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_01_k_base__bouss_tri_irregular_drain_00 --case site_01_k_base__bouss_tri_uniform_rivers_drain_00 --case site_01_k_low__bouss_tri_irregular_drain_00 --case site_01_k_high__bouss_tri_irregular_drain_00 --case site_02_k_low__bouss_tri_irregular_drain_00 --case site_02_k_base__bouss_tri_irregular_drain_00 --case site_02_k_high__bouss_tri_irregular_drain_00 --method bmin_floor_0p10_vi --method bmin_floor_0p10_tspseudo_then_vi --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_all_cases --probe-dt-days 30"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_natural_drainage_k_mesh_matrix_chain.py --cases site_01_k_low --continue-on-error"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_01_k_low__bouss_tri_irregular_drain_00 --method bmin_floor_0p10_vi --method bmin_floor_0p10_tspseudo_then_vi --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_site01_low --probe-dt-days 30"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_02_k_high__bouss_tri_irregular_drain_00 --method bmin_floor_0p10_vi --method bmin_floor_0p10_tspseudo_then_vi --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_site02_high --probe-dt-days 30"
+wsl -e bash -lc "cd /mnt/c/codes/HydroModPy && /home/dreuzy/miniforge3/envs/hydromodpy-wsl/bin/python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_best_candidate_matrix.py --case site_02_network__bouss_unstructured_same_mesh --method bmin_floor_0p10_vi --method bmin_floor_0p10_tspseudo_then_vi --output-dir docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_network_reference --probe-dt-days 30"
+```
+
 Tests et lint:
 
 ```powershell
@@ -739,6 +924,22 @@ Sorties principales:
 - `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_site01_d01_site02_low_d00/stationary_best_candidate_head_similarity.csv`;
 - `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_site02_network/stationary_best_candidate_matrix.csv`;
 - `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_site02_network/stationary_best_candidate_head_similarity.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_focus/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_tspseudo_then_vi_site02_network/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_tspseudo_then_vi_compacts/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_site02_network_compare/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_site02_network_compare/stationary_best_candidate_head_similarity.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_more_cases/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_more_cases/stationary_best_candidate_head_similarity.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_site02_base_drains/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_site02_base_drains/stationary_best_candidate_head_similarity.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_all_cases/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_site01_low/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_site02_high/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_network_reference/stationary_best_candidate_matrix.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_combined/stationary_best_candidate_matrix_combined.csv`;
+- `docs/_dev_notes/diagnostics/boussinesq_stationary_best_candidate_matrix_bmin010_drain00_combined/stationary_best_candidate_matrix_combined.md`;
+- `examples/projects/10_testbed_workflow/outputs/boussinesq_natural_drainage_k_mesh_matrix_testbed/web_synthesis/index.html`;
 - fichiers JSON correspondants;
 - fichiers `head_field.npz` par cas et methode;
 - `stage_diagnostics.csv`, `method_summary.json` et diagnostics d'echec dans
