@@ -40,6 +40,7 @@ def _compact_method_code(method_name: str) -> str:
     mapping = {
         "grid": "gs",
         "random_search": "rs",
+        "optuna": "opt",
         "cma_es": "cma",
         "scipy_nelder_mead": "snm",
         "gp_mapping": "gpm",
@@ -354,6 +355,8 @@ def _apply_evaluation_budget(
         points_per_dim = max(1, int(budget ** (1.0 / max(1, n_parameters))))
         kwargs["points_per_dim"] = int(points_per_dim)
     elif method == "random_search":
+        kwargs["max_iter"] = int(budget)
+    elif method == "optuna":
         kwargs["max_iter"] = int(budget)
     elif method == "cma_es":
         kwargs["max_evaluations"] = int(budget)

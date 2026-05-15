@@ -98,7 +98,7 @@ class TestCalibrationConfigExtraForbidden:
 
 
 class TestCalibrationConfigMethodLiteral:
-    @pytest.mark.parametrize("method", ["grid", "random_search"])
+    @pytest.mark.parametrize("method", ["grid", "random_search", "optuna"])
     def test_accepts_all_supported_methods(self, method: str):
         cfg = CalibrationConfig.model_validate({"method": method})
         assert cfg.method == method
