@@ -97,7 +97,7 @@ def read_prt_pathlines_from_zarr(zarr_path: Path) -> PrtPathlineData:
     store = ZipStore(zarr_path, mode="r")
     try:
         root = zarr.open_group(store=store, mode="r")
-        group = root["pathlines"]
+        group = root["particles"]
         x = _read_array(group, "x")
         y = _read_array(group, "y", x.shape)
         z = _read_array(group, "z", x.shape)
