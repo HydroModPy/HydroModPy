@@ -1,7 +1,14 @@
-"""Export simulation fields to GeoTIFF by rasterizing unstructured meshes."""
+"""Export simulation fields to GeoTIFF by rasterizing unstructured meshes.
+
+Output rasters honour the OGC Cloud Optimized GeoTIFF (COG) 1.0 spec:
+internal tiling at 512x512, zstd compression, and pre-computed overviews
+at 2/4/8/16/32x. Each raster carries provenance tags so consumers can
+trace back to the source simulation.
+"""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +18,9 @@ from hydromodpy.results import field_registry
 from hydromodpy.results.zarr_store import SimulationZarr
 
 logger = get_logger(__name__)
+
+_COG_TILE = 512
+_COG_OVERVIEW_FACTORS = (2, 4, 8, 16, 32)
 
 
 def export_geotiff(
@@ -70,6 +80,7 @@ def export_geotiff(
     ... )
     """
     import rasterio
+    from rasterio.enums import Resampling
     from rasterio.features import rasterize
     from rasterio.transform import from_bounds
     from shapely.geometry import Polygon
@@ -145,10 +156,27 @@ def export_geotiff(
         crs=crs,
         transform=transform,
         nodata=nodata,
+        tiled=True,
+        blockxsize=_COG_TILE,
+        blockysize=_COG_TILE,
+        compress="zstd",
+        zstd_level=5,
+        predictor=2,
     ) as dst:
         dst.write(raster, 1)
+        dst.update_tags(
+            HMP_SIM_ID=str(sim_id),
+            HMP_VARIABLE=str(variable),
+            HMP_TIMESTAMP=datetime.now(UTC).isoformat(),
+        )
+        # Skip overviews when the raster is smaller than the first factor;
+        # rasterio raises on factors that downsample below 1 pixel.
+        feasible_factors = tuple(f for f in _COG_OVERVIEW_FACTORS if min(width, height) // f >= 1)
+        if feasible_factors:
+            dst.build_overviews(list(feasible_factors), Resampling.average)
+            dst.update_tags(ns="rio_overview", resampling="average")
 
-    logger.info("Exported GeoTIFF: %s (%dx%d)", output_path, width, height)
+    logger.info("Exported COG GeoTIFF: %s (%dx%d)", output_path, width, height)
     return output_path
 
 
