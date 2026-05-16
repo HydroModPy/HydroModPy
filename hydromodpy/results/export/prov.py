@@ -35,6 +35,10 @@ PROV_CONTEXT = {
     "xsd": "http://www.w3.org/2001/XMLSchema#",
 }
 
+_AGENT_HYDROMODPY_ID = "#agent/hydromodpy"
+_AGENT_SOLVER_ID_TEMPLATE = "#agent/solver/{name}"
+_AGENT_CREATOR_ID = "#agent/creator"
+
 
 def _activity_id(sim_id: str) -> str:
     return f"#action/simulation"  # noqa: F541 - intentional anchor for RO-Crate cross-refs
@@ -52,6 +56,51 @@ def _output_id(asset_key: str) -> str:
 
 def _fetch_activity_id(role: str, idx: int) -> str:
     return f"#action/fetch/{role}/{idx}"
+
+
+def _solver_agent_id(name: str | None) -> str:
+    safe = "".join(ch if ch.isalnum() or ch in "-_." else "_" for ch in str(name or "unknown"))
+    return _AGENT_SOLVER_ID_TEMPLATE.format(name=safe or "unknown")
+
+
+def _build_agents(context: FairExportContext) -> list[dict[str, Any]]:
+    """Return the three ``prov:Agent`` nodes (HydroModPy, solver, creator).
+
+    Always emits the HydroModPy software agent. The solver agent and the
+    creator agent are emitted when the context carries enough metadata
+    (solver name / creator name).
+    """
+    agents: list[dict[str, Any]] = [
+        {
+            "@id": _AGENT_HYDROMODPY_ID,
+            "@type": ["prov:SoftwareAgent", "SoftwareApplication"],
+            "name": "HydroModPy",
+            "softwareVersion": context.hydromodpy_version,
+            "schema:identifier": "https://pypi.org/project/hydromodpy/",
+        }
+    ]
+    if context.solver_name:
+        solver_node: dict[str, Any] = {
+            "@id": _solver_agent_id(context.solver_name),
+            "@type": ["prov:SoftwareAgent", "SoftwareApplication"],
+            "name": context.solver_name,
+        }
+        if context.solver_version:
+            solver_node["softwareVersion"] = context.solver_version
+        if context.solver_binary_sha256:
+            solver_node["sha256"] = context.solver_binary_sha256
+        agents.append(solver_node)
+    if context.creator_name or context.creator_email:
+        creator_node: dict[str, Any] = {
+            "@id": _AGENT_CREATOR_ID,
+            "@type": ["prov:Person", "Person"],
+        }
+        if context.creator_name:
+            creator_node["name"] = context.creator_name
+        if context.creator_email:
+            creator_node["email"] = context.creator_email
+        agents.append(creator_node)
+    return agents
 
 
 def build_prov_document(context: FairExportContext) -> dict[str, Any]:
@@ -93,7 +142,17 @@ def build_prov_document(context: FairExportContext) -> dict[str, Any]:
     if not _is_missing(runs_env.get("rng_seed")):
         action["hydromodpy:rngSeed"] = int(runs_env["rng_seed"])
 
-    activities: list[dict[str, Any]] = []
+    # prov:wasAssociatedWith links the simulation activity to every agent
+    # that ran it (HydroModPy itself, the solver binary, the human creator).
+    associations: list[dict[str, Any]] = [{"@id": _AGENT_HYDROMODPY_ID}]
+    if context.solver_name:
+        associations.append({"@id": _solver_agent_id(context.solver_name)})
+    if context.creator_name or context.creator_email:
+        associations.append({"@id": _AGENT_CREATOR_ID})
+    action["prov:wasAssociatedWith"] = associations
+
+    activities: list[dict[str, Any]] = list(_build_agents(context))
+    input_ids: list[str] = []
     for idx, entry in enumerate(context.inputs):
         eid = _entity_id(entry.role, idx, Path(entry.original_path).name or entry.role)
         entity: dict[str, Any] = {
@@ -135,6 +194,7 @@ def build_prov_document(context: FairExportContext) -> dict[str, Any]:
         activities.append(entity)
         action["object"].append({"@id": eid})
         action.setdefault("prov:used", []).append({"@id": eid})
+        input_ids.append(eid)
 
     for asset in context.assets:
         oid = _output_id(asset.key)
@@ -150,6 +210,12 @@ def build_prov_document(context: FairExportContext) -> dict[str, Any]:
             output_entity["sha256"] = asset.sha256
         if asset.size_bytes is not None:
             output_entity["contentSize"] = int(asset.size_bytes)
+        # prov:wasDerivedFrom links each output to every declared input.
+        # V1 uses a coarse-grained mapping (output depends on all inputs);
+        # a field-level mapping via ``field_registry.upstream_fields`` is
+        # queued for V2.
+        if input_ids:
+            output_entity["prov:wasDerivedFrom"] = [{"@id": iid} for iid in input_ids]
         activities.append(output_entity)
         action["result"].append({"@id": oid})
 
