@@ -1,0 +1,18 @@
+# CF Standard Name Table v85 -- curated subset used by HydroModPy.
+#
+# Source: https://cfconventions.org/Data/cf-standard-names/85/build/cf-standard-name-table.html
+#
+# Only the entries below are claimed as CF v85 by the field registry.
+# Anything else falls back to the CSDMS Standard Name registry through
+# ``FieldDescriptor.csdms_standard_name``. To expand the list, copy the
+# canonical ``id`` from the upstream XML table; do not invent names here.
+#
+# A full ``cf-standard-name-table.xml`` vendoring is queued for V2 along
+# with a parser. V1 ships this curated text list so the helper stays
+# offline-friendly and the runtime cost is zero.
+cell_thickness
+land_binary_mask
+soil_porosity
+surface_altitude
+surface_runoff_flux
+water_flux_into_sea_water_from_rivers

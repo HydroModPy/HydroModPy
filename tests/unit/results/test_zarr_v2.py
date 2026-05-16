@@ -164,13 +164,16 @@ def test_consolidate_metadata_written_on_finalize(tmp_path: Path) -> None:
 
 
 def test_standard_name_mapping(fresh_store: SimulationZarr) -> None:
-    from hydromodpy.results.zarr_store import alias_for
+    from hydromodpy.results import field_registry
+    from hydromodpy.results.zarr_store import is_cf_standard_name
 
-    head = alias_for("head")
+    head = field_registry.get("head")
     assert head.standard_name == ""
     assert head.csdms_standard_name == "subsurface_water__hydraulic_head"
-    topo = alias_for("topography")
+    topo = field_registry.get("topography")
     assert topo.standard_name == "surface_altitude"
+    assert is_cf_standard_name(topo.standard_name)
+    assert not is_cf_standard_name(head.standard_name)
 
 
 def test_zarr_schema_version_stored(fresh_store: SimulationZarr) -> None:

@@ -10,7 +10,10 @@ from hydromodpy.results.zarr_store.atomic import (
     STATUS_INCOMPLETE,
     atomic_write_array,
 )
-from hydromodpy.results.zarr_store.cf_aliases import CF_ALIASES, CfAlias, alias_for
+from hydromodpy.results.zarr_store.cf_validation import (
+    cf_v85_names,
+    is_cf_standard_name,
+)
 from hydromodpy.results.zarr_store.chunks import (
     compute_balanced_chunks_1d,
     compute_balanced_chunks_2d,
@@ -40,9 +43,7 @@ from hydromodpy.results.zarr_store.simulation_zarr import (
 __all__ = [
     "BALANCED_TARGET_BYTES",
     "BLOSC_ZSTD",
-    "CF_ALIASES",
     "CF_CONVENTIONS",
-    "CfAlias",
     "FsspecZarrStore",
     "HIGHLY_RECOMMENDED",
     "LOCK_FILE_NAME",
@@ -54,13 +55,14 @@ __all__ = [
     "SimulationZarr",
     "ZARR_SCHEMA_VERSION",
     "ZarrSchemaVersionError",
-    "alias_for",
     "atomic_write_array",
+    "cf_v85_names",
     "compose_acdd_root_attrs",
     "compute_balanced_chunks_1d",
     "compute_balanced_chunks_2d",
     "compute_shard_shape_1d",
     "compute_shard_shape_2d",
+    "is_cf_standard_name",
     "should_use_sharding",
     "_ensure_local_zarr_node_dir",
     "_is_zip_store_path",
