@@ -48,11 +48,18 @@ if TYPE_CHECKING:
 def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset:
     """Open one simulation's Zarr root as a lazy ``xr.Dataset``.
 
-    Wraps each registered field's Zarr array in ``dask.array.from_array``
-    so that the returned dataset is fully lazy: nothing is read until the
-    caller materialises slices. Dimensions are read from the field
-    registry, not Zarr metadata, so we don't depend on
-    ``dimension_names`` (which HydroModPy stores don't carry).
+    Field arrays live under nested subgroups (``derived/*``, ``budget/*``,
+    ``mesh/*``) and HydroModPy writes Zarr v3 stores without the
+    ``dimension_names`` array metadata that ``xr.open_zarr`` needs to map
+    arrays to dims. Both constraints make a single ``xr.open_zarr`` call
+    on the root impossible; instead we assemble the dataset manually
+    (one ``DataArray`` per registered field, dims read from
+    :mod:`hydromodpy.results.field_registry`) and then route the result
+    through :func:`xr.decode_cf` so callers still get CF-aware time
+    decoding for the ``time`` coordinate.
+
+    The data variables stay dask-backed end-to-end, so the dataset is
+    fully lazy: nothing is read until the caller materialises slices.
     """
     import dask.array as da
     import xarray as xr
@@ -76,7 +83,7 @@ def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset
         field_registry.SHAPE_PARTICLES: ("time", "particle"),
     }
 
-    data_vars: dict[str, xr.DataArray] = {}
+    data_vars: dict[str, xr.Variable] = {}
     for name, desc in field_registry.FIELD_REGISTRY.items():
         path = desc.zarr_path
         if "/" in path:
@@ -94,9 +101,29 @@ def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset
             dims = tuple(f"dim_{i}" for i in range(arr.ndim))
         chunks = arr.chunks if arr.chunks else "auto"
         dask_arr = da.from_array(arr, chunks=chunks)
-        data_vars[name] = xr.DataArray(dask_arr, dims=dims, attrs=dict(arr.attrs))
+        data_vars[name] = xr.Variable(dims, dask_arr, attrs=dict(arr.attrs))
 
-    return xr.Dataset(data_vars)
+    coords: dict[str, xr.Variable] = {}
+    if "time" in root:
+        time_arr = root["time"]
+        time_chunks = time_arr.chunks if time_arr.chunks else "auto"
+        coords["time"] = xr.Variable(
+            ("time",),
+            da.from_array(time_arr, chunks=time_chunks),
+            attrs=dict(time_arr.attrs),
+        )
+    if "crs" in root:
+        crs_arr = root["crs"]
+        coords["crs"] = xr.Variable(
+            (),
+            da.from_array(crs_arr, chunks=()),
+            attrs=dict(crs_arr.attrs),
+        )
+
+    raw = xr.Dataset(data_vars=data_vars, coords=coords, attrs=dict(root.attrs))
+    # ``xr.decode_cf`` applies CF decoding (time epoch, calendar, units)
+    # while preserving dask backing on data variables.
+    return xr.decode_cf(raw, decode_times=True)
 
 
 class SimulationGroup:
