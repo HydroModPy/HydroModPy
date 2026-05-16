@@ -65,6 +65,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Skip the interactive confirmation prompt",
     )
+    purge.add_argument(
+        "--archive-pii",
+        action="store_true",
+        help=(
+            "Also write the simulation snapshot (name, project, hashes) to a"
+            " sibling 0o600 archive. Off by default to keep certificates PII-free."
+        ),
+    )
 
     parser.set_defaults(_handler=run)
     return parser
@@ -136,11 +144,19 @@ def _cmd_purge(args: argparse.Namespace) -> None:
     cert_path = _write_purge_certificate(
         workspace_root=workspace_top,
         sim_id=sid,
-        snapshot=snapshot,
         reason=args.reason,
-        removed_paths=[*existing, *extra_removed],
         sha256_snapshot=sha256_snapshot,
     )
+    archive_path: Path | None = None
+    if getattr(args, "archive_pii", False):
+        archive_path = _write_pii_archive(
+            workspace_root=workspace_top,
+            sim_id=sid,
+            snapshot=snapshot,
+            reason=args.reason,
+            removed_paths=[*existing, *extra_removed],
+            sha256_snapshot=sha256_snapshot,
+        )
 
     print(f"Purged simulation {sid}")
     for path in existing:
@@ -148,6 +164,8 @@ def _cmd_purge(args: argparse.Namespace) -> None:
     for path in extra_removed:
         print(f"  removed (orphan cache): {path}")
     print(f"Certificate: {cert_path}")
+    if archive_path is not None:
+        print(f"PII archive (0o600): {archive_path}")
     sys.exit(EXIT_OK)
 
 
@@ -253,7 +271,62 @@ def _sha256_snapshot(snapshot: dict[str, object]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _resolve_operator() -> str:
+    """Return the OS user that performed the purge."""
+    import os
+
+    for key in ("HMP_USER", "USER", "USERNAME"):
+        value = os.environ.get(key)
+        if value:
+            return value
+    try:
+        import getpass
+
+        return getpass.getuser()
+    except OSError:
+        return "anonymous"
+
+
 def _write_purge_certificate(
+    *,
+    workspace_root: Path,
+    sim_id: str,
+    reason: str,
+    sha256_snapshot: str,
+) -> Path:
+    """Write a PII-free GDPR purge certificate (mode 0o600).
+
+    The certificate only carries the SHA-256 of the snapshot, the
+    operator id, a timestamp and a free-form reason. Full snapshot
+    details land in the optional sibling archive when ``--archive-pii``
+    is set.
+    """
+    import os
+
+    cert_dir = workspace_root / ".hmp" / PURGE_CERTIFICATE_DIRNAME
+    cert_dir.mkdir(parents=True, exist_ok=True)
+    cert_path = cert_dir / f"{sim_id}.json"
+
+    certificate = {
+        "sim_id": sim_id,
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "operator": _resolve_operator(),
+        "reason": reason,
+        "sha256_snapshot": sha256_snapshot,
+    }
+    cert_path.write_text(
+        json.dumps(certificate, indent=2, sort_keys=True, default=str),
+        encoding="utf-8",
+    )
+    try:
+        os.chmod(cert_path, 0o600)
+    except OSError:
+        # POSIX-only; Windows ignores chmod silently.
+        pass
+    return cert_path
+
+
+def _write_pii_archive(
     *,
     workspace_root: Path,
     sim_id: str,
@@ -262,23 +335,31 @@ def _write_purge_certificate(
     removed_paths: list[str],
     sha256_snapshot: str,
 ) -> Path:
+    """Write the opt-in PII-bearing archive (mode 0o600) next to the cert."""
+    import os
+
     cert_dir = workspace_root / ".hmp" / PURGE_CERTIFICATE_DIRNAME
     cert_dir.mkdir(parents=True, exist_ok=True)
-    cert_path = cert_dir / f"{sim_id}.json"
+    archive_path = cert_dir / f"{sim_id}.pii.json"
 
-    certificate = {
+    archive = {
         "sim_id": sim_id,
         "timestamp_utc": datetime.now(UTC).isoformat(),
+        "operator": _resolve_operator(),
         "reason": reason,
         "sha256_snapshot": sha256_snapshot,
         "removed_paths": removed_paths,
         "snapshot": snapshot,
     }
-    cert_path.write_text(
-        json.dumps(certificate, indent=2, sort_keys=True, default=str),
+    archive_path.write_text(
+        json.dumps(archive, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
     )
-    return cert_path
+    try:
+        os.chmod(archive_path, 0o600)
+    except OSError:
+        pass
+    return archive_path
 
 
 __all__ = ("NAME", "HELP", "register", "run")

@@ -105,6 +105,86 @@ def test_privacy_purge_writes_certificate(monkeypatch, tmp_path, capsys) -> None
     assert len(payload["sha256_snapshot"]) == 64
 
 
+def test_privacy_purge_certificate_is_pii_free(monkeypatch, tmp_path) -> None:
+    """The default certificate carries no snapshot, no paths, no PII fields."""
+    workspace, project = _make_workspace_with_project(tmp_path)
+    sim_id = _seed_simulation(project)
+
+    code = _run(
+        monkeypatch,
+        ["hmp", "privacy", "purge", sim_id, "--workspace", str(project), "-y"],
+    )
+    assert code == 0
+    cert_path = workspace / ".hmp" / "purge_certificates" / f"{sim_id}.json"
+    payload = json.loads(cert_path.read_text())
+    forbidden = {
+        "snapshot",
+        "removed_paths",
+        "contact_email",
+        "principal_id",
+        "outlet_x",
+        "outlet_y",
+        "name",
+        "project",
+    }
+    leaked = forbidden & set(payload.keys())
+    assert not leaked, f"PII leaked into purge certificate: {sorted(leaked)}"
+    assert "operator" in payload, "certificate must record the operator id"
+
+
+def test_privacy_purge_certificate_is_mode_0o600(monkeypatch, tmp_path) -> None:
+    """The certificate file is created with restrictive permissions."""
+    import os
+    import stat
+
+    if os.name != "posix":
+        pytest.skip("POSIX-only permission check")
+
+    workspace, project = _make_workspace_with_project(tmp_path)
+    sim_id = _seed_simulation(project)
+
+    _run(
+        monkeypatch,
+        ["hmp", "privacy", "purge", sim_id, "--workspace", str(project), "-y"],
+    )
+    cert_path = workspace / ".hmp" / "purge_certificates" / f"{sim_id}.json"
+    mode = stat.S_IMODE(cert_path.stat().st_mode)
+    assert mode == 0o600, f"certificate must be 0o600, got {oct(mode)}"
+
+
+def test_privacy_purge_archive_pii_opt_in(monkeypatch, tmp_path) -> None:
+    """``--archive-pii`` writes a sibling 0o600 file with the snapshot."""
+    import os
+    import stat
+
+    workspace, project = _make_workspace_with_project(tmp_path)
+    sim_id = _seed_simulation(project)
+
+    code = _run(
+        monkeypatch,
+        [
+            "hmp",
+            "privacy",
+            "purge",
+            sim_id,
+            "--workspace",
+            str(project),
+            "-y",
+            "--archive-pii",
+        ],
+    )
+    assert code == 0
+
+    archive_path = workspace / ".hmp" / "purge_certificates" / f"{sim_id}.pii.json"
+    assert archive_path.is_file(), "PII archive must exist when --archive-pii is passed"
+    archive = json.loads(archive_path.read_text())
+    assert "snapshot" in archive
+    assert "removed_paths" in archive
+    if os.name == "posix":
+        mode = stat.S_IMODE(archive_path.stat().st_mode)
+        assert mode == 0o600
+
+
 def test_privacy_purge_removes_simulation_row(monkeypatch, tmp_path) -> None:
     import duckdb
 
