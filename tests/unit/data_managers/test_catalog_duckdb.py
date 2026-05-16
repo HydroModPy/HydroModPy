@@ -418,52 +418,17 @@ class TestContextManager:
             assert len(cat.list_entries()) == 1
 
 
-def test_catalog_migrates_varchar_time_columns_with_existing_indexes(tmp_path):
-    duckdb_path = tmp_path / "catalog.duckdb"
-    conn = duckdb.connect(str(duckdb_path))
-    try:
-        conn.execute("CREATE SEQUENCE entries_seq START 1")
-        conn.execute(
-            """
-            CREATE TABLE entries (
-                id INTEGER PRIMARY KEY DEFAULT nextval('entries_seq'),
-                variable VARCHAR NOT NULL,
-                source VARCHAR NOT NULL,
-                station_id VARCHAR,
-                bbox_xmin DOUBLE,
-                bbox_ymin DOUBLE,
-                bbox_xmax DOUBLE,
-                bbox_ymax DOUBLE,
-                crs VARCHAR,
-                date_start VARCHAR,
-                date_end VARCHAR,
-                frequency VARCHAR,
-                unit VARCHAR,
-                source_unit VARCHAR,
-                file_path TEXT NOT NULL,
-                file_mtime DOUBLE,
-                created_at TIMESTAMP DEFAULT now(),
-                is_custom INTEGER DEFAULT 0,
-                fetch_metadata JSON
-            )
-            """
-        )
-        conn.execute(
-            "CREATE INDEX ix_entries_var_src_station ON entries (variable, source, station_id)"
-        )
-        conn.execute(
-            "INSERT INTO entries "
-            "(variable, source, date_start, date_end, file_path) "
-            "VALUES ('hydrometry', 'custom', '2020-01-01', '2020-12-31', 'file.parquet')"
-        )
-    finally:
-        conn.close()
+def test_catalog_fresh_db_has_timestamptz_time_columns(tmp_path):
+    """Fresh V1 caches always create ``date_start``/``date_end`` as TIMESTAMPTZ.
 
+    The legacy ``VARCHAR`` -> ``TIMESTAMPTZ`` ALTER chain is gone in V1
+    (clean-slate migration policy). Every new cache opens straight onto
+    the canonical schema defined by ``0001_initial.sql``.
+    """
+    duckdb_path = tmp_path / "catalog.duckdb"
     with DataCatalogDuckDB(duckdb_path) as catalog:
         info = catalog.connection.execute("PRAGMA table_info('entries')").fetchall()
         types = {row[1]: row[2].upper() for row in info}
-        entry = catalog.find_cached(variable="hydrometry", source="custom")
 
     assert types["date_start"] == "TIMESTAMP WITH TIME ZONE"
     assert types["date_end"] == "TIMESTAMP WITH TIME ZONE"
-    assert entry is not None
