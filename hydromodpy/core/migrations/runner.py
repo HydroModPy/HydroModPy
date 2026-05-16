@@ -19,6 +19,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from filelock import FileLock
 from pydantic import BaseModel, ConfigDict
 
 from hydromodpy.core.migrations.errors import (
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
     import duckdb
 
 DEFAULT_COMPONENT = "catalog"
+DEFAULT_LOCK_TIMEOUT = 30.0
 
 _FILENAME_RE = re.compile(r"^(?P<version>\d{4})_(?P<slug>[a-z0-9][a-z0-9_]*)\.sql$")
 
@@ -202,6 +204,33 @@ def ensure_schema(
                 f"Checksum mismatch for migration {migration.version:04d}_{migration.slug} "
                 f"({component}): stored {recorded!r}, disk {migration.checksum!r}"
             )
+
+
+def apply_migrations(
+    db_path: Path,
+    migrations_dir: Path,
+    *,
+    component: str = DEFAULT_COMPONENT,
+    lock_timeout: float = DEFAULT_LOCK_TIMEOUT,
+) -> int:
+    """Open ``db_path``, apply pending migrations, return the new version.
+
+    Acquires a :class:`filelock.FileLock` on ``<db_path>.lock`` so concurrent
+    callers serialise their migration runs against the same physical database.
+    Creates the parent directory of ``db_path`` if missing.
+    """
+    import duckdb
+
+    db_path = Path(db_path)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(f"{db_path}.lock", timeout=lock_timeout)
+    with lock:
+        connection = duckdb.connect(str(db_path))
+        try:
+            ensure_schema(connection, versions_dir=migrations_dir, component=component)
+            return current_version(connection, component=component)
+        finally:
+            connection.close()
 
 
 def _create_system_tables(connection: duckdb.DuckDBPyConnection) -> None:
