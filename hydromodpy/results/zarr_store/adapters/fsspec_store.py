@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+# Stub - opérationnel en v2. The class lands in V1 so the abstraction
+# is wired, but every method raises ``NotImplementedError`` until the V2
+# cloud work activates ``fsspec`` against real backends.
+
 
 class FsspecZarrStore:
     """Cloud Zarr store ready-to-go. Not implemented in v2.0.
