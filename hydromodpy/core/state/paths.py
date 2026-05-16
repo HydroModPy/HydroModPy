@@ -59,14 +59,6 @@ def state_dir() -> Path:
     return Path(platformdirs.user_state_dir(_APP_NAME))
 
 
-def bin_dir(solver: str, version: str) -> Path:
-    """Return solver binary install path (HMP_BIN override)."""
-    override = os.environ.get("HMP_BIN")
-    if override:
-        return Path(override).expanduser().resolve() / solver / version
-    return cache_dir() / "bin" / solver / version
-
-
 # Workspace-relative path helpers ------------------------------------------
 
 
@@ -184,7 +176,6 @@ __all__: Iterable[str] = (
     "INDEX_FILENAME",
     "PROJECT_TOML_FILENAME",
     "WORKSPACE_TOML_FILENAME",
-    "bin_dir",
     "cache_dir",
     "decode_workspace_path",
     "encode_workspace_path",

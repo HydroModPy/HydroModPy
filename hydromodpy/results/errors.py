@@ -30,7 +30,7 @@ class ProjectNotFoundError(CatalogError, FileNotFoundError):
 
 
 class SchemaVersionMismatchError(CatalogError):
-    """Stored schema version differs from ``CATALOG_SCHEMA_VERSION``."""
+    """Stored schema version differs from the runner's target version."""
 
     code = "HMPY.E824"
 

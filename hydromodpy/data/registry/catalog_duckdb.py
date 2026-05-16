@@ -13,157 +13,12 @@ import pandas as pd
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
+from hydromodpy.data.registry.migrations import ensure_schema as _ensure_cache_schema
 
 logger = get_logger(__name__)
 
 _RETRY = 8
 _BACKOFF = 0.05
-CATALOG_SCHEMA_VERSION = "1"
-
-_SCHEMA_VERSION_DDL = """
-CREATE TABLE IF NOT EXISTS _schema_version (
-    component  VARCHAR PRIMARY KEY,
-    version    VARCHAR NOT NULL,
-    applied_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
-);
-"""
-
-_ENTRIES_DDL = """
-CREATE TABLE IF NOT EXISTS entries (
-    id            INTEGER PRIMARY KEY DEFAULT nextval('entries_seq'),
-    variable      VARCHAR NOT NULL,
-    source        VARCHAR NOT NULL,
-    station_id    VARCHAR,
-    bbox_xmin     DOUBLE,
-    bbox_ymin     DOUBLE,
-    bbox_xmax     DOUBLE,
-    bbox_ymax     DOUBLE,
-    crs           VARCHAR,
-    date_start    TIMESTAMPTZ,
-    date_end      TIMESTAMPTZ,
-    frequency     VARCHAR,
-    unit          VARCHAR,
-    source_unit   VARCHAR,
-    file_path     TEXT NOT NULL,
-    file_mtime    DOUBLE,
-    sha256        VARCHAR,
-    created_at    TIMESTAMP DEFAULT now(),
-    is_custom     INTEGER DEFAULT 0,
-    fetch_metadata JSON
-);
-
-CREATE INDEX IF NOT EXISTS ix_entries_var_src_station
-    ON entries (variable, source, station_id);
-CREATE INDEX IF NOT EXISTS ix_entries_bbox
-    ON entries (bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax);
-"""
-
-_API_COVERAGE_DDL = """
-CREATE TABLE IF NOT EXISTS api_coverage (
-    id          INTEGER PRIMARY KEY DEFAULT nextval('api_coverage_seq'),
-    variable    VARCHAR NOT NULL,
-    source      VARCHAR NOT NULL,
-    country     VARCHAR,
-    description VARCHAR,
-    bbox_xmin   DOUBLE,
-    bbox_ymin   DOUBLE,
-    bbox_xmax   DOUBLE,
-    bbox_ymax   DOUBLE
-);
-"""
-
-# Extended schema tables (v0.5) -----------------------------------------------
-
-_ARTIFACTS_DDL = """
-CREATE TABLE IF NOT EXISTS artifacts (
-    id            INTEGER PRIMARY KEY DEFAULT nextval('artifacts_seq'),
-    sim_id        VARCHAR,
-    variable      VARCHAR,
-    artifact_type VARCHAR NOT NULL,
-    path          TEXT NOT NULL,
-    sha256        VARCHAR,
-    size_bytes    BIGINT,
-    created_at    TIMESTAMP DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS ix_artifacts_sim ON artifacts (sim_id);
-CREATE INDEX IF NOT EXISTS ix_artifacts_sha256 ON artifacts (sha256);
-"""
-
-_PROVENANCE_DDL = """
-CREATE TABLE IF NOT EXISTS provenance (
-    id              INTEGER PRIMARY KEY DEFAULT nextval('provenance_seq'),
-    artifact_id     INTEGER,
-    variable        VARCHAR,
-    source          VARCHAR,
-    input_hash      VARCHAR,
-    tool_name       VARCHAR,
-    tool_version    VARCHAR,
-    parameters_json JSON,
-    recorded_at     TIMESTAMP DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS ix_provenance_artifact ON provenance (artifact_id);
-"""
-
-_STATIONS_DDL = """
-CREATE TABLE IF NOT EXISTS stations (
-    station_id  VARCHAR NOT NULL,
-    variable    VARCHAR NOT NULL,
-    source      VARCHAR,
-    lat         DOUBLE,
-    lon         DOUBLE,
-    z           DOUBLE,
-    name        VARCHAR,
-    first_valid VARCHAR,
-    last_valid  VARCHAR,
-    PRIMARY KEY (station_id, variable)
-);
-"""
-
-_COVERAGE_DDL = """
-CREATE TABLE IF NOT EXISTS coverage (
-    id           INTEGER PRIMARY KEY DEFAULT nextval('coverage_seq'),
-    variable     VARCHAR NOT NULL,
-    source       VARCHAR,
-    region_wkt   TEXT,
-    period_start VARCHAR,
-    period_end   VARCHAR,
-    n_stations   INTEGER
-);
-"""
-
-_FAILURES_DDL = """
-CREATE TABLE IF NOT EXISTS failures (
-    id          INTEGER PRIMARY KEY DEFAULT nextval('failures_seq'),
-    variable    VARCHAR,
-    source_ref  VARCHAR,
-    error_type  VARCHAR NOT NULL,
-    message     TEXT,
-    occurred_at TIMESTAMP DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS ix_failures_variable ON failures (variable);
-"""
-
-_VALIDATION_REPORTS_DDL = """
-CREATE TABLE IF NOT EXISTS validation_reports (
-    id           INTEGER PRIMARY KEY DEFAULT nextval('validation_reports_seq'),
-    artifact_id  INTEGER,
-    schema_name  VARCHAR NOT NULL,
-    passed       BOOLEAN NOT NULL,
-    errors_json  JSON,
-    validated_at TIMESTAMP DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS ix_validation_artifact ON validation_reports (artifact_id);
-"""
-
-# Sorted in schema-version order so we can introspect presence.
-_EXTENDED_TABLES: tuple[str, ...] = (
-    "artifacts",
-    "provenance",
-    "stations",
-    "coverage",
-    "failures",
-    "validation_reports",
-)
 
 
 class _CatalogEntry:
@@ -211,25 +66,7 @@ class DataCatalogDuckDB:
             self._db_path = db_path
             self._conn = duckdb.connect(str(db_path))
 
-        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS entries_seq START 1")
-        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS api_coverage_seq START 1")
-        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS artifacts_seq START 1")
-        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS provenance_seq START 1")
-        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS coverage_seq START 1")
-        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS failures_seq START 1")
-        self._conn.execute("CREATE SEQUENCE IF NOT EXISTS validation_reports_seq START 1")
-        self._conn.execute(_SCHEMA_VERSION_DDL)
-        self._conn.execute(_ENTRIES_DDL)
-        self._conn.execute(_API_COVERAGE_DDL)
-        self._conn.execute(_ARTIFACTS_DDL)
-        self._conn.execute(_PROVENANCE_DDL)
-        self._conn.execute(_STATIONS_DDL)
-        self._conn.execute(_COVERAGE_DDL)
-        self._conn.execute(_FAILURES_DDL)
-        self._conn.execute(_VALIDATION_REPORTS_DDL)
-        self._ensure_entries_sha256_column()
-        self._ensure_entries_time_columns()
-        self._record_schema_version()
+        _ensure_cache_schema(self._conn)
 
     @property
     def connection(self):
@@ -465,44 +302,6 @@ class DataCatalogDuckDB:
         entry = _CatalogEntry(**dict(zip(cols, row, strict=False)))
         self._reject_frozen_entry_mismatch(entry)
         return entry
-
-    def _ensure_entries_sha256_column(self) -> None:
-        columns = {row[1] for row in self._conn.execute("PRAGMA table_info('entries')").fetchall()}
-        if "sha256" not in columns:
-            self._conn.execute("ALTER TABLE entries ADD COLUMN sha256 VARCHAR")
-
-    def _ensure_entries_time_columns(self) -> None:
-        rows = self._conn.execute("PRAGMA table_info('entries')").fetchall()
-        types = {str(row[1]): str(row[2]).upper() for row in rows}
-        for column in ("date_start", "date_end"):
-            if types.get(column) == "VARCHAR":
-                self._alter_entries_time_column(column)
-
-    def _alter_entries_time_column(self, column: str) -> None:
-        statement = (
-            f"ALTER TABLE entries ALTER COLUMN {column} "
-            f"TYPE TIMESTAMPTZ USING try_cast({column} AS TIMESTAMPTZ)"
-        )
-        try:
-            self._conn.execute(statement)
-            return
-        except duckdb.DependencyException:
-            logger.info(
-                "Dropping entries indexes before migrating %s to TIMESTAMPTZ",
-                column,
-            )
-
-        self._conn.execute("DROP INDEX IF EXISTS ix_entries_var_src_station")
-        self._conn.execute("DROP INDEX IF EXISTS ix_entries_bbox")
-        self._conn.execute(statement)
-        self._conn.execute(_ENTRIES_DDL)
-
-    def _record_schema_version(self) -> None:
-        self._conn.execute("DELETE FROM _schema_version WHERE component = 'data_catalog'")
-        self._conn.execute(
-            "INSERT INTO _schema_version (component, version) VALUES ('data_catalog', ?)",
-            [CATALOG_SCHEMA_VERSION],
-        )
 
     def _workspace_lockfile_path(self) -> Path | None:
         if self._db_path is None:

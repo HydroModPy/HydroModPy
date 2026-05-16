@@ -40,10 +40,8 @@ from typing import Any
 import tomlkit
 
 from hydromodpy.core.version import __version__ as _HMP_VERSION
-from hydromodpy.data.registry.catalog_duckdb import (
-    CATALOG_SCHEMA_VERSION,
-    DataCatalogDuckDB,
-)
+from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+from hydromodpy.data.registry.migrations import target_version as _cache_target_version
 
 LOCKFILE_NAME = "hydromodpy.lock"
 LOCKFILE_VERSION = "2.0.0"
@@ -331,7 +329,7 @@ def write_lockfile(
     if project_commit:
         hmp_table.add("project_git_commit", project_commit)
     hmp_table.add("python_version", _python_version())
-    hmp_table.add("catalog_schema_version", int(CATALOG_SCHEMA_VERSION))
+    hmp_table.add("catalog_schema_version", _cache_target_version())
     hmp_table.add("zarr_schema_version", zarr_ver)
     hmp_table.add("parquet_schema_version", parquet_ver)
     hmp_table.add("generated_at", _now_iso())
@@ -352,7 +350,7 @@ def write_lockfile(
     doc.add("binaries", binaries_table)
 
     schema_table = tomlkit.table()
-    schema_table.add("catalog", int(CATALOG_SCHEMA_VERSION))
+    schema_table.add("catalog", _cache_target_version())
     schema_table.add("zarr", zarr_ver)
     schema_table.add("parquet", parquet_ver)
     if schema_sha256 is not None:
