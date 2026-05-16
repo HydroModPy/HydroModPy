@@ -18,14 +18,25 @@ from __future__ import annotations
 from hydromodpy.results.export.context import FairExportContext, build_context
 from hydromodpy.results.export.prov import build_prov_document
 from hydromodpy.results.export.rocrate import build_ro_crate, write_ro_crate
-from hydromodpy.results.export.stac import build_stac_item, write_stac_item
+from hydromodpy.results.export.stac import (
+    build_stac_catalog,
+    build_stac_collection,
+    build_stac_item,
+    write_stac_catalog,
+    write_stac_collection,
+    write_stac_item,
+)
 
 __all__ = [
     "FairExportContext",
     "build_context",
     "build_prov_document",
     "build_ro_crate",
+    "build_stac_catalog",
+    "build_stac_collection",
     "build_stac_item",
     "write_ro_crate",
+    "write_stac_catalog",
+    "write_stac_collection",
     "write_stac_item",
 ]
