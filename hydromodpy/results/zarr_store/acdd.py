@@ -113,6 +113,15 @@ def compose_acdd_root_attrs(
     elif solver:
         source_parts.append(str(solver))
 
+    lat_min = float(bounds.get("lat_min", float("nan")))
+    lat_max = float(bounds.get("lat_max", float("nan")))
+    lon_min = float(bounds.get("lon_min", float("nan")))
+    lon_max = float(bounds.get("lon_max", float("nan")))
+
+    geospatial_bounds_wkt = _bounds_wkt(lat_min, lat_max, lon_min, lon_max)
+    metadata_link = pick("metadata_link", "doi")
+    comment = pick("comment", "scientific_objective", "description")
+
     attrs: dict[str, Any] = {
         # ACDD-1.3 + CF + UGRID declaration.
         "Conventions": CF_CONVENTIONS,
@@ -134,13 +143,34 @@ def compose_acdd_root_attrs(
         "project": str(pick("project")),
         "processing_level": str(pick("processing_level") or "Modeled L2"),
         "license": str(license_value),
+        "comment": str(comment),
+        "date_modified": now_iso,
+        "metadata_link": str(metadata_link),
+        # Publisher trio (ACDD §2.6.4).
+        "publisher_name": str(pick("publisher_name") or pick("creator_name", "user_name")),
+        "publisher_email": str(pick("publisher_email", "creator_email", "contact_email")),
+        "publisher_url": str(pick("publisher_url", "creator_url")),
+        # Vocabularies (ACDD §2.6.3 + CF §2.6.1).
+        "standard_name_vocabulary": str(
+            pick("standard_name_vocabulary") or "CF Standard Name Table v85"
+        ),
+        "cdm_data_type": str(pick("cdm_data_type") or "Grid"),
         # Geospatial bounds (WGS84 by convention).
-        "geospatial_lat_min": float(bounds.get("lat_min", float("nan"))),
-        "geospatial_lat_max": float(bounds.get("lat_max", float("nan"))),
-        "geospatial_lon_min": float(bounds.get("lon_min", float("nan"))),
-        "geospatial_lon_max": float(bounds.get("lon_max", float("nan"))),
+        "geospatial_lat_min": lat_min,
+        "geospatial_lat_max": lat_max,
+        "geospatial_lon_min": lon_min,
+        "geospatial_lon_max": lon_max,
         "geospatial_vertical_min": float(bounds.get("vertical_min", float("nan"))),
         "geospatial_vertical_max": float(bounds.get("vertical_max", float("nan"))),
+        # Units + resolution + bounds geometry (ACDD §2.6.4).
+        "geospatial_lat_units": str(pick("geospatial_lat_units") or "degrees_north"),
+        "geospatial_lat_resolution": str(pick("geospatial_lat_resolution")),
+        "geospatial_lon_units": str(pick("geospatial_lon_units") or "degrees_east"),
+        "geospatial_lon_resolution": str(pick("geospatial_lon_resolution")),
+        "geospatial_vertical_units": str(pick("geospatial_vertical_units") or "m"),
+        "geospatial_vertical_positive": str(pick("geospatial_vertical_positive") or "up"),
+        "geospatial_bounds": geospatial_bounds_wkt,
+        "geospatial_bounds_crs": str(pick("geospatial_bounds_crs") or "EPSG:4326"),
         # Temporal coverage.
         "time_coverage_start": _isoformat(sim.get("period_start")),
         "time_coverage_end": _isoformat(sim.get("period_end")),
@@ -155,6 +185,21 @@ def compose_acdd_root_attrs(
         "zarr_schema_version": ZARR_SCHEMA_VERSION,
     }
     return attrs
+
+
+def _bounds_wkt(lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> str:
+    """Build a 5-point POLYGON WKT from a lat/lon bounding box.
+
+    Returns the empty string when any coordinate is NaN so downstream
+    validators (cfchecker, stac-validator) can detect the missing value.
+    """
+    coords = (lat_min, lat_max, lon_min, lon_max)
+    if any(coord != coord for coord in coords):  # NaN check
+        return ""
+    return (
+        f"POLYGON(({lon_min} {lat_min}, {lon_max} {lat_min}, "
+        f"{lon_max} {lat_max}, {lon_min} {lat_max}, {lon_min} {lat_min}))"
+    )
 
 
 def _iso_resolution(time_unit: Any) -> str:
