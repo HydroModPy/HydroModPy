@@ -77,8 +77,6 @@ dependencies = [
     "tomli-w>=1.2.0,<2",
     "pandera>=0.31.1,<1",
     "platformdirs>=4,<5",
-    "sqlalchemy>=2.0,<3",
-    "duckdb-engine>=0.13,<1",
     "filelock>=3.13,<4",
 ]
 
