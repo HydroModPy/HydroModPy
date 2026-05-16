@@ -542,4 +542,49 @@ def _generate_workspace_id() -> str:
     return str(uuid.uuid4())
 
 
-__all__ = ["GlobalIndex", "WorkspaceRecord"]
+def auto_register_workspace(
+    workspace_root: Path | str,
+    *,
+    label: str | None = None,
+) -> str | None:
+    """Best-effort register ``workspace_root`` in the machine-wide global index.
+
+    Idempotent thanks to the ``UNIQUE (workspace_uri)`` constraint on the
+    ``workspaces`` table: a duplicate registration is silently ignored. Any
+    other failure (read-only fallback, missing state dir, IO error) is logged
+    at DEBUG and swallowed so the surrounding workflow keeps running.
+
+    Parameters
+    ----------
+    workspace_root
+        Local directory of the workspace to register. The string form is
+        stored as the ``workspace_uri``.
+    label
+        Optional human-readable label persisted next to the registration.
+
+    Returns
+    -------
+    str | None
+        Newly assigned ``workspace_id`` on first registration, ``None`` when
+        the URI already existed or when the index could not be opened.
+    """
+    uri = str(Path(workspace_root))
+    try:
+        with GlobalIndex() as index:
+            if index.read_only:
+                logger.debug(
+                    "Global index opened read-only; skipping auto-registration of %s",
+                    uri,
+                )
+                return None
+            try:
+                return index.register_workspace(uri, label=label)
+            except duckdb.ConstraintException:
+                logger.debug("Workspace %s already registered in the global index", uri)
+                return None
+    except Exception as exc:
+        logger.debug("Auto-registration of %s in the global index failed: %s", uri, exc)
+        return None
+
+
+__all__ = ["GlobalIndex", "WorkspaceRecord", "auto_register_workspace"]

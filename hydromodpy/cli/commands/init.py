@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG
+from hydromodpy.core.state.global_index import auto_register_workspace
 from hydromodpy.core.state.paths import CATALOG_FILENAME, WORKSPACE_TOML_FILENAME
 from hydromodpy.core.workspace.workspace_toml import write_workspace_toml
 
@@ -72,6 +73,7 @@ def run(args: argparse.Namespace) -> None:
         creator_email=args.creator_email or "",
         force=args.force,
     )
+    auto_register_workspace(result, label=args.project_name or result.name)
 
     print(f"Workspace: {result}")
     print(f"Scaffolded at {result}/. Create projects with `hmp new <name> --workspace {result}`.")
