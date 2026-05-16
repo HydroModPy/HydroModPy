@@ -67,6 +67,30 @@ def open(workspace_path: Any) -> Any:
     return SimulationCatalog(workspace_path)
 
 
+def open_catalog(workspace: Any = None) -> Any:
+    """Open the V1 catalog facade fronting the three DuckDB files.
+
+    Returns a :class:`hydromodpy.catalog.CatalogFacade` exposing the
+    ``simulations``, ``inputs`` and ``projects`` namespaces. Usable as a
+    context manager.
+
+    Parameters
+    ----------
+    workspace
+        Workspace directory. Defaults to ``HMP_WORKSPACE`` then to the
+        current working directory.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> with hmp.open_catalog("~/proj/naizin") as cat:
+    ...     sims = cat.simulations.find(solver="modflow6")
+    """
+    from hydromodpy.catalog import open_catalog as _open
+
+    return _open(workspace)
+
+
 def index(db_path: Any = None, *, read_only: bool = False) -> Any:
     """Open the machine-wide global index that federates registered workspaces.
 
