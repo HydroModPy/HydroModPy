@@ -264,7 +264,9 @@ def _collect_assets(
         except Exception:
             pq_dir = None
         if pq_dir and pq_dir.is_dir():
-            for pq in sorted(pq_dir.glob("*.parquet")):
+            # ``pq_dir`` is the per-sim container; only single-file payloads
+            # inside are valid asset entries.
+            for pq in sorted(p for p in pq_dir.glob("*.parquet") if p.is_file()):
                 rel = pq.relative_to(workspace_path) if workspace_path in pq.parents else pq.name
                 assets.append(
                     AssetEntry(
