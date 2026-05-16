@@ -21,6 +21,13 @@ from datetime import datetime
 from pathlib import Path
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.data.schemas import (
+    StationCollectionSchema,
+    TimeSeriesSchema,
+    validate_warn_only,
+)
+
+_WGS84_CRS_TOKENS = frozenset({"EPSG:4326", "epsg:4326", "WGS84", "WGS 84"})
 
 TIMESERIES_COLUMNS = ("datetime", "value")
 LOCATIONS_COLUMNS = ("id", "x", "y", "crs", "unit")
@@ -171,6 +178,12 @@ def convert_timeseries_csv_to_parquet(
             "station_id": [artifact.station_id] * len(artifact.records),
         },
     )
+    validation_view = frame[["datetime", "value"]].rename(columns={"datetime": "date"})
+    validate_warn_only(
+        validation_view,
+        TimeSeriesSchema,
+        schema_name=f"TimeSeriesSchema[{src.name}]",
+    )
     schema = pa.schema(
         [
             pa.field("datetime", pa.timestamp("ms")),
@@ -298,6 +311,7 @@ def convert_locations_csv_to_geoparquet(
     dest.parent.mkdir(parents=True, exist_ok=True)
 
     import geopandas as gpd
+    import pandas as pd
     from shapely.geometry import Point
 
     geoms = [Point(s["x"], s["y"]) for s in artifact.stations]
@@ -309,6 +323,20 @@ def convert_locations_csv_to_geoparquet(
         geometry=geoms,
         crs=artifact.crs,
     )
+
+    if artifact.crs in _WGS84_CRS_TOKENS and artifact.stations:
+        stations_view = pd.DataFrame(
+            {
+                "station_id": [str(s["id"]) for s in artifact.stations],
+                "lat": [float(s["y"]) for s in artifact.stations],
+                "lon": [float(s["x"]) for s in artifact.stations],
+            }
+        )
+        validate_warn_only(
+            stations_view,
+            StationCollectionSchema,
+            schema_name=f"StationCollectionSchema[{src.name}]",
+        )
     tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
     try:
         gdf.to_parquet(

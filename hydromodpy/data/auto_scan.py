@@ -25,6 +25,9 @@ from hydromodpy.data.adapters import (
 )
 from hydromodpy.data.adapters.csv_to_parquet import iter_chronicle_files
 from hydromodpy.data.scaffold import VARIABLES, VariableSpec
+from hydromodpy.data.schemas import StationCollectionSchema, validate_warn_only
+
+_WGS84_CRS_TOKENS = frozenset({"EPSG:4326", "epsg:4326", "WGS84", "WGS 84"})
 
 logger = get_logger(__name__)
 
@@ -138,6 +141,21 @@ def _scan_timeseries_variable(
                 report.errors.append((loc_csv, err))
         for station in loc_artifact.stations:
             locations_by_id[str(station["id"])] = station
+        if loc_artifact.crs in _WGS84_CRS_TOKENS and loc_artifact.stations:
+            import pandas as pd
+
+            stations_view = pd.DataFrame(
+                {
+                    "station_id": [str(s["id"]) for s in loc_artifact.stations],
+                    "lat": [float(s["y"]) for s in loc_artifact.stations],
+                    "lon": [float(s["x"]) for s in loc_artifact.stations],
+                }
+            )
+            validate_warn_only(
+                stations_view,
+                StationCollectionSchema,
+                schema_name=f"StationCollectionSchema[{loc_csv.name}]",
+            )
 
     for src in iter_chronicle_files(custom_dir):
         stored_mtime = _last_indexed_mtime(catalog, spec.name, src)
