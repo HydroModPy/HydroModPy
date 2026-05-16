@@ -27,6 +27,7 @@ import numpy as np
 import zarr
 import zarr.codecs
 from filelock import FileLock, Timeout
+from upath import UPath
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as _HMP_VERSION
@@ -138,8 +139,8 @@ class _DummyLock:
 class SimulationZarr:
     """Per-simulation Zarr v2 store. Atomic, locked, CF-1.11 + ACDD-1.3."""
 
-    def __init__(self, path: Path | str, *, balanced: bool = True) -> None:
-        self._path = Path(path)
+    def __init__(self, path: Path | UPath | str, *, balanced: bool = True) -> None:
+        self._path = Path(str(path))
         self._balanced = bool(balanced)
         self._on_close: Callable[[SimulationZarr], None] | None = None
         if _is_zip_store_path(self._path):
@@ -156,7 +157,7 @@ class SimulationZarr:
     @classmethod
     def create(
         cls,
-        path: Path | str,
+        path: Path | UPath | str,
         *,
         n_cells: int,
         n_layers: int,
@@ -164,7 +165,7 @@ class SimulationZarr:
         geographic_fingerprint: str | None = None,
         balanced: bool = True,
     ) -> SimulationZarr:
-        path = Path(path)
+        path = Path(str(path))
         _ensure_local_zarr_node_dir(path)
         store = zarr.storage.LocalStore(_local_store_path_arg(path))
         root = zarr.open_group(store, mode="w")

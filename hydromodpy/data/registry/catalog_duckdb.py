@@ -9,6 +9,7 @@ from pathlib import Path
 
 import duckdb
 import pandas as pd
+from upath import UPath
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path
@@ -56,12 +57,12 @@ class _CatalogEntry:
 class DataCatalogDuckDB:
     """DuckDB-backed data catalog."""
 
-    def __init__(self, db_path: Path | str | None = None):
+    def __init__(self, db_path: Path | UPath | str | None = None):
         self._db_path: Path | None = None
         if db_path is None:
             self._conn = duckdb.connect(":memory:")
         else:
-            db_path = Path(db_path)
+            db_path = Path(str(db_path))
             db_path.parent.mkdir(parents=True, exist_ok=True)
             self._db_path = db_path
             self._conn = duckdb.connect(str(db_path))

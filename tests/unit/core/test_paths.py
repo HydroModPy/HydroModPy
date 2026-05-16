@@ -7,7 +7,7 @@ from pathlib import Path
 import platformdirs
 import pytest
 
-from hydromodpy.core.state.paths import cache_dir, state_dir
+from hydromodpy.core.state.paths import cache_dir, resolve_workspace, state_dir
 
 
 def test_cache_dir_defaults_to_platformdirs(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -56,3 +56,22 @@ def test_paths_have_no_side_effects(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     state_dir()
     assert not custom_cache.exists()
     assert not custom_state.exists()
+
+
+def test_resolve_workspace_file_uri_returns_local_path() -> None:
+    """A ``file://`` URI resolves to the matching local :class:`Path`."""
+    result = resolve_workspace("file:///tmp/foo")
+    assert isinstance(result, Path)
+    assert result == Path("/tmp/foo")
+
+
+def test_resolve_workspace_s3_raises_not_implemented_v2() -> None:
+    """``s3://`` URIs are accepted at the type level but raise (v2 scope)."""
+    with pytest.raises(NotImplementedError, match="v2"):
+        resolve_workspace("s3://bucket/foo")
+
+
+def test_resolve_workspace_gs_raises_not_implemented_v2() -> None:
+    """``gs://`` URIs are accepted at the type level but raise (v2 scope)."""
+    with pytest.raises(NotImplementedError, match="v2"):
+        resolve_workspace("gs://bucket/foo")
