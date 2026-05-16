@@ -4,10 +4,13 @@ Joins scalar tables (``simulations``, ``parameters``, ``metrics``,
 ``runs_environment``) with optional per-simulation Zarr field arrays
 into a single :class:`xarray.Dataset` indexed by ``sim_id``.
 
-Field arrays stay lazy: each per-sim Zarr store is opened with
-``xr.open_zarr`` (dask-backed) and concatenated along ``sim_id``. No
-``np.stack`` / ``np.concatenate`` is involved, so the loader scales to
-N=1000+ runs without OOM.
+Field arrays stay lazy: each per-sim Zarr store is opened through
+:func:`hydromodpy.results.simulation_group._open_simulation_lazy` which
+wraps each registered field in a dask-backed :class:`xr.DataArray` and
+routes the resulting dataset through :func:`xr.decode_cf` for CF time
+decoding. Per-sim datasets are concatenated along ``sim_id`` without
+any ``np.stack`` / ``np.concatenate``, so the loader scales to N=1000+
+runs without OOM.
 """
 
 from __future__ import annotations
@@ -237,9 +240,11 @@ class DatasetLoader:
     ) -> xr.Dataset:
         """Open each per-sim Zarr store and concat lazily on ``sim_id``.
 
-        Each store is opened with ``xr.open_zarr`` (dask-backed). Variables
-        absent from a store are skipped per-simulation. Stores that error out
-        are skipped with a logged warning.
+        Each store is opened through
+        :func:`hydromodpy.results.simulation_group._open_simulation_lazy`
+        (dask-backed, CF-decoded). Variables absent from a store are
+        skipped per-simulation. Stores that error out are skipped with a
+        logged warning.
         """
         import xarray as xr
 

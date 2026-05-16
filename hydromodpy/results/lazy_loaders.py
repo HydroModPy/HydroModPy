@@ -53,8 +53,12 @@ def list_parquet_paths(catalog: _CatalogLike, view: str) -> list[Path]:
     base = Path(catalog.simulations_dir)
     if not base.is_dir():
         return []
+    # ``*.parquet`` matches both container directories and single-file payloads
+    # (same suffix per storage_contract). The trailing ``<view>.parquet`` is the
+    # single-file payload; filter with ``is_file()`` to drop any directory that
+    # happens to share the name.
     pattern = f"*{PARQUET_DIR_SUFFIX}/{view}{PARQUET_FILE_SUFFIX}"
-    return sorted(base.glob(pattern))
+    return sorted(p for p in base.glob(pattern) if p.is_file())
 
 
 def list_field_paths(catalog: _CatalogLike) -> list[Path]:
@@ -149,7 +153,11 @@ def iter_parquet_paths(workspace: Path | str) -> Iterable[Path]:
     base = Path(workspace) / SIMULATIONS_DIRNAME
     if not base.is_dir():
         return
-    yield from base.glob(f"*{PARQUET_DIR_SUFFIX}/*{PARQUET_FILE_SUFFIX}")
+    # Trailing segment must be a file; ``*.parquet`` directories carry the same
+    # suffix and would otherwise leak into the iterator.
+    for path in base.glob(f"*{PARQUET_DIR_SUFFIX}/*{PARQUET_FILE_SUFFIX}"):
+        if path.is_file():
+            yield path
 
 
 __all__ = [

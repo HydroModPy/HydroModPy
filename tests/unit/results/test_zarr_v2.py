@@ -164,13 +164,16 @@ def test_consolidate_metadata_written_on_finalize(tmp_path: Path) -> None:
 
 
 def test_standard_name_mapping(fresh_store: SimulationZarr) -> None:
-    from hydromodpy.results.zarr_store import alias_for
+    from hydromodpy.results import field_registry
+    from hydromodpy.results.zarr_store import is_cf_standard_name
 
-    head = alias_for("head")
+    head = field_registry.get("head")
     assert head.standard_name == ""
     assert head.csdms_standard_name == "subsurface_water__hydraulic_head"
-    topo = alias_for("topography")
+    topo = field_registry.get("topography")
     assert topo.standard_name == "surface_altitude"
+    assert is_cf_standard_name(topo.standard_name)
+    assert not is_cf_standard_name(head.standard_name)
 
 
 def test_zarr_schema_version_stored(fresh_store: SimulationZarr) -> None:
@@ -254,6 +257,57 @@ def test_compose_acdd_returns_floats_for_bounds() -> None:
     assert attrs["geospatial_lat_min"] == 48.0
     assert attrs["geospatial_lat_max"] == 49.0
     assert attrs["geospatial_lon_max"] == -1.0
+
+
+def test_compose_acdd_emits_recommended_attributes() -> None:
+    """The 15 V1 additions (units, resolution, bounds, publisher, vocab, ...) appear."""
+    attrs = compose_acdd_root_attrs(
+        sim_row={
+            "sim_id": "abc",
+            "scientific_objective": "Calibrate Naizin head 2020",
+            "doi": "10.5281/zenodo.1234567",
+        },
+        runs_env={"user_name": "alice"},
+        geographic_bounds={
+            "lat_min": 48.0,
+            "lat_max": 49.0,
+            "lon_min": -2.0,
+            "lon_max": -1.0,
+        },
+    )
+    for key in (
+        "geospatial_lat_units",
+        "geospatial_lat_resolution",
+        "geospatial_lon_units",
+        "geospatial_lon_resolution",
+        "geospatial_vertical_units",
+        "geospatial_bounds",
+        "geospatial_bounds_crs",
+        "publisher_name",
+        "publisher_email",
+        "publisher_url",
+        "standard_name_vocabulary",
+        "cdm_data_type",
+        "comment",
+        "date_modified",
+        "metadata_link",
+    ):
+        assert key in attrs, f"missing ACDD recommended attribute {key}"
+    assert attrs["geospatial_lat_units"] == "degrees_north"
+    assert attrs["geospatial_lon_units"] == "degrees_east"
+    assert attrs["geospatial_vertical_units"] == "m"
+    assert attrs["geospatial_bounds_crs"] == "EPSG:4326"
+    assert attrs["standard_name_vocabulary"] == "CF Standard Name Table v85"
+    assert attrs["cdm_data_type"] == "Grid"
+    assert attrs["geospatial_bounds"].startswith("POLYGON((")
+    assert "10.5281/zenodo.1234567" in attrs["metadata_link"]
+    assert "Calibrate" in attrs["comment"]
+
+
+def test_compose_acdd_bounds_wkt_empty_when_nan() -> None:
+    """Missing bounds produce an empty WKT string rather than ``POLYGON((nan ...))``."""
+    attrs = compose_acdd_root_attrs(sim_row={"sim_id": "x"}, runs_env={})
+    assert attrs["geospatial_bounds"] == ""
 
 
 def test_subgroups_created_at_init(fresh_store: SimulationZarr) -> None:

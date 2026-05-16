@@ -8,6 +8,24 @@ facades do not drift back toward ambiguous "one database per run" language.
 The catalog filename itself lives in
 :mod:`hydromodpy.core.state.paths` so every layer (core, results, cli, data)
 shares one canonical definition.
+
+Parquet naming
+--------------
+Two distinct shapes coexist on disk and both happen to end in ``.parquet``:
+
+* **Container directory** (``PARQUET_DIR_SUFFIX``): the per-simulation folder
+  ``<basename>.parquet/`` that groups every view payload for one run.
+* **Single-file payload** (``PARQUET_FILE_SUFFIX``): the individual
+  ``<view>.parquet`` files placed inside the container directory.
+
+Because both literals are the same string, naive ``glob("*.parquet")`` calls
+are ambiguous. Callers that walk the workspace must therefore filter by
+``Path.is_dir()`` or ``Path.is_file()`` to disambiguate intent.
+
+``PARQUET_DATASET_MARKER`` is reserved for the future Hive-partitioned dataset
+layout (``<view>.parquet/<part=...>/...``). It is not used by the current v1
+contract; new partitioned datasets must place this subdirectory marker at
+their root so directory-walking code can detect them without a heuristic.
 """
 
 from __future__ import annotations
@@ -25,6 +43,7 @@ ZARR_SUFFIX = ".zarr"
 ZARR_ZIP_SUFFIX = ".zarr.zip"
 PARQUET_DIR_SUFFIX = ".parquet"
 PARQUET_FILE_SUFFIX = ".parquet"
+PARQUET_DATASET_MARKER = "_dataset"
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +89,7 @@ SIMULATION_STORAGE_LAYER_NAMES: tuple[str, ...] = tuple(
 
 
 __all__ = [
+    "PARQUET_DATASET_MARKER",
     "PARQUET_DIR_SUFFIX",
     "PARQUET_FILE_SUFFIX",
     "RESULT_STORAGE_LAYERS",

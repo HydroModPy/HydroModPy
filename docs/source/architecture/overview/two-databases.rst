@@ -68,3 +68,37 @@ recreatable from registered workspaces, the cache is purgeable and
 reconstructible from upstream sources, the project catalog is the only
 SQL store that holds science output that cannot be regenerated without
 re-running simulations.
+
+V1 unified runner and facade
+----------------------------
+
+V1 ships three additions that sit on top of the three-database split:
+
+- **Single migrations runner**:
+  :mod:`hydromodpy.core.migrations.runner` exposes
+  ``apply_migrations(db_path, migrations_dir)`` (with a
+  ``<db_path>.lock`` filelock to serialise concurrent callers) and is
+  used by all three databases. Each scope owns a flat ``migrations/``
+  directory containing exactly one ``0001_initial.sql`` for V1.
+- **High-level ``hmp.catalog`` facade**:
+  :class:`hydromodpy.catalog.CatalogFacade` exposes the three databases
+  through ``simulations`` (project catalog), ``inputs`` (workspace
+  cache) and ``projects`` (machine index) namespaces. Users write
+  ``hmp.catalog.simulations.find(...)`` without knowing which file
+  holds the row.
+- **ML hook tables**: the project catalog now seeds four empty
+  ``ml_datasets`` / ``ml_splits`` / ``ml_splits_members`` /
+  ``ml_scalers`` tables. The ``hydromodpy/ml/`` module that fills them
+  ships in V2; the schema is already in place so V2 reads against V1
+  catalogs work.
+- **AuthBackend Protocol**: :class:`hydromodpy.core.auth.AuthBackend`
+  is a structural protocol with a permissive
+  :class:`~hydromodpy.core.auth.LocalAuthBackend` default. V1 does not
+  enforce ACLs; the abstraction lets V2 wire keyring / IAM / SSO
+  backends without touching the catalog layer.
+- **UPath-ready paths**: every workspace / cache / state path argument
+  is typed ``Path | UPath`` and ``resolve_workspace`` accepts
+  ``file://`` URIs (other schemes raise ``NotImplementedError`` with a
+  V2 pointer). :class:`hydromodpy.results.zarr_store.adapters.FsspecZarrStore`
+  and :class:`hydromodpy.results.catalog.adapters.PostgresBackend` stay
+  V1 stubs that satisfy their respective protocols.

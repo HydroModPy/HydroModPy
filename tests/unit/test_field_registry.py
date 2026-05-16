@@ -59,10 +59,18 @@ class TestRegistryContents:
         assert len(paths) == len(set(paths)), "duplicate zarr_path detected"
 
     def test_cf_metadata_is_non_empty(self):
+        """Every entry has long_name + units; a semantic name comes from either CF or CSDMS.
+
+        V1 sets ``standard_name`` to an empty string when the hydrogeology
+        concept has no CF v85 entry; in that case the CSDMS fallback
+        (``csdms_standard_name``) must be present instead.
+        """
         for name, desc in FIELD_REGISTRY.items():
-            assert desc.standard_name, f"{name} missing standard_name"
             assert desc.long_name, f"{name} missing long_name"
             assert desc.units, f"{name} missing units"
+            assert desc.standard_name or desc.csdms_standard_name, (
+                f"{name} missing both standard_name and csdms_standard_name"
+            )
 
 
 class TestFieldDescriptor:
@@ -104,9 +112,10 @@ class TestPublicAPI:
         assert paths == sorted(paths)
 
     def test_cf_attrs_returns_expected_keys(self):
+        """``head`` carries a CSDMS fallback (no CF v85 entry for groundwater head)."""
         attrs = cf_attrs("head")
         expected = {
-            "standard_name",
+            "csdms_standard_name",
             "long_name",
             "units",
             "cell_methods",
@@ -116,8 +125,15 @@ class TestPublicAPI:
             "location",
         }
         assert set(attrs) == expected
-        assert attrs["standard_name"] == "groundwater_head_above_reference_level"
+        assert "standard_name" not in attrs, "no CF v85 entry for groundwater head"
+        assert attrs["csdms_standard_name"] == "subsurface_water__hydraulic_head"
         assert attrs["units"] == "m"
         assert attrs["grid_mapping"] == "crs"
         assert attrs["mesh"] == "mesh/topology"
         assert attrs["location"] == "face"
+
+    def test_cf_attrs_emits_standard_name_for_cf_v85_entries(self):
+        """``topography`` keeps its CF v85 ``surface_altitude`` standard_name."""
+        attrs = cf_attrs("topography")
+        assert attrs.get("standard_name") == "surface_altitude"
+        assert attrs.get("csdms_standard_name") == "land_surface__elevation"

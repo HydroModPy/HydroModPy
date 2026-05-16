@@ -21,9 +21,7 @@ from hydromodpy.solver.utils.temporal.steady_initialization import (
 _STEADY_INIT_DVCLOSE_MIN = 1e-3
 _STEADY_INIT_MAXIMUM_MIN = 1000
 _STEADY_INIT_PERCENT_DISCREPANCY_TOL = 0.1
-_PERCENT_DISCREPANCY_RE = re.compile(
-    r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)"
-)
+_PERCENT_DISCREPANCY_RE = re.compile(r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)")
 
 
 def _modflow_config_for_steady_initialization(model: object) -> object:
@@ -105,10 +103,7 @@ def _read_final_percent_discrepancy(list_path: Path) -> float | None:
 
 def _steady_initialization_balance_is_acceptable(list_path: Path) -> bool:
     discrepancy = _read_final_percent_discrepancy(list_path)
-    return (
-        discrepancy is not None
-        and abs(discrepancy) <= _STEADY_INIT_PERCENT_DISCREPANCY_TOL
-    )
+    return discrepancy is not None and abs(discrepancy) <= _STEADY_INIT_PERCENT_DISCREPANCY_TOL
 
 
 def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) -> np.ndarray:

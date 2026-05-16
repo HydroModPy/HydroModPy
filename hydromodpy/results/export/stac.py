@@ -250,10 +250,165 @@ def validate_item(payload: dict[str, Any]) -> tuple[bool, list[str]]:
     return True, []
 
 
+def _union_bbox(items: list[dict[str, Any]]) -> list[float] | None:
+    """Return the bounding box that encloses every item bbox, or ``None``."""
+    boxes = [item.get("bbox") for item in items if item.get("bbox")]
+    if not boxes:
+        return None
+    xmins, ymins, xmaxs, ymaxs = zip(*boxes, strict=False)
+    return [float(min(xmins)), float(min(ymins)), float(max(xmaxs)), float(max(ymaxs))]
+
+
+def _period_extent(items: list[dict[str, Any]]) -> list[list[str | None]]:
+    """Return the STAC ``temporal.interval`` covering every item."""
+    starts: list[str] = []
+    ends: list[str] = []
+    for item in items:
+        props = item.get("properties", {})
+        start = props.get("start_datetime") or props.get("datetime")
+        end = props.get("end_datetime") or props.get("datetime")
+        if start:
+            starts.append(str(start))
+        if end:
+            ends.append(str(end))
+    if not starts and not ends:
+        return [[None, None]]
+    return [[min(starts) if starts else None, max(ends) if ends else None]]
+
+
+def build_stac_collection(
+    items: list[dict[str, Any]],
+    *,
+    collection_id: str,
+    title: str | None = None,
+    description: str | None = None,
+    license: str | None = None,
+) -> dict[str, Any]:
+    """Return a STAC ``Collection`` that groups ``items`` under ``collection_id``."""
+    bbox = _union_bbox(items)
+    spatial = [bbox] if bbox is not None else [[-180.0, -90.0, 180.0, 90.0]]
+    payload: dict[str, Any] = {
+        "type": "Collection",
+        "stac_version": STAC_VERSION,
+        "stac_extensions": list(STAC_EXTENSIONS),
+        "id": collection_id,
+        "title": title or collection_id,
+        "description": description or f"HydroModPy project ``{collection_id}``",
+        "license": license or "other",
+        "extent": {
+            "spatial": {"bbox": spatial},
+            "temporal": {"interval": _period_extent(items)},
+        },
+        "links": [
+            {
+                "rel": "self",
+                "href": "collection.json",
+                "type": "application/json",
+            },
+            {"rel": "root", "href": "../catalog.json", "type": "application/json"},
+            *(
+                {
+                    "rel": "item",
+                    "href": f"items/{item['id']}.json",
+                    "type": "application/geo+json",
+                    "title": item.get("properties", {}).get("title"),
+                }
+                for item in items
+            ),
+        ],
+        "summaries": {
+            "hydromodpy:simCount": [len(items)],
+        },
+    }
+    return payload
+
+
+def build_stac_catalog(
+    *,
+    catalog_id: str,
+    title: str | None,
+    description: str | None,
+    collection_ids: list[str],
+) -> dict[str, Any]:
+    """Return a STAC ``Catalog`` listing every project collection on disk."""
+    return {
+        "type": "Catalog",
+        "stac_version": STAC_VERSION,
+        "stac_extensions": list(STAC_EXTENSIONS),
+        "id": catalog_id,
+        "title": title or catalog_id,
+        "description": description or "HydroModPy workspace",
+        "links": [
+            {
+                "rel": "self",
+                "href": "catalog.json",
+                "type": "application/json",
+            },
+            *(
+                {
+                    "rel": "child",
+                    "href": f"collections/{coll}/collection.json",
+                    "type": "application/json",
+                    "title": coll,
+                }
+                for coll in collection_ids
+            ),
+        ],
+    }
+
+
+def write_stac_collection(
+    items: list[dict[str, Any]],
+    output_path: Path | str,
+    *,
+    collection_id: str,
+    title: str | None = None,
+    description: str | None = None,
+    license: str | None = None,
+) -> Path:
+    """Render and write a STAC Collection to ``output_path/collection.json``."""
+    payload = build_stac_collection(
+        items,
+        collection_id=collection_id,
+        title=title,
+        description=description,
+        license=license,
+    )
+    out = Path(output_path)
+    if out.is_dir() or out.suffix == "":
+        out = out / "collection.json"
+    return to_json(payload, out)
+
+
+def write_stac_catalog(
+    output_path: Path | str,
+    *,
+    catalog_id: str,
+    title: str | None = None,
+    description: str | None = None,
+    collection_ids: list[str] | None = None,
+) -> Path:
+    """Render and write a STAC Catalog to ``output_path/catalog.json``."""
+    payload = build_stac_catalog(
+        catalog_id=catalog_id,
+        title=title,
+        description=description,
+        collection_ids=collection_ids or [],
+    )
+    out = Path(output_path)
+    if out.is_dir() or out.suffix == "":
+        out = out / "catalog.json"
+    return to_json(payload, out)
+
+
 __all__ = [
     "STAC_EXTENSIONS",
     "STAC_VERSION",
+    "build_stac_catalog",
+    "build_stac_collection",
     "build_stac_item",
     "validate_item",
+    "write_stac_catalog",
+    "write_stac_collection",
     "write_stac_item",
 ]

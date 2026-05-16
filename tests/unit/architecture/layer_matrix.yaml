@@ -5,7 +5,7 @@
 # Packages absent from the row's list are forbidden (CI flags them).
 
 allowed:
-  "<root>":      ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, cli]
+  "<root>":      ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, cli]
   core:          [core]
   schema:        [core, schema, config]
   config:        [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow]
@@ -19,7 +19,12 @@ allowed:
   display:       [core, schema, results, display]
   analysis:      [core, schema, physics, data, results, display, analysis]
   workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow]
-  cli:           [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, cli]
+  # ``catalog`` is the V1 facade over the three DuckDB scopes (cache, project, index).
+  # It reaches into ``core``, ``data`` and ``results`` to wrap the underlying
+  # stores. The reverse (data/results importing catalog) is forbidden so the
+  # facade stays a one-way wrapper.
+  catalog:       [core, schema, data, results, catalog]
+  cli:           [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, cli]
 
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Tighten over time.

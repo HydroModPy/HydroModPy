@@ -274,8 +274,7 @@ def _domain_head_profile_series(
     if not isinstance(simulations, list):
         return []
     profiles: dict[str, tuple[str, list[dict[str, Any]]]] = {
-        profile_id: (label, [])
-        for profile_id, label, _, _, _ in profile_indices
+        profile_id: (label, []) for profile_id, label, _, _, _ in profile_indices
     }
     for simulation in simulations:
         if not isinstance(simulation, Mapping):

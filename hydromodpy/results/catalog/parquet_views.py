@@ -86,7 +86,13 @@ def _glob_for_view(simulations_dir: Path, view_name: str) -> str:
 def _parquet_files_exist(simulations_dir: Path, view_name: str) -> bool:
     if not simulations_dir.is_dir():
         return False
-    return any(simulations_dir.glob(f"*{PARQUET_DIR_SUFFIX}/{view_name}{PARQUET_FILE_SUFFIX}"))
+    # ``*.parquet`` matches both container dirs and single-file payloads;
+    # restrict the trailing segment with ``is_file()`` so an empty container
+    # named like a view does not falsely report a payload.
+    return any(
+        p.is_file()
+        for p in simulations_dir.glob(f"*{PARQUET_DIR_SUFFIX}/{view_name}{PARQUET_FILE_SUFFIX}")
+    )
 
 
 def _existing_tables(conn: duckdb.DuckDBPyConnection) -> set[str]:

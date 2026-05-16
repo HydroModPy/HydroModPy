@@ -27,6 +27,10 @@ from hydromodpy.data.schemas.timeseries import (
     TimeSeriesSchema,
     validate_timeseries,
 )
+from hydromodpy.data.schemas.validation import (
+    STRICT_ENV_VAR,
+    validate_warn_only,
+)
 
 __all__ = [
     "TimeSeriesSchema",
@@ -39,4 +43,6 @@ __all__ = [
     "validate_lithology",
     "CatchmentPolygonSchema",
     "validate_catchment",
+    "validate_warn_only",
+    "STRICT_ENV_VAR",
 ]

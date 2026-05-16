@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import unquote, urlparse
 
 import platformdirs
+from upath import UPath
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -43,7 +44,7 @@ _LOCAL_SCHEMES: tuple[str, ...] = ("file",)
 _CLOUD_SCHEMES: tuple[str, ...] = ("s3", "gs", "az", "abfs", "gcs")
 
 
-def cache_dir() -> Path:
+def cache_dir() -> Path | UPath:
     """Return platform cache dir (HMP_CACHE_HOME override)."""
     override = os.environ.get("HMP_CACHE_HOME")
     if override:
@@ -51,7 +52,7 @@ def cache_dir() -> Path:
     return Path(platformdirs.user_cache_dir(_APP_NAME))
 
 
-def state_dir() -> Path:
+def state_dir() -> Path | UPath:
     """Return platform state dir (HMP_STATE_HOME override)."""
     override = os.environ.get("HMP_STATE_HOME")
     if override:
@@ -59,18 +60,10 @@ def state_dir() -> Path:
     return Path(platformdirs.user_state_dir(_APP_NAME))
 
 
-def bin_dir(solver: str, version: str) -> Path:
-    """Return solver binary install path (HMP_BIN override)."""
-    override = os.environ.get("HMP_BIN")
-    if override:
-        return Path(override).expanduser().resolve() / solver / version
-    return cache_dir() / "bin" / solver / version
-
-
 # Workspace-relative path helpers ------------------------------------------
 
 
-def to_workspace_relative(workspace: Path, target: Path) -> str:
+def to_workspace_relative(workspace: Path | UPath, target: Path | UPath) -> str:
     """Return ``target`` expressed as a POSIX path relative to ``workspace``.
 
     Both paths are resolved before comparison. Raises ``ValueError`` when
@@ -86,13 +79,13 @@ def to_workspace_relative(workspace: Path, target: Path) -> str:
     return rel.as_posix()
 
 
-def from_workspace_relative(workspace: Path, rel: str) -> Path:
+def from_workspace_relative(workspace: Path | UPath, rel: str) -> Path:
     """Return the absolute path of a workspace-relative POSIX string."""
     ws = Path(workspace).expanduser().resolve()
     return ws / rel
 
 
-def is_under_workspace(workspace: Path, target: Path) -> bool:
+def is_under_workspace(workspace: Path | UPath, target: Path | UPath) -> bool:
     """Return True when ``target`` resolves under ``workspace``."""
     ws = Path(workspace).expanduser().resolve()
     tgt = Path(target).expanduser().resolve()
@@ -103,7 +96,7 @@ def is_under_workspace(workspace: Path, target: Path) -> bool:
     return True
 
 
-def encode_workspace_path(workspace: Path, target: Path) -> str:
+def encode_workspace_path(workspace: Path | UPath, target: Path | UPath) -> str:
     """Encode ``target`` as a portable string anchored at the workspace.
 
     Returns a workspace-relative POSIX path when ``target`` lives under
@@ -133,7 +126,7 @@ def encode_workspace_path(workspace: Path, target: Path) -> str:
         ) from exc
 
 
-def decode_workspace_path(workspace: Path, encoded: str) -> Path:
+def decode_workspace_path(workspace: Path | UPath, encoded: str) -> Path:
     """Decode an encoded portable path back to an absolute :class:`Path`."""
     ws = Path(workspace).expanduser().resolve()
     text = str(encoded)
@@ -150,31 +143,37 @@ def decode_workspace_path(workspace: Path, encoded: str) -> Path:
 # Portable workspace URI ----------------------------------------------------
 
 
-def to_workspace_uri(path: Path) -> str:
+def to_workspace_uri(path: Path | UPath) -> str:
     """Return the ``file://`` URI for a local workspace path."""
     resolved = Path(path).expanduser().resolve()
     return resolved.as_uri()
 
 
-def resolve_workspace(uri: str) -> Path:
+def resolve_workspace(uri: str | Path | UPath) -> Path:
     """Resolve a portable ``workspace_uri`` to a local :class:`Path`.
+
+    The argument is widened to ``str | Path | UPath`` so callers can
+    pass either a raw URI, a :class:`pathlib.Path`, or a
+    :class:`upath.UPath` instance. Cloud URIs are accepted at the type
+    level but raise :class:`NotImplementedError` until v2 swaps in
+    real fsspec backends.
 
     Supported schemes:
     - bare path (no scheme): treated as a local path.
     - ``file://``: parsed and returned as a :class:`Path`.
-    - ``s3://`` / ``gs://`` / etc.: not implemented yet; raises
-      :class:`NotImplementedError` until cloud workspaces ship (P15).
+    - ``s3://`` / ``gs://`` / ``az://`` / ``abfs://`` / ``gcs://``: not
+      implemented yet; raises :class:`NotImplementedError` (v2 scope).
     """
-    parsed = urlparse(uri)
+    text = str(uri)
+    parsed = urlparse(text)
     scheme = parsed.scheme.lower()
     if not scheme:
-        return Path(uri).expanduser()
+        return Path(text).expanduser()
     if scheme in _LOCAL_SCHEMES:
         return Path(unquote(parsed.path)).expanduser()
     if scheme in _CLOUD_SCHEMES:
         raise NotImplementedError(
-            f"Cloud workspace_uri {uri!r} is a v2.x stub. "
-            "Install the cloud extra and a UPath backend to enable it."
+            f"Cloud workspace_uri {text!r} is not supported: cloud backends are scheduled for v2."
         )
     raise ValueError(f"Unsupported workspace_uri scheme: {scheme!r}")
 
@@ -184,7 +183,6 @@ __all__: Iterable[str] = (
     "INDEX_FILENAME",
     "PROJECT_TOML_FILENAME",
     "WORKSPACE_TOML_FILENAME",
-    "bin_dir",
     "cache_dir",
     "decode_workspace_path",
     "encode_workspace_path",

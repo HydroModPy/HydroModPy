@@ -8256,6 +8256,18 @@
             "type": "number",
             "x-hmp-profile": "dev"
           },
+          "outlet_bottom_quantile": {
+            "default": 0.1,
+            "description": "Bottom-elevation quantile used by the 'outlet' release zone. A value of 0.10 selects cells in the lowest 10 percent of active cell-top elevations.",
+            "examples": [
+              0.1
+            ],
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Outlet Bottom Quantile",
+            "type": "number",
+            "x-hmp-profile": "dev"
+          },
           "track_dir": {
             "const": "forward",
             "default": "forward",
@@ -15069,13 +15081,50 @@
         "description": "Strict-binary workspace configuration.\n\nThe canonical workspace layout is::\n\n    <workspace>/\n        workspace.toml\n        data/\n            cache.duckdb\n        projects/\n            <name>/\n                hydromodpy.toml   <- TOML lives here when using scaffold\n                catalog.duckdb\n                simulations/\n                    <basename>.zarr/ or <basename>.zarr.zip\n\nFields under ``[workspace]``:\n\n``project_root`` (required)\n    Directory of the project TOML. Usually auto-derived from the TOML\n    location by the loader.\n\n``root`` (explicit workspace override)\n    When set, the shared data workspace root. Derives ``data_dir``\n    unless it is explicitly overridden.\n\n``catalog_path`` / ``data_dir`` / ``simulations_dir``\n    Per-component explicit overrides. ``catalog_path`` and\n    ``simulations_dir`` are project-local by default.\n\n``output_root``\n    Optional redirect for heavy outputs (``.solver_scratch/`` and\n    per-run ``figures/``). Defaults to ``project_root``.",
         "properties": {
           "project_root": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "title": "Path",
+                    "type": "string"
+                  },
+                  "protocol": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "title": "Protocol"
+                  },
+                  "storage_options": {
+                    "additionalProperties": true,
+                    "title": "Storage Options",
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
+              }
+            ],
             "description": "Path to the project directory. Required in TOML configs.",
             "examples": [
               "."
             ],
-            "format": "path",
             "title": "Project Root",
-            "type": "string",
             "x-hmp-profile": "user"
           },
           "root": {
@@ -15083,6 +15132,39 @@
               {
                 "format": "path",
                 "type": "string"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "title": "Path",
+                    "type": "string"
+                  },
+                  "protocol": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "title": "Protocol"
+                  },
+                  "storage_options": {
+                    "additionalProperties": true,
+                    "title": "Storage Options",
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "type": "object"
               },
               {
                 "type": "null"

@@ -23,8 +23,10 @@ from hydromodpy.core.migrations.errors import (
 )
 from hydromodpy.core.migrations.runner import (
     DEFAULT_COMPONENT,
+    DEFAULT_LOCK_TIMEOUT,
     Migration,
     apply_migration,
+    apply_migrations,
     current_version,
     discover_migrations,
     ensure_schema,
@@ -34,12 +36,14 @@ from hydromodpy.core.migrations.runner import (
 
 __all__ = [
     "DEFAULT_COMPONENT",
+    "DEFAULT_LOCK_TIMEOUT",
     "Migration",
     "MigrationDiscoveryError",
     "MigrationError",
     "MigrationExecutionError",
     "SchemaIntegrityError",
     "apply_migration",
+    "apply_migrations",
     "current_version",
     "discover_migrations",
     "ensure_schema",

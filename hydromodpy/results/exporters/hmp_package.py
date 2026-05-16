@@ -136,7 +136,10 @@ def _dematerialise_parquet(
     dst_dir.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
     for src in sorted(src_dir.iterdir()):
-        if src.suffix != PARQUET_FILE_SUFFIX:
+        # Single-file Parquet payloads only; an entry sharing the suffix could
+        # be a directory (e.g. future partitioned dataset) which is not handled
+        # by this importer.
+        if not src.is_file() or src.suffix != PARQUET_FILE_SUFFIX:
             continue
         shutil.copy2(src, dst_dir / src.name)
         copied.append(src.name)

@@ -26,6 +26,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, PrivateAttr, computed_field, model_validator
+from upath import UPath
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -69,12 +70,12 @@ class WorkspaceConfig(HydroModelBase):
         per-run ``figures/``). Defaults to ``project_root``.
     """
 
-    project_root: Annotated[Path, Profile.USER] = Field(
+    project_root: Annotated[Path | UPath, Profile.USER] = Field(
         description="Path to the project directory. Required in TOML configs.",
         examples=["."],
     )
 
-    root: Annotated[Path | None, Profile.USER] = Field(
+    root: Annotated[Path | UPath | None, Profile.USER] = Field(
         default=None,
         description=(
             "Explicit shared data workspace root. When set, derives data_dir unless "

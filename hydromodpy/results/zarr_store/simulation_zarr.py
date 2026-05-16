@@ -27,13 +27,13 @@ import numpy as np
 import zarr
 import zarr.codecs
 from filelock import FileLock, Timeout
+from upath import UPath
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results import field_registry
 from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
 from hydromodpy.results.zarr_store.acdd import compose_acdd_root_attrs
-from hydromodpy.results.zarr_store.cf_aliases import alias_for
 from hydromodpy.results.zarr_store.chunks import (
     compute_balanced_chunks_1d,
     compute_balanced_chunks_2d,
@@ -108,24 +108,11 @@ def _field_name_from_target(target: zarr.Group, variable: str) -> str:
 
 
 def _attrs_for_field(name: str, dtype: np.dtype) -> dict[str, object]:
-    """Compose CF attrs for a field: registry + CF aliases + _FillValue."""
+    """Compose CF attrs for a field straight from the registry + _FillValue."""
     if not field_registry.has(name):
         attrs: dict[str, object] = {}
     else:
         attrs = dict(field_registry.cf_attrs(name))
-    alias = alias_for(name)
-    if alias.standard_name:
-        attrs["standard_name"] = alias.standard_name
-    elif "standard_name" in attrs and not alias.standard_name and alias.csdms_standard_name:
-        # Drop the bogus CF standard_name when we have a CSDMS alias and no
-        # CF v85 equivalent. Keeps the file CF-compliant (silent attribute).
-        attrs.pop("standard_name", None)
-    if alias.csdms_standard_name:
-        attrs["csdms_standard_name"] = alias.csdms_standard_name
-    if alias.valid_min is not None:
-        attrs["valid_min"] = float(alias.valid_min)
-    if alias.valid_max is not None:
-        attrs["valid_max"] = float(alias.valid_max)
     if np.issubdtype(dtype, np.floating):
         attrs["_FillValue"] = float(np.nan)
     elif np.issubdtype(dtype, np.integer):
@@ -152,8 +139,8 @@ class _DummyLock:
 class SimulationZarr:
     """Per-simulation Zarr v2 store. Atomic, locked, CF-1.11 + ACDD-1.3."""
 
-    def __init__(self, path: Path | str, *, balanced: bool = True) -> None:
-        self._path = Path(path)
+    def __init__(self, path: Path | UPath | str, *, balanced: bool = True) -> None:
+        self._path = Path(str(path))
         self._balanced = bool(balanced)
         self._on_close: Callable[[SimulationZarr], None] | None = None
         if _is_zip_store_path(self._path):
@@ -170,7 +157,7 @@ class SimulationZarr:
     @classmethod
     def create(
         cls,
-        path: Path | str,
+        path: Path | UPath | str,
         *,
         n_cells: int,
         n_layers: int,
@@ -178,7 +165,7 @@ class SimulationZarr:
         geographic_fingerprint: str | None = None,
         balanced: bool = True,
     ) -> SimulationZarr:
-        path = Path(path)
+        path = Path(str(path))
         _ensure_local_zarr_node_dir(path)
         store = zarr.storage.LocalStore(_local_store_path_arg(path))
         root = zarr.open_group(store, mode="w")

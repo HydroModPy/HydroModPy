@@ -18,6 +18,11 @@ import pandas as pd
 
 _STUB_MESSAGE = "Postgres backend ready-to-go in v2.x, not implemented in v2.0"
 
+# Stub - opérationnel en v2. The class lands in V1 to honour the
+# ``CatalogBackend`` Protocol, but every method raises
+# ``NotImplementedError`` until the V2 server work activates SQLAlchemy
+# against a real Postgres instance.
+
 
 class PostgresBackend:
     """Placeholder :class:`CatalogBackend` implementation for Postgres.

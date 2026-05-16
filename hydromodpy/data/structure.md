@@ -1,6 +1,41 @@
 # Data Managers - Architecture complete
 
-> Derniere mise a jour : 2026-04-02
+> Derniere mise a jour : 2026-05-16 (V1 release)
+
+---
+
+## 0. Couche donnees V1 (3 scopes)
+
+HydroModPy V1 garde **trois fichiers DuckDB distincts**, un par scope :
+
+| Fichier                                | Scope     | Role |
+|---|---|---|
+| `<workspace>/data/cache.duckdb`        | workspace | Cache relationnel des inputs (DEM, hydro, climat, stations) partages entre projets du meme workspace. |
+| `<project>/catalog.duckdb`             | projet    | Resultats de simulations d'un projet donne. Permet le multi-projet en parallele sans verrou DuckDB mono-writer. |
+| `<state_dir>/index.duckdb`             | machine   | Registre federateur cross-projets et cross-workspaces. Sous `~/.local/state/hydromodpy/` via `platformdirs`. |
+
+**Runner de migrations unique** :
+`hydromodpy/core/migrations/runner.py` (Alembic-like, ~250 LOC). Chaque
+scope possede son dossier `migrations/` contenant un `0001_initial.sql`.
+Le runner enregistre les versions appliquees dans une table
+`schema_migrations` + `_schema_version` par DB, et acquiert un
+`filelock` sur `<db_path>.lock` pour serialiser les callers concurrents.
+
+**Facade haut-niveau** : `hmp.catalog` (`hydromodpy/catalog/`). Trois
+namespaces qui cachent la fragmentation a l'utilisateur final.
+
+```python
+import hydromodpy as hmp
+
+with hmp.open_catalog("~/proj/naizin") as cat:
+    cat.simulations.find(solver="modflow6")  # -> <project>/catalog.duckdb
+    cat.inputs.list(variable="recharge")     # -> <workspace>/data/cache.duckdb
+    cat.projects.list()                      # -> <state_dir>/index.duckdb
+```
+
+Sur disque, les trois fichiers restent separes. Le serveur V2 garde la
+meme separation (3 databases Postgres ou 3 schemas dans une DB, au choix
+operateur).
 
 ---
 
@@ -308,11 +343,19 @@ Source `constant` : valeur scalaire etendue en serie journaliere.
 ### Technologie
 
 **DuckDB natif** (API Python `duckdb.connect()`), fichier
-`workspace/catalog.duckdb`. SQLAlchemy est supprime du framework.
+`<workspace>/data/cache.duckdb` (cf section 0 pour le decoupage 3 scopes
+V1). SQLAlchemy et duckdb-engine ont ete supprimes du framework en V1.
+
+Le DDL vit dans `hydromodpy/data/registry/migrations/0001_initial.sql`
+et est applique par le runner partage
+(`hydromodpy/core/migrations/runner.py`). Plus de DDL inline en Python
+depuis V1 : `DataCatalogDuckDB.__init__` se contente d'appeler
+`ensure_schema(connection)` du module migrations.
 
 Le catalogue data est au **niveau workspace** (partage entre tous les projets
 du workspace). Les resultats de simulation sont dans un fichier DuckDB
-separe au niveau projet (`projects/{name}/project.duckdb`).
+separe au niveau projet (`<project>/catalog.duckdb`), et le registre
+machine federateur dans `<state_dir>/index.duckdb`.
 
 ### Concurrence
 

@@ -20,12 +20,13 @@ def test_extended_tables_present():
     } <= names
 
 
-def test_schema_version_table_records_data_catalog_version():
+def test_schema_version_table_records_data_cache_version():
+    """The shared migrations runner records the ``data_cache`` component version."""
     cat = DataCatalogDuckDB()
     row = cat.connection.execute(
-        "SELECT version FROM _schema_version WHERE component = 'data_catalog'"
+        "SELECT version FROM _schema_version WHERE component = 'data_cache'"
     ).fetchone()
-    assert row == ("1",)
+    assert row == (1,)
 
 
 def test_artifact_and_provenance_roundtrip():
