@@ -234,26 +234,19 @@ def test_calibration_sessions_v2_enrichment(catalog: SimulationCatalog) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ML stub tables removed in v2.0; assert their absence.
+# ML hook tables seeded empty in V1; assert their presence.
 # ---------------------------------------------------------------------------
 
 
-def test_no_ml_stub_tables(catalog: SimulationCatalog) -> None:
-    """The DDL must not declare any ML-ready stub tables."""
+def test_ml_hook_tables_seeded_empty(catalog: SimulationCatalog) -> None:
+    """The V1 DDL declares the four ML hook tables, empty."""
     present = _table_set(catalog)
-    forbidden = {
-        "ml_splits",
-        "ml_scalers",
-        "ml_datasets",
-        "ml_runs",
-        "ml_predictions",
-        "sim_configs",
-        "sim_config_paths",
-        "feature_definitions",
-        "catalog_snapshots",
-    }
-    intersection = forbidden & present
-    assert not intersection, f"ML stub tables must not be present: {sorted(intersection)}"
+    required = {"ml_datasets", "ml_splits", "ml_splits_members", "ml_scalers"}
+    missing = required - present
+    assert not missing, f"ML hook tables must be present: {sorted(missing)}"
+    for table in required:
+        row = catalog.connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
+        assert row[0] == 0, f"{table} must start empty"
 
 
 # ---------------------------------------------------------------------------
@@ -324,10 +317,10 @@ def test_metric_definitions_seeded(catalog: SimulationCatalog) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_schema_version_records_catalog_v2(catalog: SimulationCatalog) -> None:
+def test_schema_version_records_catalog_v1(catalog: SimulationCatalog) -> None:
     """``_schema_version`` carries the latest catalog migration after init."""
     rows = catalog.connection.execute("SELECT component, version FROM _schema_version").fetchall()
-    assert ("catalog", 2) in rows
+    assert ("catalog", 1) in rows
 
 
 def test_schema_migrations_records_all_known_migrations(catalog: SimulationCatalog) -> None:
@@ -335,14 +328,11 @@ def test_schema_migrations_records_all_known_migrations(catalog: SimulationCatal
     rows = catalog.connection.execute(
         "SELECT version, slug FROM schema_migrations ORDER BY version"
     ).fetchall()
-    assert rows == [
-        (1, "initial_v2_schema"),
-        (2, "workflow_artifacts"),
-    ]
+    assert rows == [(1, "initial")]
 
 
 def test_workflow_steps_has_artifact_uris_column(catalog: SimulationCatalog) -> None:
-    """``workflow_steps`` exposes ``artifact_uris`` (JSON) after migration 2."""
+    """``workflow_steps`` exposes ``artifact_uris`` (JSON) as a native column."""
     cols = _columns(catalog, "workflow_steps")
     assert "artifact_uris" in cols
 
@@ -365,7 +355,7 @@ def test_double_init_is_idempotent(tmp_path: Path) -> None:
     cat2.close()
 
     assert tables_a == tables_b
-    assert rows[0] == 2, "schema_migrations should record every bundled migration"
+    assert rows[0] == 1, "schema_migrations should record every bundled migration"
     assert version_rows[0] == 1
 
 

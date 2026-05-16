@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict
 
 from hydromodpy.core.io.db_retry import _is_lock_contention, connect_with_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.core.state.index_migrations import ensure_schema as _ensure_index_schema
+from hydromodpy.core.state.migrations import ensure_schema as _ensure_index_schema
 from hydromodpy.core.state.paths import (
     CATALOG_FILENAME,
     INDEX_FILENAME,
