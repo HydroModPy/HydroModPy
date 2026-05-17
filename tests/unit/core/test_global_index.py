@@ -1,13 +1,14 @@
 """Unit tests for the machine-wide :class:`GlobalIndex`.
 
 Each test passes an explicit ``tmp_path`` for the index DB so the global
-machine state directory is never touched. Workspaces are seeded as bare
-DuckDB files matching the v2 layout (``<workspace>/catalog.duckdb`` with a
-``simulations`` table).
+machine state directory is never touched. Workspaces are seeded with the
+real V1 catalog DDL via :func:`ensure_schema` so the federation sees the
+production ``v_simulation_summary`` view.
 """
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 import duckdb
@@ -15,45 +16,57 @@ import pytest
 
 from hydromodpy.core.state.global_index import GlobalIndex, WorkspaceRecord
 from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.results.catalog.migrations import ensure_schema as _ensure_catalog
 
 
 def _seed_workspace(
     workspace: Path,
     *,
     rows: list[tuple[str, str, str]] | None = None,
-    with_description: bool = True,
 ) -> Path:
-    """Create a v2-style ``catalog.duckdb`` with one ``simulations`` table.
+    """Create a V1 ``catalog.duckdb`` with rows in the ``simulations`` table.
 
-    Each ``rows`` tuple is ``(sim_id, description, solver)``.
+    Each ``rows`` tuple is ``(sim_id, description, solver_code)``. ``sim_id``
+    may be a short opaque label, it is hashed into a UUID before insertion
+    so the catalog UUID column stays well-formed.
     """
     workspace.mkdir(parents=True, exist_ok=True)
     catalog_path = workspace / CATALOG_FILENAME
     conn = duckdb.connect(str(catalog_path))
     try:
-        if with_description:
-            conn.execute(
-                "CREATE TABLE simulations ("
-                "sim_id VARCHAR PRIMARY KEY, "
-                "description VARCHAR, "
-                "solver VARCHAR)"
-            )
-        else:
-            conn.execute("CREATE TABLE simulations (sim_id VARCHAR PRIMARY KEY, solver VARCHAR)")
+        _ensure_catalog(conn)
         if rows:
-            if with_description:
-                conn.executemany(
-                    "INSERT INTO simulations (sim_id, description, solver) VALUES (?, ?, ?)",
-                    rows,
-                )
-            else:
-                conn.executemany(
-                    "INSERT INTO simulations (sim_id, solver) VALUES (?, ?)",
-                    [(r[0], r[2]) for r in rows],
+            for sim_label, description, solver_code in rows:
+                sim_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, sim_label))
+                conn.execute(
+                    """
+                    INSERT INTO simulations
+                        (sim_id, name, project, solver_id, status_id,
+                         description, zarr_path, storage_basename)
+                    VALUES (
+                        ?, ?, 'lab',
+                        (SELECT id FROM solvers WHERE code = ?),
+                        (SELECT id FROM statuses WHERE code = 'completed'),
+                        ?, ?, ?
+                    )
+                    """,
+                    [
+                        sim_uuid,
+                        sim_label,
+                        solver_code,
+                        description,
+                        f"sim/{sim_label}.zarr",
+                        sim_label,
+                    ],
                 )
     finally:
         conn.close()
     return catalog_path
+
+
+def _label_to_uuid(label: str) -> str:
+    """Reverse of the UUID derivation used in :func:`_seed_workspace`."""
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, label))
 
 
 def _index_db(tmp_path: Path) -> Path:
@@ -86,14 +99,14 @@ def test_register_workspace_unique_uri_raises(tmp_path: Path) -> None:
 
 def test_unregister_removes_record_and_detaches(tmp_path: Path) -> None:
     ws = tmp_path / "ws_a"
-    _seed_workspace(ws, rows=[("s1", "desc", "mf6")])
+    _seed_workspace(ws, rows=[("s1", "desc", "modflow6")])
     with GlobalIndex(_index_db(tmp_path)) as index:
         workspace_id = index.register_workspace(str(ws))
         assert len(index.list_workspaces()) == 1
 
         df_before = index.find()
         assert not df_before.empty
-        assert df_before["sim_id"].tolist() == ["s1"]
+        assert {str(s) for s in df_before["sim_id"]} == {_label_to_uuid("s1")}
 
         index.unregister_workspace(workspace_id)
         assert index.list_workspaces() == []
@@ -105,35 +118,38 @@ def test_unregister_removes_record_and_detaches(tmp_path: Path) -> None:
 def test_find_federates_across_two_workspaces(tmp_path: Path) -> None:
     ws_a = tmp_path / "ws_a"
     ws_b = tmp_path / "ws_b"
-    _seed_workspace(ws_a, rows=[("s_a1", "Bretagne run", "mf6"), ("s_a2", "control", "nwt")])
-    _seed_workspace(ws_b, rows=[("s_b1", "Normandie run", "mf6")])
+    _seed_workspace(
+        ws_a,
+        rows=[("s_a1", "Bretagne run", "modflow6"), ("s_a2", "control", "modflow_nwt")],
+    )
+    _seed_workspace(ws_b, rows=[("s_b1", "Normandie run", "modflow6")])
 
     with GlobalIndex(_index_db(tmp_path)) as index:
         id_a = index.register_workspace(str(ws_a), label="alpha")
         id_b = index.register_workspace(str(ws_b), label="beta")
 
-        df = index.find(solver="mf6")
+        df = index.find(solver="modflow6")
 
-    assert set(df["sim_id"]) == {"s_a1", "s_b1"}
+    assert {str(s) for s in df["sim_id"]} == {_label_to_uuid("s_a1"), _label_to_uuid("s_b1")}
     workspace_ids = set(df["workspace_id"].astype(str))
     assert workspace_ids == {id_a, id_b}
 
 
 def test_attach_is_read_only(tmp_path: Path) -> None:
     ws = tmp_path / "ws_a"
-    _seed_workspace(ws, rows=[("s1", "desc", "mf6")])
+    _seed_workspace(ws, rows=[("s1", "desc", "modflow6")])
     with GlobalIndex(_index_db(tmp_path)) as index:
         index.register_workspace(str(ws))
         alias = next(iter(index._attached_aliases))
         with pytest.raises(duckdb.Error):
-            index.connection.execute(f"INSERT INTO {alias}.simulations VALUES ('s2', 'x', 'mf6')")
+            index.connection.execute(f"DELETE FROM {alias}.simulations WHERE sim_id IS NOT NULL")
 
 
 def test_prune_removes_dead_workspaces(tmp_path: Path) -> None:
     ws_a = tmp_path / "ws_a"
     ws_b = tmp_path / "ws_b"
-    _seed_workspace(ws_a, rows=[("s_a", "live", "mf6")])
-    _seed_workspace(ws_b, rows=[("s_b", "dead", "mf6")])
+    _seed_workspace(ws_a, rows=[("s_a", "live", "modflow6")])
+    _seed_workspace(ws_b, rows=[("s_b", "dead", "modflow6")])
     catalog_b = ws_b / CATALOG_FILENAME
 
     with GlobalIndex(_index_db(tmp_path)) as index:
@@ -153,20 +169,20 @@ def test_search_fts_finds_term(tmp_path: Path) -> None:
     _seed_workspace(
         ws,
         rows=[
-            ("s1", "Bretagne hydrology baseline", "mf6"),
-            ("s2", "Pyrenees control run", "nwt"),
+            ("s1", "Bretagne hydrology baseline", "modflow6"),
+            ("s2", "Pyrenees control run", "modflow_nwt"),
         ],
     )
     with GlobalIndex(_index_db(tmp_path)) as index:
         index.register_workspace(str(ws))
         df = index.search("Bretagne")
 
-    sim_ids = set(df["sim_id"]) if not df.empty else set()
-    assert "s1" in sim_ids
+    sim_ids = {str(s) for s in df["sim_id"]} if not df.empty else set()
+    assert _label_to_uuid("s1") in sim_ids
 
 
-def test_workspace_without_simulations_table_is_skipped(tmp_path: Path) -> None:
-    """A freshly created workspace (no ``simulations`` table) must not crash."""
+def test_workspace_without_v_simulation_summary_is_skipped(tmp_path: Path) -> None:
+    """A workspace without the V1 view must be skipped, not crash."""
     ws = tmp_path / "ws_empty"
     ws.mkdir(parents=True)
     conn = duckdb.connect(str(ws / CATALOG_FILENAME))
@@ -191,7 +207,7 @@ def test_index_path_uses_hmp_state_home(monkeypatch: pytest.MonkeyPatch, tmp_pat
 def test_read_only_open_returns_existing_records(tmp_path: Path) -> None:
     """``GlobalIndex(read_only=True)`` exposes search/find/list without writes."""
     ws = tmp_path / "ws_a"
-    _seed_workspace(ws, rows=[("s1", "Bretagne baseline run", "mf6")])
+    _seed_workspace(ws, rows=[("s1", "Bretagne baseline run", "modflow6")])
     index_db = _index_db(tmp_path)
 
     with GlobalIndex(index_db) as writer:
@@ -201,9 +217,9 @@ def test_read_only_open_returns_existing_records(tmp_path: Path) -> None:
         assert reader.read_only is True
         records = reader.list_workspaces()
         assert len(records) == 1
-        df = reader.find(solver="mf6")
+        df = reader.find(solver="modflow6")
         assert not df.empty
-        assert df["sim_id"].tolist() == ["s1"]
+        assert {str(s) for s in df["sim_id"]} == {_label_to_uuid("s1")}
 
 
 def test_read_only_register_raises_runtime_error(tmp_path: Path) -> None:

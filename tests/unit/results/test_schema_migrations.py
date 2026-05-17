@@ -18,7 +18,6 @@ from hydromodpy.results.catalog.migrations import (
     current_version,
     discover_migrations,
     ensure_schema,
-    list_migrations,
     target_version,
 )
 
@@ -109,7 +108,7 @@ def test_apply_in_order(conn: duckdb.DuckDBPyConnection, tmp_path: Path) -> None
 
     assert current_version(conn) == 3
     assert target_version(tmp_path) == 3
-    assert [m.version for m in list_migrations(tmp_path)] == [1, 2, 3]
+    assert [m.version for m in discover_migrations(tmp_path)] == [1, 2, 3]
 
 
 def test_rejects_gap(tmp_path: Path) -> None:

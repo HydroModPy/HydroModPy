@@ -360,16 +360,14 @@ class GlobalIndex:
                 )
                 continue
             self._attached_aliases.add(alias)
-            # Prefer ``v_simulation_summary`` (joins solver/status text codes,
-            # fixes ``find(solver=...)``) but fall back to the raw
-            # ``simulations`` table for workspaces still on a legacy schema.
+            # Federate via ``v_simulation_summary`` (joins solver/status text
+            # codes from the dim tables, so ``find(solver=...)`` filters on
+            # actual values). Workspaces without the view are skipped.
             if self._table_exists(alias, "v_simulation_summary"):
-                attached_parts.append((alias, record.workspace_id, "v_simulation_summary"))
-            elif self._table_exists(alias, "simulations"):
-                attached_parts.append((alias, record.workspace_id, "simulations"))
+                attached_parts.append((alias, record.workspace_id))
             else:
                 logger.info(
-                    "Workspace %s has no 'simulations' table yet; skipping in federation",
+                    "Workspace %s has no 'v_simulation_summary' view; skipping in federation",
                     record.workspace_id,
                 )
 
@@ -382,10 +380,10 @@ class GlobalIndex:
             pass
         if attached_parts:
             unions = []
-            for alias, workspace_id, source in attached_parts:
+            for alias, workspace_id in attached_parts:
                 unions.append(
                     f"SELECT {_quote_literal(workspace_id)} AS workspace_id, t.* "
-                    f"FROM {_quote_identifier(alias)}.{_quote_identifier(source)} AS t"
+                    f"FROM {_quote_identifier(alias)}.v_simulation_summary AS t"
                 )
             self._conn.execute(
                 f"CREATE OR REPLACE {view_kw} all_simulations AS " + " UNION ALL ".join(unions)
