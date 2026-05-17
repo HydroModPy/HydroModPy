@@ -9,7 +9,7 @@ Public API
 - :func:`ensure_schema`: bring a component up to the latest version.
 - :func:`current_version`: highest applied version (0 if none).
 - :func:`target_version`: highest version on disk.
-- :func:`list_migrations`: ordered :class:`Migration` records.
+- :func:`discover_migrations`: ordered :class:`Migration` records.
 - :class:`Migration`: Pydantic record for one migration file.
 - Errors: :class:`MigrationError`, :class:`SchemaIntegrityError`,
   :class:`MigrationDiscoveryError`, :class:`MigrationExecutionError`.
@@ -30,7 +30,6 @@ from hydromodpy.core.migrations.runner import (
     current_version,
     discover_migrations,
     ensure_schema,
-    list_migrations,
     target_version,
 )
 
@@ -47,6 +46,5 @@ __all__ = [
     "current_version",
     "discover_migrations",
     "ensure_schema",
-    "list_migrations",
     "target_version",
 ]

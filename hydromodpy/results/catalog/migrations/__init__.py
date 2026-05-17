@@ -1,8 +1,8 @@
 """Catalog DuckDB schema migrations.
 
 Thin wrapper that binds the generic migration runner from
-``hydromodpy.core.migrations`` to the bundled SQL ``versions/`` directory and
-to the ``"catalog"`` component name.
+``hydromodpy.core.migrations`` to the bundled SQL directory and to the
+``"catalog"`` component name.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from hydromodpy.core.migrations import apply_migrations as _apply_migrations
 from hydromodpy.core.migrations import current_version as _current_version
 from hydromodpy.core.migrations import discover_migrations as _discover_migrations
 from hydromodpy.core.migrations import ensure_schema as _ensure_schema
-from hydromodpy.core.migrations import list_migrations as _list_migrations
 from hydromodpy.core.migrations import target_version as _target_version
 
 if TYPE_CHECKING:
@@ -70,11 +69,6 @@ def discover_migrations(versions_dir: Path | None = None) -> list[Migration]:
     return _discover_migrations(versions_dir if versions_dir is not None else _MIGRATIONS_DIR)
 
 
-def list_migrations(versions_dir: Path | None = None) -> list[Migration]:
-    """List catalog migrations sorted by version."""
-    return _list_migrations(versions_dir if versions_dir is not None else _MIGRATIONS_DIR)
-
-
 def apply_migration(connection: duckdb.DuckDBPyConnection, migration: Migration) -> None:
     """Apply one catalog migration in a transaction."""
     _apply_migration(connection, migration, component=CATALOG_COMPONENT)
@@ -92,6 +86,5 @@ __all__ = [
     "current_version",
     "discover_migrations",
     "ensure_schema",
-    "list_migrations",
     "target_version",
 ]

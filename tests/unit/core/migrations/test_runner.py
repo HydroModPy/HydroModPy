@@ -20,7 +20,6 @@ from hydromodpy.core.migrations import (
     current_version,
     discover_migrations,
     ensure_schema,
-    list_migrations,
     target_version,
 )
 
@@ -233,7 +232,7 @@ def test_target_version_matches_highest_disk_version(versions_dir: Path) -> None
     _write(versions_dir, 3, "c", "-- c")
 
     assert target_version(versions_dir) == 3
-    assert [m.version for m in list_migrations(versions_dir)] == [1, 2, 3]
+    assert [m.version for m in discover_migrations(versions_dir)] == [1, 2, 3]
 
 
 def test_migration_model_forbids_extra_fields(versions_dir: Path) -> None:

@@ -148,7 +148,7 @@ def _cmd_purge(args: argparse.Namespace) -> None:
         sha256_snapshot=sha256_snapshot,
     )
     archive_path: Path | None = None
-    if getattr(args, "archive_pii", False):
+    if args.archive_pii:
         archive_path = _write_pii_archive(
             workspace_root=workspace_top,
             sim_id=sid,
