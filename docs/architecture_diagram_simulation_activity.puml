@@ -12,9 +12,14 @@ if (Configuration valide ?) then (oui)
 else (non)
   stop
 endif
+:Résoudre la fenêtre [simulation.time];
+if (Fenêtre/step invalides ?) then (oui)
+  stop
+endif
 :Valider la configuration;
 :Construire le contexte géographique;
 :Charger les données (DataStore);
+:Injecter date_start/date_end canoniques dans les managers;
 :Construire ou importer le maillage;
 :Configurer les processus;
 :Définir les paramètres de simulation;

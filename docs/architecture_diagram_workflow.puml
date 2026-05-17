@@ -43,6 +43,9 @@ package "Runtimes & Backends" {
   component "Solver Adapters\n(hydromodpy.solver.*.adapters)" as Adapters
   component "Solver Binaries / Backends" as Backends
   component "SimulationCatalog\n(hydromodpy.results.catalog)" as Catalog <<provider>>
+  component "DuckDB\n(metadata/index)" as CatalogDuck <<provider>>
+  component "Zarr\n(spatial fields)" as CatalogZarr <<provider>>
+  component "Parquet\n(timeseries/budgets)" as CatalogParquet <<provider>>
   component "DataStore / Managers\n(hydromodpy.data.store)" as DataStore
 }
 
@@ -101,7 +104,12 @@ CalibDispatch --> CalibCatalog : promote best runs
 CalibDispatch --> CalibHistory : calibration iterations
 
 ' Extraction & ingestion: after-run callbacks write to Catalog
-StepExtract ..> Catalog : write_field / write_timeseries / write_metric
+StepExtract ..> CatalogDuck : write metadata / metrics
+StepExtract ..> CatalogZarr : write fields
+StepExtract ..> CatalogParquet : write timeseries
+CatalogDuck --> Catalog : unified facade
+CatalogZarr --> Catalog
+CatalogParquet --> Catalog
 StepDerive ..> Catalog : compute derived metrics
 StepExport ..> Catalog : finalize / register artifacts
 StepDisplay ..> Catalog : read runs for plotting
@@ -121,6 +129,13 @@ end note
 note bottom of Catalog
   SimulationCatalog implements SimulationStore protocol
   (hydromodpy/results/catalog/facade.py)
+end note
+
+note bottom of CatalogDuck
+  Storage layout (official docs):
+  - DuckDB catalog (metadata)
+  - Zarr stores (field arrays)
+  - Parquet tables (timeseries/budgets)
 end note
 
 
