@@ -120,6 +120,7 @@ def _run_privacy_purge(tmp_path: Path, sid: str, reason: str = "gdpr-request") -
             "workspace": str(tmp_path),
             "reason": reason,
             "yes": True,
+            "archive_pii": False,
         },
     )()
     with patch.object(privacy_cmd.sys, "exit") as fake_exit:
