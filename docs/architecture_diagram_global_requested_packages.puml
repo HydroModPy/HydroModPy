@@ -72,6 +72,14 @@ legend right
 | ..> | Utilise (faible) |
 endlegend
 
+package "Project Orchestration Facade" <<facade>> {
+  component "Project\n(hydromodpy._api.Project)" as ProjectFacade <<facade>>
+  component "Planner\n(orchestrator.Planner)" as Planner <<aggregate>>
+  component "Plan\n(orchestrator.Plan)" as Plan <<aggregate>>
+  component "Pipeline\n(core.pipeline.Pipeline)" as Pipeline <<aggregate>>
+  component "Runner\n(project_runner.ProjectRunner)" as Runner <<aggregate>>
+}
+
 package "Requested Package Index" <<facade>> {
   component "CLI commands\n(hydromodpy.cli.commands.*)" as PkgCLI <<aggregate,facade>>
   component "config + workspace\n(hydromodpy.config / core.workspace)" as PkgConfigWorkspace <<aggregate>>
@@ -168,6 +176,13 @@ package "Results Management" {
   interface "ResultsCatalog Protocol\n(Results storage/retrieval)" as ResultsCatalogProtocol <<real interface>>
 }
 
+package "Unified Storage & Catalog Layer" {
+  component "CatalogDuckDB\n(metadata index)" as CatalogDuck
+  component "CatalogZarr\n(spatial fields)" as CatalogZarr
+  component "CatalogParquet\n(timeseries/budgets)" as CatalogParquet
+  component "UnifiedCatalog\n(Facade)" as UnifiedCatalog <<facade>>
+}
+
 package "Cross-cutting / Advanced" {
   component "PostprocessRunner" as PostprocessRunner
   component "BatchOrchestration" as BatchOrchestration
@@ -175,6 +190,12 @@ package "Cross-cutting / Advanced" {
 }
 
 ' ---------- Main flow (numbered steps) ----------
+ProjectFacade -[#C2410C,thickness=2]-> Planner : 0) plan run
+Planner -[#C2410C,thickness=2]-> Plan : (build plan)
+Plan -[#C2410C,thickness=2]-> Pipeline : (create steps)
+Pipeline -[#C2410C,thickness=2]-> Runner : 1-12) execute steps
+Runner -[#C2410C,thickness=2]-> CLIEntryPoint : orchestrate
+
 CLIEntryPoint -[#C2410C,thickness=2]-> TomlLoader : 1) charge TOML
 TomlLoader -[#C2410C,thickness=2]-> HmpConfigFactory : 2) valide config
 HmpConfigFactory -[#C2410C,thickness=2]-> WorkspaceRuntime : 3) initialise workspace
@@ -185,14 +206,15 @@ GeoContextBuilder -[#C2410C,thickness=2]-> StructuredMeshBuilder : 7) construit 
 StructuredMeshBuilder -[#C2410C,thickness=2]-> SimulationPlannerBuild : 8) plan simulation
 SimulationPlannerBuild -[#C2410C,thickness=2]-> SimulationRunnerExec : 9) exécute
 SimulationRunnerExec -[#C2410C,thickness=2]-> ResultsCatalog : 10) ingère résultats
-ResultsCatalog -[#C2410C,thickness=2]-> PostprocessRunner : 11) post-process
+ResultsCatalog -[#C2410C,thickness=2]-> UnifiedCatalog : 11) stocke dans DuckDB/Zarr/Parquet
+UnifiedCatalog -[#C2410C,thickness=2]-> PostprocessRunner : 12) post-process
 
-CLIEntryPoint -[#C2410C,thickness=2]-> CalibrationEngine : 12) calibrate
-CalibrationEngine -[#C2410C,thickness=2]-> Optimizer : 13) ask/tell
-CalibrationEngine -[#C2410C,thickness=2]-> TrialRunner : 14) évalue trials
-TrialRunner -[#C2410C,thickness=2]-> SimulationRunnerExec : 15) run_trial_light
-TrialRunner -[#C2410C,thickness=2]-> ResultsCatalog : 16) store history
-CLIEntryPoint -[#C2410C,thickness=2]-> BatchOrchestration : 17) compare methods
+CLIEntryPoint -[#C2410C,thickness=2]-> CalibrationEngine : 13) calibrate
+CalibrationEngine -[#C2410C,thickness=2]-> Optimizer : 14) ask/tell
+CalibrationEngine -[#C2410C,thickness=2]-> TrialRunner : 15) évalue trials
+TrialRunner -[#C2410C,thickness=2]-> SimulationRunnerExec : 16) run_trial_light
+TrialRunner -[#C2410C,thickness=2]-> ResultsCatalog : 17) store history
+CLIEntryPoint -[#C2410C,thickness=2]-> BatchOrchestration : 18) compare methods
 
 ' ---------- Package mappings ----------
 PkgCLI ..> CLIEntryPoint
@@ -235,6 +257,12 @@ PkgCalibration ..> CalibrationAdapters
 PkgResults ..> ResultsCatalog
 PkgResults ..> ResultImporters
 PkgResults ..> ResultExporters
+
+' ---------- Storage mappings ----------
+ResultsCatalog ..> UnifiedCatalog : ingest
+UnifiedCatalog ..> CatalogDuck : metadata
+UnifiedCatalog ..> CatalogZarr : spatial_fields
+UnifiedCatalog ..> CatalogParquet : timeseries
 
 ' ---------- Interfaces ----------
 TomlLoader -- IConfigLoadPort
@@ -297,6 +325,20 @@ note bottom of CLIEntryPoint
   CLI with 25 subcommands:
   run (simulation), compare, catalog,
   dev, schema, list, export, etc.
+end note
+
+note bottom of ProjectFacade
+  Pattern: Facade + Orchestrator
+  Entry point for Python API and CLI
+  Manages Planner → Plan → Pipeline → Runner
+end note
+
+note bottom of UnifiedCatalog
+  **3-Level Storage Strategy**
+  ├─ DuckDB: Metadata index
+  ├─ Zarr: Spatial field arrays
+  └─ Parquet: Timeseries + budgets
+  All behind unified facade
 end note
 
 note bottom of CalibrationEngine

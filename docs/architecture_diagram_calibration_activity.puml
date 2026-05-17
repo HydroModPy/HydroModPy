@@ -12,6 +12,7 @@ if (Configuration valide ?) then (oui)
 else (non)
   stop
 endif
+:Valider la configuration chronicle du cas;
 :Valider la configuration;
 :Construire le contexte géographique;
 :Charger les données (observations + DataStore);
@@ -19,6 +20,10 @@ endif
 :Configurer les processus;
 :Définir les paramètres à calibrer;
 :Préparer le solveur;
+
+if (method = da_mh_gp et metric != rmse ?) then (oui)
+  :Forcer objective_metric = rmse;
+endif
 
 |CalibrationEngine|
 note right: Pattern Ask/Tell (optimiseur)
