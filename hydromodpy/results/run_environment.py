@@ -6,7 +6,7 @@ What
 host hardware, git commit (HydroModPy + project root), installed packages,
 and the SHA-256 of the active solver binary when known. Output matches
 the column layout of the v2 ``runs_environment`` DDL declared in
-``catalog/migrations/versions/0001_initial_v2_schema.sql``.
+``catalog/migrations/0001_initial.sql``.
 
 Why
 ---

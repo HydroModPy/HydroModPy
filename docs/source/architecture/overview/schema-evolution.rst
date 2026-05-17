@@ -33,13 +33,11 @@ Migration runner
 Source: ``hydromodpy/core/migrations/runner.py`` plus per-component
 migration directories:
 
-- ``hydromodpy/results/catalog/migrations/versions/`` for the project
-  catalog;
-- ``hydromodpy/data/migrations/versions/`` for the workspace cache;
-- ``hydromodpy/core/state/index_migrations/versions/`` for the global
-  index.
+- ``hydromodpy/results/catalog/migrations/`` for the project catalog;
+- ``hydromodpy/data/registry/migrations/`` for the workspace cache;
+- ``hydromodpy/core/state/migrations/`` for the global index.
 
-Each migration is a numbered SQL file (``0001_initial_v2_schema.sql``,
+Each migration is a numbered SQL file (``0001_initial.sql``,
 ``0002_add_<slug>.sql``, ...) and applies cleanly in version order. The
 runner:
 

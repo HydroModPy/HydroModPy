@@ -3,7 +3,7 @@
 Hosts string sentinels reused across the catalog write path (``GLOBAL_ZONE``,
 ``OUTLET_STATION``), the canonical table-name lists, and the solver
 category resolver. The DDL itself lives in the SQL migration scripts under
-``catalog/migrations/versions/``.
+``catalog/migrations/``.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ OUTLET_STATION = "__outlet__"
 """Sentinel station id for the catchment outlet."""
 
 # v2 catalog table names (DuckDB). Kept in sync with
-# ``catalog/migrations/versions/0001_initial_v2_schema.sql``.
+# ``catalog/migrations/0001_initial.sql``.
 TABLE_NAMES: tuple[str, ...] = (
     "_schema_version",
     "schema_migrations",
@@ -77,7 +77,7 @@ PARQUET_VIEW_NAMES: tuple[str, ...] = (
 
 
 # Canonical v2 solver codes, mirroring ``solvers.code`` rows in
-# ``catalog/migrations/versions/0001_initial_v2_schema.sql``.
+# ``catalog/migrations/0001_initial.sql``.
 VALID_SOLVER_CODES: frozenset[str] = frozenset(
     {
         "boussinesq",

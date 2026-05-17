@@ -106,11 +106,11 @@ resolves transparently.
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/results/catalog/migrations/versions/0001_initial_v2_schema.sql``
-   for the canonical table layout.
+1. ``hydromodpy/results/catalog/migrations/0001_initial.sql`` for the
+   canonical table layout.
 2. ``hydromodpy/results/catalog/ports.py`` (Protocol).
-3. ``hydromodpy/results/catalog/adapters/duckdb_backend.py``
-   (SQLAlchemy 2.0 Core implementation).
+3. ``hydromodpy/results/catalog/adapters/duckdb.py`` (in-tree
+   implementation).
 4. ``hydromodpy/results/catalog/facade.py`` (``SimulationCatalog``).
 5. ``hydromodpy/results/run.py`` (``Run`` facade).
 6. ``hydromodpy/results/field_registry.py`` for the field dispatch

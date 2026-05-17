@@ -146,7 +146,7 @@ A change to any of the four areas above is a breaking change that
 requires:
 
 - a migration entry under the relevant
-  ``hydromodpy/.../migrations/versions/`` directory;
+  ``hydromodpy/.../migrations/`` directory;
 - a version bump of the matching constant
   (``ZARR_SCHEMA_VERSION``, ``PARQUET_SCHEMA_VERSION``,
   ``GEOPARQUET_SCHEMA_VERSION``);
