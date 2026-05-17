@@ -1,0 +1,17 @@
+# Contract stub for one B0 candidate steady run.
+
+[b0]
+role = "candidate_steady_network"
+site_id = "site_05"
+solver = "modflow6"
+regime = "steady"
+output_root = "../outputs/candidates/{trial_id}/steady_network"
+
+[candidate.parameters]
+mK = "{mK}"
+Sy = "{Sy}"
+
+[candidate.outputs]
+drain_by_cell = true
+active_network_mask = true
+

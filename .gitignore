@@ -67,6 +67,7 @@ Thumbs.db
 .pytest*/
 .pytest_tmp*/
 pytest_tmp*/
+pytest*.log
 pytest-cache-*/
 pytestscratch*/
 pytest-temp-root/
@@ -132,6 +133,12 @@ hydromodpy/solver/**/cases/outputs/**
 examples/*.duckdb
 examples/data/cache.duckdb
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
+
+# Large generated comparison payloads kept out of Git.
+examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json
+examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/observables.csv
+docs/_dev_notes/diagnostics/boussinesq_*/
+docs/_dev_notes/diagnostics/boussinesq_*.csv
 
 # Generated images from output directories
 **/output/*.png

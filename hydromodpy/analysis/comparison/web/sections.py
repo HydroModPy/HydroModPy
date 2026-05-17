@@ -66,6 +66,13 @@ def default_sections() -> list[ReportSection]:
             lambda ctx: bool(ctx.numerical_closure_rows),
         ),
         ReportSection("metrics", "Metriques principales", 50, _render_metrics),
+        ReportSection(
+            "coherence_analysis",
+            "Lecture physique des ecarts",
+            55,
+            _render_coherence_analysis,
+            _has_head_error_metrics,
+        ),
         ReportSection("simulations", "Simulations", 60, _render_simulations),
         ReportSection("audit", "Audit format", 70, _render_audit),
         ReportSection("files", "Fichiers", 80, _render_files),
@@ -283,7 +290,7 @@ def _render_simulations(ctx: ComparisonWebContext) -> str:
   <section>
     <div class="card">
       <h2>Simulations</h2>
-      <p class="muted">Temps de calcul releves dans le manifeste de comparaison. Les barres sont normalisees par rapport a la simulation la plus longue du cas.</p>
+      <p class="muted">Temps de resolution de la partie flow uniquement, releves dans les metriques solver. Les phases de preparation, maillage, extraction et rendu ne sont pas incluses dans cette comparaison.</p>
       {_render_runtime_table(ctx.simulations)}
     </div>
   </section>
@@ -317,8 +324,8 @@ def _render_numerical_closure(ctx: ComparisonWebContext) -> str:
         ("simulation_id", "simulation"),
         ("solver", "solveur"),
         ("n_periods", "periodes"),
-        ("max_abs_closure_m3_s", "max |residu| m3/s"),
-        ("max_abs_closure_mm_d", "max |residu| mm/j"),
+        ("max_abs_closure_m3_s", "max |residu| debit"),
+        ("max_abs_closure_mm_d", "max |residu| lame"),
         ("relative_closure_error_p95", "erreur rel. p95"),
         ("diagnostic", "avis"),
     ]
@@ -338,10 +345,195 @@ def _render_metrics(ctx: ComparisonWebContext) -> str:
     return f"""
   <section>
     <h2>Metriques principales</h2>
-    <p class="muted">Les ecarts de charge restent donnes en metres, puis normalises par l'amplitude de la grandeur de reference pour l'observable concerne: amplitude spatiale pour une carte, amplitude temporelle pour une chronique. Cette normalisation donne directement un ordre de grandeur en pourcentage.</p>
-    {_render_table(rows, [("observable_label", "observable"), ("n_pairs", "n"), ("mae", "ecart moy m"), ("rmse", "RMSE m"), ("normalization_scale", "echelle ref m"), ("mae_normalized_percent", "ecart moy %")], empty="Aucune metrique.")}
+    <p class="muted">Lecture compacte des ecarts sur les observables communes. Les unites sont explicites: les charges sont en metres, et le pourcentage correspond a <code>RMSE / valeur ref</code>. Ici, <code>valeur ref</code> est l'amplitude de la grandeur de reference utilisee pour normaliser l'observable.</p>
+    {_render_metric_snapshot(rows)}
   </section>
 """
+
+
+def _render_metric_snapshot(rows: list[dict[str, str]]) -> str:
+    if not rows:
+        return '<p class="muted">Aucune metrique.</p>'
+    numeric_rows = [_metric_snapshot_row(row) for row in rows]
+    percentages = [
+        item["rmse_percent_value"]
+        for item in numeric_rows
+        if item["rmse_percent_value"] is not None
+    ]
+    scale = max(5.0, max(percentages, default=0.0))
+    best = min(
+        (item for item in numeric_rows if item["rmse_percent_value"] is not None),
+        key=lambda item: item["rmse_percent_value"],
+        default=None,
+    )
+    worst = max(
+        (item for item in numeric_rows if item["rmse_percent_value"] is not None),
+        key=lambda item: item["rmse_percent_value"],
+        default=None,
+    )
+    summary = ""
+    if best is not None and worst is not None:
+        summary = (
+            '<div class="metric-summary">'
+            f'<div><span class="kv-label">Plus proche</span><strong>{safe(best["observable_label"])}</strong><small>{safe(best["rmse_percent"])}</small></div>'
+            f'<div><span class="kv-label">Ecart max</span><strong>{safe(worst["observable_label"])}</strong><small>{safe(worst["rmse_percent"])}</small></div>'
+            f'<div><span class="kv-label">Reference</span><strong>MF6</strong><small>valeur ref en {safe(best["unit"] or "unite")}</small></div>'
+            "</div>"
+        )
+    body_rows: list[str] = []
+    for item in numeric_rows:
+        value = item["rmse_percent_value"]
+        width = 0.0 if value is None or scale == 0 else max(2.0, min(100.0, 100.0 * value / scale))
+        body_rows.append(
+            "<tr>"
+            f"<td>{safe(item['observable_label'])}</td>"
+            f"<td>{safe(item['n_pairs'])}</td>"
+            f"<td>{safe(item['rmse'])}</td>"
+            f"<td>{safe(item['reference_value'])}</td>"
+            "<td>"
+            f"<strong>{safe(item['rmse_percent'])}</strong>"
+            '<div class="metric-bar-track">'
+            f'<span class="metric-bar" style="width: {width:.1f}%"></span>'
+            "</div>"
+            "</td>"
+            "</tr>"
+        )
+    table = (
+        '<table class="metric-table"><thead><tr>'
+        "<th>observable</th><th>n</th><th>RMSE</th><th>valeur ref</th><th>RMSE / ref</th>"
+        f"</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
+    )
+    return summary + table
+
+
+def _metric_snapshot_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    unit = str(row.get("unit", "") or "").strip()
+    rmse_value = _float_or_none(row.get("rmse"))
+    reference_value = _float_or_none(row.get("normalization_scale"))
+    rmse_percent = _float_or_none(row.get("rmse_normalized_percent"))
+    return {
+        "observable_label": str(row.get("observable_label") or row.get("observable") or ""),
+        "n_pairs": str(row.get("n_pairs", "")),
+        "unit": unit,
+        "rmse": _format_with_unit(rmse_value, unit),
+        "reference_value": _format_with_unit(reference_value, unit),
+        "rmse_percent": _format_percent_value(rmse_percent),
+        "rmse_percent_value": rmse_percent,
+    }
+
+
+def _render_coherence_analysis(ctx: ComparisonWebContext) -> str:
+    head_rows = [
+        _metric_analysis_row(row)
+        for row in ctx.metrics_rows
+        if str(row.get("observable", "")).startswith("head")
+    ]
+    head_rows = [row for row in head_rows if row["rmse_percent"] is not None]
+    if not head_rows:
+        return ""
+    first = _analysis_row_by_token(head_rows, "first")
+    wet = _analysis_row_by_token(head_rows, "wet")
+    dry = _analysis_row_by_token(head_rows, "dry")
+    last = _analysis_row_by_token(head_rows, "last")
+    best = min(head_rows, key=lambda item: item["rmse_percent"])
+    worst = max(head_rows, key=lambda item: item["rmse_percent"])
+    max_percent = float(worst["rmse_percent"] or 0.0)
+    if max_percent < 2.0:
+        verdict = "accord tres serre"
+    elif max_percent < 5.0:
+        verdict = "accord globalement bon"
+    elif max_percent < 10.0:
+        verdict = "coherence globale avec ecarts notables"
+    else:
+        verdict = "ecarts marques a investiguer"
+
+    evidence_rows = [
+        ("Meilleur accord", _analysis_row_text(best)),
+        ("Ecart le plus fort", _analysis_row_text(worst)),
+    ]
+    if first is not None:
+        evidence_rows.append(("Premier pas calcule", _analysis_row_text(first)))
+    if wet is not None:
+        evidence_rows.append(("Apres saison humide", _analysis_row_text(wet)))
+    if dry is not None:
+        evidence_rows.append(("Etat sec", _analysis_row_text(dry)))
+    if last is not None:
+        evidence_rows.append(("Etat final", _analysis_row_text(last)))
+
+    messages = [
+        (
+            f"Sur les charges comparees, ce cas presente {verdict}: la RMSE normalisee "
+            f"va de {_format_percent_value(best['rmse_percent'])} a "
+            f"{_format_percent_value(worst['rmse_percent'])}."
+        ),
+        (
+            "Les ecarts les plus faibles apparaissent en general au debut ou juste apres "
+            "un episode humide: la nappe est alors davantage controlee par la recharge "
+            "et par le champ de conductivite commun aux deux solveurs."
+        ),
+        (
+            "Les ecarts augmentent quand l'etat devient plus sec ou plus proche de la "
+            "surface. C'est la zone la plus sensible aux differences de formulation: "
+            "MODFLOW 6 accepte des charges au-dessus du toit et represente le drainage "
+            "par une conductance de drain, alors que le calcul Boussinesq utilise une "
+            "formulation nappe libre avec obstacle de surface et un traitement de drainage "
+            "different."
+        ),
+        (
+            "Les cas synthetiques restent le repere de coherence: support, geometrie, "
+            "forcage et observables y sont controles, donc les ecarts doivent surtout "
+            "venir de la formulation numerique et des termes de flux non strictement "
+            "identiques. Les cas naturels ajoutent topographie, geologie et contrastes "
+            "locaux; ils amplifient donc les differences la ou la nappe interagit avec "
+            "le toit, les drains et les zones de forte pente."
+        ),
+    ]
+    return f"""
+  <section>
+    <div class="card">
+      <h2>Lecture physique des ecarts</h2>
+      {_render_key_values(evidence_rows)}
+      {"".join(f"<p>{safe(message)}</p>" for message in messages)}
+    </div>
+  </section>
+"""
+
+
+def _has_head_error_metrics(ctx: ComparisonWebContext) -> bool:
+    return any(
+        str(row.get("observable", "")).startswith("head")
+        and _float_or_none(row.get("rmse_normalized_percent")) is not None
+        for row in ctx.metrics_rows
+    )
+
+
+def _metric_analysis_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    observable = str(row.get("observable", ""))
+    return {
+        "observable": observable,
+        "label": _observable_label(observable),
+        "rmse": _float_or_none(row.get("rmse")),
+        "rmse_percent": _float_or_none(row.get("rmse_normalized_percent")),
+        "unit": str(row.get("unit", "") or "").strip(),
+    }
+
+
+def _analysis_row_by_token(
+    rows: list[dict[str, Any]],
+    token: str,
+) -> dict[str, Any] | None:
+    token = token.lower()
+    for row in rows:
+        if token in str(row["observable"]).lower():
+            return row
+    return None
+
+
+def _analysis_row_text(row: Mapping[str, Any]) -> str:
+    return (
+        f"{row['label']} - RMSE {_format_with_unit(row.get('rmse'), str(row.get('unit') or ''))} "
+        f"({_format_percent_value(row.get('rmse_percent'))})"
+    )
 
 
 def _render_figures(
@@ -564,10 +756,16 @@ def _initial_condition_text(flow: Mapping[str, Any]) -> str:
     ic = _mapping(flow.get("ic"))
     ic_type = str(ic.get("type", "")).strip()
     if ic_type == "steady_state":
-        if (
-            str(flow.get("runtime_backend", "")).strip().lower() == "petsc"
-            and str(flow.get("surface_interaction_model", "")).strip().lower() == "ts_vi_obstacle"
-        ):
+        backend = str(flow.get("runtime_backend", "")).strip().lower()
+        surface = str(flow.get("surface_interaction_model", "")).strip().lower()
+        if backend == "petsc" and surface == "vi_obstacle":
+            return (
+                "charge initiale issue d'un calcul permanent auxiliaire avec "
+                "la recharge moyenne; pour Boussinesq, le permanent et le "
+                "transitoire utilisent PETSc SNESVI avec la fermeture "
+                "vi_obstacle directe"
+            )
+        if backend == "petsc" and surface == "ts_vi_obstacle":
             return (
                 "charge initiale issue d'un calcul permanent auxiliaire avec "
                 "la recharge moyenne; pour Boussinesq, ce permanent utilise "
@@ -626,6 +824,20 @@ def _boundary_condition_text(flow: Mapping[str, Any], *, solver: str = "") -> st
 def _boussinesq_method_text(flow: Mapping[str, Any]) -> str:
     backend = str(flow.get("runtime_backend", "") or "").strip().lower()
     surface = str(flow.get("surface_interaction_model", "") or "").strip().lower()
+    if backend == "petsc" and surface == "vi_obstacle":
+        retry_text = (
+            "; retry adaptatif active"
+            if bool(flow.get("vi_substep_on_failure", False))
+            else "; retry adaptatif desactive"
+        )
+        return (
+            "modele 2D non lineaire en nappe libre sur le meme maillage; "
+            "backend PETSc complet; surface_interaction_model=vi_obstacle; "
+            "solveur PETSc SNESVI direct; "
+            f"{_format_value(flow.get('vi_substeps_per_period'), default='4')} sous-pas par periode"
+            f"{retry_text}; "
+            f"tolerance residu={_format_value(flow.get('runtime_tol_residual_inf'), default='')}"
+        )
     if backend == "petsc" and surface == "ts_vi_obstacle":
         return (
             "modele 2D non lineaire en nappe libre sur le meme maillage; "
@@ -719,11 +931,7 @@ def _row_runtime_seconds_with_scope(row: Mapping[str, Any]) -> tuple[float | Non
     ):
         seconds = _runtime_seconds(candidate)
         if seconds is not None:
-            return seconds, "flux"
-    for candidate in (row.get("wall_time_seconds"), metrics_map.get("wall_time_seconds")):
-        seconds = _runtime_seconds(candidate)
-        if seconds is not None:
-            return seconds, "workflow"
+            return seconds, "flow_solve"
     return None, ""
 
 
@@ -771,12 +979,9 @@ def _format_closure_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     formatted: list[dict[str, str]] = []
     for row in rows:
         item = dict(row)
-        for key in (
-            "max_abs_closure_m3_s",
-            "max_abs_closure_mm_d",
-            "relative_closure_error_p95",
-        ):
-            item[key] = _format_number(row.get(key))
+        item["max_abs_closure_m3_s"] = _format_with_unit(row.get("max_abs_closure_m3_s"), "m3/s")
+        item["max_abs_closure_mm_d"] = _format_with_unit(row.get("max_abs_closure_mm_d"), "mm/j")
+        item["relative_closure_error_p95"] = _format_number(row.get("relative_closure_error_p95"))
         formatted.append(item)
     return formatted
 
@@ -788,13 +993,34 @@ def _format_number(value: Any) -> str:
         return str(value if value is not None else "")
     if not math.isfinite(number):
         return ""
-    if abs(number) >= 1000 or (abs(number) > 0 and abs(number) < 0.01):
-        return f"{number:.2e}"
-    if abs(number) >= 100:
-        return f"{number:.0f}"
-    if abs(number) >= 10:
-        return f"{number:.1f}"
-    return f"{number:.3g}"
+    if abs(number) > 0 and abs(number) < 0.01:
+        return f"{number:.1e}"
+    return f"{number:.1f}"
+
+
+def _float_or_none(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except Exception:
+        return None
+    if not math.isfinite(number):
+        return None
+    return number
+
+
+def _format_with_unit(value: Any, unit: str) -> str:
+    number = _float_or_none(value)
+    if number is None:
+        return ""
+    formatted = _format_number(number)
+    return f"{formatted} {unit}".strip()
+
+
+def _format_percent_value(value: Any) -> str:
+    number = _float_or_none(value)
+    if number is None:
+        return ""
+    return f"{_format_number(number)} %"
 
 
 def _observable_label(name: str) -> str:
@@ -802,6 +1028,7 @@ def _observable_label(name: str) -> str:
         "head_map_initial": "champ de charge initial",
         "head_map_first_computed": "champ de charge au premier pas calcule",
         "head_map_wet_year1": "champ de charge apres la premiere saison humide",
+        "head_map_dry_late": "champ de charge en etat sec tardif",
         "head_map_drought_year2": "champ de charge en fin de periode seche",
         "head_map_extreme_recharge": "champ de charge pendant le pic de recharge",
         "head_map_last": "champ de charge final",
@@ -810,6 +1037,9 @@ def _observable_label(name: str) -> str:
         "head_central_high_k_series": "chronique de charge dans le couloir central conducteur",
         "head_east_interface_series": "chronique de charge pres de l'interface centre/est",
         "head_east_medium_k_series": "chronique de charge dans la zone est intermediaire",
+        "head_domain_low_series": "chronique de charge dans la partie basse du domaine",
+        "head_domain_mid_series": "chronique de charge dans la partie mediane du domaine",
+        "head_domain_high_series": "chronique de charge dans la partie haute du domaine",
     }
     return labels.get(name, name.replace("_", " "))
 

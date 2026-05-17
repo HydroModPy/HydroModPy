@@ -1,0 +1,29 @@
+{
+  "schema_version": "hydromodpy_refresh_status_v1",
+  "generated_at": "2026-05-12",
+  "timezone": "Europe/Paris",
+  "items": [
+    {
+      "id": "daily_docs",
+      "label": "Daily lightweight documentation",
+      "status": "success",
+      "last_attempt": "2026-05-12",
+      "last_success": "2026-05-12",
+      "frequency": "Daily, around 03:30 Europe/Paris",
+      "scope": "Sphinx build, configuration reference, figure inventory, and gallery pages from committed artifacts.",
+      "workflow": "docs-refresh-light",
+      "message": "This entry is the bootstrap status used by the documentation page. The lightweight workflow should overwrite it after each run."
+    },
+    {
+      "id": "weekly_compute",
+      "label": "Weekly computed artifacts",
+      "status": "failed",
+      "last_attempt": "2026-05-12",
+      "last_success": null,
+      "frequency": "Weekly, proposed Sunday morning",
+      "scope": "Analytical validations, XT3D diagnostics, calibration benchmarks, and declared testbed comparison artifacts.",
+      "workflow": "docs-refresh-compute",
+      "message": "Bootstrap status: the current full refresh path still needs repair before this family can be automated."
+    }
+  ]
+}

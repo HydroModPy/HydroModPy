@@ -422,12 +422,18 @@ class Modflow6(Solver):
             filename=f"{self.model_name_mf6}_gwf.ims",
             pname="IMS_GWF",
         )
+        newtonoptions = None
+        if bool(getattr(runtime, "mf6_newton", False)):
+            newtonoptions = ["NEWTON"]
+            if bool(getattr(runtime, "mf6_newton_under_relaxation", True)):
+                newtonoptions.append("UNDER_RELAXATION")
         self.gwf = flopy.mf6.ModflowGwf(
             self.sim,
             modelname=self.model_name_mf6,
             save_flows=True,
             print_input=getattr(runtime, "mf_verbose", False),
             print_flows=getattr(runtime, "mf_verbose", False),
+            newtonoptions=newtonoptions,
         )
         self.sim.register_ims_package(self.ims, [self.gwf.name])
         # Build idomain as flat (nlay, ncpl) - DISV convention.

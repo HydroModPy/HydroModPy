@@ -15,8 +15,8 @@ Coverage Snapshot
 -----------------
 
 - Category pages available today: 9.
-- Curated gallery cases available today: 85.
-- Most populated sections: Mesh Gallery (29), Validation Benchmarks (24), Simulation Workflows (7).
+- Curated gallery cases available today: 87.
+- Most populated sections: Mesh Gallery (29), Validation Benchmarks (24), Simulation Comparison (8).
 
 Five top-level categories
 -------------------------
@@ -54,7 +54,7 @@ The gallery is grouped into five top-level categories. Each card opens its own l
 
       **3. Simulation**
       ^^^
-      End-to-end solver runs, run-to-run comparisons on shared supports, and synthetic code-to-code benchmarks. 15 cases.
+      End-to-end solver runs, run-to-run comparisons on shared supports, and synthetic code-to-code benchmarks. 17 cases.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -145,7 +145,7 @@ Each populated category opens its own landing page with the full case grid.
 
       **Simulation Comparison**
       ^^^
-      Reusable solver comparisons built from committed run folders on shared supports. 6 cases.
+      Reusable solver comparisons built from committed run folders on shared supports. 8 cases.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -180,7 +180,7 @@ Looking for one specific case? Browse the flat index of all available gallery ca
 
       **All cases**
       ^^^
-      Flat sortable list of 85 cases with category, solver, and link to the case page.
+      Flat sortable list of 87 cases with category, solver, and link to the case page.
 
 .. toctree::
    :hidden:

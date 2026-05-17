@@ -694,7 +694,7 @@
       "properties": {
         "method": {
           "default": "grid",
-          "description": "Optimization method. Install the calibration extra for optuna or cma_es.",
+          "description": "Optimization method. Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler.",
           "examples": [
             "grid"
           ],
@@ -4511,14 +4511,15 @@
           "x-hmp-profile": "user"
         },
         "units": {
-          "default": "",
-          "description": "Units of the initial condition",
+          "default": "m",
+          "description": "Runtime unit for the initial hydraulic-head field.",
           "examples": [
-            ""
+            "m"
           ],
           "title": "Units",
+          "toml_exclude": true,
           "type": "string",
-          "x-hmp-profile": "user"
+          "x-hmp-profile": "dev"
         },
         "type": {
           "const": "bottom",
@@ -4652,14 +4653,15 @@
           "x-hmp-profile": "user"
         },
         "units": {
-          "default": "",
-          "description": "Units of the initial condition",
+          "default": "m",
+          "description": "Runtime unit for the initial hydraulic-head field.",
           "examples": [
-            ""
+            "m"
           ],
           "title": "Units",
+          "toml_exclude": true,
           "type": "string",
-          "x-hmp-profile": "user"
+          "x-hmp-profile": "dev"
         },
         "type": {
           "const": "steady_state",
@@ -4762,14 +4764,15 @@
           "x-hmp-profile": "user"
         },
         "units": {
-          "default": "",
-          "description": "Units of the initial condition",
+          "default": "m",
+          "description": "Runtime unit for the initial hydraulic-head field.",
           "examples": [
-            ""
+            "m"
           ],
           "title": "Units",
+          "toml_exclude": true,
           "type": "string",
-          "x-hmp-profile": "user"
+          "x-hmp-profile": "dev"
         },
         "type": {
           "const": "top",
@@ -8054,6 +8057,256 @@
       "title": "Modflow6ProcessSpecificConfig",
       "type": "object"
     },
+    "Modflow6PrtParametersConfig": {
+      "additionalProperties": false,
+      "description": "Configuration payload for MODFLOW 6 PRT particle tracking.",
+      "properties": {
+        "release_zone": {
+          "default": "domain",
+          "description": "Particle release selector: 'domain', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'.",
+          "examples": [
+            "domain"
+          ],
+          "title": "Release Zone",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "upstream_top_quantile": {
+          "default": 0.9,
+          "description": "Top-elevation quantile used by upstream release zones. A value of 0.90 selects cells in the highest 10 percent of active cell-top elevations.",
+          "examples": [
+            0.9
+          ],
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Upstream Top Quantile",
+          "type": "number",
+          "x-hmp-profile": "dev"
+        },
+        "track_dir": {
+          "const": "forward",
+          "default": "forward",
+          "description": "Particle tracking direction. MF6 PRT support is currently forward only.",
+          "examples": [
+            "forward"
+          ],
+          "title": "Track Dir",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "porosity": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional uniform particle-tracking porosity. When omitted, the flow model specific yield is used where positive.",
+          "title": "Porosity",
+          "x-hmp-profile": "dev"
+        },
+        "local_z": {
+          "default": 0.5,
+          "description": "Local vertical release coordinate within the cell.",
+          "examples": [
+            0.5
+          ],
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Local Z",
+          "type": "number",
+          "x-hmp-profile": "dev"
+        },
+        "particle_cell_ids": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional zero-based DISV cell2d ids for explicit particle release. Used when release_zone is 'custom'.",
+          "title": "Particle Cell Ids",
+          "x-hmp-profile": "dev"
+        },
+        "max_particles": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional maximum number of release cells after zone selection.",
+          "title": "Max Particles",
+          "x-hmp-profile": "dev"
+        },
+        "sel_slice": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional deterministic slicing step for selected release cells.",
+          "title": "Sel Slice",
+          "x-hmp-profile": "dev"
+        },
+        "release_times_days": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional particle release times in model time units. Existing MODFLOW 6 models in HydroModPy use days.",
+          "title": "Release Times Days",
+          "x-hmp-profile": "dev"
+        },
+        "track_times_days": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional user tracking output times in model time units.",
+          "title": "Track Times Days",
+          "x-hmp-profile": "dev"
+        },
+        "track_time_step_days": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional regular spacing, in days, for generated PRT tracking output times. Used only when track_times_days is omitted.",
+          "title": "Track Time Step Days",
+          "x-hmp-profile": "dev"
+        },
+        "stop_time_days": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional absolute particle stop time in model time units.",
+          "title": "Stop Time Days",
+          "x-hmp-profile": "dev"
+        },
+        "stop_travel_time_days": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional maximum particle travel time in model time units.",
+          "title": "Stop Travel Time Days",
+          "x-hmp-profile": "dev"
+        },
+        "extend_tracking": {
+          "default": true,
+          "description": "Track particles beyond the final flow time step when MF6 permits it.",
+          "examples": [
+            true
+          ],
+          "title": "Extend Tracking",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "dry_tracking_method": {
+          "default": "drop",
+          "description": "MF6 PRT behavior for dry-but-active cells.",
+          "enum": [
+            "drop",
+            "stop",
+            "stay"
+          ],
+          "examples": [
+            "drop"
+          ],
+          "title": "Dry Tracking Method",
+          "type": "string",
+          "x-hmp-profile": "dev"
+        },
+        "exit_solve_tolerance": {
+          "default": 1e-10,
+          "description": "PRT generalized Pollock exit solve tolerance.",
+          "examples": [
+            1e-10
+          ],
+          "exclusiveMinimum": 0.0,
+          "title": "Exit Solve Tolerance",
+          "type": "number",
+          "x-hmp-profile": "dev"
+        },
+        "write_track_csv": {
+          "default": true,
+          "description": "Write the PRT track CSV file used by the HydroModPy extractor.",
+          "examples": [
+            true
+          ],
+          "title": "Write Track Csv",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        },
+        "write_track_binary": {
+          "default": true,
+          "description": "Write the binary PRT track file.",
+          "examples": [
+            true
+          ],
+          "title": "Write Track Binary",
+          "type": "boolean",
+          "x-hmp-profile": "dev"
+        }
+      },
+      "title": "Modflow6PrtParametersConfig",
+      "type": "object"
+    },
     "Modflow6RuntimeConfig": {
       "additionalProperties": false,
       "description": "Expert runtime settings used to build and solve MODFLOW 6 packages.",
@@ -8144,6 +8397,26 @@
           "default": null,
           "description": "Enable NPF cell rewetting. When left to None, HydroModPy keeps rewetting disabled unless explicitly enabled.",
           "title": "Mf6 Enable Rewet",
+          "x-hmp-profile": "expert"
+        },
+        "mf6_newton": {
+          "default": false,
+          "description": "Enable the MODFLOW 6 Newton-Raphson formulation for convertible groundwater cells.",
+          "examples": [
+            false
+          ],
+          "title": "Mf6 Newton",
+          "type": "boolean",
+          "x-hmp-profile": "expert"
+        },
+        "mf6_newton_under_relaxation": {
+          "default": true,
+          "description": "Enable MODFLOW 6 Newton under-relaxation when mf6_newton is true.",
+          "examples": [
+            true
+          ],
+          "title": "Mf6 Newton Under Relaxation",
+          "type": "boolean",
           "x-hmp-profile": "expert"
         },
         "mf6_enable_xt3d": {
@@ -13813,6 +14086,11 @@
           "$ref": "#/$defs/TransportModflow6GwtConfig",
           "description": "MODFLOW 6 GWT solver configuration block.",
           "x-hmp-profile": "user"
+        },
+        "modflow6prt": {
+          "$ref": "#/$defs/TransportModflow6PrtConfig",
+          "description": "MODFLOW 6 PRT particle-tracking solver configuration block.",
+          "x-hmp-profile": "user"
         }
       },
       "title": "TransportConfig",
@@ -13829,6 +14107,19 @@
         }
       },
       "title": "TransportModflow6GwtConfig",
+      "type": "object"
+    },
+    "TransportModflow6PrtConfig": {
+      "additionalProperties": false,
+      "description": "Container for MODFLOW 6 PRT particle-tracking settings.",
+      "properties": {
+        "parameters": {
+          "$ref": "#/$defs/Modflow6PrtParametersConfig",
+          "description": "Solver parameter block used by Modflow6Prt.",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "TransportModflow6PrtConfig",
       "type": "object"
     },
     "TransportModpathConfig": {

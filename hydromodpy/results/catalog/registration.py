@@ -170,9 +170,11 @@ class RegistrationMixin:
         zarr_tmp: Path | None = None
         zarr_final: Path | None = None
         storage_basename: str | None = None
+        main_transaction_started = False
 
         try:
             self._db.execute("BEGIN TRANSACTION")
+            main_transaction_started = True
 
             if name:
                 existing = self._db.execute(
@@ -312,8 +314,13 @@ class RegistrationMixin:
                 ],
             )
             self._db.execute("COMMIT")
+            main_transaction_started = False
         except Exception:
-            self._db.execute("ROLLBACK")
+            if main_transaction_started:
+                try:
+                    self._db.execute("ROLLBACK")
+                except Exception:
+                    pass
             self._paths.forget(sid)
             if zarr_tmp is not None and zarr_tmp.exists():
                 shutil.rmtree(zarr_tmp)

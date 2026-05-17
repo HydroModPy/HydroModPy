@@ -5,7 +5,8 @@
 base_config = "compare_natural_10km2_mf6_bouss_base.toml"
 
 # Workflow selector: this file remains a reusable solver-comparison template.
-workflow = "comparison"
+[workflow]
+mode = "comparison"
 
 # Top-level comparison experiment section.
 [comparison]

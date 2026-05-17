@@ -83,9 +83,11 @@ the recipe that matches your platform.
          * - ``env_hydromodpy.yml``
            - Runtime stack (Spyder included). Use it when you run
              scripts and notebooks but do not edit the source tree.
+             Includes the default Optuna calibration sampler.
          * - ``env_hydromodpy_pkg.yml``
            - Editable stack: same packages plus
-             ``pip install -e "..[docs]"`` for local doc builds.
+             ``pip install -e "..[docs,test]"`` for local doc builds
+             and test execution.
          * - ``env_hydromodpy_light_pkg.yml``
            - Smaller editable stack, recommended on Linux/WSL for
              command-line development and test execution.
@@ -101,7 +103,7 @@ the recipe that matches your platform.
          pre-commit install
 
       Run the command from the repository root: the relative
-      ``pip install -e "..[docs]"`` inside the YAML must reach the
+      ``pip install -e "..[docs,test]"`` inside the YAML must reach the
       project source. The Python version is pinned by each YAML; no
       need to set it on the command line.
 
@@ -179,7 +181,8 @@ command, for example ``pip install -e ".[dev,test,docs]"``.
    * - Extra
      - Provides
    * - ``[test]``
-     - ``pytest``, ``pytest-xdist``, ``pytest-timeout``, ``coverage``.
+     - ``pytest``, ``pytest-xdist``, ``pytest-timeout``,
+       ``pytest-cov``, ``coverage``, ``pyyaml``, and ``jsonschema``.
    * - ``[dev]``
      - ``ruff`` and ``pre-commit`` for linting and Git hooks.
    * - ``[docs]``

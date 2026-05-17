@@ -34,18 +34,14 @@ TRANSIENT_DIAGNOSTIC_BASE_CONFIG_PATH = (
     ROOT / "base_nancon_transient_monthly_hydrography_mesh_input_ic10m.toml"
 )
 COMPARISON_ROOT = ROOT / "outputs" / "nancon_steady_mf6_disv_vs_nwt"
-TRANSIENT_COMPARISON_ROOT = (
-    ROOT / "outputs" / "nancon_transient_monthly_mf6_disv_vs_nwt"
-)
+TRANSIENT_COMPARISON_ROOT = ROOT / "outputs" / "nancon_transient_monthly_mf6_disv_vs_nwt"
 TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT = (
     ROOT / "outputs" / "nancon_transient_monthly_mf6_disv_vs_nwt_ic_diagnostic"
 )
 WEB_DIR = COMPARISON_ROOT / "web"
 WEB_FIGURES_DIR = COMPARISON_ROOT / "web_figures"
 TRANSIENT_WEB_FIGURES_DIR = TRANSIENT_COMPARISON_ROOT / "web_figures"
-TRANSIENT_DIAGNOSTIC_WEB_FIGURES_DIR = (
-    TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "web_figures"
-)
+TRANSIENT_DIAGNOSTIC_WEB_FIGURES_DIR = TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "web_figures"
 
 
 def _load_toml(path: Path) -> dict[str, Any]:
@@ -87,14 +83,10 @@ def _rel(path: str | Path) -> str:
         return Path(path).resolve().relative_to(WEB_DIR.resolve()).as_posix()
     except Exception:
         try:
-            return (
-                Path(path).resolve().relative_to(COMPARISON_ROOT.resolve()).as_posix()
-            )
+            return Path(path).resolve().relative_to(COMPARISON_ROOT.resolve()).as_posix()
         except Exception:
             try:
-                return Path(
-                    os.path.relpath(Path(path).resolve(), WEB_DIR.resolve())
-                ).as_posix()
+                return Path(os.path.relpath(Path(path).resolve(), WEB_DIR.resolve())).as_posix()
             except Exception:
                 return Path(path).as_posix()
 
@@ -110,9 +102,7 @@ def _link_from_web(path: str | Path) -> str:
             return "../" + target.relative_to(COMPARISON_ROOT.resolve()).as_posix()
         except Exception:
             try:
-                return Path(
-                    os.path.relpath(target.resolve(), WEB_DIR.resolve())
-                ).as_posix()
+                return Path(os.path.relpath(target.resolve(), WEB_DIR.resolve())).as_posix()
             except Exception:
                 return target.as_posix()
 
@@ -170,9 +160,7 @@ def _figures_by_keywords(
     return selected
 
 
-def _read_metric_rows() -> (
-    tuple[list[dict[str, str]], list[dict[str, str]], list[dict[str, str]]]
-):
+def _read_metric_rows() -> tuple[list[dict[str, str]], list[dict[str, str]], list[dict[str, str]]]:
     return (
         _load_csv(COMPARISON_ROOT / "comparison_metrics.csv"),
         _load_csv(COMPARISON_ROOT / "simulated_active_network_overlap_metrics.csv"),
@@ -195,9 +183,7 @@ def _enrich_execution_rows(
     rows: list[dict[str, str]], manifest: dict[str, Any], cell_counts: dict[str, str]
 ) -> list[dict[str, str]]:
     simulations = manifest.get("simulations", [])
-    by_id = {
-        str(item.get("id", "")): item for item in simulations if isinstance(item, dict)
-    }
+    by_id = {str(item.get("id", "")): item for item in simulations if isinstance(item, dict)}
     enriched: list[dict[str, str]] = []
     for row in rows:
         simulation = by_id.get(str(row.get("simulation_id", "")), {})
@@ -264,9 +250,7 @@ def _simulation_cards(
         if isinstance(item, dict)
     }
     cards = []
-    for simulation in (
-        manifest_simulations if isinstance(manifest_simulations, list) else []
-    ):
+    for simulation in manifest_simulations if isinstance(manifest_simulations, list) else []:
         simulation_id = str(simulation.get("id", ""))
         sim_cfg = config_simulations.get(simulation_id, {})
         overlay = sim_cfg.get("overlay", {}) if isinstance(sim_cfg, dict) else {}
@@ -308,7 +292,7 @@ def _figure_grid(figures: list[dict[str, Any]], *, empty: str) -> str:
         label = figure.get("observable") or figure.get("kind") or Path(str(path)).stem
         items.append(f"""
             <figure>
-              <a href="{_safe_text(_link_from_web(path))}">
+              <a class="figure-link" href="{_safe_text(_link_from_web(path))}" target="_blank" rel="noopener" title="Ouvrir la figure en taille originale">
                 <img src="{_safe_text(_link_from_web(path))}" alt="{_safe_text(label)}">
               </a>
               <figcaption>{_safe_text(label)}</figcaption>
@@ -317,9 +301,7 @@ def _figure_grid(figures: list[dict[str, Any]], *, empty: str) -> str:
     return '<div class="fig-grid">' + "\n".join(items) + "</div>"
 
 
-def _figure_by_filename(
-    figures: list[dict[str, Any]], filename: str
-) -> dict[str, Any] | None:
+def _figure_by_filename(figures: list[dict[str, Any]], filename: str) -> dict[str, Any] | None:
     for figure in figures:
         if Path(str(figure.get("path", ""))).name == filename:
             return figure
@@ -354,7 +336,7 @@ def _render_figure(
     path = figure.get("path", "")
     return f"""
     <figure>
-      <a href="{_safe_text(_link_from_web(path))}">
+      <a class="figure-link" href="{_safe_text(_link_from_web(path))}" target="_blank" rel="noopener" title="Ouvrir la figure en taille originale">
         <img src="{_safe_text(_link_from_web(path))}" alt="{_safe_text(title)}">
       </a>
       <figcaption><strong>{_safe_text(title)}</strong>{f"<span>{_safe_text(note)}</span>" if note else ""}</figcaption>
@@ -388,10 +370,7 @@ def _theme_panel(
 def _figure_deck(items: list[tuple[dict[str, Any] | None, str, str]]) -> str:
     return (
         '<div class="figure-deck">'
-        + "\n".join(
-            _render_figure(figure, title=title, note=note)
-            for figure, title, note in items
-        )
+        + "\n".join(_render_figure(figure, title=title, note=note) for figure, title, note in items)
         + "</div>"
     )
 
@@ -417,10 +396,7 @@ def _metric_value(
     rows: list[dict[str, str]], simulation_id: str, observable: str, field: str
 ) -> str:
     for row in rows:
-        if (
-            row.get("simulation_id") == simulation_id
-            and row.get("observable") == observable
-        ):
+        if row.get("simulation_id") == simulation_id and row.get("observable") == observable:
             return _format_float(row.get(field))
     return ""
 
@@ -451,10 +427,7 @@ def _config_detail_table(base: dict[str, Any], config: dict[str, Any]) -> str:
         if simulation.get("solver") != "modflownwt":
             continue
         planar = (
-            simulation.get("overlay", {})
-            .get("modflownwt", {})
-            .get("sgrid", {})
-            .get("planar", {})
+            simulation.get("overlay", {}).get("modflownwt", {}).get("sgrid", {}).get("planar", {})
         )
         nx = planar.get("nx", "")
         ny = planar.get("ny", "")
@@ -698,9 +671,7 @@ def _generate_three_case_map_figures(
     }
     output_dir.mkdir(parents=True, exist_ok=True)
     simulations = [
-        simulation
-        for simulation in comparison_cfg.comparison.simulation
-        if simulation.enabled
+        simulation for simulation in comparison_cfg.comparison.simulation if simulation.enabled
     ]
     artifacts: list[dict[str, Any]] = []
     for observable in comparison_cfg.comparison.observable:
@@ -766,18 +737,14 @@ def _resolve_output_path(path_value: Any) -> Path | None:
     return path.resolve()
 
 
-def _simulation_workspace_path(
-    config: dict[str, Any], simulation_id: str
-) -> Path | None:
+def _simulation_workspace_path(config: dict[str, Any], simulation_id: str) -> Path | None:
     for simulation in config.get("comparison", {}).get("simulation", []):
         if not isinstance(simulation, dict) or simulation.get("id") != simulation_id:
             continue
         workspace = simulation.get("overlay", {}).get("workspace", {})
         if not isinstance(workspace, dict):
             return None
-        return _resolve_output_path(
-            workspace.get("root") or workspace.get("project_root")
-        )
+        return _resolve_output_path(workspace.get("root") or workspace.get("project_root"))
     return None
 
 
@@ -835,9 +802,7 @@ def _load_watershed_overlay(
             )
         )
         candidates.extend(
-            sorted(
-                sim_dir.glob("*.zarr"), key=lambda p: p.stat().st_mtime, reverse=True
-            )
+            sorted(sim_dir.glob("*.zarr"), key=lambda p: p.stat().st_mtime, reverse=True)
         )
 
     for candidate in candidates:
@@ -846,9 +811,7 @@ def _load_watershed_overlay(
             if group is None or "geographic" not in group:
                 continue
             geographic = group["geographic"]
-            raster_name = (
-                "watershed_dem" if "watershed_dem" in geographic else "watershed_fill"
-            )
+            raster_name = "watershed_dem" if "watershed_dem" in geographic else "watershed_fill"
             if raster_name not in geographic:
                 continue
             raster = geographic[raster_name]
@@ -890,9 +853,7 @@ def _load_watershed_overlay(
                     float(np.nanmax(yv) + pad),
                 ),
                 "outlet": (
-                    (outlet_x, outlet_y)
-                    if outlet_x is not None and outlet_y is not None
-                    else None
+                    (outlet_x, outlet_y) if outlet_x is not None and outlet_y is not None else None
                 ),
             }
         finally:
@@ -927,13 +888,9 @@ def _simulation_zarr_path(
         candidates.extend(sorted(sim_dir.glob(f"*{sim_id[:8]}*.zarr.zip")))
         candidates.extend(sorted(sim_dir.glob(f"*{sim_id[:8]}*.zarr")))
     candidates.extend(
-        sorted(
-            sim_dir.glob("*.zarr.zip"), key=lambda p: p.stat().st_mtime, reverse=True
-        )
+        sorted(sim_dir.glob("*.zarr.zip"), key=lambda p: p.stat().st_mtime, reverse=True)
     )
-    candidates.extend(
-        sorted(sim_dir.glob("*.zarr"), key=lambda p: p.stat().st_mtime, reverse=True)
-    )
+    candidates.extend(sorted(sim_dir.glob("*.zarr"), key=lambda p: p.stat().st_mtime, reverse=True))
     return candidates[0] if candidates else None
 
 
@@ -1113,9 +1070,7 @@ def _write_mesh_runtime_figure(rows: list[dict[str, str]]) -> dict[str, Any] | N
     if not valid_rows:
         return None
     labels = [str(row.get("simulation_id", "")) for row in valid_rows]
-    cells = np.asarray(
-        [float(row.get("cell_count", 0.0)) for row in valid_rows], dtype=float
-    )
+    cells = np.asarray([float(row.get("cell_count", 0.0)) for row in valid_rows], dtype=float)
     runtimes = np.asarray(
         [float(row.get("runtime_seconds", 0.0)) for row in valid_rows],
         dtype=float,
@@ -1139,11 +1094,7 @@ def _write_mesh_runtime_figure(rows: list[dict[str, str]]) -> dict[str, Any] | N
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         for index, value in enumerate(values):
-            label = (
-                f"{int(round(value))}"
-                if ylabel.startswith("Nombre")
-                else f"{value:.1f}"
-            )
+            label = f"{int(round(value))}" if ylabel.startswith("Nombre") else f"{value:.1f}"
             ax.text(index, value, label, ha="center", va="bottom", fontsize=8)
     ax_cells.set_title("Discretisation", fontsize=10)
     ax_time.set_title("Cout de calcul", fontsize=10)
@@ -1168,36 +1119,23 @@ def _interpretation_cards(
 ) -> str:
     rmse_120 = _metric_value(metrics, "nwt_structured_120", "head_map_last", "rmse")
     rmse_180 = _metric_value(metrics, "nwt_structured_180", "head_map_last", "rmse")
-    depth_120 = _metric_value(
-        metrics, "nwt_structured_120", "watertable_depth_map_last", "mae"
-    )
-    depth_180 = _metric_value(
-        metrics, "nwt_structured_180", "watertable_depth_map_last", "mae"
-    )
+    depth_120 = _metric_value(metrics, "nwt_structured_120", "watertable_depth_map_last", "mae")
+    depth_180 = _metric_value(metrics, "nwt_structured_180", "watertable_depth_map_last", "mae")
     q_mf6 = _wide_value(timeseries_rows, "outlet_accumulated_flux", "mf6_disv_ref")
-    q_120 = _wide_value(
-        timeseries_rows, "outlet_accumulated_flux", "nwt_structured_120"
-    )
-    q_180 = _wide_value(
-        timeseries_rows, "outlet_accumulated_flux", "nwt_structured_180"
-    )
+    q_120 = _wide_value(timeseries_rows, "outlet_accumulated_flux", "nwt_structured_120")
+    q_180 = _wide_value(timeseries_rows, "outlet_accumulated_flux", "nwt_structured_180")
     h_out_mf6 = _wide_value(timeseries_rows, "outlet_head", "mf6_disv_ref")
     h_out_120 = _wide_value(timeseries_rows, "outlet_head", "nwt_structured_120")
     h_out_180 = _wide_value(timeseries_rows, "outlet_head", "nwt_structured_180")
-    speed_120 = _runtime_value(
-        execution_rows, "nwt_structured_120", "speedup_vs_reference"
-    )
-    speed_180 = _runtime_value(
-        execution_rows, "nwt_structured_180", "speedup_vs_reference"
-    )
+    speed_120 = _runtime_value(execution_rows, "nwt_structured_120", "speedup_vs_reference")
+    speed_180 = _runtime_value(execution_rows, "nwt_structured_180", "speedup_vs_reference")
 
     coverage = {
         row.get("simulation_id"): _format_float(row.get("network_coverage_ratio"))
         for row in active_overlap
     }
     f1 = {
-        row.get("simulation_id"): _format_float(row.get("cell_f1_ratio"))
-        for row in active_overlap
+        row.get("simulation_id"): _format_float(row.get("cell_f1_ratio")) for row in active_overlap
     }
 
     cards = [
@@ -1255,22 +1193,10 @@ def _config_summary(base: dict[str, Any]) -> dict[str, Any]:
         recharge_mm_year = parsed_recharge * 365.25
     return {
         "regime": flow.get("flow_regime", ""),
-        "k": flow.get("param", {})
-        .get("K", {})
-        .get("field", {})
-        .get("value", ""),
-        "sy": flow.get("param", {})
-        .get("Sy", {})
-        .get("field", {})
-        .get("value", ""),
-        "ss": flow.get("param", {})
-        .get("Ss", {})
-        .get("field", {})
-        .get("value", ""),
-        "drain": flow.get("bc", {})
-        .get("cauchy", {})
-        .get("drainage", {})
-        .get("value", ""),
+        "k": flow.get("param", {}).get("K", {}).get("field", {}).get("value", ""),
+        "sy": flow.get("param", {}).get("Sy", {}).get("field", {}).get("value", ""),
+        "ss": flow.get("param", {}).get("Ss", {}).get("field", {}).get("value", ""),
+        "drain": flow.get("bc", {}).get("cauchy", {}).get("drainage", {}).get("value", ""),
         "recharge_mm_day": recharge_mm_day,
         "recharge_mm_year": recharge_mm_year,
         "mesh_input": base.get("mesh_input", {}).get("bundle_dir", ""),
@@ -1341,9 +1267,7 @@ def _transient_source_rows() -> list[dict[str, Any]]:
         {
             "item": "Recharge source",
             "value": (
-                f"{len(recharge_values)} valeurs"
-                if isinstance(recharge_values, list)
-                else ""
+                f"{len(recharge_values)} valeurs" if isinstance(recharge_values, list) else ""
             ),
             "comment": "Chronique saisonniere synthetique; a conserver identique pour MF6 et NWT.",
         },
@@ -1351,9 +1275,7 @@ def _transient_source_rows() -> list[dict[str, Any]]:
     return rows
 
 
-def _build_transient_proposal_page(
-    base: dict[str, Any], config: dict[str, Any]
-) -> Path:
+def _build_transient_proposal_page(base: dict[str, Any], config: dict[str, Any]) -> Path:
     WEB_DIR.mkdir(parents=True, exist_ok=True)
     cfg_summary = _config_summary(base)
     point_rows = _comparison_point_rows(config)
@@ -1690,12 +1612,8 @@ def _transient_interpretation_cards(
     metrics: list[dict[str, str]],
     execution_rows: list[dict[str, str]],
 ) -> str:
-    h_out_120 = _metric_value(
-        metrics, "nwt_structured_120", "head_outlet_series", "rmse"
-    )
-    h_out_180 = _metric_value(
-        metrics, "nwt_structured_180", "head_outlet_series", "rmse"
-    )
+    h_out_120 = _metric_value(metrics, "nwt_structured_120", "head_outlet_series", "rmse")
+    h_out_180 = _metric_value(metrics, "nwt_structured_180", "head_outlet_series", "rmse")
     h_plateau_120 = _metric_value(
         metrics, "nwt_structured_120", "head_eastern_plateau_series", "rmse"
     )
@@ -1704,20 +1622,14 @@ def _transient_interpretation_cards(
     )
     q_120 = _metric_value(metrics, "nwt_structured_120", "outlet_flux_series", "rmse")
     q_180 = _metric_value(metrics, "nwt_structured_180", "outlet_flux_series", "rmse")
-    speed_120 = _runtime_value(
-        execution_rows, "nwt_structured_120", "speedup_vs_reference"
-    )
-    speed_180 = _runtime_value(
-        execution_rows, "nwt_structured_180", "speedup_vs_reference"
-    )
+    speed_120 = _runtime_value(execution_rows, "nwt_structured_120", "speedup_vs_reference")
+    speed_180 = _runtime_value(execution_rows, "nwt_structured_180", "speedup_vs_reference")
     completed = sum(
         1
         for simulation in manifest.get("simulations", [])
         if isinstance(simulation, dict) and simulation.get("status") == "completed"
     )
-    total = len(
-        [item for item in manifest.get("simulations", []) if isinstance(item, dict)]
-    )
+    total = len([item for item in manifest.get("simulations", []) if isinstance(item, dict)])
     cards = [
         (
             "Executions",
@@ -1740,12 +1652,19 @@ def _transient_interpretation_cards(
             "La page sert donc d'abord a diagnostiquer les ecarts et les reglages a corriger.",
         ),
     ]
-    return '<div class="comment-grid">' + "\n".join(f"""
+    return (
+        '<div class="comment-grid">'
+        + "\n".join(
+            f"""
             <article class="comment-card">
               <h3>{_safe_text(title)}</h3>
               <p>{_safe_text(text)}</p>
             </article>
-            """ for title, text in cards) + "</div>"
+            """
+            for title, text in cards
+        )
+        + "</div>"
+    )
 
 
 def _build_transient_results_page() -> Path | None:
@@ -1954,6 +1873,8 @@ def _build_transient_results_page() -> Path | None:
     .wide-fig-grid {{ margin-top: 12px; }}
     .figure-deck {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
     figure {{ margin: 0; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; padding: 10px; }}
+    .figure-link {{ display: block; cursor: zoom-in; }}
+    .figure-link:focus-visible {{ outline: 3px solid var(--blue); outline-offset: 3px; border-radius: 8px; }}
     img {{ width: 100%; display: block; border-radius: 6px; border: 1px solid #e2e7e2; background: white; }}
     figcaption {{ margin-top: 7px; color: var(--muted); font-size: 0.88rem; }}
     figcaption strong {{ display: block; color: var(--ink); font-size: 0.92rem; }}
@@ -2103,9 +2024,7 @@ def _head_diagnostic_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
             candidate = _series_values(rows, observable, simulation_id)
             if len(candidate) != len(reference) or not candidate:
                 continue
-            diffs = [
-                cand - ref for cand, ref in zip(candidate, reference, strict=False)
-            ]
+            diffs = [cand - ref for cand, ref in zip(candidate, reference, strict=False)]
             cand_anomaly = [value - candidate[0] for value in candidate]
             anomaly_diffs = [
                 cand - ref for cand, ref in zip(cand_anomaly, ref_anomaly, strict=False)
@@ -2175,9 +2094,7 @@ def _diagnostic_config_rows(
         payload = _load_toml(config_path) if config_path is not None else {}
         solver = str(simulation.get("solver", ""))
         solver_section = payload.get(solver, {}) if isinstance(payload, dict) else {}
-        tgrid = (
-            solver_section.get("tgrid", {}) if isinstance(solver_section, dict) else {}
-        )
+        tgrid = solver_section.get("tgrid", {}) if isinstance(solver_section, dict) else {}
         ic = payload.get("flow", {}).get("ic", {}) if isinstance(payload, dict) else {}
         rows.append(
             {
@@ -2192,18 +2109,14 @@ def _diagnostic_config_rows(
     return rows
 
 
-def _diagnostic_overview_rows(
-    base: dict[str, Any], config: dict[str, Any]
-) -> list[dict[str, Any]]:
+def _diagnostic_overview_rows(base: dict[str, Any], config: dict[str, Any]) -> list[dict[str, Any]]:
     flow = base.get("flow", {})
     simulation_time = base.get("simulation", {}).get("time", {})
     geo = base.get("geographic", {})
     depth = base.get("domain", {}).get("depth_model", {})
     recharge_sources = base.get("data", {}).get("recharge", {}).get("sources", [])
     recharge = recharge_sources[0] if recharge_sources else {}
-    recharge_values = [
-        value for value in recharge.get("values", []) if _float(value) is not None
-    ]
+    recharge_values = [value for value in recharge.get("values", []) if _float(value) is not None]
     recharge_mean = (
         sum(float(value) for value in recharge_values) / len(recharge_values)
         if recharge_values
@@ -2232,13 +2145,9 @@ def _diagnostic_overview_rows(
             continue
         solver = str(simulation.get("solver", ""))
         solver_overlay = simulation.get("overlay", {}).get(solver, {})
-        tgrid = (
-            solver_overlay.get("tgrid", {}) if isinstance(solver_overlay, dict) else {}
-        )
+        tgrid = solver_overlay.get("tgrid", {}) if isinstance(solver_overlay, dict) else {}
         if "firstpersteady" in tgrid:
-            tgrid_values.append(
-                f"{simulation.get('id')}: {tgrid.get('firstpersteady')}"
-            )
+            tgrid_values.append(f"{simulation.get('id')}: {tgrid.get('firstpersteady')}")
 
     return [
         {
@@ -2284,10 +2193,7 @@ def _diagnostic_overview_rows(
         },
         {
             "item": "Drainage",
-            "value": flow.get("bc", {})
-            .get("cauchy", {})
-            .get("drainage", {})
-            .get("value", ""),
+            "value": flow.get("bc", {}).get("cauchy", {}).get("drainage", {}).get("value", ""),
             "comment": "Condition de Cauchy appliquee sur le toit.",
         },
         {
@@ -2340,12 +2246,8 @@ def _diagnostic_reminder_cards(base: dict[str, Any]) -> str:
     simulation_time = base.get("simulation", {}).get("time", {})
     recharge_sources = base.get("data", {}).get("recharge", {}).get("sources", [])
     recharge = recharge_sources[0] if recharge_sources else {}
-    values = [
-        value for value in recharge.get("values", []) if _float(value) is not None
-    ]
-    mean_recharge = (
-        sum(float(value) for value in values) / len(values) if values else None
-    )
+    values = [value for value in recharge.get("values", []) if _float(value) is not None]
+    mean_recharge = sum(float(value) for value in values) / len(values) if values else None
     cards = [
         (
             "Site",
@@ -2378,12 +2280,19 @@ def _diagnostic_reminder_cards(base: dict[str, Any]) -> str:
             ),
         ),
     ]
-    return '<div class="comment-grid">' + "\n".join(f"""
+    return (
+        '<div class="comment-grid">'
+        + "\n".join(
+            f"""
             <article class="comment-card">
               <h3>{_safe_text(title)}</h3>
               <p>{_safe_text(text)}</p>
             </article>
-            """ for title, text in cards) + "</div>"
+            """
+            for title, text in cards
+        )
+        + "</div>"
+    )
 
 
 def _month_labels_for_recharge(base: dict[str, Any], count: int) -> list[str]:
@@ -2428,11 +2337,7 @@ def _inline_svg_figure(title: str, note: str, svg: str) -> str:
 def _diagnostic_recharge_svg(base: dict[str, Any]) -> str:
     recharge_sources = base.get("data", {}).get("recharge", {}).get("sources", [])
     recharge = recharge_sources[0] if recharge_sources else {}
-    values = [
-        float(value)
-        for value in recharge.get("values", [])
-        if _float(value) is not None
-    ]
+    values = [float(value) for value in recharge.get("values", []) if _float(value) is not None]
     if not values:
         return '<p class="muted">Chronique de recharge non disponible.</p>'
     labels = _month_labels_for_recharge(base, len(values))
@@ -2514,9 +2419,7 @@ def _diagnostic_timeline_svg(base: dict[str, Any]) -> str:
         )
     return (
         f'<svg class="inline-chart" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Chronologie du diagnostic transitoire">'
-        + "".join(elements)
-        + "</svg>"
+        'aria-label="Chronologie du diagnostic transitoire">' + "".join(elements) + "</svg>"
     )
 
 
@@ -2568,9 +2471,7 @@ def _diagnostic_simulation_svg(
         cell_inside = cell_len > bar_w - 110
         runtime_inside = runtime_len > bar_w - 90
         cell_text_x = left + cell_len - 8 if cell_inside else left + cell_len + 6
-        runtime_text_x = (
-            left + runtime_len - 8 if runtime_inside else left + runtime_len + 6
-        )
+        runtime_text_x = left + runtime_len - 8 if runtime_inside else left + runtime_len + 6
         elements.extend(
             [
                 f'<text x="{left - 10}" y="{y + 19}" text-anchor="end" font-size="12" fill="#1d2528">{_safe_text(_short_simulation_label(simulation_id))}</text>',
@@ -2584,9 +2485,7 @@ def _diagnostic_simulation_svg(
         )
     return (
         f'<svg class="inline-chart" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Nombre de mailles et temps de calcul">'
-        + "".join(elements)
-        + "</svg>"
+        'aria-label="Nombre de mailles et temps de calcul">' + "".join(elements) + "</svg>"
     )
 
 
@@ -2594,18 +2493,8 @@ def _diagnostic_parameter_svg(base: dict[str, Any]) -> str:
     flow = base.get("flow", {})
     depth = base.get("domain", {}).get("depth_model", {})
     k = flow.get("param", {}).get("K", {}).get("field", {}).get("value", "")
-    sy = (
-        flow.get("param", {})
-        .get("Sy", {})
-        .get("field", {})
-        .get("value", "")
-    )
-    ss = (
-        flow.get("param", {})
-        .get("Ss", {})
-        .get("field", {})
-        .get("value", "")
-    )
+    sy = flow.get("param", {}).get("Sy", {}).get("field", {}).get("value", "")
+    ss = flow.get("param", {}).get("Ss", {}).get("field", {}).get("value", "")
     drain = flow.get("bc", {}).get("cauchy", {}).get("drainage", {}).get("value", "")
     ic = flow.get("ic", {})
     width, height = 640, 275
@@ -2645,9 +2534,7 @@ def _diagnostic_parameter_svg(base: dict[str, Any]) -> str:
         )
     return (
         f'<svg class="inline-chart" viewBox="0 0 {width} {height}" role="img" '
-        'aria-label="Schema des parametres physiques communs">'
-        + "".join(elements)
-        + "</svg>"
+        'aria-label="Schema des parametres physiques communs">' + "".join(elements) + "</svg>"
     )
 
 
@@ -2687,10 +2574,7 @@ def _diagnostic_configuration_graphics(
         ),
     ]
     return (
-        '<div class="fig-grid config-fig-grid">'
-        + case_figure
-        + "".join(inline_figures)
-        + "</div>"
+        '<div class="fig-grid config-fig-grid">' + case_figure + "".join(inline_figures) + "</div>"
     )
 
 
@@ -2741,18 +2625,11 @@ def _build_transient_diagnostic_page() -> Path | None:
         manifest,
         cell_counts,
     )
-    timeseries_rows = _load_csv(
-        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "timeseries_wide.csv"
-    )
-    budget_rows = _load_csv(
-        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "budget_timeseries_wide.csv"
-    )
-    metrics_rows = _load_csv(
-        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "comparison_metrics.csv"
-    )
+    timeseries_rows = _load_csv(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "timeseries_wide.csv")
+    budget_rows = _load_csv(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "budget_timeseries_wide.csv")
+    metrics_rows = _load_csv(TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "comparison_metrics.csv")
     overlap_rows = _load_csv(
-        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT
-        / "simulated_active_network_overlap_metrics.csv"
+        TRANSIENT_DIAGNOSTIC_COMPARISON_ROOT / "simulated_active_network_overlap_metrics.csv"
     )
     complete_case_maps = _existing_three_case_map_figures(
         TRANSIENT_DIAGNOSTIC_WEB_FIGURES_DIR, config
@@ -2942,6 +2819,8 @@ def _build_transient_diagnostic_page() -> Path | None:
     .fig-grid, .wide-fig-grid, .figure-deck {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }}
     .wide-fig-grid {{ margin-top: 12px; }}
     figure {{ margin: 0; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfb; padding: 10px; }}
+    .figure-link {{ display: block; cursor: zoom-in; }}
+    .figure-link:focus-visible {{ outline: 3px solid var(--blue); outline-offset: 3px; border-radius: 8px; }}
     img {{ width: 100%; display: block; border-radius: 6px; border: 1px solid #e2e7e2; background: white; }}
     .config-fig-grid {{ margin-top: 12px; }}
     .inline-chart {{ width: 100%; display: block; border-radius: 6px; border: 1px solid #e2e7e2; background: white; }}
@@ -3078,9 +2957,7 @@ def build_report() -> Path:
     base = _load_toml(BASE_CONFIG_PATH)
     manifest = _load_json(COMPARISON_ROOT / "comparison_manifest.json")
     summary_metrics, active_overlap, execution_rows = _read_metric_rows()
-    active_metrics_rows = _load_csv(
-        COMPARISON_ROOT / "simulated_active_network_metrics.csv"
-    )
+    active_metrics_rows = _load_csv(COMPARISON_ROOT / "simulated_active_network_metrics.csv")
     cell_counts = _cell_counts_from_rows(active_metrics_rows)
     execution_rows = _enrich_execution_rows(execution_rows, manifest, cell_counts)
     timeseries_rows = _load_csv(COMPARISON_ROOT / "timeseries_wide.csv")
@@ -3165,16 +3042,12 @@ def build_report() -> Path:
                 "Recharge, drainage et fermeture du bilan.",
             ),
             (
-                _figure_by_filename(
-                    figures, "nwt_structured_120__budget_diagnostics.png"
-                ),
+                _figure_by_filename(figures, "nwt_structured_120__budget_diagnostics.png"),
                 "Budget NWT 120 x 120",
                 "A comparer directement avec MF6.",
             ),
             (
-                _figure_by_filename(
-                    figures, "nwt_structured_180__budget_diagnostics.png"
-                ),
+                _figure_by_filename(figures, "nwt_structured_180__budget_diagnostics.png"),
                 "Budget NWT 180 x 180",
                 "Controle du bilan apres raffinement.",
             ),
@@ -3388,6 +3261,15 @@ def build_report() -> Path:
       border-radius: 8px;
       background: #fbfcfb;
       padding: 10px;
+    }}
+    .figure-link {{
+      display: block;
+      cursor: zoom-in;
+    }}
+    .figure-link:focus-visible {{
+      outline: 3px solid var(--blue);
+      outline-offset: 3px;
+      border-radius: 8px;
     }}
     img {{
       width: 100%;

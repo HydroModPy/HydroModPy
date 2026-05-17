@@ -25,6 +25,9 @@ class WhiteboxRasterBackend:
     def __init__(self) -> None:
         self._env = wbw.WbEnvironment()
         self._verbose = self._is_truthy_env(os.environ.get("HYDROMODPY_WHITEBOX_VERBOSE"))
+        self._redirect_native_stdio = self._is_truthy_env(
+            os.environ.get("HYDROMODPY_WHITEBOX_REDIRECT_NATIVE_STDIO")
+        )
         try:
             self._env.verbose = bool(self._verbose)
         except Exception:
@@ -47,12 +50,22 @@ class WhiteboxRasterBackend:
 
     @contextmanager
     def _silence_stdio(self):
-        """Suppress both Python-level and native stdio emitted by Whitebox."""
+        """Suppress Python stdio while Whitebox native logging is disabled."""
         if self._verbose:
             yield
             return
 
         with open(os.devnull, "w", encoding="utf-8", errors="ignore") as devnull:
+            if not self._redirect_native_stdio:
+                # Whitebox Workflows honours ``env.verbose = False`` for its
+                # native progress logging. Avoid fd-level redirection by
+                # default: repeated dup2 cycles can make the native binding
+                # terminate abruptly after several DEM workflows in one
+                # pytest/xdist worker.
+                with redirect_stdout(devnull), redirect_stderr(devnull):
+                    yield
+                return
+
             try:
                 stdout_fd = os.dup(1)
                 stderr_fd = os.dup(2)

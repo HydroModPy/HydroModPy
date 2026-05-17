@@ -1,0 +1,22 @@
+# Contract stub for the B0 transient truth run.
+
+[b0]
+role = "truth_transient_discharge"
+site_id = "site_05"
+solver = "modflow6"
+regime = "transient"
+output_root = "../outputs/truth_transient_discharge"
+
+[truth.parameters]
+mK = 1.0
+Sy = 0.05
+
+[truth.time]
+frequency = "MS"
+periods = 48
+warmup_periods = 12
+scored_periods = 36
+
+[truth.outputs]
+q_total_release = true
+

@@ -1,4 +1,5 @@
-workflow = "testbed"
+[workflow]
+mode = "testbed"
 
 [testbed]
 id = "boussinesq_synthetic_patchy_long_recharge"

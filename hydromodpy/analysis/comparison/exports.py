@@ -231,14 +231,6 @@ def _runtime_seconds_with_scope(summary: Mapping[str, Any]) -> tuple[float | Non
         value = _as_float(candidate)
         if value is not None:
             return value, "flow_solve"
-    for candidate in (
-        summary.get("wall_time_seconds"),
-        metrics_map.get("wall_time_seconds"),
-        run_metadata_map.get("wall_time_seconds"),
-    ):
-        value = _as_float(candidate)
-        if value is not None:
-            return value, "workflow_wall"
     return None, ""
 
 
@@ -1240,6 +1232,96 @@ def write_release_flux_network_distance_metrics_export(
         missing_field_reason="missing_release_flux_field",
         failure_reason="release_flux_network_distance_metrics_failed",
         log_label="release-flux network distance metrics",
+    )
+
+
+def write_release_accumulation_network_overlap_metrics_export(
+    *,
+    comparison_id: str,
+    comparison_root: Path,
+    simulation_summaries: Iterable[Mapping[str, Any]],
+    network_role: str = "reference",
+    variable: str = "release_accumulation_flux",
+    threshold: float = 0.0,
+    mode: str | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+    buffer_m: float = 0.0,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write overlap metrics for downstream-routed release cells."""
+    return _write_cell_field_network_metrics_export(
+        comparison_id=comparison_id,
+        comparison_root=comparison_root,
+        simulation_summaries=simulation_summaries,
+        network_role=network_role,
+        variable=variable,
+        metric_method="cell_field_network_overlap_metrics",
+        metric_kwargs={
+            "network_role": network_role,
+            "variable": variable,
+            "threshold": threshold,
+            "mode": mode,
+            "persistence_threshold": persistence_threshold,
+            "timestep": timestep,
+            "buffer_m": buffer_m,
+        },
+        payload_parameters={
+            "threshold": float(threshold),
+            "mode": mode,
+            "persistence_threshold": float(persistence_threshold),
+            "timestep": timestep,
+            "buffer_m": float(buffer_m),
+        },
+        csv_stem="release_accumulation_network_overlap_metrics",
+        csv_fields=RELEASE_FLUX_NETWORK_OVERLAP_METRICS_FIELDS,
+        missing_field_reason="missing_release_accumulation_field",
+        failure_reason="release_accumulation_network_overlap_metrics_failed",
+        log_label="release-accumulation network overlap metrics",
+    )
+
+
+def write_release_accumulation_network_distance_metrics_export(
+    *,
+    comparison_id: str,
+    comparison_root: Path,
+    simulation_summaries: Iterable[Mapping[str, Any]],
+    network_role: str = "reference",
+    variable: str = "release_accumulation_flux",
+    threshold: float = 0.0,
+    mode: str | None = None,
+    persistence_threshold: float = 0.5,
+    timestep: int | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Write raw planar distance metrics for downstream-routed release cells."""
+    return _write_cell_field_network_metrics_export(
+        comparison_id=comparison_id,
+        comparison_root=comparison_root,
+        simulation_summaries=simulation_summaries,
+        network_role=network_role,
+        variable=variable,
+        metric_method="cell_field_network_distance_metrics",
+        metric_kwargs={
+            "network_role": network_role,
+            "variable": variable,
+            "threshold": threshold,
+            "mode": mode,
+            "persistence_threshold": persistence_threshold,
+            "timestep": timestep,
+            "network_buffer_m": 0.0,
+            "distance_method": "raw_planar_cell_centroid_to_network",
+        },
+        payload_parameters={
+            "threshold": float(threshold),
+            "mode": mode or "auto",
+            "persistence_threshold": float(persistence_threshold),
+            "timestep": timestep,
+            "network_buffer_m": 0.0,
+        },
+        csv_stem="release_accumulation_network_distance_metrics",
+        csv_fields=RELEASE_FLUX_NETWORK_DISTANCE_METRICS_FIELDS,
+        missing_field_reason="missing_release_accumulation_field",
+        failure_reason="release_accumulation_network_distance_metrics_failed",
+        log_label="release-accumulation network distance metrics",
     )
 
 
@@ -2694,7 +2776,12 @@ def write_execution_summary_csv(
     simulation_summaries: Iterable[Mapping[str, Any]],
     reference_simulation: str | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Write one flat runtime summary CSV."""
+    """Write one flat solver runtime summary CSV.
+
+    The comparison intentionally uses only the flow-solver execution time.
+    Whole-workflow wall times include setup, data loading, meshing, extraction
+    and report generation, so they are not comparable as solver timings.
+    """
     rows: list[dict[str, Any]] = []
     reference_runtime: float | None = None
     reference_time_scope = ""
@@ -2757,6 +2844,8 @@ __all__ = (
     "write_hydrographic_network_metrics_export",
     "write_native_timeseries_exports",
     "write_observable_chronicle_exports",
+    "write_release_accumulation_network_distance_metrics_export",
+    "write_release_accumulation_network_overlap_metrics_export",
     "write_release_flux_network_distance_metrics_export",
     "write_release_flux_network_overlap_metrics_export",
     "write_simulated_active_network_reference_figure_export",

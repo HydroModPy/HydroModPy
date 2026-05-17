@@ -120,22 +120,20 @@ def render_testbed_report(
 
     web_root.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
-    if bool(context.get("comparison_index_only")):
-        _remove_generated_case_pages(web_root)
-    else:
-        case_dir = web_root / "cases"
-        case_dir.mkdir(parents=True, exist_ok=True)
-        for case in enriched_cases:
-            case_html = _render_testbed_case_page(
-                case=case,
-                output_root=output_root,
-                web_root=web_root,
-                page_dir=case_dir,
-                context=context,
-            )
-            path = case_dir / f"{case['page_id']}.html"
-            _write_text(path, case_html)
-            written.append(path)
+    _remove_generated_case_pages(web_root)
+
+    cases_dir = web_root / "cases"
+    for case in enriched_cases:
+        case_html = _render_testbed_case_page(
+            case=case,
+            output_root=output_root,
+            web_root=web_root,
+            page_dir=cases_dir,
+            context=context,
+        )
+        case_path = cases_dir / f"{case['page_id']}.html"
+        _write_text(case_path, case_html)
+        written.append(case_path)
 
     index_html = _render_testbed_index(
         output_root=output_root,
@@ -260,119 +258,40 @@ def _render_testbed_index(
     artifacts: Sequence[Path],
 ) -> str:
     title = str(context.get("title") or f"Testbed report - {manifest.get('testbed_id', output_root.name)}")
-    status_counts = Counter(str(case.get("status") or "unknown") for case in cases)
     summary_cards = [
         ("Cas", manifest.get("variant_count") or len(cases)),
         ("OK", manifest.get("successful_count")),
         ("Echecs", manifest.get("failed_count")),
         ("Comparaisons", len(comparisons)),
     ]
-    comparison_index_only = bool(context.get("comparison_index_only"))
-    run_definition = _summarize_testbed_run_definition(cases)
-    case_rows = []
-    if not comparison_index_only:
-        for case in cases:
-            case_path = web_root / "cases" / f"{case['page_id']}.html"
-            label = _display_value(case.get("variant_label") or case.get("variant_id"))
-            status = _display_value(case.get("status"))
-            site = case.get("site") or {}
-            site_text = _display_value(site.get("site_id") or site.get("outlet_id") or "")
-            case_rows.append(
-                [
-                    _link(case_path, "Ouvrir", web_root),
-                    _case_comparison_links(case.get("comparisons") or [], from_dir=web_root),
-                    _simulation_html_links(case.get("simulation_html_pages") or [], from_dir=web_root),
-                    label,
-                    _display_value(case.get("variant_id")),
-                    site_text,
-                    _status_badge(status),
-                    _display_value(case.get("axis")),
-                    _format_float(case.get("duration_seconds")),
-                    _display_value(case.get("runner")),
-                ]
-            )
-
     artifacts_html = _render_artifact_links(artifacts, from_dir=web_root)
     sections = [
         _hero(title, subtitle=_path_text(output_root)),
         _cards(summary_cards),
+        _section(
+            "Synthese des comparaisons",
+            _render_testbed_unified_comparison_table(cases, web_root=web_root),
+        ),
+        _section(
+            "Fiches de cas",
+            _render_testbed_case_overview_table(cases, web_root=web_root),
+        ),
+        _section(
+            "Precision de resolution",
+            _render_comparison_closure_overview(comparisons, from_dir=web_root),
+        ),
     ]
-    if comparison_index_only:
-        sections.extend(
-            [
-                _section(
-                    "Comparaisons",
-                    _render_testbed_comparison_overview_table(cases, web_root=web_root),
-                ),
-                _section(
-                    "Precision de resolution",
-                    _render_comparison_closure_overview(comparisons, from_dir=web_root),
-                ),
-                _section("Artefacts", artifacts_html),
-            ]
-        )
-    else:
-        provenance = _render_provenance_section(
-            output_root=output_root,
-            web_root=web_root,
-            context=context,
-            manifest=manifest,
-            plan=plan,
-            contract_label="testbed",
-        )
-        sections.extend(
-            [
-                _section("Liens directs", _render_testbed_direct_links(cases, web_root=web_root)),
-                _render_catalog_testbed_guidance(
-                    manifest=manifest,
-                    plan=plan,
-                    context=context,
-                    web_root=web_root,
-                ),
-                _section(
-                    "Statut",
-                    "<p>"
-                    + html.escape(", ".join(f"{key}: {value}" for key, value in sorted(status_counts.items())))
-                    + "</p>",
-                ),
-                _section(
-                    "Comparaisons disponibles",
-                    _render_comparison_summary_table(comparisons, from_dir=web_root),
-                ),
-                _section(
-                    "Precision de resolution",
-                    _render_comparison_closure_overview(comparisons, from_dir=web_root),
-                ),
-                _section(
-                    "Cas",
-                    _table_from_rows(
-                        [
-                            "Page cas",
-                            "Comparaison HTML",
-                            "Simulation HTML",
-                            "Cas",
-                            "Variant id",
-                            "Site",
-                            "Status",
-                            "Axis",
-                            "Duration (s)",
-                            "Runner",
-                        ],
-                        case_rows,
-                    ),
-                ),
-                _section("Contexte d'execution", _definition_list(run_definition)),
-                _section("Metriques", _render_metrics_summary(metrics, metrics_path=output_root / "testbed_metrics.csv", from_dir=web_root)),
-                provenance,
-                _section("Artefacts", artifacts_html),
-                _section(
-                    "Contrat du rapport",
-                    "<p>This page is generated after the simulations. It reads the standard "
-                    "testbed artifacts and the generated child TOML files; it does not create "
-                    "meshes, run solvers, or add a second execution path.</p>",
-                ),
-            ]
-        )
+    sections.extend(
+        [
+            _section("Artefacts", artifacts_html),
+            _section(
+                "Contrat du rapport",
+                "<p>This page is generated after the simulations. It reads the standard "
+                "testbed artifacts and the generated child TOML files; it does not create "
+                "meshes, run solvers, or add a second execution path.</p>",
+            ),
+        ]
+    )
     body = "\n".join(sections)
     return _page(title, body)
 
@@ -401,12 +320,11 @@ def _render_catalog_testbed_guidance(
     comparison_note = ""
     if runner == "comparison":
         comparison_note = (
-            "<p>Dans ce mode, chaque ligne retenue du catalogue produit un TOML "
-            "<code>workflow = &quot;comparison&quot;</code>. Les valeurs physiques du site "
-            "sont injectees dans <code>comparison.base_simulation_overlay</code>, puis le "
-            "workflow de comparaison genere et lance les simulations enfants declarees "
-            "dans le TOML de base. Les pages HTML de comparaison sont les sorties "
-            "principales a consulter.</p>"
+            "<p>Dans cette chaine, le runner est <code>comparison</code>: chaque site "
+            "retenu produit une configuration de comparaison, puis cette comparaison "
+            "pilote les deux simulations enfants MF6 et Boussinesq definies dans le "
+            "TOML de base. La fiche site sert a verifier la ligne du catalogue; le "
+            "rapport detaille de comparaison est la page de resultats a lire.</p>"
         )
 
     fields = [
@@ -427,23 +345,23 @@ def _render_catalog_testbed_guidance(
         ),
     ]
     steps = [
-        "Le testbed charge le catalogue CSV/JSONL declare dans <code>[testbed.catalog]</code>.",
-        "Les filtres du catalogue et de <code>[[testbed.variant_from_catalog]]</code> retiennent les lignes utiles.",
-        "Pour chaque ligne, les champs <code>{...}</code> des templates sont remplaces par les valeurs du catalogue.",
-        "Le TOML enfant est ecrit dans <code>_generated_configs</code>; il ne contient plus de section <code>[testbed]</code>.",
-        "L'execution delegue ensuite ce TOML au runner choisi, sans script de commodite supplementaire.",
+        "Le fichier declare dans <code>[testbed.catalog]</code> est lu comme une table de sites: une ligne devient un cas potentiel.",
+        "Les filtres gardent seulement les lignes utiles pour ce chantier, puis les champs du site remplacent les marqueurs <code>{...}</code> des templates.",
+        "Le TOML final de chaque site est ecrit dans <code>_generated_configs</code>. C'est une configuration autonome, sans section <code>[testbed]</code>.",
+        "Le runner choisi execute cette configuration. Ici, il produit un dossier <code>comparisons/&lt;site&gt;...</code> et un rapport HTML detaille.",
     ]
     body = (
-        "<p>Cette section documente le mode catalogue du testbed. Il permet de "
-        "declarer une liste de sites une seule fois, puis d'appliquer la meme "
-        "configuration de comparaison, de simulation ou de maillage a chaque site.</p>"
+        "<p>Le mode catalogue evite de dupliquer les TOML a la main: on decrit les "
+        "sites dans une table, puis le testbed fabrique les configurations concretes "
+        "a partir d'un meme patron. C'est utile lorsque plusieurs bassins doivent "
+        "etre compares avec le meme protocole.</p>"
         + comparison_note
         + _definition_list(fields)
         + "<ol>"
         + "".join(f"<li>{item}</li>" for item in steps)
         + "</ol>"
     )
-    return _section("Mode catalogue pas a pas", body)
+    return _section("Du catalogue aux rapports", body)
 
 
 def _render_testbed_case_page(
@@ -459,9 +377,14 @@ def _render_testbed_case_page(
     site = case.get("site") if isinstance(case.get("site"), Mapping) else {}
     figures = list(case.get("figures") or [])
     config_path = _path_or_none(case.get("config_path"))
+    comparisons = [
+        item for item in case.get("comparisons", []) if isinstance(item, Mapping)
+    ]
+    comparison = comparisons[0] if comparisons else {}
+    status = _case_display_status(case, comparison)
     facts = [
         ("Variant id", case.get("variant_id")),
-        ("Status", _status_badge(_display_value(case.get("status")))),
+        ("Status", _status_badge(status)),
         ("Axis", case.get("axis")),
         ("Runner", case.get("runner")),
         ("Duration (s)", _format_float(case.get("duration_seconds"))),
@@ -479,51 +402,67 @@ def _render_testbed_case_page(
         _path_or_none(_get_nested(config, ["workspace", "project_root"])),
         _path_or_none(_get_nested(config, ["display", "output_dir"])),
     ]
-    comparisons = [
-        item for item in case.get("comparisons", []) if isinstance(item, Mapping)
-    ]
     simulation_html_pages = [
         path for path in case.get("simulation_html_pages", []) if isinstance(path, Path)
     ]
-    body = "\n".join(
+    link_rows = [
+        (
+            "Rapport detaille de comparaison",
+            _case_comparison_links(comparisons, from_dir=page_dir),
+        ),
+        (
+            "Config generee",
+            _link(config_path, _path_text(config_path), page_dir)
+            if config_path
+            else "",
+        ),
+    ]
+    if simulation_html_pages:
+        link_rows.append(
+            (
+                "Rapport de simulation",
+                _render_artifact_links(simulation_html_pages, from_dir=page_dir),
+            )
+        )
+    sections = [
+        _hero(label, subtitle=f"{_display_value(case.get('variant_id'))} - {_path_text(output_root)}"),
+        '<p><a href="../index.html">Retour a la synthese</a></p>',
+        _section(
+            "Orientation",
+            "<p>Cette fiche resume le cas dans la boucle de testbed. "
+            "Le rapport detaille de comparaison contient les figures MF6/Boussinesq, "
+            "les metriques et l'audit.</p>"
+            + _definition_list(link_rows),
+        ),
+        _section("Identification", _definition_list(facts + site_facts)),
+        _section(
+            "Comparaison de methodes",
+            _render_case_comparisons(comparisons, from_dir=page_dir),
+        ),
+    ]
+    if _definition_items_have_declared_values(generation_facts):
+        sections.append(
+            _section("Maillage et contexte geographique", _definition_list(generation_facts))
+        )
+    if _definition_items_have_declared_values(recharge_facts):
+        sections.append(_section("Recharge", _definition_list(recharge_facts)))
+    if _definition_items_have_declared_values(time_facts):
+        sections.append(_section("Temps et condition initiale", _definition_list(time_facts)))
+    if _definition_items_have_declared_values(flow_facts) or _has_hydraulic_parameters(config):
+        sections.append(
+            _section(
+                "Processus et parametres",
+                _definition_list(flow_facts) + _render_parameter_table(config),
+            )
+        )
+    if figures:
+        sections.append(_section("Figures de simulation", _render_figure_grid(figures, from_dir=page_dir)))
+    sections.extend(
         [
-            _hero(label, subtitle=f"{_display_value(case.get('variant_id'))} - {_path_text(output_root)}"),
-            '<p><a href="../index.html">Back to synthesis</a></p>',
-            _section(
-                "Liens",
-                _definition_list(
-                    [
-                        (
-                            "Comparaison HTML",
-                            _case_comparison_links(comparisons, from_dir=page_dir),
-                        ),
-                        (
-                            "Simulation HTML",
-                            _render_artifact_links(simulation_html_pages, from_dir=page_dir),
-                        ),
-                        (
-                            "Config",
-                            _link(config_path, _path_text(config_path), page_dir)
-                            if config_path
-                            else "",
-                        ),
-                    ]
-                ),
-            ),
-            _section("Identification", _definition_list(facts + site_facts)),
-            _section("Comparaisons de methodes", _render_case_comparisons(comparisons, from_dir=page_dir)),
-            _section("Maillage et contexte geographique", _definition_list(generation_facts)),
-            _section("Recharge", _definition_list(recharge_facts)),
-            _section("Temps et condition initiale", _definition_list(time_facts)),
-            _section("Processus et parametres", _definition_list(flow_facts) + _render_parameter_table(config)),
-            _section("Figures de simulation", _render_figure_grid(figures, from_dir=page_dir)),
             _section("Artefacts", _render_artifact_links(artifacts, from_dir=page_dir)),
-            _section(
-                "Provenance note",
-                _render_case_provenance_note(context=context, from_dir=page_dir),
-            ),
         ]
     )
+    body = "\n".join(sections)
     return _page(label, body)
 
 
@@ -1351,6 +1290,32 @@ def _comparison_simulations(manifest: Mapping[str, Any]) -> list[dict[str, Any]]
     return [dict(item) for item in simulations if isinstance(item, Mapping)]
 
 
+def _case_display_status(case: Mapping[str, Any], comparison: Mapping[str, Any]) -> str:
+    comparison_status = _comparison_execution_status(comparison)
+    if comparison_status:
+        return comparison_status
+    return _display_value(case.get("status"))
+
+
+def _comparison_execution_status(comparison: Mapping[str, Any]) -> str:
+    simulations = comparison.get("simulations", [])
+    if not isinstance(simulations, Sequence) or isinstance(simulations, (str, bytes)):
+        return ""
+    statuses = [
+        _display_value(row.get("status")).lower()
+        for row in simulations
+        if isinstance(row, Mapping)
+    ]
+    statuses = [status for status in statuses if status]
+    if not statuses:
+        return ""
+    if all(status in {"completed", "reused"} for status in statuses):
+        return "ok"
+    if any(status in {"failed", "error"} for status in statuses):
+        return "failed"
+    return ""
+
+
 def _comparison_figure_items(
     *,
     root: Path,
@@ -1446,24 +1411,72 @@ def _match_comparisons(
     comparisons: Sequence[Mapping[str, Any]],
 ) -> list[Mapping[str, Any]]:
     candidates: set[str] = set()
+    strict_site_ids: set[str] = set()
     for value in (
         case.get("variant_id"),
         case.get("variant_label"),
         case.get("page_id"),
     ):
-        candidates.update(_site_lookup_keys(_display_value(value)))
+        text = _display_value(value)
+        candidates.update(_site_lookup_keys(text))
+        strict_site_ids.update(_strict_site_lookup_ids(text))
     site = case.get("site")
     if isinstance(site, Mapping):
         for field in ("site_id", "outlet_id", "source_selection_id", "site_label"):
-            candidates.update(_site_lookup_keys(_display_value(site.get(field))))
+            text = _display_value(site.get(field))
+            candidates.update(_site_lookup_keys(text))
+            strict_site_ids.update(_strict_site_lookup_ids(text))
     if not candidates:
         return []
+    strict_matches = [
+        comparison
+        for comparison in comparisons
+        if _comparison_matches_strict_site(comparison, strict_site_ids)
+    ]
+    if strict_matches:
+        return strict_matches
     matches = []
     for comparison in comparisons:
         haystack = _comparison_match_text(comparison)
         if any(_comparison_candidate_matches(candidate, haystack) for candidate in candidates):
             matches.append(comparison)
     return matches
+
+
+def _strict_site_lookup_ids(value: str) -> set[str]:
+    key = _normalize_key(value)
+    if key is None:
+        return set()
+    match = re.fullmatch(r"site_(\d+)", key)
+    if not match:
+        return set()
+    numeric = match.group(1).lstrip("0") or "0"
+    return {f"site_{numeric.zfill(2)}"}
+
+
+def _comparison_matches_strict_site(
+    comparison: Mapping[str, Any],
+    site_ids: set[str],
+) -> bool:
+    if not site_ids:
+        return False
+    values = [
+        comparison.get("comparison_id"),
+        Path(str(comparison.get("root", ""))).name,
+    ]
+    manifest = comparison.get("manifest")
+    if isinstance(manifest, Mapping):
+        values.extend(
+            manifest.get(key)
+            for key in ("comparison_id", "case_id", "site_id", "variant_id")
+        )
+    normalized = [_normalize_key(value) for value in values if value is not None]
+    for value in normalized:
+        if value is None:
+            continue
+        if any(value == site_id or value.startswith(f"{site_id}_") for site_id in site_ids):
+            return True
+    return False
 
 
 def _comparison_candidate_matches(candidate: str, haystack: str) -> bool:
@@ -1778,8 +1791,11 @@ def _render_comparison_closure_overview(
         rows.append(
             [
                 _comparison_link(comparison, from_dir=from_dir),
-                _format_float(_closure_solver_metric(comparison, ("modflow", "mf6", "nwt"))),
-                _format_float(_closure_solver_metric(comparison, ("bouss",))),
+                _format_with_unit(
+                    _closure_solver_metric(comparison, ("modflow", "mf6", "nwt")),
+                    "mm/j",
+                ),
+                _format_with_unit(_closure_solver_metric(comparison, ("bouss",)), "mm/j"),
                 _format_float(comparison.get("closure_relative_error_p95")),
                 _display_value(comparison.get("closure_status")),
                 _link(path, "CSV", from_dir) if isinstance(path, Path) and path.is_file() else "",
@@ -1793,14 +1809,199 @@ def _render_comparison_closure_overview(
     return _table_from_rows(
         [
             "Comparaison",
-            "MODFLOW max mm/j",
-            "Boussinesq max mm/j",
+            "MODFLOW max",
+            "Boussinesq max",
             "Erreur rel. p95 max",
             "Avis",
             "Detail",
         ],
         rows,
     ) + note
+
+
+def _render_testbed_unified_comparison_table(
+    cases: Sequence[Mapping[str, Any]],
+    *,
+    web_root: Path,
+) -> str:
+    rows = []
+    for case in cases:
+        comparisons = [
+            comparison
+            for comparison in case.get("comparisons", [])
+            if isinstance(comparison, Mapping)
+        ]
+        comparison = comparisons[0] if comparisons else {}
+        report = comparison.get("web_index") if comparison else None
+        status = _case_display_status(case, comparison)
+        head_summary = _comparison_head_summary(comparison) if comparison else None
+        rows.append(
+            [
+                _display_value(case.get("variant_label") or case.get("variant_id")),
+                _link(report, "Rapport detaille", web_root)
+                if isinstance(report, Path)
+                else '<span class="muted">non disponible</span>',
+                _status_badge(status),
+                _display_value(comparison.get("audit_status")) if comparison else "",
+                _format_with_unit(_comparison_solver_flow_time(comparison, "modflow6"), "s"),
+                _format_with_unit(_comparison_solver_flow_time(comparison, "boussinesq"), "s"),
+                _format_with_unit(
+                    (head_summary or {}).get("last_rmse_percent"),
+                    "%",
+                ),
+                _format_with_unit(
+                    (head_summary or {}).get("last_rmse_m"),
+                    "m",
+                ),
+                _format_with_unit(
+                    (head_summary or {}).get("last_bias_m"),
+                    "m",
+                ),
+                _format_with_unit(
+                    (head_summary or {}).get("max_rmse_percent"),
+                    "%",
+                ),
+                _format_with_unit(
+                    _closure_solver_metric(comparison, ("modflow", "mf6", "nwt")),
+                    "mm/j",
+                ),
+                _format_with_unit(
+                    _closure_solver_metric(comparison, ("bouss",)),
+                    "mm/j",
+                ),
+            ]
+        )
+    note = (
+        '<p class="muted">Table unique de synthese: le lien Comparaison ouvre le rapport '
+        "detaille MF6/Boussinesq; les colonnes Final et Max restent en pourcentage, "
+        "tandis que RMSE final et Biais final donnent l'ecart de charge en metres. "
+        "Les colonnes de fermeture conservent seulement les maxima MODFLOW et Boussinesq.</p>"
+    )
+    return _table_from_rows(
+        [
+            "Cas",
+            "Comparaison",
+            "Statut",
+            "Audit",
+            "MF6 flow",
+            "Bouss. flow",
+            "Final",
+            "RMSE final",
+            "Biais final",
+            "Max",
+            "MODFLOW max",
+            "Boussinesq max",
+        ],
+        rows,
+    ) + note
+
+
+def _render_testbed_case_overview_table(
+    cases: Sequence[Mapping[str, Any]],
+    *,
+    web_root: Path,
+) -> str:
+    rows = []
+    for case in cases:
+        comparisons = [
+            comparison
+            for comparison in case.get("comparisons", [])
+            if isinstance(comparison, Mapping)
+        ]
+        comparison = comparisons[0] if comparisons else {}
+        case_path = web_root / "cases" / f"{case['page_id']}.html"
+        report = comparison.get("web_index") if comparison else None
+        status = _case_display_status(case, comparison)
+        rows.append(
+            [
+                _display_value(case.get("variant_label") or case.get("variant_id")),
+                _link(case_path, "Fiche synthese", web_root),
+                _link(report, "Rapport detaille", web_root)
+                if isinstance(report, Path)
+                else '<span class="muted">non disponible</span>',
+                _status_badge(status),
+                _display_value(comparison.get("audit_status")) if comparison else "",
+                _format_with_unit(_comparison_head_rmse_percent(comparison), "%"),
+                _format_with_unit(_comparison_solver_flow_time(comparison, "modflow6"), "s"),
+                _format_with_unit(_comparison_solver_flow_time(comparison, "boussinesq"), "s"),
+                _display_value(comparison.get("closure_status")) if comparison else "",
+            ]
+        )
+    note = (
+        '<p class="muted">Deux pages sont volontairement distinguees: la fiche synthese '
+        "resume la ligne du testbed et ses artefacts; le rapport detaille est la page "
+        "de comparaison MF6/Boussinesq avec figures, metriques et audit.</p>"
+    )
+    return _table_from_rows(
+        [
+            "Cas",
+            "Fiche site",
+            "Comparaison",
+            "Statut",
+            "Audit",
+            "RMSE charge max",
+            "MF6 flow",
+            "Bouss. flow",
+            "Precision",
+        ],
+        rows,
+    ) + note
+
+
+def _render_testbed_comparison_interpretation(
+    comparisons: Sequence[Mapping[str, Any]],
+) -> str:
+    summaries = [_comparison_head_summary(comparison) for comparison in comparisons]
+    summaries = [summary for summary in summaries if summary is not None]
+    if not summaries:
+        return ""
+    best = min(summaries, key=lambda item: item["max_rmse_percent"])
+    worst = max(summaries, key=lambda item: item["max_rmse_percent"])
+    rows = []
+    for summary in summaries:
+        rows.append(
+            [
+                summary["comparison_id"],
+                _format_with_unit(summary.get("first_rmse_percent"), "%"),
+                _format_with_unit(summary.get("wet_rmse_percent"), "%"),
+                _format_with_unit(summary.get("dry_rmse_percent"), "%"),
+                _format_with_unit(summary.get("last_rmse_percent"), "%"),
+                _format_with_unit(summary.get("max_rmse_percent"), "%"),
+                summary["interpretation"],
+            ]
+        )
+    body = (
+        "<p>La coherence entre methodes se lit surtout sur l'evolution des ecarts de charge. "
+        "Les premiers pas ou les etats humides testent la transmission de la recharge sur un "
+        "support commun. Les etats secs ou finaux sont plus discriminants, car ils activent "
+        "davantage les differences de formulation pres de la surface, des drains et des zones "
+        "a forts contrastes geologiques.</p>"
+        "<p>Les cas synthetiques donnent le socle: geometrie, forcage, K/Sy et observables "
+        "sont controles, donc l'accord doit etre serre sauf sur les termes de flux qui ne "
+        "representent pas exactement le meme objet numerique. Les cas naturels gardent le "
+        "meme protocole mais ajoutent topographie et heterogeneite spatiale; les ecarts "
+        "coherents sont donc ceux qui restent faibles globalement et se concentrent dans les "
+        "situations les plus sensibles a la contrainte de surface.</p>"
+        + _table_from_rows(
+            [
+                "Comparaison",
+                "Premier pas",
+                "Humide",
+                "Sec",
+                "Final",
+                "Max",
+                "Lecture",
+            ],
+            rows,
+        )
+        + (
+            f'<p class="muted">Meilleur accord: {html.escape(best["comparison_id"])} '
+            f'({_format_percent(best["max_rmse_percent"])} % max). '
+            f'Ecart le plus visible: {html.escape(worst["comparison_id"])} '
+            f'({_format_percent(worst["max_rmse_percent"])} % max).</p>'
+        )
+    )
+    return _section("Analyse croisee des ecarts", body)
 
 
 def _render_testbed_comparison_overview_table(
@@ -1816,7 +2017,7 @@ def _render_testbed_comparison_overview_table(
             if isinstance(comparison, Mapping)
         ]
         comparison = comparisons[0] if comparisons else {}
-        status = _display_value(case.get("status"))
+        status = _case_display_status(case, comparison)
         label = _display_value(case.get("variant_label") or case.get("variant_id"))
         web_index = comparison.get("web_index") if comparison else None
         rows.append(
@@ -1858,6 +2059,102 @@ def _render_testbed_comparison_overview_table(
         "<code>comparable_outflow_total_m3_s</code> est utilise quand il existe.</p>"
     )
     return table + note
+
+
+def _comparison_head_rmse_percent(comparison: Mapping[str, Any]) -> float | None:
+    metrics = comparison.get("metrics_rows")
+    if not isinstance(metrics, list):
+        return None
+    values = [
+        _float_or_none(row.get("rmse_normalized_percent"))
+        for row in metrics
+        if isinstance(row, Mapping)
+        and _display_value(row.get("observable")).startswith("head")
+    ]
+    values = [value for value in values if value is not None]
+    return max(values) if values else None
+
+
+def _comparison_head_summary(comparison: Mapping[str, Any]) -> dict[str, Any] | None:
+    metrics = comparison.get("metrics_rows")
+    if not isinstance(metrics, list):
+        return None
+    head_rows = [
+        row
+        for row in metrics
+        if isinstance(row, Mapping)
+        and _display_value(row.get("observable")).startswith("head")
+    ]
+    if not head_rows:
+        return None
+
+    def row_for(token: str) -> Mapping[str, Any] | None:
+        for row in head_rows:
+            if token in _display_value(row.get("observable")).lower():
+                return row
+        return None
+
+    def value_for(token: str, field: str) -> float | None:
+        row = row_for(token)
+        if row is None:
+            return None
+        return _float_or_none(row.get(field))
+
+    values = [
+        _float_or_none(row.get("rmse_normalized_percent"))
+        for row in head_rows
+    ]
+    values = [value for value in values if value is not None]
+    if not values:
+        return None
+    max_value = max(values)
+    if max_value < 2.0:
+        interpretation = "accord tres serre"
+    elif max_value < 5.0:
+        interpretation = "bon accord"
+    elif max_value < 10.0:
+        interpretation = "coherent, ecarts de surface visibles"
+    else:
+        interpretation = "ecarts marques"
+    max_row = max(
+        head_rows,
+        key=lambda row: _float_or_none(row.get("rmse_normalized_percent")) or -math.inf,
+    )
+    return {
+        "comparison_id": _display_value(comparison.get("comparison_id")),
+        "first_rmse_percent": value_for("first", "rmse_normalized_percent"),
+        "wet_rmse_percent": value_for("wet", "rmse_normalized_percent"),
+        "dry_rmse_percent": value_for("dry", "rmse_normalized_percent"),
+        "last_rmse_percent": value_for("last", "rmse_normalized_percent"),
+        "last_rmse_m": value_for("last", "rmse"),
+        "last_bias_m": value_for("last", "bias"),
+        "max_rmse_m": _float_or_none(max_row.get("rmse")),
+        "max_bias_m": _float_or_none(max_row.get("bias")),
+        "max_rmse_percent": max_value,
+        "interpretation": interpretation,
+    }
+
+
+def _comparison_solver_flow_time(comparison: Mapping[str, Any], solver: str) -> Any:
+    simulations = comparison.get("simulations")
+    if not isinstance(simulations, list):
+        return None
+    solver_key = solver.strip().lower()
+    for simulation in simulations:
+        if not isinstance(simulation, Mapping):
+            continue
+        if _display_value(simulation.get("solver")).strip().lower() != solver_key:
+            continue
+        for field in ("flow_solve_time_seconds", "runtime_seconds"):
+            value = _float_or_none(simulation.get(field))
+            if value is not None:
+                return value
+        metrics = simulation.get("metrics")
+        if isinstance(metrics, Mapping):
+            value = _float_or_none(metrics.get("flow_solve_time_seconds"))
+            if value is not None:
+                return value
+    return None
 
 
 def _comparison_solver_wall_time(comparison: Mapping[str, Any], solver: str) -> Any:
@@ -2011,8 +2308,8 @@ def _render_comparison_closure_table(
                 _display_value(row.get("simulation_id")),
                 _display_value(row.get("solver")),
                 _display_value(row.get("n_periods")),
-                _format_float(row.get("max_abs_closure_m3_s")),
-                _format_float(row.get("max_abs_closure_mm_d")),
+                _format_with_unit(row.get("max_abs_closure_m3_s"), "m3/s"),
+                _format_with_unit(row.get("max_abs_closure_mm_d"), "mm/j"),
                 _format_float(row.get("relative_closure_error_p95")),
                 _display_value(row.get("diagnostic")),
             ]
@@ -2034,8 +2331,8 @@ def _render_comparison_closure_table(
                 "Simulation",
                 "Solveur",
                 "Periodes",
-                "Max residu m3/s",
-                "Max residu mm/j",
+                "Max residu debit",
+                "Max residu lame",
                 "Erreur rel. p95",
                 "Avis",
             ],
@@ -2214,6 +2511,19 @@ def _definition_list(items: Iterable[tuple[Any, Any]]) -> str:
     if not rows:
         return '<p class="muted">No details.</p>'
     return '<dl class="facts">' + "\n".join(rows) + "</dl>"
+
+
+def _definition_items_have_declared_values(items: Iterable[tuple[Any, Any]]) -> bool:
+    for _, value in items:
+        text = _display_value(value).strip().lower()
+        if text and text not in {"not declared", "unknown", "none"}:
+            return True
+    return False
+
+
+def _has_hydraulic_parameters(config: Mapping[str, Any]) -> bool:
+    params = _get_nested(config, ["flow", "param"])
+    return isinstance(params, Mapping) and bool(params)
 
 
 def _render_value(value: Any) -> str:
@@ -2622,9 +2932,11 @@ def _format_float(value: Any) -> str:
         return _display_value(value)
     if not math.isfinite(number):
         return str(number)
-    if abs(number) >= 1000 or (0 < abs(number) < 0.001):
-        return f"{number:.4g}"
-    return f"{number:.4f}".rstrip("0").rstrip(".")
+    if 0 < abs(number) < 0.01:
+        if abs(number) >= 1.0e-4:
+            return f"{number:.4f}".rstrip("0").rstrip(".")
+        return f"{number:.1e}"
+    return f"{number:.1f}"
 
 
 def _format_percent(value: Any) -> str:
@@ -2634,11 +2946,12 @@ def _format_percent(value: Any) -> str:
         return ""
     if not math.isfinite(number):
         return ""
-    if abs(number) >= 100.0:
-        return f"{number:.1f}"
-    if abs(number) >= 10.0:
-        return f"{number:.2f}"
-    return f"{number:.3f}".rstrip("0").rstrip(".")
+    return f"{number:.1f}"
+
+
+def _format_with_unit(value: Any, unit: str) -> str:
+    formatted = _format_float(value)
+    return f"{formatted} {unit}".strip() if formatted else ""
 
 
 def _normalize_key(value: Any) -> str | None:
@@ -2731,8 +3044,8 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         "--comparison-index-only",
         action="store_true",
         help=(
-            "For testbed reports, generate only one comparison-oriented index "
-            "and skip per-case HTML pages."
+            "Deprecated no-op: testbed reports now always generate one "
+            "comparison-oriented index and skip per-case HTML pages."
         ),
     )
     return parser.parse_args(argv)

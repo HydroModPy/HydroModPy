@@ -125,6 +125,28 @@ def test_from_toml_requires_workspace_project_root(tmp_path: Path) -> None:
         HydroModPyConfig.from_toml(path)
 
 
+def test_from_toml_rejects_scalar_workflow(tmp_path: Path) -> None:
+    path = tmp_path / "scalar_workflow.toml"
+    path.write_text(
+        "\n".join(
+            [
+                'workflow = "simulation"',
+                "",
+                "[workspace]",
+                f'project_root = "{tmp_path / "demo"}"',
+                "",
+                "[geographic]",
+                'source_mode = "synthetic"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=r"\[workflow\]"):
+        HydroModPyConfig.from_toml(path)
+
+
 def test_from_dict_keeps_api_workspace_default(tmp_path: Path) -> None:
     cfg = HydroModPyConfig.from_dict(
         {

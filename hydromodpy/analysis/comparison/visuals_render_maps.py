@@ -579,7 +579,7 @@ def _write_regridded_map_figure(
     )
     axes_array = np.asarray(axes, dtype=object).ravel()
     artist = None
-    for ax, (payload, array) in zip(axes_array, arrays, strict=False):
+    for index, (ax, (payload, array)) in enumerate(zip(axes_array, arrays, strict=False)):
         artist = ax.imshow(
             array,
             origin="lower",
@@ -590,6 +590,8 @@ def _write_regridded_map_figure(
             aspect="equal",
         )
         _style_map_axes(ax)
+        if index % ncols != 0:
+            ax.set_ylabel("")
         ax.set_title(
             _simulation_panel_title(
                 simulation_id=payload.simulation_id,
@@ -606,7 +608,7 @@ def _write_regridded_map_figure(
         right=0.82,
         top=0.84,
         bottom=0.14,
-        wspace=0.08,
+        wspace=0.18,
         hspace=0.12,
     )
     if artist is not None:

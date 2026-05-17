@@ -1,4 +1,5 @@
-workflow = "comparison"
+[workflow]
+mode = "comparison"
 
 [comparison]
 comparison_id = "nancon_steady_mf6_regular_network_methods"

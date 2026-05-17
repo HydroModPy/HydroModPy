@@ -856,7 +856,7 @@ def _render_couche2(
         lines.append(f"`Source on GitHub <{source_link}>`__")
     lines.append("")
 
-    docstring = (model.__doc__ or "").strip()
+    docstring = inspect.getdoc(model) or ""
     if docstring:
         lines.extend([docstring, ""])
 

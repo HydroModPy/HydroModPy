@@ -1,0 +1,70 @@
+base_config = "base_nancon_physics.toml"
+
+[workflow]
+mode = "simulation"
+
+[workspace]
+project_root = "outputs/nancon_network_physical_benchmark/workspaces/mf6_irregular_250_drain_high"
+root = "outputs/nancon_network_physical_benchmark/workspaces/mf6_irregular_250_drain_high"
+
+[simulation]
+name = "nancon_network_physical_benchmark__mf6_irregular_250_drain_high"
+run_id = "nancon_network_physical_benchmark__mf6_irregular_250_drain_high"
+description = "MODFLOW 6 generated irregular Nancon benchmark, 250 m global mesh size."
+on_collision = "replace"
+
+[flow.bc.cauchy.drainage]
+value = 1.0e-3
+
+[mesh_catchment]
+constraints_mode = "rivers_only"
+output_layout = "flat"
+figures_enabled = false
+figure_dpi = 220
+figure_regional_dpi = 180
+
+[mesh_catchment.watershed_boundary]
+enabled = true
+boundary_refinement_distance = 300.0
+
+[mesh_catchment.watershed_boundary.smoothing]
+enabled = true
+distance = 100.0
+river_buffer_distance = 50.0
+outer_bias_distance = 5.0
+
+[mesh_catchment.watershed_boundary.outside_coarsening]
+enabled = true
+size_factor = 2.0
+transition_distance = 500.0
+grid_resolution = 500.0
+
+[mesh_catchment.zone_meshing]
+global_size = 250.0
+min_size = 150.0
+max_size = 800.0
+min_polygon_area = 1.0
+refine_interfaces = true
+interface_size = 180.0
+interface_distance = 500.0
+interface_sampling = 64
+
+[modflow6.runtime]
+mf6_ims_complexity = "COMPLEX"
+mf6_outer_dvclose = 0.0001
+mf6_inner_dvclose = 0.0001
+mf6_outer_maximum = 1000
+mf6_inner_maximum = 1000
+mf6_enable_rewet = false
+mf6_newton = false
+mf6_newton_under_relaxation = true
+mf_verbose = false
+
+[modflow6.process_specific]
+vka = 1.0
+
+[modflow6.sgrid.vertical]
+nlay = 1
+
+[modflow6.tgrid]
+firstpersteady = false

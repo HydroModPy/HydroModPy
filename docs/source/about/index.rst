@@ -63,6 +63,16 @@ publications that rely on HydroModPy.
       SemVer rules, deprecation cycle, tagging discipline, and the
       PyPI publication flow.
 
+   .. grid-item-card::
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: documentation_refresh
+      :link-type: doc
+
+      **Documentation refresh**
+      ^^^
+      Update cadence, computed artifact policy, and the status badges shown
+      on generated documentation pages.
+
 .. toctree::
    :hidden:
    :maxdepth: 1
@@ -73,3 +83,4 @@ publications that rely on HydroModPy.
    changelog
    roadmap
    release_policy
+   documentation_refresh

@@ -193,6 +193,8 @@ contract; this page stays the high-level map.
 Related pages
 -------------
 
+- :doc:`test-inventory` for a compact snapshot of how many tests are
+  collected in each family and which subsystems dominate the suite.
 - :doc:`code-reading-guide` for the package responsibilities behind
   the test layout.
 - :doc:`../../contribute` for the contributor-facing test commands

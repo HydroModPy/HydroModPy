@@ -1,0 +1,268 @@
+{
+  "cases": {
+    "case_01_homogeneous_k_pulse": {
+      "analytical_comparison": {
+        "available": true,
+        "final_center_error_m": 0.0,
+        "final_mass_relative_error": 0.0,
+        "final_width_error_m": 0.0,
+        "linf": 0.0,
+        "reason": "2D infinite-domain Gaussian advection-diffusion reference for a compact internal pulse with homogeneous K and uniform velocity.",
+        "reference": "2d_infinite_domain_gaussian_internal_pulse",
+        "rmse": 0.0,
+        "rmse_tolerance": 1e-10
+      },
+      "final": {
+        "advective_distance_m": 80.0,
+        "analytical_c_linf": 0.0,
+        "analytical_c_rmse": 0.0,
+        "analytical_center_error_m": 0.0,
+        "analytical_center_x_m": 114.7726954,
+        "analytical_mass": 21.76989595,
+        "analytical_mass_relative_error": 0.0,
+        "analytical_width_error_m": 0.0,
+        "analytical_width_x_m": 2.56096193,
+        "area_weighted_mass": 21.76989595,
+        "c_max": 0.32195059,
+        "c_mean": 0.00755659,
+        "c_min": 0.0,
+        "c_p05": 0.0,
+        "c_p50": 0.0,
+        "c_p95": 0.03810772,
+        "center_x_m": 114.7726954,
+        "snapshot": 60,
+        "time_days": 800.0,
+        "width_x_m": 2.56096193
+      },
+      "flow": {
+        "flux_proxy_mean_m_per_day": 0.03,
+        "head_max_m": 3.5881752,
+        "head_min_m": 0.01183274,
+        "hydraulic_conductivity_max_m_per_day": 1.0,
+        "hydraulic_conductivity_mean_m_per_day": 1.0,
+        "hydraulic_conductivity_min_m_per_day": 1.0
+      },
+      "mesh": {
+        "area_max_m2": 0.80172652,
+        "area_min_m2": 0.47353141,
+        "area_ratio": 1.69307993,
+        "left_boundary_cells": 48,
+        "n_cells": 4608,
+        "n_vertices": 2425,
+        "right_boundary_cells": 48
+      },
+      "transport_numbers": {
+        "advective_travel_time_days": 1200.0,
+        "cell_length_mean_m": 0.78991124,
+        "darcy_flux_m_per_day": 0.03,
+        "darcy_flux_max_m_per_day": 0.03,
+        "darcy_flux_min_m_per_day": 0.03,
+        "dispersion_m2_per_day": 0.00395,
+        "hydraulic_conductivity_max_m_per_day": 1.0,
+        "hydraulic_conductivity_mean_m_per_day": 1.0,
+        "hydraulic_conductivity_min_m_per_day": 1.0,
+        "hydraulic_gradient": 0.03,
+        "peclet_max": 22.66814751,
+        "peclet_mean": 19.99775285,
+        "peclet_min": 17.4211692,
+        "pore_velocity_m_per_day": 0.1,
+        "pore_velocity_max_m_per_day": 0.1,
+        "pore_velocity_min_m_per_day": 0.1,
+        "simulated_travel_fraction": 0.66666667
+      }
+    },
+    "case_02_longitudinal_channel_kx5_pulse": {
+      "analytical_comparison": {
+        "available": false,
+        "reason": "not available: heterogeneous K breaks the uniform-velocity analytical assumption."
+      },
+      "final": {
+        "advective_distance_m": 120.0,
+        "analytical_c_linf": null,
+        "analytical_c_rmse": null,
+        "analytical_center_error_m": null,
+        "analytical_center_x_m": null,
+        "analytical_mass": null,
+        "analytical_mass_relative_error": null,
+        "analytical_width_error_m": null,
+        "analytical_width_x_m": null,
+        "area_weighted_mass": 6.57630667,
+        "c_max": 0.17231649,
+        "c_mean": 0.00230095,
+        "c_min": 0.0,
+        "c_p05": 0.0,
+        "c_p50": 0.0,
+        "c_p95": 0.00501302,
+        "center_x_m": 114.7535007,
+        "snapshot": 60,
+        "time_days": 800.0,
+        "width_x_m": 2.56898866
+      },
+      "flow": {
+        "flux_proxy_mean_m_per_day": 0.07,
+        "head_max_m": 3.58791932,
+        "head_min_m": 0.01178263,
+        "hydraulic_conductivity_max_m_per_day": 5.0,
+        "hydraulic_conductivity_mean_m_per_day": 2.33333333,
+        "hydraulic_conductivity_min_m_per_day": 1.0
+      },
+      "mesh": {
+        "area_max_m2": 0.78401207,
+        "area_min_m2": 0.47854909,
+        "area_ratio": 1.63831066,
+        "left_boundary_cells": 48,
+        "n_cells": 4608,
+        "n_vertices": 2425,
+        "right_boundary_cells": 48
+      },
+      "transport_numbers": {
+        "advective_travel_time_days": 514.28571429,
+        "cell_length_mean_m": 0.78993928,
+        "darcy_flux_m_per_day": 0.07,
+        "darcy_flux_max_m_per_day": 0.15,
+        "darcy_flux_min_m_per_day": 0.03,
+        "dispersion_m2_per_day": 0.00395,
+        "hydraulic_conductivity_max_m_per_day": 5.0,
+        "hydraulic_conductivity_mean_m_per_day": 2.33333333,
+        "hydraulic_conductivity_min_m_per_day": 1.0,
+        "hydraulic_gradient": 0.03,
+        "peclet_max": 112.0815903,
+        "peclet_mean": 46.65134368,
+        "peclet_min": 17.513226,
+        "pore_velocity_m_per_day": 0.23333333,
+        "pore_velocity_max_m_per_day": 0.5,
+        "pore_velocity_min_m_per_day": 0.1,
+        "simulated_travel_fraction": 1.55555556
+      }
+    },
+    "case_03_transverse_bands_kx5_pulse": {
+      "analytical_comparison": {
+        "available": false,
+        "reason": "not available: heterogeneous K breaks the uniform-velocity analytical assumption."
+      },
+      "final": {
+        "advective_distance_m": 120.0,
+        "analytical_c_linf": null,
+        "analytical_c_rmse": null,
+        "analytical_center_error_m": null,
+        "analytical_center_x_m": null,
+        "analytical_mass": null,
+        "analytical_mass_relative_error": null,
+        "analytical_width_error_m": null,
+        "analytical_width_x_m": null,
+        "area_weighted_mass": 0.0,
+        "c_max": 0.0,
+        "c_mean": 0.0,
+        "c_min": 0.0,
+        "c_p05": 0.0,
+        "c_p50": 0.0,
+        "c_p95": 0.0,
+        "center_x_m": null,
+        "snapshot": 60,
+        "time_days": 800.0,
+        "width_x_m": null
+      },
+      "flow": {
+        "flux_proxy_mean_m_per_day": 0.09,
+        "head_max_m": 3.58792991,
+        "head_min_m": 0.0118937,
+        "hydraulic_conductivity_max_m_per_day": 5.0,
+        "hydraulic_conductivity_mean_m_per_day": 3.0,
+        "hydraulic_conductivity_min_m_per_day": 1.0
+      },
+      "mesh": {
+        "area_max_m2": 0.78136256,
+        "area_min_m2": 0.46810568,
+        "area_ratio": 1.66920118,
+        "left_boundary_cells": 48,
+        "n_cells": 4608,
+        "n_vertices": 2425,
+        "right_boundary_cells": 48
+      },
+      "transport_numbers": {
+        "advective_travel_time_days": 400.0,
+        "cell_length_mean_m": 0.78990765,
+        "darcy_flux_m_per_day": 0.09,
+        "darcy_flux_max_m_per_day": 0.15,
+        "darcy_flux_min_m_per_day": 0.03,
+        "dispersion_m2_per_day": 0.00395,
+        "hydraulic_conductivity_max_m_per_day": 5.0,
+        "hydraulic_conductivity_mean_m_per_day": 3.0,
+        "hydraulic_conductivity_min_m_per_day": 1.0,
+        "hydraulic_gradient": 0.03,
+        "peclet_max": 111.89204368,
+        "peclet_mean": 59.99295784,
+        "peclet_min": 17.3210757,
+        "pore_velocity_m_per_day": 0.3,
+        "pore_velocity_max_m_per_day": 0.5,
+        "pore_velocity_min_m_per_day": 0.1,
+        "simulated_travel_fraction": 2.0
+      }
+    },
+    "case_04_random_blocks_kx5_pulse": {
+      "analytical_comparison": {
+        "available": false,
+        "reason": "not available: heterogeneous K breaks the uniform-velocity analytical assumption."
+      },
+      "final": {
+        "advective_distance_m": 120.0,
+        "analytical_c_linf": null,
+        "analytical_c_rmse": null,
+        "analytical_center_error_m": null,
+        "analytical_center_x_m": null,
+        "analytical_mass": null,
+        "analytical_mass_relative_error": null,
+        "analytical_width_error_m": null,
+        "analytical_width_x_m": null,
+        "area_weighted_mass": 0.0,
+        "c_max": 0.0,
+        "c_mean": 0.0,
+        "c_min": 0.0,
+        "c_p05": 0.0,
+        "c_p50": 0.0,
+        "c_p95": 0.0,
+        "center_x_m": null,
+        "snapshot": 60,
+        "time_days": 800.0,
+        "width_x_m": null
+      },
+      "flow": {
+        "flux_proxy_mean_m_per_day": 0.0756945,
+        "head_max_m": 3.58826546,
+        "head_min_m": 0.01174844,
+        "hydraulic_conductivity_max_m_per_day": 4.85607935,
+        "hydraulic_conductivity_mean_m_per_day": 2.52314996,
+        "hydraulic_conductivity_min_m_per_day": 1.06045834
+      },
+      "mesh": {
+        "area_max_m2": 0.78986504,
+        "area_min_m2": 0.4721812,
+        "area_ratio": 1.67280069,
+        "left_boundary_cells": 48,
+        "n_cells": 4608,
+        "n_vertices": 2425,
+        "right_boundary_cells": 48
+      },
+      "transport_numbers": {
+        "advective_travel_time_days": 475.59598808,
+        "cell_length_mean_m": 0.78988259,
+        "darcy_flux_m_per_day": 0.0756945,
+        "darcy_flux_max_m_per_day": 0.14568238,
+        "darcy_flux_min_m_per_day": 0.03181375,
+        "dispersion_m2_per_day": 0.00395,
+        "hydraulic_conductivity_max_m_per_day": 4.85607935,
+        "hydraulic_conductivity_mean_m_per_day": 2.52314996,
+        "hydraulic_conductivity_min_m_per_day": 1.06045834,
+        "hydraulic_gradient": 0.03,
+        "peclet_max": 107.67371568,
+        "peclet_mean": 50.45835867,
+        "peclet_min": 19.22957509,
+        "pore_velocity_m_per_day": 0.252315,
+        "pore_velocity_max_m_per_day": 0.48560794,
+        "pore_velocity_min_m_per_day": 0.10604583,
+        "simulated_travel_fraction": 1.68209998
+      }
+    }
+  },
+  "schema": "hydromodpy.transport_visual_guard.synthetic_reference.v1"
+}

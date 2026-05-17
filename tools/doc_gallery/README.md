@@ -222,6 +222,22 @@ under `tools/doc_gallery/manifests/`.
 - `tools/doc_gallery/manifests/README.md` documents the expected JSON fields and
   the guardrails enforced by the loader.
 
+Published simulation-comparison cases can be staged under
+`examples/projects/09_capability_gallery/simulation_comparison/`.
+
+- `tools/doc_gallery/import_simulation_comparison.py` copies a reviewed
+  `comparison_manifest.json` and `comparison_metrics.json` bundle into that
+  versioned tree as `comparison_manifest.json` plus compact `summary_metrics.csv`.
+  It can publish one comparison root or
+  discover every comparison under a testbed output root, including the Nançon
+  hydrographic-network benchmark's `comparison/` directory.
+- `tools/doc_gallery/gallery_simulation_comparison_specs.py` discovers every
+  published `<slug>/case.json` and regenerates the doc page from committed
+  artifacts only.
+- this keeps Sphinx and `python -m tools.doc_gallery --check` free of heavy
+  solver execution; stale bundles should be refreshed by an explicit comparison
+  regeneration step before the docs are rebuilt.
+
 Analytical validation cases are discovered automatically from
 `validation_cases/analytical/`.
 

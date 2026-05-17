@@ -101,6 +101,20 @@ def _cma_es_profile(*, seed: int = 7) -> CalibrationMethodProfile:
     )
 
 
+def _optuna_profile(*, seed: int = 7, max_iter: int = 32) -> CalibrationMethodProfile:
+    """Return one compact Optuna/TPE profile for scalar steady twins."""
+    return CalibrationMethodProfile(
+        name="optuna",
+        method_kwargs={
+            "sampler": "tpe",
+            "max_iter": int(max_iter),
+            "seed": int(seed),
+        },
+        persist_model_distribution=True,
+        success_metric="best_fit_or_distribution",
+    )
+
+
 def _da_mh_gp_profile(*, seed: int = 7) -> CalibrationMethodProfile:
     """Return one compact delayed-acceptance MH profile for scalar steady twins."""
     return CalibrationMethodProfile(
@@ -171,6 +185,7 @@ STEADY_DUPUIT_TWIN_CASE = TwinCalibrationCaseDefinition(
             method_kwargs={"max_iter": 24, "seed": 7},
             persist_model_distribution=True,
         ),
+        _optuna_profile(seed=7, max_iter=32),
         _cma_es_profile(seed=7),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
@@ -213,6 +228,7 @@ STEADY_DUPUIT_POSTERIOR_TWIN_CASE = TwinCalibrationCaseDefinition(
             persist_model_distribution=True,
             success_metric="distribution",
         ),
+        _optuna_profile(seed=7, max_iter=32),
         _cma_es_profile(seed=7),
         _gp_mapping_profile(seed=7),
         _da_mh_gp_profile(seed=7),
@@ -286,6 +302,7 @@ STEADY_DUPUIT_MESH_PERTURBED_TWIN_CASE = TwinCalibrationCaseDefinition(
             persist_model_distribution=True,
             success_metric="best_fit_or_distribution",
         ),
+        _optuna_profile(seed=7, max_iter=32),
         _cma_es_profile(seed=7),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",
@@ -334,6 +351,7 @@ STEADY_DUPUIT_NOISY_TWIN_CASE = TwinCalibrationCaseDefinition(
             persist_model_distribution=True,
             repeat_seeds=(7, 11, 19),
         ),
+        _optuna_profile(seed=7, max_iter=32),
         _cma_es_profile(seed=7),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",

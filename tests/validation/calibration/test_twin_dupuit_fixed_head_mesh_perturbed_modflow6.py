@@ -23,6 +23,7 @@ def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_tru
     None
 ):
     """Run the mesh-perturbed steady twin benchmark and verify recovery remains usable."""
+    pytest.importorskip("optuna")
     pytest.importorskip("cma")
 
     assert_required_executables(
@@ -42,7 +43,7 @@ def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_tru
     assert benchmark.simulation_config_path != benchmark.truth_simulation_config_path
     assert benchmark.observations_truth["head_mid"]
     assert benchmark.observations_truth["q_east"]
-    assert len(benchmark.method_results) == 4
+    assert len(benchmark.method_results) == 5
     for result in benchmark.method_results:
         assert result.meets_success_target, result.to_mapping()
         assert result.cost_best is not None
@@ -57,7 +58,7 @@ def test_calibration_twin_dupuit_fixed_head_mesh_perturbed_modflow6_recovers_tru
     deterministic = [
         result
         for result in benchmark.method_results
-        if result.method_name in {"grid", "simplex", "cma_es"}
+        if result.method_name in {"grid", "scipy_nelder_mead", "cma_es"}
     ]
     assert all(result.recovered_truth for result in deterministic)
 

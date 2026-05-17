@@ -564,13 +564,16 @@ def _should_preserve_previous_case_summary(
     if generation_status == "source_unavailable_local":
         return True
 
+    allow_artifact_compaction = (
+        new_summary.get("metadata", {}).get("publish_full_artifacts") is False
+    )
     previous_images, previous_metrics, previous_artifacts = _summary_richness(previous_summary)
     new_images, new_metrics, new_artifacts = _summary_richness(new_summary)
     if new_images < previous_images:
         return True
     if previous_metrics > 0 and new_metrics < previous_metrics:
         return True
-    if new_artifacts < previous_artifacts:
+    if not allow_artifact_compaction and new_artifacts < previous_artifacts:
         return True
     return False
 
@@ -590,7 +593,33 @@ def _select_case_summary(
         baseline_source_root=baseline_source_root,
         source_root=source_root,
     )
-    return previous_summary
+    preserved_summary = dict(previous_summary)
+    preserved_summary["source_paths"] = list(new_summary.get("source_paths", ()))
+    preserved_summary["source_hashes"] = dict(new_summary.get("source_hashes", {}))
+    for key in (
+        "deck",
+        "summary",
+        "case_setup",
+        "key_parameters",
+        "how_to_read",
+        "next_steps",
+        "what_it_shows",
+        "reference_highlights",
+        "equations_rst",
+        "walkthrough_doc",
+        "walkthrough_title",
+        "reproduction_command",
+        "gallery_update_command",
+    ):
+        if key in new_summary:
+            preserved_summary[key] = new_summary[key]
+    previous_metadata = dict(previous_summary.get("metadata", {}))
+    new_metadata = dict(new_summary.get("metadata", {}))
+    for key in ("generation_status", "generation_reason", "missing_source_paths"):
+        previous_metadata.pop(key, None)
+        new_metadata.pop(key, None)
+    preserved_summary["metadata"] = {**previous_metadata, **new_metadata}
+    return preserved_summary
 
 
 def _generate_case_summary_with_fallback(
@@ -4396,6 +4425,7 @@ def _generate_simulation_comparison_case(
         raise ValueError(
             f"Simulation comparison case '{spec.slug}' produced no comparable rows for '{focus_simulation_id}'."
         )
+    publish_full_artifacts = bool(spec.metadata.get("publish_full_artifacts", True))
 
     figure_path = source_root / _docs_relative_static_path(
         spec.category, spec.image_assets[0].filename
@@ -4417,10 +4447,25 @@ def _generate_simulation_comparison_case(
     summary_csv_path = static_dir / f"{spec.slug}_summary_metrics.csv"
     differences_csv_path = static_dir / f"{spec.slug}_difference_metrics.csv"
     _write_json(manifest_path, manifest)
-    _write_json(metrics_path, metrics_payload)
-    write_observables_csv(observables_path, all_rows)
     write_metrics_csv(summary_csv_path, focus_summary_rows, fieldnames=SUMMARY_METRIC_FIELDS)
-    write_metrics_csv(differences_csv_path, focus_detail_rows, fieldnames=DETAIL_METRIC_FIELDS)
+    extra_repo_paths = [
+        _repo_docs_artifact_path(spec.category, f"{spec.slug}_comparison_manifest.json"),
+        _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary_metrics.csv"),
+    ]
+    if publish_full_artifacts:
+        _write_json(metrics_path, metrics_payload)
+        write_observables_csv(observables_path, all_rows)
+        write_metrics_csv(differences_csv_path, focus_detail_rows, fieldnames=DETAIL_METRIC_FIELDS)
+        extra_repo_paths.extend(
+            [
+                _repo_docs_artifact_path(spec.category, f"{spec.slug}_comparison_metrics.json"),
+                _repo_docs_artifact_path(spec.category, f"{spec.slug}_observables.csv"),
+                _repo_docs_artifact_path(spec.category, f"{spec.slug}_difference_metrics.csv"),
+            ]
+        )
+    else:
+        for stale_path in (metrics_path, observables_path, differences_csv_path):
+            stale_path.unlink(missing_ok=True)
 
     metrics_override: list[dict[str, Any]] = []
     for row in focus_summary_rows:
@@ -4469,15 +4514,7 @@ def _generate_simulation_comparison_case(
                 "image_repo_paths": [
                     _repo_docs_artifact_path(spec.category, spec.image_assets[0].filename)
                 ],
-                "extra_repo_paths": [
-                    _repo_docs_artifact_path(
-                        spec.category, f"{spec.slug}_comparison_manifest.json"
-                    ),
-                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_comparison_metrics.json"),
-                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_observables.csv"),
-                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_summary_metrics.csv"),
-                    _repo_docs_artifact_path(spec.category, f"{spec.slug}_difference_metrics.csv"),
-                ],
+                "extra_repo_paths": extra_repo_paths,
             },
         },
     )

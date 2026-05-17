@@ -50,6 +50,20 @@ def _cma_es_profile(*, seed: int = 17) -> CalibrationMethodProfile:
     )
 
 
+def _optuna_profile(*, seed: int = 17) -> CalibrationMethodProfile:
+    """Return one compact Optuna/TPE profile for piecewise-K recovery."""
+    return CalibrationMethodProfile(
+        name="optuna",
+        method_kwargs={
+            "sampler": "tpe",
+            "max_iter": 96,
+            "seed": int(seed),
+        },
+        persist_model_distribution=True,
+        success_metric="best_fit_or_distribution",
+    )
+
+
 _PIECEWISE_K_PARAMETER_TARGETS = {
     "K_west": TwinParameterTarget(
         target="flow.param.K.field.values.west_zone",
@@ -144,6 +158,7 @@ PIECEWISE_K_TWIN_CASE = TwinCalibrationCaseDefinition(
             repeat_seeds=(17, 29),
             success_metric="distribution",
         ),
+        _optuna_profile(seed=17),
         _cma_es_profile(seed=17),
         CalibrationMethodProfile(
             name="scipy_nelder_mead",

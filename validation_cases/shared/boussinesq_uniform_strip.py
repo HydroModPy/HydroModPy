@@ -88,10 +88,15 @@ def build_flow_config(
 
     config = FlowConfig.from_toml_section(validation_flow, base_dir=base_dir)
     for bc_id, values in sequence_boundary_values.items():
-        if bc_id in config.bc and isinstance(config.bc[bc_id], dict):
-            normalized = dict(config.bc[bc_id])
+        if bc_id not in config.bc:
+            continue
+        boundary = config.bc[bc_id]
+        if isinstance(boundary, dict):
+            normalized = dict(boundary)
             normalized["value"] = list(values)
             config.bc[bc_id] = normalized
+        elif hasattr(boundary, "model_copy"):
+            config.bc[bc_id] = boundary.model_copy(update={"value": list(values)})
     return config
 
 

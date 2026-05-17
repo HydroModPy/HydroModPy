@@ -579,7 +579,7 @@ def _run_boussinesq_irregular(*, timeout: int) -> ValidationRunResult:
             "cauchy": {
                 "drainage": {
                     "application_domain": "top",
-                    "type": "cauchy",
+                    "kind": "cauchy",
                     "value": DRAINAGE_CONDUCTANCE_M2_S,
                 }
             },
