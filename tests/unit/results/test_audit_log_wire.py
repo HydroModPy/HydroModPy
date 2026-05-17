@@ -54,7 +54,8 @@ def test_delete_simulation_inserts_audit_log_entry(catalog: SimulationCatalog) -
     catalog.delete(sid)
 
     rows = catalog.connection.execute(
-        "SELECT event_type, sim_id, project, payload, actor FROM audit_log WHERE sim_id = ?",
+        "SELECT event_type, sim_id, project, payload, actor FROM audit_log "
+        "WHERE sim_id = ? AND event_type = 'sim.delete'",
         [sid],
     ).fetchall()
     assert len(rows) == 1
@@ -83,7 +84,8 @@ def test_delete_audit_log_records_remove_storage_false(catalog: SimulationCatalo
     sid = _register(catalog)
     catalog.delete(sid, remove_storage=False)
     payload = catalog.connection.execute(
-        "SELECT payload FROM audit_log WHERE sim_id = ?", [sid]
+        "SELECT payload FROM audit_log WHERE sim_id = ? AND event_type = 'sim.delete'",
+        [sid],
     ).fetchone()[0]
     body = json.loads(payload)
     assert body["remove_storage"] is False
@@ -93,7 +95,8 @@ def test_delete_audit_log_has_hostname_and_actor(catalog: SimulationCatalog) -> 
     sid = _register(catalog)
     catalog.delete(sid)
     row = catalog.connection.execute(
-        "SELECT actor, hostname, actor_kind FROM audit_log WHERE sim_id = ?",
+        "SELECT actor, hostname, actor_kind FROM audit_log "
+        "WHERE sim_id = ? AND event_type = 'sim.delete'",
         [sid],
     ).fetchone()
     actor, hostname, actor_kind = row

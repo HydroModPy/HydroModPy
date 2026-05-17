@@ -22,6 +22,7 @@ import duckdb
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.catalog.audit import audited
 from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
 )
@@ -127,6 +128,7 @@ class RegistrationResult:
 class RegistrationMixin:
     """``register_simulation`` for :class:`SimulationCatalog`."""
 
+    @audited("sim.register", payload_keys=("solver", "name"))
     @with_lock_retry()
     def register_simulation(
         self,

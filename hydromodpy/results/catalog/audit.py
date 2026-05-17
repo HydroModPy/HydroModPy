@@ -15,13 +15,16 @@ time as well as at SQL-execution time.
 
 from __future__ import annotations
 
+import functools
+import inspect
 import json
 import os
 import socket
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from hydromodpy.core.logging import get_logger
 
@@ -50,6 +53,9 @@ AuditEventType = Literal[
     "vacuum",
     "export",
     "import",
+    "ml.dataset_build",
+    "ml.split_persist",
+    "ml.scaler_fit",
 ]
 
 AuditActorKind = Literal["os_user", "principal", "system", "cli", "api"]
@@ -154,9 +160,79 @@ def emit_deletion_tombstone(
     )
 
 
+def _coerce_sim_id(value: Any) -> str | None:
+    """Normalise a sim_id-shaped value (UUID, str, None) to a string or ``None``."""
+    if value is None:
+        return None
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def audited(
+    event_type: AuditEventType,
+    *,
+    sim_id_arg: str = "sim_id",
+    project_arg: str | None = "project",
+    payload_keys: tuple[str, ...] | None = None,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator that emits one ``audit_log`` row after the wrapped method succeeds.
+
+    ``sim_id_arg`` and ``project_arg`` name the method arguments whose
+    values land in the audit row. ``payload_keys`` selects a subset of
+    bound arguments to record in the JSON ``payload`` column. The
+    decorator never raises: a logging warning fires if the INSERT fails,
+    but the original method's return value is preserved.
+
+    The decorated method must be a bound method on an object that
+    exposes ``self._db`` (a DuckDB connection). The audit row is written
+    *after* the method returns successfully, so failed mutations are not
+    recorded.
+    """
+
+    def decorator(method: Callable[..., Any]) -> Callable[..., Any]:
+        signature = inspect.signature(method)
+
+        @functools.wraps(method)
+        def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+            result = method(self, *args, **kwargs)
+            try:
+                bound = signature.bind_partial(self, *args, **kwargs)
+                arguments = bound.arguments
+                sim_id = _coerce_sim_id(arguments.get(sim_id_arg))
+                project: str | None = None
+                if project_arg is not None:
+                    project_value = arguments.get(project_arg)
+                    project = str(project_value) if project_value else None
+                payload: dict[str, Any] | None = None
+                if payload_keys:
+                    payload = {
+                        key: arguments[key]
+                        for key in payload_keys
+                        if key in arguments and arguments[key] is not None
+                    }
+                emit_audit_event(
+                    self._db,
+                    event_type=event_type,
+                    sim_id=sim_id,
+                    project=project,
+                    payload=payload,
+                )
+            except Exception as exc:  # noqa: BLE001 - audit must not raise
+                logger.warning("audit emission failed for %s: %s", event_type, exc)
+            return result
+
+        return wrapper
+
+    return decorator
+
+
 __all__ = [
     "AuditActorKind",
     "AuditEventType",
+    "audited",
     "emit_audit_event",
     "emit_deletion_tombstone",
 ]

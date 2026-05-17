@@ -13,7 +13,7 @@ from uuid import UUID
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.catalog.audit import emit_audit_event
+from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX, ZARR_ZIP_SUFFIX
@@ -150,6 +150,7 @@ class LifecycleMixin:
             self.delete(str(sid))
         return len(rows)
 
+    @audited("sim.finalize", payload_keys=("status", "duration_s"))
     @with_lock_retry()
     def finalize(
         self,

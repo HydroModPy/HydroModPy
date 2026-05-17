@@ -30,6 +30,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.array_fingerprint import fingerprint
+from hydromodpy.results.catalog.audit import audited
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
@@ -227,6 +228,7 @@ class WritesMixin:
     sinks (DuckDB, Parquet, Zarr).
     """
 
+    @audited("param.write")
     @with_lock_retry()
     def write_parameters(
         self,
@@ -616,6 +618,7 @@ class WritesMixin:
             ],
         )
 
+    @audited("objective.set", payload_keys=("objective", "study_area_name"))
     @with_lock_retry()
     def write_scientific_objective(
         self,
@@ -661,6 +664,7 @@ class WritesMixin:
             ],
         )
 
+    @audited("metric.write", payload_keys=("station_id", "metric_name", "value"))
     @with_lock_retry()
     def write_metric(
         self,
