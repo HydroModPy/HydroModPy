@@ -398,7 +398,7 @@ Fields
               <code class="hmp-field-toml">[flow.ic.h]</code>
             </div>
 
-         :bdg-primary:`type = "top" | "top_offset" | "bottom" | "custom" | "steady_state"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L159>`__
+         :bdg-primary:`type = "top" | "top_offset" | "bottom" | "custom" | "steady_state"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L174>`__
 
             Hydraulic-head initial condition payload.
 
@@ -454,7 +454,7 @@ Fields
                         Description of the initial condition
 
 
-                  .. container:: hmp-field hmp-field-level-user
+                  .. container:: hmp-field hmp-field-level-dev
                      :name: flow-ic-h-top-units
 
                      .. raw:: html
@@ -463,9 +463,9 @@ Fields
                           <code class="hmp-field-name">units</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L62>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "m"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L65>`__
 
-                        Units of the initial condition
+                        Runtime unit for the initial hydraulic-head field.
 
 
 
@@ -484,7 +484,7 @@ Fields
                           <code class="hmp-field-name">id</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "h"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L71>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "h"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L76>`__
 
                         id of the initial condition (forced to 'h' for flow)
 
@@ -498,7 +498,7 @@ Fields
                           <code class="hmp-field-name">value</code>
                         </div>
 
-                     :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L78>`__
+                     :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L83>`__
 
                         Vertical offset below the top surface.
 
@@ -512,7 +512,7 @@ Fields
                           <code class="hmp-field-name">description</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L76>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L81>`__
 
                         Description of the initial condition
 
@@ -526,7 +526,7 @@ Fields
                           <code class="hmp-field-name">units</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L71>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L76>`__
 
                         Units of the initial condition
 
@@ -547,7 +547,7 @@ Fields
                           <code class="hmp-field-name">id</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "h"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "h"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L89>`__
 
                         id of the initial condition (forced to 'h' for flow)
 
@@ -561,7 +561,7 @@ Fields
                           <code class="hmp-field-name">value</code>
                         </div>
 
-                     :bdg-primary:`object | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84>`__
+                     :bdg-primary:`object | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L89>`__
 
                         Process-specific initial-condition value payload.
 
@@ -575,12 +575,12 @@ Fields
                           <code class="hmp-field-name">description</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L89>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L94>`__
 
                         Description of the initial condition
 
 
-                  .. container:: hmp-field hmp-field-level-user
+                  .. container:: hmp-field hmp-field-level-dev
                      :name: flow-ic-h-bottom-units
 
                      .. raw:: html
@@ -589,9 +589,9 @@ Fields
                           <code class="hmp-field-name">units</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "m"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L92>`__
 
-                        Units of the initial condition
+                        Runtime unit for the initial hydraulic-head field.
 
 
 
@@ -610,7 +610,7 @@ Fields
                           <code class="hmp-field-name">id</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "h"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L93>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "h"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L103>`__
 
                         id of the initial condition (forced to 'h' for flow)
 
@@ -624,7 +624,7 @@ Fields
                           <code class="hmp-field-name">value</code>
                         </div>
 
-                     :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L100>`__
+                     :bdg-primary:`Any` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L110>`__
 
                         Initial hydraulic-head value.
 
@@ -638,7 +638,7 @@ Fields
                           <code class="hmp-field-name">description</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L98>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L108>`__
 
                         Description of the initial condition
 
@@ -652,7 +652,7 @@ Fields
                           <code class="hmp-field-name">units</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L93>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L103>`__
 
                         Units of the initial condition
 
@@ -673,7 +673,7 @@ Fields
                           <code class="hmp-field-name">id</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "h"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "h"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L116>`__
 
                         id of the initial condition (forced to 'h' for flow)
 
@@ -687,7 +687,7 @@ Fields
                           <code class="hmp-field-name">value</code>
                         </div>
 
-                     :bdg-primary:`object | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106>`__
+                     :bdg-primary:`object | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L116>`__
 
                         Process-specific initial-condition value payload.
 
@@ -701,12 +701,12 @@ Fields
                           <code class="hmp-field-name">description</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L111>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L121>`__
 
                         Description of the initial condition
 
 
-                  .. container:: hmp-field hmp-field-level-user
+                  .. container:: hmp-field hmp-field-level-dev
                      :name: flow-ic-h-steady-state-units
 
                      .. raw:: html
@@ -715,9 +715,9 @@ Fields
                           <code class="hmp-field-name">units</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "m"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L119>`__
 
-                        Units of the initial condition
+                        Runtime unit for the initial hydraulic-head field.
 
 
                   .. container:: hmp-field hmp-field-level-user
@@ -729,7 +729,7 @@ Fields
                           <code class="hmp-field-name">source</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['recharge', 'mean_recharge']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L116>`__
+                     :bdg-primary:`Optional[Literal['recharge', 'mean_recharge']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L131>`__
 
                         Forcing source used by the initialization solve. 'mean_recharge' is an alias for source='recharge' with recharge_statistic='time_mean'.
 
@@ -743,7 +743,7 @@ Fields
                           <code class="hmp-field-name">recharge_statistic</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['time_mean']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L124>`__
+                     :bdg-primary:`Optional[Literal['time_mean']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L139>`__
 
                         Statistic applied to the recharge chronicle.
 
@@ -757,7 +757,7 @@ Fields
                           <code class="hmp-field-name">boundary_condition_policy</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['first_period']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L128>`__
+                     :bdg-primary:`Optional[Literal['first_period']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L143>`__
 
                         Policy used for transient boundary-condition chronicles during the steady initialization solve.
 

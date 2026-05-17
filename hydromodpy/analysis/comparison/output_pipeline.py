@@ -18,6 +18,8 @@ from hydromodpy.analysis.comparison.exports import (
     write_hydrographic_network_metrics_export,
     write_native_timeseries_exports,
     write_observable_chronicle_exports,
+    write_release_accumulation_network_distance_metrics_export,
+    write_release_accumulation_network_overlap_metrics_export,
     write_release_flux_network_distance_metrics_export,
     write_release_flux_network_overlap_metrics_export,
     write_simulated_active_network_distance_metrics_export,
@@ -129,6 +131,8 @@ def write_comparison_output_bundle(
         write_simulated_active_network_distance_metrics_export,
         write_release_flux_network_overlap_metrics_export,
         write_release_flux_network_distance_metrics_export,
+        write_release_accumulation_network_overlap_metrics_export,
+        write_release_accumulation_network_distance_metrics_export,
     )
     for write_network_metric_export in network_metric_exports:
         network_artifacts, _network_rows = write_network_metric_export(

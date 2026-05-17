@@ -1,0 +1,20 @@
+# Shared natural transient simulation base for precomputed mesh-input bundles.
+#
+# This wraps the standard natural MF6/Boussinesq transient base but removes the
+# embedded mesh-catchment workflow. It is used by the 100 km2 PETSc VI
+# regression rows, whose mesh geometry, river constraints and cell properties
+# come from committed mesh-gallery bundles.
+
+base_config = "base_site_01_mf6_bouss_transient.toml"
+
+# External [mesh_input] is supplied by each generated comparison row.
+mesh_catchment__delete = true
+
+[workflow]
+mode = "simulation"
+
+[geographic.river_network]
+enabled = false
+
+[data]
+types = ["dem", "geology", "recharge"]

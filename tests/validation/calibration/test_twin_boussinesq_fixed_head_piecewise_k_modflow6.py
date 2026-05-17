@@ -23,6 +23,7 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
     None
 ):
     """Run the steady piecewise-K twin benchmark and verify zoned K recovery."""
+    pytest.importorskip("optuna")
     pytest.importorskip("cma")
 
     assert_required_executables(
@@ -41,10 +42,13 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
     assert benchmark.observations_truth["head_middle"]
     assert benchmark.observations_truth["head_east"]
     assert benchmark.observations_truth["q_east"]
-    assert len(benchmark.method_results) == 4
+    assert len(benchmark.method_results) == 5
     random_results = [
         result for result in benchmark.method_results if result.method_name == "random_search"
     ]
+    optuna_result = next(
+        result for result in benchmark.method_results if result.method_name == "optuna"
+    )
     nelder_mead_result = next(
         result for result in benchmark.method_results if result.method_name == "scipy_nelder_mead"
     )
@@ -52,6 +56,7 @@ def test_calibration_twin_boussinesq_fixed_head_piecewise_k_modflow6_benchmark_r
         result for result in benchmark.method_results if result.method_name == "cma_es"
     )
     assert len(random_results) == 2
+    assert optuna_result.model_distribution_sample_count >= 1
     for result in benchmark.method_results:
         assert result.cost_best is not None
         assert math.isfinite(float(result.cost_best)), result.to_mapping()

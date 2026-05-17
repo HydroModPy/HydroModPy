@@ -5228,7 +5228,7 @@
     "section": "flow",
     "anchor": "flow-ic-h",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L159",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L174",
     "description": "Hydraulic-head initial condition payload."
   },
   {
@@ -5271,12 +5271,12 @@
     "path": "flow.ic.h.top.units",
     "name": "units",
     "type": "str",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "flow",
     "anchor": "flow-ic-h-top-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L62",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L65",
     "description": ""
   },
   {
@@ -5288,7 +5288,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L65",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L70",
     "description": ""
   },
   {
@@ -5300,7 +5300,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L76",
     "description": ""
   },
   {
@@ -5312,7 +5312,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L83",
     "description": ""
   },
   {
@@ -5324,7 +5324,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L76",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L81",
     "description": ""
   },
   {
@@ -5336,7 +5336,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L76",
     "description": ""
   },
   {
@@ -5348,7 +5348,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-top-offset-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L79",
     "description": ""
   },
   {
@@ -5360,7 +5360,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-bottom-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L89",
     "description": ""
   },
   {
@@ -5372,7 +5372,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-bottom-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L89",
     "description": ""
   },
   {
@@ -5384,19 +5384,19 @@
     "section": "flow",
     "anchor": "flow-ic-h-bottom-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L94",
     "description": ""
   },
   {
     "path": "flow.ic.h.bottom.units",
     "name": "units",
     "type": "str",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "flow",
     "anchor": "flow-ic-h-bottom-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L84",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L92",
     "description": ""
   },
   {
@@ -5408,7 +5408,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-bottom-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L87",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L97",
     "description": ""
   },
   {
@@ -5420,7 +5420,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L93",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L103",
     "description": ""
   },
   {
@@ -5432,7 +5432,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L100",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L110",
     "description": ""
   },
   {
@@ -5444,7 +5444,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L98",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L108",
     "description": ""
   },
   {
@@ -5456,7 +5456,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L93",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L103",
     "description": ""
   },
   {
@@ -5468,7 +5468,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-custom-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L96",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106",
     "description": ""
   },
   {
@@ -5480,7 +5480,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-steady-state-id",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L116",
     "description": ""
   },
   {
@@ -5492,7 +5492,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-steady-state-value",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L116",
     "description": ""
   },
   {
@@ -5504,19 +5504,19 @@
     "section": "flow",
     "anchor": "flow-ic-h-steady-state-description",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L111",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L121",
     "description": ""
   },
   {
     "path": "flow.ic.h.steady_state.units",
     "name": "units",
     "type": "str",
-    "profile": "user",
+    "profile": "dev",
     "stability": "stable",
     "section": "flow",
     "anchor": "flow-ic-h-steady-state-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L106",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L119",
     "description": ""
   },
   {
@@ -5528,7 +5528,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-steady-state-type",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L109",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L124",
     "description": ""
   },
   {
@@ -5540,7 +5540,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-steady-state-source",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L116",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L131",
     "description": ""
   },
   {
@@ -5552,7 +5552,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-steady-state-recharge-statistic",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L124",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L139",
     "description": ""
   },
   {
@@ -5564,7 +5564,7 @@
     "section": "flow",
     "anchor": "flow-ic-h-steady-state-boundary-condition-policy",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L128",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/initial_conditions.py#L143",
     "description": ""
   },
   {
@@ -6808,7 +6808,7 @@
     "section": "transport",
     "anchor": "transport-active-sinks-sources",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L124",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L239",
     "description": "Ordered list of sink/source identifiers that are explicitly activated for this process. An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig) validate the allowed values."
   },
   {
@@ -6820,7 +6820,7 @@
     "section": "transport",
     "anchor": "transport-active-bc",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L124",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L239",
     "description": "Ordered list of boundary-condition identifiers that are explicitly activated for this process. An empty list means no boundary-condition package is assembled. Concrete process configs (e.g. FlowConfig) validate the allowed values."
   },
   {
@@ -6832,7 +6832,7 @@
     "section": "transport",
     "anchor": "transport-modpath",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L155",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L270",
     "description": "Modpath solver configuration block."
   },
   {
@@ -6940,7 +6940,7 @@
     "section": "transport",
     "anchor": "transport-mt3dms",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L159",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L274",
     "description": "MT3DMS solver configuration block."
   },
   {
@@ -7084,7 +7084,7 @@
     "section": "transport",
     "anchor": "transport-modflow6gwt",
     "page": "transport.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L163",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L278",
     "description": "MODFLOW 6 GWT solver configuration block."
   },
   {
@@ -7218,6 +7218,246 @@
     "page": "transport.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L100",
     "description": "Enable concentration plotting outputs."
+  },
+  {
+    "path": "transport.modflow6prt",
+    "name": "modflow6prt",
+    "type": "TransportModflow6PrtConfig",
+    "profile": "user",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L282",
+    "description": "MODFLOW 6 PRT particle-tracking solver configuration block."
+  },
+  {
+    "path": "transport.modflow6prt.parameters",
+    "name": "parameters",
+    "type": "Modflow6PrtParametersConfig",
+    "profile": "user",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L233",
+    "description": "Solver parameter block used by Modflow6Prt."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.release_zone",
+    "name": "release_zone",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-release-zone",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L127",
+    "description": "Particle release selector: 'domain', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.upstream_top_quantile",
+    "name": "upstream_top_quantile",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-upstream-top-quantile",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L134",
+    "description": "Top-elevation quantile used by upstream release zones. A value of 0.90 selects cells in the highest 10 percent of active cell-top elevations."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.track_dir",
+    "name": "track_dir",
+    "type": "Literal['forward']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-track-dir",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L143",
+    "description": "Particle tracking direction. MF6 PRT support is currently forward only."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.porosity",
+    "name": "porosity",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-porosity",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L147",
+    "description": "Optional uniform particle-tracking porosity. When omitted, the flow model specific yield is used where positive."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.local_z",
+    "name": "local_z",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-local-z",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L155",
+    "description": "Local vertical release coordinate within the cell."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.particle_cell_ids",
+    "name": "particle_cell_ids",
+    "type": "list[int] | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-particle-cell-ids",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L161",
+    "description": "Optional zero-based DISV cell2d ids for explicit particle release. Used when release_zone is 'custom'."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.max_particles",
+    "name": "max_particles",
+    "type": "int | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-max-particles",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L168",
+    "description": "Optional maximum number of release cells after zone selection."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.sel_slice",
+    "name": "sel_slice",
+    "type": "int | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-sel-slice",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L173",
+    "description": "Optional deterministic slicing step for selected release cells."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.release_times_days",
+    "name": "release_times_days",
+    "type": "list[float] | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-release-times-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L178",
+    "description": "Optional particle release times in model time units. Existing MODFLOW 6 models in HydroModPy use days."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.track_times_days",
+    "name": "track_times_days",
+    "type": "list[float] | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-track-times-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L185",
+    "description": "Optional user tracking output times in model time units."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.track_time_step_days",
+    "name": "track_time_step_days",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-track-time-step-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L189",
+    "description": "Optional regular spacing, in days, for generated PRT tracking output times. Used only when track_times_days is omitted."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.stop_time_days",
+    "name": "stop_time_days",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-stop-time-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L197",
+    "description": "Optional absolute particle stop time in model time units."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.stop_travel_time_days",
+    "name": "stop_travel_time_days",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-stop-travel-time-days",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L202",
+    "description": "Optional maximum particle travel time in model time units."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.extend_tracking",
+    "name": "extend_tracking",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-extend-tracking",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L207",
+    "description": "Track particles beyond the final flow time step when MF6 permits it."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.dry_tracking_method",
+    "name": "dry_tracking_method",
+    "type": "Literal['drop', 'stop', 'stay']",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-dry-tracking-method",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L211",
+    "description": "MF6 PRT behavior for dry-but-active cells."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.exit_solve_tolerance",
+    "name": "exit_solve_tolerance",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-exit-solve-tolerance",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L215",
+    "description": "PRT generalized Pollock exit solve tolerance."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.write_track_csv",
+    "name": "write_track_csv",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-write-track-csv",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L220",
+    "description": "Write the PRT track CSV file used by the HydroModPy extractor."
+  },
+  {
+    "path": "transport.modflow6prt.parameters.write_track_binary",
+    "name": "write_track_binary",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "transport",
+    "anchor": "transport-modflow6prt-parameters-write-track-binary",
+    "page": "transport.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L224",
+    "description": "Write the binary PRT track file."
   },
   {
     "path": "simulation.name",
@@ -8780,7 +9020,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L99",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L109",
     "description": "MODFLOW 6 runtime options."
   },
   {
@@ -8880,6 +9120,30 @@
     "description": "Enable NPF cell rewetting. When left to None, HydroModPy keeps rewetting disabled unless explicitly enabled."
   },
   {
+    "path": "modflow6.runtime.mf6_newton",
+    "name": "mf6_newton",
+    "type": "bool",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "modflow6",
+    "anchor": "modflow6-runtime-mf6-newton",
+    "page": "modflow6.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L56",
+    "description": "Enable the MODFLOW 6 Newton-Raphson formulation for convertible groundwater cells."
+  },
+  {
+    "path": "modflow6.runtime.mf6_newton_under_relaxation",
+    "name": "mf6_newton_under_relaxation",
+    "type": "bool",
+    "profile": "expert",
+    "stability": "stable",
+    "section": "modflow6",
+    "anchor": "modflow6-runtime-mf6-newton-under-relaxation",
+    "page": "modflow6.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L62",
+    "description": "Enable MODFLOW 6 Newton under-relaxation when mf6_newton is true."
+  },
+  {
     "path": "modflow6.runtime.mf6_enable_xt3d",
     "name": "mf6_enable_xt3d",
     "type": "bool | None",
@@ -8888,7 +9152,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-enable-xt3d",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L56",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L66",
     "description": "Enable MF6 NPF XT3D terms. When left to None, HydroModPy auto-enables XT3D on unstructured solver meshes. This increases computational cost but can improve accuracy on unstructured or non-orthogonal grids."
   },
   {
@@ -8900,7 +9164,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetfct",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L65",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L75",
     "description": "MF6 NPF rewet WETFCT factor."
   },
   {
@@ -8912,7 +9176,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-iwetit",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L69",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L79",
     "description": "MF6 NPF rewet IWETIT interval."
   },
   {
@@ -8924,7 +9188,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-ihdwet",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L73",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L83",
     "description": "MF6 NPF rewet IHDWET flag."
   },
   {
@@ -8936,7 +9200,7 @@
     "section": "modflow6",
     "anchor": "modflow6-runtime-mf6-rewet-wetdry",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L77",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L87",
     "description": "MF6 NPF WETDRY threshold used when rewetting is active."
   },
   {
@@ -8948,7 +9212,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L103",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L113",
     "description": "Process-specific controls for MODFLOW 6 flow packages."
   },
   {
@@ -8960,7 +9224,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-vka",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L86",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L96",
     "description": "Vertical anisotropy factor used to derive k33 from k."
   },
   {
@@ -8972,7 +9236,7 @@
     "section": "modflow6",
     "anchor": "modflow6-process-specific-evt-extinction-depth",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L100",
     "description": "MF6 EVT extinction depth in meters when recharge negatives are routed to EVT."
   },
   {
@@ -8984,7 +9248,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L107",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L117",
     "description": "Solver-grid payload split into planar and vertical sections."
   },
   {
@@ -9128,7 +9392,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L111",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow6/modflow6_config.py#L121",
     "description": "Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`."
   },
   {
@@ -10856,7 +11120,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-comparison-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L138",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L141",
     "description": "Stable identifier for this comparison run."
   },
   {
@@ -10868,7 +11132,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-base-simulation-config",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L142",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L145",
     "description": ""
   },
   {
@@ -10880,7 +11144,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-base-simulation-overlay",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L143",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L146",
     "description": "Shared TOML overlay applied to the base simulation config before any child-specific comparison.simulation.overlay. This is the preferred hook for catalog-driven site loops: a testbed can render one comparison per catalog row and inject the "
   },
   {
@@ -10892,7 +11156,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-anchors-file",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L157",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L160",
     "description": ""
   },
   {
@@ -10904,7 +11168,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-output-root",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L158",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L161",
     "description": ""
   },
   {
@@ -10916,7 +11180,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-reference-simulation",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L159",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L162",
     "description": ""
   },
   {
@@ -10928,7 +11192,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-continue-on-error",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L160",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L163",
     "description": ""
   },
   {
@@ -10940,7 +11204,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L161",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L164",
     "description": "Execution settings for the comparison child runs."
   },
   {
@@ -10952,7 +11216,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-backend",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L51",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L52",
     "description": ""
   },
   {
@@ -10964,7 +11228,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-max-parallel-runs",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L53",
     "description": "Number of child simulations executed in parallel. Forced to 1 in V1."
   },
   {
@@ -10976,7 +11240,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-keep-generated-configs",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L57",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L58",
     "description": ""
   },
   {
@@ -10988,7 +11252,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-run-simulations",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L58",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L59",
     "description": ""
   },
   {
@@ -11000,7 +11264,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-python-executable",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L59",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L60",
     "description": ""
   },
   {
@@ -11012,7 +11276,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-execution-timeout-seconds",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L61",
     "description": "Optional per-child timeout in seconds. None disables the timeout."
   },
   {
@@ -11024,7 +11288,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-audit",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L165",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L168",
     "description": "Post-run audit policy applied to each child simulation."
   },
   {
@@ -11036,7 +11300,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-audit-mode",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L76",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L77",
     "description": ""
   },
   {
@@ -11048,7 +11312,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-audit-on-mismatch",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L77",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L78",
     "description": ""
   },
   {
@@ -11060,7 +11324,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L169",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L172",
     "description": ""
   },
   {
@@ -11072,7 +11336,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-enabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L350",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L365",
     "description": "Enable the shared fine raster for map comparisons."
   },
   {
@@ -11084,7 +11348,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-resolution",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L354",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L369",
     "description": "Target raster cell size in meters (EPSG:2154 grid)."
   },
   {
@@ -11096,7 +11360,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-extent-mode",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L358",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L373",
     "description": "Strategy used to derive the common raster extent across simulations."
   },
   {
@@ -11108,7 +11372,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-interpolation",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L362",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L377",
     "description": "Regridding method used to project each map onto the shared fine raster."
   },
   {
@@ -11120,7 +11384,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-fine-raster-write-geotiff",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L366",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L381",
     "description": "Write the regridded maps as GeoTIFF files alongside the comparison figures."
   },
   {
@@ -11132,7 +11396,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L170",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L173",
     "description": "Generated child simulations to run in the comparison. At least one entry required."
   },
   {
@@ -11144,7 +11408,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L83",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L84",
     "description": ""
   },
   {
@@ -11156,7 +11420,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-label",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L84",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L85",
     "description": ""
   },
   {
@@ -11168,7 +11432,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-enabled",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L85",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L86",
     "description": ""
   },
   {
@@ -11180,7 +11444,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-solver",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L86",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L87",
     "description": ""
   },
   {
@@ -11192,7 +11456,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-simulation-config",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L87",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L88",
     "description": ""
   },
   {
@@ -11204,7 +11468,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-run-folder",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L88",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L89",
     "description": ""
   },
   {
@@ -11216,7 +11480,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-mesh-label",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L89",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L90",
     "description": ""
   },
   {
@@ -11228,7 +11492,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-mesh-mode",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L91",
     "description": ""
   },
   {
@@ -11240,7 +11504,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-simulation-overlay",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L101",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L102",
     "description": "Child-specific TOML overlay merged after comparison.base_simulation_overlay and after the shared base simulation config. Use it for solver-specific settings, child labels, child process selection, or deliberately varied method parameters. S"
   },
   {
@@ -11252,7 +11516,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L174",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L177",
     "description": "Observables to compare across the declared simulations. At least one entry required."
   },
   {
@@ -11264,7 +11528,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-name",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L113",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L128",
     "description": "Unique identifier of this observable inside the comparison."
   },
   {
@@ -11276,7 +11540,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-variable",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L116",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L131",
     "description": "Name of the simulated variable to extract (e.g. head, discharge)."
   },
   {
@@ -11288,7 +11552,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-source",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L119",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L134",
     "description": "Backing store for the extracted values; currently only disk outputs."
   },
   {
@@ -11300,7 +11564,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-simulations",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L123",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L138",
     "description": "Subset of simulation ids this observable applies to; null means all."
   },
   {
@@ -11312,7 +11576,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-support",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L127",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L142",
     "description": "Spatial support of the observable (point, outlet, boundary, mask, map)."
   },
   {
@@ -11324,7 +11588,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-anchor-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L133",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L148",
     "description": "Optional anchor key resolved from anchors_file to provide x and y."
   },
   {
@@ -11336,7 +11600,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-x",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L137",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L152",
     "description": "Easting in meters (EPSG:2154 / Lambert 93)."
   },
   {
@@ -11348,7 +11612,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-y",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L141",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L156",
     "description": "Northing in meters (EPSG:2154 / Lambert 93)."
   },
   {
@@ -11360,7 +11624,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-cell-index",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L145",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L160",
     "description": "Zero-based mesh cell index for point or outlet support."
   },
   {
@@ -11372,7 +11636,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-cell-indices",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L149",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L164",
     "description": "List of zero-based mesh cell indices used for cell_mask support."
   },
   {
@@ -11384,7 +11648,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-boundary-id",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L154",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L169",
     "description": "Identifier of the boundary group selected for boundary support."
   },
   {
@@ -11396,7 +11660,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-allow-domain-proxy",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L158",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L173",
     "description": "Allow whole-domain reduction as outlet fallback when no location is set."
   },
   {
@@ -11408,7 +11672,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-time",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L162",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L177",
     "description": "Timestep selector (timestamp, integer index, or 'all')."
   },
   {
@@ -11420,7 +11684,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-time-window",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L166",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L181",
     "description": "Optional inclusive time window as a (start, end) pair, mutually exclusive with time."
   },
   {
@@ -11432,7 +11696,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-reducer",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L170",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L185",
     "description": "Spatial reducer applied over the support (e.g. nearest_cell, sum, max)."
   },
   {
@@ -11444,7 +11708,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-time-reducer",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L174",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L189",
     "description": "Temporal reducer applied over the selected timesteps (e.g. mean, sum)."
   },
   {
@@ -11456,7 +11720,7 @@
     "section": "analysis",
     "anchor": "analysis-comparison-observable-unit",
     "page": "analysis.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L178",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/config.py#L193",
     "description": "Optional unit label attached to the extracted values for display."
   },
   {
@@ -12837,7 +13101,7 @@
     "anchor": "calibration-method",
     "page": "calibration.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L318",
-    "description": "Optimization method. Install the calibration extra for optuna or cma_es."
+    "description": "Optimization method. Optuna is installed by default; install the calibration extra for cma_es and Optuna's cmaes sampler."
   },
   {
     "path": "calibration.max_iter",
@@ -12848,7 +13112,7 @@
     "section": "calibration",
     "anchor": "calibration-max-iter",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L322",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L325",
     "description": "Maximum number of calibration iterations."
   },
   {
@@ -12860,7 +13124,7 @@
     "section": "calibration",
     "anchor": "calibration-batch-size",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L327",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L330",
     "description": "Number of suggestions drawn per ask (for parallel optimizers)."
   },
   {
@@ -12872,7 +13136,7 @@
     "section": "calibration",
     "anchor": "calibration-seed",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L332",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L335",
     "description": "Random seed for reproducibility."
   },
   {
@@ -12884,7 +13148,7 @@
     "section": "calibration",
     "anchor": "calibration-save-runs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L336",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L339",
     "description": "How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included)."
   },
   {
@@ -12896,7 +13160,7 @@
     "section": "calibration",
     "anchor": "calibration-save-best-n",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L345",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L348",
     "description": "Number of top iterations to promote when save_runs='best_n'."
   },
   {
@@ -12908,7 +13172,7 @@
     "section": "calibration",
     "anchor": "calibration-use-cache",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L350",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L353",
     "description": "Enable params_hash content-addressable cache."
   },
   {
@@ -12920,7 +13184,7 @@
     "section": "calibration",
     "anchor": "calibration-objective",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L354",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L357",
     "description": "Metric key used by the default ScalarObjective."
   },
   {
@@ -12932,7 +13196,7 @@
     "section": "calibration",
     "anchor": "calibration-variable",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L358",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L361",
     "description": "Observed variable (for ObservationSet)."
   },
   {
@@ -12944,7 +13208,7 @@
     "section": "calibration",
     "anchor": "calibration-optimizer-kwargs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L362",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L365",
     "description": "Extra keyword arguments forwarded to the optimizer adapter."
   },
   {
@@ -12956,7 +13220,7 @@
     "section": "calibration",
     "anchor": "calibration-parameters",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L366",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L369",
     "description": "Per-parameter declarations (bounds, transform, prior, path)."
   },
   {
@@ -13052,7 +13316,7 @@
     "section": "calibration",
     "anchor": "calibration-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L370",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L373",
     "description": "Named observables extracted from each candidate run."
   },
   {
@@ -13340,7 +13604,7 @@
     "section": "calibration",
     "anchor": "calibration-objective-blocks",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L374",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L377",
     "description": "Weighted blocks making up a composite objective. When empty, a single implicit block is built from 'objective' and 'variable'."
   },
   {
@@ -13424,7 +13688,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-iteration-detail",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L379",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L382",
     "description": "'none' skips component metrics; 'summary' keeps block totals; 'full' also stores per-block raw and normalized costs."
   },
   {
@@ -13436,7 +13700,7 @@
     "section": "calibration",
     "anchor": "calibration-persist-model-distribution",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L384",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L387",
     "description": "Persist the candidate distribution alongside the session."
   },
   {
@@ -13448,7 +13712,7 @@
     "section": "calibration",
     "anchor": "calibration-rerun-best-with-outputs",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L388",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L391",
     "description": "Replay the best candidate with full outputs after the loop."
   },
   {
@@ -13460,7 +13724,7 @@
     "section": "calibration",
     "anchor": "calibration-materialize-candidates",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L392",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L395",
     "description": "Write a standalone override TOML for each candidate under 'candidates_root' so runs can be replayed later."
   },
   {
@@ -13472,7 +13736,7 @@
     "section": "calibration",
     "anchor": "calibration-candidates-root",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L397",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L400",
     "description": "Directory for per-candidate overlay TOMLs. Required when materialize_candidates is True."
   },
   {
@@ -13484,7 +13748,7 @@
     "section": "calibration",
     "anchor": "calibration-persistence",
     "page": "calibration.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L402",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/calibration/config.py#L405",
     "description": "Single switch governing every persistence sink (catalog, Zarr, Parquet, lockfile) for calibration outputs."
   },
   {

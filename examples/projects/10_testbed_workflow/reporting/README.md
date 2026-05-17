@@ -48,9 +48,7 @@ the source links.
 
 For catalog-backed testbeds, `--site-catalog` is optional when the testbed
 manifest already records `site_catalog_path`. The page then reads the catalog
-automatically and adds a "Mode catalogue pas a pas" section explaining the loop:
-catalog row selection, template rendering, generated child TOMLs, and delegated
-execution through the configured runner. This is used by the natural
+automatically to enrich the case pages. This is used by the natural
 Boussinesq/MODFLOW6 example:
 
 ```powershell
@@ -85,10 +83,10 @@ case/site identifier, for example `site_01_mf6_vs_bouss`.
 
 Implemented pages:
 
-- campaign synthesis for `workflow = "testbed"`;
+- campaign synthesis for `[workflow] mode = "testbed"`;
 - case pages for each testbed variant;
 - comparison summary and key comparison figures when comparison reports exist;
-- regional-lab synthesis for `workflow = "regional_lab"`;
+- regional-lab synthesis for `[workflow] mode = "regional_lab"`;
 - site pages for regional-lab inventories.
 
 The campaign synthesis keeps metrics compact on purpose: it reports row counts,

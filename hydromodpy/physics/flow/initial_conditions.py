@@ -62,6 +62,11 @@ class _FlowICBase(BaseInitialCondition):
 class FlowICTop(_FlowICBase):
     """Initialize head at the top surface (full aquifer)."""
 
+    units: Annotated[str, Profile.DEV] = Field(
+        "m",
+        description="Runtime unit for the initial hydraulic-head field.",
+        json_schema_extra=field_metadata(toml_exclude=True),
+    )
     type: Annotated[Literal["top"], Profile.USER] = Field(
         "top",
         description="Initialize head at the top surface (full aquifer).",
@@ -84,6 +89,11 @@ class FlowICTopOffset(_FlowICBase):
 class FlowICBottom(_FlowICBase):
     """Initialize head at the bottom surface (empty aquifer)."""
 
+    units: Annotated[str, Profile.DEV] = Field(
+        "m",
+        description="Runtime unit for the initial hydraulic-head field.",
+        json_schema_extra=field_metadata(toml_exclude=True),
+    )
     type: Annotated[Literal["bottom"], Profile.USER] = Field(
         "bottom",
         description="Initialize head at the bottom surface (empty aquifer).",
@@ -106,6 +116,11 @@ class FlowICCustom(_FlowICBase):
 class FlowICSteadyState(_FlowICBase):
     """Initialize a transient run from a same-solver steady solve."""
 
+    units: Annotated[str, Profile.DEV] = Field(
+        "m",
+        description="Runtime unit for the initial hydraulic-head field.",
+        json_schema_extra=field_metadata(toml_exclude=True),
+    )
     type: Annotated[Literal["steady_state"], Profile.USER] = Field(
         "steady_state",
         description=(

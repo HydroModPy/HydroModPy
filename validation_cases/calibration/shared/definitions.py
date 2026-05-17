@@ -147,7 +147,10 @@ def build_payload(
         method_kwargs,
         n_parameters=n_parameters,
     )
-    if str(method_profile.name).strip().lower() == "random_search":
+    method_key = str(method_profile.name).strip().lower()
+    if method_key == "random_search":
+        method_kwargs.pop("max_iter", None)
+    if method_key == "optuna":
         method_kwargs.pop("max_iter", None)
 
     calibration_section: dict[str, Any] = {

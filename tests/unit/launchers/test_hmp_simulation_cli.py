@@ -266,6 +266,20 @@ def test_hmp_run_dispatches_comparison_workflow(monkeypatch, tmp_path) -> None:
     assert captured["run_called"] is True
 
 
+def test_hmp_run_rejects_scalar_workflow(monkeypatch, tmp_path) -> None:
+    """``hmp run`` requires the canonical ``[workflow].mode`` table."""
+    config = _write_toml(
+        tmp_path / "comparison_scalar.toml",
+        'workflow = "comparison"\n[comparison]\nbase_simulation_config = "base.toml"\n',
+    )
+
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+    assert exc_info.value.code == EXIT_CONFIG
+
+
 def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=testbed dispatches to run_testbed."""
     config = _write_toml(

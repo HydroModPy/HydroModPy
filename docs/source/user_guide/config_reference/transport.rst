@@ -9,7 +9,7 @@ TOML section: ``[transport]``
 
 Pydantic model: ``TransportConfig`` defined in ``hydromodpy.physics.transport.transport_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L124>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L239>`__
 
 Transport-process configuration.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">active_sinks_sources</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L124>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L239>`__
 
       Ordered list of sink/source identifiers that are explicitly activated for this process. An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig) validate the allowed values.
 
@@ -50,7 +50,7 @@ Fields
         <code class="hmp-field-name">active_bc</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L124>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L239>`__
 
       Ordered list of boundary-condition identifiers that are explicitly activated for this process. An empty list means no boundary-condition package is assembled. Concrete process configs (e.g. FlowConfig) validate the allowed values.
 
@@ -66,7 +66,7 @@ Fields
         <code class="hmp-field-toml">[transport.modpath]</code>
       </div>
 
-   :bdg-primary:`TransportModpathConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L155>`__
+   :bdg-primary:`TransportModpathConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L270>`__
 
       Modpath solver configuration block.
 
@@ -210,7 +210,7 @@ Fields
         <code class="hmp-field-toml">[transport.mt3dms]</code>
       </div>
 
-   :bdg-primary:`TransportMt3dmsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L159>`__
+   :bdg-primary:`TransportMt3dmsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L274>`__
 
       MT3DMS solver configuration block.
 
@@ -396,7 +396,7 @@ Fields
         <code class="hmp-field-toml">[transport.modflow6gwt]</code>
       </div>
 
-   :bdg-primary:`TransportModflow6GwtConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L163>`__
+   :bdg-primary:`TransportModflow6GwtConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L278>`__
 
       MODFLOW 6 GWT solver configuration block.
 
@@ -571,6 +571,304 @@ Fields
 
 
 
+.. container:: hmp-field hmp-field-level-user
+   :name: transport-modflow6prt
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="transport.modflow6prt">
+        <code class="hmp-field-name">modflow6prt</code>
+        <span class="hmp-field-arrow">in TOML:</span>
+        <code class="hmp-field-toml">[transport.modflow6prt]</code>
+      </div>
+
+   :bdg-primary:`TransportModflow6PrtConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L282>`__
+
+      MODFLOW 6 PRT particle-tracking solver configuration block.
+
+   .. dropdown:: Fields of ``TransportModflow6PrtConfig``
+      :icon: list-unordered
+      :animate: fade-in-slide-down
+
+      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+      .. container:: hmp-field hmp-field-level-user
+         :name: transport-modflow6prt-parameters
+
+         .. raw:: html
+
+            <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters">
+              <code class="hmp-field-name">parameters</code>
+              <span class="hmp-field-arrow">in TOML:</span>
+              <code class="hmp-field-toml">[transport.modflow6prt.parameters]</code>
+            </div>
+
+         :bdg-primary:`Modflow6PrtParametersConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L233>`__
+
+            Solver parameter block used by Modflow6Prt.
+
+         .. dropdown:: Fields of ``Modflow6PrtParametersConfig``
+            :icon: list-unordered
+            :animate: fade-in-slide-down
+
+            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-release-zone
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.release_zone">
+                    <code class="hmp-field-name">release_zone</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-secondary:`default = "domain"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L127>`__
+
+                  Particle release selector: 'domain', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-upstream-top-quantile
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.upstream_top_quantile">
+                    <code class="hmp-field-name">upstream_top_quantile</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-secondary:`default = 0.9` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L134>`__
+
+                  Top-elevation quantile used by upstream release zones. A value of 0.90 selects cells in the highest 10 percent of active cell-top elevations.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-track-dir
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.track_dir">
+                    <code class="hmp-field-name">track_dir</code>
+                  </div>
+
+               :bdg-primary:`Literal['forward']` :bdg-secondary:`default = "forward"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L143>`__
+
+                  Particle tracking direction. MF6 PRT support is currently forward only.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-porosity
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.porosity">
+                    <code class="hmp-field-name">porosity</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L147>`__
+
+                  Optional uniform particle-tracking porosity. When omitted, the flow model specific yield is used where positive.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-local-z
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.local_z">
+                    <code class="hmp-field-name">local_z</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-secondary:`default = 0.5` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L155>`__
+
+                  Local vertical release coordinate within the cell.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-particle-cell-ids
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.particle_cell_ids">
+                    <code class="hmp-field-name">particle_cell_ids</code>
+                  </div>
+
+               :bdg-primary:`list[int] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L161>`__
+
+                  Optional zero-based DISV cell2d ids for explicit particle release. Used when release_zone is 'custom'.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-max-particles
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.max_particles">
+                    <code class="hmp-field-name">max_particles</code>
+                  </div>
+
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L168>`__
+
+                  Optional maximum number of release cells after zone selection.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-sel-slice
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.sel_slice">
+                    <code class="hmp-field-name">sel_slice</code>
+                  </div>
+
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L173>`__
+
+                  Optional deterministic slicing step for selected release cells.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-release-times-days
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.release_times_days">
+                    <code class="hmp-field-name">release_times_days</code>
+                  </div>
+
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L178>`__
+
+                  Optional particle release times in model time units. Existing MODFLOW 6 models in HydroModPy use days.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-track-times-days
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.track_times_days">
+                    <code class="hmp-field-name">track_times_days</code>
+                  </div>
+
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L185>`__
+
+                  Optional user tracking output times in model time units.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-track-time-step-days
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.track_time_step_days">
+                    <code class="hmp-field-name">track_time_step_days</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L189>`__
+
+                  Optional regular spacing, in days, for generated PRT tracking output times. Used only when track_times_days is omitted.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-stop-time-days
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.stop_time_days">
+                    <code class="hmp-field-name">stop_time_days</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L197>`__
+
+                  Optional absolute particle stop time in model time units.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-stop-travel-time-days
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.stop_travel_time_days">
+                    <code class="hmp-field-name">stop_travel_time_days</code>
+                  </div>
+
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L202>`__
+
+                  Optional maximum particle travel time in model time units.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-extend-tracking
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.extend_tracking">
+                    <code class="hmp-field-name">extend_tracking</code>
+                  </div>
+
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L207>`__
+
+                  Track particles beyond the final flow time step when MF6 permits it.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-dry-tracking-method
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.dry_tracking_method">
+                    <code class="hmp-field-name">dry_tracking_method</code>
+                  </div>
+
+               :bdg-primary:`Literal['drop', 'stop', 'stay']` :bdg-secondary:`default = "drop"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L211>`__
+
+                  MF6 PRT behavior for dry-but-active cells.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-exit-solve-tolerance
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.exit_solve_tolerance">
+                    <code class="hmp-field-name">exit_solve_tolerance</code>
+                  </div>
+
+               :bdg-primary:`float` :bdg-secondary:`default = 1e-10` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L215>`__
+
+                  PRT generalized Pollock exit solve tolerance.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-write-track-csv
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.write_track_csv">
+                    <code class="hmp-field-name">write_track_csv</code>
+                  </div>
+
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L220>`__
+
+                  Write the PRT track CSV file used by the HydroModPy extractor.
+
+
+            .. container:: hmp-field hmp-field-level-dev
+               :name: transport-modflow6prt-parameters-write-track-binary
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="transport.modflow6prt.parameters.write_track_binary">
+                    <code class="hmp-field-name">write_track_binary</code>
+                  </div>
+
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L224>`__
+
+                  Write the binary PRT track file.
+
+
+
+
+
+
 Starter TOML snippet
 --------------------
 
@@ -595,6 +893,9 @@ Starter TOML snippet
       # parameters = ...  # factory default
 
       [transport.modflow6gwt]
+      # parameters = ...  # factory default
+
+      [transport.modflow6prt]
       # parameters = ...  # factory default
 
 Entity-relationship diagram

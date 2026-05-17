@@ -1,7 +1,8 @@
 # Workflow selector (mandatory). Must be one of 'simulation', 'calibration', 'overview',
 # 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers
 # that instantiate `HydroModPyConfig` from a frontend form.
-workflow = "comparison"
+[workflow]
+mode = "comparison"
 
 # Top-level comparison experiment section.
 [comparison]

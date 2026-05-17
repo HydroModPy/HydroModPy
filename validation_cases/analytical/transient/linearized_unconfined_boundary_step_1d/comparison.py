@@ -72,9 +72,11 @@ def run_linearized_unconfined_boundary_step_comparison(
 ) -> TransientHead1DComparison:
     """Run the launcher case and return the full comparison payload."""
     normalized_solver = None if solver is None else str(solver).strip().lower()
-    if normalized_solver in {"boussinesq", "petsc_ts_vi_obstacle"}:
+    if normalized_solver in {"boussinesq", "petsc_ts_vi_obstacle", "petsc_vi_obstacle"}:
         runtime_backend = "petsc"
-        surface_interaction_model = "ts_vi_obstacle"
+        surface_interaction_model = (
+            "vi_obstacle" if normalized_solver == "petsc_vi_obstacle" else "ts_vi_obstacle"
+        )
         result = run_boussinesq_linearized_unconfined_boundary_step_case(
             caller_file=caller_file,
             timeout=timeout,

@@ -1,0 +1,146 @@
+{
+  "summary_schema_version": "capability_gallery_case_v1",
+  "slug": "site_03_natural_n1_10km2_mf6_bouss",
+  "title": "Site 03 Natural N1 10Km2 Mf6 Bouss",
+  "category": "simulation_comparison",
+  "deck": "Published MODFLOW 6 and Boussinesq comparison artifacts, reused by the documentation without rerunning the solvers.",
+  "summary": "This page republishes reviewed artifacts from `site_03_natural_n1_10km2_mf6_bouss`. The gallery generation reads committed comparison outputs only; heavy solver runs are refreshed separately before publication.",
+  "case_setup": [
+    "Reference simulation: `mf6_ref`.",
+    "Focus simulation: `bouss_candidate`.",
+    "Input artifacts are copied from a reviewed comparison output directory."
+  ],
+  "key_parameters": [
+    "The published comparison root provides `comparison_manifest.json` and `summary_metrics.csv`.",
+    "Execution-time diagnostics should use solver flow time, not whole workflow wall time."
+  ],
+  "how_to_read": [
+    "Read the metrics as a reviewed solver-to-solver comparison, not as a validation benchmark.",
+    "Use the source pointers and optional source manifest to decide when the bundle needs refresh."
+  ],
+  "next_steps": [
+    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+    "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation."
+  ],
+  "what_it_shows": [
+    "How `bouss_candidate` compares against the `mf6_ref` reference.",
+    "How map metrics and runtime diagnostics can be published from stable artifacts.",
+    "How documentation pages can be regenerated without rerunning heavy simulations."
+  ],
+  "reference_highlights": [],
+  "equations_rst": [],
+  "walkthrough_doc": "getting_started/reading-results-pages",
+  "walkthrough_title": "the gallery and validation reading guide",
+  "reproduction_command": "python -m tools.doc_gallery --only site_03_natural_n1_10km2_mf6_bouss",
+  "gallery_update_command": "python -m tools.doc_gallery",
+  "source_paths": [
+    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/case.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/comparison_manifest.json",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/summary_metrics.csv"
+  ],
+  "source_hashes": {
+    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/case.json": "013a03f38620208cf66bd980bada17aeb150d9922bb39418a00b743f0a3685b0",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/comparison_manifest.json": "15eb1626bb2d654071a057f3d0c81354b1a5454f12b4b8f779eb896590319b4e",
+    "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/summary_metrics.csv": "a1c5ef4686ae1d4e774ec5e049a79a9c35d1951e2d5f2a5c6bb9ff31f1eb28ed"
+  },
+  "docname": "cases/site_03_natural_n1_10km2_mf6_bouss",
+  "images": [
+    {
+      "filename": "site_03_natural_n1_10km2_mf6_bouss.png",
+      "caption": "Summary comparison figure for site 03 natural n1 10km2 mf6 bouss.",
+      "alt_text": "Simulation comparison summary for Site 03 Natural N1 10Km2 Mf6 Bouss",
+      "doc_path": "/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss.png",
+      "repo_path": "docs/source/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss.png"
+    }
+  ],
+  "metrics": [
+    {
+      "label": "Head Dry Late RMSE",
+      "key": "head_map_dry_late_rmse",
+      "value": 7.642458917930345,
+      "display": "7.642 m"
+    },
+    {
+      "label": "Head Dry Late MAE",
+      "key": "head_map_dry_late_mae",
+      "value": 4.5860265859885745,
+      "display": "4.586 m"
+    },
+    {
+      "label": "Head First Computed RMSE",
+      "key": "head_map_first_computed_rmse",
+      "value": 1.5492002766433524,
+      "display": "1.549 m"
+    },
+    {
+      "label": "Head First Computed MAE",
+      "key": "head_map_first_computed_mae",
+      "value": 0.7534593670751263,
+      "display": "0.7535 m"
+    },
+    {
+      "label": "Head Last RMSE",
+      "key": "head_map_last_rmse",
+      "value": 7.886064100374661,
+      "display": "7.886 m"
+    },
+    {
+      "label": "Head Last MAE",
+      "key": "head_map_last_mae",
+      "value": 4.780576718403875,
+      "display": "4.781 m"
+    },
+    {
+      "label": "Head Wet Year1 RMSE",
+      "key": "head_map_wet_year1_rmse",
+      "value": 3.7587772960039683,
+      "display": "3.759 m"
+    },
+    {
+      "label": "Head Wet Year1 MAE",
+      "key": "head_map_wet_year1_mae",
+      "value": 1.8605769363891744,
+      "display": "1.861 m"
+    }
+  ],
+  "metadata": {
+    "static_summary_path": "docs/source/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss_summary.json",
+    "comparison_summary_path": "docs/source/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss_summary.json",
+    "comparison_config_path": "examples/projects/09_capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss/comparison.toml",
+    "publish_full_artifacts": false,
+    "study_area": "Natural N1 10 km2 testbed",
+    "focus_simulation_id": "bouss_candidate",
+    "comparison_family_key": "boussinesq_mf6_natural_testbed",
+    "comparison_family_label": "Natural-Geology MF6/Boussinesq Testbed",
+    "comparison_family_deck": "These pages publish reviewed Boussinesq/MODFLOW 6 comparison outputs from the testbed workflow without running the solvers during doc generation.",
+    "comparison_family_order": 40,
+    "comparison_case_order": 10,
+    "comparison_id": "site_03_natural_n1_10km2_mf6_bouss",
+    "reference_simulation": "mf6_ref",
+    "reference_simulation_label": "MODFLOW 6 reference",
+    "focus_simulation_label": "Boussinesq PETSc TS/SNESVI candidate",
+    "simulation_labels": {
+      "mf6_ref": "MODFLOW 6 reference",
+      "bouss_candidate": "Boussinesq PETSc TS/SNESVI candidate"
+    },
+    "observable_names": [
+      "head_map_first_computed",
+      "head_map_wet_year1",
+      "head_map_dry_late",
+      "head_map_last"
+    ],
+    "n_observable_rows": 16272,
+    "n_difference_rows": 8135
+  },
+  "artifacts": {
+    "summary_json_doc_path": "/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss_summary.json",
+    "summary_json_repo_path": "docs/source/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss_summary.json",
+    "image_repo_paths": [
+      "docs/source/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss.png"
+    ],
+    "extra_repo_paths": [
+      "docs/source/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss_comparison_manifest.json",
+      "docs/source/_static/capability_gallery/simulation_comparison/site_03_natural_n1_10km2_mf6_bouss_summary_metrics.csv"
+    ]
+  }
+}

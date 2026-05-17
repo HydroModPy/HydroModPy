@@ -117,6 +117,24 @@ def test_boundary_value_accepts_inline_unit() -> None:
     assert drainage.units == "m2/s"
 
 
+def test_cauchy_drainage_accepts_kind_key() -> None:
+    cfg = _build_flow_config(
+        {
+            "bc": {
+                "cauchy": {
+                    "drainage": {
+                        "kind": "cauchy",
+                        "value": "10 cm2/day",
+                        "application_domain": "top",
+                    }
+                }
+            }
+        }
+    )
+
+    assert cfg.bc["drainage"].kind == "cauchy"
+
+
 def test_boundary_value_rejects_conflicting_units() -> None:
     with pytest.raises(ValueError, match="conflicting units"):
         _build_flow_config(

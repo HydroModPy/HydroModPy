@@ -38,6 +38,7 @@ from hydromodpy.analysis.comparison.config import (
     ComparisonObservable,
     _apply_observable_anchors,
     _load_comparison_anchors,
+    _normalize_optional_mesh_label,
 )
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -111,7 +112,9 @@ class ComparisonSimulationConfig(HydroModelBase):
         ),
     )
 
-    _normalize_mesh_label = field_validator("mesh_label")(validate_optional_identifier)
+    _normalize_mesh_label = field_validator("mesh_label", mode="before")(
+        _normalize_optional_mesh_label
+    )
 
     @field_validator("overlay")
     @classmethod

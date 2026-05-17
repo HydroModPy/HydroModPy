@@ -398,7 +398,7 @@ def run_boussinesq_hillslope_overflow_case(
         flow_section["bc"]["cauchy"] = {
             "drainage": {
                 "application_domain": "top",
-                "type": "cauchy",
+                "kind": "cauchy",
                 "value": float(drainage_conductance_m2_s),
             }
         }

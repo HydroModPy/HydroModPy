@@ -67,8 +67,14 @@ _DOC_REQUIRED_EXTENSIONS = [
 
 
 def _ensure_required_doc_extensions() -> None:
+    def _extension_available(extension: str) -> bool:
+        try:
+            return find_spec(extension) is not None
+        except ModuleNotFoundError:
+            return False
+
     missing_extensions = [
-        extension for extension in _DOC_REQUIRED_EXTENSIONS if find_spec(extension) is None
+        extension for extension in _DOC_REQUIRED_EXTENSIONS if not _extension_available(extension)
     ]
     if not missing_extensions:
         return

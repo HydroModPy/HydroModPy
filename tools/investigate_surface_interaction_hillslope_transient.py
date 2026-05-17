@@ -350,7 +350,7 @@ def _apply_transient_payload(
     cauchy["drainage"] = {
         **dict(cauchy.get("drainage", {})),
         "application_domain": "top",
-        "type": "cauchy",
+        "kind": "cauchy",
         "value": f"{DRAINAGE_CONDUCTANCE_M2_S:.12g} m2/s",
     }
     bc["dirichlet"] = dirichlet
@@ -756,7 +756,7 @@ def _run_boussinesq(
                 "cauchy": {
                     "drainage": {
                         "application_domain": "top",
-                        "type": "cauchy",
+                        "kind": "cauchy",
                         "value": DRAINAGE_CONDUCTANCE_M2_S,
                     }
                 },

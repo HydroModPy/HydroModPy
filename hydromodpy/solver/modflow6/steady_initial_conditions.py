@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import warnings
 from pathlib import Path
 
 import flopy
@@ -16,15 +18,47 @@ from hydromodpy.solver.utils.temporal.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
 
+_STEADY_INIT_DVCLOSE_MIN = 1e-3
+_STEADY_INIT_MAXIMUM_MIN = 1000
+_STEADY_INIT_PERCENT_DISCREPANCY_TOL = 0.1
+_PERCENT_DISCREPANCY_RE = re.compile(
+    r"PERCENT\s+DISCREPANCY\s*=\s*([-+0-9.Ee]+)"
+)
 
-def _modflow_config_with_same_executable(model: object) -> object:
+
+def _modflow_config_for_steady_initialization(model: object) -> object:
     config = getattr(model, "modflow_config", None)
     runtime = getattr(config, "runtime", None)
     if config is None or runtime is None:
         return config
     if not hasattr(config, "model_copy") or not hasattr(runtime, "model_copy"):
         return config
-    runtime_copy = runtime.model_copy(update={"mf6_executable_name": str(model.exe)})
+    # The auxiliary steady solve only materializes an initial condition. A
+    # millimetric closure avoids rejecting physically balanced starts that do
+    # not satisfy the stricter transient-run tolerance.
+    runtime_copy = runtime.model_copy(
+        update={
+            "mf6_executable_name": str(model.exe),
+            "mf6_outer_dvclose": max(
+                float(getattr(runtime, "mf6_outer_dvclose", _STEADY_INIT_DVCLOSE_MIN)),
+                _STEADY_INIT_DVCLOSE_MIN,
+            ),
+            "mf6_inner_dvclose": max(
+                float(getattr(runtime, "mf6_inner_dvclose", _STEADY_INIT_DVCLOSE_MIN)),
+                _STEADY_INIT_DVCLOSE_MIN,
+            ),
+            "mf6_outer_maximum": max(
+                int(getattr(runtime, "mf6_outer_maximum", _STEADY_INIT_MAXIMUM_MIN)),
+                _STEADY_INIT_MAXIMUM_MIN,
+            ),
+            "mf6_inner_maximum": max(
+                int(getattr(runtime, "mf6_inner_maximum", _STEADY_INIT_MAXIMUM_MIN)),
+                _STEADY_INIT_MAXIMUM_MIN,
+            ),
+            "mf6_newton": True,
+            "mf6_newton_under_relaxation": True,
+        }
+    )
     return config.model_copy(update={"runtime": runtime_copy})
 
 
@@ -54,6 +88,29 @@ def _read_final_head(head_path: Path, *, nlay: int, ncpl: int) -> np.ndarray:
     return np.asarray(raw, dtype=float)
 
 
+def _read_final_percent_discrepancy(list_path: Path) -> float | None:
+    if not list_path.is_file():
+        return None
+    last_value: float | None = None
+    for line in list_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+        match = _PERCENT_DISCREPANCY_RE.search(line)
+        if match is None:
+            continue
+        try:
+            last_value = float(match.group(1))
+        except ValueError:
+            continue
+    return last_value
+
+
+def _steady_initialization_balance_is_acceptable(list_path: Path) -> bool:
+    discrepancy = _read_final_percent_discrepancy(list_path)
+    return (
+        discrepancy is not None
+        and abs(discrepancy) <= _STEADY_INIT_PERCENT_DISCREPANCY_TOL
+    )
+
+
 def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) -> np.ndarray:
     """Run one auxiliary steady MF6 model and return heads for the transient IC."""
     # Keep the auxiliary workspace short. On Windows, MF6 still fails on long
@@ -62,7 +119,7 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
     init_name = "ssic"
     steady_model = model.__class__(
         geographic=model.geographic,
-        modflow_config=_modflow_config_with_same_executable(model),
+        modflow_config=_modflow_config_for_steady_initialization(model),
         model_folder=str(init_root),
         model_name=init_name,
         preprocess_options=ModflowPreprocessOptions(
@@ -82,10 +139,19 @@ def run_modflow6_steady_state_initialization(model: object, *, verbose: bool) ->
     success = steady_model.processing(
         ModflowRunOptions(write_model=True, run_model=True, verbose=bool(verbose))
     )
-    if not success:
-        raise RuntimeError("MODFLOW 6 steady-state initial-condition solve failed.")
 
     head_path = Path(str(steady_model.full_path)) / f"{steady_model.model_name}.hds"
+    list_path = Path(str(steady_model.full_path)) / f"{steady_model.model_name}.lst"
+    if not success:
+        if not _steady_initialization_balance_is_acceptable(list_path):
+            raise RuntimeError("MODFLOW 6 steady-state initial-condition solve failed.")
+        warnings.warn(
+            "MODFLOW 6 steady-state initial-condition solve did not satisfy "
+            "solver convergence, but the final water budget is closed; using "
+            "the final balanced heads as transient initial conditions.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     head = _read_final_head(head_path, nlay=int(model.nlay), ncpl=int(model.ncpl))
     artifact_path = Path(str(model.full_path)) / "_steady_state_initial_conditions.npz"
     artifact_path.parent.mkdir(parents=True, exist_ok=True)

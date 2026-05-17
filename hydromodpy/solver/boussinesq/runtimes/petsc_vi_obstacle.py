@@ -32,6 +32,9 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
     SteadySolveInputs,
     TransientStepInputs,
 )
+from hydromodpy.solver.boussinesq.runtimes.dry_equilibrium import (
+    detect_dry_equilibrium,
+)
 from hydromodpy.solver.boussinesq.runtimes.execution_common import (
     apply_residual_tolerance,
     build_runtime_result,
@@ -186,6 +189,26 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
             prescribed_head_m_by_cell=prescribed_head_m_by_cell,
             drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
             regularization_radius=float(inputs.options.regularization_radius),
+        )
+
+    dry_equilibrium = detect_dry_equilibrium(
+        inputs.mesh,
+        recharge_rate_m_s=inputs.recharge_rate_m_s,
+        well_flux_m3_s=inputs.well_flux_m3_s,
+        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+        drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
+        tol_bottom_vi=max(float(inputs.options.tol_residual_inf), 1.0e-12),
+    )
+    if dry_equilibrium.detected:
+        return _dry_equilibrium_result(
+            mesh=inputs.mesh,
+            assembly_for=_assembly_for,
+            head_m=dry_equilibrium.head_m,
+            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
+            drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
+            tol_state_update_inf=float(inputs.options.tol_state_update_inf),
+            backend_name="petsc",
+            dry_diagnostics=dry_equilibrium.diagnostics,
         )
 
     return _solve_vi_obstacle_problem(
@@ -472,6 +495,84 @@ def _sum_optional_float(records: list[dict[str, Any]], key: str) -> float:
         if value is not None:
             total += float(value)
     return float(total)
+
+
+def _dry_equilibrium_result(
+    *,
+    mesh: BoussinesqMesh,
+    assembly_for: Callable[[np.ndarray], BoussinesqAssembly],
+    head_m: np.ndarray,
+    prescribed_head_m_by_cell: np.ndarray | None,
+    drainage_conductance_m2_s: np.ndarray | float | None,
+    tol_state_update_inf: float,
+    backend_name: str,
+    dry_diagnostics: dict[str, Any],
+) -> RuntimeSolveResult:
+    """Build a steady RuntimeSolveResult for a detected dry VI equilibrium."""
+    lower_bound, upper_bound, prescribed_mask = _variable_bounds(
+        mesh,
+        prescribed_head_m_by_cell,
+        drainage_conductance_m2_s=drainage_conductance_m2_s,
+    )
+    head = _clip_head_to_bounds(
+        np.asarray(head_m, dtype=float),
+        lower=lower_bound,
+        upper=upper_bound,
+    )
+    raw_assembly = assembly_for(head)
+    tol_h = _obstacle_tolerance(tol_state_update_inf)
+    reacted_assembly, reaction_diagnostics = _reconstruct_obstacle_reactions(
+        mesh=mesh,
+        assembly=raw_assembly,
+        head_m=head,
+        physical_lower_m=np.asarray(mesh.z_bottom_m, dtype=float).reshape(-1),
+        physical_upper_m=upper_bound,
+        prescribed_mask=prescribed_mask,
+        tol_h=tol_h,
+    )
+    projected_residual = _projected_vi_residual(
+        residual=np.asarray(raw_assembly.solver_residual, dtype=float),
+        head_m=head,
+        lower_m=lower_bound,
+        upper_m=upper_bound,
+        prescribed_mask=prescribed_mask,
+        tol_h=tol_h,
+    )
+    residual_norm = residual_norm_inf(projected_residual)
+    diagnostics: dict[str, Any] = {
+        "snes_converged_reason": 0,
+        "snes_converged_reason_label": "DRY_EQUILIBRIUM_DETECTED",
+        "snes_iterations": 0,
+        "ksp_iterations": 0,
+        "ksp_converged_reason": 0,
+        "ksp_converged_reason_label": "KSP_NOT_RUN_DRY_EQUILIBRIUM",
+        "max_violation_lower_m": float(np.max(np.maximum(lower_bound - head, 0.0))),
+        "max_violation_upper_m": float(np.max(np.maximum(head - upper_bound, 0.0))),
+        "free_residual_norm_inf": _free_residual_norm(
+            residual=np.asarray(raw_assembly.flow_residual_m3_s, dtype=float),
+            head_m=head,
+            lower_m=np.asarray(mesh.z_bottom_m, dtype=float).reshape(-1),
+            upper_m=upper_bound,
+            prescribed_mask=prescribed_mask,
+            tol_h=tol_h,
+        ),
+        "projected_vi_residual_norm_inf": residual_norm,
+        "accepted_by_projected_tolerance": True,
+        "surface_reaction_total_m3": None,
+        "bottom_reaction_total_m3": None,
+    }
+    diagnostics.update(reaction_diagnostics)
+    diagnostics.update(dry_diagnostics)
+    return build_runtime_result(
+        head_m=head,
+        assembly=reacted_assembly,
+        converged=True,
+        iterations=0,
+        residual_norm_inf_value=residual_norm,
+        backend_name=str(backend_name),
+        termination_reason="dry equilibrium detected before PETSc SNESVI",
+        diagnostics=diagnostics,
+    )
 
 
 def _solve_vi_obstacle_problem(

@@ -23,6 +23,7 @@ Both files share the leaf models `ComparisonObservable` and
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -40,6 +41,18 @@ from hydromodpy.core.config_kit.types import (
 )
 from hydromodpy.core.config_kit.validators import validate_optional_identifier
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+
+def _normalize_optional_mesh_label(value: object) -> str | None:
+    text = validate_optional_identifier(value)
+    if text is None:
+        return None
+    normalized = re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_").lower()
+    if not normalized:
+        return None
+    if not normalized[0].isalpha():
+        normalized = f"mesh_{normalized}"
+    return normalized
 
 
 class ComparisonSimulation(HydroModelBase):
@@ -95,7 +108,9 @@ class ComparisonSimulation(HydroModelBase):
         ),
     )
 
-    _normalize_mesh_label = field_validator("mesh_label")(validate_optional_identifier)
+    _normalize_mesh_label = field_validator("mesh_label", mode="before")(
+        _normalize_optional_mesh_label
+    )
 
     @field_validator("overlay")
     @classmethod

@@ -1,0 +1,152 @@
+[workflow]
+mode = "comparison"
+
+[comparison]
+comparison_id = "nancon_network_physical_benchmark"
+base_simulation_config = "base_nancon_physics.toml"
+output_root = "outputs/nancon_network_physical_benchmark/comparison"
+reference_simulation = "mf6_disv_drain_high"
+continue_on_error = true
+
+[comparison.execution]
+backend = "subprocess_hmp_run"
+max_parallel_runs = 1
+run_simulations = true
+keep_generated_configs = true
+timeout_seconds = 3600
+
+[comparison.audit]
+mode = "strict_same_case"
+on_mismatch = "warn"
+
+[comparison.fine_raster]
+enabled = true
+resolution = 250.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = false
+
+[[comparison.simulation]]
+id = "mf6_disv_drain_high"
+label = "MF6 DISV, high drain"
+solver = "modflow6"
+simulation_config = "run_mf6_disv_drain_high.toml"
+run_folder = "outputs/nancon_network_physical_benchmark/workspaces/mf6_disv_drain_high"
+mesh_label = "nancon_river_constrained_triangular_mesh"
+mesh_mode = "mesh_input"
+
+[[comparison.simulation]]
+id = "bouss_same_mesh_no_drain"
+label = "Boussinesq same mesh, no drain"
+solver = "boussinesq"
+simulation_config = "run_bouss_same_mesh_no_drain.toml"
+run_folder = "outputs/nancon_network_physical_benchmark/workspaces/bouss_same_mesh_no_drain"
+mesh_label = "nancon_river_constrained_triangular_mesh"
+mesh_mode = "mesh_input"
+
+[[comparison.simulation]]
+id = "mf6_regular_120_drain_high"
+label = "MF6 regular 120, high drain"
+solver = "modflow6"
+simulation_config = "run_mf6_regular_120_drain_high.toml"
+run_folder = "outputs/nancon_network_physical_benchmark/workspaces/mf6_regular_120_drain_high"
+mesh_label = "nancon_regular_grid_120"
+mesh_mode = "structured"
+
+[[comparison.simulation]]
+id = "mf6_regular_180_drain_high"
+label = "MF6 regular 180, high drain"
+solver = "modflow6"
+simulation_config = "run_mf6_regular_180_drain_high.toml"
+run_folder = "outputs/nancon_network_physical_benchmark/workspaces/mf6_regular_180_drain_high"
+mesh_label = "nancon_regular_grid_180"
+mesh_mode = "structured"
+
+[[comparison.simulation]]
+id = "mf6_irregular_350_drain_high"
+label = "MF6 irregular 350 m, high drain"
+solver = "modflow6"
+simulation_config = "run_mf6_irregular_350_drain_high.toml"
+run_folder = "outputs/nancon_network_physical_benchmark/workspaces/mf6_irregular_350_drain_high"
+mesh_label = "nancon_irregular_mesh_350"
+mesh_mode = "mesh_catchment"
+
+[[comparison.observable]]
+name = "head_map_wet_period"
+variable = "watertable_elevation"
+support = "map"
+time = 1
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_dry_period"
+variable = "watertable_elevation"
+support = "map"
+time = 6
+unit = "m"
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "seepage_map_wet_period"
+variable = "seepage_areas"
+support = "map"
+time = 1
+unit = "-"
+
+[[comparison.observable]]
+name = "seepage_map_dry_period"
+variable = "seepage_areas"
+support = "map"
+time = 6
+unit = "-"
+
+[[comparison.observable]]
+name = "seepage_map_last"
+variable = "seepage_areas"
+support = "map"
+time = "last"
+unit = "-"
+
+[[comparison.observable]]
+name = "outflow_drain_map_last"
+variable = "outflow_drain"
+support = "map"
+time = "last"
+unit = "m/day"
+
+[[comparison.observable]]
+name = "active_network_flux_map_last"
+variable = "accumulation_flux"
+support = "map"
+time = "last"
+unit = "m/day"
+simulations = [
+  "mf6_disv_drain_high",
+  "mf6_regular_120_drain_high",
+  "mf6_regular_180_drain_high",
+  "mf6_irregular_350_drain_high",
+]
+
+[[comparison.observable]]
+name = "surface_excess_map_last"
+variable = "surface_excess_rate"
+support = "map"
+time = "last"
+unit = "m/day"
+simulations = ["bouss_same_mesh_no_drain"]
+
+[[comparison.observable]]
+name = "surface_excess_flux_series"
+variable = "surface_excess_flux"
+support = "cell_mask"
+time = "all"
+reducer = "sum"
+unit = "m3/s"
+simulations = ["bouss_same_mesh_no_drain"]
+

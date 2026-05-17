@@ -96,7 +96,8 @@ Command inventory
    * - ``hmp install-binaries``
      - Solver binaries
      - Download MODFLOW, MODPATH, and MT3D-USGS binaries into the managed
-       HydroModPy cache.
+       HydroModPy cache. Use ``--mf6-prt`` when you only need the MODFLOW 6
+       executable that contains the PRT model.
    * - ``hmp rank``
      - Ranking
      - Rank simulations for a project by one metric.

@@ -1,7 +1,8 @@
 """TOML payload merge helpers.
 
 Lists in TOML overlays replace the base value by default. To append instead,
-use the ``<key>__append`` suffix in the overlay::
+use the ``<key>__append`` suffix in the overlay. To remove an inherited key,
+use ``<key>__delete = true``::
 
     [base]
     process = ["A", "B"]
@@ -11,7 +12,9 @@ use the ``<key>__append`` suffix in the overlay::
     process__append = ["C"]
     # result: process = ["A", "B", "C"]
 
-The suffix is stripped during merge and never appears in the validated
+    mesh_catchment__delete = true
+
+The suffixes are stripped during merge and never appear in the validated
 :class:`HydroModPyConfig` payload.
 """
 
@@ -21,12 +24,16 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 _APPEND_SUFFIX = "__append"
+_DELETE_SUFFIX = "__delete"
 
 
-def _split_append_keys(payload: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, list[Any]]]:
-    """Separate plain-replace entries from ``<name>__append`` directives."""
+def _split_directive_keys(
+    payload: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, list[Any]], set[str]]:
+    """Separate plain entries from merge directive keys."""
     replace: dict[str, Any] = {}
     append: dict[str, list[Any]] = {}
+    delete: set[str] = set()
     for key, value in payload.items():
         if key.endswith(_APPEND_SUFFIX):
             target = key[: -len(_APPEND_SUFFIX)]
@@ -37,9 +44,16 @@ def _split_append_keys(payload: Mapping[str, Any]) -> tuple[dict[str, Any], dict
                     f"merge directive {key!r} requires a list value, got {type(value).__name__}"
                 )
             append[target] = list(value)
+        elif key.endswith(_DELETE_SUFFIX):
+            target = key[: -len(_DELETE_SUFFIX)]
+            if not target:
+                raise ValueError(f"empty target key for delete directive {key!r}")
+            if value is not True:
+                raise ValueError(f"merge directive {key!r} requires the literal boolean true")
+            delete.add(target)
         else:
             replace[key] = value
-    return replace, append
+    return replace, append, delete
 
 
 def _merge_two_payloads(
@@ -47,8 +61,11 @@ def _merge_two_payloads(
     override: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Recursively merge one TOML override into one base payload."""
-    replace, append = _split_append_keys(override)
+    replace, append, delete = _split_directive_keys(override)
     merged: dict[str, Any] = dict(base)
+
+    for key in delete:
+        merged.pop(key, None)
 
     for key, value in replace.items():
         existing = merged.get(key)

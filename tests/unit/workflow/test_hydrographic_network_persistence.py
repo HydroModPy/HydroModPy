@@ -279,3 +279,39 @@ def test_persist_geographic_to_store_restores_generated_network_crs(tmp_path: Pa
 
     assert store.feature_crs["river_network"] == "EPSG:2154"
     assert store.feature_crs[HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME] == "EPSG:2154"
+
+
+def test_persist_geographic_to_store_uses_geographic_crs_for_generated_network(
+    tmp_path: Path,
+):
+    network_path = _write_network_vector(tmp_path / "river_network_no_crs.shp", crs=None)
+    watershed_path = _write_watershed(tmp_path / "watershed.shp")
+    generated = HydrographicNetwork(
+        role="generated",
+        source_kind="geographic_generated",
+        vector_path=str(network_path),
+        watershed_shp=str(watershed_path),
+    )
+    geographic = SimpleNamespace(
+        crs_proj="EPSG:2154",
+        watershed_dem=None,
+        watershed_fill=None,
+        watershed_shp=None,
+        box_buff=None,
+        watershed_contour_shp=None,
+        get_geographic_derived_features=lambda: GeographicDerivedFeatures(
+            surface_topo=object(),
+            boundaries=GeographicBoundaryFeatures(
+                watershed_shp=str(watershed_path),
+                watershed_box_shp=None,
+                box_buff_shp="box_buff.shp",
+            ),
+            hydrographic_networks=HydrographicNetworks(generated=generated),
+        ),
+    )
+    store = _FakeStore()
+
+    persist_geographic_to_store(geographic, store, sim_id="sim-4")
+
+    assert store.feature_crs["river_network"] == "EPSG:2154"
+    assert store.feature_crs[HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME] == "EPSG:2154"

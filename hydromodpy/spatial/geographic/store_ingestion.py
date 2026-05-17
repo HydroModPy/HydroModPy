@@ -194,8 +194,10 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
     gdf = gpd.read_file(path)
     if gdf.empty:
         return
-    if gdf.crs is None and generated_network_crs not in (None, ""):
-        gdf = gdf.set_crs(str(generated_network_crs), allow_override=True)
+    if gdf.crs is None:
+        fallback_crs = generated_network_crs or _geographic_crs(geographic)
+        if fallback_crs not in (None, ""):
+            gdf = gdf.set_crs(str(fallback_crs), allow_override=True)
 
     store.write_geographic_feature(sim_id, _RIVER_NETWORK_STORE_NAME, gdf)
     store.write_geographic_feature(sim_id, HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME, gdf)
@@ -204,6 +206,18 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
         len(gdf),
         gdf.geometry.geom_type.unique().tolist(),
     )
+
+
+def _geographic_crs(geographic: Any) -> str | None:
+    """Return the best CRS declared on a geographic runtime object."""
+    for attr in ("crs_proj", "crs_project", "crs"):
+        value = getattr(geographic, attr, None)
+        if value not in (None, ""):
+            return str(value)
+    epsg = getattr(geographic, "epsg", None)
+    if epsg not in (None, ""):
+        return f"EPSG:{epsg}"
+    return None
 
 
 def _ingest_metadata(geographic: Any, store: Any, sim_id: str) -> None:

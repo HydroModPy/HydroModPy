@@ -29,8 +29,11 @@ def test_write_comparison_web_report_links_key_outputs(tmp_path: Path) -> None:
             {
                 "simulation_id": "candidate",
                 "observable": "head",
+                "unit": "m",
                 "n_pairs": "2",
                 "rmse": "0.1",
+                "normalization_scale": "2.0",
+                "rmse_normalized_percent": "5.0",
             }
         ],
     )
@@ -58,12 +61,14 @@ def test_write_comparison_web_report_links_key_outputs(tmp_path: Path) -> None:
                     "id": "mf6_ref",
                     "solver": "modflow6",
                     "status": "completed",
+                    "flow_solve_time_seconds": 5.0,
                     "wall_time_seconds": 12.0,
                 },
                 {
                     "id": "bouss_candidate",
                     "solver": "boussinesq",
                     "status": "completed",
+                    "flow_solve_time_seconds": 10.0,
                     "wall_time_seconds": 24.0,
                 },
             ],
@@ -82,7 +87,13 @@ def test_write_comparison_web_report_links_key_outputs(tmp_path: Path) -> None:
     assert "comparable_outflow_dashboard.png" not in text
     assert "comparison_report.md" in text
     assert "runtime-bar boussinesq" in text
+    assert "flow_solve" in text
+    assert "24.0 s" not in text
     assert "<th>simulation</th>" not in text
+    assert "RMSE / ref" in text
+    assert "valeur ref" in text
+    assert "ecart moy m" not in text
+    assert "Lecture physique des ecarts" in text
 
 
 def test_synthetic_web_report_splits_hydraulic_and_numerical_settings(

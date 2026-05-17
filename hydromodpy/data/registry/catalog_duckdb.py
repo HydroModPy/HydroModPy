@@ -433,10 +433,26 @@ class DataCatalogDuckDB:
         types = {str(row[1]): str(row[2]).upper() for row in rows}
         for column in ("date_start", "date_end"):
             if types.get(column) == "VARCHAR":
-                self._conn.execute(
-                    f"ALTER TABLE entries ALTER COLUMN {column} "
-                    f"TYPE TIMESTAMPTZ USING try_cast({column} AS TIMESTAMPTZ)"
-                )
+                self._alter_entries_time_column(column)
+
+    def _alter_entries_time_column(self, column: str) -> None:
+        statement = (
+            f"ALTER TABLE entries ALTER COLUMN {column} "
+            f"TYPE TIMESTAMPTZ USING try_cast({column} AS TIMESTAMPTZ)"
+        )
+        try:
+            self._conn.execute(statement)
+            return
+        except duckdb.DependencyException:
+            logger.info(
+                "Dropping entries indexes before migrating %s to TIMESTAMPTZ",
+                column,
+            )
+
+        self._conn.execute("DROP INDEX IF EXISTS ix_entries_var_src_station")
+        self._conn.execute("DROP INDEX IF EXISTS ix_entries_bbox")
+        self._conn.execute(statement)
+        self._conn.execute(_ENTRIES_DDL)
 
     def _record_schema_version(self) -> None:
         self._conn.execute("DELETE FROM _schema_version WHERE component = 'data_catalog'")

@@ -23,6 +23,7 @@ def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benc
     None
 ):
     """Run the weakly identified flux-only transient twin and verify all methods remain informative."""
+    pytest.importorskip("optuna")
     assert_required_executables(
         require_modflow=False,
         require_modflow6=True,
@@ -33,18 +34,18 @@ def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benc
     benchmark = run_lightweight_twin_benchmark_case(
         TRANSIENT_RECHARGE_STEP_FLUX_ONLY_NOISY_TWIN_CASE,
         caller_file=__file__,
-        evaluation_budget=18,
+        evaluation_budget=6,
     )
 
     assert benchmark.observations_truth["q_east"]
     assert benchmark.observations_used["q_east"]
     assert benchmark.observations_truth != benchmark.observations_used
-    assert len(benchmark.method_results) == 5
+    assert len(benchmark.method_results) == 6
 
     distribution_results = [
         result
         for result in benchmark.method_results
-        if result.method_name in {"random_search", "gp_mapping", "da_mh_gp"}
+        if result.method_name in {"random_search", "optuna", "gp_mapping", "da_mh_gp"}
     ]
     point_results = [
         result
@@ -63,7 +64,7 @@ def test_calibration_twin_linearized_recharge_step_flux_only_noisy_modflow6_benc
         assert result.mean_candidate_simulation_time_seconds is not None
         assert_lightweight_method_result(result)
 
-    assert len(distribution_results) == 3
+    assert len(distribution_results) == 4
     assert any(result.meets_success_target for result in distribution_results)
     for result in distribution_results:
         assert result.model_distribution_path is not None

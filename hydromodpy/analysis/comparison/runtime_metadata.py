@@ -299,22 +299,27 @@ def discover_result_store(
         if sims.empty:
             catalog.close()
             return None, None
+        completed_sims = sims
+        if "status" in sims.columns:
+            completed_sims = sims.loc[sims["status"].astype(str).str.lower() == "completed"]
+            if completed_sims.empty:
+                completed_sims = sims
         if preferred_sim_id not in (None, "") and "sim_id" in sims.columns:
             matches = sims.loc[sims["sim_id"].astype(str) == str(preferred_sim_id)]
             if not matches.empty:
                 return catalog, str(matches.iloc[-1]["sim_id"])
         if preferred_name not in (None, "") and "name" in sims.columns:
-            names = sims["name"].fillna("").astype(str)
-            matches = sims.loc[names == str(preferred_name)]
+            names = completed_sims["name"].fillna("").astype(str)
+            matches = completed_sims.loc[names == str(preferred_name)]
             if not matches.empty:
                 return catalog, str(matches.iloc[-1]["sim_id"])
         if "config_source" in sims.columns:
             config_key = str(config_path_resolved).casefold()
-            config_sources = sims["config_source"].fillna("").map(_normalize_catalog_path)
-            matches = sims.loc[config_sources == config_key]
+            config_sources = completed_sims["config_source"].fillna("").map(_normalize_catalog_path)
+            matches = completed_sims.loc[config_sources == config_key]
             if not matches.empty:
                 return catalog, str(matches.iloc[-1]["sim_id"])
-        sim_id = str(sims.iloc[-1]["sim_id"])
+        sim_id = str(completed_sims.iloc[-1]["sim_id"])
         return catalog, sim_id
     except Exception:
         logger.debug("Could not open SimulationCatalog from %s", workspace_root, exc_info=True)

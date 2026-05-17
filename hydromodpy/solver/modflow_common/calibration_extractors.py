@@ -78,13 +78,7 @@ def extract_discharge_from_cbc(
 
     cbb = bf.CellBudgetFile(str(cbc_path))
     try:
-        record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
-        drain_key = next(
-            (key for key in record_names if key.lower() in {"drains", "drn", "drain"}),
-            None,
-        )
-        if drain_key is None:
-            raise KeyError(f"No DRAIN component in CBC; components were {record_names}")
+        drain_key = _find_drain_component(cbb)
 
         times = cbb.get_times()
         kstpkpers = cbb.get_kstpkper()
@@ -107,6 +101,129 @@ def extract_discharge_from_cbc(
     if time_index is not None and len(time_index) == n_timesteps:
         return pd.Series(values, index=time_index, name="discharge")
     return pd.Series(values, name="discharge")
+
+
+def _find_drain_component(cbb: object) -> str:
+    record_names = [r.decode().strip() for r in cbb.get_unique_record_names()]
+    drain_key = next(
+        (key for key in record_names if key.lower() in {"drains", "drn", "drain"}),
+        None,
+    )
+    if drain_key is None:
+        raise KeyError(f"No DRAIN component in CBC; components were {record_names}")
+    return drain_key
+
+
+def drain_budget_array_to_positive_outflow_by_cell(
+    component_field: object,
+    *,
+    n_cells: int | None = None,
+) -> np.ndarray:
+    """Convert one signed DRAIN budget array to positive per-cell outflow.
+
+    MODFLOW budgets usually store groundwater release to drains as negative
+    fluxes. Some derived arrays are already positive; when no negative finite
+    value exists but positive finite values do, the helper keeps the positive
+    convention. If ``n_cells`` is provided, leading dimensions are summed as
+    layers/stress-period components for the same cell support.
+    """
+
+    field = np.asarray(component_field, dtype=float)
+    if field.size == 0:
+        return np.zeros(0, dtype="float64")
+    finite = np.isfinite(field)
+    signed = np.where(finite, field, 0.0)
+    positive = np.maximum(-signed, 0.0)
+    if (
+        np.any(finite)
+        and not np.any(positive[finite] > 0.0)
+        and np.any(signed[finite] > 0.0)
+        and not np.any(signed[finite] < 0.0)
+    ):
+        positive = np.where(finite, signed, 0.0)
+
+    if n_cells is None:
+        return positive.reshape(-1).astype("float64", copy=False)
+
+    n_cells_int = int(n_cells)
+    if n_cells_int <= 0:
+        raise ValueError("n_cells must be > 0 when provided.")
+    if positive.size % n_cells_int != 0:
+        raise ValueError(
+            "DRAIN budget array size must be a multiple of n_cells "
+            f"({positive.size} % {n_cells_int} != 0)."
+        )
+    return positive.reshape(-1, n_cells_int).sum(axis=0).astype("float64", copy=False)
+
+
+def extract_drain_outflow_by_cell_from_cbc(
+    output_dir: Path,
+    model_name: str,
+    *,
+    time_index: pd.DatetimeIndex | None = None,
+    n_cells: int | None = None,
+) -> pd.DataFrame:
+    """Return positive DRAIN outflow by timestep and cell in m3/s.
+
+    The returned frame has one row per CBC timestep and integer cell columns.
+    For single-layer B0 runs, ``n_cells`` can be omitted because the full DRAIN
+    array is already the cell support. For multi-layer outputs, pass
+    ``n_cells`` so layers are summed onto the cell index.
+    """
+
+    import flopy.utils.binaryfile as bf
+
+    cbc_path = output_dir / f"{model_name}.cbc"
+    if not cbc_path.exists():
+        cbc_path = output_dir / f"{model_name}.cbb"
+    if not cbc_path.exists():
+        raise FileNotFoundError(f"CBC file not found for model {model_name!r} in {output_dir}")
+
+    itmuni = _read_itmuni_from_dis(output_dir / f"{model_name}.dis")
+    seconds_per_unit = _ITMUNI_TO_SECONDS.get(itmuni, 1.0)
+
+    cbb = bf.CellBudgetFile(str(cbc_path))
+    try:
+        drain_key = _find_drain_component(cbb)
+        times = cbb.get_times()
+        kstpkpers = cbb.get_kstpkper()
+        rows: list[np.ndarray | None] = []
+        detected_n_cells = int(n_cells) if n_cells is not None else None
+
+        for time, ksk in zip(times, kstpkpers, strict=False):
+            try:
+                data = cbb.get_data(text=drain_key, kstpkper=ksk, totim=time, full3D=True)
+            except Exception:
+                data = None
+            if not data:
+                rows.append(None)
+                continue
+            vec = drain_budget_array_to_positive_outflow_by_cell(
+                data[0],
+                n_cells=detected_n_cells,
+            )
+            if detected_n_cells is None:
+                detected_n_cells = int(vec.size)
+            elif vec.size != detected_n_cells:
+                raise ValueError(
+                    "DRAIN per-cell vector length changed across timesteps "
+                    f"({vec.size} != {detected_n_cells})."
+                )
+            rows.append(vec / seconds_per_unit)
+    finally:
+        cbb.close()
+
+    if detected_n_cells is None:
+        raise KeyError("No readable DRAIN data array was found in the CBC file.")
+
+    filled_rows = [
+        np.zeros(detected_n_cells, dtype="float64") if row is None else row for row in rows
+    ]
+    if time_index is not None and len(time_index) == len(filled_rows):
+        index = time_index
+    else:
+        index = pd.Index(times, name="totim")
+    return pd.DataFrame(filled_rows, index=index, columns=np.arange(detected_n_cells))
 
 
 def extract_head_from_hds(
@@ -152,4 +269,9 @@ def extract_head_from_hds(
     return out
 
 
-__all__ = ["extract_discharge_from_cbc", "extract_head_from_hds"]
+__all__ = [
+    "drain_budget_array_to_positive_outflow_by_cell",
+    "extract_discharge_from_cbc",
+    "extract_drain_outflow_by_cell_from_cbc",
+    "extract_head_from_hds",
+]

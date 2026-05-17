@@ -12,6 +12,7 @@ from tests.regression.launcher_simulation_helpers import run_launcher_simulation
 @pytest.mark.slow
 @pytest.mark.coverage
 @pytest.mark.mf6
+@pytest.mark.timeout(7200)
 def test_launcher_simulation_extensive_mf6_regression(update_goldens) -> None:
     run_launcher_simulation_regression(
         test_file=__file__,

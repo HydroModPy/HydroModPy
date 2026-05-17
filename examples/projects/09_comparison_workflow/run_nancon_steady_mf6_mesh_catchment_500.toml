@@ -1,6 +1,7 @@
 base_config = "base_nancon_steady_hydrography_mesh_catchment.toml"
 
-workflow = "simulation"
+[workflow]
+mode = "simulation"
 
 [workspace]
 project_root = "outputs/nancon_steady_mf6_irregular_network_methods/workspace_mf6_mesh_catchment_500"

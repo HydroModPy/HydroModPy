@@ -183,7 +183,7 @@ the HydroModPy launcher, mark it ``solver_sanity``:
 .. code-block:: python
 
    @pytest.mark.solver_sanity
-   def test_modflow6_against_theis(...):
+   def test_modflow6_against_theis(tmp_path):
        ...
 
 That subset is meant to flag solver-binary drift independently of
@@ -205,6 +205,8 @@ See also
 
 - :doc:`../overview/test-families-and-quality-roles` for the full
   ladder.
+- :doc:`../overview/test-inventory` for the current suite snapshot by
+  family and subsystem.
 - :doc:`/contribute` for the contributor workflow.
 - ``tests/README.md`` and ``validation_cases/README.md`` for the
   in-repo conventions.

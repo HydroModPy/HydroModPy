@@ -27,6 +27,16 @@ DOC_MODULES = (
     "sphinxcontrib.autodoc_pydantic",
 )
 
+TEST_MODULES = (
+    "coverage",
+    "jsonschema",
+    "pytest",
+    "pytest_cov",
+    "pytest_timeout",
+    "xdist",
+    "yaml",
+)
+
 
 def _resolve(path: Path) -> Path:
     try:
@@ -81,6 +91,7 @@ def collect_issues(
     dist_name: str,
     expected_editable_root: Path | None,
     require_docs: bool,
+    require_tests: bool = False,
 ) -> tuple[str | None, Path | None, list[str]]:
     issues: list[str] = []
     version: str | None = None
@@ -118,6 +129,11 @@ def collect_issues(
         if missing_docs:
             issues.append(f"Missing docs modules: {', '.join(missing_docs)}.")
 
+    if require_tests:
+        missing_tests = missing_modules(TEST_MODULES)
+        if missing_tests:
+            issues.append(f"Missing test modules: {', '.join(missing_tests)}.")
+
     return version, editable_root, issues
 
 
@@ -128,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dist-name", default="hydromodpy")
     parser.add_argument("--expected-editable-root", default=None)
     parser.add_argument("--require-docs", action="store_true")
+    parser.add_argument("--require-tests", action="store_true")
     args = parser.parse_args(argv)
 
     expected_root = (
@@ -140,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
         dist_name=args.dist_name,
         expected_editable_root=expected_root,
         require_docs=bool(args.require_docs),
+        require_tests=bool(args.require_tests),
     )
 
     if issues:
@@ -148,7 +166,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {issue}")
         print("")
         print("Recreate or repair the environment with:")
-        print('  pip install -e ".[docs]"')
+        extras = []
+        if args.require_docs:
+            extras.append("docs")
+        if args.require_tests:
+            extras.append("test")
+        if extras:
+            print(f'  pip install -e ".[{",".join(extras)}]"')
+        else:
+            print("  pip install -e .")
         return 1
 
     detail = f"{args.dist_name} {version or '?'}"
