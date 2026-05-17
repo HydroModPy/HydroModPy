@@ -51,8 +51,9 @@ runner:
 4. records the migration with a SHA-256 checksum of the SQL payload so
    a tampered migration is detected on re-runs.
 
-Calling ``ensure_schema()`` from any backend (``DuckDBBackend``,
-``PostgresBackend`` stub) deploys the latest schema for that component.
+Calling ``ensure_schema()`` from a backend (``DuckDBBackend`` or any
+other adapter implementing the protocol) deploys the latest schema for
+that component.
 The facade ``hmp.read`` and ``hmp.open`` call ``ensure_schema()`` on
 first access so users never see a half-deployed catalog.
 
