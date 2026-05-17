@@ -24,9 +24,9 @@ def is_cf_standard_name(name: str) -> bool:
     """Return ``True`` when ``name`` belongs to the bundled CF v85 list.
 
     The list is a curated subset of CF v85, vendored under
-    ``hydromodpy/results/zarr_store/data/cf_standard_names_v85.txt``. A
-    full XML vendoring is queued for V2; until then, the curated text
-    file covers the standard names actually used by the field registry.
+    ``hydromodpy/results/zarr_store/data/cf_standard_names_v85.txt``.
+    The curated text file covers the standard names actually used by the
+    field registry; extend the file if a new entry is required.
     """
     if not name:
         return False

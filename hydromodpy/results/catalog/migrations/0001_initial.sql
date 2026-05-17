@@ -5,7 +5,6 @@
 -- under that project. One file per project lets multiple projects share
 -- the same machine without contending for DuckDB's single-writer lock.
 --
--- Source of truth: reports_db/99_target_architecture.md sections 3-4.
 -- Notation: DuckDB-portable subset (no PIVOT, no MAP, no QUALIFY).
 -- TIMESTAMPTZ, UUID, VARCHAR (alias TEXT), JSON, BOOLEAN.
 --
@@ -18,17 +17,14 @@
 --     parent row whose children carry a composite PK that references
 --     it (and simulations rows do get UPDATEd: ``last_heartbeat``,
 --     ``status_id``, ...). Cascading deletes are enforced in Python by
---     ``results/catalog/lifecycle.py``. Real FK + ON DELETE CASCADE will
---     be re-introduced at the DDL layer once the runner moves to
---     SQLAlchemy + Postgres in V2.
+--     ``results/catalog/lifecycle.py``.
 --   * Self-FK on ``simulations.parent_sim_id`` is also omitted for the
 --     same reason.
 --
 -- ENUMs
---   The target spec mentions DuckDB ``CREATE TYPE ... AS ENUM`` for the
---   five categorical columns; V1 keeps CHECK constraints (functionally
---   equivalent, no schema churn for existing queries). Migration to true
---   ENUM types is queued for V2 alongside Postgres porting.
+--   V1 uses CHECK constraints instead of DuckDB ``CREATE TYPE ... AS
+--   ENUM`` for the five categorical columns. Functionally equivalent,
+--   no schema churn for existing queries.
 --
 -- UUIDs
 --   Generated client-side (UUIDv7 recommended, RFC 9562) or via the
@@ -419,7 +415,7 @@ CREATE INDEX ix_obs_points_cell ON observation_points(sim_id, cell_id);
 
 -- =====================================================================
 -- audit_log (event sourcing)
---   Event types listed in the CHECK constraint are the V1 + ML hook set.
+--   Event types listed in the CHECK constraint are the V1 set.
 --   Adding a value goes via a follow-up migration to keep the audit
 --   surface explicit and reviewed.
 -- =====================================================================
@@ -438,8 +434,7 @@ CREATE TABLE audit_log (
                     'metric.write', 'tracked_file.add',
                     'tracked_file.remove', 'objective.set',
                     'config.replay', 'migrate', 'gc', 'vacuum',
-                    'export', 'import',
-                    'ml.dataset_build', 'ml.split_persist', 'ml.scaler_fit'
+                    'export', 'import'
                 )),
     sim_id      UUID,
     project     VARCHAR,
@@ -634,54 +629,6 @@ CREATE TABLE workflow_steps (
 
 CREATE INDEX ix_wf_run_id ON workflow_steps(run_id);
 CREATE INDEX ix_wf_status ON workflow_steps(status_id);
-
--- =====================================================================
--- ML hook tables (posées vides en V1, alimentées par hydromodpy/ml/ V2)
--- =====================================================================
-
-CREATE TABLE ml_datasets (
-    dataset_id     UUID PRIMARY KEY,
-    name           VARCHAR NOT NULL,
-    config_json    JSON NOT NULL,
-    features       JSON NOT NULL,
-    targets        JSON NOT NULL,
-    sim_count      INTEGER NOT NULL,
-    split_hash     VARCHAR,
-    scaler_hash    VARCHAR,
-    croissant_path VARCHAR,
-    created_at     TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
-    sha256         VARCHAR NOT NULL UNIQUE
-);
-
-CREATE INDEX ix_ml_datasets_split_hash  ON ml_datasets(split_hash);
-CREATE INDEX ix_ml_datasets_scaler_hash ON ml_datasets(scaler_hash);
-
-CREATE TABLE ml_splits (
-    split_hash  VARCHAR PRIMARY KEY,
-    strategy    VARCHAR NOT NULL
-                CHECK (strategy IN ('random', 'temporal', 'geographic', 'kfold')),
-    seed        INTEGER NOT NULL,
-    config_json JSON NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
-);
-
-CREATE TABLE ml_splits_members (
-    split_hash VARCHAR NOT NULL REFERENCES ml_splits(split_hash),
-    sim_id     UUID NOT NULL,
-    subset     VARCHAR NOT NULL
-               CHECK (subset IN ('train', 'val', 'test') OR subset LIKE 'fold%'),
-    PRIMARY KEY (split_hash, sim_id)
-);
-
-CREATE TABLE ml_scalers (
-    scaler_hash VARCHAR PRIMARY KEY,
-    kind        VARCHAR NOT NULL
-                CHECK (kind IN ('standard', 'minmax', 'robust', 'quantile')),
-    variables   JSON NOT NULL,
-    stats_json  JSON NOT NULL,
-    fit_on      VARCHAR NOT NULL DEFAULT 'train',
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT current_timestamp
-);
 
 -- =====================================================================
 -- Precomputed views

@@ -115,8 +115,10 @@ _SIMULATIONS_VIEW_SELECT = (
 class ReadsMixin:
     """Read-only queries for :class:`SimulationCatalog`.
 
-    Relies on attributes provided by the facade: ``self._db`` and
-    ``self._paths`` (StoragePathResolver), plus ``self.open_zarr`` and
+    Relies on attributes provided by the facade: ``self._backend``
+    (CatalogBackend port), ``self._db`` (DuckDB connection, kept for
+    exporters that take a raw cursor), and ``self._paths``
+    (StoragePathResolver), plus ``self.open_zarr`` and
     ``self.zarr_path_for`` for field reads / exports.
     """
 
@@ -255,11 +257,11 @@ class ReadsMixin:
         """Read a per-simulation GeoParquet 1.1 feature via geopandas."""
         from hydromodpy.results.geoparquet_io import read_geoparquet
 
-        row = self._db.execute(
+        row = self._backend.fetch_one(
             "SELECT geoparquet_path, properties, crs_wkt FROM geographic_features "
             "WHERE sim_id = ? AND feature_name = ?",
             [str(sim_id), feature_name],
-        ).fetchone()
+        )
         if row is None:
             raise KeyError(f"Feature '{feature_name}' not found for sim '{sim_id}'")
         parquet_path, properties_json, _crs = row
@@ -280,17 +282,17 @@ class ReadsMixin:
         return gdf
 
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
-        rows = self._db.execute(
+        rows = self._backend.fetch_all(
             "SELECT feature_name FROM geographic_features WHERE sim_id = ? ORDER BY feature_name",
             [str(sim_id)],
-        ).fetchall()
+        )
         return [r[0] for r in rows]
 
     def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
-        rows = self._db.execute(
+        rows = self._backend.fetch_all(
             "SELECT key, value FROM geographic_metadata WHERE sim_id = ?",
             [str(sim_id)],
-        ).fetchall()
+        )
         return {r[0]: r[1] for r in rows}
 
     @property
@@ -375,10 +377,10 @@ class ReadsMixin:
             raise ValueError(f"Unknown export format '{fmt}'")
 
     def _export_crs_for(self, sim_id: str) -> str | None:
-        row = self._db.execute(
+        row = self._backend.fetch_one(
             "SELECT crs_epsg, crs_wkt FROM simulations WHERE sim_id = ?",
             [sim_id],
-        ).fetchone()
+        )
         if row is not None:
             epsg, wkt = row
             if epsg is not None:

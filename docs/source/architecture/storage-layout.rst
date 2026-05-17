@@ -235,8 +235,8 @@ Backend abstraction
 
 All SQL access goes through the
 :class:`~hydromodpy.results.catalog.ports.CatalogBackend` Protocol. The
-default v2 adapter is ``DuckDBBackend`` (SQLAlchemy 2.0 Core +
-``duckdb-engine``); a ``PostgresBackend`` stub is reserved for v2.x.
+in-tree adapter is ``DuckDBBackend``. Alternative adapters can plug in
+by implementing the protocol.
 Field readers go through ``hmp.read`` which dispatches to Zarr or
 Parquet stores via the field registry. See
 :doc:`/architecture/packages/results` for the Python surface.

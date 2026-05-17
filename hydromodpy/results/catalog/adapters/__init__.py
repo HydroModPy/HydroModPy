@@ -1,12 +1,10 @@
 """Concrete :class:`CatalogBackend` implementations.
 
-``DuckDBBackend`` is the production v2.0 adapter. ``PostgresBackend`` is a
-ready-to-go stub that satisfies the Protocol structurally and raises
-``NotImplementedError`` on every call. It is kept in v2.0 so calling code
-can already depend on a stable Postgres entry point.
+``DuckDBBackend`` is the V1 adapter, backing every catalog opened from a
+local workspace. Additional adapters can be plugged in by implementing
+the :class:`~hydromodpy.results.catalog.ports.CatalogBackend` protocol.
 """
 
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
-from hydromodpy.results.catalog.adapters.postgres import PostgresBackend
 
-__all__ = ["DuckDBBackend", "PostgresBackend"]
+__all__ = ["DuckDBBackend"]

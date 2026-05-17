@@ -22,6 +22,7 @@ import duckdb
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.catalog.audit import audited
 from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
 )
@@ -127,6 +128,7 @@ class RegistrationResult:
 class RegistrationMixin:
     """``register_simulation`` for :class:`SimulationCatalog`."""
 
+    @audited("sim.register", payload_keys=("solver", "name"))
     @with_lock_retry()
     def register_simulation(
         self,
@@ -176,20 +178,25 @@ class RegistrationMixin:
         main_transaction_started = False
 
         try:
+            # Explicit BEGIN/COMMIT/ROLLBACK on self._db: the surrounding
+            # cleanup (zarr_tmp/zarr_final filesystem rollback) is tied to
+            # the same try/except, so keep the transaction control out of
+            # the port abstraction. Inner SQL still routes through the
+            # backend on the same shared connection.
             self._db.execute("BEGIN TRANSACTION")
             main_transaction_started = True
 
             if name:
-                existing = self._db.execute(
+                existing = self._backend.fetch_one(
                     "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
                     [project, name],
-                ).fetchone()
+                )
                 if existing:
                     existing_sid = str(existing[0])
                     if on_collision == "fail":
                         raise DuplicateSimulationNameError(project, name, existing_sid)
                     if on_collision == "replace":
-                        self._db.execute(
+                        self._backend.execute(
                             "UPDATE simulations SET name = NULL WHERE sim_id = ?",
                             [existing_sid],
                         )
@@ -260,7 +267,7 @@ class RegistrationMixin:
                 staged.close()
                 _windows_long_path(zarr_tmp).rename(_windows_long_path(zarr_final))
 
-            self._db.execute(
+            self._backend.execute(
                 """INSERT INTO simulations
                    (sim_id, name, project,
                     solver_id, status_id, flow_regime_id, mesh_topology_id,
@@ -325,7 +332,7 @@ class RegistrationMixin:
             )
             if tags:
                 for tag in tags:
-                    self._db.execute(
+                    self._backend.execute(
                         "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
                         [sid, str(tag)],
                     )

@@ -33,13 +33,11 @@ Migration runner
 Source: ``hydromodpy/core/migrations/runner.py`` plus per-component
 migration directories:
 
-- ``hydromodpy/results/catalog/migrations/versions/`` for the project
-  catalog;
-- ``hydromodpy/data/migrations/versions/`` for the workspace cache;
-- ``hydromodpy/core/state/index_migrations/versions/`` for the global
-  index.
+- ``hydromodpy/results/catalog/migrations/`` for the project catalog;
+- ``hydromodpy/data/registry/migrations/`` for the workspace cache;
+- ``hydromodpy/core/state/migrations/`` for the global index.
 
-Each migration is a numbered SQL file (``0001_initial_v2_schema.sql``,
+Each migration is a numbered SQL file (``0001_initial.sql``,
 ``0002_add_<slug>.sql``, ...) and applies cleanly in version order. The
 runner:
 
@@ -51,8 +49,9 @@ runner:
 4. records the migration with a SHA-256 checksum of the SQL payload so
    a tampered migration is detected on re-runs.
 
-Calling ``ensure_schema()`` from any backend (``DuckDBBackend``,
-``PostgresBackend`` stub) deploys the latest schema for that component.
+Calling ``ensure_schema()`` from a backend (``DuckDBBackend`` or any
+other adapter implementing the protocol) deploys the latest schema for
+that component.
 The facade ``hmp.read`` and ``hmp.open`` call ``ensure_schema()`` on
 first access so users never see a half-deployed catalog.
 

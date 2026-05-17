@@ -13,9 +13,8 @@ Sub-modules
   (``catalog.duckdb``); see :doc:`/architecture/storage-layout`.
 - ``results/catalog/ports.py`` -- :class:`CatalogBackend` Protocol
   (Ports and Adapters port) consumed by every catalog operation.
-- ``results/catalog/adapters/`` -- ``DuckDBBackend`` default v2
-  adapter (SQLAlchemy 2.0 Core + ``duckdb-engine``) and
-  ``PostgresBackend`` stub reserved for v2.x.
+- ``results/catalog/adapters/`` -- ``DuckDBBackend`` in-tree adapter.
+  Additional adapters can plug in by implementing the protocol.
 - ``results/catalog/migrations/`` -- Alembic-like SQL migrations
   applied by the runner in ``hydromodpy/core/migrations/runner.py``.
 - ``results/run.py`` -- ``Run`` facade exposing read-only access to
@@ -107,11 +106,11 @@ resolves transparently.
 Recommended reading path
 ------------------------
 
-1. ``hydromodpy/results/catalog/migrations/versions/0001_initial_v2_schema.sql``
-   for the canonical table layout.
+1. ``hydromodpy/results/catalog/migrations/0001_initial.sql`` for the
+   canonical table layout.
 2. ``hydromodpy/results/catalog/ports.py`` (Protocol).
-3. ``hydromodpy/results/catalog/adapters/duckdb_backend.py``
-   (SQLAlchemy 2.0 Core implementation).
+3. ``hydromodpy/results/catalog/adapters/duckdb.py`` (in-tree
+   implementation).
 4. ``hydromodpy/results/catalog/facade.py`` (``SimulationCatalog``).
 5. ``hydromodpy/results/run.py`` (``Run`` facade).
 6. ``hydromodpy/results/field_registry.py`` for the field dispatch

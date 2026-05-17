@@ -1,50 +1,77 @@
 The three workspace databases
 =============================
 
-HydroModPy v2 splits SQL state across three levels: machine, workspace,
-project. Each level has its own DuckDB file with a focused role and an
-independent lifecycle.
+HydroModPy splits SQL state across three scopes: machine, workspace,
+project. Each scope owns a DuckDB file with a focused role and an
+independent lifecycle. End-user code never has to know which file holds
+a given row; the :mod:`hydromodpy.catalog` facade routes every query to
+the right scope.
 
 For the complete layout, see :doc:`../storage-layout`. For the migration
 policy applied to every database below, see :doc:`schema-evolution`.
 
-Machine global index - ``$XDG_STATE_HOME/hydromodpy/index.duckdb``
-------------------------------------------------------------------
+Machine global index -- ``$XDG_STATE_HOME/hydromodpy/index.duckdb``
+-------------------------------------------------------------------
 
-Federates registered workspaces and exposes cross-workspace queries
-through ATTACH read-only. Exposed through:
+Federates every registered workspace and exposes cross-workspace
+queries through ``ATTACH`` in read-only mode. Recreated from the
+registered workspaces alone -- it carries no science output of its own.
 
-- :class:`~hydromodpy.core.state.global_index.GlobalIndex`
-- ``hmp.index()`` Python facade
-- ``hmp index search / forget / prune`` CLI verbs
+Tables: ``workspaces``, ``projects``, ``simulations_cache``,
+``index_metadata`` plus the view ``v_workspace_health``.
 
-Workspace input cache - ``<workspace>/data/cache.duckdb``
----------------------------------------------------------
+Exposed through:
 
-Tracks downloaded or custom datasets used as model inputs. One per
-workspace, scope ``data/`` mutualised across projects. Exposed through:
+- :class:`hydromodpy.core.state.global_index.GlobalIndex`
+- ``hmp.catalog.projects`` namespace (machine-wide discovery)
+- ``hmp.index()`` legacy facade
+- CLI verbs ``hmp index search / forget / prune``
 
-- ``DataCatalogDuckDB`` (low-level)
-- ``DataStore`` (facade)
-- ``DataEntry`` (view on one row)
+Workspace input cache -- ``<workspace>/data/cache.duckdb``
+----------------------------------------------------------
+
+Tracks downloaded or custom datasets used as model inputs. One file per
+workspace, mutualised across every project of that workspace. Purgeable
+and reconstructible from upstream sources.
+
+Tables: ``entries``, ``api_coverage``, ``artifacts``, ``provenance``,
+``stations``, ``coverage``, ``failures``, ``validation_reports`` plus
+the view ``v_entries_summary``.
+
+Exposed through:
+
+- :class:`hydromodpy.data.registry.DataCatalogDuckDB` (low-level)
+- ``hmp.catalog.inputs`` namespace
 - ``project.data`` / ``workspace.data`` accessors
 
 Each row carries a workspace-relative POSIX ``file_path`` so caches
 remain portable between machines.
 
-Project simulation catalog - ``<project>/catalog.duckdb``
----------------------------------------------------------
+Project simulation catalog -- ``<project>/catalog.duckdb``
+-----------------------------------------------------------
 
-Holds simulation metadata, parameters, metrics, provenance, calibration
-history, and the workflow ledger. Scoped to one project (typically one
-catchment) and irreplaceable. Each simulation gets a row plus
-per-simulation Zarr and Parquet artefacts under
-``<project>/simulations/``. Exposed through:
+Holds the science output: simulation metadata, parameters, metrics,
+per-sim provenance, calibration history, workflow ledger and audit
+trail. Scoped to one project (typically one catchment) and
+irreplaceable. Each simulation gets a row plus per-simulation Zarr and
+Parquet artefacts under ``<project>/simulations/``.
 
-- :class:`~hydromodpy.results.catalog.SimulationCatalog`
-- :class:`~hydromodpy.results.run.Run`
-- :class:`~hydromodpy.results.simulation_group.SimulationGroup`
-- ``project.runs`` / ``hmp.open(project_path)`` accessors
+Tables: 26 (dim_*, solvers, statuses, flow_regimes, mesh_topologies,
+simulations, parameters, metrics, metric_definitions, observations,
+observation_points, provenance, runs_environment, audit_log, deletions,
+tracked_files, geographic_features, geographic_metadata, parquet_files,
+tags, stations, calibration_sessions, calibration_iterations,
+workflow_steps) plus the views ``v_simulation_summary`` and
+``v_metrics_pivot``.
+
+Exposed through:
+
+- :class:`hydromodpy.results.catalog.SimulationCatalog`
+- :class:`hydromodpy.results.run.Run`
+- :class:`hydromodpy.results.simulation_group.SimulationGroup`
+- ``hmp.catalog.simulations`` namespace
+- ``hmp.open(project_path)`` accessor
+- CLI verb ``hmp catalog ...``
 
 Provenance bridge
 -----------------
@@ -52,53 +79,68 @@ Provenance bridge
 Each simulation records, in its ``provenance`` rows, which input-cache
 entries it consumed. ``run.input_entries()`` walks the bridge to list
 them, and ``entry.used_by()`` returns the simulations that referenced a
-given entry. Cross-workspace lookups go through the global index.
+given entry. Cross-workspace lookups go through the machine index.
 
-Why three levels
+Why three scopes
 ----------------
 
-- Machine index: cross-workspace discovery without copying data.
-- Workspace cache: input mutualisation between projects sharing a
+- **Machine index** -- cross-workspace discovery without copying data.
+- **Workspace cache** -- input mutualisation between projects sharing a
   geographic area.
-- Project catalog: irreplaceable results that warrant their own backup
-  policy.
+- **Project catalog** -- irreplaceable science output that warrants its
+  own backup policy and stays writable while other projects keep using
+  the same workspace cache.
 
-The split also matches three distinct lifecycles: the index is fully
+Three scopes match three distinct lifecycles: the index is fully
 recreatable from registered workspaces, the cache is purgeable and
 reconstructible from upstream sources, the project catalog is the only
-SQL store that holds science output that cannot be regenerated without
-re-running simulations.
+SQL store that holds output which cannot be regenerated without
+re-running the simulations.
 
-V1 unified runner and facade
-----------------------------
+Unified architecture
+--------------------
 
-V1 ships three additions that sit on top of the three-database split:
+A single set of patterns governs the three databases:
 
 - **Single migrations runner**:
   :mod:`hydromodpy.core.migrations.runner` exposes
   ``apply_migrations(db_path, migrations_dir)`` (with a
   ``<db_path>.lock`` filelock to serialise concurrent callers) and is
   used by all three databases. Each scope owns a flat ``migrations/``
-  directory containing exactly one ``0001_initial.sql`` for V1.
-- **High-level ``hmp.catalog`` facade**:
+  directory containing one ``0001_initial.sql``.
+- **High-level facade**:
   :class:`hydromodpy.catalog.CatalogFacade` exposes the three databases
-  through ``simulations`` (project catalog), ``inputs`` (workspace
-  cache) and ``projects`` (machine index) namespaces. Users write
-  ``hmp.catalog.simulations.find(...)`` without knowing which file
-  holds the row.
-- **ML hook tables**: the project catalog now seeds four empty
-  ``ml_datasets`` / ``ml_splits`` / ``ml_splits_members`` /
-  ``ml_scalers`` tables. The ``hydromodpy/ml/`` module that fills them
-  ships in V2; the schema is already in place so V2 reads against V1
-  catalogs work.
-- **AuthBackend Protocol**: :class:`hydromodpy.core.auth.AuthBackend`
-  is a structural protocol with a permissive
-  :class:`~hydromodpy.core.auth.LocalAuthBackend` default. V1 does not
-  enforce ACLs; the abstraction lets V2 wire keyring / IAM / SSO
-  backends without touching the catalog layer.
-- **UPath-ready paths**: every workspace / cache / state path argument
-  is typed ``Path | UPath`` and ``resolve_workspace`` accepts
-  ``file://`` URIs (other schemes raise ``NotImplementedError`` with a
-  V2 pointer). :class:`hydromodpy.results.zarr_store.adapters.FsspecZarrStore`
-  and :class:`hydromodpy.results.catalog.adapters.PostgresBackend` stay
-  V1 stubs that satisfy their respective protocols.
+  through ``simulations``, ``inputs`` and ``projects`` namespaces. Users
+  write ``cat.simulations.find(solver="modflow6")`` without knowing
+  which file holds the row.
+- **Backend Protocol**:
+  :class:`hydromodpy.results.catalog.ports.CatalogBackend` is a
+  ``typing.Protocol`` with ``execute / query / fetch_one / fetch_all /
+  insert / upsert / transaction / close``. The catalog mixins call the
+  protocol so swapping the adapter does not touch call sites.
+- **Authentication Protocol**:
+  :class:`hydromodpy.core.auth.AuthBackend` exposes a structural
+  ``current_user / can_read / can_write`` surface with
+  :class:`~hydromodpy.core.auth.LocalAuthBackend` as the V1 default.
+- **URI-aware paths**: every workspace / cache / state argument is
+  typed ``Path | UPath``. The runtime accepts local paths and
+  ``file://`` URIs; any other scheme raises ``NotImplementedError``.
+
+Refactor outcomes
+-----------------
+
+The catalog stack used to concentrate three god-classes (each above
+1000 LOC). V1 split them into single-concern modules:
+
+- ``SimulationZarr`` -> ``simulation_zarr`` (facade) +
+  ``zarr_schema`` + ``zarr_writer`` + ``zarr_reader`` +
+  ``zarr_finalizer``.
+- ``DataCatalogDuckDB`` -> ``catalog_duckdb`` (facade) +
+  ``cache_store`` + ``cache_queries`` + ``cache_lifecycle``.
+- ``WritesMixin`` -> ``writes`` (facade) + ``writes_duckdb`` +
+  ``writes_parquet`` + ``writes_zarr`` + ``writes_helpers``.
+
+The original public symbols (``SimulationZarr``, ``DataCatalogDuckDB``,
+``SimulationCatalog``, ``WritesMixin``) keep their import path and
+their full API; golden tests pin bit-identical artefacts before and
+after each split.

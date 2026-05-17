@@ -1,0 +1,161 @@
+"""Finalization concerns for :class:`SimulationZarr`.
+
+Owns lifecycle: write-lock acquisition, ``consolidate_metadata``,
+``pack_to_zip`` (directory store -> ``.zarr.zip``), and ``close``.
+
+All helpers take the live :class:`SimulationZarr` (or its store/lock)
+explicitly so the module stays free of hidden global state.
+"""
+
+from __future__ import annotations
+
+import shutil
+import warnings
+import zipfile
+from os import replace
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+import zarr
+from filelock import FileLock, Timeout
+
+from hydromodpy.core.logging import get_logger
+from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
+
+if TYPE_CHECKING:
+    from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
+
+logger = get_logger(__name__)
+
+LOCK_TIMEOUT_SECONDS = 60.0
+LOCK_FILE_NAME = ".lock"
+
+
+class DummyLock:
+    """No-op lock used for zip stores (read-only by construction)."""
+
+    def acquire(self, *_: Any, **__: Any) -> None:
+        return None
+
+    def release(self) -> None:
+        return None
+
+    def __enter__(self) -> DummyLock:
+        return self
+
+    def __exit__(self, *_: Any) -> None:
+        return None
+
+
+def guard_write(lock: FileLock | DummyLock, path: Path) -> Any:
+    """Return a context manager that holds the cross-process filelock."""
+    if isinstance(lock, DummyLock):
+        return lock
+    try:
+        return lock.acquire(timeout=LOCK_TIMEOUT_SECONDS)
+    except Timeout as exc:  # pragma: no cover - defensive
+        raise RuntimeError(
+            f"Could not acquire Zarr write lock for {path} after {LOCK_TIMEOUT_SECONDS}s"
+        ) from exc
+
+
+def consolidate_metadata(store: Any, path: Path) -> None:
+    """Consolidate Zarr metadata into a single ``.zmetadata`` entry."""
+    if not isinstance(store, zarr.storage.LocalStore):
+        return
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message=(
+                    "Consolidated metadata is currently not part .* Zarr format 3 specification.*"
+                ),
+                category=UserWarning,
+            )
+            zarr.consolidate_metadata(store)
+    except Exception as exc:
+        logger.warning("consolidate_metadata failed for %s: %s", path, exc)
+
+
+def pack_to_zip(store_obj: SimulationZarr) -> Path:
+    """Compact the directory-based Zarr store into a ``.zarr.zip`` file.
+
+    Closes the live store first, atomically writes a ``<name>.tmp`` zip,
+    verifies it with :meth:`zipfile.ZipFile.testzip`, renames it to the
+    final ``.zarr.zip`` path, then removes the source directory and
+    rebinds ``store_obj`` to a read-only ZipStore over the new artefact.
+    """
+    from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
+    from hydromodpy.results.zarr_store.zarr_schema import open_root_strict
+
+    if not store_obj._path.is_dir():
+        return store_obj._path
+
+    store_obj.close()
+
+    zip_path = store_obj._path.with_suffix(ZARR_ZIP_SUFFIX)
+    tmp_path = zip_path.with_name(f"{zip_path.name}.tmp")
+    if tmp_path.exists():
+        tmp_path.unlink()
+
+    # Skip the lock file (transient, not part of the artifact).
+    with zipfile.ZipFile(str(tmp_path), "w", compression=zipfile.ZIP_STORED) as zf:
+        for fpath in sorted(store_obj._path.rglob("*")):
+            if not fpath.is_file():
+                continue
+            if fpath.name == LOCK_FILE_NAME:
+                continue
+            arcname = str(fpath.relative_to(store_obj._path))
+            zf.write(str(fpath), arcname)
+
+    with zipfile.ZipFile(str(tmp_path), "r") as zf:
+        corrupt = zf.testzip()
+        if corrupt is not None:
+            tmp_path.unlink(missing_ok=True)
+            raise RuntimeError(f"Corrupt Zarr zip member: {corrupt}")
+
+    replace(tmp_path, zip_path)
+    check = SimulationZarr(zip_path)
+    check.close()
+
+    try:
+        shutil.rmtree(store_obj._path)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        logger.warning(
+            "Packed %s -> %s, but could not remove the source Zarr directory.",
+            store_obj._path.name,
+            zip_path.name,
+            exc_info=True,
+        )
+    logger.debug("Packed %s -> %s", store_obj._path.name, zip_path.name)
+
+    store_obj._path = zip_path
+    store_obj._store = zarr.storage.ZipStore(str(zip_path), mode="r")
+    store_obj._root = open_root_strict(store_obj._store, read_only=True)
+    store_obj._lock = DummyLock()
+    return zip_path
+
+
+def close(store_obj: SimulationZarr) -> None:
+    """Close the live store and invoke any on-close callback."""
+    if store_obj._store is not None:
+        if hasattr(store_obj._store, "close"):
+            store_obj._store.close()
+        store_obj._store = None
+    if store_obj._on_close is not None:
+        callback = store_obj._on_close
+        store_obj._on_close = None
+        callback(store_obj)
+
+
+__all__ = [
+    "DummyLock",
+    "LOCK_FILE_NAME",
+    "LOCK_TIMEOUT_SECONDS",
+    "close",
+    "consolidate_metadata",
+    "guard_write",
+    "pack_to_zip",
+]

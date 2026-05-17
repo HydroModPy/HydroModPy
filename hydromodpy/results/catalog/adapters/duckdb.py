@@ -1,11 +1,11 @@
 """DuckDB adapter for :class:`CatalogBackend`.
 
-Wraps a single :class:`duckdb.DuckDBPyConnection` so the catalog facade can
-keep DuckDB-specific perf paths (``fetchdf``, ``register`` for in-memory
-DataFrames) while exposing a backend-neutral surface. SQLAlchemy 2.0 Core
-is used to compose portable INSERT / UPSERT statements that the same
-adapter can hand off to a future Postgres adapter without rewriting call
-sites.
+Wraps a single :class:`duckdb.DuckDBPyConnection` so the catalog facade
+keeps DuckDB-specific perf paths (``fetchdf``, ``register`` for in-memory
+DataFrames) while exposing the backend-neutral surface of
+:class:`~hydromodpy.results.catalog.ports.CatalogBackend`. ``INSERT`` and
+``UPSERT`` are composed with ANSI syntax so the same call sites stay
+portable across other adapters that implement the same protocol.
 
 The adapter owns no schema state: ``ensure_schema`` delegates to the
 catalog migration runner shipped in
