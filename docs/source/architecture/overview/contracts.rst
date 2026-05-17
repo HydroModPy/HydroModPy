@@ -47,9 +47,7 @@ Storage Protocol: ``CatalogBackend``
 Source: ``hydromodpy/results/catalog/ports.py``.
 
 The catalog facade interacts with the SQL store only through this
-Protocol. The default in-tree adapter is ``DuckDBBackend`` (SQLAlchemy
-2.0 Core + ``duckdb-engine``); a ``PostgresBackend`` stub is reserved
-for v2.x.
+Protocol. The in-tree adapter is ``DuckDBBackend``.
 
 Required surface:
 

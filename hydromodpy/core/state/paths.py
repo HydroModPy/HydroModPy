@@ -41,7 +41,6 @@ INDEX_FILENAME = "index.duckdb"
 # Portable URI schemes ------------------------------------------------------
 
 _LOCAL_SCHEMES: tuple[str, ...] = ("file",)
-_CLOUD_SCHEMES: tuple[str, ...] = ("s3", "gs", "az", "abfs", "gcs")
 
 
 def cache_dir() -> Path | UPath:
@@ -154,15 +153,15 @@ def resolve_workspace(uri: str | Path | UPath) -> Path:
 
     The argument is widened to ``str | Path | UPath`` so callers can
     pass either a raw URI, a :class:`pathlib.Path`, or a
-    :class:`upath.UPath` instance. Cloud URIs are accepted at the type
-    level but raise :class:`NotImplementedError` until v2 swaps in
-    real fsspec backends.
+    :class:`upath.UPath` instance. Non-local URIs are accepted at the
+    type level but rejected at runtime: this release only resolves
+    workspaces on the local filesystem.
 
     Supported schemes:
     - bare path (no scheme): treated as a local path.
     - ``file://``: parsed and returned as a :class:`Path`.
-    - ``s3://`` / ``gs://`` / ``az://`` / ``abfs://`` / ``gcs://``: not
-      implemented yet; raises :class:`NotImplementedError` (v2 scope).
+    - any other scheme: raises :class:`NotImplementedError` with the
+      offending URI.
     """
     text = str(uri)
     parsed = urlparse(text)
@@ -171,11 +170,10 @@ def resolve_workspace(uri: str | Path | UPath) -> Path:
         return Path(text).expanduser()
     if scheme in _LOCAL_SCHEMES:
         return Path(unquote(parsed.path)).expanduser()
-    if scheme in _CLOUD_SCHEMES:
-        raise NotImplementedError(
-            f"Cloud workspace_uri {text!r} is not supported: cloud backends are scheduled for v2."
-        )
-    raise ValueError(f"Unsupported workspace_uri scheme: {scheme!r}")
+    raise NotImplementedError(
+        f"workspace_uri {text!r} uses scheme {scheme!r} which is not supported "
+        "in this release. Use a local path or a file:// URI."
+    )
 
 
 __all__: Iterable[str] = (

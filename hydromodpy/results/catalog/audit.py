@@ -53,9 +53,6 @@ AuditEventType = Literal[
     "vacuum",
     "export",
     "import",
-    "ml.dataset_build",
-    "ml.split_persist",
-    "ml.scaler_fit",
 ]
 
 AuditActorKind = Literal["os_user", "principal", "system", "cli", "api"]

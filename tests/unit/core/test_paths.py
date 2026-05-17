@@ -65,13 +65,13 @@ def test_resolve_workspace_file_uri_returns_local_path() -> None:
     assert result == Path("/tmp/foo")
 
 
-def test_resolve_workspace_s3_raises_not_implemented_v2() -> None:
-    """``s3://`` URIs are accepted at the type level but raise (v2 scope)."""
-    with pytest.raises(NotImplementedError, match="v2"):
+def test_resolve_workspace_s3_raises_not_implemented() -> None:
+    """``s3://`` URIs are accepted at the type level but rejected at runtime."""
+    with pytest.raises(NotImplementedError, match="s3"):
         resolve_workspace("s3://bucket/foo")
 
 
-def test_resolve_workspace_gs_raises_not_implemented_v2() -> None:
-    """``gs://`` URIs are accepted at the type level but raise (v2 scope)."""
-    with pytest.raises(NotImplementedError, match="v2"):
+def test_resolve_workspace_gs_raises_not_implemented() -> None:
+    """``gs://`` URIs are accepted at the type level but rejected at runtime."""
+    with pytest.raises(NotImplementedError, match="gs"):
         resolve_workspace("gs://bucket/foo")

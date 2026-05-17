@@ -1,9 +1,8 @@
 """Storage backend Protocol for the catalog.
 
-Defines a structural contract that the catalog facade depends on. Adapters
-live next to it under ``adapters/`` and stay free to use SQLAlchemy 2.0
-Core, a direct DuckDB connection, or any other driver as long as the
-Protocol surface is preserved.
+Defines a structural contract that the catalog facade depends on.
+Adapters live next to it under ``adapters/`` and stay free to use any
+driver as long as the Protocol surface is preserved.
 """
 
 from __future__ import annotations
@@ -20,10 +19,9 @@ class CatalogBackend(Protocol):
     """Storage backend port for the catalog.
 
     The catalog facade interacts with the SQL store only through this
-    surface. ``DuckDBBackend`` is the default v2.0 implementation;
-    ``PostgresBackend`` is a stub kept as a structural placeholder for
-    v2.x. Every method maps to a single round-trip with the underlying
-    driver and never silently swallows exceptions.
+    surface. ``DuckDBBackend`` is the V1 implementation. Every method
+    maps to a single round-trip with the underlying driver and never
+    silently swallows exceptions.
     """
 
     def ensure_schema(self) -> None:

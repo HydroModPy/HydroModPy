@@ -234,22 +234,6 @@ def test_calibration_sessions_v2_enrichment(catalog: SimulationCatalog) -> None:
 
 
 # ---------------------------------------------------------------------------
-# ML hook tables seeded empty in V1; assert their presence.
-# ---------------------------------------------------------------------------
-
-
-def test_ml_hook_tables_seeded_empty(catalog: SimulationCatalog) -> None:
-    """The V1 DDL declares the four ML hook tables, empty."""
-    present = _table_set(catalog)
-    required = {"ml_datasets", "ml_splits", "ml_splits_members", "ml_scalers"}
-    missing = required - present
-    assert not missing, f"ML hook tables must be present: {sorted(missing)}"
-    for table in required:
-        row = catalog.connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()
-        assert row[0] == 0, f"{table} must start empty"
-
-
-# ---------------------------------------------------------------------------
 # Dim tables seeded with the canonical vocabulary
 # ---------------------------------------------------------------------------
 

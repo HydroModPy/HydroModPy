@@ -212,8 +212,8 @@ def build_prov_document(context: FairExportContext) -> dict[str, Any]:
             output_entity["contentSize"] = int(asset.size_bytes)
         # prov:wasDerivedFrom links each output to every declared input.
         # V1 uses a coarse-grained mapping (output depends on all inputs);
-        # a field-level mapping via ``field_registry.upstream_fields`` is
-        # queued for V2.
+        # a per-field mapping requires upstream-field metadata that the
+        # registry does not carry yet.
         if input_ids:
             output_entity["prov:wasDerivedFrom"] = [{"@id": iid} for iid in input_ids]
         activities.append(output_entity)

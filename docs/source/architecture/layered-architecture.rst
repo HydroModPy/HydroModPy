@@ -10,13 +10,12 @@ checked by ``tests/unit/architecture/test_layer_matrix.py`` against
 Ports and Adapters at the storage edge
 --------------------------------------
 
-v2 introduces a local **Ports and Adapters** boundary between
-``results`` and any SQL store. All catalog reads and writes go through
-the :class:`~hydromodpy.results.catalog.ports.CatalogBackend` Protocol.
-The default in-tree adapter is ``DuckDBBackend`` (SQLAlchemy 2.0 Core +
-``duckdb-engine``); a ``PostgresBackend`` stub is reserved for v2.x.
-This is a structural contract (no inheritance) so alternative stores
-can plug in without changing workflow code.
+A local **Ports and Adapters** boundary sits between ``results`` and
+any SQL store. All catalog reads and writes go through the
+:class:`~hydromodpy.results.catalog.ports.CatalogBackend` Protocol.
+The in-tree adapter is ``DuckDBBackend``. This is a structural
+contract (no inheritance) so alternative stores can be plugged in by
+implementing the protocol, without changing workflow code.
 
 The same pattern applies to field stores. ``hmp.read`` is the facade
 that dispatches a logical field name to a Zarr or Parquet reader via

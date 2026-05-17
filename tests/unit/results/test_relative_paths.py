@@ -144,8 +144,8 @@ def test_to_workspace_uri_is_file_scheme(tmp_path: Path):
     assert resolve_workspace(uri) == ws.resolve()
 
 
-def test_resolve_workspace_rejects_cloud_uri():
-    with pytest.raises(NotImplementedError, match="Cloud"):
+def test_resolve_workspace_rejects_non_local_uri():
+    with pytest.raises(NotImplementedError, match="s3"):
         resolve_workspace("s3://bucket/prefix")
 
 

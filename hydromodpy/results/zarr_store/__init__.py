@@ -4,7 +4,6 @@ from hydromodpy.results.zarr_store.acdd import (
     HIGHLY_RECOMMENDED,
     compose_acdd_root_attrs,
 )
-from hydromodpy.results.zarr_store.adapters.fsspec_store import FsspecZarrStore
 from hydromodpy.results.zarr_store.atomic import (
     STATUS_COMPLETE,
     STATUS_INCOMPLETE,
@@ -44,7 +43,6 @@ __all__ = [
     "BALANCED_TARGET_BYTES",
     "BLOSC_ZSTD",
     "CF_CONVENTIONS",
-    "FsspecZarrStore",
     "HIGHLY_RECOMMENDED",
     "LOCK_FILE_NAME",
     "LOCK_TIMEOUT_SECONDS",

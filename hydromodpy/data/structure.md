@@ -33,9 +33,9 @@ with hmp.open_catalog("~/proj/naizin") as cat:
     cat.projects.list()                      # -> <state_dir>/index.duckdb
 ```
 
-Sur disque, les trois fichiers restent separes. Le serveur V2 garde la
-meme separation (3 databases Postgres ou 3 schemas dans une DB, au choix
-operateur).
+Sur disque, les trois fichiers restent separes. Le port
+`CatalogBackend` est concu pour permettre, plus tard, le rattachement de
+l'un des trois scopes a un backend distant sans toucher les call sites.
 
 ---
 

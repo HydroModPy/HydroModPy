@@ -95,12 +95,6 @@ fair = [
     "stac-validator>=3.5,<5",
     "rocrate>=0.10,<1",
 ]
-interactive = [
-    "bokeh>=3.0,<4",
-    "holoviews>=1.18,<2",
-    "panel>=1.3,<2",
-    "hvplot>=0.9,<1",
-]
 test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml", "jsonschema>=4.0"]
 performance = ["pytest-benchmark>=5.0,<6", "uuid-utils>=0.10,<1", "polars>=1.0,<2"]
 docs = [
