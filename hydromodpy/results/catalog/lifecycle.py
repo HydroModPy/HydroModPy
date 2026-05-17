@@ -28,7 +28,9 @@ logger = get_logger(__name__)
 class LifecycleMixin:
     """Open/finalize/delete/cleanup/close for :class:`SimulationCatalog`.
 
-    Relies on the facade attributes ``self._db``, ``self._workspace``,
+    Relies on the facade attributes ``self._backend`` (CatalogBackend port),
+    ``self._db`` (DuckDB connection kept for explicit BEGIN/COMMIT/ROLLBACK
+    blocks and the ``close`` of the owned connection), ``self._workspace``,
     ``self._simulations_dir``, ``self._paths``, and ``self._open_zarr_handles``.
     """
 
@@ -64,7 +66,7 @@ class LifecycleMixin:
 
     def _fetch_simulation_row(self, sim_id: str) -> dict | None:
         """Return the ``simulations`` row as a plain dict for ACDD composition."""
-        rows = self._db.execute(
+        rows = self._backend.fetch_all(
             """SELECT s.sim_id, s.name, s.description, s.project,
                       sol.code AS solver, s.scientific_objective,
                       s.study_area_name, s.period_start, s.period_end,
@@ -75,7 +77,7 @@ class LifecycleMixin:
                  LEFT JOIN solvers sol ON s.solver_id = sol.id
                 WHERE s.sim_id = ?""",
             [sim_id],
-        ).fetchall()
+        )
         if not rows:
             return None
         cols = (
@@ -104,14 +106,14 @@ class LifecycleMixin:
     def _fetch_runs_environment_row(self, sim_id: str) -> dict | None:
         """Return the ``runs_environment`` row as a plain dict, or None."""
         try:
-            rows = self._db.execute(
+            rows = self._backend.fetch_all(
                 """SELECT user_name, hostname, hydromodpy_version, git_commit,
                           rng_seed, solver_binary_sha256, solver_version_text,
                           solver_name
                      FROM runs_environment
                     WHERE sim_id = ?""",
                 [sim_id],
-            ).fetchall()
+            )
         except Exception:
             return None
         if not rows:
@@ -145,7 +147,7 @@ class LifecycleMixin:
             query += " AND s.created_at < ?"
             params.append(older_than)
 
-        rows = self._db.execute(query, params).fetchall()
+        rows = self._backend.fetch_all(query, params)
         for (sid,) in rows:
             self.delete(str(sid))
         return len(rows)
@@ -182,7 +184,7 @@ class LifecycleMixin:
                     finally:
                         sz.close()
                 except Exception as exc:
-                    self._db.execute(
+                    self._backend.execute(
                         """UPDATE simulations
                               SET status_id = (SELECT id FROM statuses WHERE code = 'partial'),
                                   duration_s = ?,
@@ -193,13 +195,18 @@ class LifecycleMixin:
                     )
                     raise RuntimeError(f"Could not pack Zarr store for sim {sid}") from exc
 
+        # Explicit BEGIN/COMMIT/ROLLBACK on self._db: the surrounding logic
+        # is straightforward enough that the port's transaction() context
+        # would also work, but keeping the raw commands avoids any subtle
+        # behaviour change in the failure path. Inner SQL routes through
+        # the backend on the same shared connection.
         self._db.execute("BEGIN TRANSACTION")
         try:
             if status == "completed":
-                existing = self._db.execute(
+                existing = self._backend.fetch_one(
                     "SELECT scientific_objective FROM simulations WHERE sim_id = ?",
                     [sid],
-                ).fetchone()
+                )
                 if existing is not None and not existing[0]:
                     logger.debug(
                         "Simulation %s completed without a scientific_objective; "
@@ -207,13 +214,13 @@ class LifecycleMixin:
                         "Catalog.write_scientific_objective() to enable ML stratification.",
                         sid[:8],
                     )
-                    self._db.execute(
+                    self._backend.execute(
                         "UPDATE simulations SET scientific_objective = 'unspecified' WHERE sim_id = ?",
                         [sid],
                     )
 
             if rel_zarr_path is not None:
-                self._db.execute(
+                self._backend.execute(
                     """UPDATE simulations
                           SET status_id = (SELECT id FROM statuses WHERE code = ?),
                               duration_s = ?,
@@ -225,7 +232,7 @@ class LifecycleMixin:
                     [status, duration_s, rel_zarr_path, zarr_packed, sid],
                 )
             else:
-                self._db.execute(
+                self._backend.execute(
                     """UPDATE simulations
                           SET status_id = (SELECT id FROM statuses WHERE code = ?),
                               duration_s = ?,
@@ -259,10 +266,10 @@ class LifecycleMixin:
         """
         sid = str(sim_id)
 
-        row = self._db.execute(
+        row = self._backend.fetch_one(
             "SELECT zarr_path, project FROM simulations WHERE sim_id = ?",
             [sid],
-        ).fetchone()
+        )
         # Resolve artefact paths while the row still exists so basename lookup
         # works; clearing the cache and deleting the row first would push
         # resolution onto the raw-UUID fallback and miss the real folder.
@@ -275,15 +282,19 @@ class LifecycleMixin:
         if audit_payload:
             payload.update(audit_payload)
 
+        # Explicit BEGIN/COMMIT/ROLLBACK on self._db: emit_audit_event takes
+        # a raw connection by design (audit.py escapes the port), so the
+        # transaction is kept on the same connection. Inner data-table
+        # deletes route through the backend.
         self._db.execute("BEGIN TRANSACTION")
         try:
             for table in PER_SIM_TABLE_NAMES:
-                self._db.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
-            self._db.execute(
+                self._backend.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
+            self._backend.execute(
                 "DELETE FROM calibration_iterations WHERE sim_id = ?",
                 [sid],
             )
-            self._db.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
+            self._backend.execute("DELETE FROM simulations WHERE sim_id = ?", [sid])
             emit_audit_event(
                 self._db,
                 event_type=audit_event_type,  # type: ignore[arg-type]

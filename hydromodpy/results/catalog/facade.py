@@ -346,23 +346,24 @@ class SimulationCatalog(
 
     def __repr__(self) -> str:
         try:
-            count = self._db.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
+            row = self._backend.fetch_one("SELECT COUNT(*) FROM simulations")
+            count = row[0] if row is not None else "?"
         except Exception:
             count = "?"
         return f"SimulationCatalog(workspace={str(self._workspace)!r}, simulations={count})"
 
     def _repr_html_(self) -> str:
         try:
-            count = self._db.execute(
+            count = self._backend.fetch_one(
                 "SELECT COUNT(*), "
                 "SUM(CASE WHEN st.code='completed' THEN 1 ELSE 0 END), "
                 "SUM(CASE WHEN st.code='failed' THEN 1 ELSE 0 END) "
                 "FROM simulations s JOIN statuses st ON s.status_id = st.id"
-            ).fetchone()
-            total, ok, failed = count
+            )
+            total, ok, failed = count if count is not None else (0, 0, 0)
             projects = [
                 str(r[0])
-                for r in self._db.execute("SELECT DISTINCT project FROM simulations").fetchall()
+                for r in self._backend.fetch_all("SELECT DISTINCT project FROM simulations")
             ]
         except Exception:
             total, ok, failed, projects = 0, 0, 0, []

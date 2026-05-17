@@ -220,8 +220,9 @@ def _merge_with_existing(target: Path, new_table: pa.Table, pk_cols: Sequence[st
 class WritesMixin:
     """Mutating operations for :class:`SimulationCatalog`.
 
-    Relies on attributes provided by the facade: ``self._db``,
-    ``self._workspace``, ``self._paths`` (StoragePathResolver),
+    Relies on attributes provided by the facade: ``self._backend``
+    (CatalogBackend port), ``self._db`` (DuckDB connection for perf paths
+    only), ``self._workspace``, ``self._paths`` (StoragePathResolver),
     ``self._persistence`` (PersistenceConfig), and ``self.open_zarr``
     (LifecycleMixin). Each write method early-returns when the relevant
     ``PersistenceConfig`` flag is False, so a single switch governs all
@@ -241,7 +242,7 @@ class WritesMixin:
         for p in params:
             zone = p.get("zone_id")
             zone_val = GLOBAL_ZONE if zone is None else str(zone)
-            self._db.execute(
+            self._backend.execute(
                 """INSERT INTO parameters
                    (sim_id, param_name, zone_id, value, unit, parameterization)
                    VALUES (?, ?, ?, ?, ?, ?)
@@ -369,9 +370,10 @@ class WritesMixin:
                 "quality": np.full(n, quality, dtype=object),
             }
         )
+        # port escape: DuckDB-specific register() to bind an in-memory DataFrame.
         self._db.register("_hmp_insert", insert_df)
         try:
-            self._db.execute(
+            self._backend.execute(
                 """
                 DELETE FROM observations
                 WHERE station_id = ?
@@ -382,7 +384,7 @@ class WritesMixin:
                 """,
                 [station_id, variable_type],
             )
-            self._db.execute(
+            self._backend.execute(
                 """
                 INSERT INTO observations
                     (station_id, variable_type, datetime, value, unit, quality)
@@ -397,6 +399,7 @@ class WritesMixin:
                 """
             )
         finally:
+            # port escape: DuckDB-specific unregister().
             self._db.unregister("_hmp_insert")
 
     @with_lock_retry()
@@ -416,7 +419,7 @@ class WritesMixin:
     ) -> None:
         if not self._persistence.save_catalog:
             return
-        self._db.execute(
+        self._backend.execute(
             """
             INSERT INTO stations
                 (station_id, variable_type, name, latitude, longitude, elevation,
@@ -587,8 +590,8 @@ class WritesMixin:
             solver_binary_path=solver_binary_path,
         )
         sid = str(sim_id)
-        self._db.execute("DELETE FROM runs_environment WHERE sim_id = ?", [sid])
-        self._db.execute(
+        self._backend.execute("DELETE FROM runs_environment WHERE sim_id = ?", [sid])
+        self._backend.execute(
             """INSERT INTO runs_environment
                (sim_id, python_version, hydromodpy_version, platform,
                 hostname, user_name, cpu_info, memory_gb,
@@ -642,7 +645,7 @@ class WritesMixin:
             return
         if not objective or not str(objective).strip():
             raise ValueError("scientific_objective must be a non-empty string")
-        self._db.execute(
+        self._backend.execute(
             """UPDATE simulations SET
                    scientific_objective = ?,
                    description = COALESCE(?, description),
@@ -680,7 +683,7 @@ class WritesMixin:
     ) -> None:
         if not self._persistence.save_catalog:
             return
-        self._db.execute(
+        self._backend.execute(
             """INSERT INTO metrics
                (sim_id, station_id, variable, metric_name, value,
                 n_samples, period_start, period_end)
@@ -773,7 +776,7 @@ class WritesMixin:
             int(np.prod(data.shape)),
             json.dumps(fp["stats"]),
         ]
-        self._db.execute(
+        self._backend.execute(
             """INSERT INTO provenance
                (sim_id, variable, source_type, source_ref,
                 source_sha256, loader_name, loader_version, fetched_at,
@@ -836,10 +839,10 @@ class WritesMixin:
             return
         sid = str(sim_id)
         if crs is None or crs_epsg is None:
-            row = self._db.execute(
+            row = self._backend.fetch_one(
                 "SELECT crs_wkt, crs_epsg FROM simulations WHERE sim_id = ?",
                 [sid],
-            ).fetchone()
+            )
             if row is not None:
                 crs = crs or row[0]
                 crs_epsg = crs_epsg if crs_epsg is not None else row[1]
@@ -857,7 +860,7 @@ class WritesMixin:
             mapping = point_in_cell(vertices, connectivity, points)
             for station_id, (x, y) in points.items():
                 cell_id = mapping[station_id]
-                self._db.execute(
+                self._backend.execute(
                     """INSERT INTO observation_points
                        (sim_id, station_id, x, y, cell_id, layer, crs_wkt, crs_epsg)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -916,7 +919,7 @@ class WritesMixin:
                 # cross-machine consumers know the record cannot be replayed.
                 encoded = str(canonical)
                 portable = False
-            self._db.execute(
+            self._backend.execute(
                 """INSERT INTO tracked_files
                    (sim_id, role, category, original_path, canonical_path,
                     sha256, size_bytes, portable)
@@ -987,7 +990,7 @@ class WritesMixin:
             "schema_sha256": schema_hash,
             "geoparquet_version": "1.1.0",
         }
-        self._db.execute(
+        self._backend.execute(
             """INSERT INTO geographic_features
                (sim_id, feature_name, geometry_kind, crs_wkt,
                 geoparquet_path, properties)
@@ -1040,7 +1043,7 @@ class WritesMixin:
         sid = str(sim_id)
         for key, value in metadata.items():
             value_type = _python_value_type(value)
-            self._db.execute(
+            self._backend.execute(
                 """INSERT INTO geographic_metadata
                    (sim_id, key, value, value_type)
                    VALUES (?, ?, ?, ?)
@@ -1168,7 +1171,7 @@ class WritesMixin:
         ``ended_at`` (or ``created_at`` fallback), never ``datetime.now``, so a
         reproducible re-run lands on a byte-identical file.
         """
-        row = self._db.execute(
+        row = self._backend.fetch_one(
             """SELECT s.project, s.name, sv.code, s.config_hash,
                       s.scientific_objective, s.bbox_xmin, s.bbox_ymin,
                       s.bbox_xmax, s.bbox_ymax, s.period_start, s.period_end,
@@ -1177,7 +1180,7 @@ class WritesMixin:
                  JOIN solvers sv ON s.solver_id = sv.id
                 WHERE s.sim_id = ?""",
             [sim_id],
-        ).fetchone()
+        )
         if row is None:
             return {
                 "sim_id": sim_id,

@@ -51,7 +51,7 @@ class AmbiguousReferenceError(KeyError):
 class DiscoveryMixin:
     """Reference-resolution and view-builder methods for :class:`SimulationCatalog`.
 
-    Relies on ``self._db``.
+    Relies on the facade attribute ``self._backend`` (CatalogBackend port).
     """
 
     def resolve(
@@ -78,20 +78,20 @@ class DiscoveryMixin:
             raise SimulationNotFoundError("Empty reference")
 
         if _UUID_FULL_RE.match(ref_s):
-            row = self._db.execute(
+            row = self._backend.fetch_one(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
                 [ref_s.lower()],
-            ).fetchone()
+            )
             if row:
                 return str(row[0])
 
         ref_nodash = ref_s.replace("-", "").lower()
         if _HEX_RE.match(ref_nodash) and len(ref_nodash) >= _MIN_PREFIX_LEN:
-            rows = self._db.execute(
+            rows = self._backend.fetch_all(
                 "SELECT CAST(sim_id AS VARCHAR), name FROM simulations "
                 "WHERE REPLACE(CAST(sim_id AS VARCHAR), '-', '') LIKE ? || '%'",
                 [ref_nodash],
-            ).fetchall()
+            )
             if len(rows) == 1:
                 return str(rows[0][0])
             if len(rows) > 1:
@@ -101,17 +101,17 @@ class DiscoveryMixin:
                 )
 
         if project is not None:
-            row = self._db.execute(
+            row = self._backend.fetch_one(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE project = ? AND name = ?",
                 [project, ref_s],
-            ).fetchone()
+            )
             if row:
                 return str(row[0])
         else:
-            rows = self._db.execute(
+            rows = self._backend.fetch_all(
                 "SELECT CAST(sim_id AS VARCHAR), project FROM simulations WHERE name = ?",
                 [ref_s],
-            ).fetchall()
+            )
             if len(rows) == 1:
                 return str(rows[0][0])
             if len(rows) > 1:
@@ -222,20 +222,20 @@ class DiscoveryMixin:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY s.created_at DESC"
 
-        rows = self._db.execute(query, join_params + clause_params).fetchall()
+        rows = self._backend.fetch_all(query, join_params + clause_params)
         sim_ids = [str(r[0]) for r in rows]
         return SimulationGroup(sim_ids, self)
 
     def latest(self, project: str) -> Run:
         from hydromodpy.results.run import Run
 
-        row = self._db.execute(
+        row = self._backend.fetch_one(
             "SELECT s.sim_id FROM simulations s "
             "JOIN statuses st ON s.status_id = st.id "
             "WHERE s.project = ? AND st.code = 'completed' "
             "ORDER BY s.created_at DESC LIMIT 1",
             [project],
-        ).fetchone()
+        )
         if row is None:
             raise KeyError(f"No completed simulation for project '{project}'")
         return Run(str(row[0]), self)
@@ -257,7 +257,7 @@ class DiscoveryMixin:
         from hydromodpy.results.simulation_group import SimulationGroup
 
         order = "ASC" if ascending else "DESC"
-        rows = self._db.execute(
+        rows = self._backend.fetch_all(
             "SELECT s.sim_id FROM simulations s "
             "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
@@ -265,7 +265,7 @@ class DiscoveryMixin:
             "AND m.metric_name = ? "
             f"ORDER BY m.value {order} LIMIT ?",
             [project, metric, n],
-        ).fetchall()
+        )
         if not rows:
             raise KeyError(
                 f"No completed simulation with metric '{metric}' for project '{project}'"
