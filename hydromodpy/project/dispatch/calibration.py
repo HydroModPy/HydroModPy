@@ -1,4 +1,9 @@
-"""Root-level calibration adapters that depend on the public Project facade."""
+"""Calibration adapters that depend on the public Project facade.
+
+Lives under :mod:`hydromodpy.project.dispatch` because :class:`Project` is the
+top-level facade and the architectural matrix forbids the ``calibration``
+layer from depending on it directly.
+"""
 
 from __future__ import annotations
 

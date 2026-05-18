@@ -20,11 +20,17 @@ Top-level facade
    |-- _lazy.py                Lazy-export tables (LAZY_IMPORTS,
    |                           MODULE_EXPORTS).
    |-- __main__.py             ``python -m hydromodpy`` entry point.
-   |-- project.py              Public ``Project`` facade.
-   |-- project_accessors.py    Read-only accessors on Project.
-   |-- project_catalog.py      Project-level catalog binding.
-   |-- project_phases.py       Lazy-phase Project orchestration.
-   `-- project_runner.py       Project execution wrapper.
+   `-- project/                Public ``Project`` facade subpackage.
+       |-- __init__.py         Re-exports ``Project`` and its helpers.
+       |-- facade.py           ``Project`` class.
+       |-- accessors.py        Read-only accessors on Project.
+       |-- catalog.py          Project-level catalog binding.
+       |-- phases.py           Lazy-phase Project orchestration.
+       |-- prepared_run.py     Prepared-run primitives.
+       |-- runner.py           Project execution wrapper.
+       |-- session.py          Run-phase session facade.
+       `-- dispatch/           Workflow / calibration adapters bound to
+                               ``Project`` (workflow.py, calibration.py).
 
 The :class:`hydromodpy.project.Project` facade composes setup, data
 loading, mesh construction, solver execution, and result ingestion.

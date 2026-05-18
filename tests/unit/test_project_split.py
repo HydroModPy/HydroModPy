@@ -2,14 +2,14 @@
 
 P8 caps :class:`Project` at <= 15 instance methods (model-phase verbs +
 lifecycle). Run-phase orchestration primitives move to
-:class:`hydromodpy.project_session.ProjectSession` returned by
+:class:`hydromodpy.project.session.ProjectSession` returned by
 :meth:`Project.session`.
 """
 
 from __future__ import annotations
 
 from hydromodpy.project import Project
-from hydromodpy.project_session import ProjectSession
+from hydromodpy.project.session import ProjectSession
 
 MAX_PROJECT_METHODS = 15
 
