@@ -23,7 +23,7 @@ class ModpathTransportAdapter:
 
     process_type = "transport"
     solver_name = "modpath"
-    requires: tuple[tuple[str, str], ...] = (("flow", "modflownwt"),)
+    requires: tuple[tuple[str, str], ...] = (("flow", "modflow_nwt"),)
 
     def validate(self, ctx: RunContext) -> None:
         """No precondition checks for Modpath transport runs."""

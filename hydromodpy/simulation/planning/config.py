@@ -249,7 +249,7 @@ class SimulationConfig(HydroModelBase):
         cls,
         *,
         time: tuple[str, str, object],
-        flow: str = "modflownwt",
+        flow: str = "modflow_nwt",
         transport: str | None = None,
         name: str = "",
         **overrides,
@@ -280,7 +280,7 @@ class SimulationConfig(HydroModelBase):
     def steady(
         cls,
         *,
-        flow: str = "modflownwt",
+        flow: str = "modflow_nwt",
         start: str = "2000-01-01",
         end: str = "2000-12-31",
         step: object = "1 year",

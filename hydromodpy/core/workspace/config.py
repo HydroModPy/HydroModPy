@@ -5,16 +5,16 @@ Resolution order (first match wins):
 1. **Explicit** - the TOML declares ``root`` or ``data_dir`` under
    ``[workspace]``. A declared ``root`` derives the shared data directory
    unless ``data_dir`` is explicitly overridden.
-2. **Env var** - ``HYDROMODPY_WORKSPACE`` is set and points to a
+2. **Env var** - ``HMP_WORKSPACE`` is set and points to a
    directory used as the shared data workspace.
 3. **Scaffold** - the TOML lives at
-   ``<workspace>/projects/<name>/project.toml`` and the grand-grand-parent
+   ``<workspace>/projects/<name>/hydromodpy.toml`` and the grand-grand-parent
    contains a ``data/`` directory.
 4. **Standalone project** - the project directory itself is used as the
    shared data workspace.
 
 Result catalogs are project-local by default: ``catalog_path`` resolves to
-``<project_root>/hydromodpy.duckdb`` and ``simulations_dir`` resolves to
+``<project_root>/catalog.duckdb`` and ``simulations_dir`` resolves to
 ``<project_root>/simulations``. The shared workspace root only owns input
 data caches.
 """
@@ -26,9 +26,11 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from pydantic import Field, PrivateAttr, computed_field, model_validator
+from upath import UPath
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
+from hydromodpy.core.state.paths import CATALOG_FILENAME, PROJECT_TOML_FILENAME
 
 ResolutionSource = Literal["explicit", "env", "scaffold", "project"]
 
@@ -39,12 +41,13 @@ class WorkspaceConfig(HydroModelBase):
     The canonical workspace layout is::
 
         <workspace>/
+            workspace.toml
             data/
                 cache.duckdb
             projects/
                 <name>/
-                    project.toml   <- TOML lives here when using scaffold
-                    hydromodpy.duckdb
+                    hydromodpy.toml   <- TOML lives here when using scaffold
+                    catalog.duckdb
                     simulations/
                         <basename>.zarr/ or <basename>.zarr.zip
 
@@ -67,12 +70,12 @@ class WorkspaceConfig(HydroModelBase):
         per-run ``figures/``). Defaults to ``project_root``.
     """
 
-    project_root: Annotated[Path, Profile.USER] = Field(
+    project_root: Annotated[Path | UPath, Profile.USER] = Field(
         description="Path to the project directory. Required in TOML configs.",
         examples=["."],
     )
 
-    root: Annotated[Path | None, Profile.USER] = Field(
+    root: Annotated[Path | UPath | None, Profile.USER] = Field(
         default=None,
         description=(
             "Explicit shared data workspace root. When set, derives data_dir unless "
@@ -84,8 +87,8 @@ class WorkspaceConfig(HydroModelBase):
     catalog_path: Annotated[Path | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Explicit path to the project hydromodpy.duckdb. Defaults to "
-            "<project_root>/hydromodpy.duckdb."
+            f"Explicit path to the project {CATALOG_FILENAME}. Defaults to "
+            f"<project_root>/{CATALOG_FILENAME}."
         ),
     )
 
@@ -132,7 +135,7 @@ class WorkspaceConfig(HydroModelBase):
         _set_if_changed(
             self,
             "catalog_path",
-            _finalize(self.catalog_path, project_root / "hydromodpy.duckdb"),
+            _finalize(self.catalog_path, project_root / CATALOG_FILENAME),
         )
         _set_if_changed(self, "data_dir", _finalize(self.data_dir, root / "data"))
         _set_if_changed(
@@ -212,7 +215,7 @@ def _resolve_root(
     if data_dir is not None:
         return Path(data_dir).expanduser().resolve().parent, "explicit"
 
-    env_root = os.environ.get("HYDROMODPY_WORKSPACE")
+    env_root = os.environ.get("HMP_WORKSPACE")
     if env_root:
         return Path(env_root).expanduser().resolve(), "env"
 
@@ -232,8 +235,8 @@ def _format_hint(project_root: Path) -> str:
         f"Cannot locate a HydroModPy workspace for project at {project_root}.\n"
         "Pick one of:\n"
         "  (a) scaffold: run `hmp init <workspace-dir>` then place\n"
-        "      this TOML at <workspace>/projects/<name>/project.toml\n"
-        "  (b) env var:  export HYDROMODPY_WORKSPACE=/path/to/workspace\n"
+        f"      this TOML at <workspace>/projects/<name>/{PROJECT_TOML_FILENAME}\n"
+        "  (b) env var:  export HMP_WORKSPACE=/path/to/workspace\n"
         "  (c) explicit: add to [workspace]:\n"
         "          root = '/path/to/workspace'\n"
         "        (or per-component: catalog_path, data_dir, simulations_dir)"

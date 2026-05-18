@@ -1,5 +1,5 @@
 [[simulation.process]]
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [modflownwt.sgrid.planar]
 mode = "resample_to_shape"

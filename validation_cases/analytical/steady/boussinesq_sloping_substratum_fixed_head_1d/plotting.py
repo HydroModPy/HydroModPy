@@ -13,7 +13,7 @@ from .comparison import BoussinesqSlopingSubstratumFixedHeadComparison
 
 def _format_solver_name(solver_name: str) -> str:
     normalized_solver = str(solver_name).strip().lower()
-    if normalized_solver == "modflownwt":
+    if normalized_solver == "modflow_nwt":
         return "modflow_nwt"
     if normalized_solver == "modflow6_irregular_tri":
         return "modflow6_irregular_tri"

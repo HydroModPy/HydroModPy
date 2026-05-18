@@ -65,7 +65,7 @@ class TestDerivedVariables:
         reg = catalog.register_simulation(
             sid,
             project="test",
-            solver="modflownwt",
+            solver="modflow_nwt",
             n_cells=n_cells,
             n_layers=n_layers,
             n_timesteps=n_ts,

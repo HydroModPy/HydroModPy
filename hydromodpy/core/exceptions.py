@@ -275,6 +275,18 @@ class WorkspaceLockedError(PipelineError):
     code = "HMPY.E507"
 
 
+class JournalError(PipelineError):
+    """Workflow journal write/read inconsistency."""
+
+    code = "HMPY.E508"
+
+
+class ResumeIntegrityError(ResumeError):
+    """A completed-step artefact failed integrity verification on resume."""
+
+    code = "HMPY.E509"
+
+
 # -- Calibration ---------------------------------------------------------------
 
 
@@ -408,6 +420,8 @@ __all__ = [
     "CheckpointError",
     "LedgerError",
     "ResumeError",
+    "ResumeIntegrityError",
+    "JournalError",
     "ExtractError",
     "ExportError",
     "WorkspaceLockedError",

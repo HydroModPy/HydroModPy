@@ -13,13 +13,20 @@ route and the Python API.
 |-- run_transient_nwt.toml
 |-- run_hydrographic_network_comparison.toml
 |-- run_calibration_k.toml
-|-- run_sweep_sy.toml
+|-- run_sweep_sy.toml                       # design draft (sweep workflow non câblé)
+|-- run_overview_all_apis.toml
 |-- run_full_python.py
 |-- run_cellular.py
-|-- run_transient_prototype.py
+|-- run_transient_prototype.py.draft        # quarantaine v1 : à réécrire
 |-- figures/
 `-- README.md
 ```
+
+> **Mise en quarantaine v1.** `run_transient_prototype.py.draft` n'a
+> pas survécu à la migration database/catalog/workflow : sa réécriture
+> attend l'API stabilisée (`hmp.open_catalog`, journal
+> `workflow_steps`). En attendant, utiliser `run_cellular.py` ou les
+> entrées du showcase `11_nancon_watershed/python/`.
 
 ## Prerequisites
 
@@ -54,7 +61,7 @@ All commands assume your working directory is the repository root.
 | `hmp run examples/projects/02_nancon_watershed/run_transient_nwt.toml` | One transient MODFLOW-NWT run, monthly steps, 2000-2002. |
 | `hmp run examples/projects/02_nancon_watershed/run_hydrographic_network_comparison.toml` | Same Nancon base case, but with DEM-derived river-network extraction enabled and the standard `hydrographic_network_comparison` figure rendered at the end. |
 | `hmp run examples/projects/02_nancon_watershed/run_calibration_k.toml` | Optuna calibration on K against observed discharge (NSE objective). Sy / Ss / thickness frozen. |
-| `hmp run examples/projects/02_nancon_watershed/run_sweep_sy.toml` | Forward-looking design TOML for a Sy sweep. Not runnable yet because the `sweep` workflow is not wired into the dispatcher. Use `run_transient_prototype.py` until then. |
+| `hmp run examples/projects/02_nancon_watershed/run_sweep_sy.toml` | Design draft for a Sy sweep. Not runnable: the `sweep` workflow is not wired into the v1 dispatcher. See `11_nancon_watershed/python/05_sweep_sy.py` for the supported Python-driven sweep. |
 
 To validate any TOML without running it:
 `hmp config check examples/projects/02_nancon_watershed/<file>.toml`.
@@ -65,7 +72,6 @@ To validate any TOML without running it:
 | --- | --- |
 | `python examples/projects/02_nancon_watershed/run_full_python.py` | Builds the same configuration as `run_transient_nwt.toml`, but entirely in Python. |
 | `python examples/projects/02_nancon_watershed/run_cellular.py` | Lazy Project mode. Builds geographic and data once, iterates on mesh cell sizes, then runs one final simulation. |
-| `python examples/projects/02_nancon_watershed/run_transient_prototype.py` | Reads `project.toml`, runs three transient simulations with Sy in `{0.001, 0.05, 0.30}`, then reads the catalog to render comparison figures into `figures/`. |
 
 ## Difference between the TOML and Python entry points
 
@@ -84,9 +90,15 @@ Both entry points ultimately write the same Zarr stores and DuckDB rows.
 
 Running any of the entries above creates or updates:
 
-- `<workspace>/hydromodpy.duckdb` - shared catalog of every run.
-- `<workspace>/simulations/<sim_id>.zarr` - per-run gridded outputs.
+- `<workspace>/catalog.duckdb` - per-project catalog (simulations + flow heads/budget).
+- `<workspace>/data/cache.duckdb` - shared input cache (DEM, hydrography, BRGM, ...).
+- `<workspace>/simulations/<sim_id>.zarr/` - per-run gridded outputs (CF-1.11 + UGRID-1.0).
 - `figures/<run_name>/` - figures listed in `[display].figures`.
+
+Open `hmp.open_catalog(<workspace>)` from Python to reach the three
+namespaces (`.simulations`, `.inputs`, `.projects`). The legacy
+`hmp.open(<workspace>)` still works and returns the simulations-only
+facade.
 
 For the hydrographic-network demo run, the main artifact is:
 
@@ -114,10 +126,7 @@ When one network is missing:
 - `run.hydrographic_network_comparison()` raises a clear error telling you which
   role is missing and which roles are available.
 
-The Python sweep script also writes its own comparison figures to `figures/`:
-
-- `cross_section_comparison.png`
-- `streamflow_comparison.png`
-- `drainage_density_comparison.png`
-- `saturation_maps_comparison.png`
-- `persistency_comparison.png`
+The historical Python sweep script (`run_transient_prototype.py`) is
+currently in quarantine under the `.draft` suffix; once rewritten it
+will land back here. See `11_nancon_watershed/python/05_sweep_sy.py`
+for the supported sweep template.

@@ -39,7 +39,7 @@ Sub-models are linked back to their per-section page.
       # Explicit shared data workspace root. When set, derives data_dir unless it is overridden. Result catalogs stay project-local by default.
       # example: root = "../.."
       # root = ...  # default = None
-      # Explicit path to the project hydromodpy.duckdb. Defaults to <project_root>/hydromodpy.duckdb.
+      # Explicit path to the project catalog.duckdb. Defaults to <project_root>/catalog.duckdb.
       # catalog_path = ...  # default = None
       # Explicit path to the workspace data directory. Defaults to <root>/data.
       # data_dir = ...  # default = None

@@ -29,7 +29,7 @@ solvers = ["modflow6"]
 [[simulation.process]]
 id = "transport_main"
 type = "transport"
-solvers = ["modflow6gwt"]
+solvers = ["modflow6"]
 
 [transport.modflow6gwt.parameters]
 sconc_init = 0.1

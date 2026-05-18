@@ -4,7 +4,7 @@ regime = "steady"
 dimension = "1d"
 launcher = "launcher_simulation"
 config_file = "config_modflownwt.toml"
-default_solver = "modflownwt"
+default_solver = "modflow_nwt"
 base_config = "config_modflownwt.toml"
 
 [config_files]
@@ -30,4 +30,3 @@ hydraulic_conductivity_m_per_s = 1e-4
 aquifer_thickness_m = 20.0
 profile_axis = 0
 divide_side = "west"
-

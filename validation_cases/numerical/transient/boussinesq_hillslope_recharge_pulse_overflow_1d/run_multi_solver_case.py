@@ -709,7 +709,7 @@ def main(argv: list[str] | None = None) -> int:
     output_root = Path(args.output_root).expanduser().resolve()
     apply_output_root_override(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
-    os.environ["HYDROMODPY_OUT_PATH"] = str(output_root)
+    os.environ["HMP_OUT_PATH"] = str(output_root)
 
     results: list[TimedSolverDiagnostics] = []
     for solver_name in solver_names:

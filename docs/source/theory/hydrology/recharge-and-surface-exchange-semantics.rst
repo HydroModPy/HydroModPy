@@ -26,26 +26,25 @@ For a deeper treatment of boundary-like surface exchanges, see
 Runtime Data-To-Flow Diagram
 ----------------------------
 
-.. mermaid::
+External datasets (recharge, ETP, runoff, hydrography, oceanic) are
+turned into ``LoadResult`` payloads by the data managers. From there:
 
-   flowchart LR
-     Data["External datasets<br/>recharge, ETP, runoff,<br/>hydrography, oceanic"]
-     Load["Data managers<br/>LoadResult payloads"]
-     Binders["Structure binders<br/>bind recharge / ETP /<br/>boundary payloads"]
-     Bridge["forcing_bridge.resolve_forcing()<br/>spatial mode + time alignment<br/>unit normalization"]
-     FlowCfg["FlowRechargeConfig<br/>FlowEtpConfig<br/>boundary mappings"]
-     Flow["Flow runtime"]
-     Solvers["Solver adapters<br/>MODFLOW-NWT / MODFLOW 6 /<br/>Boussinesq"]
-     Eval["Calibration / comparison<br/>runoff remains observation-side<br/>and may be added to DRN/baseflow"]
+- recharge, ETP, and stage-capable inputs are passed through structure
+  binders that build the recharge, ETP, or boundary payloads,
+- the binders hand the diffuse forcing to
+  ``forcing_bridge.resolve_forcing()``, which aligns the spatial mode,
+  the time axis, and the units (``mm/day`` to ``m/s``, or stage in
+  ``m``),
+- the normalized forcing is plugged into ``FlowRechargeConfig``,
+  ``FlowEtpConfig``, and the boundary mappings,
+- the resulting ``Flow`` runtime is then forwarded to the solver
+  adapters (MODFLOW-NWT, MODFLOW 6, Boussinesq).
 
-     Data --> Load
-     Load -- "recharge, ETP, stage-capable inputs" --> Binders
-     Binders -- "diffuse forcing path" --> Bridge
-     Bridge -- "mm/day to m/s, or stage in m" --> FlowCfg
-     FlowCfg --> Flow
-     Flow --> Solvers
-     Load -- runoff --> Eval
-     Flow -- "simulated heads, drainage, baseflow" --> Eval
+Runoff is **not** routed through the Flow contract: it stays an
+observation-side input that calibration and comparison consume directly.
+Simulated heads, drainage, and baseflow from the Flow runtime are
+combined with that runoff at evaluation time, where runoff may be added
+to the DRN/baseflow signal.
 
 Diffuse forcing and boundary support share one Flow contract, but they are
 not the same physical category.

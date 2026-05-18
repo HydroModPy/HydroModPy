@@ -163,7 +163,7 @@ For ``flow/modflow6``, HydroModPy now uses the following result path:
 
    - ``mesh/vertices``,
    - ``mesh/face_node_connectivity``,
-   - ``mesh/surface_top``,
+   - ``mesh/topography``,
    - ``mesh/z_interfaces``.
 
 4. The derived-field extractor converts raw DRN budget values to positive

@@ -140,6 +140,15 @@ class Modflow6PrtParametersConfig(HydroModelBase):
             "selects cells in the highest 10 percent of active cell-top elevations."
         ),
     )
+    outlet_bottom_quantile: Annotated[float, Profile.DEV] = Field(
+        default=0.10,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Bottom-elevation quantile used by the 'outlet' release zone. A value of "
+            "0.10 selects cells in the lowest 10 percent of active cell-top elevations."
+        ),
+    )
     track_dir: Annotated[Literal["forward"], Profile.DEV] = Field(
         default="forward",
         description="Particle tracking direction. MF6 PRT support is currently forward only.",

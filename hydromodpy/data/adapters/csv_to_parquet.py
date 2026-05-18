@@ -21,6 +21,13 @@ from datetime import datetime
 from pathlib import Path
 
 from hydromodpy.core.exceptions import DataContractViolation
+from hydromodpy.data.schemas import (
+    StationCollectionSchema,
+    TimeSeriesSchema,
+    validate_warn_only,
+)
+
+_WGS84_CRS_TOKENS = frozenset({"EPSG:4326", "epsg:4326", "WGS84", "WGS 84"})
 
 TIMESERIES_COLUMNS = ("datetime", "value")
 LOCATIONS_COLUMNS = ("id", "x", "y", "crs", "unit")
@@ -146,15 +153,23 @@ def convert_timeseries_csv_to_parquet(
     src: str | Path,
     dest: str | Path,
 ) -> Path:
-    """Convert a validated timeseries CSV into a Parquet file."""
+    """Convert a validated timeseries CSV into a Parquet file.
+
+    The output respects the v2 Parquet write defaults (ZSTD-5, page index,
+    row-group 50k) without crossing the layer boundary into ``results``.
+    """
+    import os
+    import uuid as _uuid
+
     src = Path(src)
     dest = Path(dest)
     artifact = read_timeseries_csv(src)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    import duckdb
     import pandas as pd
+    import pyarrow as pa
+    import pyarrow.parquet as pq
 
     frame = pd.DataFrame(
         {
@@ -163,18 +178,38 @@ def convert_timeseries_csv_to_parquet(
             "station_id": [artifact.station_id] * len(artifact.records),
         },
     )
-    tmp = dest.with_name(dest.name + ".tmp")
-    conn = duckdb.connect(":memory:")
+    validation_view = frame[["datetime", "value"]].rename(columns={"datetime": "date"})
+    validate_warn_only(
+        validation_view,
+        TimeSeriesSchema,
+        schema_name=f"TimeSeriesSchema[{src.name}]",
+    )
+    schema = pa.schema(
+        [
+            pa.field("datetime", pa.timestamp("ms")),
+            pa.field("value", pa.float64()),
+            pa.field("station_id", pa.string()),
+        ]
+    )
+    table = pa.Table.from_pandas(frame, schema=schema, preserve_index=False)
+    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
     try:
-        conn.register("_hmp_timeseries_csv", frame)
-        tmp_sql = str(tmp).replace("'", "''")
-        conn.execute(
-            f"COPY (SELECT * FROM _hmp_timeseries_csv) TO '{tmp_sql}' "
-            "(FORMAT PARQUET, COMPRESSION ZSTD)"
+        pq.write_table(
+            table,
+            tmp,
+            compression="zstd",
+            compression_level=5,
+            row_group_size=50_000,
+            use_dictionary=True,
+            write_statistics=True,
+            write_page_index=True,
+            version="2.6",
         )
-    finally:
-        conn.close()
-    tmp.replace(dest)
+    except Exception:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+    os.replace(tmp, dest)
     return dest
 
 
@@ -259,7 +294,14 @@ def convert_locations_csv_to_geoparquet(
     src: str | Path,
     dest: str | Path,
 ) -> Path:
-    """Convert a locations CSV into a Parquet vector table with WKB geometry."""
+    """Convert a locations CSV into an OGC GeoParquet 1.1 vector table.
+
+    Uses :meth:`geopandas.GeoDataFrame.to_parquet` with the v2 contract
+    (``schema_version=1.1.0``, WKB encoding, covering bbox) inline.
+    """
+    import os
+    import uuid as _uuid
+
     src = Path(src)
     dest = Path(dest)
     artifact = read_locations_csv(src)
@@ -268,31 +310,49 @@ def convert_locations_csv_to_geoparquet(
 
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    import duckdb
+    import geopandas as gpd
     import pandas as pd
     from shapely.geometry import Point
 
     geoms = [Point(s["x"], s["y"]) for s in artifact.stations]
-    frame = pd.DataFrame(
+    gdf = gpd.GeoDataFrame(
         {
             "id": [s["id"] for s in artifact.stations],
             "unit": [s["unit"] for s in artifact.stations],
-            "crs": [artifact.crs] * len(artifact.stations),
-            "geometry_wkb": [bytes(geom.wkb) for geom in geoms],
         },
+        geometry=geoms,
+        crs=artifact.crs,
     )
-    tmp = dest.with_name(dest.name + ".tmp")
-    conn = duckdb.connect(":memory:")
-    try:
-        conn.register("_hmp_locations_csv", frame)
-        tmp_sql = str(tmp).replace("'", "''")
-        conn.execute(
-            f"COPY (SELECT * FROM _hmp_locations_csv) TO '{tmp_sql}' "
-            "(FORMAT PARQUET, COMPRESSION ZSTD)"
+
+    if artifact.crs in _WGS84_CRS_TOKENS and artifact.stations:
+        stations_view = pd.DataFrame(
+            {
+                "station_id": [str(s["id"]) for s in artifact.stations],
+                "lat": [float(s["y"]) for s in artifact.stations],
+                "lon": [float(s["x"]) for s in artifact.stations],
+            }
         )
-    finally:
-        conn.close()
-    tmp.replace(dest)
+        validate_warn_only(
+            stations_view,
+            StationCollectionSchema,
+            schema_name=f"StationCollectionSchema[{src.name}]",
+        )
+    tmp = dest.with_name(f"{dest.name}.tmp-{_uuid.uuid4().hex}")
+    try:
+        gdf.to_parquet(
+            tmp,
+            compression="zstd",
+            compression_level=5,
+            schema_version="1.1.0",
+            geometry_encoding="WKB",
+            write_covering_bbox=True,
+            index=False,
+        )
+    except Exception:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+    os.replace(tmp, dest)
     return dest
 
 

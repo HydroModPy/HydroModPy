@@ -368,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     output_root = Path(args.output_root).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
-    os.environ["HYDROMODPY_OUT_PATH"] = str(output_root)
+    os.environ["HMP_OUT_PATH"] = str(output_root)
 
     selected_cases = tuple(args.cases)
     results: list[SimpleComparisonResult] = []

@@ -227,6 +227,7 @@ Use these pages once you have generated or opened result pages:
    cli-reference
    Data loading <data/index>
    results-and-exports
+   catalog
    figures
    project-api
    solvers

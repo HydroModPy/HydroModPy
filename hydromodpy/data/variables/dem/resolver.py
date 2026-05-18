@@ -22,6 +22,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
+
 _API_SOURCES = {"ign_bdalti"}
 _BOOTSTRAP_BUFFER_M = 30_000
 
@@ -112,6 +114,6 @@ def _bootstrap_api_source(
 
     from hydromodpy.data.variables.dem.apis.ign_bdalti import fetch_bdalti
 
-    output_dir = cache_dir or (Path.home() / ".cache" / "hydromodpy" / "dem")
+    output_dir = cache_dir or (_hmp_cache_dir() / "dem")
     output_dir.mkdir(parents=True, exist_ok=True)
     return fetch_bdalti(output_dir=output_dir, bbox=bbox)

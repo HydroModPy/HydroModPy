@@ -6,21 +6,28 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from hydromodpy.solver.boussinesq.runtime_contract import NonlinearRuntimeOptions
 
+_SCRIPT_PATH = (
+    Path(__file__).resolve().parents[3]
+    / "examples"
+    / "projects"
+    / "10_testbed_workflow"
+    / "boussinesq"
+    / "natural_geology_k"
+    / "run_bouss_stationary_robust_solver_matrix.py"
+)
+
+pytestmark = pytest.mark.skipif(
+    not _SCRIPT_PATH.exists(),
+    reason=f"{_SCRIPT_PATH.name} script is not shipped in this revision",
+)
+
 
 def _load_script_module():
-    path = (
-        Path(__file__).resolve().parents[3]
-        / "examples"
-        / "projects"
-        / "10_testbed_workflow"
-        / "boussinesq"
-        / "natural_geology_k"
-        / "run_bouss_stationary_robust_solver_matrix.py"
-    )
-    spec = importlib.util.spec_from_file_location("robust_solver_matrix", path)
+    spec = importlib.util.spec_from_file_location("robust_solver_matrix", _SCRIPT_PATH)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)

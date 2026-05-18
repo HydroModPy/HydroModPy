@@ -239,6 +239,18 @@ def bootstrap_proj() -> None:
     Opt-in. Mutates ``os.environ['PROJ_DATA']`` and ``PROJ_LIB`` to point at
     the database shipped with the current pyproj install, and recovers a
     compatible candidate when the layout version is too old.
+
+    Returns
+    -------
+    None
+        Side effect only. ``PROJ_DATA`` and ``PROJ_LIB`` are set in
+        ``os.environ`` when a compatible database is found. A warning is
+        logged when none of the known candidates satisfy the minimum layout.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.bootstrap_proj()
     """
     _ensure_proj_data_from_env()
     _ensure_proj_db_compatibility()

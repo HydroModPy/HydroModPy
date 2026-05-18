@@ -1,0 +1,19 @@
+# ======================================================================
+# Overlay - resample the MODFLOW-NWT grid to a fixed (200, 200) shape
+# ----------------------------------------------------------------------
+# Demonstrates how to override solver-grid parameters from the command
+# line. Stacked on top of 01_run_simulation_nwt.toml it forces the
+# planar grid to a 200x200 raster instead of the native DEM resolution.
+#
+# Usage:
+#   hmp run 01_run_simulation_nwt.toml --overlay overlays/overlay_high_resolution.toml
+# ======================================================================
+
+[modflownwt.sgrid.planar]
+# Planar solver-grid mode: keep the native domain support or resample
+# to an explicit (ny, nx) target shape.
+# Type: Literal['keep_native', 'resample_to_shape'] | Default: "keep_native"
+mode = "resample_to_shape"
+nx = 200
+ny = 200
+resampling = "nearest"

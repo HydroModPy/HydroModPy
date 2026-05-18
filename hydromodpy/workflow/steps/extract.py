@@ -12,6 +12,7 @@ import rasterio
 from hydromodpy.core.exceptions import ConfigError, ExtractError
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.core.workspace.resolve import locate_workspace_root
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.workflow.internals.state import ExtractedState, PipelineState, SolverRanState
@@ -63,7 +64,7 @@ def restore_seepage_raster_from_store(
         return False
 
     project_root = Path(project_root)
-    catalog_root = project_root if (project_root / "hydromodpy.duckdb").exists() else None
+    catalog_root = project_root if (project_root / CATALOG_FILENAME).exists() else None
     workspace_root = catalog_root or locate_workspace_root(project_root) or project_root
 
     seepage_tif = Path(seepage_tif_path)
@@ -146,4 +147,40 @@ class ExtractStep:
             step_name=self.name,
             ctx=ctx,
             extraction_summary={"runs": extracted},
+        )
+
+    def artifacts(self, state: PipelineState) -> tuple[str, ...]:
+        """Return workspace-relative paths populated by extraction."""
+        from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
+
+        ctx = state.get("ctx")
+        if ctx is None:
+            return ()
+        sim_id = getattr(ctx, "sim_id", None)
+        if not sim_id:
+            return ()
+        return _store_sim_artifacts(ctx, sim_id)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Restore the post-extraction state without re-running extraction.
+
+        The extraction artefacts already live in the Zarr / Parquet store
+        opened by :class:`PrepareSolverStep`. The summary is rebuilt as a
+        marker so downstream steps know the rows are durable.
+        """
+        ctx = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("ExtractStep.rebuild_state requires 'ctx' in state.data")
+        summary = {"rebuilt_from_artifacts": True, "step": self.name}
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+            extraction_summary=summary,
         )

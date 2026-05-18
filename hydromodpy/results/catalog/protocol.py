@@ -12,7 +12,7 @@ conform structurally - no base class to inherit from.
 The contract is the minimal write/read surface that workflow steps,
 solver adapters, and post-run extractors actually call. Methods absent
 from this Protocol stay implementation-specific to ``SimulationCatalog``
-(``find``, ``rank``, ``training_split``, archive package_io ...).
+(``find``, ``rank``, archive package_io ...).
 """
 
 from __future__ import annotations

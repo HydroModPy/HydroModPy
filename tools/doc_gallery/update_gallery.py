@@ -117,7 +117,7 @@ CATEGORY_GROUP_SPECS = (
 def _gallery_temp_root() -> Path:
     """Return the temp root used by doc-gallery helpers and checks."""
 
-    override = os.environ.get("HYDROMODPY_DOC_GALLERY_TMPDIR", "").strip()
+    override = os.environ.get("HMP_DOC_GALLERY_TMPDIR", "").strip()
     if override:
         temp_root = Path(override)
         if not temp_root.is_absolute():

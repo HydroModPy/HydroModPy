@@ -195,7 +195,7 @@ def _write_case_configuration_figure(
     if payload.vertices is not None and payload.faces is not None and payload.vertices.size:
         polygons: list[np.ndarray] = []
         colors: list[float] = []
-        surface = payload.surface_top
+        surface = payload.topography
         for index, face in enumerate(np.asarray(payload.faces, dtype=int)):
             face = face[(face >= 0) & (face < payload.vertices.shape[0])]
             if face.size < 3:
@@ -221,7 +221,7 @@ def _write_case_configuration_figure(
             mesh_ax.autoscale_view()
             colorbar = figure.colorbar(collection, ax=mesh_ax, fraction=0.046, pad=0.02)
             colorbar.set_label(
-                "surface elevation [m]" if payload.surface_top is not None else "cell",
+                "surface elevation [m]" if payload.topography is not None else "cell",
                 fontsize=_LABEL_FONT_SIZE,
             )
             _style_colorbar(colorbar)
@@ -817,7 +817,14 @@ def _write_geotiff(
     path: Path,
     array: np.ndarray,
     extent: tuple[float, float, float, float],
+    crs: str | int | None = None,
 ) -> bool:
+    """Write a regridded array as GeoTIFF.
+
+    ``crs`` is the projected CRS string (e.g. ``"EPSG:2154"``) or an EPSG int.
+    When ``None``, the catalog default ``EPSG:2154`` is used as a documented
+    fallback for legacy Lambert-93 testbeds.
+    """
     if rasterio is None:
         return False
     xmin, xmax, ymin, ymax = extent
@@ -833,6 +840,12 @@ def _write_geotiff(
     data_to_write = np.where(np.isfinite(data), data, nodata_value)
     transform = from_origin(xmin, ymax, resolution_x, resolution_y)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if crs is None:
+        crs_arg: str = "EPSG:2154"
+    elif isinstance(crs, int):
+        crs_arg = f"EPSG:{crs}"
+    else:
+        crs_arg = str(crs)
     with rasterio.open(
         path,
         "w",
@@ -842,7 +855,7 @@ def _write_geotiff(
         count=1,
         dtype="float32",
         transform=transform,
-        crs="EPSG:2154",
+        crs=crs_arg,
         nodata=float(nodata_value),
     ) as dataset:
         dataset.write(data_to_write, 1)

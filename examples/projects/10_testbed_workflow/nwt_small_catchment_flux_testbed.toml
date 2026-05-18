@@ -1,6 +1,9 @@
 [workflow]
 mode = "testbed"
 
+[workspace]
+project_root = "."
+
 [testbed]
 id = "nwt_small_catchment_flux"
 subject = "flow"

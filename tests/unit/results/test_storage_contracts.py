@@ -57,7 +57,7 @@ def _seed_field(catalog: SimulationCatalog) -> str:
 
 
 def test_list_simulations_rejects_unknown_filter_and_order(catalog):
-    catalog.register_simulation(_sim_id(), project="p", solver="s")
+    catalog.register_simulation(_sim_id(), project="p", solver="modflow6")
 
     with pytest.raises(ValueError, match="Unknown simulation filter"):
         catalog.list_simulations(**{"project;DROP TABLE simulations": "p"})
@@ -68,7 +68,7 @@ def test_list_simulations_rejects_unknown_filter_and_order(catalog):
 
 def test_list_simulations_accepts_whitelisted_order_tuple(catalog):
     sid = _sim_id()
-    catalog.register_simulation(sid, project="p", solver="s")
+    catalog.register_simulation(sid, project="p", solver="modflow6")
 
     rows = catalog.list_simulations(order_by=("created_at", "DESC"))
 
@@ -83,7 +83,7 @@ def test_register_simulation_rolls_back_name_collision_when_zarr_staging_fails(
 
     old = _sim_id()
     new = _sim_id()
-    catalog.register_simulation(old, project="p", solver="s", name="baseline")
+    catalog.register_simulation(old, project="p", solver="modflow6", name="baseline")
 
     def fail_create(*args, **kwargs):
         raise RuntimeError("staging failed")
@@ -94,7 +94,7 @@ def test_register_simulation_rolls_back_name_collision_when_zarr_staging_fails(
         catalog.register_simulation(
             new,
             project="p",
-            solver="s",
+            solver="modflow6",
             name="baseline",
             n_cells=1,
             n_layers=1,
@@ -115,15 +115,18 @@ def test_run_array_batch_is_dask_backed(catalog):
     assert ds["head"].shape == (2, 1, 2)
 
 
-def test_run_fields_is_dask_backed(catalog):
+def test_run_array_to_xarray_batch_is_dask_backed(catalog):
     DaskArray = pytest.importorskip("dask.array").Array
     sid = _seed_field(catalog)
 
-    stack = catalog[sid].fields("head")
+    ds = catalog[sid].array.to_xarray_batch(("head",))
 
-    assert isinstance(stack.data, DaskArray)
-    assert stack.data.shape == (2, 1, 2)
-    np.testing.assert_allclose(stack.data.compute(), np.array([[[1.0, 2.0]], [[3.0, 4.0]]]))
+    assert isinstance(ds["head"].data, DaskArray)
+    assert ds["head"].shape == (2, 1, 2)
+    np.testing.assert_allclose(
+        ds["head"].compute().values,
+        np.array([[[1.0, 2.0]], [[3.0, 4.0]]]),
+    )
 
 
 def test_simulation_zarr_to_xarray_is_dask_backed(catalog):
@@ -221,4 +224,6 @@ def test_geographic_feature_uses_parquet_geometry_payload(catalog):
 
     loaded = catalog.read_geographic_feature(sid, "domain")
     assert len(loaded) == 1
-    assert str(loaded.crs) == "EPSG:2154"
+    # GeoParquet 1.1 OGC stores the CRS as PROJJSON inside the file metadata.
+    # Use pyproj to round-trip back to EPSG so the test stays format-agnostic.
+    assert loaded.crs.to_epsg() == 2154

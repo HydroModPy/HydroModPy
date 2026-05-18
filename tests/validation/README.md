@@ -72,11 +72,11 @@ Each validation run writes into a deterministic output directory derived from:
 - the case id from `metadata.toml`.
 
 By default, outputs are created under the system temporary directory in
-`hydromodpy_validation_outputs/`. If `HYDROMODPY_OUT_PATH` is defined, the run
+`hydromodpy_validation_outputs/`. If `HMP_OUT_PATH` is defined, the run
 directory is created under:
 
 ```text
-<HYDROMODPY_OUT_PATH>/validation/<test_name>/<case_id>
+<HMP_OUT_PATH>/validation/<test_name>/<case_id>
 ```
 
 Before re-running the same case, the previous validation directory is removed.

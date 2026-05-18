@@ -22,25 +22,23 @@ They do not play the same scientific role.
 Conceptual Diagram
 ------------------
 
-.. mermaid::
+The atmosphere supplies precipitation and a potential ET demand to the
+land surface, which partitions them hydrologically. From there the
+following exchanges occur:
 
-   flowchart LR
-     Atmos["Atmosphere / climate"]
-     Land["Land surface and<br/>hydrological partition"]
-     Aq["Aquifer<br/>primary unknown: head h"]
-     River["River / stream stage"]
-     Ocean["Ocean stage"]
-     Obs["Outlet hydrometry /<br/>runoff observations"]
+- the land surface sends **recharge** to the aquifer; the aquifer can
+  also return **ETP / net diffuse loss** to the land when groundwater
+  acts as a sink,
+- the land surface produces **runoff**, which stays on the surface
+  signal and is read by outlet hydrometry; it is not a Flow forcing,
+- the river / stream stage and the ocean stage feed the aquifer as
+  **stage supports** in the current public path,
+- the solve produces **exchanged fluxes** that emerge between the
+  aquifer and the stream or ocean stage,
+- the aquifer also produces a **drainage / groundwater release**
+  signal that joins runoff at the outlet hydrometry comparison.
 
-     Atmos -- "precipitation, potential ET demand" --> Land
-     Land -- "recharge (water to aquifer)" --> Aq
-     Aq -- "ETP / net diffuse loss (when groundwater sink)" --> Land
-     Land -- "runoff (surface signal, not Flow forcing)" --> Obs
-     River -- "stage support (current public path)" --> Aq
-     Ocean -- "coastal stage support (current public path)" --> Aq
-     Aq -- "exchanged flux emerges from solve" --> River
-     Aq -- "exchanged flux emerges from solve" --> Ocean
-     Aq -- "drainage / groundwater release" --> Obs
+The aquifer keeps head ``h`` as the primary unknown throughout.
 
 Drainage is a head-dependent outflow operator. It is distinct from recharge,
 runoff, and stream/ocean stage.

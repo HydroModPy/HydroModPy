@@ -44,9 +44,6 @@ Command inventory
      - Developer diagnostics
      - Inspect internal configuration and workflow surfaces used during
        development.
-   * - ``hmp catalog``
-     - Catalog management
-     - Query and maintain workspace-level catalog records.
    * - ``hmp display``
      - Figure rendering
      - Render registered display figures for one persisted simulation.
@@ -59,6 +56,10 @@ Command inventory
    * - ``hmp export``
      - Export
      - Export geographic data or simulation results to external formats.
+   * - ``hmp export-package``
+     - Export
+     - Bundle a simulation as a portable ``.hmp`` archive (tar.zst with
+       RO-Crate manifest).
    * - ``hmp test``
      - Test runner
      - Run unit, regression, validation, PETSc, or benchmark-oriented test
@@ -110,6 +111,19 @@ Command inventory
    * - ``hmp completion``
      - Shell integration
      - Emit completion scripts for bash, zsh, or fish.
+   * - ``hmp gc``
+     - Maintenance
+     - Garbage-collect orphan calibration sessions, geographic_cache, tmp
+       parquet, and stale running simulations.
+   * - ``hmp vacuum``
+     - Maintenance
+     - CHECKPOINT DuckDB catalogs and consolidate Zarr metadata.
+   * - ``hmp privacy``
+     - Data governance
+     - Hard-delete a simulation and emit a JSON purge certificate.
+   * - ``hmp index``
+     - Cross-workspace discovery
+     - Search, forget, or prune entries of the machine-wide global index.
 
 Workflow execution flags
 ------------------------
@@ -147,9 +161,10 @@ flags only apply to ``[workflow].mode = "simulation"``:
        ``--set workspace.project_root=/tmp/run``.
 
 Override precedence is, from lowest to highest: defaults, ``base_config``
-chain, ``--overlay`` files, ``--set`` values, then
-``HYDROMODPY_SET_<path>`` environment values. Use ``__`` for dots in shell
-environment variables, for example ``HYDROMODPY_SET_simulation__run_id``.
+chain, ``--overlay`` files, then ``--set`` values. The XDG-aligned
+environment overrides ``HMP_CACHE_HOME``, ``HMP_STATE_HOME``, and
+``HMP_BIN`` only relocate machine caches and binary directories; they
+do not patch config fields.
 
 Nested command families
 -----------------------

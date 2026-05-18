@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 from shapely.geometry import LineString
 
+from hydromodpy.results import views
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.run import Run
 from hydromodpy.results.simulation_group import SimulationGroup
@@ -92,7 +93,7 @@ def _write_active_accumulation_flux_case(catalog, sid, *, write_plot_mesh=False)
     try:
         mesh = sz.root.require_group("mesh")
         mesh.create_array(
-            "surface_top",
+            "topography",
             data=np.array([100.0, 100.0, -9999.0, 100.0], dtype="float64"),
             overwrite=True,
         )
@@ -321,7 +322,8 @@ class TestSimulationData:
         _write_active_accumulation_flux_case(catalog, sid)
 
         sim = Run(sid, catalog)
-        metrics = sim.cell_field_active_metrics(
+        metrics = views.cell_field_active_metrics(
+            sim,
             threshold=0.5,
             persistence_threshold=0.5,
         )
@@ -353,15 +355,16 @@ class TestSimulationData:
         sim = Run(sid, catalog)
 
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="last"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="last"),
             np.array([0.0, 1.0, np.nan, 1.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="any"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="any"),
             np.array([1.0, 1.0, np.nan, 1.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(
+            views.cell_field_active_mask(
+                sim,
                 threshold=0.5,
                 mode="persistent",
                 persistence_threshold=0.5,
@@ -369,15 +372,15 @@ class TestSimulationData:
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="always_active"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="always_active"),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="perennial"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="perennial"),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            sim.cell_field_active_mask(threshold=0.5, mode="persistence"),
+            views.cell_field_active_mask(sim, threshold=0.5, mode="persistence"),
             np.array([1.0 / 3.0, 1.0, np.nan, 1.0 / 3.0]),
         )
 
@@ -403,11 +406,11 @@ class TestSimulationData:
         steady = Run(steady_sid, catalog)
 
         np.testing.assert_allclose(
-            transient.cell_field_active_mask(threshold=0.5),
+            views.cell_field_active_mask(transient, threshold=0.5),
             np.array([0.0, 1.0, np.nan, 0.0]),
         )
         np.testing.assert_allclose(
-            steady.cell_field_active_mask(threshold=0.5),
+            views.cell_field_active_mask(steady, threshold=0.5),
             np.array([0.0, 1.0, np.nan, 1.0]),
         )
 
@@ -427,7 +430,8 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.cell_field_network_overlap_metrics(
+        metrics = views.cell_field_network_overlap_metrics(
+            sim,
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,
@@ -461,7 +465,8 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.cell_field_network_distance_metrics(
+        metrics = views.cell_field_network_distance_metrics(
+            sim,
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,
@@ -498,7 +503,8 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.release_flux_network_overlap_metrics(
+        metrics = views.release_flux_network_overlap_metrics(
+            sim,
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,
@@ -526,7 +532,8 @@ class TestSimulationData:
         )
 
         sim = Run(sid, catalog)
-        metrics = sim.release_flux_network_distance_metrics(
+        metrics = views.release_flux_network_distance_metrics(
+            sim,
             threshold=0.5,
             mode="persistent",
             persistence_threshold=0.5,
@@ -689,10 +696,9 @@ class TestSimulationGroup:
         class _Pipeline:
             counter = 0
 
-            def __init__(self, steps, *, workspace, checkpoint):
+            def __init__(self, steps, *, workspace):
                 self.steps = steps
                 self.workspace = workspace
-                self.checkpoint = checkpoint
 
             def run(self, state, *, resume_from=None):
                 _Pipeline.counter += 1
@@ -702,7 +708,7 @@ class TestSimulationGroup:
                     reg = run_catalog.register_simulation(
                         sim_id,
                         project="project",
-                        solver="fake",
+                        solver="modflow6",
                         name=ctx.setup.run_id,
                         n_cells=1,
                         n_layers=1,
@@ -739,7 +745,7 @@ class TestSimulationGroup:
         workspace = SimpleNamespace(
             root=tmp_path / "workspace",
             project_root=project_root,
-            catalog_path=project_root / "hydromodpy.duckdb",
+            catalog_path=project_root / "catalog.duckdb",
             simulations_dir=project_root / "simulations",
         )
         ctx = SimpleNamespace(
@@ -757,13 +763,13 @@ class TestSimulationGroup:
         project = SimpleNamespace(
             _ctx=ctx,
             cfg=SimpleNamespace(),
-            _config_path=tmp_path / "project.toml",
+            _config_path=tmp_path / "hydromodpy.toml",
             _spatial_support_registry=None,
             _requested_support_ids=(),
             _requested_domain_supports={},
             _store=None,
             _run_counter=0,
-            _solver="fake",
+            _solver="modflow6",
             _no_display=True,
             _headless=True,
             _project_name="project",
@@ -793,10 +799,9 @@ class TestSimulationGroup:
         observed: list[str | None] = []
 
         class _Pipeline:
-            def __init__(self, steps, *, workspace, checkpoint):
+            def __init__(self, steps, *, workspace):
                 self.steps = steps
                 self.workspace = workspace
-                self.checkpoint = checkpoint
 
             def run(self, state, *, resume_from=None):
                 ctx = state.get("ctx")
@@ -836,13 +841,13 @@ class TestSimulationGroup:
         project = SimpleNamespace(
             _ctx=ctx,
             cfg=SimpleNamespace(),
-            _config_path=tmp_path / "project.toml",
+            _config_path=tmp_path / "hydromodpy.toml",
             _spatial_support_registry=None,
             _requested_support_ids=(),
             _requested_domain_supports={},
             _store=None,
             _run_counter=0,
-            _solver="fake",
+            _solver="modflow6",
             _no_display=True,
             _headless=True,
             _project_name="project",

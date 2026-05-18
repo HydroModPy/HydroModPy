@@ -35,7 +35,7 @@ def _make_cfg_with_time(
                 coverage_policy=coverage_policy,
             ),
             process=[
-                SimpleNamespace(type="flow", solvers=["modflownwt"]),
+                SimpleNamespace(type="flow", solvers=["modflow_nwt"]),
             ],
         ),
         modflownwt=SimpleNamespace(

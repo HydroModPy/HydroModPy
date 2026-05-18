@@ -120,7 +120,7 @@ def test_transport_capabilities_are_explicit() -> None:
     assert registry.capabilities("transport", "mt3dms") == frozenset(
         {"transport", "transport:concentration"}
     )
-    assert registry.capabilities("transport", "modflow6gwt") == frozenset(
+    assert registry.capabilities("transport", "modflow6") == frozenset(
         {"transport", "transport:concentration"}
     )
     assert registry.capabilities("transport", "modflow6prt") == frozenset(
@@ -130,7 +130,7 @@ def test_transport_capabilities_are_explicit() -> None:
 
 def test_modflow6prt_adapter_and_extractor_are_registered() -> None:
     adapter_cls = registry.get("transport", "modflow6prt")
-    extractor_cls = registry.get_extractor("modflow6prt")
+    extractor_cls = registry.get_extractor("transport", "modflow6prt")
 
     assert adapter_cls.__name__ == "Modflow6PrtTransportAdapter"
     assert extractor_cls.__name__ == "Modflow6PrtOutputAdapter"
@@ -247,7 +247,7 @@ def test_get_extractor_loads_plugin_lazily(monkeypatch) -> None:
     monkeypatch.setattr(registry, "_EXTRACTOR_PLUGINS_LOADED", False)
 
     class _StubEntryPoint:
-        name = "pluginflow"
+        name = "flow_pluginflow"
 
         def load(self) -> type:
             return FakeExtractor
@@ -260,4 +260,4 @@ def test_get_extractor_loads_plugin_lazily(monkeypatch) -> None:
         ),
     )
 
-    assert registry.get_extractor("pluginflow") is FakeExtractor
+    assert registry.get_extractor("flow", "pluginflow") is FakeExtractor

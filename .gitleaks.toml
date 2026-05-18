@@ -13,12 +13,16 @@ regexTarget = "line"
 paths = [
     '''(^|/)docs/source/_static/capability_gallery/.*_summary\.json$''',
     '''(^|/)examples/projects/07_mesh_gallery/.*/case\.json$''',
+    '''(^|/)examples/projects/09_capability_gallery/.*/case\.json$''',
+    '''(^|/)examples/projects/09_capability_gallery/.*/README\.md$''',
     '''(^|/)tools/doc_gallery/sync_mesh_catchment_runs\.py$''',
 ]
 regexes = [
     '''^\s*"key":\s*"[A-Za-z0-9_.:-]+",?\s*$''',
     '''^\s*"case_family_key":\s*"[A-Za-z0-9_.:-]+",?\s*$''',
+    '''^\s*"comparison_family_key":\s*"[A-Za-z0-9_.:-]+",?\s*$''',
     '''^\s*key="[A-Za-z0-9_.:-]+",?\s*$''',
+    '''^\s*\|\s*`comparison_family_key`\s*\|.*$''',
 ]
 
 [[rules.allowlists]]

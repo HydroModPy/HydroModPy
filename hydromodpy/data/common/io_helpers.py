@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from hydromodpy.data.contracts.location import StationLocation
+from hydromodpy.data.schemas import TimeSeriesSchema, validate_warn_only
 
 # Filename convention: TYPE_SOURCE_ID_YYYYMMDD_YYYYMMDD_FREQ.ext
 FILENAME_PATTERN = re.compile(
@@ -169,6 +170,13 @@ def read_timeseries_csv(
 
     df["datetime"] = parse_datetime_column(df["datetime"])
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
+
+    validation_view = df[["datetime", "value"]].rename(columns={"datetime": "date"})
+    validate_warn_only(
+        validation_view,
+        TimeSeriesSchema,
+        schema_name=f"TimeSeriesSchema[{path.name}]",
+    )
     return df
 
 

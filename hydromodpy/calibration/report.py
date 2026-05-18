@@ -321,18 +321,18 @@ def _load_best_discharge(
     obs-vs-sim figure in that case.
     """
     try:
-        sim_df = catalog.connection.execute(
-            "SELECT datetime, value FROM timeseries "
+        sim_df = catalog.backend.query(
+            "SELECT time AS datetime, value FROM timeseries "
             "WHERE sim_id = ? AND variable = 'discharge' AND station_id = '_catchment' "
-            "ORDER BY datetime",
+            "ORDER BY timestep",
             [sim_id],
-        ).fetchdf()
-        obs_df = catalog.connection.execute(
-            "SELECT datetime, value FROM timeseries "
+        )
+        obs_df = catalog.backend.query(
+            "SELECT time AS datetime, value FROM timeseries "
             "WHERE sim_id = ? AND variable = 'discharge_obs' "
-            "ORDER BY datetime",
+            "ORDER BY timestep",
             [sim_id],
-        ).fetchdf()
+        )
     except Exception as exc:
         logger.warning("best_obs_vs_sim: catalog query failed: %s", exc)
         return None, None

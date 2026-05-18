@@ -1,21 +1,22 @@
 Results and Exports
 ===================
 
-HydroModPy writes durable results at the workspace level. The DuckDB catalog
-stores run metadata, metrics, parameters, budgets, provenance, and lookup
-tables. Per-run stores hold fields, meshes, rasters, timeseries, and derived
-arrays.
+HydroModPy v2 writes durable results at the project level. Each project
+holds its own DuckDB catalog with simulation metadata, metrics,
+parameters, budgets, provenance, and lookup tables. Per-run Zarr and
+Parquet stores hold the field arrays, meshes, rasters, timeseries, and
+derived arrays.
 
-There is one simulation DuckDB catalog per workspace, not one DuckDB database
-per simulation. A simulation receives one row in that workspace catalog and
+There is **one simulation catalog per project**, not one DuckDB per
+simulation. A simulation receives one row in that project catalog and
 its heavy payloads live beside it under ``simulations/``:
 
-- ``hydromodpy.duckdb``: workspace-level index, metadata, metrics, parameters,
-  provenance, calibration traces, and SQL views.
+- ``catalog.duckdb``: project-level index, metadata, metrics, parameters,
+  provenance, calibration traces, workflow ledger, and SQL views.
 - ``simulations/<basename>.zarr`` or ``.zarr.zip``: per-simulation arrays,
-  mesh, spatial fields, rasters, and forcings.
-- ``simulations/<basename>.parquet/*.parquet``: per-simulation tabular payloads
-  such as timeseries, budgets, and mass balance, exposed through DuckDB views.
+  mesh, spatial fields, topography rasters, and forcings.
+- ``simulations/<basename>.parquet/*.parquet``: per-simulation tabular
+  payloads (timeseries, budgets, mass balance), exposed as DuckDB views.
 
 ``<basename>`` is normally ``<project>__<name>__<shortuuid>``. Older
 workspaces may still use the full raw ``sim_id`` on disk; they remain readable.
@@ -42,8 +43,8 @@ Core objects
    * - Object
      - Role
    * - ``SimulationCatalog``
-     - Workspace-level registry opened by ``hydromodpy.open(path)``. It owns
-       the single ``hydromodpy.duckdb`` file for the workspace.
+     - Project-level registry opened by ``hydromodpy.open(project_path)``.
+       It owns the single ``catalog.duckdb`` file for the project.
    * - ``Run``
      - One persisted simulation resolved from the catalog. It reads one
        catalog row plus that simulation's Zarr/Parquet artefacts.
@@ -76,9 +77,9 @@ Python reading path
 
    import hydromodpy as hmp
 
-   catalog = hmp.open("~/hydromodpy")
-   run = catalog.latest(project="my_basin")
-   head0 = catalog.query_field(run.sim_id, "head", timestep=0)
+   catalog = hmp.open("~/ws/projects/my_basin")
+   run = catalog.latest()
+   head0 = hmp.read(run, "head", timestep=0)
    budget = catalog.query_budget(run.sim_id)
    run.export(variable="head", fmt="netcdf", path="run_outputs/head.nc")
 
@@ -96,9 +97,8 @@ List completed runs for one project:
 
    import hydromodpy as hmp
 
-   catalog = hmp.open("~/hydromodpy")
+   catalog = hmp.open("~/ws/projects/my_basin")
    runs = catalog.list_simulations(
-       project="my_basin",
        status="completed",
        order_by="created_at DESC",
    )
@@ -110,12 +110,14 @@ Resolve a run id prefix, then open the ``Run`` view:
    sim_id = catalog.resolve("ab12")
    run = catalog[sim_id]
 
-Read a field from the Zarr-backed store:
+Read a field through the v2 facade (dispatches to Zarr or Parquet via
+the field registry):
 
 .. code-block:: python
 
-   head = catalog.query_field(sim_id, "head", timestep=0)
-   seepage = catalog.query_field(sim_id, "seepage", timestep=-1)
+   run = catalog[sim_id]
+   head = hmp.read(run, "head", timestep=0)
+   seepage = hmp.read(run, "seepage", timestep=-1)
 
 Read station time series:
 

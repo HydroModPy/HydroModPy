@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND
+from hydromodpy.core.state.paths import PROJECT_TOML_FILENAME
 
 NAME: str = "new"
 HELP: str = "Create a new project inside the workspace"
@@ -44,9 +45,9 @@ def run(args: argparse.Namespace) -> None:
     print(f"Project created: {project_dir}")
     print()
     print("Files:")
-    print(f"  {project_dir / 'project.toml'}   <- shared settings")
+    print(f"  {project_dir / PROJECT_TOML_FILENAME}   <- shared settings")
     print(f"  {project_dir / 'run_demo.toml'}   <- executable run")
     print()
     print("Next steps:")
-    print("  1. Edit project.toml with your geographic/domain/flow settings")
+    print(f"  1. Edit {PROJECT_TOML_FILENAME} with your geographic/domain/flow settings")
     print(f"  2. Run: hmp run {project_dir / 'run_demo.toml'}")

@@ -1,0 +1,146 @@
+# Pull-request gate for the fast tier and the parallel unit + integration runs.
+# Lint and ruff format are kept here even though they also run in ci-fast.yml,
+# so that the gate stays self-contained if ci-fast is reorganized later.
+
+name: Tests
+
+on:
+  push:
+    branches: [master, dev]
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  lint:
+    name: Ruff lint and format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install ruff
+        run: pip install "ruff>=0.15"
+
+      - name: Ruff check
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+  fast-gate:
+    name: Fast tier (pytest -m fast, xdist)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,performance,calibration,delineation]"
+
+      - name: Install solver binaries (subset)
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt --quiet || true
+
+      - name: Run fast-tier suite
+        run: |
+          python -m pytest -m fast \
+            -n auto --dist loadgroup \
+            --timeout=300 \
+            -q
+
+  unit:
+    name: Unit tier (xdist parallel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,calibration,delineation]"
+
+      # The whitebox native backend segfaults under xdist; isolate it.
+      - name: Run unit tests in parallel (without whitebox backend)
+        run: |
+          python -m pytest tests/unit/ \
+            --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            -n auto --dist loadgroup \
+            --timeout=300 \
+            -q
+
+      - name: Run whitebox backend tests (serial)
+        run: |
+          python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py \
+            --timeout=300 \
+            -q
+
+  integration:
+    name: Integration tier (xdist parallel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package and test extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Install solver binaries (subset)
+        run: python -m hydromodpy install-binaries --subset mf6,mfnwt,mp6,mt3dusgs --quiet || true
+
+      - name: Run integration suite in parallel
+        run: |
+          python -m pytest tests/integration/ \
+            -n auto --dist loadgroup \
+            --timeout=600 \
+            -q

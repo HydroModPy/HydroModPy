@@ -122,7 +122,7 @@ exdp = "1.0 m"
 """
 
 _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
-    "modflownwt": {
+    "modflow_nwt": {
         "boussinesq_fixed_head_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "boussinesq_uniform_recharge_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "boussinesq_sloping_substratum_constant_thickness_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
@@ -150,6 +150,11 @@ def _merge_toml_payloads(
     base: Mapping[str, Any],
     override: Mapping[str, Any],
 ) -> dict[str, Any]:
+    # When the override changes a discriminator (``kind``), drop the inherited
+    # body so leftover sibling keys do not leak into the new variant. Pydantic
+    # v2 ``extra='forbid'`` rejects them on the next load otherwise.
+    if "kind" in override and "kind" in base and override["kind"] != base["kind"]:
+        return {key: _clone_toml_value(value) for key, value in override.items()}
     merged: dict[str, Any] = dict(base)
     for key, value in override.items():
         existing = merged.get(key)
@@ -181,6 +186,14 @@ def _merge_toml_payloads(
         else:
             merged[key] = value
     return merged
+
+
+def _clone_toml_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _clone_toml_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_clone_toml_value(item) for item in value]
+    return value
 
 
 def _format_toml_key(parts: list[str] | tuple[str, ...]) -> str:
@@ -353,7 +366,7 @@ def _short_validation_name(value: str | Path, *, max_length: int = 28) -> str:
 
 def resolve_validation_results_dir(*, test_file: str | Path, run_name: str) -> Path:
     """Create one deterministic output directory for a validation run."""
-    base_out_path = os.environ.get("HYDROMODPY_OUT_PATH")
+    base_out_path = os.environ.get("HMP_OUT_PATH")
     if base_out_path:
         results_root = Path(base_out_path).expanduser().resolve() / "validation"
         probe_dir = results_root / f".__probe_{os.getpid()}_{time.time_ns()}"
@@ -441,7 +454,9 @@ def _discover_result_store(project_path: Path) -> tuple[Any, str | None]:
     Returns ``(store, sim_id)`` on success, ``(None, None)`` on failure.
     The caller is responsible for closing the store when done.
     """
-    db_path = project_path / "hydromodpy.duckdb"
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    db_path = project_path / CATALOG_FILENAME
     if not db_path.exists():
         return None, None
     from hydromodpy.results.catalog import SimulationCatalog
@@ -543,15 +558,15 @@ def run_example_script(
     """Run one HydroModPy launcher script as a subprocess."""
     env = os.environ.copy()
     env[out_env_var] = str(out_path)
-    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
-    env["HYDROMODPY_WORKSPACE"] = str(out_path)
+    env["HMP_PROJECT_ROOT"] = str(out_path)
+    env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
             env[key] = str(value)
 
     run_args = [] if script_args is None else list(script_args)
-    if os.environ.get("HYDROMODPY_COVERAGE"):
+    if os.environ.get("HMP_COVERAGE"):
         wrapper = Path(__file__).resolve().parent / "coverage_runner.py"
         command = [sys.executable, str(wrapper), str(script_path), *run_args]
     else:
@@ -669,7 +684,7 @@ def _resolve_validation_solver_config(
     solver: str | None = None,
 ) -> tuple[str, str]:
     """Resolve the solver name and validation config file from case metadata."""
-    raw_default_solver = metadata.get("default_solver", "modflownwt")
+    raw_default_solver = metadata.get("default_solver", "modflow_nwt")
     default_solver = str(raw_default_solver).strip().lower()
     if default_solver == "":
         raise ValueError("validation default solver name cannot be empty")
@@ -723,15 +738,20 @@ def run_launcher_validation_case(
     )
 
     env = os.environ.copy()
-    env["HYDROMODPY_PROJECT_ROOT"] = str(out_path)
-    env["HYDROMODPY_WORKSPACE"] = str(out_path)
+    env["HMP_PROJECT_ROOT"] = str(out_path)
+    env["HMP_WORKSPACE"] = str(out_path)
     env.setdefault("MPLBACKEND", "Agg")
 
+    # Validation runs never persist ``hydromodpy.lock``: the lockfile would
+    # land inside ``validation_cases/<case>/`` and pollute git status after
+    # every test invocation. Reproducibility info already lives in the case
+    # config and result store.
     command = [
         sys.executable,
         "-m",
         "hydromodpy",
         "run",
+        "--no-lock",
         str(run_config_path),
     ]
 

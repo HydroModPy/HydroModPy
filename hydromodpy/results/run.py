@@ -25,19 +25,20 @@ The class composes per-concern mixins to stay under the 50-method limit:
 - :class:`RunGeographicMixin` (geographic features, rasters, grid, mesh, field I/O)
 - :class:`RunTimeseriesMixin` (parameters, metrics, budgets, timeseries, time index)
 - :class:`RunHydrographicMixin` (canonical hydrographic-network roles)
-- :class:`RunCellMixin` (per-cell views: saturation, drainage density,
-  cell-field active and network metrics, release-flux network metrics)
+
+Per-cell views (``saturated_fraction``, ``drainage_density``, ``persistence``,
+``cell_field_*``, ``release_flux_*``, ``catchment_mean``) live as
+module-level functions in :mod:`hydromodpy.results.views` and consume a
+``Run`` instance as their first argument.
 
 Public API
 ----------
 - ``Run``: instantiated by ``SimulationCatalog`` resolution methods. Also
   exposes ``run.array`` for xarray / UGRID readers.
-- :class:`hydromodpy.results.run_loader.RunLoaderAdapter` builds a ``Run``
-  from a TOML / JSON / dict config payload.
 - :class:`hydromodpy.results.run_export.RunExportAdapter` writes per-run
   archives (``to_csv``, ``export``).
 - :class:`hydromodpy.results.run_array.RunArrayProvider` exposes
-  ``dataset``, ``to_xarray_batch`` and the ``at(timestep, layer)`` accessor.
+  ``dataset`` and ``to_xarray_batch``.
 
 Cross-refs
 ----------
@@ -55,8 +56,8 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.errors import RunNotFoundError
 from hydromodpy.results.run_array import RunArrayProvider
-from hydromodpy.results.run_cell import RunCellMixin
 from hydromodpy.results.run_geographic import RunGeographicMixin
 from hydromodpy.results.run_hydrographic import RunHydrographicMixin
 from hydromodpy.results.run_timeseries import RunTimeseriesMixin
@@ -73,7 +74,6 @@ class Run(
     RunGeographicMixin,
     RunTimeseriesMixin,
     RunHydrographicMixin,
-    RunCellMixin,
 ):
     """Read one persisted simulation from a HydroModPy catalog.
 
@@ -89,8 +89,14 @@ class Run(
     catalog
         Open ``SimulationCatalog`` that owns the run metadata and storage paths.
 
+    Raises
+    ------
+    hydromodpy.results.errors.RunNotFoundError
+        On first attribute access if ``sim_id`` is not present in the catalog.
+
     Examples
     --------
+    >>> import hydromodpy as hmp
     >>> catalog = hmp.open("~/hmp_workspace")
     >>> run = catalog.latest()
     >>> run.summary()
@@ -110,27 +116,35 @@ class Run(
         self._row: dict | None = None
         self.array = RunArrayProvider(self)
 
-    @classmethod
-    def from_id(cls, catalog: SimulationCatalog, sim_id: str) -> Run:
-        """Build a ``Run`` view from an existing ``sim_id`` in the catalog.
-
-        Validates that the simulation exists by triggering one row load.
-        Raises ``KeyError`` when the id is unknown.
-        """
-        run = cls(sim_id, catalog)
-        run._load_row()
-        return run
-
     def _load_row(self) -> dict:
         if self._row is None:
             row = self._catalog.connection.execute(
-                "SELECT * FROM simulations WHERE sim_id = ?",
+                """SELECT s.*,
+                          sv.code AS solver,
+                          sv.category AS solver_category,
+                          st.code AS status,
+                          fr.code AS flow_regime,
+                          mt.code AS mesh_topology
+                     FROM simulations s
+                     JOIN solvers sv ON s.solver_id = sv.id
+                     JOIN statuses st ON s.status_id = st.id
+                     LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id
+                     LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id
+                    WHERE s.sim_id = ?""",
                 [self._sim_id],
             ).fetchone()
             if row is None:
-                raise KeyError(f"Simulation '{self._sim_id}' not found")
+                raise RunNotFoundError(
+                    f"Simulation '{self._sim_id}' not found", sim_id=self._sim_id
+                )
             cols = [d[0] for d in self._catalog.connection.description]
             self._row = dict(zip(cols, row, strict=False))
+            # Tags moved to a per-sim table in v2. Populate as a Python list.
+            tag_rows = self._catalog.connection.execute(
+                "SELECT tag FROM tags WHERE sim_id = ? ORDER BY tag",
+                [self._sim_id],
+            ).fetchall()
+            self._row["tags"] = [r[0] for r in tag_rows] if tag_rows else None
         return self._row
 
     # -- Metadata properties -------------------------------------------------
@@ -244,6 +258,22 @@ class Run(
         timing, mesh sizes, tags). Datetime values are kept as Python
         objects in dict form; with ``json=True`` they are stringified
         and the whole payload is returned as a JSON string.
+
+        Parameters
+        ----------
+        json
+            If ``True``, return a JSON string instead of a dict.
+
+        Returns
+        -------
+        dict or str
+            Headline fields as a dict, or as a JSON-encoded string when
+            ``json=True``.
+
+        Raises
+        ------
+        hydromodpy.results.errors.RunNotFoundError
+            If the run row has been deleted between catalog open and call.
         """
         row = self._load_row()
         keys = (
@@ -267,10 +297,6 @@ class Run(
             return _json.dumps(data, default=str, indent=2, sort_keys=False)
         return data
 
-    def at(self, timestep: int = -1, layer: int | None = None):
-        """Return the chainable array accessor for one time/layer slice."""
-        return self.array.at(timestep=timestep, layer=layer)
-
     # -- Display capabilities ------------------------------------------------
 
     @property
@@ -290,7 +316,7 @@ class Run(
         try:
             if "concentration" in sz.root:
                 caps.append("concentration_map")
-            if "pathlines" in sz.root:
+            if "particles" in sz.root:
                 caps.append("particle_tracks")
             mesh = sz.root.get("mesh")
             derived = sz.root.get("derived")
@@ -333,13 +359,13 @@ class Run(
                 f"solver={row.get('solver')!r}, "
                 f"status={row.get('status')!r})"
             )
-        except KeyError:
+        except RunNotFoundError:
             return f"Run(sim_id={self._sim_id!r}, <not found>)"
 
     def _repr_html_(self) -> str:
         try:
             row = self._load_row()
-        except KeyError:
+        except RunNotFoundError:
             return f"<b>Run</b> <code>{self._sim_id[:8]}</code> <i>(not found)</i>"
         dur = row.get("duration_s")
         dur_str = f"{dur:.1f} s" if isinstance(dur, (int, float)) else "&mdash;"

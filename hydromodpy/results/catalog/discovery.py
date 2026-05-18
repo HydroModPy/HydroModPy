@@ -29,19 +29,6 @@ def short_id(sim_id: str | UUID) -> str:
     return str(sim_id)[:8]
 
 
-class MissingMLDependencyError(ImportError):
-    """Raised when an ML helper is called without its optional dependency."""
-
-    def __init__(self, package: str, hint: str | None = None) -> None:
-        msg = (
-            f"Optional dependency '{package}' is required for this operation. "
-            f"Install with: pip install {package}"
-        )
-        if hint:
-            msg = f"{msg}\nHint: {hint}"
-        super().__init__(msg)
-
-
 class SimulationNotFoundError(KeyError):
     """Raised when a reference does not match any simulation in the catalog."""
 
@@ -64,7 +51,7 @@ class AmbiguousReferenceError(KeyError):
 class DiscoveryMixin:
     """Reference-resolution and view-builder methods for :class:`SimulationCatalog`.
 
-    Relies on ``self._db``.
+    Relies on the facade attribute ``self._backend`` (CatalogBackend port).
     """
 
     def resolve(
@@ -91,20 +78,20 @@ class DiscoveryMixin:
             raise SimulationNotFoundError("Empty reference")
 
         if _UUID_FULL_RE.match(ref_s):
-            row = self._db.execute(
+            row = self._backend.fetch_one(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE CAST(sim_id AS VARCHAR) = ?",
                 [ref_s.lower()],
-            ).fetchone()
+            )
             if row:
                 return str(row[0])
 
         ref_nodash = ref_s.replace("-", "").lower()
         if _HEX_RE.match(ref_nodash) and len(ref_nodash) >= _MIN_PREFIX_LEN:
-            rows = self._db.execute(
+            rows = self._backend.fetch_all(
                 "SELECT CAST(sim_id AS VARCHAR), name FROM simulations "
                 "WHERE REPLACE(CAST(sim_id AS VARCHAR), '-', '') LIKE ? || '%'",
                 [ref_nodash],
-            ).fetchall()
+            )
             if len(rows) == 1:
                 return str(rows[0][0])
             if len(rows) > 1:
@@ -114,17 +101,17 @@ class DiscoveryMixin:
                 )
 
         if project is not None:
-            row = self._db.execute(
+            row = self._backend.fetch_one(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations WHERE project = ? AND name = ?",
                 [project, ref_s],
-            ).fetchone()
+            )
             if row:
                 return str(row[0])
         else:
-            rows = self._db.execute(
+            rows = self._backend.fetch_all(
                 "SELECT CAST(sim_id AS VARCHAR), project FROM simulations WHERE name = ?",
                 [ref_s],
-            ).fetchall()
+            )
             if len(rows) == 1:
                 return str(rows[0][0])
             if len(rows) > 1:
@@ -149,18 +136,29 @@ class DiscoveryMixin:
     def find(self, **filters) -> SimulationGroup:
         from hydromodpy.results.simulation_group import SimulationGroup
 
-        query = "SELECT DISTINCT s.sim_id FROM simulations s"
+        # v2 dim-table joins for filters that hit text codes (solver/status/etc.).
+        # Always-on JOINs keep the WHERE clause uniform whether or not the
+        # caller filters on the joined columns.
+        query = (
+            "SELECT DISTINCT s.sim_id FROM simulations s "
+            "JOIN solvers sv ON s.solver_id = sv.id "
+            "JOIN statuses st ON s.status_id = st.id "
+            "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+            "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
+        )
         joins: list[str] = []
         clauses: list[str] = []
-        # SQL binds positional placeholders in the order they appear in the
-        # query text (JOINs before WHEREs), so keep the two bind lists separate
-        # instead of one ordered by filter-insertion.
         join_params: list = []
         clause_params: list = []
+        # v2: tags moved out of simulations into a per-sim table.
+        tag_join_added = False
 
         for key, val in filters.items():
             if key == "tags":
-                clauses.append("list_contains(s.tags, ?)")
+                if not tag_join_added:
+                    joins.append("JOIN tags tg ON s.sim_id = tg.sim_id")
+                    tag_join_added = True
+                clauses.append("tg.tag = ?")
                 clause_params.append(val)
             elif key.endswith("_gt"):
                 metric = key[:-3]
@@ -192,15 +190,25 @@ class DiscoveryMixin:
             elif key == "crs":
                 clauses.append("s.crs_wkt = ?")
                 clause_params.append(val)
+            elif key == "solver":
+                clauses.append("sv.code = ?")
+                clause_params.append(val)
+            elif key == "solver_category":
+                clauses.append("sv.category = ?")
+                clause_params.append(val)
+            elif key == "status":
+                clauses.append("st.code = ?")
+                clause_params.append(val)
+            elif key == "flow_regime":
+                clauses.append("fr.code = ?")
+                clause_params.append(val)
+            elif key == "mesh_topology":
+                clauses.append("mt.code = ?")
+                clause_params.append(val)
             elif key in (
                 "project",
-                "solver",
-                "solver_category",
-                "flow_regime",
-                "status",
                 "name",
                 "crs_wkt",
-                "mesh_topology",
                 "geographic_fingerprint",
             ):
                 clauses.append(f"s.{key} = ?")
@@ -214,19 +222,20 @@ class DiscoveryMixin:
             query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY s.created_at DESC"
 
-        rows = self._db.execute(query, join_params + clause_params).fetchall()
+        rows = self._backend.fetch_all(query, join_params + clause_params)
         sim_ids = [str(r[0]) for r in rows]
         return SimulationGroup(sim_ids, self)
 
     def latest(self, project: str) -> Run:
         from hydromodpy.results.run import Run
 
-        row = self._db.execute(
-            "SELECT sim_id FROM simulations "
-            "WHERE project = ? AND status = 'completed' "
-            "ORDER BY created_at DESC LIMIT 1",
+        row = self._backend.fetch_one(
+            "SELECT s.sim_id FROM simulations s "
+            "JOIN statuses st ON s.status_id = st.id "
+            "WHERE s.project = ? AND st.code = 'completed' "
+            "ORDER BY s.created_at DESC LIMIT 1",
             [project],
-        ).fetchone()
+        )
         if row is None:
             raise KeyError(f"No completed simulation for project '{project}'")
         return Run(str(row[0]), self)
@@ -248,120 +257,17 @@ class DiscoveryMixin:
         from hydromodpy.results.simulation_group import SimulationGroup
 
         order = "ASC" if ascending else "DESC"
-        rows = self._db.execute(
+        rows = self._backend.fetch_all(
             "SELECT s.sim_id FROM simulations s "
+            "JOIN statuses st ON s.status_id = st.id "
             "JOIN metrics m ON s.sim_id = m.sim_id "
-            "WHERE s.project = ? AND s.status = 'completed' "
+            "WHERE s.project = ? AND st.code = 'completed' "
             "AND m.metric_name = ? "
             f"ORDER BY m.value {order} LIMIT ?",
             [project, metric, n],
-        ).fetchall()
+        )
         if not rows:
             raise KeyError(
                 f"No completed simulation with metric '{metric}' for project '{project}'"
             )
         return SimulationGroup([str(r[0]) for r in rows], self)
-
-    def training_split(
-        self,
-        *,
-        test_size: float = 0.2,
-        val_size: float = 0.1,
-        stratify_by: str | None = "scientific_objective",
-        random_state: int = 42,
-    ) -> tuple[list[str], list[str], list[str]]:
-        """Return ``(train_ids, val_ids, test_ids)`` for ML training pipelines.
-
-        Splits all completed simulations deterministically. ``test_size`` is
-        the fraction of the full set; ``val_size`` is the fraction of the
-        remaining train set used for validation. ``stratify_by`` references
-        a column on the ``simulations`` table (defaults to
-        ``scientific_objective``); pass ``None`` to disable stratification.
-
-        Requires :mod:`scikit-learn`. Raises :class:`MissingMLDependencyError`
-        when not installed.
-        """
-        try:
-            from sklearn.model_selection import train_test_split
-        except ImportError as exc:
-            raise MissingMLDependencyError(
-                "scikit-learn",
-                hint="train/val/test splits use sklearn.model_selection.train_test_split",
-            ) from exc
-
-        if not 0.0 < test_size < 1.0:
-            raise ValueError(f"test_size must be in (0, 1), got {test_size}")
-        if not 0.0 <= val_size < 1.0:
-            raise ValueError(f"val_size must be in [0, 1), got {val_size}")
-
-        allowed = {
-            "scientific_objective",
-            "project",
-            "solver",
-            "solver_category",
-            "flow_regime",
-            "study_area_name",
-        }
-        if stratify_by is not None and stratify_by not in allowed:
-            raise ValueError(
-                f"stratify_by must be one of {sorted(allowed)} or None, got {stratify_by!r}"
-            )
-
-        if stratify_by is None:
-            rows = self._db.execute(
-                "SELECT CAST(sim_id AS VARCHAR) FROM simulations "
-                "WHERE status = 'completed' ORDER BY sim_id"
-            ).fetchall()
-            sim_ids = [str(r[0]) for r in rows]
-            strata = None
-        else:
-            rows = self._db.execute(
-                f"SELECT CAST(sim_id AS VARCHAR), {stratify_by} FROM simulations "
-                "WHERE status = 'completed' ORDER BY sim_id"
-            ).fetchall()
-            sim_ids = [str(r[0]) for r in rows]
-            strata = [r[1] if r[1] is not None else "__missing__" for r in rows]
-
-        if not sim_ids:
-            return [], [], []
-
-        # ``stratify`` requires at least 2 members per class. Drop strata to
-        # ``None`` when any class has fewer.
-        if strata is not None:
-            from collections import Counter
-
-            counts = Counter(strata)
-            min_required = max(2, int(round(1.0 / min(test_size, val_size or 1.0))))
-            if any(c < min_required for c in counts.values()):
-                strata = None
-
-        train_val, test = train_test_split(
-            sim_ids,
-            test_size=test_size,
-            random_state=random_state,
-            stratify=strata,
-        )
-        if val_size <= 0.0 or len(train_val) < 2:
-            return list(train_val), [], list(test)
-
-        if strata is not None:
-            tv_strata = [strata[sim_ids.index(s)] for s in train_val]
-            from collections import Counter
-
-            tv_counts = Counter(tv_strata)
-            if any(c < 2 for c in tv_counts.values()):
-                tv_strata = None
-        else:
-            tv_strata = None
-
-        # ``val_size`` is given relative to the full set; convert to a fraction
-        # of the remaining train+val pool.
-        rel_val = val_size / max(1.0 - test_size, 1e-9)
-        rel_val = min(max(rel_val, 0.0), 0.9999)
-        train, val = train_test_split(
-            train_val,
-            test_size=rel_val,
-            random_state=random_state,
-            stratify=tv_strata,
-        )
-        return list(train), list(val), list(test)

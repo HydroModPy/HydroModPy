@@ -13,7 +13,7 @@ from pathlib import Path
 import pandas as pd
 
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.catalog_schema import PARQUET_VIEW_NAMES
+from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 from hydromodpy.results.storage_contract import PARQUET_FILE_SUFFIX
 
 
@@ -79,7 +79,7 @@ class TestViewSemantics:
                 cat.connection.execute(
                     "SELECT value FROM timeseries "
                     "WHERE sim_id = ? AND station_id = 'P01' AND variable = 'head' "
-                    "ORDER BY datetime",
+                    "ORDER BY timestep",
                     [sid],
                 )
                 .fetchdf()["value"]

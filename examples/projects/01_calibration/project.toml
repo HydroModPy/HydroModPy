@@ -35,7 +35,7 @@ description = "Calibration Optuna de K sur aquifère Dupuit synthétique."
 [[simulation.process]]
 id = "flow"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 # --- Domaine géographique (synthétique, hors-ligne) ------------------
 

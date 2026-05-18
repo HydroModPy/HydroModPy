@@ -7,7 +7,7 @@ from hydromodpy.results import views
 
 class _FakeZarr:
     def __init__(self, n_cells: int) -> None:
-        self.root = {"mesh": {"surface_top": np.ones(n_cells, dtype="float64")}}
+        self.root = {"mesh": {"topography": np.ones(n_cells, dtype="float64")}}
 
     def close(self) -> None:
         return None

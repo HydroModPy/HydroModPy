@@ -9,6 +9,10 @@ project_root = "."
 source_mode = "standard"
 catch_def = "from_outlet_coord"
 dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
+# Default outlet coordinates point to the Selune gauging station.
+# Overlays override these with the watershed-specific outlet.
+x_outlet = 379541.3716
+y_outlet = 6845659.878
 snap_dist = "150 m"
 buff_area = "10%"
 crs_project = "EPSG:2154"
@@ -54,7 +58,11 @@ source = "sim2"
 extent = "watershed"
 
 [overview]
+date_start = "2020-01-01"
+date_end = "2020-12-31"
+
+[overview.panels]
 map_hydrography = true
 map_geology = true
 station_inventory = true
-catchment_summary = true
+stats_card = true

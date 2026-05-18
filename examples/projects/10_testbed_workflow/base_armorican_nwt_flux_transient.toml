@@ -76,24 +76,18 @@ param_list = ["K", "Ss", "Sy"]
 id = "K"
 kind = "homogeneous"
 unit = "m/s"
-
-[flow.param.K.field_homogeneous]
 value = "5e-5 m/s"
 
 [flow.param.Ss.field]
 id = "Ss"
 kind = "homogeneous"
 unit = "m-1"
-
-[flow.param.Ss.field_homogeneous]
 value = "1e-5 m-1"
 
 [flow.param.Sy.field]
 id = "Sy"
 kind = "homogeneous"
 unit = "-"
-
-[flow.param.Sy.field_homogeneous]
 value = "0.05 -"
 
 [flow.ic]
@@ -124,7 +118,7 @@ coverage_policy = "warn"
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [simulation.results]
 keep_solver_files = false
@@ -150,17 +144,27 @@ figures = [
 ]
 
 [modflownwt.runtime]
-mf_version = "mfnwt"
-mf_verbose = false
-nwt_options = "COMPLEX"
-nwt_headtol = 1e-4
-nwt_fluxtol = 500.0
-nwt_maxiterout = 5000
-nwt_continue = false
-dis_itmuni = 4
-evt_ipakcb = 1
-wel_ipakcb = 1
-oc_compact = true
+
+[modflownwt.runtime.nwt]
+version = "mfnwt"
+verbose = false
+options = "COMPLEX"
+headtol = 1e-4
+fluxtol = 500.0
+maxiterout = 5000
+continue_run = false
+
+[modflownwt.runtime.dis]
+itmuni = 4
+
+[modflownwt.runtime.evt]
+ipakcb = 1
+
+[modflownwt.runtime.wel]
+ipakcb = 1
+
+[modflownwt.runtime.oc]
+compact = true
 
 [modflownwt.sgrid.planar]
 mode = "resample_to_shape"

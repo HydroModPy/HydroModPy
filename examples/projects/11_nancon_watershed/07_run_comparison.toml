@@ -1,0 +1,136 @@
+# ======================================================================
+# Nancon - 07 - Method comparison (low-K vs high-K)
+# ----------------------------------------------------------------------
+# Workflow:       [workflow].mode = "comparison"
+# Base config:    01_run_simulation_nwt.toml (the canonical NWT setup)
+# Candidates:     two simulations identical except for the hydraulic
+#                 conductivity K.
+# Observables:    final-time watertable elevation map + saturated/seepage
+#                 maps + drain-outflow map. The comparison workflow
+#                 fingerprints each observable, aligns them on a shared
+#                 fine raster, and computes pixelwise diagnostics.
+#
+# Each `[[comparison.simulation]]` entry declares one candidate run with
+# its own overlay applied on top of `base_simulation_config`. The
+# overlay path follows the SAME dotted layout as the base TOML.
+#
+# Launch:
+#   hmp run examples/projects/11_nancon_watershed/07_run_comparison.toml
+#
+# Inspect comparison metrics later:
+#   hmp catalog query "SELECT * FROM all_comparison_runs WHERE comparison_id LIKE 'nancon_k_low_vs_high%'"
+# ======================================================================
+
+
+[workflow]
+mode = "comparison"
+
+
+[comparison]
+comparison_id = "nancon_k_low_vs_high"
+# Base simulation TOML resolved relative to THIS file.
+base_simulation_config = "01_run_simulation_nwt.toml"
+# Each candidate run writes a workspace under this folder.
+output_root = "outputs/nancon_k_low_vs_high"
+# id of the run treated as the reference. Diff maps and metrics are
+# computed against this candidate.
+reference_simulation = "k_5em5"
+# When `false`, the comparison aborts on the first candidate failure.
+continue_on_error = false
+
+
+[comparison.execution]
+# 'subprocess_hmp_run' shells out to `hmp run` for each candidate (the
+# safest backend - clean process per child run).
+backend = "subprocess_hmp_run"
+# How many candidates run in parallel.
+max_parallel_runs = 1
+# When `false`, candidates are materialised on disk but not executed
+# (useful for inspecting the generated child TOMLs).
+run_simulations = true
+# Keep the generated child TOMLs alongside their workspace for review.
+keep_generated_configs = true
+
+
+[comparison.audit]
+# 'strict_same_case' enforces that every candidate shares the same
+# catchment, time window and solver family as the base.
+mode = "strict_same_case"
+# 'warn' logs mismatches instead of aborting the run.
+on_mismatch = "warn"
+
+
+[comparison.fine_raster]
+# Common grid used to align observables before computing diff maps.
+enabled = true
+resolution = 250.0
+extent_mode = "intersection"
+interpolation = "linear"
+write_geotiff = true
+
+
+# ---- Candidate runs --------------------------------------------------
+# Each candidate inherits the base config and only overrides the dotted
+# paths declared under [comparison.simulation.overlay.*].
+
+[[comparison.simulation]]
+id = "k_5em5"
+label = "MODFLOW-NWT, K = 5e-5 m/s (baseline)"
+solver = "modflow_nwt"
+# Mesh registry tag. The structured mesh keeps the native DEM grid.
+mesh_label = "nancon_structured_native"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay.workspace]
+# Each candidate gets its own workspace folder under output_root.
+project_root = "outputs/nancon_k_low_vs_high/workspace_k_5em5"
+
+[comparison.simulation.overlay.flow.param.K.field]
+value = 5e-5
+
+
+[[comparison.simulation]]
+id = "k_1em4"
+label = "MODFLOW-NWT, K = 1e-4 m/s (2x baseline)"
+solver = "modflow_nwt"
+mesh_label = "nancon_structured_native"
+mesh_mode = "structured"
+
+[comparison.simulation.overlay.workspace]
+project_root = "outputs/nancon_k_low_vs_high/workspace_k_1em4"
+
+[comparison.simulation.overlay.flow.param.K.field]
+value = 1e-4
+
+
+# ---- Observables fingerprinted on each candidate --------------------
+# `support = "map"` exports a 2D raster of the simulated variable.
+# `time = "last"` keeps the final stress period only.
+
+[[comparison.observable]]
+name = "head_map_last"
+variable = "watertable_elevation"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "watertable_depth_map_last"
+variable = "watertable_depth"
+support = "map"
+time = "last"
+unit = "m"
+
+[[comparison.observable]]
+name = "seepage_map_last"
+variable = "seepage_areas"
+support = "map"
+time = "last"
+unit = "-"
+
+[[comparison.observable]]
+name = "outflow_drain_map_last"
+variable = "outflow_drain"
+support = "map"
+time = "last"
+unit = "m/day"

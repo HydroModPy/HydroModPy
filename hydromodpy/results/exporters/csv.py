@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 
 if TYPE_CHECKING:
     import duckdb
@@ -28,7 +29,7 @@ def export_csv(
     Parameters
     ----------
     conn : duckdb.DuckDBPyConnection
-        Open connection to ``hydromodpy.duckdb``.
+        Open connection to ``catalog.duckdb``.
     sim_id : str
         Simulation UUID.
     output_path : str or Path
@@ -52,7 +53,10 @@ def export_csv(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    query = "SELECT datetime, station_id, variable, value, unit FROM timeseries WHERE sim_id = ?"
+    query = (
+        "SELECT time AS datetime, station_id, variable, value, unit "
+        "FROM timeseries WHERE sim_id = ?"
+    )
     params: list = [sim_id]
 
     if station_id is not None:
@@ -62,9 +66,10 @@ def export_csv(
         query += " AND variable = ?"
         params.append(variable)
 
-    query += " ORDER BY station_id, variable, datetime"
+    query += " ORDER BY station_id, variable, timestep"
 
-    result = conn.execute(query, params).fetchdf()
+    backend = DuckDBBackend.from_connection(conn)
+    result = backend.query(query, params)
 
     if result.empty:
         logger.debug("No timeseries found for sim=%s", sim_id)

@@ -63,7 +63,8 @@ GEOGRAPHIC_SUBDIR = "geographic"
 INPUTS_SUBDIR = "inputs"
 INPUTS_MANIFEST_NAME = "manifest.json"
 PARQUET_SUBDIR = "parquet"
-HMP_FORMAT_VERSION = "1.2"
+RO_CRATE_METADATA_NAME = "ro-crate-metadata.json"
+HMP_FORMAT_VERSION = "1.3"
 HMP_MAGIC = "hydromodpy/hmp"
 SHAPEFILE_SIDECAR_EXTS = (".shp", ".shx", ".dbf", ".prj", ".cpg", ".sbn", ".sbx")
 
@@ -105,7 +106,7 @@ def _materialise_parquet(
     simulation was registered but never had any per-sim rows, e.g. an
     overview-only run).
     """
-    from hydromodpy.results.catalog_schema import PARQUET_VIEW_NAMES
+    from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES
 
     if not src_dir.is_dir():
         return []
@@ -135,7 +136,10 @@ def _dematerialise_parquet(
     dst_dir.mkdir(parents=True, exist_ok=True)
     copied: list[str] = []
     for src in sorted(src_dir.iterdir()):
-        if src.suffix != PARQUET_FILE_SUFFIX:
+        # Single-file Parquet payloads only; an entry sharing the suffix could
+        # be a directory (e.g. future partitioned dataset) which is not handled
+        # by this importer.
+        if not src.is_file() or src.suffix != PARQUET_FILE_SUFFIX:
             continue
         shutil.copy2(src, dst_dir / src.name)
         copied.append(src.name)
@@ -232,13 +236,13 @@ def _materialise_inputs(
     Writes ``inputs/manifest.json`` listing each bundled input. Returns
     the manifest list (also useful for the root manifest).
     """
-    rows = catalog.connection.execute(
+    rows = catalog.backend.query(
         """SELECT role, category, original_path, canonical_path,
                   sha256, size_bytes, portable
            FROM tracked_files WHERE sim_id = ?
            ORDER BY role, canonical_path""",
         [sim_id],
-    ).fetchdf()
+    )
     if rows.empty:
         return []
 
@@ -331,29 +335,30 @@ def _dump_catalog_snapshot(
     """Create a one-sim DuckDB snapshot at ``dst``."""
     import duckdb as _duckdb
 
-    from hydromodpy.results.catalog_schema import (
-        PER_SIM_TABLE_NAMES,
-        ensure_schema,
-    )
+    from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
+    from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
+    from hydromodpy.results.catalog.migrations import ensure_schema
 
     if dst.exists():
         dst.unlink()
     snap = _duckdb.connect(str(dst))
     try:
         ensure_schema(snap)
-        sim_df = conn.execute(
+        src_backend = DuckDBBackend.from_connection(conn)
+        sim_df = src_backend.query(
             "SELECT * FROM simulations WHERE sim_id = ?",
             [sim_id],
-        ).fetchdf()
+        )
         if sim_df.empty:
             raise KeyError(f"Simulation '{sim_id}' not found")
+        # DuckDB replacement scan needs the local sim_df symbol below.
         snap.execute("INSERT INTO simulations SELECT * FROM sim_df")
 
         for table in PER_SIM_TABLE_NAMES:
-            df = conn.execute(
+            df = src_backend.query(
                 f"SELECT * FROM {table} WHERE sim_id = ?",
                 [sim_id],
-            ).fetchdf()
+            )
             if df.empty:
                 continue
             snap.execute(f"INSERT INTO {table} SELECT * FROM df")
@@ -371,30 +376,33 @@ def _restore_catalog_snapshot(
     """
     import duckdb as _duckdb
 
-    from hydromodpy.results.catalog_schema import PER_SIM_TABLE_NAMES
+    from hydromodpy.results.catalog.constants import PER_SIM_TABLE_NAMES
 
     snap = _duckdb.connect(str(snapshot_path), read_only=True)
     try:
-        sim_row = snap.execute("SELECT sim_id FROM simulations").fetchone()
+        from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
+
+        snap_backend = DuckDBBackend.from_connection(snap)
+        sim_row = snap_backend.fetch_one("SELECT sim_id FROM simulations")
         if sim_row is None:
             raise ValueError("Snapshot contains no simulation row")
         sid = str(sim_row[0])
 
         pkg_tables = {
             r[0]
-            for r in snap.execute(
+            for r in snap_backend.fetch_all(
                 "SELECT table_name FROM information_schema.tables "
                 "WHERE table_schema='main' AND table_type='BASE TABLE'"
-            ).fetchall()
+            )
         }
 
-        sim_df = snap.execute("SELECT * FROM simulations").fetchdf()  # noqa: F841 - referenced by DuckDB replacement scan in SQL below
+        sim_df = snap_backend.query("SELECT * FROM simulations")  # noqa: F841 - referenced by DuckDB replacement scan in SQL below
         conn.execute("INSERT INTO simulations SELECT * FROM sim_df")
 
         for table in PER_SIM_TABLE_NAMES:
             if table not in pkg_tables:
                 continue
-            df = snap.execute(f"SELECT * FROM {table}").fetchdf()
+            df = snap_backend.query(f"SELECT * FROM {table}")
             if df.empty:
                 continue
             conn.execute(f"INSERT INTO {table} SELECT * FROM df")
@@ -433,6 +441,21 @@ def _build_manifest(
         "inputs": inputs,
         "files": files,
     }
+
+
+def _write_ro_crate(catalog: Any, sim_id: str, staging: Path) -> Path | None:
+    """Best-effort RO-Crate v1.1 sidecar at the staging root.
+
+    Failures are logged and the package keeps going: the RO-Crate is a
+    metadata bonus, never a hard requirement of the .hmp container.
+    """
+    try:
+        from hydromodpy.results.export import write_ro_crate
+
+        return write_ro_crate(catalog, sim_id, staging / RO_CRATE_METADATA_NAME)
+    except Exception as exc:  # noqa: BLE001 - keep export resilient
+        logger.warning("Failed to write RO-Crate inside .hmp staging: %s", exc)
+        return None
 
 
 def _write_readme(
@@ -562,6 +585,7 @@ def export_hmp_package(
         _materialise_geographic(workspace, geo_fp, staging)
         _materialise_parquet(catalog.parquet_dir_for(sid), staging)
         inputs_manifest = _materialise_inputs(catalog, sid, staging)
+        _write_ro_crate(catalog, sid, staging)
         _write_readme(
             sid,
             staging / README_NAME,
@@ -822,7 +846,7 @@ def import_hmp_package(
         # Refresh Parquet views so the freshly-materialised files become
         # visible to subsequent ``SELECT ... FROM <view>`` calls on the
         # caller's catalog connection.
-        from hydromodpy.results.catalog_schema import ensure_parquet_views
+        from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
 
         ensure_parquet_views(catalog.connection, catalog.simulations_dir)
 

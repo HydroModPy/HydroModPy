@@ -1,0 +1,77 @@
+# Performance regression gate.
+# Runs the pytest-benchmark suite under tests/performance/ and compares
+# pairwise benchmark mean ratios to tests/performance/baseline.json. Fails
+# the job if any pairwise ratio drifts by more than 30 percent relative to
+# the baseline. Comparing ratios neutralizes the constant machine speed
+# factor between the local baseline machine and the ubuntu-latest runner.
+#
+# pytest-benchmark disables itself under pytest-xdist, so this job runs the
+# benchmark phase serially. The rest of the CI keeps xdist enabled.
+
+name: Perf Regression Gate
+
+on:
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  MPLBACKEND: Agg
+  PYTHONUNBUFFERED: "1"
+  PERF_FAIL_THRESHOLD: "0.30"
+
+jobs:
+  perf:
+    name: Pairwise ratio drift vs baseline (30 pct)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux system libraries
+        run: sudo apt-get update && sudo apt-get install -y libglu1-mesa
+
+      - name: Install package, test and performance extras
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[test,performance]"
+
+      - name: Run benchmark suite (serial, JSON dump)
+        run: |
+          mkdir -p .perf
+          python -m pytest tests/performance/ \
+            --benchmark-only \
+            --benchmark-json=.perf/current.json \
+            -q
+
+      - name: Compare current vs baseline (fail if any ratio drifts > 30 pct)
+        run: |
+          python tools/ci/perf_compare.py \
+            --baseline tests/performance/baseline.json \
+            --current .perf/current.json \
+            --threshold "${PERF_FAIL_THRESHOLD}" \
+            --report .perf/report.md
+
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-report
+          path: |
+            .perf/current.json
+            .perf/report.md
+          if-no-files-found: warn
+          retention-days: 30

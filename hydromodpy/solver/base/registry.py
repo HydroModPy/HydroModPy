@@ -11,10 +11,9 @@ live in ``solver/compatibility`` (class-based) and ``simulation/adapters``
   demand. This matches the lifecycle intent of ``SolverAdapter`` (one adapter
   = one run) while preserving the lightweight semantics of a static catalog.
 
-The module also tracks per-solver **output extractors** in
-``_BUILTIN_EXTRACTOR_PATHS``. Extractors parse raw solver outputs into the
-``SimulationCatalog`` after a run completes, so they are keyed on
-``solver_name`` alone (no ``process_type``).
+The module also tracks **output extractors** keyed on the same
+``(process_type, solver_name)`` pair. Extractors parse raw solver outputs
+into the ``SimulationCatalog`` after a run completes.
 
 Built-in adapters and extractors shipped in-tree are declared as dotted
 paths and imported lazily on first lookup. That keeps
@@ -40,7 +39,7 @@ ENTRY_POINT_GROUP = "hydromodpy.solver"
 EXTRACTOR_ENTRY_POINT_GROUP = "hydromodpy.solver.extractor"
 
 _REGISTRY: dict[AdapterKey, type] = {}
-_EXTRACTOR_REGISTRY: dict[str, type] = {}
+_EXTRACTOR_REGISTRY: dict[AdapterKey, type] = {}
 _PLUGINS_LOADED = False
 _EXTRACTOR_PLUGINS_LOADED = False
 
@@ -49,7 +48,7 @@ _EXTRACTOR_PLUGINS_LOADED = False
 # ``hydromodpy.simulation`` stack) does not pull every solver backend.
 # Format: ``"<module>:<class>"``.
 _BUILTIN_PATHS: dict[AdapterKey, str] = {
-    ("flow", "modflownwt"): "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter",
+    ("flow", "modflow_nwt"): "hydromodpy.solver.modflow_nwt.adapters.flow:ModflowNwtFlowAdapter",
     ("flow", "modflow6"): "hydromodpy.solver.modflow6.adapters.flow:Modflow6FlowAdapter",
     ("flow", "boussinesq"): "hydromodpy.solver.boussinesq.adapters.flow:BoussinesqFlowAdapter",
     (
@@ -62,7 +61,7 @@ _BUILTIN_PATHS: dict[AdapterKey, str] = {
     ): "hydromodpy.solver.modflow_nwt.adapters.transport_mt3dms:Mt3dmsTransportAdapter",
     (
         "transport",
-        "modflow6gwt",
+        "modflow6",
     ): "hydromodpy.solver.modflow6.adapters.transport:Modflow6GwtTransportAdapter",
     (
         "transport",
@@ -71,26 +70,38 @@ _BUILTIN_PATHS: dict[AdapterKey, str] = {
 }
 
 _BUILTIN_CAPABILITIES: dict[AdapterKey, Capabilities] = {
-    ("flow", "modflownwt"): frozenset({"flow", "flow:heads", "flow:budget"}),
+    ("flow", "modflow_nwt"): frozenset({"flow", "flow:heads", "flow:budget"}),
     ("flow", "modflow6"): frozenset({"flow", "flow:heads", "flow:budget"}),
     ("flow", "boussinesq"): frozenset({"flow", "flow:heads"}),
     ("transport", "modpath"): frozenset({"transport", "transport:particles"}),
     ("transport", "mt3dms"): frozenset({"transport", "transport:concentration"}),
-    ("transport", "modflow6gwt"): frozenset({"transport", "transport:concentration"}),
+    ("transport", "modflow6"): frozenset({"transport", "transport:concentration"}),
     ("transport", "modflow6prt"): frozenset({"transport", "transport:particles"}),
 }
 
-# Dotted paths to in-tree output extractor classes. Keyed on solver_name
-# alone: ``modflow6gwt`` shares the same concentration extractor as
-# ``mt3dms`` via subclass, not via dict aliasing.
-_BUILTIN_EXTRACTOR_PATHS: dict[str, str] = {
-    "modflownwt": "hydromodpy.solver.modflow_nwt.extractors.flow:ModflowNwtOutputAdapter",
-    "modflow6": "hydromodpy.solver.modflow6.extractors.flow:Modflow6OutputAdapter",
-    "boussinesq": "hydromodpy.solver.boussinesq.extractors.flow:BoussinesqOutputAdapter",
-    "mt3dms": "hydromodpy.solver.modflow_nwt.extractors.mt3dms:Mt3dmsOutputAdapter",
-    "modflow6gwt": "hydromodpy.solver.modflow6.extractors.transport:Modflow6GwtOutputAdapter",
-    "modflow6prt": "hydromodpy.solver.modflow6.extractors.prt:Modflow6PrtOutputAdapter",
-    "modpath": "hydromodpy.solver.modflow_nwt.extractors.modpath:ModpathOutputAdapter",
+# Dotted paths to in-tree output extractor classes. Keyed on the same
+# ``(process_type, solver_name)`` pair as adapters so a solver code can
+# carry one extractor per process (e.g. flow vs transport for MODFLOW 6).
+_BUILTIN_EXTRACTOR_PATHS: dict[AdapterKey, str] = {
+    (
+        "flow",
+        "modflow_nwt",
+    ): "hydromodpy.solver.modflow_nwt.extractors.flow:ModflowNwtOutputAdapter",
+    ("flow", "modflow6"): "hydromodpy.solver.modflow6.extractors.flow:Modflow6OutputAdapter",
+    ("flow", "boussinesq"): "hydromodpy.solver.boussinesq.extractors.flow:BoussinesqOutputAdapter",
+    ("transport", "mt3dms"): "hydromodpy.solver.modflow_nwt.extractors.mt3dms:Mt3dmsOutputAdapter",
+    (
+        "transport",
+        "modflow6",
+    ): "hydromodpy.solver.modflow6.extractors.transport:Modflow6GwtOutputAdapter",
+    (
+        "transport",
+        "modflow6prt",
+    ): "hydromodpy.solver.modflow6.extractors.prt:Modflow6PrtOutputAdapter",
+    (
+        "transport",
+        "modpath",
+    ): "hydromodpy.solver.modflow_nwt.extractors.modpath:ModpathOutputAdapter",
 }
 
 
@@ -111,15 +122,15 @@ def _load_builtin(key: AdapterKey) -> type | None:
     return cls
 
 
-def _load_builtin_extractor(solver_name: str) -> type | None:
-    """Import and register the built-in extractor for *solver_name*, if any."""
-    path = _BUILTIN_EXTRACTOR_PATHS.get(solver_name)
+def _load_builtin_extractor(key: AdapterKey) -> type | None:
+    """Import and register the built-in extractor for *key*, if any."""
+    path = _BUILTIN_EXTRACTOR_PATHS.get(key)
     if path is None:
         return None
     module_path, _, class_name = path.partition(":")
     module = importlib.import_module(module_path)
     cls = getattr(module, class_name)
-    _EXTRACTOR_REGISTRY[solver_name] = cls
+    _EXTRACTOR_REGISTRY[key] = cls
     return cls
 
 
@@ -142,18 +153,20 @@ def register(
 
 
 def register_extractor(
+    process_type: str,
     solver_name: str,
     extractor_cls: type,
     *,
     replace: bool = False,
 ) -> type:
-    """Register an extractor class for a solver name.
+    """Register an extractor class for a ``(process_type, solver_name)`` pair.
 
     Returns the class unchanged so it can be used as a decorator.
     """
-    if solver_name in _EXTRACTOR_REGISTRY and not replace:
-        raise ValueError(f"Extractor already registered for solver {solver_name!r}.")
-    _EXTRACTOR_REGISTRY[solver_name] = extractor_cls
+    key = (process_type, solver_name)
+    if key in _EXTRACTOR_REGISTRY and not replace:
+        raise ValueError(f"Extractor already registered for {process_type}/{solver_name}.")
+    _EXTRACTOR_REGISTRY[key] = extractor_cls
     return extractor_cls
 
 
@@ -205,34 +218,35 @@ def get_solver_adapter(process_type: str, solver_name: str) -> Any:
     return cls()
 
 
-def get_extractor(solver_name: str) -> type:
-    """Return the extractor class for *solver_name*.
+def get_extractor(process_type: str, solver_name: str) -> type:
+    """Return the extractor class for ``(process_type, solver_name)``.
 
     Raises ``KeyError`` when no extractor is registered or declared as a
     built-in.
     """
-    cls = _EXTRACTOR_REGISTRY.get(solver_name)
+    key = (process_type, solver_name)
+    cls = _EXTRACTOR_REGISTRY.get(key)
     if cls is not None:
         return cls
-    cls = _load_builtin_extractor(solver_name)
+    cls = _load_builtin_extractor(key)
     if cls is not None:
         return cls
     if not _EXTRACTOR_PLUGINS_LOADED:
         load_extractor_plugins()
-        cls = _EXTRACTOR_REGISTRY.get(solver_name)
+        cls = _EXTRACTOR_REGISTRY.get(key)
         if cls is not None:
             return cls
     known = sorted(set(_EXTRACTOR_REGISTRY) | set(_BUILTIN_EXTRACTOR_PATHS))
-    raise KeyError(f"No extractor registered for solver {solver_name!r}. Known: {known}.")
+    raise KeyError(f"No extractor registered for {process_type}/{solver_name}. Known: {known}.")
 
 
-def get_extractor_instance(solver_name: str) -> Any | None:
+def get_extractor_instance(process_type: str, solver_name: str) -> Any | None:
     """Return a freshly-instantiated extractor, or ``None`` when unknown.
 
     ``post_run_results`` treats ``None`` as a configuration error.
     """
     try:
-        cls = get_extractor(solver_name)
+        cls = get_extractor(process_type, solver_name)
     except KeyError:
         return None
     return cls()
@@ -252,14 +266,15 @@ def unregister(process_type: str, solver_name: str) -> None:
     _BUILTIN_CAPABILITIES.pop(key, None)
 
 
-def unregister_extractor(solver_name: str) -> None:
+def unregister_extractor(process_type: str, solver_name: str) -> None:
     """Remove an extractor entry (primarily for tests).
 
     Also drops any matching entry from ``_BUILTIN_EXTRACTOR_PATHS`` so a
     subsequent ``get_extractor`` call does not lazy-reload the built-in.
     """
-    _EXTRACTOR_REGISTRY.pop(solver_name, None)
-    _BUILTIN_EXTRACTOR_PATHS.pop(solver_name, None)
+    key = (process_type, solver_name)
+    _EXTRACTOR_REGISTRY.pop(key, None)
+    _BUILTIN_EXTRACTOR_PATHS.pop(key, None)
 
 
 def list_pairs() -> list[AdapterKey]:
@@ -272,8 +287,8 @@ def list_pairs() -> list[AdapterKey]:
     return sorted(set(_REGISTRY) | set(_BUILTIN_PATHS))
 
 
-def list_extractor_solvers() -> list[str]:
-    """Return all solver names with a registered extractor (sorted)."""
+def list_extractor_pairs() -> list[AdapterKey]:
+    """Return all ``(process_type, solver_name)`` pairs with a registered extractor."""
     return sorted(set(_EXTRACTOR_REGISTRY) | set(_BUILTIN_EXTRACTOR_PATHS))
 
 
@@ -372,8 +387,9 @@ def load_extractor_plugins(*, force: bool = False) -> int:
     """Discover and register extractors declared via the
     ``hydromodpy.solver.extractor`` entry-points group.
 
-    Each entry-point name is the solver name. The loaded value must be
-    a class implementing the extractor contract (``extract`` / ``derive``).
+    Each entry-point name must be ``"<process_type>_<solver_name>"`` (e.g.
+    ``"flow_modflow6"``). The loaded value must be a class implementing the
+    extractor contract (``extract`` / ``derive``).
     """
     global _EXTRACTOR_PLUGINS_LOADED
     if _EXTRACTOR_PLUGINS_LOADED and not force:
@@ -386,11 +402,17 @@ def load_extractor_plugins(*, force: bool = False) -> int:
         eps = entry_points().get(EXTRACTOR_ENTRY_POINT_GROUP, [])  # type: ignore[attr-defined]
 
     for ep in eps:
-        solver_name = str(ep.name).strip()
-        if solver_name == "":
-            logger.warning("extractor plugin %r ignored: entry-point name cannot be empty", ep)
+        name = str(ep.name).strip()
+        if "_" not in name:
+            logger.warning(
+                "extractor plugin %r ignored: entry-point name must be "
+                "'<process_type>_<solver_name>' (got %r)",
+                ep,
+                name,
+            )
             continue
-        if solver_name in _EXTRACTOR_REGISTRY and not force:
+        process_type, _, solver_name = name.partition("_")
+        if (process_type, solver_name) in _EXTRACTOR_REGISTRY and not force:
             continue
         try:
             extractor_cls = ep.load()
@@ -401,7 +423,7 @@ def load_extractor_plugins(*, force: bool = False) -> int:
                 exc,
             )
             continue
-        register_extractor(solver_name, extractor_cls, replace=force)
+        register_extractor(process_type, solver_name, extractor_cls, replace=force)
         count += 1
     _EXTRACTOR_PLUGINS_LOADED = True
     return count
@@ -420,7 +442,7 @@ __all__ = [
     "is_adapter",
     "is_supported",
     "known_process_types",
-    "list_extractor_solvers",
+    "list_extractor_pairs",
     "list_pairs",
     "load_extractor_plugins",
     "load_plugins",

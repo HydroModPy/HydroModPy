@@ -14,21 +14,16 @@ from uuid import UUID
 
 import numpy as np
 import pandas as pd
-from shapely import wkb
 
 if TYPE_CHECKING:
     import geopandas as gpd
 
-_SIMULATION_FILTER_COLUMNS: frozenset[str] = frozenset(
+# Filter columns that map to a real simulations.* column (no dim join).
+_SIMULATION_DIRECT_FILTERS: frozenset[str] = frozenset(
     {
         "sim_id",
         "name",
         "project",
-        "solver",
-        "solver_category",
-        "flow_regime",
-        "status",
-        "mesh_topology",
         "mesh_hash",
         "n_cells",
         "n_layers",
@@ -53,6 +48,20 @@ _SIMULATION_FILTER_COLUMNS: frozenset[str] = frozenset(
         "doi",
     }
 )
+
+# Filter columns resolved via dim-table JOINs.
+_SIMULATION_DIM_FILTERS: dict[str, str] = {
+    "solver": "sv.code",
+    "solver_category": "sv.category",
+    "flow_regime": "fr.code",
+    "status": "st.code",
+    "mesh_topology": "mt.code",
+}
+
+_SIMULATION_FILTER_COLUMNS: frozenset[str] = _SIMULATION_DIRECT_FILTERS | frozenset(
+    _SIMULATION_DIM_FILTERS.keys()
+)
+
 _SIMULATION_ORDER_COLUMNS: frozenset[str] = _SIMULATION_FILTER_COLUMNS | frozenset(
     {
         "started_at",
@@ -84,26 +93,32 @@ def _order_clause(order_by: str | tuple[str, str] | None) -> str | None:
     direction = direction.upper()
     if direction not in _ORDER_DIRECTIONS:
         raise ValueError("order_by direction must be 'ASC' or 'DESC'")
-    return f"{column} {direction}"
+    if column in _SIMULATION_DIM_FILTERS:
+        return f"{_SIMULATION_DIM_FILTERS[column]} {direction}"
+    return f"s.{column} {direction}"
 
 
-def _geometry_from_wkb(value: object):
-    if value is None:
-        return None
-    try:
-        missing = pd.isna(value)
-    except (TypeError, ValueError):
-        missing = False
-    if isinstance(missing, (bool, np.bool_)) and missing:
-        return None
-    return wkb.loads(bytes(value))
+_SIMULATIONS_VIEW_SELECT = (
+    "SELECT s.*, "
+    "sv.code AS solver, sv.category AS solver_category, "
+    "st.code AS status, "
+    "fr.code AS flow_regime, "
+    "mt.code AS mesh_topology "
+    "FROM simulations s "
+    "JOIN solvers sv ON s.solver_id = sv.id "
+    "JOIN statuses st ON s.status_id = st.id "
+    "LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+    "LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id"
+)
 
 
 class ReadsMixin:
     """Read-only queries for :class:`SimulationCatalog`.
 
-    Relies on attributes provided by the facade: ``self._db`` and
-    ``self._paths`` (StoragePathResolver), plus ``self.open_zarr`` and
+    Relies on attributes provided by the facade: ``self._backend``
+    (CatalogBackend port), ``self._db`` (DuckDB connection, kept for
+    exporters that take a raw cursor), and ``self._paths``
+    (StoragePathResolver), plus ``self.open_zarr`` and
     ``self.zarr_path_for`` for field reads / exports.
     """
 
@@ -137,27 +152,27 @@ class ReadsMixin:
         period: tuple | None = None,
     ) -> pd.Series:
         query = (
-            "SELECT datetime, value FROM timeseries "
+            "SELECT time, timestep, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [str(sim_id), station_id, variable]
         if period is not None:
-            # Datetimes are stored as UTC-aware TIMESTAMPTZ; normalize the
+            # Times are stored as UTC-aware TIMESTAMPTZ; normalize the
             # caller's bounds to tz-aware UTC so the comparison is stable
             # regardless of DuckDB's session timezone.
             lo = pd.Timestamp(period[0])
             hi = pd.Timestamp(period[1])
             lo = lo.tz_localize("UTC") if lo.tz is None else lo.tz_convert("UTC")
             hi = hi.tz_localize("UTC") if hi.tz is None else hi.tz_convert("UTC")
-            query += " AND datetime >= ? AND datetime <= ?"
+            query += " AND time >= ? AND time <= ?"
             params.extend([lo.to_pydatetime(), hi.to_pydatetime()])
-        query += " ORDER BY datetime"
-        result = self._db.execute(query, params).fetchdf()
+        query += " ORDER BY timestep"
+        result = self._backend.query(query, params)
         if result.empty:
             raise KeyError(f"No timeseries for sim={sim_id}, station={station_id}, var={variable}")
         # Strip tz back to naive so the returned series aligns with
         # simulation-internal tz-naive time indexes.
-        idx = pd.DatetimeIndex(result["datetime"])
+        idx = pd.DatetimeIndex(result["time"])
         if idx.tz is not None:
             idx = idx.tz_convert("UTC").tz_localize(None)
         return pd.Series(
@@ -180,13 +195,13 @@ class ReadsMixin:
         if period is not None:
             query += " AND timestep >= ? AND timestep <= ?"
             params.extend(period)
-        return self._db.execute(query, params).fetchdf()
+        return self._backend.query(query, params)
 
     def query_mass_balance(self, sim_id: str | UUID) -> pd.DataFrame:
-        return self._db.execute(
+        return self._backend.query(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [str(sim_id)],
-        ).fetchdf()
+        )
 
     def get_provenance(
         self,
@@ -198,7 +213,7 @@ class ReadsMixin:
         if variable is not None:
             query += " AND variable = ?"
             params.append(variable)
-        return self._db.execute(query, params).fetchdf()
+        return self._backend.query(query, params)
 
     def list_simulations(self, **filters) -> pd.DataFrame:
         """Return one DataFrame row per simulation matching ``filters``.
@@ -207,45 +222,49 @@ class ReadsMixin:
         optional ``ASC`` or ``DESC`` direction.
         """
         order_by = filters.pop("order_by", None)
-        query = "SELECT * FROM simulations"
+        query = _SIMULATIONS_VIEW_SELECT
         params: list = []
         if filters:
             clauses = []
             for key, val in filters.items():
                 if key not in _SIMULATION_FILTER_COLUMNS:
                     raise ValueError(f"Unknown simulation filter: {key!r}")
-                clauses.append(f"{key} = ?")
+                if key in _SIMULATION_DIM_FILTERS:
+                    clauses.append(f"{_SIMULATION_DIM_FILTERS[key]} = ?")
+                else:
+                    clauses.append(f"s.{key} = ?")
                 params.append(val)
             query += " WHERE " + " AND ".join(clauses)
         clause = _order_clause(order_by)
         if clause is not None:
             query += f" ORDER BY {clause}"
-        return self._db.execute(query, params).fetchdf()
+        return self._backend.query(query, params)
 
     def list_tracked_files(self, sim_id: str | UUID) -> pd.DataFrame:
-        return self._db.execute(
+        return self._backend.query(
             """SELECT role, category, original_path, canonical_path,
                       sha256, size_bytes, portable
                FROM tracked_files WHERE sim_id = ?
                ORDER BY role, canonical_path""",
             [str(sim_id)],
-        ).fetchdf()
+        )
 
     def read_geographic_feature(
         self,
         sim_id: str | UUID,
         feature_name: str,
     ) -> gpd.GeoDataFrame:
-        import geopandas as gpd_mod
+        """Read a per-simulation GeoParquet 1.1 feature via geopandas."""
+        from hydromodpy.results.geoparquet_io import read_geoparquet
 
-        row = self._db.execute(
+        row = self._backend.fetch_one(
             "SELECT geoparquet_path, properties, crs_wkt FROM geographic_features "
             "WHERE sim_id = ? AND feature_name = ?",
             [str(sim_id), feature_name],
-        ).fetchone()
+        )
         if row is None:
             raise KeyError(f"Feature '{feature_name}' not found for sim '{sim_id}'")
-        parquet_path, properties_json, crs = row
+        parquet_path, properties_json, _crs = row
         if not parquet_path:
             raise KeyError(f"No Parquet payload for feature '{feature_name}'")
         path = Path(parquet_path)
@@ -253,12 +272,7 @@ class ReadsMixin:
             path = self._workspace / path
         if not path.is_file():
             raise FileNotFoundError(path)
-        escaped = path.as_posix().replace("'", "''")
-        df = self._db.execute(f"SELECT * FROM read_parquet('{escaped}')").fetchdf()
-        if "geometry_wkb" not in df.columns:
-            raise KeyError(f"No geometry_wkb column for feature '{feature_name}'")
-        geoms = [_geometry_from_wkb(value) for value in df.pop("geometry_wkb")]
-        gdf = gpd_mod.GeoDataFrame(df, geometry=geoms, crs=crs)
+        gdf = read_geoparquet(path)
         if properties_json:
             props = (
                 json.loads(properties_json) if isinstance(properties_json, str) else properties_json
@@ -268,34 +282,32 @@ class ReadsMixin:
         return gdf
 
     def list_geographic_features(self, sim_id: str | UUID) -> list[str]:
-        rows = self._db.execute(
+        rows = self._backend.fetch_all(
             "SELECT feature_name FROM geographic_features WHERE sim_id = ? ORDER BY feature_name",
             [str(sim_id)],
-        ).fetchall()
+        )
         return [r[0] for r in rows]
 
     def read_geographic_metadata(self, sim_id: str | UUID) -> dict[str, str]:
-        rows = self._db.execute(
+        rows = self._backend.fetch_all(
             "SELECT key, value FROM geographic_metadata WHERE sim_id = ?",
             [str(sim_id)],
-        ).fetchall()
+        )
         return {r[0]: r[1] for r in rows}
 
     @property
     def simulations(self) -> pd.DataFrame:
-        return self._db.execute("SELECT * FROM simulations ORDER BY created_at DESC").fetchdf()
+        return self._backend.query(f"{_SIMULATIONS_VIEW_SELECT} ORDER BY s.created_at DESC")
 
     @property
     def calibration_sessions(self) -> pd.DataFrame:
         """Return every calibration session row as a DataFrame."""
-        return self._db.execute(
-            "SELECT * FROM calibration_sessions ORDER BY started_at DESC"
-        ).fetchdf()
+        return self._backend.query("SELECT * FROM calibration_sessions ORDER BY started_at DESC")
 
     def calibration_iterations(self, session_id: str | UUID) -> pd.DataFrame:
         """Return the iteration history for one session as a DataFrame."""
         sid = UUID(str(session_id)) if len(str(session_id).replace("-", "")) == 32 else session_id
-        return self._db.execute(
+        return self._backend.query(
             """
             SELECT iteration, sim_id, params_hash, parameters,
                    objective_value, metrics, status, from_cache, duration_s
@@ -304,7 +316,7 @@ class ReadsMixin:
              ORDER BY iteration
             """,
             [sid],
-        ).fetchdf()
+        )
 
     def sql(self, query: str, params: list | None = None) -> pd.DataFrame:
         """Run an arbitrary SQL query against the catalog DuckDB store.
@@ -314,8 +326,8 @@ class ReadsMixin:
         :class:`pandas.DataFrame`.
         """
         if params:
-            return self._db.execute(query, params).fetchdf()
-        return self._db.execute(query).fetchdf()
+            return self._backend.query(query, params)
+        return self._backend.query(query)
 
     def export(
         self,
@@ -365,10 +377,10 @@ class ReadsMixin:
             raise ValueError(f"Unknown export format '{fmt}'")
 
     def _export_crs_for(self, sim_id: str) -> str | None:
-        row = self._db.execute(
+        row = self._backend.fetch_one(
             "SELECT crs_epsg, crs_wkt FROM simulations WHERE sim_id = ?",
             [sim_id],
-        ).fetchone()
+        )
         if row is not None:
             epsg, wkt = row
             if epsg is not None:

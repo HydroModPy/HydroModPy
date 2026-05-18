@@ -40,13 +40,13 @@ class SimulationPlanner:
         If the user declares:
 
         - ``mesh_main`` with ``type="mesh", backend="catchment"``
-        - ``flow_main`` with ``solvers=["modflownwt"]``
+        - ``flow_main`` with ``solvers=["modflow_nwt"]``
         - ``transport_main`` with ``solvers=["modpath", "mt3dms"]``
 
         then the planner emits four ordered runs:
 
         - ``mesh_main::catchment``
-        - ``flow_main::modflownwt``
+        - ``flow_main::modflow_nwt``
         - ``transport_main::modpath``
         - ``transport_main::mt3dms``
 

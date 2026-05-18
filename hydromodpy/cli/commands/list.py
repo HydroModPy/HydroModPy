@@ -3,7 +3,7 @@
 Workspace discovery mirrors ``hmp display --list``:
 
 1. ``--workspace`` flag, if provided.
-2. ``HYDROMODPY_WORKSPACE`` environment variable.
+2. ``HMP_WORKSPACE`` environment variable.
 3. Walk up from the current directory looking for a workspace scaffold.
 4. Fall back to :data:`hydromodpy.data.scaffold.DEFAULT_ROOT` (``~/hydromodpy``).
 
@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_workspace_root
+from hydromodpy.core.state.paths import CATALOG_FILENAME, PROJECT_TOML_FILENAME
 
 NAME: str = "list"
 HELP: str = "List projects or runs in a workspace"
@@ -47,7 +48,7 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
     if workspace_arg:
         return Path(workspace_arg).expanduser().resolve()
 
-    ws_override = os.environ.get("HYDROMODPY_WORKSPACE")
+    ws_override = os.environ.get("HMP_WORKSPACE")
     start = Path(ws_override).expanduser().resolve() if ws_override else Path.cwd()
     found = find_workspace_root(start)
     if (found / "projects").is_dir() or (found / "data").is_dir():
@@ -61,7 +62,7 @@ def run(args: argparse.Namespace) -> None:
 
     if args.project:
         project_dir = projects_dir / args.project
-        db_path = project_dir / "hydromodpy.duckdb"
+        db_path = project_dir / CATALOG_FILENAME
         if not db_path.exists():
             print(f"No project catalog at {project_dir}", file=sys.stderr)
             sys.exit(EXIT_NOT_FOUND)
@@ -100,32 +101,15 @@ def run(args: argparse.Namespace) -> None:
         for project_dir in sorted(projects_dir.iterdir()):
             if not project_dir.is_dir():
                 continue
-            has_project_toml = (project_dir / "project.toml").exists()
+            has_project_toml = (project_dir / PROJECT_TOML_FILENAME).exists()
             run_tomls = list(project_dir.glob("run_*.toml"))
             details = []
             if has_project_toml:
-                details.append("project.toml")
+                details.append(PROJECT_TOML_FILENAME)
             if run_tomls:
                 details.append(f"{len(run_tomls)} run(s)")
             suffix = f"  [{', '.join(details)}]" if details else ""
             print(f"  {project_dir.name}{suffix}")
-
-    try:
-        from hydromodpy.results.catalog import CatalogIndex
-
-        with CatalogIndex() as index:
-            index.register_workspace(workspace_root)
-            sims = index.query("SELECT project_slug, sim_id FROM all_simulations")
-        if sims.empty:
-            print("# catalog: (no simulations recorded)")
-        else:
-            projects = sims["project_slug"].dropna().value_counts().sort_index()
-            print(f"# catalog: {len(sims)} run(s) across {len(projects)} project(s)")
-            for project_name, count in projects.items():
-                print(f"  {project_name}  [{count} run(s)]")
-        return
-    except Exception as exc:
-        print(f"  Error reading project catalogs: {exc}", file=sys.stderr)
 
     if not projects_dir.is_dir():
         print(

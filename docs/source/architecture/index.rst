@@ -178,6 +178,7 @@ Subsystem deep dives
    package-layout
    layered-architecture
    storage-layout
+   pipeline_resume
    overview/index
 
 .. toctree::

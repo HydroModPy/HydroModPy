@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "workspace"
 HELP: str = "Manage a HydroModPy workspace"
@@ -26,7 +27,7 @@ def register(subparsers) -> argparse.ArgumentParser:
     clean.add_argument(
         "--results",
         action="store_true",
-        help="Remove project hydromodpy.duckdb files and simulations/ folders",
+        help="Remove project catalog.duckdb files and simulations/ folders",
     )
     clean.add_argument(
         "--data-cache", action="store_true", help="Remove data/cache.duckdb and data/blobs/"
@@ -115,8 +116,8 @@ def _collect_targets(workspace: Path, groups: set[str]) -> list[Path]:
     if "results" in groups:
         targets.extend(
             [
-                workspace / "hydromodpy.duckdb",
-                workspace / "hydromodpy.duckdb.wal",
+                workspace / CATALOG_FILENAME,
+                workspace / f"{CATALOG_FILENAME}.wal",
                 workspace / "simulations",
             ]
         )
@@ -125,8 +126,8 @@ def _collect_targets(workspace: Path, groups: set[str]) -> list[Path]:
                 continue
             targets.extend(
                 [
-                    project_dir / "hydromodpy.duckdb",
-                    project_dir / "hydromodpy.duckdb.wal",
+                    project_dir / CATALOG_FILENAME,
+                    project_dir / f"{CATALOG_FILENAME}.wal",
                     project_dir / "simulations",
                 ]
             )

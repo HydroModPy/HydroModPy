@@ -54,7 +54,7 @@ class TestFullCycle:
         reg = catalog.register_simulation(
             sid,
             project="test",
-            solver="modflownwt",
+            solver="modflow_nwt",
             name="test_run",
             n_cells=n_cells,
             n_layers=n_layers,
@@ -92,7 +92,7 @@ class TestFullCycle:
 
         sz = catalog.open_zarr(sid)
         mesh = sz.root["mesh"]
-        mesh.create_array("surface_top", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True)
+        mesh.create_array("topography", data=np.array([10.0, 10.0, 10.0, 10.0]), overwrite=True)
 
         values = np.array([[1.0, 2.0, 3.0, 4.0]], dtype="float64")
         catalog.write_field(sid, "head", 0, values, n_timesteps=1)
@@ -105,7 +105,7 @@ class TestFullCycle:
         sz = catalog.open_zarr(sid)
         try:
             np.testing.assert_array_equal(
-                sz.root["mesh"]["surface_top"][:],
+                sz.root["mesh"]["topography"][:],
                 [10.0, 10.0, 10.0, 10.0],
             )
             np.testing.assert_array_equal(sz.read_field("head", 0), values)
@@ -117,7 +117,7 @@ class TestFullCycle:
         reg = catalog.register_simulation(
             sid,
             project="test",
-            solver="modflownwt",
+            solver="modflow_nwt",
             name="transient_handles",
             n_cells=4,
             n_layers=2,
@@ -189,7 +189,7 @@ class TestTimeseriesCycle:
 class TestBudgetAndMassBalance:
     def test_budget_roundtrip(self, catalog):
         sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
 
         for t in range(5):
             catalog.write_budget(sid, t, "0", "recharge", 100.0 + t, 0.0)
@@ -203,7 +203,7 @@ class TestBudgetAndMassBalance:
 
     def test_mass_balance_roundtrip(self, catalog):
         sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
 
         for t in range(3):
             catalog.write_mass_balance(sid, t, 1000.0, 995.0, 0.5)
@@ -216,7 +216,7 @@ class TestBudgetAndMassBalance:
 class TestProvenance:
     def test_roundtrip_and_verify(self, catalog):
         sid = str(uuid4())
-        catalog.register_simulation(sid, project="test", solver="modflownwt")
+        catalog.register_simulation(sid, project="test", solver="modflow_nwt")
 
         data = np.random.default_rng(99).random((365, 100))
         catalog.write_provenance(sid, "recharge", "recharge/sim2", data)
@@ -240,7 +240,7 @@ class TestDeleteSimulation:
         reg = catalog.register_simulation(
             sid,
             project="test",
-            solver="modflownwt",
+            solver="modflow_nwt",
             n_cells=4,
             n_layers=2,
             n_timesteps=1,
@@ -272,7 +272,7 @@ class TestCompare:
             reg = catalog.register_simulation(
                 sid,
                 project="test",
-                solver="test",
+                solver="modflow6",
                 n_cells=n_cells,
                 n_layers=n_layers,
                 n_timesteps=1,

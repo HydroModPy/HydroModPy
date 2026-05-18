@@ -54,7 +54,6 @@ _DOC_REQUIRED_EXTENSIONS = [
     "sphinx_polyversion",
     "sphinxcontrib.autodoc_pydantic",
     "sphinx_codeautolink",
-    "sphinxcontrib.mermaid",
     "sphinxcontrib.bibtex",
     "sphinx_autodoc_typehints",
     "sphinx_issues",
@@ -283,7 +282,6 @@ extensions = [
     "sphinx_togglebutton",
     "sphinxcontrib.autodoc_pydantic",
     "sphinx_codeautolink",
-    "sphinxcontrib.mermaid",
     "sphinxcontrib.bibtex",
     "sphinx_autodoc_typehints",
     "sphinx_issues",
@@ -320,7 +318,13 @@ codeautolink_global_preface = "import hydromodpy"
 # (e.g. ``physical_bounds.validate_physical_value`` shows a ValueError
 # example). The HTML still renders correctly, only the in-block name
 # linking is skipped, so the warning is purely informative.
-suppress_warnings = ["codeautolink.match_block"]
+# ``codeautolink.parse_block`` covers pseudo-code blocks that show contracts
+# with ellipses like ``def foo(...) -> ...: ...`` which ast cannot parse.
+suppress_warnings = [
+    "codeautolink.match_block",
+    "codeautolink.parse_block",
+    "misc.highlighting_failure",
+]
 
 typehints_fully_qualified = False
 always_document_param_types = True

@@ -2,26 +2,32 @@ API Reference
 =============
 
 The API reference is generated automatically from docstrings via
-``autosummary :recursive:``. Every public subpackage is walked top-down and
-each public class, function, and module gets its own page under
+``autosummary :recursive:``. Every public subpackage is walked top-down
+and each public class, function, and module gets its own page under
 ``api/generated/``.
 
 Top-level facade functions live under :mod:`hydromodpy`. The Pydantic
 configuration root lives under :mod:`hydromodpy.config`. Domain layers
-(``data``, ``solver``, ``calibration``, ...) follow the architecture matrix
-documented in :doc:`/architecture/index`.
+(``data``, ``solver``, ``calibration``, ...) follow the architecture
+matrix documented in :doc:`/architecture/index`.
 
-Top-level entry points
-----------------------
+Public facade
+-------------
+
+The single supported import path is ``import hydromodpy as hmp``. The
+v2 facade re-exports the verbs and helpers below from
+``hydromodpy._api``. For the structural contracts and the field
+registry, see :doc:`/architecture/overview/contracts`.
 
 .. autosummary::
    :nosignatures:
    :toctree: generated
 
    hydromodpy.open
+   hydromodpy.read
    hydromodpy.run
    hydromodpy.calibrate
-   hydromodpy.catalog
+   hydromodpy.index
    hydromodpy.overview
    hydromodpy.compare_pair
    hydromodpy.mesh
@@ -34,9 +40,9 @@ Public subpackages
 ------------------
 
 These subpackages expose stable, user-facing APIs (configuration root,
-run catalog, display registry, calibration helpers). Their listings are
-recursive: every public class, function, and submodule gets its own
-generated page.
+project catalog, run facade, display registry, calibration helpers).
+Their listings are recursive: every public class, function, and
+submodule gets its own generated page.
 
 .. autosummary::
    :toctree: generated
@@ -57,6 +63,7 @@ to a module to read its direct members.
 
 .. autosummary::
    :toctree: generated
+   :recursive:
 
    hydromodpy.analysis
    hydromodpy.core

@@ -252,7 +252,7 @@ Solver binaries
 MODFLOW, MODPATH, and MT3D-USGS executables are downloaded on demand
 the first time a solver runs, into ``~/.cache/hydromodpy/bin/`` (or
 the platform equivalent). Override the location with the
-``HYDROMODPY_BIN`` environment variable.
+``HMP_BIN`` environment variable.
 
 In most cases nothing is required from the user: the first solver run
 populates the cache transparently. The dropdown below covers the
@@ -301,7 +301,7 @@ explicit commands and the air-gapped flow.
    The ``.manifest.json`` file records the release tag and the
    download timestamp written on first fetch.
 
-   When ``HYDROMODPY_BIN`` (or ``--bindir``) points at a user-managed
+   When ``HMP_BIN`` (or ``--bindir``) points at a user-managed
    directory, HydroModPy never writes into it: missing binaries
    surface at solver execution time with a clear ``FileNotFoundError``.
    For air-gapped or CI deployments, run ``hmp install-binaries`` once

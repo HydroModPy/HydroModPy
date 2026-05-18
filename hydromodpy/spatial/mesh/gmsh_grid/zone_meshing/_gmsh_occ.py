@@ -21,7 +21,7 @@ _GMSH_ALGORITHM_BY_NAME = {
 
 def configure_gmsh_terminal_output(gmsh) -> None:
     """Silence verbose Gmsh terminal traces unless explicitly requested."""
-    verbose_env = str(os.environ.get("HYDROMODPY_GMSH_VERBOSE", "")).strip().lower()
+    verbose_env = str(os.environ.get("HMP_GMSH_VERBOSE", "")).strip().lower()
     if verbose_env in {"1", "true", "yes", "on"}:
         return
     for option_name, option_value in (

@@ -15,17 +15,17 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
-def _read_pathlines(sim: Run) -> list[np.ndarray]:
+def _read_particles(sim: Run) -> list[np.ndarray]:
     """Return one (n_steps, 3) array per particle from the Zarr store.
 
-    The preferred Zarr layout stores vectorized ``x``, ``y``, ``z`` and
-    ``time`` arrays shaped ``(n_particles, max_steps)``. Older stores may
-    contain one array per particle (named ``p_<idx>``) whose columns are
-    ``x, y, z``.
+    The preferred layout stores vectorized ``x``, ``y``, ``z`` and ``time``
+    arrays shaped ``(n_particles, max_steps)`` under
+    ``simulations/<id>.zarr/particles/``. Older stores may contain one array
+    per particle (named ``p_<idx>``) whose columns are ``x, y, z``.
     """
     sz = sim._catalog.open_zarr(sim.sim_id)
     try:
-        grp = sz.root.get("pathlines")
+        grp = sz.root.get("particles")
         if grp is None:
             return []
         tracks: list[np.ndarray] = []
@@ -69,7 +69,7 @@ class ParticleTracks(BaseFigure):
         name="particle_tracks",
         title="Particle pathlines",
         kind="particles",
-        required_fields=("pathlines",),
+        required_fields=("particles",),
         default_figsize=(7.0, 5.5),
     )
 
@@ -82,7 +82,7 @@ class ParticleTracks(BaseFigure):
         lw: float = 0.6,
         **_,
     ) -> Axes:
-        tracks = _read_pathlines(sim)
+        tracks = _read_particles(sim)
         if not tracks:
             ax.text(0.5, 0.5, "no pathlines", ha="center", va="center", transform=ax.transAxes)
             return ax
