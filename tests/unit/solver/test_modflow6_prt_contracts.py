@@ -9,7 +9,7 @@ import flopy
 import numpy as np
 import zarr
 
-from hydromodpy.display.figures.particle_tracks import _read_pathlines
+from hydromodpy.display.figures.particle_tracks import _read_particles
 from hydromodpy.physics.transport.transport import Transport
 from hydromodpy.physics.transport.transport_config import TransportConfig
 from hydromodpy.solver.modflow6.extractors.flow import Modflow6OutputAdapter
@@ -85,7 +85,7 @@ def test_modflow6_prt_upstream_nonriver_release_excludes_stream_cells() -> None:
     assert prt._select_release_cells().tolist() == [3]
 
 
-def test_modflow6_prt_extractor_writes_vectorized_pathlines(tmp_path: Path) -> None:
+def test_modflow6_prt_extractor_writes_vectorized_particles(tmp_path: Path) -> None:
     output_dir = tmp_path / "solver"
     output_dir.mkdir()
     (output_dir / "case_prt.trk.csv").write_text(
@@ -107,7 +107,7 @@ def test_modflow6_prt_extractor_writes_vectorized_pathlines(tmp_path: Path) -> N
 
     handle = store.open_zarr("sim_a")
     try:
-        grp = handle.root["pathlines"]
+        grp = handle.root["particles"]
         x = np.asarray(grp["x"])
         time = np.asarray(grp["time"])
         status = np.asarray(grp["status"])
@@ -383,8 +383,8 @@ def test_modflow6_prt_extractor_converts_model_seconds_to_days(tmp_path: Path) -
 
     handle = store.open_zarr("sim_time")
     try:
-        time = np.asarray(handle.root["pathlines/time"])
-        attrs = dict(handle.root["pathlines"].attrs)
+        time = np.asarray(handle.root["particles/time"])
+        attrs = dict(handle.root["particles"].attrs)
     finally:
         handle.close()
 
@@ -415,7 +415,7 @@ def test_particle_tracks_reader_supports_vectorized_layout(tmp_path: Path) -> No
     store = _Store(tmp_path / "catalog")
     handle = store.open_zarr("sim_b")
     try:
-        grp = handle.root.require_group("pathlines")
+        grp = handle.root.require_group("particles")
         grp.create_array("x", data=np.array([[0.0, 1.0, np.nan], [2.0, 3.0, 4.0]]))
         grp.create_array("y", data=np.array([[0.0, 0.0, np.nan], [1.0, 1.0, 1.0]]))
         grp.create_array("z", data=np.array([[5.0, 5.0, np.nan], [6.0, 6.0, 6.0]]))
@@ -423,7 +423,7 @@ def test_particle_tracks_reader_supports_vectorized_layout(tmp_path: Path) -> No
         handle.close()
 
     sim = SimpleNamespace(_catalog=store, sim_id="sim_b")
-    tracks = _read_pathlines(sim)
+    tracks = _read_particles(sim)
 
     assert len(tracks) == 2
     assert tracks[0].shape == (2, 3)

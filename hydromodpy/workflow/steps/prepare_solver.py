@@ -157,6 +157,25 @@ def step_persist_geographic(ctx: WorkflowContext, sim_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _primary_solver_for_simulation(plan: SimulationPlan) -> str:
+    """Return the primary solver code stored on ``simulations.solver_id``.
+
+    Multi-solver plans (flow + transport, flow + particle tracking) record
+    only their main flow run in the catalog dimension column. Companion
+    transport / particle solvers are still inspected via the per-run rows
+    written by the runner. Mesh-only backends (catchment, etc.) are skipped
+    so the chosen code matches one of the rows seeded in the ``solvers``
+    dimension table.
+    """
+    for run in plan.runs:
+        if run.process_type == "mesh":
+            continue
+        return run.solver
+    if plan.runs:
+        return plan.runs[0].solver
+    raise PipelineError("Cannot register simulation: SimulationPlan has no runs")
+
+
 def collect_registration_kwargs(ctx: WorkflowContext) -> dict:
     """Gather all available metadata from ctx for register_simulation()."""
     kwargs: dict = {"flow_regime": ctx.cfg.flow.flow_regime}
@@ -327,11 +346,11 @@ def step_register_simulation(
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
 
-    solvers = ",".join(r.solver for r in plan.runs)
+    primary_solver = _primary_solver_for_simulation(plan)
     registration = ctx.store.register_simulation(
         sim_id,
         project=project_name,
-        solver=solvers,
+        solver=primary_solver,
         name=name,
         on_collision=ctx.cfg.simulation.on_collision,
         **reg_kwargs,
@@ -406,7 +425,6 @@ def step_open_store(ctx: WorkflowContext) -> None:
     ctx.store = SimulationCatalog.from_workspace(
         workspace,
         persistence=results_cfg.persistence,
-        register_global=True,
     )
     ctx.sim_id = str(uuid4())
 
@@ -417,10 +435,11 @@ def step_open_store(ctx: WorkflowContext) -> None:
     if ctx.parent_sim_id is not None:
         reg_kwargs["parent_sim_id"] = ctx.parent_sim_id
     on_collision = getattr(ctx.cfg.simulation, "on_collision", "replace")
+    primary_solver = _primary_solver_for_simulation(plan)
     registration = ctx.store.register_simulation(
         ctx.sim_id,
         project=project_name,
-        solver=",".join(r.solver for r in plan.runs),
+        solver=primary_solver,
         name=ctx.setup.run_id,
         on_collision=on_collision,
         **reg_kwargs,
@@ -783,6 +802,43 @@ def _persist_reference_hydrographic_feature(
 # ---------------------------------------------------------------------------
 
 
+def _store_sim_artifacts(ctx: WorkflowContext, sim_id: str) -> tuple[str, ...]:
+    """Return workspace-relative paths produced for ``sim_id`` by the store."""
+    store = getattr(ctx, "store", None)
+    if store is None:
+        return ()
+    workspace = getattr(ctx, "setup", None)
+    workspace = getattr(workspace, "workspace", None)
+    project_root: Path | None = getattr(workspace, "project_root", None)
+    if project_root is None:
+        return ()
+    found: list[str] = []
+    try:
+        zarr_path = store.zarr_path_for(sim_id)
+    except Exception:
+        zarr_path = None
+    if zarr_path is not None and zarr_path.exists():
+        rel = _relative_or_none(zarr_path, project_root)
+        if rel is not None:
+            found.append(rel)
+    try:
+        parquet_dir = store.parquet_dir_for(sim_id)
+    except Exception:
+        parquet_dir = None
+    if parquet_dir is not None and parquet_dir.exists():
+        rel = _relative_or_none(parquet_dir, project_root)
+        if rel is not None:
+            found.append(rel)
+    return tuple(found)
+
+
+def _relative_or_none(path: Path, root: Path) -> str | None:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return None
+
+
 class PrepareSolverStep:
     """Build the simulation plan + open the store."""
 
@@ -825,6 +881,61 @@ class PrepareSolverStep:
 
         return state.advance(
             step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )
+
+    def artifacts(self, state: PipelineState) -> tuple[str, ...]:
+        """Return workspace-relative paths persisted by this step."""
+        ctx = state.get("ctx")
+        if ctx is None or getattr(ctx, "store", None) is None:
+            return ()
+        sim_id = getattr(ctx, "sim_id", None)
+        if not sim_id:
+            return ()
+        return _store_sim_artifacts(ctx, sim_id)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Reopen the simulation store written by a previous ``run`` call.
+
+        Reads the existing Zarr and the catalog row for the active ``sim_id``,
+        so the heavy persistence work (provenance, forcings) is not redone.
+        """
+        from hydromodpy.results.catalog import SimulationCatalog
+
+        ctx = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("PrepareSolverStep.rebuild_state requires 'ctx' in state.data")
+
+        ws = getattr(getattr(ctx, "setup", None), "workspace", None)
+        if ws is None:
+            raise ConfigError(
+                "PrepareSolverStep.rebuild_state requires a resolved workspace on the context"
+            )
+
+        sim_id = getattr(ctx, "sim_id", None)
+        results_cfg = getattr(ctx, "effective_results_config", None) or ctx.cfg.simulation.results
+        if ctx.store is None and results_cfg.persistence.save_catalog:
+            ctx.store = SimulationCatalog.from_workspace(
+                ws,
+                persistence=results_cfg.persistence,
+            )
+            if sim_id is None:
+                row = ctx.store.connection.execute(
+                    "SELECT sim_id FROM simulations WHERE project = ? ORDER BY created_at DESC LIMIT 1",
+                    [ws.project_root.name],
+                ).fetchone()
+                if row is not None:
+                    ctx.sim_id = str(row[0])
+
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
         )

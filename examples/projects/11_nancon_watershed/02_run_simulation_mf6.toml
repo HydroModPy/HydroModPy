@@ -1,0 +1,52 @@
+# ======================================================================
+# Nancon - 02 - Single transient run with MODFLOW 6
+# ----------------------------------------------------------------------
+# Workflow:       [workflow].mode = "simulation"
+# Solver:         MODFLOW 6 (alternative to MODFLOW-NWT)
+# Time window:    2000-01-01 -> 2002-12-31, monthly stress periods
+#
+# This overlay shows that switching the solver only requires changing
+# `[[simulation.process]].solvers`. All other blocks stay identical.
+#
+# MODFLOW 6 and MODFLOW-NWT can be exchanged transparently because the
+# Nancon configuration uses a simple structured grid + homogeneous
+# parameters. Compare both runs with:
+#   hmp compare nancon_sim_nwt nancon_sim_mf6
+#
+# Launch:
+#   hmp run examples/projects/11_nancon_watershed/02_run_simulation_mf6.toml
+# ======================================================================
+
+base_config = "project.toml"
+
+
+[workflow]
+mode = "simulation"
+
+[simulation]
+name = "nancon_sim_mf6"
+description = "Nancon - monthly transient run with MODFLOW 6 (alternative solver)."
+
+[simulation.time]
+start_datetime = "2000-01-01"
+end_datetime = "2002-12-31"
+step_value = "1 month"
+
+# Same flow process, but routed to MODFLOW 6 instead of MODFLOW-NWT.
+[[simulation.process]]
+id = "flow_main"
+type = "flow"
+solvers = ["modflow6"]
+
+
+[domain.depth_model]
+thickness = 30.0
+
+[flow.param.K.field]
+value = 5e-5
+
+[flow.param.Sy.field]
+value = 0.05
+
+[flow.param.Ss.field]
+value = 1e-5

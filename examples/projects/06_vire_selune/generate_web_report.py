@@ -364,14 +364,14 @@ def _case_payload(case: CatchmentCase) -> dict:
         "ss_value": base_cfg["flow"]["param"]["Ss"]["field"]["value"],
         "sy_value": base_cfg["flow"]["param"]["Sy"]["field"]["value"],
         "thickness": base_cfg["domain"]["depth_model"]["thickness"],
-        "nlay_nwt": nwt_cfg["modflownwt"]["sgrid"]["vertical"]["nlay"],
+        "nlay_nwt": nwt_cfg["modflow_nwt"]["sgrid"]["vertical"]["nlay"],
         "nlay_irregular": irr_cfg["modflow6"]["sgrid"]["vertical"]["nlay"],
-        "nwt_planar_mode": nwt_cfg.get("modflownwt", {})
+        "nwt_planar_mode": nwt_cfg.get("modflow_nwt", {})
         .get("sgrid", {})
         .get("planar", {})
         .get("mode", "keep_native"),
-        "nwt_nx": nwt_cfg.get("modflownwt", {}).get("sgrid", {}).get("planar", {}).get("nx"),
-        "nwt_ny": nwt_cfg.get("modflownwt", {}).get("sgrid", {}).get("planar", {}).get("ny"),
+        "nwt_nx": nwt_cfg.get("modflow_nwt", {}).get("sgrid", {}).get("planar", {}).get("nx"),
+        "nwt_ny": nwt_cfg.get("modflow_nwt", {}).get("sgrid", {}).get("planar", {}).get("ny"),
         "sim_dir_rel": case.nwt_run_dir.relative_to(ROOT).as_posix(),
         "mesh_dir_rel": (case.irregular_root / "results_stable" / "mesh")
         .relative_to(ROOT)

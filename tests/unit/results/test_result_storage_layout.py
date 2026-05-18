@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.catalog.storage_paths import build_storage_basename
 from hydromodpy.results.storage_contract import (
-    CATALOG_FILENAME,
     PARQUET_DIR_SUFFIX,
     RESULT_STORAGE_LAYERS,
     SIMULATION_STORAGE_LAYER_NAMES,
@@ -57,37 +57,3 @@ def test_catalog_is_workspace_scoped_and_artifacts_are_per_simulation(tmp_path):
             f"{SIMULATIONS_DIRNAME}/{basename}{ZARR_SUFFIX}",
             basename,
         )
-
-
-def test_pre_migration_storage_basename_is_backfilled_on_open(tmp_path):
-    """Rows that pre-date ``storage_basename`` are back-filled with the raw
-    ``sim_id`` at ``ensure_schema`` time so they keep resolving against the
-    on-disk artefacts they originally wrote.
-    """
-    workspace = tmp_path / "workspace"
-    sid = "11111111-1111-4111-8111-111111111111"
-
-    with SimulationCatalog(workspace) as catalog:
-        catalog.connection.execute(
-            "INSERT INTO simulations (sim_id, project, solver) VALUES (?, ?, ?)",
-            [sid, "legacy", "modflow6"],
-        )
-        catalog.connection.execute(
-            "UPDATE simulations SET storage_basename = NULL WHERE sim_id = ?",
-            [sid],
-        )
-
-    with SimulationCatalog(workspace) as catalog:
-        row = catalog.connection.execute(
-            "SELECT storage_basename FROM simulations WHERE sim_id = ?", [sid]
-        ).fetchone()
-        assert row == (sid,)
-
-        assert catalog.zarr_path_for(sid) == catalog.simulations_dir / f"{sid}{ZARR_SUFFIX}"
-        assert catalog.parquet_dir_for(sid) == (
-            catalog.simulations_dir / f"{sid}{PARQUET_DIR_SUFFIX}"
-        )
-
-        legacy_zip = catalog.simulations_dir / f"{sid}{ZARR_ZIP_SUFFIX}"
-        legacy_zip.write_bytes(b"")
-        assert catalog.zarr_path_for(sid) == legacy_zip

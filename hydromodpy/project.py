@@ -5,16 +5,19 @@ Setup-once, run-many interface that keeps the user-facing session state
 clean API. The TOML-driven workflow (``hmp run``) is unchanged; this module
 provides the **programmatic** equivalent.
 
-``Project`` is intentionally not the execution engine. Ordered execution,
-checkpointing, and resume live in :mod:`hydromodpy.workflow.runner.Pipeline`.
+``Project`` is intentionally not the execution engine. Ordered execution
+and resume live in :mod:`hydromodpy.workflow.runner.Pipeline`.
 Both routes use the same ``workflow.steps`` helpers so interactive notebooks
 and full pipeline runs do not fork the scientific logic.
 
-The facade is composed of three cohesive helpers:
+The facade is composed of four cohesive helpers:
 
+- :class:`hydromodpy.project_session.ProjectSession`: run-phase orchestrator
+  exposed via :meth:`Project.session`. Owns ``simulate``, ``sweep`` and the
+  prepared-run primitives (``prepare`` / ``execute`` / ``ingest`` /
+  ``render`` / ``cleanup``).
 - :class:`hydromodpy.project_runner.ProjectRunner` (``project._runner``):
-  the heavy run-phase methods (``run``, ``simulate``, ``sweep``,
-  ``calibrate``, ``mesh``, ``report``, prepared-run primitives).
+  internal runner for ``run`` / ``calibrate`` / ``mesh`` / ``report``.
 - :class:`hydromodpy.project_catalog.ProjectCatalog` (``project._catalog``):
   catalog access (``store``, ``runs``, ``data``) and lifecycle (``close``).
 - :mod:`hydromodpy.project_phases`: model-phase verbs that mutate the
@@ -27,11 +30,16 @@ Example
 
     import hydromodpy as hmp
 
-    project = hmp.Project("project.toml")
+    project = hmp.Project("hydromodpy.toml")
 
     result = project.run(Sy=0.05, K=5e-5, name="baseline")
     wt = result.field("watertable_depth", timestep=12)
     ts = result.timeseries("discharge", station="_catchment")
+
+    # Low-level prepared-run primitives
+    session = project.session()
+    sim_id = session.prepare(name="probe")
+    session.execute(sim_id)
 
     project.close()
 """
@@ -47,6 +55,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project_catalog import ProjectCatalog
 from hydromodpy.project_runner import ProjectRunner, _pin_parent_sim_id
+from hydromodpy.project_session import ProjectSession
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.data import LoadedDataContext
@@ -79,7 +88,7 @@ class Project:
         for fully-Python workflows.
     solver : str, optional
         Flow solver name. Auto-detected from the config, defaults to
-        ``"modflownwt"``.
+        ``"modflow_nwt"``.
     headless : bool, optional
         Disable display and postprocess runners (useful for calibration
         loops where generating figures per iteration is wasteful).
@@ -90,15 +99,15 @@ class Project:
 
         import hydromodpy as hmp
 
-        project = hmp.Project("project.toml")
+        project = hmp.Project("hydromodpy.toml")
         r = project.run(Sy=0.05)
 
     Same TOML, orchestration from Python::
 
-        project = hmp.Project("project.toml")
+        project = hmp.Project("hydromodpy.toml")
         r = project.simulate(
             time=("2000-01-01", "2005-12-31", "1 month"),
-            processes=[("flow", "modflownwt")],
+            processes=[("flow", "modflow_nwt")],
             Sy=0.05,
         )
 
@@ -176,9 +185,16 @@ class Project:
         Project
             Project with validated configuration and empty runtime context.
 
+        Raises
+        ------
+        FileNotFoundError
+            If ``config`` is a path that does not exist.
+        ConfigValidationError
+            If the resolved payload fails Pydantic validation.
+
         Examples
         --------
-        >>> project = Project.lazy("project.toml")
+        >>> project = Project.lazy("hydromodpy.toml")
         >>> project.build_geographic()
         >>> project.load_data()
         >>> project.build_mesh()
@@ -206,6 +222,18 @@ class Project:
         -------
         Project
             Project initialized from the TOML file.
+
+        Raises
+        ------
+        FileNotFoundError
+            If ``config_path`` does not exist on disk.
+        ConfigValidationError
+            If the TOML payload fails Pydantic validation.
+
+        Examples
+        --------
+        >>> import hydromodpy as hmp
+        >>> project = hmp.Project.from_toml("hydromodpy.toml")
         """
         return cls(Path(config_path), **kwargs)
 
@@ -232,6 +260,13 @@ class Project:
         -------
         Project
             Project initialized from the validated JSON payload.
+
+        Raises
+        ------
+        ConfigValidationError
+            If the JSON payload fails Pydantic validation.
+        json.JSONDecodeError
+            If ``payload`` is not valid JSON.
         """
         from hydromodpy.config import HydroModPyConfig
 
@@ -261,6 +296,11 @@ class Project:
         -------
         Project
             Project initialized from the validated mapping.
+
+        Raises
+        ------
+        ConfigValidationError
+            If the mapping fails Pydantic validation.
         """
         from hydromodpy.config import HydroModPyConfig
 
@@ -305,6 +345,13 @@ class Project:
         -------
         Run
             Persisted run view for the derived simulation.
+
+        Raises
+        ------
+        ConfigMissingError
+            If ``run`` has no persisted config snapshot.
+        PipelineError
+            If the derived pipeline produces no new Run, e.g. ``dry_run`` mode.
         """
         snapshot = run.config_snapshot
         if snapshot is None:
@@ -434,48 +481,25 @@ class Project:
         """Mutable workflow runtime state threaded through workflow steps."""
         return self._ctx
 
+    # -- Run-phase session ------------------------------------------------
+
+    def session(self) -> ProjectSession:
+        """Return the run-phase orchestration facade bound to this project.
+
+        ``session`` exposes the prepared-run primitives (``prepare``,
+        ``execute``, ``ingest``, ``render``, ``cleanup``) plus
+        ``simulate`` and ``sweep``. The top-level verbs ``run``,
+        ``calibrate``, ``mesh``, ``report``, ``overview`` and
+        ``compare`` remain on :class:`Project` for the common case.
+        """
+        return ProjectSession(self)
+
     # -- Run-phase API (delegates to ProjectRunner) -----------------------
-
-    def prepare(self, *, name: str | None = None, **overrides) -> str:
-        """Reserve a sim_id, register the simulation and persist all inputs."""
-        return self._runner.prepare(name=name, **overrides)
-
-    def execute(self, sim_id: str) -> float:
-        """Run the solver for a previously prepared simulation."""
-        return self._runner.execute(sim_id)
-
-    def ingest(self, sim_id: str, *, extractors: list[str] | None = None) -> None:
-        """Ingest observations for a completed simulation."""
-        return self._runner.ingest(sim_id, extractors=extractors)
-
-    def render(
-        self,
-        sim_id: str,
-        *,
-        figures: list[str] | None = None,
-    ) -> list[Path]:
-        """Render the display figures attached to this simulation."""
-        return self._runner.render(sim_id, figures=figures)
-
-    def cleanup(
-        self,
-        sim_id: str,
-        *,
-        keep_solver_files: bool = False,
-        status: str = "completed",
-    ) -> None:
-        """Finalize the run status and remove the scratch directory."""
-        return self._runner.cleanup(
-            sim_id,
-            keep_solver_files=keep_solver_files,
-            status=status,
-        )
 
     def run(
         self,
         *,
         name: str | None = None,
-        checkpoint: bool = False,
         resume: str | None = None,
         from_step: str | int | None = None,
         until_step: str | int | None = None,
@@ -495,10 +519,8 @@ class Project:
         ----------
         name
             Optional run name persisted in the catalog.
-        checkpoint
-            Persist step checkpoints for later resume.
         resume
-            Existing checkpoint or run identifier to resume from.
+            Existing run identifier to resume from the workflow journal.
         from_step, until_step
             Optional step bounds for partial workflow execution.
         dry_run
@@ -516,6 +538,20 @@ class Project:
             Persisted run view for simulation workflows. Dry runs and some
             non-simulation workflows may return ``None``.
 
+        Raises
+        ------
+        PipelineError
+            If a workflow step fails during execution.
+        SolverError
+            If the configured solver crashes or fails to converge.
+        ResumeError
+            If ``resume`` references an incompatible journal state.
+
+        Examples
+        --------
+        >>> run = project.run(Sy=0.05, name="probe")
+        >>> run.summary()
+
         See Also
         --------
         hydromodpy.run
@@ -525,7 +561,6 @@ class Project:
         """
         return self._runner.run(
             name=name,
-            checkpoint=checkpoint,
             resume=resume,
             from_step=from_step,
             until_step=until_step,
@@ -535,41 +570,25 @@ class Project:
             **overrides,
         )
 
-    def sweep(
-        self,
-        parameters: dict[str, list[float] | dict],
-        *,
-        strategy: str = "enumerate",
-        name_template: str = "{param}_{value:.4g}",
-        parallel: int = 1,
-    ):
-        """Run a parameter sweep from one project configuration.
+    def overview(self, *, config_path: str | Path | None = None):
+        """Generate the watershed identity card.
 
         Parameters
         ----------
-        parameters
-            Mapping from parameter name to sampled values or sweep descriptor.
-        strategy
-            Sweep strategy. ``"enumerate"`` runs one simulation per value.
-        name_template
-            Format string used to name generated runs.
-        parallel
-            Maximum number of concurrent workers.
+        config_path
+            Optional path to the overview TOML. Defaults to the project's
+            originating TOML when one is available.
 
         Returns
         -------
-        SimulationGroup
-            Group containing the simulations created by the sweep.
-        """
-        return self._runner.sweep(
-            parameters,
-            strategy=strategy,
-            name_template=name_template,
-            parallel=parallel,
-        )
+        Any
+            Overview launcher result.
 
-    def overview(self, *, config_path: str | Path | None = None):
-        """Generate the watershed identity card."""
+        Raises
+        ------
+        ConfigError
+            If no TOML path is available for the overview workflow.
+        """
         from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
 
         path = config_path if config_path is not None else self._config_path
@@ -578,7 +597,24 @@ class Project:
         return DataOverviewLauncher(path).run()
 
     def compare(self, *, config_path: str | Path | None = None):
-        """Run the comparison workflow declared in a TOML config."""
+        """Run the comparison workflow declared in a TOML config.
+
+        Parameters
+        ----------
+        config_path
+            Optional path to the comparison TOML. Defaults to the project's
+            originating TOML when one is available.
+
+        Returns
+        -------
+        Any
+            Comparison launcher result.
+
+        Raises
+        ------
+        ConfigError
+            If no TOML path is available for the comparison workflow.
+        """
         from hydromodpy.analysis.comparison.experiment_launcher import (
             SimulationComparisonLauncher,
         )
@@ -702,51 +738,42 @@ class Project:
         )
 
     def mesh(self) -> dict:
-        """Run the standalone mesh-only workflow defined by this project."""
-        return self._runner.mesh()
-
-    def report(self, session_id: str | None = None) -> Path:
-        """Render the HTML report for a calibration session."""
-        return self._runner.report(session_id)
-
-    def simulate(
-        self,
-        *,
-        time: tuple | None = None,
-        processes: list | None = None,
-        name: str | None = None,
-        **overrides,
-    ) -> Run:
-        """Run one simulation with orchestration specified from Python.
-
-        Parameters
-        ----------
-        time
-            Optional simulation time declaration.
-        processes
-            Optional list of process declarations such as
-            ``[("flow", "modflownwt")]``.
-        name
-            Optional run name persisted in the catalog.
-        overrides
-            Parameter overrides applied to the simulation plan.
+        """Run the standalone mesh-only workflow defined by this project.
 
         Returns
         -------
-        Run
-            Persisted result view for the completed simulation.
+        dict
+            Mesh launcher summary payload.
 
-        See Also
-        --------
-        Project.run
-            Main workflow entry point.
+        Raises
+        ------
+        MeshGenerationError
+            If the mesh generator fails to produce a valid mesh.
         """
-        return self._runner.simulate(
-            time=time,
-            processes=processes,
-            name=name,
-            **overrides,
-        )
+        return self._runner.mesh()
+
+    def report(self, session_id: str | None = None) -> Path:
+        """Render the HTML report for a calibration session.
+
+        Parameters
+        ----------
+        session_id
+            Calibration session UUID. ``None`` falls back to the latest
+            session in the workspace.
+
+        Returns
+        -------
+        pathlib.Path
+            Path to the rendered HTML report.
+
+        Raises
+        ------
+        RunNotFoundError
+            If ``session_id`` cannot be resolved in the catalog.
+        DisplayError
+            If the report template fails to render.
+        """
+        return self._runner.report(session_id)
 
     # -- Lifecycle --------------------------------------------------------
 

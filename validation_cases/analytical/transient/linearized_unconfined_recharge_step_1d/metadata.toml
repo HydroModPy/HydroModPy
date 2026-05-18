@@ -4,7 +4,7 @@ regime = "transient"
 dimension = "1d"
 launcher = "launcher_simulation"
 config_file = "config_modflownwt.toml"
-default_solver = "modflownwt"
+default_solver = "modflow_nwt"
 base_config = "config_modflownwt.toml"
 
 [config_files]

@@ -13,6 +13,7 @@ from hydromodpy.cli.helpers import (
     find_catalog_root,
     resolve_sim_id,
 )
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "delete"
 HELP: str = "Delete a simulation (DuckDB row + Zarr store)"
@@ -43,7 +44,7 @@ def run(args: argparse.Namespace) -> None:
     workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    if not (workspace_root / "hydromodpy.duckdb").exists():
+    if not (workspace_root / CATALOG_FILENAME).exists():
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 

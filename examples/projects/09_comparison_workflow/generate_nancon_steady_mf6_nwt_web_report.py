@@ -256,7 +256,7 @@ def _simulation_cards(
         overlay = sim_cfg.get("overlay", {}) if isinstance(sim_cfg, dict) else {}
         grid_text = ""
         if isinstance(overlay, dict):
-            nwt = overlay.get("modflownwt", {})
+            nwt = overlay.get("modflow_nwt", {})
             if isinstance(nwt, dict):
                 planar = nwt.get("sgrid", {}).get("planar", {})
                 if isinstance(planar, dict):
@@ -424,10 +424,10 @@ def _config_detail_table(base: dict[str, Any], config: dict[str, Any]) -> str:
     simulations = comparison.get("simulation", [])
     nwt_grids: list[str] = []
     for simulation in simulations if isinstance(simulations, list) else []:
-        if simulation.get("solver") != "modflownwt":
+        if simulation.get("solver") != "modflow_nwt":
             continue
         planar = (
-            simulation.get("overlay", {}).get("modflownwt", {}).get("sgrid", {}).get("planar", {})
+            simulation.get("overlay", {}).get("modflow_nwt", {}).get("sgrid", {}).get("planar", {})
         )
         nx = planar.get("nx", "")
         ny = planar.get("ny", "")

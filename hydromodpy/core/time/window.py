@@ -486,7 +486,7 @@ def apply_explicit_time_window_to_tgrids(
     """Apply resolved ``simulation.time`` to flow-solver ``tgrid`` sections.
 
     The launcher keeps temporal authority in ``[simulation.time]`` and writes
-    synchronized values into ``modflownwt.tgrid`` and ``modflow6.tgrid`` when
+    synchronized values into ``modflow_nwt.tgrid`` and ``modflow6.tgrid`` when
     those sections are present.
     """
     time_cfg = _simulation_time_config(cfg)

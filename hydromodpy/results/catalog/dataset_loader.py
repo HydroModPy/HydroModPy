@@ -4,10 +4,13 @@ Joins scalar tables (``simulations``, ``parameters``, ``metrics``,
 ``runs_environment``) with optional per-simulation Zarr field arrays
 into a single :class:`xarray.Dataset` indexed by ``sim_id``.
 
-Field arrays stay lazy: each per-sim Zarr store is opened with
-``xr.open_zarr`` (dask-backed) and concatenated along ``sim_id``. No
-``np.stack`` / ``np.concatenate`` is involved, so the loader scales to
-N=1000+ runs without OOM.
+Field arrays stay lazy: each per-sim Zarr store is opened through
+:func:`hydromodpy.results.simulation_group._open_simulation_lazy` which
+wraps each registered field in a dask-backed :class:`xr.DataArray` and
+routes the resulting dataset through :func:`xr.decode_cf` for CF time
+decoding. Per-sim datasets are concatenated along ``sim_id`` without
+any ``np.stack`` / ``np.concatenate``, so the loader scales to N=1000+
+runs without OOM.
 """
 
 from __future__ import annotations
@@ -22,22 +25,16 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog.facade import SimulationCatalog
 
 
-_SIM_META_COLUMNS: tuple[str, ...] = (
-    "sim_id",
-    "name",
-    "project",
-    "solver",
-    "solver_category",
-    "flow_regime",
-    "status",
-    "n_cells",
-    "n_layers",
-    "n_timesteps",
-    "config_hash",
-    "scientific_objective",
-    "study_area_name",
-    "created_at",
-    "duration_s",
+# Columns selected from simulations s with dim-table joins. Some are resolved
+# to text via JOIN (solver, status, flow_regime); the bare names below are kept
+# in the output dataset so downstream ML pipelines see stable column labels.
+_SIM_META_SELECT = (
+    "s.sim_id, s.name, s.project, "
+    "sv.code AS solver, sv.category AS solver_category, "
+    "fr.code AS flow_regime, st.code AS status, "
+    "s.n_cells, s.n_layers, s.n_timesteps, "
+    "s.config_hash, s.scientific_objective, s.study_area_name, "
+    "s.created_at, s.duration_s"
 )
 
 _ENV_META_COLUMNS: tuple[str, ...] = (
@@ -47,8 +44,9 @@ _ENV_META_COLUMNS: tuple[str, ...] = (
     "hostname",
     "git_commit",
     "project_git_commit",
-    "mf6_binary_sha256",
-    "mf6_version_text",
+    "solver_name",
+    "solver_binary_sha256",
+    "solver_version_text",
     "conda_env_hash",
     "rng_seed",
 )
@@ -158,21 +156,25 @@ class DatasetLoader:
 
     def _select_simulations(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
-        cols = ", ".join(_SIM_META_COLUMNS)
-        df = self._catalog.connection.execute(
-            f"SELECT {cols} FROM simulations WHERE sim_id IN ({placeholders})",
+        df = self._catalog.backend.query(
+            f"SELECT {_SIM_META_SELECT} "
+            f"FROM simulations s "
+            f"JOIN solvers sv ON s.solver_id = sv.id "
+            f"JOIN statuses st ON s.status_id = st.id "
+            f"LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+            f"WHERE s.sim_id IN ({placeholders})",
             sim_ids,
-        ).fetchdf()
+        )
         df["sim_id"] = df["sim_id"].astype(str)
         return df
 
     def _select_parameters(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, param_name, zone_id, value "
             f"FROM parameters WHERE sim_id IN ({placeholders})",
             sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["sim_id"] = df["sim_id"].astype(str)
@@ -191,11 +193,11 @@ class DatasetLoader:
 
     def _select_metrics(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, station_id, metric_name, value "
             f"FROM metrics WHERE sim_id IN ({placeholders})",
             sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["sim_id"] = df["sim_id"].astype(str)
@@ -215,10 +217,10 @@ class DatasetLoader:
     def _select_environment(self, sim_ids: list[str]) -> pd.DataFrame:
         placeholders = ", ".join(["?"] * len(sim_ids))
         cols = ", ".join(_ENV_META_COLUMNS)
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, {cols} FROM runs_environment WHERE sim_id IN ({placeholders})",
             sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["sim_id"] = df["sim_id"].astype(str)
@@ -238,9 +240,11 @@ class DatasetLoader:
     ) -> xr.Dataset:
         """Open each per-sim Zarr store and concat lazily on ``sim_id``.
 
-        Each store is opened with ``xr.open_zarr`` (dask-backed). Variables
-        absent from a store are skipped per-simulation. Stores that error out
-        are skipped with a logged warning.
+        Each store is opened through
+        :func:`hydromodpy.results.simulation_group._open_simulation_lazy`
+        (dask-backed, CF-decoded). Variables absent from a store are
+        skipped per-simulation. Stores that error out are skipped with a
+        logged warning.
         """
         import xarray as xr
 

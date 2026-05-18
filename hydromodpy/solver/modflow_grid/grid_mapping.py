@@ -58,6 +58,21 @@ class DisvDescriptor:
         return "disv"
 
 
+def to_topology_code(kind: DiscretizationKind, *, n_layers: int) -> str:
+    """Map a MODFLOW discretisation kind to the v2 ``mesh_topologies.code``.
+
+    Raises
+    ------
+    ValueError
+        When *kind* is not a known discretisation kind.
+    """
+    if kind == "dis":
+        return "structured_3d" if n_layers > 1 else "structured_2d"
+    if kind == "disv":
+        return "unstructured_2d"
+    raise ValueError(f"Unknown discretization kind: {kind!r}")
+
+
 def describe_grid(solver_mesh: SolverMesh) -> DisDescriptor | DisvDescriptor:
     """Produce a ``Dis`` / ``Disv`` descriptor from a ``SolverMesh``.
 
@@ -117,4 +132,5 @@ __all__ = [
     "DisvDescriptor",
     "DiscretizationKind",
     "describe_grid",
+    "to_topology_code",
 ]

@@ -77,12 +77,12 @@ def test_run_case_main_applies_output_root_override(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.delenv("HYDROMODPY_OUT_PATH", raising=False)
+    monkeypatch.delenv("HMP_OUT_PATH", raising=False)
 
     def _run_comparison(*, caller_file, timeout, solver=None):
         del caller_file, timeout, solver
         expected = tmp_path.resolve()
-        assert Path(os.environ["HYDROMODPY_OUT_PATH"]).resolve() == expected
+        assert Path(os.environ["HMP_OUT_PATH"]).resolve() == expected
         return SimpleNamespace(
             result=SimpleNamespace(
                 out_path=tmp_path,

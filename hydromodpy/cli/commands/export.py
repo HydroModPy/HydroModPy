@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "export"
 HELP: str = "Export geographic data or simulation results from the project store"
@@ -44,6 +45,17 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--feature", nargs="+", help="Geographic feature name(s) to export as shapefile"
     )
     parser.add_argument(
+        "--format",
+        dest="fair_format",
+        choices=("hmp", "stac", "rocrate", "prov"),
+        action="append",
+        default=None,
+        help=(
+            "Emit a FAIR sidecar in addition to the per-variable exports. "
+            "Repeatable: pass --format multiple times to render several formats."
+        ),
+    )
+    parser.add_argument(
         "--output", default=None, help="Output directory (default: exports/<name>/ in the project)"
     )
     parser.set_defaults(_handler=run)
@@ -60,7 +72,7 @@ def run(args: argparse.Namespace) -> None:
 
     project_dir = Path(args.project).expanduser().resolve()
     project_name = project_dir.name
-    db_path = project_dir / "hydromodpy.duckdb"
+    db_path = project_dir / CATALOG_FILENAME
     if not db_path.exists():
         print(f"No catalog found at {project_dir}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
@@ -162,6 +174,8 @@ def run(args: argparse.Namespace) -> None:
                 except KeyError:
                     print(f"  Feature '{name}' not found in store", file=sys.stderr)
 
+    fair_formats: tuple[str, ...] = tuple(args.fair_format or ())
+
     if args.sim:
         sim_ref = args.sim
         try:
@@ -217,11 +231,12 @@ def run(args: argparse.Namespace) -> None:
             for var in variables:
                 if var in (
                     "mesh",
+                    "meta",
+                    "state",
                     "budget",
                     "derived",
-                    "pathlines",
+                    "particles",
                     "forcing",
-                    "geographic",
                     "crs",
                     "time",
                 ):
@@ -256,8 +271,11 @@ def run(args: argparse.Namespace) -> None:
             except Exception as exc:
                 print(f"  VTU export failed: {exc}", file=sys.stderr)
 
+        if fair_formats:
+            exported.extend(_emit_fair(catalog, sim_id, sim_dir, fair_formats))
+
     catalog.close()
-    if not any([args.raster, args.feature, args.sim]):
+    if not any([args.raster, args.feature, args.sim, exported]):
         print(
             "Usage: hmp export <project> --list | --sim NAME [--csv --netcdf] | --raster NAME",
             file=sys.stderr,
@@ -266,3 +284,40 @@ def run(args: argparse.Namespace) -> None:
 
     if exported:
         print(f"Exported {len(exported)} file(s)", file=sys.stderr)
+
+
+def _emit_fair(
+    catalog,
+    sim_id: str,
+    sim_dir: Path,
+    formats: tuple[str, ...],
+) -> list[Path]:
+    """Render the FAIR sidecars selected via ``--format``."""
+    from hydromodpy.results.export import (
+        build_context,
+        write_ro_crate,
+        write_stac_item,
+    )
+    from hydromodpy.results.export.prov import write_prov
+
+    context = build_context(catalog, sim_id)
+    out_paths: list[Path] = []
+    for fmt in formats:
+        try:
+            if fmt == "hmp":
+                # Embed the RO-Crate alongside the .hmp archive root.
+                path = write_ro_crate(catalog, sim_id, sim_dir, context=context)
+            elif fmt == "rocrate":
+                path = write_ro_crate(catalog, sim_id, sim_dir, context=context)
+            elif fmt == "stac":
+                path = write_stac_item(catalog, sim_id, sim_dir, context=context)
+            elif fmt == "prov":
+                path = write_prov(catalog, sim_id, sim_dir, context=context)
+            else:
+                continue
+        except Exception as exc:  # noqa: BLE001 - surfaced to CLI
+            print(f"  FAIR export ({fmt}) failed: {exc}", file=sys.stderr)
+            continue
+        out_paths.append(path)
+        print(f"  {path}", file=sys.stderr)
+    return out_paths

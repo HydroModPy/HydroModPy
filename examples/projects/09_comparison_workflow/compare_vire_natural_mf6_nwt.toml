@@ -53,7 +53,7 @@ nlay = 1
 [[comparison.simulation]]
 id = "nwt_candidate"
 label = "MODFLOW-NWT natural candidate"
-solver = "modflownwt"
+solver = "modflow_nwt"
 mesh_label = "vire_structured_40x40"
 mesh_mode = "structured"
 

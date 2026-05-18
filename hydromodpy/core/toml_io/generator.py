@@ -62,7 +62,7 @@ def generate_toml(
     output_path : str, Path, or None
         If provided, write the template to this file.
     modules : list of str, or None
-        Module sections to include (e.g. ["geographic", "modflownwt"]).
+        Module sections to include (e.g. ["geographic", "modflow_nwt"]).
         None = all registered modules.
     profile : str
         Visibility profile: "user", "dev", or "expert".

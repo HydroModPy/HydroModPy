@@ -62,27 +62,28 @@ The mandatory ``[workflow].mode`` field selects the user-facing operation.
        ``[[comparison.observable]]``
      - :doc:`comparison`
 
-Workflow flowchart
-------------------
+Workflow dispatch table
+-----------------------
 
-Click any node to jump to its detailed page.
+Click any entry to jump to its detailed page.
 
-.. mermaid::
+.. list-table:: ``hmp run`` dispatch by ``workflow.mode``
+   :header-rows: 1
+   :widths: 22 78
 
-   flowchart TD
-       config[hmp run config.toml] --> dispatch{workflow.mode = ...}
-       dispatch -->|overview| ov[Overview]
-       dispatch -->|simulation| sim[Simulation]
-       dispatch -->|testbed| tb[Testbed]
-       dispatch -->|calibration| cal[Calibration]
-       dispatch -->|comparison| cmp[Comparison]
-       tb --> rl[Regional Lab profile]
-       click ov "overview.html" "Open overview workflow"
-       click sim "simulation.html" "Open simulation workflow"
-       click tb "testbed.html" "Open testbed workflow"
-       click cal "calibration.html" "Open calibration workflow"
-       click cmp "comparison.html" "Open comparison workflow"
-       click rl "regional_lab.html" "Open regional lab profile"
+   * - ``workflow.mode``
+     - Launcher and dedicated page
+   * - ``overview``
+     - :doc:`overview`
+   * - ``simulation``
+     - :doc:`simulation`
+   * - ``testbed``
+     - :doc:`testbed` (use ``[testbed].profile = "regional_lab"`` for the
+       :doc:`regional_lab` profile)
+   * - ``calibration``
+     - :doc:`calibration`
+   * - ``comparison``
+     - :doc:`comparison`
 
 Dispatch model
 --------------

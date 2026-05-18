@@ -93,12 +93,12 @@ def _subgroup_has(sim_zarr: SimulationZarr, subgroup: str, name: str) -> bool:
     return group is not None and name in group
 
 
-def _surface_top(sim_zarr: SimulationZarr, n_cells: int) -> np.ndarray | None:
+def _topography(sim_zarr: SimulationZarr, n_cells: int) -> np.ndarray | None:
     mesh = sim_zarr.root.get("mesh")
     if mesh is None:
         return None
-    if "surface_top" in mesh:
-        return np.asarray(mesh["surface_top"][:], dtype="float64").ravel()[:n_cells]
+    if "topography" in mesh:
+        return np.asarray(mesh["topography"][:], dtype="float64").ravel()[:n_cells]
     if "z_interfaces" in mesh:
         z_intf = np.asarray(mesh["z_interfaces"][:], dtype="float64")
         if z_intf.size == 0:
@@ -165,7 +165,7 @@ class _Computation:
 
 def _run_watertable_elevation(sim_zarr: SimulationZarr) -> DerivedResult:
     n_timesteps, n_layers, n_cells = _head_shape(sim_zarr)
-    top = _surface_top(sim_zarr, n_cells)
+    top = _topography(sim_zarr, n_cells)
     if top is None:
         return DerivedResult(
             name="watertable_elevation",
@@ -191,7 +191,7 @@ def _run_watertable_elevation(sim_zarr: SimulationZarr) -> DerivedResult:
 
 def _run_watertable_depth(sim_zarr: SimulationZarr) -> DerivedResult:
     n_timesteps, _n_layers, n_cells = _head_shape(sim_zarr)
-    top = _surface_top(sim_zarr, n_cells)
+    top = _topography(sim_zarr, n_cells)
     if top is None:
         return DerivedResult(
             name="watertable_depth",
@@ -221,7 +221,7 @@ def _run_watertable_depth(sim_zarr: SimulationZarr) -> DerivedResult:
 
 def _run_seepage_mask(sim_zarr: SimulationZarr) -> DerivedResult:
     n_timesteps, _n_layers, n_cells = _head_shape(sim_zarr)
-    top = _surface_top(sim_zarr, n_cells)
+    top = _topography(sim_zarr, n_cells)
     if top is None:
         return DerivedResult(
             name="seepage_mask",

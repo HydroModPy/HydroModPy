@@ -53,27 +53,35 @@ Specific terms used in this guide:
 End-to-end workflow
 -------------------
 
-.. mermaid::
+.. list-table:: Calibration data flow
+   :header-rows: 1
+   :widths: 24 76
 
-   flowchart LR
-       TOML[TOML<br/>workflow=calibration]
-       CLI[hmp run]
-       PREP[prepare_trials<br/>steps 0..earliest once]
-       LOOP[ask/tell loop<br/>run_trial_light per trial]
-       DB[(DuckDB<br/>calibration_sessions<br/>calibration_iterations)]
-       PROMOTE[promote_trial<br/>top-N]
-       CATALOG[(simulations + Zarr + Parquet)]
-       REPORT[hmp report<br/>HTML + figures]
-
-       TOML --> CLI
-       CLI --> PREP
-       PREP --> LOOP
-       LOOP -->|each trial| DB
-       LOOP -->|after loop| PROMOTE
-       PROMOTE --> CATALOG
-       PROMOTE -->|update sim_id| DB
-       DB --> REPORT
-       CATALOG --> REPORT
+   * - Stage
+     - What flows into it and what it produces
+   * - ``TOML``
+     - User config with ``[workflow].mode = "calibration"``. Read by ``hmp run``.
+   * - ``hmp run``
+     - Dispatches the TOML to ``prepare_trials``.
+   * - ``prepare_trials``
+     - Runs pipeline steps ``[0..earliest)`` once. Builds the prepared
+       ``WorkflowContext`` consumed by the ask/tell loop.
+   * - Ask/tell loop (``run_trial_light``)
+     - Each trial reads the prepared context, writes one row to DuckDB
+       (``calibration_iterations``). After the loop ends, control passes
+       to ``promote_trial``.
+   * - DuckDB (``calibration_sessions`` + ``calibration_iterations``)
+     - Stores trial fingerprints and session metadata. Read by
+       ``hmp report``.
+   * - ``promote_trial`` (top-N)
+     - Replays the chosen trials through the full pipeline. Writes
+       Zarr + Parquet + ``simulations`` rows and back-fills
+       ``calibration_iterations.sim_id``.
+   * - Catalog (simulations + Zarr + Parquet)
+     - Read by ``hmp report`` alongside the DuckDB iteration history.
+   * - ``hmp report``
+     - Reads sessions, iterations, simulation outputs, and renders the
+       calibration HTML report with figures.
 
 Node by node:
 
@@ -384,34 +392,62 @@ Every pipeline step declares which TOML subtrees it reads via a
 produce the same result on every trial and are executed exactly once
 inside ``prepare_trials``.
 
-.. mermaid::
+.. list-table:: Pipeline steps and their role during calibration
+   :header-rows: 1
+   :widths: 8 22 22 48
 
-   flowchart TB
-       subgraph "Pipeline steps (00-11)"
-           S00[00 Validate<br/>workspace, simulation]
-           S01[01 Resolve<br/>workspace, simulation]
-           S02[02 LoadData<br/>data]
-           S03[03 BuildGeographic<br/>geographic, data.dem]
-           S04[04 BuildMesh<br/>domain.supports]
-           S05[05 SetupProcess<br/>domain.depth_model, flow.ic]
-           S06[06 PrepareSolver<br/>flow, transport, solver]
-           S07[07 RunSolver<br/>flow, transport, solver]
-           S08[08 Extract]
-           S09[09 Derive<br/>postprocess]
-           S10[10 Export]
-           S11[11 Display<br/>display]
-       end
-
-       S00 --> S01 --> S02 --> S03 --> S04 --> S05
-       S05 --> S06 --> S07 --> S08 --> S09 --> S10 --> S11
-
-       classDef shared fill:#d4f1d4,stroke:#333
-       classDef looped fill:#ffe4b5,stroke:#333
-       classDef promoted fill:#c5e1f5,stroke:#333
-
-       class S00,S01,S02,S03,S04,S05 shared
-       class S06,S07,S08 looped
-       class S09,S10,S11 promoted
+   * - Step
+     - Name
+     - Phase
+     - TOML subtrees consumed
+   * - 00
+     - Validate
+     - Shared (run once)
+     - ``workspace``, ``simulation``
+   * - 01
+     - Resolve
+     - Shared (run once)
+     - ``workspace``, ``simulation``
+   * - 02
+     - LoadData
+     - Shared (run once)
+     - ``data``
+   * - 03
+     - BuildGeographic
+     - Shared (run once)
+     - ``geographic``, ``data.dem``
+   * - 04
+     - BuildMesh
+     - Shared (run once)
+     - ``domain.supports``
+   * - 05
+     - SetupProcess
+     - Shared (run once)
+     - ``domain.depth_model``, ``flow.ic``
+   * - 06
+     - PrepareSolver
+     - Looped per trial
+     - ``flow``, ``transport``, ``solver``
+   * - 07
+     - RunSolver
+     - Looped per trial
+     - ``flow``, ``transport``, ``solver``
+   * - 08
+     - Extract
+     - Looped per trial
+     - none (in-memory extraction)
+   * - 09
+     - Derive
+     - Promoted only
+     - ``postprocess``
+   * - 10
+     - Export
+     - Promoted only
+     - none (write Zarr/Parquet)
+   * - 11
+     - Display
+     - Promoted only
+     - ``display``
 
 - **Green (shared)**: steps ``00..05``. Executed once by
   ``prepare_trials``. Geographic, mesh, and loaded forcings live in
@@ -489,46 +525,43 @@ on each of the 12 ``step_<nn>_*.py`` modules.
 Storage
 -------
 
-.. mermaid::
+Calibration storage flow, by container:
 
-   flowchart LR
-       subgraph LOOP["During the loop (lightweight)"]
-           RAM[RAM: aligned vector<br/>+ scalar metrics]
-       end
+.. list-table::
+   :header-rows: 1
+   :widths: 22 28 50
 
-       subgraph DB["hydromodpy.duckdb"]
-           SESS[calibration_sessions]
-           ITER[calibration_iterations<br/>sim_id NULL]
-           SIMS[simulations]
-           PARM[parameters]
-           MET[metrics]
-           TAG[tags]
-       end
-
-       subgraph FS["Filesystem"]
-           ZARR[simulations/basename.zarr/]
-           PARQ[simulations/basename.parquet/<br/>timeseries, budgets, mass_balance]
-           FIG[projects/name/figures/session_id/]
-           HTML[reports/session_id/report.html]
-       end
-
-       RAM -->|scalars| ITER
-       LOOP -->|start/end| SESS
-
-       subgraph PROMOTE["After the loop (promote_trial x N)"]
-           PTRIAL[promote top-N]
-       end
-
-       PTRIAL --> SIMS
-       PTRIAL --> PARM
-       PTRIAL --> MET
-       PTRIAL --> TAG
-       PTRIAL --> ZARR
-       PTRIAL --> PARQ
-       PTRIAL -->|UPDATE sim_id| ITER
-
-       DB --> FIG
-       DB --> HTML
+   * - Container
+     - Component
+     - Role during the calibration loop
+   * - RAM (loop only)
+     - Aligned vector + scalar metrics
+     - Built per trial by ``run_trial_light`` and discarded at end of
+       trial. Never reaches disk.
+   * - ``catalog.duckdb``
+     - ``calibration_sessions``
+     - One row per session (start, finalize, status).
+   * - ``catalog.duckdb``
+     - ``calibration_iterations`` (``sim_id`` NULL)
+     - One row per trial: parameters, objective, scalar metrics,
+       ``params_hash``.
+   * - ``catalog.duckdb``
+     - ``simulations``, ``parameters``, ``metrics``, ``tags``
+     - Promoted top-N trials only (``promote_trial``). Updates the
+       matching ``calibration_iterations.sim_id``.
+   * - Filesystem
+     - ``simulations/<basename>.zarr/``
+     - Spatial fields written **only** for promoted trials.
+   * - Filesystem
+     - ``simulations/<basename>.parquet/``
+     - Detailed timeseries, budgets, mass balance for promoted
+       trials only.
+   * - Filesystem
+     - ``<project>/figures/<session_id>/``
+     - PNG figures rendered post-loop via the display registry.
+   * - Filesystem
+     - ``<project>/reports/<session_id>/report.html``
+     - HTML report rendered by ``hmp report <session_id>``.
 
 Rule of thumb: **RAM inside the loop, DuckDB for the trace, Zarr /
 Parquet only for promoted runs.**

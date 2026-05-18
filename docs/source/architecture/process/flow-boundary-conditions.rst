@@ -143,6 +143,4 @@ Notes
 Related Diagrams
 ----------------
 
-- :doc:`process-config-class-diagram`
-- :doc:`process-runtime-class-diagram`
-- :doc:`process-runtime-to-solver-sequence-diagram`
+See :doc:`process-architecture` for the process config class, runtime class, and runtime-to-solver sequence diagrams.

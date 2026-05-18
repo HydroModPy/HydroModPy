@@ -22,9 +22,7 @@ def test_curated_calibration_gallery_cases_include_optuna() -> None:
 def test_optuna_validation_profile_uses_top_level_iteration_budget() -> None:
     """Optuna profiles keep sampler kwargs separate from the calibration loop budget."""
     profile = next(
-        profile
-        for profile in STEADY_DUPUIT_TWIN_CASE.method_profiles
-        if profile.name == "optuna"
+        profile for profile in STEADY_DUPUIT_TWIN_CASE.method_profiles if profile.name == "optuna"
     )
 
     payload = build_payload(
@@ -45,9 +43,7 @@ def test_optuna_validation_profile_uses_top_level_iteration_budget() -> None:
 def test_optuna_validation_profile_accepts_common_evaluation_budget() -> None:
     """Benchmark budget capping works for Optuna like the other profiled methods."""
     profile = next(
-        profile
-        for profile in STEADY_DUPUIT_TWIN_CASE.method_profiles
-        if profile.name == "optuna"
+        profile for profile in STEADY_DUPUIT_TWIN_CASE.method_profiles if profile.name == "optuna"
     )
 
     capped = _apply_evaluation_budget(

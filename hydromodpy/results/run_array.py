@@ -1,9 +1,9 @@
 """Array / xarray provider bound to a single :class:`Run`.
 
 Routes the heavy field-array readers (``dataset``, ``to_xarray_batch``)
-and the chainable ``at(timestep, layer)`` accessor off the :class:`Run`
-facade so the latter stays a slim orchestrator. Each :class:`Run`
-instance owns one :class:`RunArrayProvider` exposed as ``run.array``.
+off the :class:`Run` facade so the latter stays a slim orchestrator.
+Each :class:`Run` instance owns one :class:`RunArrayProvider` exposed as
+``run.array``.
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.results import field_registry
+from hydromodpy.results.errors import FieldNotFoundError
 
 if TYPE_CHECKING:
     import xarray as xr
@@ -38,7 +39,12 @@ class RunArrayProvider:
     def __init__(self, run: Run) -> None:
         self._run = run
 
-    def dataset(self, variable: str | None = None) -> xu.UgridDataset:
+    def dataset(
+        self,
+        variable: str | None = None,
+        *,
+        bbox: tuple[float, float, float, float] | None = None,
+    ) -> xu.UgridDataset:
         """Return a :class:`xugrid.UgridDataset` over the simulation's mesh.
 
         Single entry point for figures: same UGRID topology and dimension
@@ -47,6 +53,15 @@ class RunArrayProvider:
         field present in the store; pass a name to load only that one.
         Variable attributes follow CF-1.11 from
         :mod:`hydromodpy.results.field_registry`.
+
+        Parameters
+        ----------
+        variable
+            Optional registry name to load. ``None`` loads all face-aligned
+            fields present in the store.
+        bbox
+            Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS;
+            restricts the dataset to faces whose centroid falls inside.
         """
         import dask.array as da
         import xarray as xr
@@ -86,7 +101,11 @@ class RunArrayProvider:
                         f"Field '{variable}' has shape '{desc.shape}', not face-aligned"
                     )
                 if lookup_zarr_path(sz.root, desc.zarr_path) is None:
-                    raise KeyError(f"Field '{variable}' not found in simulation '{run._sim_id}'")
+                    raise FieldNotFoundError(
+                        f"Field '{variable}' not found in simulation '{run._sim_id}'",
+                        sim_id=run._sim_id,
+                        variable=variable,
+                    )
                 names = [variable]
 
             data_vars: dict[str, xr.DataArray] = {}
@@ -109,21 +128,27 @@ class RunArrayProvider:
 
         if not data_vars:
             sz.close()
-        return xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
+        ds = xu.UgridDataset(xr.Dataset(data_vars), grids=[grid])
+        if bbox is not None:
+            ds = _bbox_select_ugrid(ds, grid, bbox, face_dim)
+        return ds
 
     def to_xarray_batch(
         self,
         variables: tuple[str, ...] = ("head",),
         *,
         time_slice: slice | None = None,
+        bbox: tuple[float, float, float, float] | None = None,
     ) -> xr.Dataset:
         """Return a lazy :class:`xarray.Dataset` over selected variables.
 
         Single entry point for ML pipelines that prefer ``xarray`` /
         ``xugrid`` over raw NumPy. Backed by the simulation's Zarr store
         (no copy on read). ``variables`` lists field-registry names to
-        include; missing fields raise ``KeyError``. ``time_slice`` is an
-        optional ``slice`` object applied to the time dimension.
+        include; missing fields raise ``FieldNotFoundError``. ``time_slice``
+        is an optional ``slice`` object applied to the time dimension.
+        ``bbox`` restricts the dataset to cells whose centroid lies within
+        the bounding box.
         """
         import dask.array as da
         import xarray as xr
@@ -136,7 +161,11 @@ class RunArrayProvider:
                 desc = field_registry.get(name)
                 arr = lookup_zarr_path(sz.root, desc.zarr_path)
                 if arr is None:
-                    raise KeyError(f"Field '{name}' not found in simulation '{run._sim_id}'")
+                    raise FieldNotFoundError(
+                        f"Field '{name}' not found in simulation '{run._sim_id}'",
+                        sim_id=run._sim_id,
+                        variable=name,
+                    )
                 shape = desc.shape
                 if shape == field_registry.SHAPE_TIME_FACE:
                     dims = ("time", "cell")
@@ -150,6 +179,8 @@ class RunArrayProvider:
                     dims = tuple(f"d{i}" for i in range(arr.ndim))
                 chunks = arr.chunks if arr.chunks else "auto"
                 values = da.from_array(arr, chunks=chunks)
+                if shape == field_registry.SHAPE_TIME_LAYER_FACE and values.ndim == 2:
+                    values = values[:, np.newaxis, :]
                 if time_slice is not None and dims and dims[0] == "time":
                     values = values[time_slice]
                 data_vars[name] = xr.DataArray(
@@ -162,31 +193,36 @@ class RunArrayProvider:
             raise
         if not data_vars:
             sz.close()
-        return xr.Dataset(data_vars)
-
-    def at(self, timestep: int = -1, layer: int | None = None) -> _AtAccessor:
-        """Return a chainable accessor bound to ``(timestep, layer)``.
-
-        Enables ``run.array.at(timestep=5).field("head")`` - the dual
-        spelling of ``run.field("head", timestep=5)``. Useful in notebook
-        sessions where the same slice is reused across several variables.
-        """
-        return _AtAccessor(self._run, timestep=timestep, layer=layer)
+        ds = xr.Dataset(data_vars)
+        if bbox is not None:
+            ds = _bbox_select_flat(ds, run, bbox)
+        return ds
 
 
-class _AtAccessor:
-    """Chainable helper bound to a ``(timestep, layer)`` slice."""
+def _bbox_select_ugrid(ds, grid, bbox, face_dim):
+    """Slice a UGRID dataset along ``face_dim`` using a bbox in model CRS."""
+    xmin, ymin, xmax, ymax = (float(v) for v in bbox)
+    if not (xmin < xmax and ymin < ymax):
+        raise ValueError(f"bbox must satisfy xmin<xmax and ymin<ymax; got {bbox!r}")
+    xs = np.asarray(grid.face_x)
+    ys = np.asarray(grid.face_y)
+    inside = (xs >= xmin) & (xs <= xmax) & (ys >= ymin) & (ys <= ymax)
+    idx = np.where(inside)[0]
+    return ds.isel({face_dim: idx})
 
-    __slots__ = ("_run", "_timestep", "_layer")
 
-    def __init__(self, run: Run, *, timestep: int, layer: int | None):
-        self._run = run
-        self._timestep = timestep
-        self._layer = layer
-
-    def field(self, variable: str) -> np.ndarray:
-        return self._run.field(variable, timestep=self._timestep, layer=self._layer)
-
-    def __repr__(self) -> str:
-        layer_str = f", layer={self._layer}" if self._layer is not None else ""
-        return f"Run.at(timestep={self._timestep}{layer_str})"
+def _bbox_select_flat(ds, run, bbox):
+    """Slice a flat xarray dataset using a bbox; assumes regular ``run.grid``."""
+    xmin, ymin, xmax, ymax = (float(v) for v in bbox)
+    if not (xmin < xmax and ymin < ymax):
+        raise ValueError(f"bbox must satisfy xmin<xmax and ymin<ymax; got {bbox!r}")
+    try:
+        grid = run.grid
+    except Exception as exc:
+        raise ValueError(
+            "bbox= filter requires a structured grid; this run has no grid metadata."
+        ) from exc
+    xs, ys = grid.cell_centers_xy()
+    inside = (xs >= xmin) & (xs <= xmax) & (ys >= ymin) & (ys <= ymax)
+    idx = np.where(inside)[0]
+    return ds.isel(cell=idx)

@@ -14,6 +14,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.registry.constants import (
@@ -159,7 +160,7 @@ class GeologyManager:
 
         from hydromodpy.data.variables.geology.apis.brgm_1m import fetch_brgm_1m
 
-        output_dir = self.data_dir or Path.home() / ".cache" / "hydromodpy" / "geology"
+        output_dir = self.data_dir or (_hmp_cache_dir() / "geology")
         gpkg_path = fetch_brgm_1m(
             output_dir=output_dir,
             bbox=bbox,
@@ -232,7 +233,7 @@ class GeologyManager:
 
         from hydromodpy.data.variables.geology.apis.brgm_50k import fetch_brgm_50k
 
-        output_dir = self.data_dir or Path.home() / ".cache" / "hydromodpy" / "geology"
+        output_dir = self.data_dir or (_hmp_cache_dir() / "geology")
         gpkg_path = fetch_brgm_50k(
             output_dir=output_dir,
             bbox=bbox,

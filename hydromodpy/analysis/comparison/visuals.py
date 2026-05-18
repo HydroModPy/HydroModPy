@@ -31,6 +31,33 @@ from hydromodpy.analysis.comparison.visuals_render_series import (
 from hydromodpy.analysis.comparison.visuals_style import _slug
 
 
+def _resolve_payload_crs(
+    *,
+    payload: MapPayload,
+    summaries: dict[str, dict[str, Any]],
+) -> str | None:
+    """Return the CRS string for a payload via its simulation summary.
+
+    The lookup order is:
+    1. summary['crs'] or summary['crs_wkt']
+    2. summary['crs_epsg'] -> formatted as 'EPSG:<code>'
+    3. ``None`` (callers may fall back to a documented default)
+    """
+    summary = summaries.get(payload.simulation_id)
+    if summary is None:
+        return None
+    crs_str = summary.get("crs") or summary.get("crs_wkt")
+    if crs_str:
+        return str(crs_str)
+    crs_epsg = summary.get("crs_epsg")
+    if crs_epsg is not None:
+        try:
+            return f"EPSG:{int(crs_epsg)}"
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
 def _representative_map_observable_names(observables: list[Any]) -> set[str]:
     """Keep the comparison report focused by selecting one map observable."""
     map_observables = [item for item in observables if getattr(item, "support", "") == "map"]
@@ -166,7 +193,16 @@ def generate_comparison_figures(
                                 f"{_slug(observable.name)}__fine_raster__"
                                 f"{_slug(payload.simulation_id)}.tif"
                             )
-                            if _write_geotiff(path=raster_path, array=array, extent=grid_extent):
+                            payload_crs = _resolve_payload_crs(
+                                payload=payload,
+                                summaries=completed_summaries,
+                            )
+                            if _write_geotiff(
+                                path=raster_path,
+                                array=array,
+                                extent=grid_extent,
+                                crs=payload_crs,
+                            ):
                                 artifacts.append(
                                     {
                                         "kind": "fine_raster_geotiff",

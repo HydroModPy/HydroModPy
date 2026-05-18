@@ -49,6 +49,7 @@ __pypackages__/
 CLAUDE.md
 .codex
 AGENTS.md
+.orchestrator/
 .spyderproject
 .spyproject
 .ropeproject
@@ -114,6 +115,7 @@ docs/source/_generated/
 out/
 **/simulations/
 **/exports/
+!tests/integration/exports/
 **/results_simulations/
 **/results_stable/
 **/projects/**/figures/
@@ -133,6 +135,12 @@ hydromodpy/solver/**/cases/outputs/**
 examples/*.duckdb
 examples/data/cache.duckdb
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
+
+# Lockfiles emitted by validation and regression test runs (``hmp run`` writes
+# ``hydromodpy.lock`` next to the project config; tests should opt out via
+# ``--no-lock`` but this is a safety net).
+validation_cases/**/hydromodpy.lock
+tests/regression/**/hydromodpy.lock
 
 # Large generated comparison payloads kept out of Git.
 examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json

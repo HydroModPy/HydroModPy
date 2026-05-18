@@ -15,7 +15,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.results import field_registry
-from hydromodpy.results.contracts import Mesh, RasterField, Stack
+from hydromodpy.results.contracts import Mesh, RasterField
+from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run_array import lookup_zarr_path
 
 if TYPE_CHECKING:
@@ -129,6 +130,8 @@ class RunGeographicMixin:
         variable: str,
         timestep: int = -1,
         layer: int | None = None,
+        *,
+        bbox: tuple[float, float, float, float] | None = None,
     ) -> np.ndarray:
         """Read one field array from the simulation Zarr store.
 
@@ -140,25 +143,34 @@ class RunGeographicMixin:
             Timestep index. Negative values count from the end.
         layer
             Optional layer index for three-dimensional fields.
+        bbox
+            Optional ``(xmin, ymin, xmax, ymax)`` in the simulation CRS.
+            Cells whose centroid falls outside the bounding box are set to
+            ``NaN`` (for float dtypes) or ``0`` (for integer dtypes).
 
         Returns
         -------
         numpy.ndarray
             Field values for the requested time and layer selection.
-
-        See Also
-        --------
-        ``run.array``
-            Chainable array provider for xarray-oriented access.
         """
         sz = self._catalog.open_zarr(self._sim_id)
         try:
             n_ts = self._load_row().get("n_timesteps")
             if n_ts is not None and timestep < 0:
                 timestep = n_ts + timestep
-            return sz.read_field(variable, timestep, layer=layer)
+            try:
+                arr = sz.read_field(variable, timestep, layer=layer)
+            except KeyError as exc:
+                raise FieldNotFoundError(
+                    f"Field '{variable}' not found in simulation '{self._sim_id}'",
+                    sim_id=self._sim_id,
+                    variable=variable,
+                ) from exc
         finally:
             sz.close()
+        if bbox is not None:
+            arr = _apply_bbox_mask(self, arr, bbox)
+        return arr
 
     def has_field(self, variable: str, *, subgroup: str | None = None) -> bool:
         """Return true when a field array is persisted in this run's Zarr store."""
@@ -199,52 +211,6 @@ class RunGeographicMixin:
         finally:
             sz.close()
 
-    def fields(self, variable: str) -> Stack:
-        """Return a lazy per-timestep raster stack of ``variable``.
-
-        For regular-in-plan meshes (``dis`` / ``disv``) reshapes each
-        flat cell array to the DEM grid and returns a :class:`Stack`
-        with Dask-backed ``data`` shaped ``(n_t, nrow, ncol)``. Values are
-        returned raw (no masking or NaN substitution); combine with
-        ``run.catchment_mask`` to mask inactive cells. Raises
-        ``RuntimeError`` for lumped simulations.
-        """
-        import dask.array as da
-
-        if self._load_row().get("solver_category") == "lumped":
-            raise RuntimeError("lumped simulation has no spatial grid")
-        desc = field_registry.get(variable)
-        if desc.shape not in (
-            field_registry.SHAPE_TIME_FACE,
-            field_registry.SHAPE_TIME_LAYER_FACE,
-        ):
-            raise ValueError(f"Field '{variable}' is not a time-varying face field")
-        sz = self._catalog.open_zarr(self._sim_id)
-        try:
-            arr = lookup_zarr_path(sz.root, desc.zarr_path)
-            if arr is None:
-                raise KeyError(f"Field '{variable}' not found in simulation '{self._sim_id}'")
-            chunks = arr.chunks if arr.chunks else "auto"
-            data = da.from_array(arr, chunks=chunks)
-            if desc.shape == field_registry.SHAPE_TIME_LAYER_FACE and data.ndim == 3:
-                if data.shape[1] != 1:
-                    raise ValueError(
-                        f"Field '{variable}' has {data.shape[1]} layers; "
-                        "use run.array.to_xarray_batch() for multi-layer data."
-                    )
-                data = data[:, 0, :]
-            nrow, ncol = self._regular_shape_for_field_size(sz.root, int(data.shape[-1]))
-            if data.shape[-1] != nrow * ncol:
-                raise ValueError(
-                    f"Field '{variable}' has {data.shape[-1]} cells; "
-                    f"grid shape {(nrow, ncol)} requires {nrow * ncol} cells."
-                )
-            data = data.reshape((data.shape[0], nrow, ncol))
-        except Exception:
-            sz.close()
-            raise
-        return Stack(data=data, variable=variable)
-
     def _regular_shape_for_field_size(self, root, n_cells: int) -> tuple[int, int]:
         mesh = root.get("mesh")
         if mesh is not None:
@@ -265,3 +231,42 @@ class RunGeographicMixin:
                 f"requires {int(grid_shape[0]) * int(grid_shape[1])} cells."
             )
         return int(grid_shape[0]), int(grid_shape[1])
+
+
+def _apply_bbox_mask(
+    run: RunGeographicMixin,
+    array: np.ndarray,
+    bbox: tuple[float, float, float, float],
+) -> np.ndarray:
+    """Mask cells outside ``bbox`` (xmin, ymin, xmax, ymax) in-place style."""
+    xmin, ymin, xmax, ymax = (float(v) for v in bbox)
+    if not (xmin < xmax and ymin < ymax):
+        raise ValueError(f"bbox must satisfy xmin<xmax and ymin<ymax; got {bbox!r}")
+    try:
+        grid = run.grid
+    except Exception as exc:
+        raise ValueError(
+            "bbox= filter requires a structured grid; this run has no grid metadata."
+        ) from exc
+    xs, ys = grid.cell_centers_xy()
+    inside = (xs >= xmin) & (xs <= xmax) & (ys >= ymin) & (ys <= ymax)
+    arr = np.asarray(array)
+    if arr.ndim == 0 or arr.size != inside.size:
+        if arr.ndim >= 1 and arr.shape[-1] == inside.size:
+            mask = ~inside.reshape((1,) * (arr.ndim - 1) + (-1,))
+        elif arr.shape == grid.shape:
+            mask = ~inside.reshape(grid.shape)
+        else:
+            raise ValueError(
+                f"bbox= mask requires array shape compatible with grid; "
+                f"got array {arr.shape}, grid {grid.shape}."
+            )
+    else:
+        mask = ~inside.reshape(arr.shape)
+    if arr.dtype.kind == "f":
+        out = arr.astype("float64", copy=True)
+        out[mask] = np.nan
+    else:
+        out = arr.copy()
+        out[mask] = 0
+    return out

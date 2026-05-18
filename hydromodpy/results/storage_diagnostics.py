@@ -11,8 +11,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal
 
+from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.storage_contract import (
-    CATALOG_FILENAME,
     PARQUET_DIR_SUFFIX,
     PARQUET_FILE_SUFFIX,
     SIMULATIONS_DIRNAME,
@@ -61,7 +61,7 @@ def diagnose_result_storage(
     ----------
     workspace
         Project catalog root. By default the catalog is expected at
-        ``<workspace>/hydromodpy.duckdb`` and artefacts below
+        ``<workspace>/catalog.duckdb`` and artefacts below
         ``<workspace>/simulations``.
     catalog_path, simulations_dir
         Optional overrides for callers that resolved a TOML workspace config.
@@ -246,20 +246,29 @@ def _table_columns(conn, table: str) -> set[str]:
 
 def _simulation_rows(conn, columns: set[str]) -> list[_SimulationRow]:
     storage_expr = (
-        "COALESCE(storage_basename, CAST(sim_id AS VARCHAR))"
+        "COALESCE(s.storage_basename, CAST(s.sim_id AS VARCHAR))"
         if "storage_basename" in columns
-        else "CAST(sim_id AS VARCHAR)"
+        else "CAST(s.sim_id AS VARCHAR)"
     )
-    storage_raw_expr = "storage_basename" if "storage_basename" in columns else "NULL"
-    status_expr = "status" if "status" in columns else "NULL"
-    zarr_expr = "zarr_path" if "zarr_path" in columns else "NULL"
+    storage_raw_expr = "s.storage_basename" if "storage_basename" in columns else "NULL"
+    # v2 resolves the status code through the statuses dim table.
+    if "status_id" in columns:
+        status_expr = "st.code"
+        status_join = "LEFT JOIN statuses st ON s.status_id = st.id"
+    elif "status" in columns:
+        status_expr = "s.status"
+        status_join = ""
+    else:
+        status_expr = "NULL"
+        status_join = ""
+    zarr_expr = "s.zarr_path" if "zarr_path" in columns else "NULL"
     rows = conn.execute(
-        "SELECT CAST(sim_id AS VARCHAR) AS sim_id, "
+        "SELECT CAST(s.sim_id AS VARCHAR) AS sim_id, "
         f"{storage_expr} AS storage_basename, "
         f"{storage_raw_expr} AS raw_storage_basename, "
         f"{status_expr} AS status, "
         f"{zarr_expr} AS zarr_path "
-        "FROM simulations"
+        f"FROM simulations s {status_join}"
     ).fetchall()
     return [
         _SimulationRow(

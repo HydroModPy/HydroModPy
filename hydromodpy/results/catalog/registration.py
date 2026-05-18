@@ -22,10 +22,14 @@ import duckdb
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.catalog.storage_paths import build_storage_basename
-from hydromodpy.results.catalog_schema import (
+from hydromodpy.results.catalog.audit import audited
+from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
 )
+from hydromodpy.results.catalog.constants import (
+    validate_solver_code as _validate_solver_code,
+)
+from hydromodpy.results.catalog.storage_paths import build_storage_basename
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX
 from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
 
@@ -124,6 +128,7 @@ class RegistrationResult:
 class RegistrationMixin:
     """``register_simulation`` for :class:`SimulationCatalog`."""
 
+    @audited("sim.register", payload_keys=("solver", "name"))
     @with_lock_retry()
     def register_simulation(
         self,
@@ -173,20 +178,25 @@ class RegistrationMixin:
         main_transaction_started = False
 
         try:
+            # Explicit BEGIN/COMMIT/ROLLBACK on self._db: the surrounding
+            # cleanup (zarr_tmp/zarr_final filesystem rollback) is tied to
+            # the same try/except, so keep the transaction control out of
+            # the port abstraction. Inner SQL still routes through the
+            # backend on the same shared connection.
             self._db.execute("BEGIN TRANSACTION")
             main_transaction_started = True
 
             if name:
-                existing = self._db.execute(
+                existing = self._backend.fetch_one(
                     "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
                     [project, name],
-                ).fetchone()
+                )
                 if existing:
                     existing_sid = str(existing[0])
                     if on_collision == "fail":
                         raise DuplicateSimulationNameError(project, name, existing_sid)
                     if on_collision == "replace":
-                        self._db.execute(
+                        self._backend.execute(
                             "UPDATE simulations SET name = NULL WHERE sim_id = ?",
                             [existing_sid],
                         )
@@ -211,6 +221,7 @@ class RegistrationMixin:
 
             if solver_category is None:
                 solver_category = _resolve_solver_category(solver)
+            solver_code_v2 = _validate_solver_code(solver)
 
             config_json = json.dumps(config) if config else None
             snapshot_source = config_snapshot if config_snapshot is not None else config
@@ -230,8 +241,6 @@ class RegistrationMixin:
                 crs_epsg = _epsg_from_crs(crs)
 
             topology = mesh_topology
-            if topology is None and mesh_type in ("dis", "disv", "disu"):
-                topology = mesh_type
             p_start = _coerce_timestamp(period_start)
             p_end = _coerce_timestamp(period_end)
 
@@ -258,28 +267,38 @@ class RegistrationMixin:
                 staged.close()
                 _windows_long_path(zarr_tmp).rename(_windows_long_path(zarr_final))
 
-            self._db.execute(
+            self._backend.execute(
                 """INSERT INTO simulations
-                   (sim_id, name, project, solver, solver_category, flow_regime,
+                   (sim_id, name, project,
+                    solver_id, status_id, flow_regime_id, mesh_topology_id,
                     n_cells, n_layers, n_timesteps,
                     bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
                     crs_wkt, crs_epsg,
                     period_start, period_end, time_unit,
                     config_toml, config_snapshot, config_hash, config_source,
-                    zarr_path, storage_basename, parent_sim_id, mesh_hash, mesh_topology,
-                    geographic_fingerprint, tags, notes,
+                    zarr_path, storage_basename, parent_sim_id, mesh_hash,
+                    geographic_fingerprint, notes,
                     description, scientific_objective, contact_email, doi,
                     study_area_name, outlet_x, outlet_y)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?,
+                           (SELECT id FROM solvers WHERE code = ?),
+                           (SELECT id FROM statuses WHERE code = ?),
+                           (SELECT id FROM flow_regimes WHERE code = ?),
+                           (SELECT id FROM mesh_topologies WHERE code = ?),
+                           ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                           ?, ?, ?, ?, ?, ?, ?,
+                           ?, ?, ?, ?,
+                           ?, ?,
+                           ?, ?, ?, ?,
+                           ?, ?, ?)""",
                 [
                     sid,
                     final_name,
                     project,
-                    solver,
-                    solver_category,
+                    solver_code_v2,
+                    "running",
                     flow_regime,
+                    topology,
                     n_cells,
                     n_layers,
                     n_timesteps,
@@ -300,9 +319,7 @@ class RegistrationMixin:
                     storage_basename,
                     parent_sid,
                     mesh_hash,
-                    topology,
                     geographic_fingerprint,
-                    tags,
                     notes,
                     description,
                     scientific_objective,
@@ -313,6 +330,12 @@ class RegistrationMixin:
                     outlet_y,
                 ],
             )
+            if tags:
+                for tag in tags:
+                    self._backend.execute(
+                        "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
+                        [sid, str(tag)],
+                    )
             self._db.execute("COMMIT")
             main_transaction_started = False
         except Exception:

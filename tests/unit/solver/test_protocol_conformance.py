@@ -34,7 +34,7 @@ def test_registered_adapter_advertises_pair(pair: tuple[str, str]) -> None:
 
 @pytest.mark.parametrize(
     "pair",
-    [("flow", "modflownwt"), ("flow", "modflow6"), ("flow", "boussinesq")],
+    [("flow", "modflow_nwt"), ("flow", "modflow6"), ("flow", "boussinesq")],
     ids=lambda p: f"{p[0]}/{p[1]}",
 )
 def test_flow_adapter_exposes_extract_calibration_series(pair: tuple[str, str]) -> None:

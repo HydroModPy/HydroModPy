@@ -23,7 +23,7 @@ def catalog_with_data(tmp_path):
     reg = c.register_simulation(
         sid,
         project="test",
-        solver="modflownwt",
+        solver="modflow_nwt",
         n_cells=n_cells,
         n_layers=n_layers,
         n_timesteps=n_ts,
@@ -198,6 +198,25 @@ class TestGeoTIFFExport:
             data = src.read(1)
             # At least some valid pixels (not all nodata)
             assert np.any(data != -9999.0)
+
+    def test_geotiff_export_is_cog_compliant(self, catalog_with_data):
+        """Output rasters are tiled, zstd-compressed and carry HMP_* tags."""
+        import rasterio
+
+        catalog, sid, tmp_path = catalog_with_data
+        out = tmp_path / "field_cog.tif"
+        catalog.export(sid, "head", "geotiff", out, timestep=0, layer=0, resolution=0.5)
+        with rasterio.open(str(out)) as src:
+            profile = src.profile
+            assert profile.get("tiled") is True
+            assert profile.get("blockxsize") == 512
+            assert profile.get("blockysize") == 512
+            compression = src.compression.value if src.compression else ""
+            assert "zstd" in compression.lower()
+            tags = src.tags()
+            assert tags.get("HMP_SIM_ID") == str(sid)
+            assert tags.get("HMP_VARIABLE") == "head"
+            assert "HMP_TIMESTAMP" in tags
 
 
 class TestShapefileExport:

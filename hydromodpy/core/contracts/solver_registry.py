@@ -23,7 +23,7 @@ class SolverRegistryProvider(Protocol):
     def get_solver_adapter_class(self, process_type: str, solver_name: str) -> type:
         """Return the adapter class registered for the given pair."""
 
-    def get_extractor_instance(self, solver_name: str) -> Any | None:
+    def get_extractor_instance(self, process_type: str, solver_name: str) -> Any | None:
         """Return a freshly-instantiated extractor, or None when unknown."""
 
 

@@ -60,7 +60,7 @@ def _build_validation_launcher() -> Project:
     config_path = _build_validation_launcher_config(
         case_dir=CASE_DIR,
         config_path=CASE_DIR / "config_modflownwt.toml",
-        solver_name="modflownwt",
+        solver_name="modflow_nwt",
     )
     try:
         return Project(config_path, headless=True)

@@ -27,10 +27,7 @@ keywords = [
     "watershed",
     "modeling",
     "catchment",
-    "machine-learning",
-    "ml-friendly-storage",
     "queryable-results",
-    "reproducible-ml",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -62,9 +59,9 @@ dependencies = [
     "pydantic-pint>=0.4,<1",
     "pyarrow>=22.0.0,<23",
     "pyproj>=3.7.2,<4",
-    "rasterio>=1.5.0,<2",
+    "rasterio>=1.4.0,<2",
     "requests>=2.32.5,<3",
-    "rioxarray>=0.22.0,<1",
+    "rioxarray>=0.19,<1",
     "scikit-learn>=1.8.0,<2",
     "scipy>=1.17.1,<2",
     "shapely>=2,<3",
@@ -78,7 +75,10 @@ dependencies = [
     "zstandard>=0.25.0,<1",
     "tomlkit>=0.14.0,<1",
     "tomli-w>=1.2.0,<2",
+    "universal_pathlib>=0.2,<1",
     "pandera>=0.31.1,<1",
+    "platformdirs>=4,<5",
+    "filelock>=3.13,<4",
 ]
 
 [project.optional-dependencies]
@@ -86,7 +86,17 @@ calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1"]
 delineation = ["whitebox-workflows>=1.3.5,<2"]
 mesh = ["gmsh>=4.15.2,<5"]
 ui = ["streamlit>=1.51.0,<2"]
+viz = [
+    "datashader>=0.16,<1",
+    "lttb>=0.3,<1",
+]
+fair = [
+    "pystac>=1.10,<2",
+    "stac-validator>=3.5,<5",
+    "rocrate>=0.10,<1",
+]
 test = ["pytest", "pytest-xdist", "pytest-timeout", "pytest-cov", "coverage[toml]>=7.0", "pyyaml", "jsonschema>=4.0"]
+performance = ["pytest-benchmark>=5.0,<6", "uuid-utils>=0.10,<1", "polars>=1.0,<2"]
 docs = [
     "sphinx>=7.0,<8",
     "myst-parser",
@@ -105,7 +115,6 @@ docs = [
     "sphinxcontrib-plantuml",
     "autodoc-pydantic>=2.0",
     "sphinx-codeautolink",
-    "sphinxcontrib-mermaid",
     "sphinxcontrib-bibtex",
     "sphinx-autodoc-typehints<3",
     "sphinx-issues<5",

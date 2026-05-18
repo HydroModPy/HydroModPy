@@ -8,14 +8,17 @@ import importlib
 # "no aliases / no re-exports" rule in CLAUDE.md. CLI verbs and Python
 # user code must reach the same canonical symbols through this module,
 # so the verbs in `hydromodpy/_api` are re-exported here on purpose.
+from hydromodpy import catalog  # noqa: F401  --  expose ``hmp.catalog`` namespace
 from hydromodpy._api import (
     calibrate,
-    catalog,
     compare_pair,
     doctor,
+    index,
     mesh,
     open,
+    open_catalog,
     overview,
+    read,
     report,
     run,
     testbed,
@@ -38,9 +41,12 @@ log_manager = _log_manager
 
 _DIRECT_EXPORTS = [
     "open",
+    "open_catalog",
+    "catalog",
+    "read",
     "run",
     "calibrate",
-    "catalog",
+    "index",
     "overview",
     "compare_pair",
     "mesh",

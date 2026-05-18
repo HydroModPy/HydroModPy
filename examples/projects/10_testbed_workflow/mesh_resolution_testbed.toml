@@ -2,6 +2,9 @@
 [workflow]
 mode = "testbed"
 
+[workspace]
+project_root = "."
+
 [testbed]
 id = "mesh_resolution_testbed"
 subject = "mesh"

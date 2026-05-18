@@ -58,7 +58,7 @@ nlay = 1
 [[comparison.simulation]]
 id = "nwt_structured_120"
 label = "MODFLOW-NWT structured 120x120 Nancon steady candidate"
-solver = "modflownwt"
+solver = "modflow_nwt"
 mesh_label = "nancon_structured_grid_120x120"
 mesh_mode = "structured"
 
@@ -117,7 +117,7 @@ lenper = 365.0
 [[comparison.simulation]]
 id = "nwt_structured_180"
 label = "MODFLOW-NWT structured 180x180 Nancon steady candidate"
-solver = "modflownwt"
+solver = "modflow_nwt"
 mesh_label = "nancon_structured_grid_180x180"
 mesh_mode = "structured"
 

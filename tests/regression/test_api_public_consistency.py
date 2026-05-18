@@ -21,9 +21,12 @@ pytestmark = [pytest.mark.regression, pytest.mark.fast]
 _DIRECT_EXPORTS = frozenset(
     {
         "open",
+        "open_catalog",
+        "catalog",
+        "read",
         "run",
         "calibrate",
-        "catalog",
+        "index",
         "overview",
         "compare_pair",
         "mesh",

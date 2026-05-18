@@ -64,19 +64,6 @@ def register(subparsers) -> argparse.ArgumentParser:
         dest="dry_run",
         help="Print the resolved workflow plan without executing it.",
     )
-    checkpoint_group = parser.add_mutually_exclusive_group()
-    checkpoint_group.add_argument(
-        "--checkpoint",
-        action="store_true",
-        dest="checkpoint",
-        help="Persist pipeline checkpoints so the run can be resumed.",
-    )
-    checkpoint_group.add_argument(
-        "--no-checkpoint",
-        action="store_true",
-        dest="no_checkpoint",
-        help=argparse.SUPPRESS,
-    )
     parser.add_argument(
         "--frozen",
         action="store_true",
@@ -84,6 +71,12 @@ def register(subparsers) -> argparse.ArgumentParser:
             "Reject any fresh download when hydromodpy.lock is present; "
             "every artefact must already be in the catalog and match its SHA-256."
         ),
+    )
+    parser.add_argument(
+        "--no-lock",
+        action="store_true",
+        dest="no_lock",
+        help="Skip the post-run hydromodpy.lock write (default: write).",
     )
     parser.add_argument(
         "--no-display",
@@ -182,12 +175,9 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     resume = getattr(args, "resume", None)
     from_step = getattr(args, "from_step", None)
     until_step = getattr(args, "until_step", None)
-    checkpoint = bool(getattr(args, "checkpoint", False))
-    no_checkpoint = bool(getattr(args, "no_checkpoint", False))
     no_display = bool(getattr(args, "no_display", False))
     frozen = bool(getattr(args, "frozen", False))
-    resume_options_used = resume is not None or from_step is not None or until_step is not None
-    checkpoint_enabled = bool(checkpoint or resume_options_used) and not no_checkpoint
+    no_lock = bool(getattr(args, "no_lock", False))
 
     if dry_run:
         _print_dry_run(
@@ -197,7 +187,6 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
             resume=resume,
             from_step=from_step,
             until_step=until_step,
-            checkpoint=checkpoint_enabled,
         )
         _cleanup_effective_toml(effective_path, source=config_path)
         return
@@ -210,20 +199,10 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
-    if (from_step is not None or until_step is not None or checkpoint or no_checkpoint) and (
-        workflow != "simulation"
-    ):
+    if (from_step is not None or until_step is not None) and workflow != "simulation":
         print(
-            f"--from / --until / --checkpoint are only supported for the "
+            f"--from / --until are only supported for the "
             f"'simulation' workflow (detected '{workflow}').",
-            file=sys.stderr,
-        )
-        _cleanup_effective_toml(effective_path, source=config_path)
-        sys.exit(EXIT_CONFIG)
-
-    if no_checkpoint and resume_options_used:
-        print(
-            "--no-checkpoint cannot be combined with --resume, --from or --until.",
             file=sys.stderr,
         )
         _cleanup_effective_toml(effective_path, source=config_path)
@@ -238,8 +217,6 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
                 resume=resume,
                 from_step=from_step,
                 until_step=until_step,
-                checkpoint=checkpoint_enabled,
-                no_checkpoint=no_checkpoint,
                 no_display=no_display,
                 frozen=frozen,
             )
@@ -258,10 +235,113 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     finally:
         _cleanup_effective_toml(effective_path, source=config_path)
 
+    if not no_lock:
+        _post_run_lockfile_write(run_path, raw_toml)
+
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
     if summary:
         for key, value in summary.items():
             print(f"  {key}: {value}", file=sys.stderr)
+
+
+def _post_run_lockfile_write(config_path: Path, raw_toml: dict[str, Any]) -> None:
+    """Persist ``hydromodpy.lock`` next to the project after a successful run.
+
+    Best-effort: any failure here is logged and does not bubble up so the run
+    output stays the source of truth. Skipped silently when no workspace
+    data catalog is present.
+    """
+    from hydromodpy.config.schema_export import schema_sha256
+    from hydromodpy.data.data_freeze import LOCKFILE_NAME, write_lockfile
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    from hydromodpy.results.parquet_schemas import PARQUET_SCHEMA_VERSION
+    from hydromodpy.results.zarr_store.constants import ZARR_SCHEMA_VERSION
+
+    workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None
+    project_root = config_path.parent
+    if isinstance(workspace_payload, dict):
+        declared = workspace_payload.get("project_root")
+        if declared:
+            candidate = Path(declared).expanduser()
+            if not candidate.is_absolute():
+                candidate = (config_path.parent / candidate).resolve()
+            project_root = candidate
+
+    data_dir = _resolve_workspace_data_dir(workspace_payload, project_root)
+    db_path = data_dir / "cache.duckdb"
+    if not db_path.is_file():
+        return
+
+    dest = project_root / LOCKFILE_NAME
+    solvers = _collect_solver_binaries(raw_toml)
+    try:
+        with DataCatalogDuckDB(db_path) as catalog:
+            write_lockfile(
+                catalog,
+                dest,
+                project_root=project_root,
+                solvers=solvers,
+                schema_sha256=schema_sha256(),
+                zarr_schema_version=str(ZARR_SCHEMA_VERSION),
+                parquet_schema_version=str(PARQUET_SCHEMA_VERSION),
+            )
+    except Exception as exc:  # pragma: no cover - defensive logging only
+        print(f"  WARNING: hydromodpy.lock write failed: {exc}", file=sys.stderr)
+        return
+    print(f"  Lockfile written: {dest}", file=sys.stderr)
+
+
+def _resolve_workspace_data_dir(
+    workspace_payload: dict[str, Any] | None,
+    project_root: Path,
+) -> Path:
+    """Return the workspace ``data/`` directory used for the lockfile."""
+    if isinstance(workspace_payload, dict):
+        explicit_data = workspace_payload.get("data_dir")
+        if explicit_data:
+            data = Path(explicit_data).expanduser()
+            if not data.is_absolute():
+                data = (project_root / data).resolve()
+            return data
+        explicit_root = workspace_payload.get("root")
+        if explicit_root:
+            root = Path(explicit_root).expanduser()
+            if not root.is_absolute():
+                root = (project_root / root).resolve()
+            return root / "data"
+
+    env_root = os.environ.get("HMP_WORKSPACE")
+    if env_root:
+        return Path(env_root).expanduser().resolve() / "data"
+
+    if project_root.parent.name == "projects":
+        candidate = project_root.parent.parent
+        if (candidate / "data").is_dir():
+            return candidate / "data"
+    return project_root / "data"
+
+
+def _collect_solver_binaries(raw_toml: dict[str, Any]) -> dict[str, Path]:
+    """Best-effort discovery of solver binaries declared in the config."""
+    payload: dict[str, Path] = {}
+    solver_section = raw_toml.get("solver") if isinstance(raw_toml, dict) else None
+    if not isinstance(solver_section, dict):
+        return payload
+
+    candidates: list[tuple[str, Any]] = []
+    for solver_name, sub in solver_section.items():
+        if isinstance(sub, dict):
+            for key in ("bin_path", "binary_path", "exe", "executable"):
+                if key in sub:
+                    candidates.append((str(solver_name), sub.get(key)))
+
+    for solver_name, raw in candidates:
+        if not raw:
+            continue
+        path = Path(str(raw)).expanduser()
+        if path.is_file():
+            payload[solver_name] = path
+    return payload
 
 
 def _materialize_effective_toml(
@@ -326,9 +406,9 @@ def _parse_cli_set_overrides(items: list[str]) -> dict[str, Any]:
 
 
 def _parse_env_set_overrides(env: Mapping[str, str]) -> dict[str, Any]:
-    """Parse HYDROMODPY_SET_* environment overrides."""
+    """Parse HMP_SET_* environment overrides."""
     payload: dict[str, Any] = {}
-    prefix = "HYDROMODPY_SET_"
+    prefix = "HMP_SET_"
     for name, raw_value in env.items():
         if not name.startswith(prefix):
             continue
@@ -391,7 +471,6 @@ def _print_dry_run(
     resume: str | None,
     from_step: str | None,
     until_step: str | None,
-    checkpoint: bool,
 ) -> None:
     """Print the resolved workflow plan without executing it."""
     print(f"[dry-run] workflow: {workflow}")
@@ -403,7 +482,6 @@ def _print_dry_run(
         print(f"[dry-run] from    : {from_step}")
     if until_step is not None:
         print(f"[dry-run] until   : {until_step}")
-    print(f"[dry-run] checkpoint: {'enabled' if checkpoint else 'disabled'}")
     if workflow == "simulation":
         try:
             from hydromodpy.workflow.orchestrator import standard_steps

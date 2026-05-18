@@ -36,31 +36,39 @@ same thing.
 Conceptual Diagram
 ------------------
 
-.. mermaid::
+Two planar supports are derived from the domain surfaces (topography +
+substratum) and the support constraints (stream, ocean, zones,
+catchment outline):
 
-   flowchart LR
-     Surf["Domain surfaces<br/>topography + substratum"]
-     Cst["Support constraints<br/>stream, ocean, zones,<br/>catchment outline"]
-     SGrid["Structured sgrid<br/>raster-aligned quads"]
-     CMesh["Catchment-conformal<br/>planar mesh<br/>triangles or polygons"]
-     Vert["Repeated vertical layering"]
-     SolverMesh["Layered SolverMesh<br/>cell centers, neighbors,<br/>layer ids, support labels"]
-     BqMesh["2D shallow-flow mesh<br/>natural planar support"]
-     NWT["MODFLOW-NWT<br/>DIS on structured grid"]
-     MF6["MODFLOW 6<br/>DISV on layered mesh<br/>XT3D when needed"]
-     BQ["Boussinesq backend<br/>finite-volume operators"]
+- a **structured sgrid** of raster-aligned quads that approximates the
+  support constraints,
+- a **catchment-conformal planar mesh** of triangles or polygons that
+  follows them more explicitly.
 
-     Surf --> SGrid
-     Surf --> CMesh
-     Cst -- approximated by grid --> SGrid
-     Cst -- followed more explicitly --> CMesh
-     SGrid --> Vert
-     CMesh --> Vert
-     Vert --> SolverMesh
-     SGrid --> NWT
-     SolverMesh --> MF6
-     CMesh --> BqMesh
-     BqMesh --> BQ
+Both planar supports are then repeated vertically and assembled into a
+**layered SolverMesh** (cell centers, neighbors, layer ids, support
+labels). The catchment-conformal mesh also reduces to a **2D
+shallow-flow mesh** that exposes a natural planar support without
+vertical repetition.
+
+Backend wiring:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 38 32
+
+   * - Backend
+     - Mesh consumed
+     - Notes
+   * - MODFLOW-NWT
+     - Structured sgrid (``DIS``)
+     - No layered SolverMesh; the structured raster is fed directly.
+   * - MODFLOW 6
+     - Layered SolverMesh (``DISV``)
+     - ``XT3D`` activated when needed.
+   * - Boussinesq
+     - 2D shallow-flow mesh
+     - Finite-volume operators on the natural planar support.
 
 The figure above shows why HydroModPy keeps mesh choice visible. The same
 catchment description can feed several backend families, but the numerical

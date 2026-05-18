@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.catalog_schema import GLOBAL_ZONE
+from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 
 
 @pytest.fixture
@@ -29,14 +29,23 @@ def _register(catalog, sim_id=None, **kwargs):
     return sid, reg.zarr
 
 
+_V2_SIM_SELECT = (
+    "SELECT s.project, sv.code AS solver, st.code AS status, "
+    "sv.category AS solver_category, s.duration_s "
+    "FROM simulations s "
+    "JOIN solvers sv ON s.solver_id = sv.id "
+    "JOIN statuses st ON s.status_id = st.id "
+    "WHERE s.sim_id = ?"
+)
+
+
 class TestRegisterAndFinalize:
     def test_register_creates_row(self, catalog):
         sid, _ = _register(catalog)
-        row = catalog.connection.execute(
-            "SELECT project, solver, status FROM simulations WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row == ("test_project", "modflow6", "running")
+        row = catalog.connection.execute(_V2_SIM_SELECT, [sid]).fetchone()
+        assert row[0] == "test_project"
+        assert row[1] == "modflow6"
+        assert row[2] == "running"
 
     def test_register_with_zarr(self, catalog):
         sid, sz = _register(catalog, n_cells=50, n_layers=2)
@@ -51,37 +60,29 @@ class TestRegisterAndFinalize:
         assert sz is None
 
     def test_solver_category_auto_distributed(self, catalog):
-        sid, _ = _register(catalog, solver="modflownwt")
-        row = catalog.connection.execute(
-            "SELECT solver_category FROM simulations WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row[0] == "distributed"
+        sid, _ = _register(catalog, solver="modflow_nwt")
+        row = catalog.connection.execute(_V2_SIM_SELECT, [sid]).fetchone()
+        assert row[3] == "distributed"
 
     def test_solver_category_auto_integrated(self, catalog):
         sid, _ = _register(catalog, solver="boussinesq")
-        row = catalog.connection.execute(
-            "SELECT solver_category FROM simulations WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row[0] == "integrated"
+        row = catalog.connection.execute(_V2_SIM_SELECT, [sid]).fetchone()
+        assert row[3] == "integrated"
 
     def test_solver_category_unknown(self, catalog):
-        sid, _ = _register(catalog, solver="exotic_solver")
-        row = catalog.connection.execute(
-            "SELECT solver_category FROM simulations WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row[0] is None
+        # v2 enforces solver_id NOT NULL via FK to ``solvers.code``; an
+        # unknown name resolves to NULL via the INSERT subselect and the
+        # NOT NULL constraint rejects the row. This is a behavioural change
+        # from the v1 schema where the ``solver`` column was free-text.
+        with pytest.raises(Exception):
+            _register(catalog, solver="exotic_solver")
 
     def test_finalize_updates(self, catalog):
         sid, _ = _register(catalog)
         catalog.finalize(sid, status="completed", duration_s=42.5)
-        row = catalog.connection.execute(
-            "SELECT status, duration_s FROM simulations WHERE sim_id = ?",
-            [sid],
-        ).fetchone()
-        assert row == ("completed", 42.5)
+        row = catalog.connection.execute(_V2_SIM_SELECT, [sid]).fetchone()
+        assert row[2] == "completed"
+        assert row[4] == 42.5
 
     def test_config_hash_computed(self, catalog):
         sid, _ = _register(catalog, config={"flow": {"K": 1.5}})

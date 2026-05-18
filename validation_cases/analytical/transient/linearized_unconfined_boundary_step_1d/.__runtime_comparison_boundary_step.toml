@@ -12,9 +12,9 @@ reference_simulation = "modflow6"
 run_simulations = false
 
 [[comparison.simulation]]
-id = "modflownwt"
+id = "modflow_nwt"
 label = "MODFLOW-NWT 50x5"
-solver = "modflownwt"
+solver = "modflow_nwt"
 mesh_mode = "structured"
 
 [comparison.simulation.overlay]

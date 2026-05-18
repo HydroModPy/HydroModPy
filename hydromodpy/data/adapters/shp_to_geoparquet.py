@@ -1,4 +1,4 @@
-"""Convert user-facing vector files into Parquet vector tables.
+"""Convert user-facing vector files into OGC GeoParquet 1.1 vector tables.
 
 Accepted inputs: Shapefile (``*.shp``), GeoJSON (``*.geojson``),
 GeoPackage (``*.gpkg``) and already-GeoParquet files (passthrough).
@@ -6,12 +6,24 @@ GeoPackage (``*.gpkg``) and already-GeoParquet files (passthrough).
 
 from __future__ import annotations
 
+import os
 import shutil
+import uuid
 from pathlib import Path
 
 from hydromodpy.core.exceptions import DataError
 
 VECTOR_SUFFIXES = frozenset({".shp", ".geojson", ".json", ".gpkg", ".parquet"})
+
+# OGC GeoParquet 1.1 contract enforced for every vector file produced by HMP v2.
+_GEOPARQUET_OPTIONS: dict[str, object] = {
+    "compression": "zstd",
+    "compression_level": 5,
+    "schema_version": "1.1.0",
+    "geometry_encoding": "WKB",
+    "write_covering_bbox": True,
+    "index": False,
+}
 
 
 class VectorConversionError(DataError):
@@ -24,11 +36,13 @@ def convert_vector_to_geoparquet(
     *,
     layer: str | None = None,
 ) -> Path:
-    """Convert a vector file to a Parquet table with WKB geometry.
+    """Convert a vector file to a GeoParquet 1.1 table.
 
-    If geopandas/pyogrio is not installed, passthrough GeoParquet input
-    (simple copy) and raise for other formats so the caller can decide
-    what to do.
+    Uses :meth:`geopandas.GeoDataFrame.to_parquet` with
+    ``schema_version=1.1.0``, ``geometry_encoding=WKB`` and
+    ``write_covering_bbox=True``. If geopandas/pyogrio is not installed,
+    passthrough GeoParquet input (simple copy) and raise for other formats so
+    the caller can decide what to do.
     """
     src = Path(src)
     dest = Path(dest)
@@ -58,31 +72,12 @@ def convert_vector_to_geoparquet(
         raise VectorConversionError(
             f"{src} has no CRS; add a .prj sidecar or set gdf.crs before ingest"
         )
-    import duckdb
-
-    frame = gdf.drop(columns=[gdf.geometry.name]).copy()
-    for column in frame.columns:
-        frame[column] = frame[column].map(_plain_value)
-    frame["crs"] = str(gdf.crs)
-    frame["geometry_wkb"] = [
-        None if geom is None or geom.is_empty else bytes(geom.wkb) for geom in gdf.geometry
-    ]
-    frame["geometry_type"] = [
-        None if geom is None or geom.is_empty else str(geom.geom_type) for geom in gdf.geometry
-    ]
-    tmp = dest.with_name(dest.name + ".tmp")
-    conn = duckdb.connect(":memory:")
+    tmp = dest.with_name(f"{dest.name}.tmp-{uuid.uuid4().hex}")
     try:
-        conn.register("_hmp_vector", frame)
-        tmp_sql = str(tmp).replace("'", "''")
-        conn.execute(f"COPY (SELECT * FROM _hmp_vector) TO '{tmp_sql}' (FORMAT PARQUET)")
-    finally:
-        conn.close()
-    tmp.replace(dest)
+        gdf.to_parquet(tmp, **_GEOPARQUET_OPTIONS)
+    except Exception:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+    os.replace(tmp, dest)
     return dest
-
-
-def _plain_value(value: object) -> object:
-    if value is None or isinstance(value, (str, int, float, bool)):
-        return value
-    return str(value)

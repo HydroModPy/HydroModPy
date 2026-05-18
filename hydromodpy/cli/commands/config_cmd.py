@@ -162,10 +162,16 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
     Honours ``base_config`` inheritance: overlay files are merged with their
     base before validation so ``hmp config check`` sees the same resolved
     payload as ``hmp run``.
+
+    Dispatches on ``[workflow] mode`` so comparison TOMLs are validated by
+    ``SimulationComparisonConfig`` and testbed TOMLs by ``TestbedConfig``
+    (or ``RegionalLabConfig`` for the ``regional_lab`` profile) instead of
+    ``HydroModPyConfig``.
     """
     import tomllib
 
     from hydromodpy.config import HydroModPyConfig
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
     path = Path(args.file).expanduser().resolve()
     if not path.is_file():
@@ -173,7 +179,45 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        HydroModPyConfig.from_toml(path)
+        raw_toml = load_toml_with_base_config(path)
+    except tomllib.TOMLDecodeError as exc:
+        print(f"Invalid TOML syntax: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    except ValueError as exc:
+        print(f"Invalid base_config chain: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    workflow_section = raw_toml.get("workflow") if isinstance(raw_toml, dict) else None
+    mode = workflow_section.get("mode") if isinstance(workflow_section, dict) else None
+
+    try:
+        if mode == "comparison":
+            from hydromodpy.analysis.comparison.experiment_config import (
+                SimulationComparisonConfig,
+            )
+
+            SimulationComparisonConfig.from_toml(raw_toml, config_path=path)
+        elif mode == "testbed":
+            from hydromodpy.analysis.testbed.config import TestbedConfig
+            from hydromodpy.analysis.testbed.profiles import (
+                GENERIC_TESTBED_PROFILE,
+                REGIONAL_LAB_PROFILE,
+                resolve_testbed_profile,
+            )
+
+            profile = resolve_testbed_profile(raw_toml)
+            if profile == REGIONAL_LAB_PROFILE:
+                from hydromodpy.analysis.testbed.regional_lab_config import (
+                    RegionalLabConfig,
+                )
+
+                RegionalLabConfig.from_toml(raw_toml, config_path=path)
+            elif profile == GENERIC_TESTBED_PROFILE:
+                TestbedConfig.from_toml(raw_toml, config_path=path)
+            else:
+                raise ValueError(f"Unsupported testbed profile: {profile}")
+        else:
+            HydroModPyConfig.from_toml(path)
     except tomllib.TOMLDecodeError as exc:
         print(f"Invalid TOML syntax: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
@@ -186,6 +230,10 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
                 print(f"  {loc}: {msg} (input={err.get('input')!r})", file=sys.stderr)
             else:
                 print(f"  {loc}: {msg}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    except (KeyError, FileNotFoundError) as exc:
+        print(f"Config invalid: {path}", file=sys.stderr)
+        print(f"  {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
     except ValueError as exc:
         print(f"Invalid base_config chain: {exc}", file=sys.stderr)

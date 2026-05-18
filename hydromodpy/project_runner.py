@@ -69,26 +69,43 @@ def _resolve_step_index(step: str | int, steps: tuple) -> int:
     raise ConfigError(f"Unknown pipeline step: {step!r}. Known steps: {known}")
 
 
-def _resolve_resume_step_index(workspace: Path, run_id: str) -> int:
-    """Locate the next step index to execute for a previously interrupted run."""
-    from hydromodpy.workflow.internals.checkpoint import CheckpointStore
-    from hydromodpy.workflow.internals.ledger import StepsLedger
+def _resolve_resume_step_index(
+    workspace: Path,
+    run_id: str,
+    *,
+    steps_blueprint: tuple[str, ...] | None = None,
+) -> int:
+    """Locate the next step index to execute for a previously interrupted run.
 
-    cp = CheckpointStore(workspace, run_id)
-    last = cp.latest()
-    if last is None:
+    The workflow journal in ``catalog.duckdb`` is the single source of truth:
+    when no row exists for ``run_id`` the run is treated as fresh and starts
+    from step 0.
+    """
+    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.workflow.journal import WorkflowJournal
+    from hydromodpy.workflow.resume import ResumePlanner
+
+    try:
+        catalog = SimulationCatalog(workspace)
+    except Exception as exc:
         raise ResumeError(
-            f"No checkpoints found for run_id '{run_id}' in {cp.dir}. "
-            "Start a fresh run instead of using resume."
-        )
-    resume_from = last + 1
+            f"Could not open the catalog at {workspace} to resume '{run_id}': {exc}"
+        ) from exc
 
-    ledger = StepsLedger(workspace)
-    last_completed = ledger.last_completed(run_id)
-    ledger.close()
-    if last_completed is not None:
-        resume_from = max(resume_from, last_completed + 1)
-    return resume_from
+    try:
+        journal = WorkflowJournal(catalog)
+        planner = ResumePlanner(journal, workspace)
+        plan = planner.compute(
+            run_id=run_id,
+            current_config_sha256=None,
+            steps_blueprint=steps_blueprint or (),
+        )
+    finally:
+        try:
+            catalog.close()
+        except Exception:
+            pass
+    return plan.restart_index
 
 
 def _print_dry_run_plan(
@@ -96,11 +113,9 @@ def _print_dry_run_plan(
     run_id: str,
     steps: tuple,
     resume_from: int | None,
-    checkpoint: bool,
 ) -> None:
     """Emit the resolved Pipeline plan without executing any step."""
     print(f"[dry-run] run_id    : {run_id}")
-    print(f"[dry-run] checkpoint: {'enabled' if checkpoint else 'disabled'}")
     if resume_from is not None:
         print(f"[dry-run] resume_from: {resume_from}")
     print("[dry-run] steps     :")
@@ -174,7 +189,6 @@ class ProjectRunner:
         self,
         *,
         name: str | None = None,
-        checkpoint: bool = False,
         resume: str | None = None,
         from_step: str | int | None = None,
         until_step: str | int | None = None,
@@ -192,9 +206,6 @@ class ProjectRunner:
         project = self._project
 
         skip_display = bool(project._no_display) or bool(no_display)
-        checkpoint = bool(checkpoint or resume is not None or from_step is not None)
-        if until_step is not None:
-            checkpoint = True
 
         thickness = overrides.pop("thickness", None)
         first_clim = overrides.pop("first_clim", None)
@@ -216,7 +227,11 @@ class ProjectRunner:
             resume_from: int | None = _resolve_step_index(from_step, all_steps)
             run_id = resume or name
         elif resume is not None:
-            resume_from = _resolve_resume_step_index(workspace_path, resume)
+            resume_from = _resolve_resume_step_index(
+                workspace_path,
+                resume,
+                steps_blueprint=tuple(getattr(step, "name", "") for step in all_steps),
+            )
             run_id = resume
         elif self._is_model_phase_ready():
             resume_from = _resolve_step_index("setup_process", all_steps)
@@ -230,7 +245,6 @@ class ProjectRunner:
                 run_id=run_id,
                 steps=steps,
                 resume_from=resume_from,
-                checkpoint=checkpoint,
             )
             return None
 
@@ -272,7 +286,7 @@ class ProjectRunner:
             },
         )
 
-        pipeline = Pipeline(steps, workspace=workspace_path, checkpoint=checkpoint)
+        pipeline = Pipeline(steps, workspace=workspace_path)
         previous_frozen_mode: bool | None = None
         if frozen:
             from hydromodpy.data.data_freeze import is_frozen_mode, set_frozen_mode

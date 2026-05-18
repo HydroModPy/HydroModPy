@@ -12,6 +12,12 @@ from functools import cached_property
 
 import pandas as pd
 
+from hydromodpy.results.timeseries_downsample import (
+    DEFAULT_TARGET_POINTS,
+    lttb_downsample,
+    should_downsample,
+)
+
 
 class RunTimeseriesMixin:
     """Tabular and time-series accessors mixed into :class:`Run`."""
@@ -26,11 +32,11 @@ class RunTimeseriesMixin:
         scalars are trivially looked up via
         ``sim.parameters.loc["thickness", "value"]``.
         """
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             "SELECT param_name, zone_id, value, unit, parameterization "
             "FROM parameters WHERE sim_id = ? ORDER BY param_name, zone_id",
             [self._sim_id],
-        ).fetchdf()
+        )
         # Homogeneous params have zone_id=NULL in the DB (stored as
         # "__global__" by the writer); hide that column from the canonical
         # view unless zonal rows are present.
@@ -51,11 +57,11 @@ class RunTimeseriesMixin:
         pandas.DataFrame
             Long-form table with ``station_id``, ``metric_name``, and ``value``.
         """
-        return self._catalog.connection.execute(
+        return self._catalog.backend.query(
             "SELECT station_id, metric_name, value "
             "FROM metrics WHERE sim_id = ? ORDER BY station_id, metric_name",
             [self._sim_id],
-        ).fetchdf()
+        )
 
     @property
     def provenance(self) -> pd.DataFrame:
@@ -67,19 +73,22 @@ class RunTimeseriesMixin:
             Long-form table with source references, checksums, periods, and
             record counts.
         """
-        return self._catalog.connection.execute(
+        return self._catalog.backend.query(
             "SELECT variable, source_type, source_ref, "
             "payload_sha256 AS checksum, "
             "period_start, period_end, n_records "
             "FROM provenance WHERE sim_id = ?",
             [self._sim_id],
-        ).fetchdf()
+        )
 
     def timeseries(
         self,
         variable: str,
-        station: str,
-        period: tuple | None = None,
+        *,
+        station: str | None = None,
+        period: tuple | str | None = None,
+        downsample: str | None = None,
+        n_out: int | None = None,
     ) -> pd.Series:
         """Return one simulated time series.
 
@@ -88,9 +97,19 @@ class RunTimeseriesMixin:
         variable
             Catalog variable name, such as ``"discharge"`` or ``"head"``.
         station
-            Station id stored in the timeseries table.
+            Station id stored in the timeseries table. When the variable has
+            a single station, this can be left ``None``.
         period
-            Optional ``(start, end)`` datetime bounds.
+            Optional ``(start, end)`` datetime bounds, or a single ``"YYYY"``
+            year string applied as ``("YYYY-01-01", "YYYY-12-31")``.
+        downsample
+            Optional decimation strategy. ``"lttb"`` runs Largest Triangle
+            Three Buckets on the series; ``"auto"`` enables LTTB only when
+            the series exceeds 50_000 points; ``None`` (default) returns the
+            untouched full-resolution series.
+        n_out
+            Target sample count for ``downsample="lttb"`` or ``"auto"``.
+            Defaults to ``5000``.
 
         Returns
         -------
@@ -102,30 +121,49 @@ class RunTimeseriesMixin:
         KeyError
             Raised when no matching time series exists.
         """
+        if station is None:
+            stations = self._catalog.backend.query(
+                "SELECT DISTINCT station_id FROM timeseries WHERE sim_id = ? AND variable = ?",
+                [self._sim_id, variable],
+            )
+            if stations.empty:
+                raise KeyError(f"No timeseries for sim={self._sim_id}, var={variable}")
+            if len(stations) > 1:
+                names = ", ".join(sorted(stations["station_id"].astype(str)))
+                raise KeyError(
+                    f"Variable '{variable}' has multiple stations ({names}); "
+                    "pass station= explicitly."
+                )
+            station = str(stations["station_id"].iloc[0])
+        if isinstance(period, str):
+            period = (f"{period}-01-01", f"{period}-12-31")
         query = (
-            "SELECT datetime, value FROM timeseries "
+            "SELECT time, timestep, value FROM timeseries "
             "WHERE sim_id = ? AND station_id = ? AND variable = ?"
         )
         params: list = [self._sim_id, station, variable]
         if period is not None:
-            query += " AND datetime >= ? AND datetime <= ?"
+            query += " AND time >= ? AND time <= ?"
             params.extend([period[0], period[1]])
-        query += " ORDER BY datetime"
-        result = self._catalog.connection.execute(query, params).fetchdf()
+        query += " ORDER BY timestep"
+        result = self._catalog.backend.query(query, params)
         if result.empty:
             raise KeyError(
                 f"No timeseries for sim={self._sim_id}, station={station}, var={variable}"
             )
         # The catalog stores datetimes as TIMESTAMPTZ (UTC); simulation
         # time_index is tz-naive, so strip the tz here to keep both aligned.
-        idx = pd.DatetimeIndex(result["datetime"])
+        idx = pd.DatetimeIndex(result["time"])
         if idx.tz is not None:
             idx = idx.tz_convert("UTC").tz_localize(None)
-        return pd.Series(
+        series = pd.Series(
             result["value"].values,
             index=idx,
             name=variable,
         )
+        if downsample is not None:
+            series = _apply_downsample(series, mode=downsample, n_out=n_out)
+        return series
 
     def observed(
         self,
@@ -164,17 +202,18 @@ class RunTimeseriesMixin:
         """
         obs_variable = f"{variable}_obs"
         query = (
-            "SELECT station_id, datetime, value FROM timeseries WHERE sim_id = ? AND variable = ?"
+            "SELECT station_id, time AS datetime, value FROM timeseries "
+            "WHERE sim_id = ? AND variable = ?"
         )
         params: list = [self._sim_id, obs_variable]
         if station is not None:
             query += " AND station_id = ?"
             params.append(station)
         if period is not None:
-            query += " AND datetime >= ? AND datetime <= ?"
+            query += " AND time >= ? AND time <= ?"
             params.extend([period[0], period[1]])
-        query += " ORDER BY station_id, datetime"
-        df = self._catalog.connection.execute(query, params).fetchdf()
+        query += " ORDER BY station_id, timestep"
+        df = self._catalog.backend.query(query, params)
         if df.empty:
             station_msg = f", station={station}" if station is not None else ""
             raise ValueError(
@@ -219,15 +258,15 @@ class RunTimeseriesMixin:
         if period is not None:
             query += " AND timestep >= ? AND timestep <= ?"
             params.extend(period)
-        return self._catalog.connection.execute(query, params).fetchdf()
+        return self._catalog.backend.query(query, params)
 
     @property
     def mass_balance(self) -> pd.DataFrame:
         """Mass-balance diagnostics ordered by timestep."""
-        return self._catalog.connection.execute(
+        return self._catalog.backend.query(
             "SELECT * FROM mass_balance WHERE sim_id = ? ORDER BY timestep",
             [self._sim_id],
-        ).fetchdf()
+        )
 
     @cached_property
     def time_index(self) -> pd.DatetimeIndex:
@@ -274,3 +313,26 @@ class RunTimeseriesMixin:
         from hydromodpy.results import views
 
         return views.recharge_forcing(self)
+
+
+def _apply_downsample(
+    series: pd.Series,
+    *,
+    mode: str,
+    n_out: int | None,
+) -> pd.Series:
+    """Apply the requested downsampling mode to a pandas Series.
+
+    ``mode``:
+    - ``"lttb"``: always run LTTB.
+    - ``"auto"``: run LTTB only when the series exceeds the default
+      threshold (50_000 points by default).
+    """
+    target = int(n_out) if n_out is not None else DEFAULT_TARGET_POINTS
+    if mode == "lttb":
+        return lttb_downsample(series, n_out=target)
+    if mode == "auto":
+        if should_downsample(len(series)):
+            return lttb_downsample(series, n_out=target)
+        return series
+    raise ValueError(f"Unknown downsample mode '{mode}'. Expected 'lttb', 'auto', or None.")

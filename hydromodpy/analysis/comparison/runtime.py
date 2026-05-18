@@ -791,7 +791,7 @@ def _mesh_cells_from_store(
         area_m2.append(_cell_area_from_polygon(polygon))
 
     z_top_m: np.ndarray | None = None
-    for name in ("surface_top", "top"):
+    for name in ("topography", "top"):
         if name in mesh:
             try:
                 candidate = np.asarray(mesh[name][:], dtype=float).reshape(-1)

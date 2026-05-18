@@ -3,7 +3,7 @@
 Usage example:
 
     PowerShell:
-        $timing_root = Join-Path $env:HYDROMODPY_TEST_SCRATCH_ROOT "timing_reports"
+        $timing_root = Join-Path $env:HMP_TEST_SCRATCH_ROOT "timing_reports"
         python -m pytest tests/unit -q --junitxml "$timing_root/unit_junit.xml"
     python tests/_helpers/pytest_timing_distribution.py \
         --junitxml "$timing_root/unit_junit.xml" \

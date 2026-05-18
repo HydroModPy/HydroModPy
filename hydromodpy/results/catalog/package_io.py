@@ -11,10 +11,13 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
+from hydromodpy.results.catalog.audit import audited
+
 
 class PackageIOMixin:
     """``.hmp`` archive helpers for :class:`SimulationCatalog`."""
 
+    @audited("export")
     def export_package(
         self,
         sim_id: str | UUID,
@@ -30,6 +33,7 @@ class PackageIOMixin:
 
         return export_hmp_package(self, sim_id, output_path)
 
+    @audited("import", sim_id_arg="__none__", project_arg=None)
     def import_package(
         self,
         package_path: Path | str,

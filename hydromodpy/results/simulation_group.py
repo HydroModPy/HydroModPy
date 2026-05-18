@@ -7,8 +7,7 @@ Iterable, filterable view over a list of ``sim_id`` resolved against a single
 ranks runs (``best``, ``worst``, ``sort_by``), compares scalar metrics across
 simulations (``compare``), exports tabular bundles (``to_dataframe``,
 ``to_csv``), stacks field arrays lazily into an ``xarray.DataArray``
-(``to_xarray``, dask-backed), streams runs as tensors
-(``to_torch_dataset``), and narrows the set with ``filter(**criteria)``.
+(``to_xarray``, dask-backed), and narrows the set with ``filter(**criteria)``.
 
 Why
 ---
@@ -27,7 +26,6 @@ Cross-refs
 - ``hydromodpy.results.catalog.SimulationCatalog`` is the upstream owner.
 - ``hydromodpy.results.run.Run`` is the unit element of the group.
 - ``to_xarray`` opens each per-sim Zarr lazily (dask-backed concat).
-- ``to_torch_dataset`` streams runs as :class:`torch.Tensor` items.
 """
 
 from __future__ import annotations
@@ -39,7 +37,6 @@ import pandas as pd
 from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
     from pathlib import Path
 
     import xarray as xr
@@ -51,11 +48,18 @@ if TYPE_CHECKING:
 def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset:
     """Open one simulation's Zarr root as a lazy ``xr.Dataset``.
 
-    Wraps each registered field's Zarr array in ``dask.array.from_array``
-    so that the returned dataset is fully lazy: nothing is read until the
-    caller materialises slices. Dimensions are read from the field
-    registry, not Zarr metadata, so we don't depend on
-    ``dimension_names`` (which HydroModPy stores don't carry).
+    Field arrays live under nested subgroups (``derived/*``, ``budget/*``,
+    ``mesh/*``) and HydroModPy writes Zarr v3 stores without the
+    ``dimension_names`` array metadata that ``xr.open_zarr`` needs to map
+    arrays to dims. Both constraints make a single ``xr.open_zarr`` call
+    on the root impossible; instead we assemble the dataset manually
+    (one ``DataArray`` per registered field, dims read from
+    :mod:`hydromodpy.results.field_registry`) and then route the result
+    through :func:`xr.decode_cf` so callers still get CF-aware time
+    decoding for the ``time`` coordinate.
+
+    The data variables stay dask-backed end-to-end, so the dataset is
+    fully lazy: nothing is read until the caller materialises slices.
     """
     import dask.array as da
     import xarray as xr
@@ -79,7 +83,7 @@ def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset
         field_registry.SHAPE_PARTICLES: ("time", "particle"),
     }
 
-    data_vars: dict[str, xr.DataArray] = {}
+    data_vars: dict[str, xr.Variable] = {}
     for name, desc in field_registry.FIELD_REGISTRY.items():
         path = desc.zarr_path
         if "/" in path:
@@ -97,9 +101,29 @@ def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset
             dims = tuple(f"dim_{i}" for i in range(arr.ndim))
         chunks = arr.chunks if arr.chunks else "auto"
         dask_arr = da.from_array(arr, chunks=chunks)
-        data_vars[name] = xr.DataArray(dask_arr, dims=dims, attrs=dict(arr.attrs))
+        data_vars[name] = xr.Variable(dims, dask_arr, attrs=dict(arr.attrs))
 
-    return xr.Dataset(data_vars)
+    coords: dict[str, xr.Variable] = {}
+    if "time" in root:
+        time_arr = root["time"]
+        time_chunks = time_arr.chunks if time_arr.chunks else "auto"
+        coords["time"] = xr.Variable(
+            ("time",),
+            da.from_array(time_arr, chunks=time_chunks),
+            attrs=dict(time_arr.attrs),
+        )
+    if "crs" in root:
+        crs_arr = root["crs"]
+        coords["crs"] = xr.Variable(
+            (),
+            da.from_array(crs_arr, chunks=()),
+            attrs=dict(crs_arr.attrs),
+        )
+
+    raw = xr.Dataset(data_vars=data_vars, coords=coords, attrs=dict(root.attrs))
+    # ``xr.decode_cf`` applies CF decoding (time epoch, calendar, units)
+    # while preserving dask backing on data variables.
+    return xr.decode_cf(raw, decode_times=True)
 
 
 class SimulationGroup:
@@ -171,11 +195,11 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, param_name, zone_id, value "
             f"FROM parameters WHERE sim_id IN ({placeholders})",
             self._sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["key"] = df["param_name"].where(
@@ -195,11 +219,11 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        df = self._catalog.connection.execute(
+        df = self._catalog.backend.query(
             f"SELECT sim_id, station_id, metric_name, value "
             f"FROM metrics WHERE sim_id IN ({placeholders})",
             self._sim_ids,
-        ).fetchdf()
+        )
         if df.empty:
             return df
         df["key"] = df["metric_name"].where(
@@ -231,14 +255,16 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        return self._catalog.connection.execute(
-            f"SELECT s.sim_id, s.name, s.project, s.solver, m.station_id, m.value "
+        return self._catalog.backend.query(
+            f"SELECT s.sim_id, s.name, s.project, sv.code AS solver, "
+            f"m.station_id, m.value "
             f"FROM simulations s "
+            f"JOIN solvers sv ON s.solver_id = sv.id "
             f"JOIN metrics m ON s.sim_id = m.sim_id "
             f"WHERE s.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value DESC",
             self._sim_ids + [metric],
-        ).fetchdf()
+        )
 
     def best(self, metric: str) -> Run:
         """Return the run with the highest value for ``metric``.
@@ -338,12 +364,16 @@ class SimulationGroup:
         if not self._sim_ids:
             return pd.DataFrame()
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        sims = self._catalog.connection.execute(
-            f"SELECT sim_id, project, solver, solver_category, flow_regime, "
-            f"n_cells, n_layers "
-            f"FROM simulations WHERE sim_id IN ({placeholders})",
+        sims = self._catalog.backend.query(
+            f"SELECT s.sim_id, s.project, sv.code AS solver, "
+            f"sv.category AS solver_category, fr.code AS flow_regime, "
+            f"s.n_cells, s.n_layers "
+            f"FROM simulations s "
+            f"JOIN solvers sv ON s.solver_id = sv.id "
+            f"LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id "
+            f"WHERE s.sim_id IN ({placeholders})",
             self._sim_ids,
-        ).fetchdf()
+        )
 
         params_df = self.parameters
         metrics_df = self.metrics
@@ -411,55 +441,6 @@ class SimulationGroup:
         stacked.name = variable
         return stacked
 
-    def to_torch_dataset(
-        self,
-        variables: list[str],
-        *,
-        timestep: int | None = None,
-        layer: int | None = None,
-    ):
-        """Return a :class:`torch.utils.data.IterableDataset` streaming runs.
-
-        Each item yielded is a ``dict[str, torch.Tensor]`` keyed by entries
-        in ``variables`` (Zarr field names). Reads are streamed: only the
-        active simulation's slab is loaded at iteration time, so memory
-        footprint is O(one run) regardless of cohort size.
-
-        Parameters
-        ----------
-        variables
-            Field names to materialise per item.
-        timestep
-            Optional timestep index (negative = from end). ``None`` returns
-            the full time axis when present.
-        layer
-            Optional layer index. ``None`` returns the full layer axis when
-            present.
-
-        Raises
-        ------
-        ImportError
-            When :mod:`torch` is not installed. The error is a
-            :class:`hydromodpy.results.catalog.discovery.MissingMLDependencyError`.
-        """
-        try:
-            cls = _build_torch_iterable_dataset_class()
-        except ImportError as exc:
-            from hydromodpy.results.catalog.discovery import MissingMLDependencyError
-
-            raise MissingMLDependencyError(
-                "torch",
-                hint="install PyTorch (`pip install torch`) to stream runs as tensors",
-            ) from exc
-
-        return cls(
-            sim_ids=list(self._sim_ids),
-            catalog=self._catalog,
-            variables=list(variables),
-            timestep=timestep,
-            layer=layer,
-        )
-
     # -- Filter --------------------------------------------------------------
 
     def filter(self, **criteria) -> SimulationGroup:
@@ -489,69 +470,3 @@ class SimulationGroup:
         except Exception:
             head = ""
         return f"<div><b>SimulationGroup</b> ({self.count} simulations)</div>{head}"
-
-
-_TORCH_DATASET_CLASS_CACHE: type | None = None
-
-
-def _build_torch_iterable_dataset_class() -> type:
-    """Build (once) and return the torch-aware IterableDataset subclass.
-
-    The class is constructed at first call so importing this module never
-    requires :mod:`torch`. The cached class is reused by every
-    :meth:`SimulationGroup.to_torch_dataset` invocation.
-    """
-    global _TORCH_DATASET_CLASS_CACHE
-    if _TORCH_DATASET_CLASS_CACHE is not None:
-        return _TORCH_DATASET_CLASS_CACHE
-
-    import numpy as np
-    import torch
-    from torch.utils.data import IterableDataset
-
-    class _TorchSimulationIterableDataset(IterableDataset):
-        """Streaming dataset yielding ``{var: tensor, "sim_id": str}`` per run."""
-
-        def __init__(
-            self,
-            *,
-            sim_ids: list[str],
-            catalog: SimulationCatalog,
-            variables: list[str],
-            timestep: int | None,
-            layer: int | None,
-        ) -> None:
-            super().__init__()
-            self._sim_ids = sim_ids
-            self._catalog = catalog
-            self._variables = variables
-            self._timestep = timestep
-            self._layer = layer
-
-        def __iter__(self) -> Iterator[dict]:
-            for sid in self._sim_ids:
-                try:
-                    ds = _open_simulation_lazy(self._catalog, sid)
-                except (KeyError, FileNotFoundError, OSError):
-                    continue
-                sample: dict[str, object] = {"sim_id": sid}
-                keep = True
-                for variable in self._variables:
-                    if variable not in ds.data_vars:
-                        keep = False
-                        break
-                    arr = ds[variable]
-                    if self._timestep is not None and "time" in arr.dims:
-                        arr = arr.isel(time=self._timestep)
-                    if self._layer is not None and "layer" in arr.dims:
-                        arr = arr.isel(layer=self._layer)
-                    values = np.ascontiguousarray(arr.values)
-                    sample[variable] = torch.from_numpy(values)
-                if keep:
-                    yield sample
-
-        def __len__(self) -> int:
-            return len(self._sim_ids)
-
-    _TORCH_DATASET_CLASS_CACHE = _TorchSimulationIterableDataset
-    return _TorchSimulationIterableDataset

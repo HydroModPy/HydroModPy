@@ -17,24 +17,25 @@ import duckdb
 from hydromodpy.core.config_kit.persistence import PersistenceConfig
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.io.db_retry import connect_with_retry
-from hydromodpy.core.logging import get_logger
+from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.discovery import DiscoveryMixin
 from hydromodpy.results.catalog.lifecycle import LifecycleMixin
 from hydromodpy.results.catalog.package_io import PackageIOMixin
+from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
+from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.reads import ReadsMixin
 from hydromodpy.results.catalog.registration import RegistrationMixin
 from hydromodpy.results.catalog.storage_paths import StoragePathResolver
+from hydromodpy.results.catalog.views import ensure_views
 from hydromodpy.results.catalog.writes import WritesMixin
-from hydromodpy.results.catalog_schema import ensure_schema
-from hydromodpy.results.storage_contract import CATALOG_FILENAME, SIMULATIONS_DIRNAME
+from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME
 from hydromodpy.results.zarr_store import SimulationZarr
 
 if TYPE_CHECKING:
     from uuid import UUID
 
     import xarray as xr
-
-logger = get_logger(__name__)
 
 
 class SimulationCatalog(
@@ -70,12 +71,18 @@ class SimulationCatalog(
         Optional directory containing simulation Zarr and Parquet stores.
     persistence
         Storage policy for packed or unpacked field arrays.
-    register_global
-        Register this workspace in the user-level global catalog index.
+
+    Raises
+    ------
+    hydromodpy.core.exceptions.CatalogError
+        If the DuckDB catalog cannot be opened or the schema migration fails.
+    hydromodpy.results.errors.SchemaVersionMismatchError
+        If the stored catalog schema version is older than the runtime expects.
 
     Examples
     --------
-    >>> catalog = SimulationCatalog("~/hmp_workspace")
+    >>> import hydromodpy as hmp
+    >>> catalog = hmp.open("~/hmp_workspace")
     >>> latest = catalog.latest()
     >>> latest.summary()
 
@@ -94,7 +101,6 @@ class SimulationCatalog(
         catalog_path: Path | str | None = None,
         simulations_dir: Path | str | None = None,
         persistence: PersistenceConfig | None = None,
-        register_global: bool = False,
     ) -> None:
         root = Path(workspace_path).expanduser()
         if catalog_path is None and root.suffix == ".duckdb":
@@ -115,6 +121,7 @@ class SimulationCatalog(
         self._db_path = catalog
         self._db_path.parent.mkdir(parents=True, exist_ok=True)
         self._db = connect_with_retry(str(self._db_path))
+        self._backend: CatalogBackend = DuckDBBackend.from_connection(self._db, path=self._db_path)
 
         self._simulations_dir = (
             Path(simulations_dir).expanduser().resolve()
@@ -125,9 +132,9 @@ class SimulationCatalog(
         self._open_zarr_handles: list[SimulationZarr] = []
         self._paths = StoragePathResolver(self._db, self._simulations_dir)
 
-        ensure_schema(self._db, self._workspace, simulations_dir=self._simulations_dir)
-        if register_global:
-            self._register_global_project()
+        self._backend.ensure_schema()
+        ensure_parquet_views(self._db, self._simulations_dir)
+        ensure_views(self._db)
 
     @classmethod
     def from_workspace(
@@ -135,7 +142,6 @@ class SimulationCatalog(
         workspace: object,
         *,
         persistence: PersistenceConfig | None = None,
-        register_global: bool = False,
     ) -> SimulationCatalog:
         """Open the project catalog declared by a runtime workspace object.
 
@@ -146,8 +152,6 @@ class SimulationCatalog(
             ``simulations_dir``.
         persistence
             Optional storage policy.
-        register_global
-            Register this workspace in the global catalog index.
 
         Returns
         -------
@@ -159,7 +163,6 @@ class SimulationCatalog(
             catalog_path=Path(workspace.catalog_path),
             simulations_dir=Path(workspace.simulations_dir),
             persistence=persistence,
-            register_global=register_global,
         )
 
     @classmethod
@@ -168,7 +171,6 @@ class SimulationCatalog(
         workspace: object,
         *,
         persistence: PersistenceConfig | None = None,
-        register_global: bool = False,
     ) -> SimulationCatalog:
         """Open the project catalog declared by a workspace configuration.
 
@@ -178,8 +180,6 @@ class SimulationCatalog(
             Workspace configuration object.
         persistence
             Optional storage policy.
-        register_global
-            Register this workspace in the global catalog index.
 
         Returns
         -------
@@ -191,7 +191,6 @@ class SimulationCatalog(
             catalog_path=Path(workspace.catalog_path),
             simulations_dir=Path(workspace.simulations_dir),
             persistence=persistence,
-            register_global=register_global,
         )
 
     @classmethod
@@ -207,19 +206,58 @@ class SimulationCatalog(
         -------
         SimulationCatalog
             Open catalog connected to the resolved workspace.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the TOML path does not exist.
+        ConfigValidationError
+            If the TOML payload fails Pydantic validation.
         """
         cfg = get_root_config_provider().from_toml(toml_path)
         return cls.from_workspace_config(cfg.workspace)
 
     @classmethod
     def from_json(cls, payload: str | bytes) -> SimulationCatalog:
-        """Open the project catalog declared in a JSON config string."""
+        """Open the project catalog declared in a JSON config string.
+
+        Parameters
+        ----------
+        payload
+            JSON payload validated against ``HydroModPyConfig``.
+
+        Returns
+        -------
+        SimulationCatalog
+            Open catalog connected to the resolved workspace.
+
+        Raises
+        ------
+        ConfigValidationError
+            If the JSON payload fails validation.
+        """
         cfg = get_root_config_provider().from_json(payload)
         return cls.from_workspace_config(cfg.workspace)
 
     @classmethod
     def from_dict(cls, payload: dict) -> SimulationCatalog:
-        """Open the project catalog declared in a dict config payload."""
+        """Open the project catalog declared in a dict config payload.
+
+        Parameters
+        ----------
+        payload
+            Mapping validated against ``HydroModPyConfig``.
+
+        Returns
+        -------
+        SimulationCatalog
+            Open catalog connected to the resolved workspace.
+
+        Raises
+        ------
+        ConfigValidationError
+            If the mapping fails Pydantic validation.
+        """
         cfg = get_root_config_provider().from_dict(payload)
         return cls.from_workspace_config(cfg.workspace)
 
@@ -229,13 +267,18 @@ class SimulationCatalog(
         return self._db
 
     @property
+    def backend(self) -> CatalogBackend:
+        """Return the storage backend port driving SQL reads and writes."""
+        return self._backend
+
+    @property
     def workspace_path(self) -> Path:
         """Workspace directory that owns this catalog."""
         return self._workspace
 
     @property
     def catalog_path(self) -> Path:
-        """Path to the ``hydromodpy.duckdb`` catalog file."""
+        """Path to the ``catalog.duckdb`` catalog file."""
         return self._db_path
 
     @property
@@ -303,34 +346,24 @@ class SimulationCatalog(
 
     def __repr__(self) -> str:
         try:
-            count = self._db.execute("SELECT COUNT(*) FROM simulations").fetchone()[0]
+            row = self._backend.fetch_one("SELECT COUNT(*) FROM simulations")
+            count = row[0] if row is not None else "?"
         except Exception:
             count = "?"
         return f"SimulationCatalog(workspace={str(self._workspace)!r}, simulations={count})"
 
-    def _register_global_project(self) -> None:
-        try:
-            from hydromodpy.results.catalog.global_index import CatalogIndex
-
-            CatalogIndex().register_project(
-                project_root=self._workspace,
-                catalog_path=self._db_path,
-                simulations_dir=self._simulations_dir,
-            )
-        except Exception:
-            logger.debug("Could not register project catalog in global index", exc_info=True)
-
     def _repr_html_(self) -> str:
         try:
-            count = self._db.execute(
+            count = self._backend.fetch_one(
                 "SELECT COUNT(*), "
-                "SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END), "
-                "SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) FROM simulations"
-            ).fetchone()
-            total, ok, failed = count
+                "SUM(CASE WHEN st.code='completed' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN st.code='failed' THEN 1 ELSE 0 END) "
+                "FROM simulations s JOIN statuses st ON s.status_id = st.id"
+            )
+            total, ok, failed = count if count is not None else (0, 0, 0)
             projects = [
                 str(r[0])
-                for r in self._db.execute("SELECT DISTINCT project FROM simulations").fetchall()
+                for r in self._backend.fetch_all("SELECT DISTINCT project FROM simulations")
             ]
         except Exception:
             total, ok, failed, projects = 0, 0, 0, []

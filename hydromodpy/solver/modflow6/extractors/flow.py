@@ -369,48 +369,25 @@ class Modflow6OutputAdapter:
                 if geometry is not None:
                     vertices, face_node_connectivity = geometry
 
+            if vertices is None or face_node_connectivity is None:
+                return
+            structured_shape = self._structured_shape_from_vertices(vertices, n_cells=n_cells)
+            if (
+                structured_shape is None
+                and grid_shape is not None
+                and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
+            ):
+                structured_shape = (int(grid_shape[0]), int(grid_shape[1]))
             sz = store.open_zarr(sim_id)
             try:
-                mesh = sz.root.require_group("mesh")
-                if vertices is not None and face_node_connectivity is not None:
-                    mesh.create_array(
-                        "vertices",
-                        data=vertices.astype("float64"),
-                        overwrite=True,
-                    )
-                    mesh.create_array(
-                        "face_node_connectivity",
-                        data=face_node_connectivity.astype("int32"),
-                        overwrite=True,
-                    )
-                    topology = mesh.create_array(
-                        "topology",
-                        data=np.zeros((), dtype="int32"),
-                        overwrite=True,
-                    )
-                    topology.attrs["cf_role"] = "mesh_topology"
-                    topology.attrs["long_name"] = "UGRID 2D topology of the simulation mesh"
-                    topology.attrs["topology_dimension"] = 2
-                    topology.attrs["node_coordinates"] = "vertices"
-                    topology.attrs["face_node_connectivity"] = "face_node_connectivity"
-                mesh.create_array("z_interfaces", data=z_flat, overwrite=True)
-                mesh.create_array("surface_top", data=top, overwrite=True)
-                mesh.attrs["n_cells"] = int(n_cells)
-                mesh.attrs["n_layers"] = int(nlay)
-                if grid_type:
-                    mesh.attrs["grid_type"] = grid_type
-                structured_shape = self._structured_shape_from_vertices(vertices, n_cells=n_cells)
-                if (
-                    structured_shape is None
-                    and grid_shape is not None
-                    and int(grid_shape[0]) * int(grid_shape[1]) == int(n_cells)
-                ):
-                    structured_shape = (int(grid_shape[0]), int(grid_shape[1]))
-                if structured_shape is not None:
-                    mesh.attrs["structured_shape"] = [
-                        int(structured_shape[0]),
-                        int(structured_shape[1]),
-                    ]
+                sz.write_mesh(
+                    vertices=vertices,
+                    face_node_connectivity=face_node_connectivity,
+                    z_interfaces=z_flat,
+                    topography=top,
+                    grid_type=grid_type,
+                    structured_shape=structured_shape,
+                )
             finally:
                 sz.close()
         except Exception:

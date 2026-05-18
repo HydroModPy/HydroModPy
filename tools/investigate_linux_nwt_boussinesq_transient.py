@@ -314,7 +314,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     output_root = Path(args.output_root).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
-    os.environ["HYDROMODPY_OUT_PATH"] = str(output_root)
+    os.environ["HMP_OUT_PATH"] = str(output_root)
 
     metadata = load_case_metadata(base.CASE_DIR)
     hydraulic_conductivity_m_s = float(

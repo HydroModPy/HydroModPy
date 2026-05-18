@@ -20,7 +20,7 @@ def test_boundary_step_comparison_runner_uses_canonical_section(tmp_path: Path) 
     assert comparison["reference_simulation"] == "modflow6"
     assert comparison["execution"]["run_simulations"] is True
     assert [simulation["id"] for simulation in comparison["simulation"]] == [
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
     ]
 

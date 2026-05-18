@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from hydromodpy.cli.commands import (
     add,
-    catalog,
     compare,
     completion,
     config_cmd,
@@ -19,6 +18,8 @@ from hydromodpy.cli.commands import (
     display,
     doctor,
     export,
+    export_package,
+    gc,
     import_cmd,
     init,
     inspect,
@@ -26,13 +27,18 @@ from hydromodpy.cli.commands import (
     lock,
     manage,
     new,
+    privacy,
     rank,
     report,
     run,
     schema,
     show,
     test,
+    vacuum,
     workspace,
+)
+from hydromodpy.cli.commands import (
+    index as index_cmd,
 )
 from hydromodpy.cli.commands import (
     list as list_cmd,
@@ -45,11 +51,11 @@ ALL_COMMANDS = (
     schema,
     run,
     dev,
-    catalog,
     display,
     report,
     list_cmd,
     export,
+    export_package,
     test,
     data,
     lock,
@@ -65,6 +71,10 @@ ALL_COMMANDS = (
     delete,
     workspace,
     completion,
+    gc,
+    vacuum,
+    privacy,
+    index_cmd,
 )
 
 __all__ = ("ALL_COMMANDS",)

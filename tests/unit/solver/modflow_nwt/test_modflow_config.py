@@ -65,7 +65,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "modflownwt"',
+                'solver_engine = "modflow_nwt"',
                 "",
                 "[modflownwt.runtime.nwt]",
                 'options = "SIMPLE"',
@@ -101,7 +101,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
 
     cfg = HydroModPyConfig.from_toml(toml_path)
 
-    assert cfg.solver.solver_engine == "modflownwt"
+    assert cfg.solver.solver_engine == "modflow_nwt"
     assert cfg.modflownwt.process_specific.vka == 2.5
     assert cfg.modflownwt.process_specific.exdp == 3.0
     assert cfg.modflownwt.runtime.nwt.options == "SIMPLE"
@@ -137,7 +137,7 @@ def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "modflownwt"',
+                'solver_engine = "modflow_nwt"',
                 "",
                 "[modflownwt.sgrid]",
                 'genmtd_lay = "decay"',
@@ -170,7 +170,7 @@ def test_hydromodpy_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "modflownwt"',
+                'solver_engine = "modflow_nwt"',
                 "",
                 "[modflownwt.sgrid.planar]",
                 'mode = "shape"',
@@ -207,7 +207,7 @@ def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "modflownwt"',
+                'solver_engine = "modflow_nwt"',
                 "",
                 "[modflownwt.process_specific]",
                 "vka = 2.5",

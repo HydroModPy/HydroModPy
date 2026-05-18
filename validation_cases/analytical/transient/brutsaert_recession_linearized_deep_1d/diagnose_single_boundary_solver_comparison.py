@@ -40,7 +40,7 @@ CASE_ID = "brutsaert_recession_linearized_deep_1d"
 OUTLET_OBSERVABLE = "outlet_discharge_east_side_m3_s"
 SUMMARY_FILENAME = "single_boundary_solver_comparison_summary.json"
 SOLVER_CONFIG_FILES = {
-    "modflownwt": "config_modflownwt.toml",
+    "modflow_nwt": "config_modflownwt.toml",
     "modflow6": "config_modflow6.toml",
 }
 PROBE_IDS = {
@@ -368,7 +368,7 @@ def _run_nwt_probe(
 
     budget_max_abs, budget_last, first_bad = _summarize_nwt_budget(model_ws)
     result = ProbeResult(
-        solver_name="modflownwt",
+        solver_name="modflow_nwt",
         probe_id=probe_id,
         stage=stage,
         success=success,
@@ -880,7 +880,7 @@ def _build_summary(
 
 def main() -> None:
     """Run direct NWT and MF6 probes and persist one compact comparison JSON."""
-    nwt_launcher = _build_validation_launcher(solver_name="modflownwt")
+    nwt_launcher = _build_validation_launcher(solver_name="modflow_nwt")
     mf6_launcher = _build_validation_launcher(solver_name="modflow6")
 
     nwt_setup = nwt_launcher.run_state.setup

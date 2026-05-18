@@ -10,20 +10,18 @@ The interactive Leaflet variant of this map is on the Phase 3 roadmap.
 For now the page provides a structured table and a static schematic
 ordered by region.
 
-.. mermaid::
+.. list-table:: Catchments by region
+   :header-rows: 1
+   :widths: 22 78
 
-   flowchart LR
-       subgraph Brittany
-           N[Nançon]
-           V[Vire-Sélune]
-           P[Ploémeur]
-       end
-       subgraph Normandy
-           NB[Normandy basement]
-       end
-       subgraph Switzerland
-           CH[Alpine knickpoint]
-       end
+   * - Region
+     - Catchments
+   * - Brittany (France)
+     - Nançon, Vire-Sélune, Ploémeur
+   * - Normandy (France)
+     - Normandy basement
+   * - Alpine (Switzerland)
+     - Alpine knickpoint
 
 Catchment registry
 ------------------

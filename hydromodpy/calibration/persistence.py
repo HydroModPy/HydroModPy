@@ -56,8 +56,9 @@ class CalibrationPersistence:
             """
             INSERT INTO calibration_sessions
                 (session_id, project, method, objective_name,
-                 n_iterations, config, started_at, status)
-            VALUES (?, ?, ?, ?, 0, ?, ?, 'running')
+                 n_iterations, config, started_at, status_id)
+            VALUES (?, ?, ?, ?, 0, ?, ?,
+                    (SELECT id FROM statuses WHERE code = 'running'))
             """,
             [
                 uuid.UUID(session_id) if len(session_id) == 32 else session_id,
@@ -157,7 +158,7 @@ class CalibrationPersistence:
                    best_objective = ?,
                    ended_at = ?,
                    duration_s = ?,
-                   status = ?,
+                   status_id = (SELECT id FROM statuses WHERE code = ?),
                    error_message = ?
              WHERE session_id = ?
             """,

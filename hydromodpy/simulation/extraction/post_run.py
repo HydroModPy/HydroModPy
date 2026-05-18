@@ -126,9 +126,9 @@ def extract_run_outputs(
     solver_name = ctx.run.solver
     solver_output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
 
-    extractor = provider.get_extractor_instance(solver_name)
+    extractor = provider.get_extractor_instance(ctx.run.process_type, solver_name)
     if extractor is None:
-        raise RuntimeError(f"No output adapter registered for solver {solver_name!r}")
+        raise RuntimeError(f"No output adapter registered for {ctx.run.process_type}/{solver_name}")
 
     # Phase 1: extract raw outputs
     if solver_output_dir is None or not solver_output_dir.exists():
@@ -160,9 +160,9 @@ def derive_run_outputs(
 
     provider = get_solver_registry_provider()
     solver_name = ctx.run.solver
-    extractor = provider.get_extractor_instance(solver_name)
+    extractor = provider.get_extractor_instance(ctx.run.process_type, solver_name)
     if extractor is None:
-        raise RuntimeError(f"No output adapter registered for solver {solver_name!r}")
+        raise RuntimeError(f"No output adapter registered for {ctx.run.process_type}/{solver_name}")
 
     derived_flags = results_config.derived.model_dump()
     extractor.derive(sim_id, store, derived_flags)

@@ -46,9 +46,9 @@ _WHITEBOX_XDIST_GROUP_TEST_FILES = frozenset(
         "test_whitebox_workflows_backend.py",
     }
 )
-_SCRATCH_ROOT_ENV = "HYDROMODPY_TEST_SCRATCH_ROOT"
-_SCRATCH_SESSION_ENV = "HYDROMODPY_TEST_SESSION_SCRATCH_ROOT"
-_SCRATCH_OWNER_ENV = "HYDROMODPY_TEST_SCRATCH_OWNER"
+_SCRATCH_ROOT_ENV = "HMP_TEST_SCRATCH_ROOT"
+_SCRATCH_SESSION_ENV = "HMP_TEST_SESSION_SCRATCH_ROOT"
+_SCRATCH_OWNER_ENV = "HMP_TEST_SCRATCH_OWNER"
 _XDIST_WORKER_ENV = "PYTEST_XDIST_WORKER"
 _INHERITED_SCRATCH_OWNER = os.environ.get(_SCRATCH_OWNER_ENV)
 _SCRATCH_OWNER_TOKEN = _INHERITED_SCRATCH_OWNER or f"{os.getpid()}-{uuid.uuid4().hex[:12]}"
@@ -188,8 +188,15 @@ def _cleanup_stale_test_scratch_sessions(scratch_root: Path, current_token: str)
 _TEST_SCRATCH_ROOT = _resolve_test_scratch_root()
 _cleanup_stale_test_scratch_sessions(_TEST_SCRATCH_ROOT, _SCRATCH_OWNER_TOKEN)
 _TEST_SESSION_ROOT = _resolve_test_session_root(_TEST_SCRATCH_ROOT)
+# Scope tmp and pytest temp roots per xdist worker so concurrent workers do not
+# share catalog.duckdb files (single-writer DuckDB raises lock contention then).
+_XDIST_WORKER = os.environ.get(_XDIST_WORKER_ENV, "")
+_WORKER_SUFFIX = _XDIST_WORKER if _XDIST_WORKER and _XDIST_WORKER != "master" else ""
 _TEST_TMP_ROOT = _TEST_SESSION_ROOT / "tmp"
 _TEST_PYTEST_ROOT = _TEST_SESSION_ROOT / "pytest"
+if _WORKER_SUFFIX:
+    _TEST_TMP_ROOT = _TEST_TMP_ROOT / _WORKER_SUFFIX
+    _TEST_PYTEST_ROOT = _TEST_PYTEST_ROOT / _WORKER_SUFFIX
 for _path in (_TEST_SCRATCH_ROOT, _TEST_SESSION_ROOT, _TEST_TMP_ROOT, _TEST_PYTEST_ROOT):
     _path.mkdir(parents=True, exist_ok=True)
 
@@ -199,10 +206,17 @@ os.environ.setdefault(_SCRATCH_ROOT_ENV, str(_TEST_SCRATCH_ROOT))
 os.environ.setdefault(_SCRATCH_SESSION_ENV, str(_TEST_SESSION_ROOT))
 if _OWNS_TEST_SCRATCH:
     os.environ[_SCRATCH_OWNER_ENV] = _SCRATCH_OWNER_TOKEN
-os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(_TEST_PYTEST_ROOT))
-os.environ.setdefault("TMPDIR", str(_TEST_TMP_ROOT))
-os.environ.setdefault("TMP", str(_TEST_TMP_ROOT))
-os.environ.setdefault("TEMP", str(_TEST_TMP_ROOT))
+# Workers must override TMPDIR (the master already set it to the shared root).
+if _WORKER_SUFFIX:
+    os.environ["PYTEST_DEBUG_TEMPROOT"] = str(_TEST_PYTEST_ROOT)
+    os.environ["TMPDIR"] = str(_TEST_TMP_ROOT)
+    os.environ["TMP"] = str(_TEST_TMP_ROOT)
+    os.environ["TEMP"] = str(_TEST_TMP_ROOT)
+else:
+    os.environ.setdefault("PYTEST_DEBUG_TEMPROOT", str(_TEST_PYTEST_ROOT))
+    os.environ.setdefault("TMPDIR", str(_TEST_TMP_ROOT))
+    os.environ.setdefault("TMP", str(_TEST_TMP_ROOT))
+    os.environ.setdefault("TEMP", str(_TEST_TMP_ROOT))
 
 
 def _ensure_test_scratch_dirs() -> None:

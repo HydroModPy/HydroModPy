@@ -151,14 +151,14 @@ class SimulationRunner:
         -------
         If ``plan.runs`` is:
 
-        - ``flow_main::modflownwt``
+        - ``flow_main::modflow_nwt``
         - ``transport_main::modpath``
         - ``transport_main::mt3dms``
 
         then the callback and execution order is:
 
         1. ``before_process("flow")``
-        2. run ``flow_main::modflownwt``
+        2. run ``flow_main::modflow_nwt``
         3. ``after_process("flow")``
         4. ``before_process("transport")``
         5. run ``transport_main::modpath``

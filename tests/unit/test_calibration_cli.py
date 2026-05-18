@@ -44,7 +44,7 @@ name = "toy"
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [flow.param.K.field]
 value = 1e-4
@@ -261,8 +261,10 @@ class TestRunCalibrationCli:
         workspace_root = calib_toml.parent
         with SimulationCatalog(workspace_root) as catalog:
             row = catalog.connection.execute(
-                "SELECT status, n_iterations, best_objective, best_sim_id "
-                "FROM calibration_sessions WHERE session_id = ?",
+                "SELECT st.code, cs.n_iterations, cs.best_objective, cs.best_sim_id "
+                "FROM calibration_sessions cs "
+                "JOIN statuses st ON cs.status_id = st.id "
+                "WHERE cs.session_id = ?",
                 [uuid.UUID(summary["session_id"])],
             ).fetchone()
         assert row[0] == "completed"
@@ -441,8 +443,10 @@ class TestSessionLifecycle:
 
         with SimulationCatalog(workspace_root) as catalog:
             return catalog.connection.execute(
-                "SELECT status, error_message, n_iterations "
-                "FROM calibration_sessions WHERE session_id = ?",
+                "SELECT st.code, cs.error_message, cs.n_iterations "
+                "FROM calibration_sessions cs "
+                "JOIN statuses st ON cs.status_id = st.id "
+                "WHERE cs.session_id = ?",
                 [uuid.UUID(session_id)],
             ).fetchone()
 

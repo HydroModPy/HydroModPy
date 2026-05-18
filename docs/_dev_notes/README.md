@@ -26,10 +26,23 @@ Move a file to `docs/source/developer/` (or another section under
 `docs/source/`) only when it becomes a stable, contributor-facing
 reference. Otherwise it stays here.
 
+## Convention
+
+New investigation reports (Boussinesq, transport, MF6 PRT, calibration audits, etc.)
+go straight into `diagnostics/`. The root folder is reserved for the README and a
+small number of cross-cutting documents kept for historical reasons.
+
 ## Current diagnostics
 
 - `diagnostics/boussinesq_failing_cases_inventory.md`: inventory of current
   Boussinesq failing cases to preserve as robustness/regression seeds.
-- `boussinesq_stationary_robustness_investigation.md`: investigation of
+- `diagnostics/boussinesq_stationary_robustness_investigation.md`: investigation of
   stationary Boussinesq initialization failures and recommended robust
   initialization path.
+- `diagnostics/boussinesq_stationary_picard_lscheme_investigation.md` and
+  related `boussinesq_*` reports cover the Picard L-scheme and dry-equilibrium
+  investigations.
+- `diagnostics/transport_*` and `diagnostics/modflow6_prt_*` cover the MF6 PRT
+  introduction.
+- `diagnostics/calibration_network_transient_audit.md` covers the B0
+  network/transient calibration audit.

@@ -43,6 +43,11 @@ id = "K"
 kind = "homogeneous"
 unit = "m/s"
 value = "1e-5 m/s"
+values_source__delete = true
+values_csv_file__delete = true
+csv_key_column__delete = true
+csv_value_column__delete = true
+field_spatial_id__delete = true
 
 [display]
 enabled = false

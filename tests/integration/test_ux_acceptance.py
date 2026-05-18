@@ -57,7 +57,7 @@ def test_new_creates_project_and_files(monkeypatch, capsys, tmp_path) -> None:
     )
     project_dir = ws / "projects" / "demo_project"
     assert project_dir.is_dir()
-    assert (project_dir / "project.toml").is_file()
+    assert (project_dir / "hydromodpy.toml").is_file()
 
 
 def test_config_template_generates_toml(monkeypatch, tmp_path) -> None:
