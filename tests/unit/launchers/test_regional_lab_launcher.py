@@ -31,7 +31,7 @@ from hydromodpy.analysis.testbed.regional_lab_site_selection import (
     filter_sites,
     site_matches_selection,
 )
-from hydromodpy.workflow_dispatch import run_testbed
+from hydromodpy.project.dispatch.workflow import run_testbed
 
 
 def test_regional_lab_legacy_launcher_alias_is_removed() -> None:

@@ -12,15 +12,15 @@ and full pipeline runs do not fork the scientific logic.
 
 The facade is composed of four cohesive helpers:
 
-- :class:`hydromodpy.project_session.ProjectSession`: run-phase orchestrator
+- :class:`hydromodpy.project.session.ProjectSession`: run-phase orchestrator
   exposed via :meth:`Project.session`. Owns ``simulate``, ``sweep`` and the
   prepared-run primitives (``prepare`` / ``execute`` / ``ingest`` /
   ``render`` / ``cleanup``).
-- :class:`hydromodpy.project_runner.ProjectRunner` (``project._runner``):
+- :class:`hydromodpy.project.runner.ProjectRunner` (``project._runner``):
   internal runner for ``run`` / ``calibrate`` / ``mesh`` / ``report``.
-- :class:`hydromodpy.project_catalog.ProjectCatalog` (``project._catalog``):
+- :class:`hydromodpy.project.catalog.ProjectCatalog` (``project._catalog``):
   catalog access (``store``, ``runs``, ``data``) and lifecycle (``close``).
-- :mod:`hydromodpy.project_phases`: model-phase verbs that mutate the
+- :mod:`hydromodpy.project.phases`: model-phase verbs that mutate the
   project directly (``configure``, ``setup_workspace``, ``build_geographic``,
   ``load_data``, ``build_mesh``).
 
@@ -52,10 +52,10 @@ from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
-from hydromodpy.project_catalog import ProjectCatalog
-from hydromodpy.project_runner import ProjectRunner, _pin_parent_sim_id
-from hydromodpy.project_session import ProjectSession
+from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
+from hydromodpy.project.catalog import ProjectCatalog
+from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
+from hydromodpy.project.session import ProjectSession
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.data import LoadedDataContext
@@ -139,7 +139,7 @@ class Project:
         is built, data is loaded, the mesh is generated. Use :meth:`Project.lazy`
         to defer the model phase and drive each verb from Python.
         """
-        from hydromodpy import project_phases
+        from hydromodpy.project import phases as project_phases
 
         project_phases.configure(
             self,
@@ -387,37 +387,37 @@ class Project:
         solver phases. It is not a standalone Pipeline step; Pipeline runs get
         the same setup through ``BuildGeographicStep``.
         """
-        from hydromodpy import project_phases
+        from hydromodpy.project import phases as project_phases
 
         project_phases.setup_workspace(self)
 
     def build_geographic(self, *, reuse_dem: bool = False) -> None:
         """Mark geographic/domain runtime ready and invalidate downstream state."""
-        from hydromodpy import project_phases
+        from hydromodpy.project import phases as project_phases
 
         project_phases.build_geographic(self, reuse_dem=reuse_dem)
 
     def load_data(self, *, types: list[str] | None = None) -> None:
         """Load the external forcings declared in [data]."""
-        from hydromodpy import project_phases
+        from hydromodpy.project import phases as project_phases
 
         project_phases.load_data(self, types=types)
 
     def reload_data(self, *, types: list[str]) -> None:
         """Reload a subset of data variables without touching the others."""
-        from hydromodpy import project_phases
+        from hydromodpy.project import phases as project_phases
 
         project_phases.reload_data(self, types=types)
 
     def rebuild_geographic(self, *, reuse_dem: bool = False) -> None:
         """Rerun the geographic pipeline and invalidate the mesh."""
-        from hydromodpy import project_phases
+        from hydromodpy.project import phases as project_phases
 
         project_phases.rebuild_geographic(self, reuse_dem=reuse_dem)
 
     def build_mesh(self, **overrides) -> None:
         """Build the catchment mesh from the current geographic context."""
-        from hydromodpy import project_phases
+        from hydromodpy.project import phases as project_phases
 
         project_phases.build_mesh(self, **overrides)
 

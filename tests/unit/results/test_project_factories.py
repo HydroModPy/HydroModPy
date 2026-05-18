@@ -34,7 +34,7 @@ source_mode = "synthetic"
 @pytest.fixture
 def stub_project_phases(monkeypatch):
     """Replace heavy model-phase verbs with no-ops that record the config."""
-    from hydromodpy import project_phases
+    from hydromodpy.project import phases as project_phases
 
     captured: dict[str, Any] = {}
 
@@ -112,7 +112,7 @@ def test_project_rerun_builds_from_snapshot_and_delegates_parent(
 ) -> None:
     from hydromodpy.config import HydroModPyConfig
     from hydromodpy.project import Project
-    from hydromodpy.project_runner import ProjectRunner
+    from hydromodpy.project.runner import ProjectRunner
 
     cfg = object()
     captured: dict[str, Any] = {}

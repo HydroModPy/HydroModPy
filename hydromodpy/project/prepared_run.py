@@ -2,8 +2,8 @@
 
 Holds the low-level lifecycle helpers (``prepare``, ``execute``,
 ``ingest``, ``render``, ``cleanup``) that drive a single simulation
-between user-controlled phases. Split from ``project_runner.py`` so the
-runner stays focused on high-level workflow orchestration.
+between user-controlled phases. Split from :mod:`hydromodpy.project.runner`
+so the runner stays focused on high-level workflow orchestration.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 from uuid import uuid4
 
 if TYPE_CHECKING:
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
 
 DEFAULT_RUN_NAME_TEMPLATE = "run_{counter:04d}"

@@ -134,11 +134,11 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
     """
     from hydromodpy.display.banner import print_hydromodpy
+    from hydromodpy.project.dispatch.workflow import DISPATCH
     from hydromodpy.workflow.dispatch import (
         WorkflowError,
         resolve_workflow,
     )
-    from hydromodpy.workflow_dispatch import DISPATCH
 
     print_hydromodpy()
     auto_scan_workspace(config_path)
@@ -448,8 +448,8 @@ def _assign_dotted_value(payload: dict[str, Any], dotted_path: str, value: Any) 
 def _infer_workflow_from_sections(raw_toml: dict) -> str:
     """Infer the workflow from the TOML sections present.
 
-    Mirrors the dispatch table in :mod:`hydromodpy.workflow_dispatch` - used
-    only when ``--dry-run`` is set and the user has not declared
+    Mirrors the dispatch table in :mod:`hydromodpy.project.dispatch.workflow` -
+    used only when ``--dry-run`` is set and the user has not declared
     ``[workflow] mode = "..."``.
     """
     if "calibration" in raw_toml:

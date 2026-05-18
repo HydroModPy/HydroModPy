@@ -11,9 +11,9 @@ from types import SimpleNamespace
 
 import pytest
 
-import hydromodpy.workflow_dispatch as workflow_dispatch
 from hydromodpy.cli import main
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND
+from hydromodpy.project.dispatch import workflow as workflow_dispatch
 
 
 def _write_toml(path: Path, content: str) -> Path:

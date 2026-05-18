@@ -666,7 +666,7 @@ class TestSimulationGroup:
         assert len(group) == 3
 
     def test_project_sweep_returns_group_bound_to_catalog(self, monkeypatch, catalog):
-        from hydromodpy.project_runner import ProjectRunner
+        from hydromodpy.project.runner import ProjectRunner
 
         sids = [_register(catalog) for _ in range(2)]
 
@@ -686,7 +686,7 @@ class TestSimulationGroup:
         assert group[0].sim_id == sids[0]
 
     def test_project_run_handles_survive_later_runs(self, monkeypatch, tmp_path):
-        from hydromodpy.project_runner import ProjectRunner
+        from hydromodpy.project.runner import ProjectRunner
         from hydromodpy.results.catalog import SimulationCatalog
         from hydromodpy.workflow.internals.state import PipelineState
 
@@ -790,7 +790,7 @@ class TestSimulationGroup:
         assert second.params["thickness"] == pytest.approx(2.0)
 
     def test_pin_parent_sim_id_overrides_ctx_during_pipeline_run(self, monkeypatch, tmp_path):
-        from hydromodpy.project_runner import ProjectRunner, _pin_parent_sim_id
+        from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
         from hydromodpy.workflow.internals.state import PipelineState
 
         class _Step:
@@ -819,7 +819,7 @@ class TestSimulationGroup:
             "hydromodpy.workflow.steps.planning.step_build_plan", lambda *a, **k: None
         )
         monkeypatch.setattr("hydromodpy.workflow.runner.Pipeline", _Pipeline)
-        monkeypatch.setattr("hydromodpy.project_phases.open_catalog", lambda *_a, **_k: None)
+        monkeypatch.setattr("hydromodpy.project.phases.open_catalog", lambda *_a, **_k: None)
 
         workspace = SimpleNamespace(
             root=tmp_path / "workspace",
@@ -864,7 +864,7 @@ class TestSimulationGroup:
         assert ctx.parent_sim_id == "existing-parent"
 
     def test_pin_parent_sim_id_restores_on_exception(self):
-        from hydromodpy.project_runner import _pin_parent_sim_id
+        from hydromodpy.project.runner import _pin_parent_sim_id
 
         ctx = SimpleNamespace(parent_sim_id="initial")
 
@@ -876,7 +876,7 @@ class TestSimulationGroup:
         assert ctx.parent_sim_id == "initial"
 
     def test_pin_parent_sim_id_none_is_noop(self):
-        from hydromodpy.project_runner import _pin_parent_sim_id
+        from hydromodpy.project.runner import _pin_parent_sim_id
 
         ctx = SimpleNamespace(parent_sim_id="initial")
 

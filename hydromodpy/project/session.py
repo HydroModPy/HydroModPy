@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hydromodpy.project import Project
-    from hydromodpy.project_runner import ProjectRunner
+    from hydromodpy.project.facade import Project
+    from hydromodpy.project.runner import ProjectRunner
     from hydromodpy.results.run import Run
 
 
