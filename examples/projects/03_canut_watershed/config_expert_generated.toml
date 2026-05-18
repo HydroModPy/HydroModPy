@@ -35,46 +35,34 @@ source_mode = "standard"
 # 'from_outlet_coord' = watershed from outlet coordinates (dem_init_path, x_outlet, y_outlet, snap_dist, buff_area required).
 # 'from_polyg_shp' = watershed from a polygon shapefile (dem_init_path, polyg_shp_path, buff_area required).
 # Type: Literal (optional) | Optional
-catch_def = "dem"
+catch_def = "from_outlet_coord"
 
 # Path to the DEM raster used as input.
 # For 'dem' and 'txt' modes: defines the model domain directly.
 # For 'from_outlet_coord' and 'from_polyg_shp' modes: regional DEM used for flow analysis.
 # Type: path (optional) | Optional
-dem_init_path = ""
-
-# Grid cell size in metres used to rasterise the XYZ point cloud.
-# Required for 'txt' mode.
-# Type: float (optional) | > 0 | Optional
-cell_size = 1.0
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 
 # X coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
-# Type: float (optional) | Optional
-x_outlet = 0.0
+# Type: float | Optional
+x_outlet = 327816.965
 
 # Y coordinate of the watershed outlet in the projected CRS.
 # Required for 'from_outlet_coord' mode.
-# Type: float (optional) | Optional
-y_outlet = 0.0
+# Type: float | Optional
+y_outlet = 6777886.67
 
 # Maximum snapping distance to move the outlet to the nearest stream cell.
-# Accepts SI-friendly values (for example 50, '50 m', '0.05 km').
 # Required for 'from_outlet_coord' mode.
-# Type: Union[float, str, NoneType] | Optional
-snap_dist = 0.0
+snap_dist = "150 m"
 
 # Buffer around the watershed polygon.
-# Numeric values keep legacy behavior (percentage of sqrt(area [km^2])).
-# String values are interpreted as explicit distances (for example '500 m', '2 km').
 # Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
-# Type: Union[float, str, NoneType] | Optional
-buff_area = 0.0
+buff_area = "10%"
 
-# Path to the watershed polygon shapefile.
-# Required for 'from_polyg_shp' mode.
-# Type: path (optional) | Optional
-polyg_shp_path = ""
+# Note: cell_size only applies to catch_def="txt".
+# polyg_shp_path only applies to catch_def="from_polyg_shp".
 
 # Target projected CRS for all outputs (e.g.
 # 'EPSG:2154').
@@ -167,7 +155,7 @@ right_to_left_amplitude = 0.0
 # Circular shoreline radius (m) used by 'radial_island'.
 # Defaults to 35% of the smallest domain length.
 # Type: float (optional) | Optional
-island_radius = 0.0
+# island_radius = 0.0
 
 # Central island elevation (m) used by 'radial_island'.
 # The land surface decays nonlinearly to sea level at the shoreline.
@@ -280,7 +268,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/hydrometry"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -325,7 +313,7 @@ require_observations = true
 
 # If no station found in bbox, expand search by this radius (km).
 # Type: float (optional) | Optional
-fallback_search_radius_km = 0.0
+# fallback_search_radius_km = 0.0
 
 # Explicit list of station ids to load.
 # Type: list (optional) | Optional
@@ -383,7 +371,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/piezometry"
 
 # Column name for piezometer identifier.
 # Type: string | Default: "id"
@@ -427,7 +415,7 @@ require_observations = true
 
 # If no station found in bbox, expand search by this radius (km).
 # Type: float (optional) | Optional
-fallback_search_radius_km = 0.0
+# fallback_search_radius_km = 0.0
 
 # Explicit station ids.
 # Type: list (optional) | Optional
@@ -466,7 +454,7 @@ parameters = []
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/water_quality"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -502,7 +490,7 @@ mask_path = ""
 
 # If no station found in bbox, expand search by this radius (km).
 # Type: float (optional) | Optional
-fallback_search_radius_km = 0.0
+# fallback_search_radius_km = 0.0
 
 # Keep only the nearest station to the extent centroid.
 # Type: bool | Default: false
@@ -543,7 +531,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/recharge"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -594,23 +582,23 @@ freq = ""
 
 # Number of periods for synthetic series.
 # Type: int (optional) | Optional
-periods = 0
+# periods = 0
 
 # Sinusoidal amplitude in mm/day (superimposed on values).
 # Type: float (optional) | Optional
-amplitude = 0.0
+# amplitude = 0.0
 
 # Sinusoidal period in days.
 # Type: int (optional) | Optional
-period_days = 0
+# period_days = 0
 
 # Sinusoidal baseline offset in mm/day.
 # Type: float (optional) | Optional
-offset = 0.0
+# offset = 0.0
 
 # Fraction of recharge routed to runoff (0.0 to 1.0).
 # Type: float (optional) | Optional
-runoff_ratio = 0.0
+# runoff_ratio = 0.0
 
 # Explicit station ids (custom source).
 # Type: list (optional) | Optional
@@ -647,7 +635,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/runoff"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -720,7 +708,7 @@ components = ["total"]
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/precipitation"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -789,7 +777,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/etp"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -858,7 +846,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/temperature"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -927,7 +915,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/wind"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -996,7 +984,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/humidity"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -1069,7 +1057,7 @@ components = ["atmospheric", "visible"]
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/radiation"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -1138,7 +1126,7 @@ source = "custom"
 
 # Directory containing location file and chronicle CSVs.
 # Type: path (optional) | Optional
-path = ""
+path = "data/soil_moisture"
 
 # Column name for station identifier in location file.
 # Type: string | Default: "id"
@@ -1433,9 +1421,9 @@ plot_conc = true
 # ----------------------------------------------------------------------
 
 [solver]
-# Groundwater solver backend ('modflownwt' or 'modflow6').
-# Type: SolverEngine | one of: "modflownwt", "modflow6" | Default: "modflownwt"
-solver_engine = "modflownwt"
+# Groundwater solver backend ('modflow_nwt' or 'modflow6').
+# Type: SolverEngine | one of: "modflow_nwt", "modflow6" | Default: "modflow_nwt"
+solver_engine = "modflow_nwt"
 
 
 # ----------------------------------------------------------------------
@@ -1592,11 +1580,11 @@ mode = "keep_native"
 
 # Target number of columns when planar mode is 'resample_to_shape'.
 # Type: int (optional) | >= 1 | Optional
-nx = 1
+# nx = 1  # omitted: required only when mode='resample_to_shape'
 
 # Target number of rows when planar mode is 'resample_to_shape'.
 # Type: int (optional) | >= 1 | Optional
-ny = 1
+# ny = 1  # omitted: required only when mode='resample_to_shape'
 
 # Resampling rule applied when planar mode is 'resample_to_shape'.
 # Type: Literal['bilinear', 'average', 'nearest'] | one of: "bilinear", "average", "nearest" | Default: "bilinear"
@@ -1616,11 +1604,11 @@ nlay = 1
 
 # Decay exponent (>1) for decay layering.
 # Type: float (optional) | Optional
-lay_decay = 0.0
+# lay_decay = 0.0
 
 # Explicit layer fractions when genmtd_lay='list' (must sum to 1).
 # Type: list (optional) | Optional
-lay_proportions = []
+# lay_proportions = []  # omitted: required only when genmtd_lay='list'
 
 # No-data sentinel value.
 # Type: float | Default: -9999.0
@@ -1754,11 +1742,11 @@ mode = "keep_native"
 
 # Target number of columns when planar mode is 'resample_to_shape'.
 # Type: int (optional) | >= 1 | Optional
-nx = 1
+# nx = 1  # omitted: required only when mode='resample_to_shape'
 
 # Target number of rows when planar mode is 'resample_to_shape'.
 # Type: int (optional) | >= 1 | Optional
-ny = 1
+# ny = 1  # omitted: required only when mode='resample_to_shape'
 
 # Resampling rule applied when planar mode is 'resample_to_shape'.
 # Type: Literal['bilinear', 'average', 'nearest'] | one of: "bilinear", "average", "nearest" | Default: "bilinear"
@@ -1778,11 +1766,11 @@ nlay = 1
 
 # Decay exponent (>1) for decay layering.
 # Type: float (optional) | Optional
-lay_decay = 0.0
+# lay_decay = 0.0
 
 # Explicit layer fractions when genmtd_lay='list' (must sum to 1).
 # Type: list (optional) | Optional
-lay_proportions = []
+# lay_proportions = []  # omitted: required only when genmtd_lay='list'
 
 # No-data sentinel value.
 # Type: float | Default: -9999.0

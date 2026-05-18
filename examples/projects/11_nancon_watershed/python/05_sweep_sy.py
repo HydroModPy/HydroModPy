@@ -1,13 +1,10 @@
 """Nancon - Python script 05 - Parametric sweep on Sy.
 
-Until the `[sweep]` workflow lands in the CLI dispatcher, sweeps live
-in Python. Two equivalent ways are shown:
-
-* High-level: `project.sweep({...})` - one call, every variant is
-  routed through the regular run pipeline and stored in the catalog.
-* Low-level: a Python `for` loop over `project.run(name=..., **kw)`.
-  Useful when each iteration depends on the previous one, or when you
-  need custom names per iteration.
+The public Python API exposes parameter overrides on ``project.run``.
+A sweep is therefore a simple ``for`` loop over the swept values,
+calling ``project.run(name=..., Sy=value, **fixed)`` once per point.
+The catalog stores every run; downstream scripts (07_inspect_catalog)
+read them back.
 
 Launch:
     python examples/projects/11_nancon_watershed/python/05_sweep_sy.py
@@ -26,12 +23,15 @@ FIXED_PARAMS = {"K": 5e-5, "Ss": 1e-5}
 
 
 # ---------------------------------------------------------------------
-# 1. Sweep via an explicit for loop
+# 1. Open the project once
 # ---------------------------------------------------------------------
 
-print("== Sweep via explicit loop ==")
-
 project = hmp.Project(CONFIG_PATH)
+
+
+# ---------------------------------------------------------------------
+# 2. Sweep via an explicit for loop
+# ---------------------------------------------------------------------
 
 runs = {}
 for value in SWEEP_VALUES:
@@ -44,25 +44,9 @@ for value in SWEEP_VALUES:
         runs[value] = run
         print(f"Sy={value:<6} sim_id={run.sim_id} status={run.status}")
 
-project.close()
-
 
 # ---------------------------------------------------------------------
-# 2. Sweep via the high-level Project.sweep helper
+# 3. Release the catalog handle
 # ---------------------------------------------------------------------
-
-print()
-print("== Sweep via Project.sweep ==")
-
-project = hmp.Project(CONFIG_PATH)
-
-group = project.sweep(
-    {"Sy": SWEEP_VALUES},
-    strategy="enumerate",
-    name_template="nancon_sweepapi_sy_{value:.4f}",
-)
-
-for sim in group:
-    print(f"{sim.name:<35s} sim_id={sim.sim_id} status={sim.status}")
 
 project.close()

@@ -401,11 +401,11 @@ def _derive_context_watershed_from_mesh_bundle(
         return None
 
     try:
-        from hydromodpy.config import HydroModPyConfig
+        import hydromodpy as hmp
         from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
         from hydromodpy.spatial.geographic.pipeline import build_geographic_runtime_context
 
-        base_cfg = HydroModPyConfig.from_toml(BASE_SIMULATION_CONFIG)
+        base_cfg = hmp.HydroModPyConfig.from_toml(BASE_SIMULATION_CONFIG)
     except Exception as exc:
         print(f"[WARN] Could not prepare watershed derivation for {variant_id}: {exc}")
         return None
@@ -517,7 +517,6 @@ def _ensure_context_watershed(case: dict[str, object]) -> Path | None:
             target_area_km2=expected_area_km2,
         )
 
-    context_root = WEB_ROOT / variant_id / "_context_watershed"
     existing_paths = ()
     legacy_context_root = WEB_ROOT / variant_id / "_context_geographic"
     existing_paths += (

@@ -9,15 +9,14 @@ from __future__ import annotations
 from pathlib import Path
 
 import hydromodpy as hmp
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
 HERE = Path(__file__).resolve().parent
 CONFIG_PATH = HERE / "run_transient_nwt.toml"
 
 
-def build_config() -> HydroModPyConfig:
+def build_config() -> hmp.HydroModPyConfig:
     """Return the validated config used by the Python API example."""
-    return HydroModPyConfig.from_toml(CONFIG_PATH)
+    return hmp.HydroModPyConfig.from_toml(CONFIG_PATH)
 
 
 def main() -> None:

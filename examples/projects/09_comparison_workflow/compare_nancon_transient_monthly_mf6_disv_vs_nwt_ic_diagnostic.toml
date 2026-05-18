@@ -59,7 +59,7 @@ nlay = 1
 [[comparison.simulation]]
 id = "nwt_structured_120"
 label = "MODFLOW-NWT structured 120x120 Nancon monthly transient diagnostic, IC top minus 10 m"
-solver = "modflownwt"
+solver = "modflow_nwt"
 mesh_label = "nancon_structured_grid_120x120"
 mesh_mode = "structured"
 
@@ -114,7 +114,7 @@ firstpersteady = false
 [[comparison.simulation]]
 id = "nwt_structured_180"
 label = "MODFLOW-NWT structured 180x180 Nancon monthly transient diagnostic, IC top minus 10 m"
-solver = "modflownwt"
+solver = "modflow_nwt"
 mesh_label = "nancon_structured_grid_180x180"
 mesh_mode = "structured"
 

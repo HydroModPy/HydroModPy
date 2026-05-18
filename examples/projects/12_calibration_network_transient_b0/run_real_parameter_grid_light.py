@@ -27,9 +27,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+HERE = Path(__file__).resolve().parent
+REPO_ROOT = HERE.parents[2]
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
 
 from hydromodpy.calibration.network_transient_truth import (  # noqa: E402
     q_total_release_from_drain_by_cell,

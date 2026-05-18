@@ -64,9 +64,13 @@ and finds the sibling `data/` directory).
 |   |-- 07_inspect_catalog.py              <- read DuckDB + Zarr after a run
 |
 |-- figures/        <- auto-created (one subfolder per simulation name)
-|-- simulations/    <- auto-created (Zarr stores)
-`-- hydromodpy.duckdb  <- catalog (auto-created on first run)
+|-- simulations/    <- auto-created (Zarr v2 stores, CF-1.11 + UGRID-1.0)
+`-- catalog.duckdb  <- per-project catalog (auto-created on first run)
 ```
+
+The shared input cache lives at `<workspace>/data/cache.duckdb` and
+the machine-wide registry at `<state>/index.duckdb` (managed by
+`hmp index register|search|forget|prune`).
 
 ## The base TOML (`project.toml`)
 
@@ -226,6 +230,11 @@ configuration in this order:
 5. Auto-resolve `[workspace]` and `[data].*.path` against the
    workspace scaffold.
 
+> **Heads-up.** The files in `overlays/` are intentionally minimal
+> fragments (`[simulation.time]`, `[display].enabled = false`, ...).
+> They do **not** validate standalone via `hmp config check`: they
+> only make sense layered on top of a leaf TOML through `--overlay`.
+
 The same precedence applies in Python: load the TOML, patch with
 `HydroModPyConfig.model_copy(update=...)`, hand to `Project(cfg)`,
 optionally pass run-level overrides at `project.run(**kw)` time.
@@ -234,23 +243,56 @@ optionally pass run-level overrides at `project.run(**kw)` time.
 
 After any run, the project root contains:
 
-* `hydromodpy.duckdb` - catalog of every run.
-* `simulations/<sim_id>.zarr/` - per-run gridded outputs.
+* `catalog.duckdb` - per-project catalog (simulations + flow heads/budget).
+* `simulations/<sim_id>.zarr/` - per-run gridded outputs (Zarr v2 split, CF-1.11 + ACDD-1.3 + UGRID-1.0).
 * `figures/<run_name>/` - figures from `[display].figures`.
-* `exports/` - empty until you call `hmp export`.
+* `exports/` - empty until you call `hmp export` or `hmp export-package`.
 
-Export one simulation to GeoTIFF / NetCDF / CSV:
+Export a simulation as a portable, signed `.hmp` archive (tar.zst +
+RO-Crate manifest, optional COG GeoTIFF / STAC collection):
 
 ```bash
-hmp export examples/projects/11_nancon_watershed \
-    --sim nancon_sim_nwt --geotiff --resolution 100
+hmp export-package nancon_sim_nwt \
+    --workspace examples/projects/11_nancon_watershed \
+    -o /tmp/nancon_sim_nwt.hmp
+
+# Round-trip into any other workspace:
+hmp add /tmp/nancon_sim_nwt.hmp
+hmp import /tmp/nancon_sim_nwt.hmp
 ```
 
-Open a browser UI on top of the catalog:
+Open a browser UI on top of the catalogs:
 
 ```bash
 hmp manage --workspace examples/projects/11_nancon_watershed
 ```
+
+Inspect the catalog from Python (recommended):
+
+```python
+import hydromodpy as hmp
+
+catalog = hmp.open_catalog("examples/projects/11_nancon_watershed")
+catalog.simulations.to_dataframe()
+catalog.inputs.list()        # shared input cache
+catalog.projects.list()      # registered projects
+```
+
+`hmp.open(...)` keeps returning the legacy simulations-only facade
+(`SimulationCatalog`) for backwards-compatible flows.
+
+## Resuming an interrupted run
+
+The runtime writes an append-only journal (`workflow_steps`) and a
+HeartbeatPulse so interrupted runs can be resumed cascade-aware:
+
+```bash
+hmp run 01_run_simulation_nwt.toml --resume <RUN_ID>
+hmp run 01_run_simulation_nwt.toml --from <STEP>
+```
+
+Use `hmp gc` to garbage-collect zombie runs whose heartbeat went
+stale.
 
 ## Cleaning up
 

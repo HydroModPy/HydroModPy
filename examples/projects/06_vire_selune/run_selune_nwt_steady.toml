@@ -35,7 +35,7 @@ all_vertices = true
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [modflownwt.runtime]
 
