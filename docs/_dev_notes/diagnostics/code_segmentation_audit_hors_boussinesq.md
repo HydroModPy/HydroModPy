@@ -2,6 +2,14 @@
 
 Date: 2026-05-06.
 
+> Mise a jour 2026-05-18: les modules racine `workflow_dispatch.py` et
+> `calibration_dispatch.py` cites dans cet audit ont ete migres vers le
+> sous-package `hydromodpy/project/dispatch/` (`workflow.py`, `calibration.py`).
+> Les sept fichiers `project_*.py` de la racine vivent maintenant dans
+> `hydromodpy/project/`. La dette d'adaptateurs racine evoquee plus bas est
+> donc resorbee. Les chemins cites ici restent en l'etat pour preserver le
+> contexte historique de l'audit.
+
 Ce document reprend l'audit de segmentation du code en excluant les
 implementations internes a `hydromodpy/solver/boussinesq/`, mais en gardant les
 effets de bord que ces travaux produisent dans les couches hors Boussinesq.
