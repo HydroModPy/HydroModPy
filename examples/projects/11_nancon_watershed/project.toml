@@ -82,10 +82,10 @@ source_mode = "standard"
 # accumulation; the outlet is snapped to the nearest stream cell.
 catch_def = "from_outlet_coord"
 
-# Regional DEM used for flow analysis. The bare filename is
-# auto-resolved against `<workspace>/data/dem/` (convention over
-# configuration); absolute or `../`-paths are accepted too.
-dem_init_path = "DEM_armorican_massif.tif"
+# Regional DEM used for flow analysis. Path resolution: explicit
+# relative to this TOML (workspace convention auto-resolve is bypassed
+# by the comparison launcher running child workspaces in isolation).
+dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 
 # Outlet coordinates of the Nancon gauging station, in EPSG:2154.
 x_outlet = 389285.91
@@ -361,7 +361,7 @@ step_value = "1 month"
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 
 # ----------------------------------------------------------------------

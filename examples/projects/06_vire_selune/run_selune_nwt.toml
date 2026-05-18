@@ -24,7 +24,7 @@ y_outlet = 6845659.878
 [[simulation.process]]
 id = "flow_main"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [modflownwt.runtime]
 

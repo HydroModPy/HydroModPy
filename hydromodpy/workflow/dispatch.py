@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
@@ -43,9 +42,10 @@ class WorkflowMismatchError(WorkflowError):
 
 
 def load_raw_toml(config_path: Path) -> dict[str, Any]:
-    """Parse a TOML config file."""
-    with open(config_path, "rb") as fh:
-        return tomllib.load(fh)
+    """Parse a TOML config file with recursive ``base_config`` inheritance."""
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
+    return load_toml_with_base_config(config_path)
 
 
 def extract_workflow_field(raw_toml: dict[str, Any]) -> str | None:

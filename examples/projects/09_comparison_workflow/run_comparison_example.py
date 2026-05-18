@@ -7,10 +7,7 @@ import json
 import sys
 from pathlib import Path
 
-if __package__ is None or __package__ == "":
-    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-
-from hydromodpy.analysis.comparison.experiment_launcher import SimulationComparisonLauncher
+import hydromodpy as hmp
 
 DEFAULT_CONFIG = Path(__file__).with_name("compare_dupuit_mf6_bouss.toml")
 NATURAL_CONFIG = Path(__file__).with_name("compare_vire_natural_mf6_nwt.toml")
@@ -136,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
             if index:
                 print()
             print(f"=== {config_path.name} ===")
-        manifest = SimulationComparisonLauncher(config_path).run()
+        manifest = hmp.run(config_path)
         manifests.append(manifest)
 
     if args.print_json:

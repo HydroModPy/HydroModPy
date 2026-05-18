@@ -47,7 +47,9 @@ def run_simulation(
     from hydromodpy.project import Project
 
     with Project(config_path, no_display=no_display) as project:
+        run_name = Path(config_path).stem
         result = project.run(
+            name=run_name,
             resume=resume,
             from_step=from_step,
             until_step=until_step,

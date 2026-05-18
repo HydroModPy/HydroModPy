@@ -24,7 +24,7 @@ description = "Aquifère Dupuit synthétique minimal, régime permanent, MODFLOW
 [[simulation.process]]
 id = "flow"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [workspace]
 project_root = "."

@@ -28,7 +28,7 @@ from .brutsaert_reference import (
 )
 
 _SOLVER_DISPLAY_NAMES = {
-    "modflownwt": "MODFLOW-NWT",
+    "modflow_nwt": "MODFLOW-NWT",
     "modflow6": "MODFLOW 6",
     "modflow6_irregular_tri": "MODFLOW 6 irregular triangles",
     "boussinesq": "Boussinesq",
@@ -331,7 +331,7 @@ def build_brutsaert_recession_comparison(
     solver_budget_max_abs_rate_discrepancy_percent = None
     solver_budget_last_rate_discrepancy_percent = None
     solver_budget_first_bad_stress_period = None
-    if solver_name == "modflownwt":
+    if solver_name == "modflow_nwt":
         budget_diagnostics = _load_modflownwt_budget_diagnostics(result.model_ws)
         if budget_diagnostics is not None:
             raw_rate_percent = np.asarray(

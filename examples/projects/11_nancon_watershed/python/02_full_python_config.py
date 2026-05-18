@@ -209,7 +209,7 @@ simulation_time = SimulationTimeConfig(
     step_value="1 month",
 )
 
-flow_process = SimulationProcessConfig(id="flow_main", type="flow", solvers=["modflownwt"])
+flow_process = SimulationProcessConfig(id="flow_main", type="flow", solvers=["modflow_nwt"])
 
 simulation = SimulationConfig(
     name="nancon_full_python",

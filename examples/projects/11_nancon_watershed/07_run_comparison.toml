@@ -76,7 +76,7 @@ write_geotiff = true
 [[comparison.simulation]]
 id = "k_5em5"
 label = "MODFLOW-NWT, K = 5e-5 m/s (baseline)"
-solver = "modflownwt"
+solver = "modflow_nwt"
 # Mesh registry tag. The structured mesh keeps the native DEM grid.
 mesh_label = "nancon_structured_native"
 mesh_mode = "structured"
@@ -92,7 +92,7 @@ value = 5e-5
 [[comparison.simulation]]
 id = "k_1em4"
 label = "MODFLOW-NWT, K = 1e-4 m/s (2x baseline)"
-solver = "modflownwt"
+solver = "modflow_nwt"
 mesh_label = "nancon_structured_native"
 mesh_mode = "structured"
 

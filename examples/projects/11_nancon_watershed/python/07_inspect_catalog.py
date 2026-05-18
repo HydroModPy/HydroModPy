@@ -20,6 +20,7 @@ Launch (after at least one run has been executed):
 from pathlib import Path
 
 import hydromodpy as hmp
+from hydromodpy.results.views import saturated_fraction
 
 HERE = Path(__file__).resolve().parent
 PROJECT_DIR = HERE.parent
@@ -47,9 +48,9 @@ if df is None or df.empty:
 
 print(f"{len(df)} simulation(s) in this project:")
 for _, row in df.iterrows():
-    name = row.get("name", "")
+    name = row.get("name") or "(unnamed)"
     sim_id = row.get("sim_id", "") or row.name
-    status = row.get("status", "")
+    status = row.get("status") or "unknown"
     print(f"  - {name:<35s} sim_id={sim_id} status={status}")
 
 
@@ -82,7 +83,7 @@ if latest is not None:
 
 if latest is not None:
     try:
-        sat = latest.saturated_fraction()
+        sat = saturated_fraction(latest)
         print(f"  sat. frac.  : min={sat.min():.3f} max={sat.max():.3f}")
     except Exception as exc:  # noqa: BLE001
         print(f"  sat. frac.  : unavailable ({exc.__class__.__name__})")

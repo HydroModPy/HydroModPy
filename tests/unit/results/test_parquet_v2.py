@@ -15,11 +15,12 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
-import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 from shapely.geometry import Point, Polygon
+
+pl = pytest.importorskip("polars")
 
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.catalog.constants import PARQUET_VIEW_NAMES

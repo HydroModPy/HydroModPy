@@ -11,12 +11,11 @@ import time
 from pathlib import Path
 
 import hydromodpy as hmp
-from hydromodpy.config.hydromodpy_config import HydroModPyConfig
 
 HERE = Path(__file__).resolve().parent
 CONFIG_PATH = HERE / "run_transient_nwt.toml"
 
-cfg = HydroModPyConfig.from_toml(CONFIG_PATH)
+cfg = hmp.HydroModPyConfig.from_toml(CONFIG_PATH)
 project = hmp.Project.lazy(cfg)
 
 

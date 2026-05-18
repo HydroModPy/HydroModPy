@@ -15,7 +15,7 @@ coverage_policy = "ignore"
 [[simulation.process]]
 id = "flow_validation"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [workspace]
 project_root = "."

@@ -27,6 +27,10 @@
 mode = "testbed"
 
 
+[workspace]
+project_root = "."
+
+
 [testbed]
 id = "nancon_k_sensitivity"
 subject = "flow"
