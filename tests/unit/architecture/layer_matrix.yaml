@@ -24,12 +24,16 @@ allowed:
   # stores. The reverse (data/results importing catalog) is forbidden so the
   # facade stays a one-way wrapper.
   catalog:       [core, schema, data, results, catalog]
-  cli:           [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, cli]
+  # ``project`` hosts the public ``Project`` facade and its dispatch adapters.
+  # It sits above the matrix (like ``cli``) so workflow/calibration launchers
+  # can be bound to ``Project`` without lower layers depending on the facade.
+  project:       [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, project]
+  cli:           [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, project, cli]
 
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Tighten over time.
 tolerances:
-  - {src: cli,         tgt: "<root>", reason: "CLI dispatch delegates to public Project facade"}
+  - {src: "<root>",    tgt: project,  reason: "root facade lazy-resolves Project through hydromodpy.project"}
   - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
   - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
 
@@ -41,6 +45,5 @@ exempt_files:
   - hydromodpy/__init__.py
   - hydromodpy/_bootstrap.py
   - hydromodpy/__main__.py
-  - hydromodpy/project.py
   - hydromodpy/spatial/domain/cases/run_domain_case.py
   - hydromodpy/spatial/geographic/cases/reference_catchment_delineation_case/run_case.py

@@ -181,8 +181,8 @@ def run(config: Any, **kwargs: Any) -> Any:
         Object-oriented form for repeated runs from one project.
     """
     if isinstance(config, (str, Path)):
+        from hydromodpy.project.dispatch.workflow import dispatch_workflow
         from hydromodpy.workflow.dispatch import resolve_workflow
-        from hydromodpy.workflow_dispatch import dispatch_workflow
 
         config_path = Path(config).expanduser().resolve()
         workflow = resolve_workflow(
@@ -276,8 +276,8 @@ def overview(config: Any, **kwargs: Any) -> Any:
     >>> import hydromodpy as hmp
     >>> hmp.overview("overview.toml")
     """
+    from hydromodpy.project.dispatch.workflow import dispatch_workflow
     from hydromodpy.workflow.dispatch import resolve_workflow
-    from hydromodpy.workflow_dispatch import dispatch_workflow
 
     config_path = Path(config).expanduser().resolve()
     workflow = resolve_workflow(

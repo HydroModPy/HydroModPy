@@ -1,8 +1,10 @@
-"""Public workflow dispatch adapters.
+"""Workflow dispatch adapters that bind launchers to ``Project``.
 
-This root-level module wires user-facing entry points to workflow launchers.
-It is allowed to depend on :class:`hydromodpy.project.Project`; the lower
-``hydromodpy.workflow`` package remains independent from that facade.
+Wires user-facing entry points (``run_simulation``, ``run_overview``,
+``run_calibration``, ``run_comparison``, ``run_testbed``) to the matching
+workflow launchers. Lives under :mod:`hydromodpy.project.dispatch` because
+it depends on :class:`hydromodpy.project.Project`; the lower
+``hydromodpy.workflow`` package stays independent from that facade.
 """
 
 from __future__ import annotations

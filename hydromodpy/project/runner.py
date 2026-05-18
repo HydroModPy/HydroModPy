@@ -3,7 +3,7 @@
 Holds the high-level workflow entry points: ``run``, ``simulate``,
 ``sweep``, ``calibrate``, ``mesh`` and ``report``. The prepared-run
 primitives (``prepare``, ``execute``, ``ingest``, ``render``,
-``cleanup``) live in :mod:`hydromodpy.project_prepared_run` and are
+``cleanup``) live in :mod:`hydromodpy.project.prepared_run` and are
 composed into the runner so the legacy ``project._runner.prepare(...)``
 access pattern keeps working.
 """
@@ -17,10 +17,10 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, ResumeError
 from hydromodpy.core.logging import get_logger
-from hydromodpy.project_prepared_run import DEFAULT_RUN_NAME_TEMPLATE, ProjectPreparedRun
+from hydromodpy.project.prepared_run import DEFAULT_RUN_NAME_TEMPLATE, ProjectPreparedRun
 
 if TYPE_CHECKING:
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
     from hydromodpy.results.run import Run
 
 logger = get_logger(__name__)
@@ -297,7 +297,7 @@ class ProjectRunner:
         try:
             final = pipeline.run(initial, resume_from=resume_from)
         except Exception:
-            from hydromodpy import project_phases
+            from hydromodpy.project import phases as project_phases
 
             project_phases.open_catalog(project)
             failed_sim_id = getattr(project._ctx, "sim_id", None)
@@ -312,7 +312,7 @@ class ProjectRunner:
                     )
             raise
         finally:
-            from hydromodpy import project_phases
+            from hydromodpy.project import phases as project_phases
 
             if project._store is None:
                 project_phases.open_catalog(project)
