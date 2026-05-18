@@ -24,7 +24,7 @@ from validation_cases.shared.runtime import (
             },
             None,
             "case_demo",
-            "modflownwt",
+            "modflow_nwt",
             ("config_modflownwt.toml",),
             id="legacy-single-config",
         ),
@@ -32,16 +32,16 @@ from validation_cases.shared.runtime import (
             {
                 "case_id": "case_demo",
                 "launcher": "launcher_simulation",
-                "default_solver": "modflownwt",
+                "default_solver": "modflow_nwt",
                 "config_files": {
-                    "modflownwt": "config_modflownwt.toml",
+                    "modflow_nwt": "config_modflownwt.toml",
                     "modflow6": "config_modflow6.toml",
                 },
                 "workspace": {},
             },
             None,
-            "case_demo_modflownwt",
-            "modflownwt",
+            "case_demo_modflow_nwt",
+            "modflow_nwt",
             ("config_modflownwt.toml", "config_modflow6.toml"),
             id="multi-solver-default",
         ),
@@ -49,15 +49,15 @@ from validation_cases.shared.runtime import (
             {
                 "case_id": "case_demo",
                 "launcher": "launcher_simulation",
-                "default_solver": "modflownwt",
+                "default_solver": "modflow_nwt",
                 "config_files": {
-                    "modflownwt": "config_modflownwt.toml",
+                    "modflow_nwt": "config_modflownwt.toml",
                 },
                 "workspace": {},
             },
             None,
             "case_demo",
-            "modflownwt",
+            "modflow_nwt",
             ("config_modflownwt.toml",),
             id="single-entry-config-mapping",
         ),
@@ -65,9 +65,9 @@ from validation_cases.shared.runtime import (
             {
                 "case_id": "case_demo",
                 "launcher": "launcher_simulation",
-                "default_solver": "modflownwt",
+                "default_solver": "modflow_nwt",
                 "config_files": {
-                    "modflownwt": "config_modflownwt.toml",
+                    "modflow_nwt": "config_modflownwt.toml",
                     "modflow6": "config_modflow6.toml",
                 },
                 "workspace": {},
@@ -212,7 +212,7 @@ def test_load_case_tolerances_prefers_solver_specific_file(tmp_path: Path) -> No
     )
 
     tolerances = load_case_tolerances(case_dir, solver="modflow6")
-    fallback_tolerances = load_case_tolerances(case_dir, solver="modflownwt")
+    fallback_tolerances = load_case_tolerances(case_dir, solver="modflow_nwt")
 
     assert float(tolerances["head_profile"]["rmse"]) == pytest.approx(0.05)
     assert float(fallback_tolerances["head_profile"]["rmse"]) == pytest.approx(0.01)
