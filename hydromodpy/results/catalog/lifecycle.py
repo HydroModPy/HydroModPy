@@ -60,9 +60,12 @@ class LifecycleMixin:
         zarr_zip = self._simulations_dir / f"{basename}{ZARR_ZIP_SUFFIX}"
         if zarr_zip.exists():
             return self._track_zarr_handle(SimulationZarr(zarr_zip))
-        return self._track_zarr_handle(
-            SimulationZarr(self._simulations_dir / f"{basename}{ZARR_SUFFIX}")
-        )
+        zarr_dir = self._simulations_dir / f"{basename}{ZARR_SUFFIX}"
+        if not zarr_dir.exists():
+            zarr_dir.parent.mkdir(parents=True, exist_ok=True)
+            staged = SimulationZarr.create(zarr_dir, n_cells=0, n_layers=1)
+            staged.close()
+        return self._track_zarr_handle(SimulationZarr(zarr_dir))
 
     def _fetch_simulation_row(self, sim_id: str) -> dict | None:
         """Return the ``simulations`` row as a plain dict for ACDD composition."""
