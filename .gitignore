@@ -205,6 +205,7 @@ reports*/
 timing_reports/
 _profile_launcher_*/
 _profiling_out/
+meta_review_output/
 reporting/calibration_profiling_*_after_solver_reuse/
 reporting/**/_postprocess/_rasters/
 
