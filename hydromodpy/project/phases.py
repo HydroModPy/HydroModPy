@@ -1,6 +1,7 @@
 """Model-phase adapter verbs used by :class:`Project`.
 
-Split from ``project.py`` so the facade keeps the run/lifecycle API only.
+Split from :mod:`hydromodpy.project.facade` so the facade keeps the
+run/lifecycle API only.
 
 Functions here mutate the :class:`Project` instance directly and call the
 same ``workflow.steps`` helpers that the full Pipeline uses. They are not a
@@ -18,7 +19,7 @@ from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
 
 logger = get_logger(__name__)
 

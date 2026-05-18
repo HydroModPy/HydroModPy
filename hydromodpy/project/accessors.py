@@ -1,6 +1,7 @@
 """Helper accessors exposed on :class:`hydromodpy.project.Project`.
 
-Split from ``project.py`` to keep the facade focused on the run/lifecycle API.
+Split from :mod:`hydromodpy.project.facade` to keep the facade focused on the
+run/lifecycle API.
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     import pandas as pd
 
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
     from hydromodpy.results.run import Run
 
 

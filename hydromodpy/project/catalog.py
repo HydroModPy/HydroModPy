@@ -1,8 +1,9 @@
 """Catalog and lifecycle helper bound to :class:`hydromodpy.project.Project`.
 
 Encapsulates the SimulationCatalog access (``store``, ``runs``, ``data``,
-``__getitem__``) and lifecycle hooks (``close``). Split from ``project.py``
-so the facade keeps a small surface and the god-class limit holds.
+``__getitem__``) and lifecycle hooks (``close``). Split from
+:mod:`hydromodpy.project.facade` so the facade keeps a small surface and the
+god-class limit holds.
 """
 
 from __future__ import annotations
@@ -10,10 +11,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.logging import get_logger
-from hydromodpy.project_accessors import ProjectDataAccessor, ProjectRunsAccessor
+from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
 
 if TYPE_CHECKING:
-    from hydromodpy.project import Project
+    from hydromodpy.project.facade import Project
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.run import Run
 
