@@ -13,7 +13,7 @@ from .comparison import DupuitFixedHeadComparison
 
 def _format_solver_name(solver_name: str) -> str:
     normalized_solver = str(solver_name).strip().lower()
-    if normalized_solver == "modflownwt":
+    if normalized_solver == "modflow_nwt":
         return "modflow_nwt"
     return normalized_solver or "unknown"
 

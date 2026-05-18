@@ -122,7 +122,7 @@ exdp = "1.0 m"
 """
 
 _VALIDATION_PROFILES_BY_SOLVER_AND_CASE: dict[str, dict[str, str]] = {
-    "modflownwt": {
+    "modflow_nwt": {
         "boussinesq_fixed_head_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "boussinesq_uniform_recharge_piecewise_k_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
         "boussinesq_sloping_substratum_constant_thickness_1d": _NWT_VALIDATION_PROFILE_SIMPLE,
@@ -684,7 +684,7 @@ def _resolve_validation_solver_config(
     solver: str | None = None,
 ) -> tuple[str, str]:
     """Resolve the solver name and validation config file from case metadata."""
-    raw_default_solver = metadata.get("default_solver", "modflownwt")
+    raw_default_solver = metadata.get("default_solver", "modflow_nwt")
     default_solver = str(raw_default_solver).strip().lower()
     if default_solver == "":
         raise ValueError("validation default solver name cannot be empty")

@@ -9,7 +9,7 @@ description = "Synthetic steady-state unconfined flow with fixed heads, linear t
 [[simulation.process]]
 id = "flow_validation"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [workspace]
 project_root = "."

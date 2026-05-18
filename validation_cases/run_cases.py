@@ -46,8 +46,8 @@ def _normalize_solver_names(metadata: dict) -> tuple[str, ...]:
         if solvers:
             return tuple(solvers)
 
-    default_solver = str(metadata.get("default_solver", "modflownwt")).strip().lower()
-    return (default_solver,) if default_solver else ("modflownwt",)
+    default_solver = str(metadata.get("default_solver", "modflow_nwt")).strip().lower()
+    return (default_solver,) if default_solver else ("modflow_nwt",)
 
 
 def discover_validation_cases(package_root: Path = PACKAGE_ROOT) -> list[ValidationCaseRun]:
@@ -125,7 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--solver",
-        choices=("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq"),
+        choices=("modflow_nwt", "modflow6", "modflow6_irregular_tri", "boussinesq"),
         required=True,
         help="Solver variant to pass to each compatible validation case.",
     )

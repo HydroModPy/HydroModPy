@@ -51,9 +51,9 @@ def _build_payload(*, output_root: Path, run_simulations: bool) -> dict[str, Any
             },
             "simulation": [
                 {
-                    "id": "modflownwt",
+                    "id": "modflow_nwt",
                     "label": "MODFLOW-NWT 50x5",
-                    "solver": "modflownwt",
+                    "solver": "modflow_nwt",
                     "mesh_mode": "structured",
                     "overlay": common_overlay,
                 },
