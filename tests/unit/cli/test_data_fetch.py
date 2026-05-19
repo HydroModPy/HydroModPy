@@ -1,4 +1,4 @@
-"""Tests for ``hmp data fetch``."""
+"""Tests for ``hmp data get`` (formerly ``hmp data fetch``)."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def _make_workspace(tmp_path: Path) -> Path:
 
 
 def test_data_fetch_help_displays(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "data", "fetch", "--help"])
+    code = _run(monkeypatch, ["hmp", "data", "get", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     assert "variable" in out
@@ -48,7 +48,7 @@ def test_data_fetch_dem_writes_sidecar(monkeypatch, tmp_path, capsys) -> None:
         [
             "hmp",
             "data",
-            "fetch",
+            "get",
             "dem",
             "--workspace",
             str(workspace),
@@ -78,7 +78,7 @@ def test_data_fetch_unknown_variable_fails(monkeypatch, tmp_path, capsys) -> Non
     workspace = _make_workspace(tmp_path)
     code = _run(
         monkeypatch,
-        ["hmp", "data", "fetch", "not_a_var", "--workspace", str(workspace)],
+        ["hmp", "data", "get", "not_a_var", "--workspace", str(workspace)],
     )
     assert code == 14
     err = capsys.readouterr().err
@@ -92,7 +92,7 @@ def test_data_fetch_invalid_bbox_fails(monkeypatch, tmp_path, capsys) -> None:
         [
             "hmp",
             "data",
-            "fetch",
+            "get",
             "dem",
             "--workspace",
             str(workspace),
@@ -111,7 +111,7 @@ def test_bbox_parses_negative_first_value(monkeypatch, tmp_path, capsys) -> None
         [
             "hmp",
             "data",
-            "fetch",
+            "get",
             "dem",
             "--workspace",
             str(workspace),
@@ -129,7 +129,7 @@ def test_bbox_parses_negative_first_value(monkeypatch, tmp_path, capsys) -> None
 
 def test_bbox_help_mentions_equals_workaround(monkeypatch, capsys) -> None:
     """The help text steers users to ``--bbox=`` for negative minx values."""
-    code = _run(monkeypatch, ["hmp", "data", "fetch", "--help"])
+    code = _run(monkeypatch, ["hmp", "data", "get", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     # argparse may wrap the literal --bbox=- mid-line; normalize whitespace.
@@ -145,7 +145,7 @@ def test_bbox_three_values_fails(monkeypatch, tmp_path, capsys) -> None:
         [
             "hmp",
             "data",
-            "fetch",
+            "get",
             "dem",
             "--workspace",
             str(workspace),

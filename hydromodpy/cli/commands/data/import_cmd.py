@@ -1,4 +1,4 @@
-"""``hmp add`` - import a .hmp archive and its bundled inputs into a project catalog."""
+"""``hmp data import`` - import a .hmp archive into a workspace catalog."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_RUN_FAILED
 
-NAME: str = "add"
+NAME: str = "import"
 HELP: str = "Import a .hmp archive and dematerialise its bundled inputs"
 
 
@@ -25,9 +25,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--as",
         dest="as_project",
         default=None,
-        help="Override the project name on import "
-        "(required when the workspace already owns a project with "
-        "the incoming name)",
+        help="Override the project name on import",
     )
     parser.add_argument(
         "--dry-run",
