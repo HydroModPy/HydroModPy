@@ -1,4 +1,7 @@
-"""``hmp catalog show`` - inspect a simulation (metadata, mesh, status, files)."""
+"""``hmp catalog show`` - inspect a simulation.
+
+Thin wrapper around :func:`hydromodpy.show_simulation`.
+"""
 
 from __future__ import annotations
 
@@ -7,11 +10,7 @@ import json
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import (
-    EXIT_NOT_FOUND,
-    find_catalog_root,
-    resolve_sim_id,
-)
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, find_catalog_root
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "show"
@@ -38,7 +37,12 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.results.catalog import SimulationCatalog
+    import hydromodpy as hmp
+    from hydromodpy.results.catalog import (
+        AmbiguousReferenceError,
+        SimulationCatalog,
+        SimulationNotFoundError,
+    )
 
     workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
@@ -47,57 +51,44 @@ def run(args: argparse.Namespace) -> None:
         print(f"No catalog at {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
+    try:
+        payload = hmp.show_simulation(args.sim_id, workspace=workspace_root, detail=args.detail)
+    except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    if args.json:
+        print(json.dumps(payload, indent=2, default=str))
+        return
+
+    name = payload.get("name") or payload["sim_id"][:8]
+    print(f"Simulation {name}")
+    print(f"  sim_id    : {payload['sim_id']}")
+    print(f"  project   : {payload['project']}")
+    print(f"  solver    : {payload['solver']}")
+    print(f"  status    : {payload['status']}")
+    if payload.get("duration_s") is not None:
+        print(f"  duration  : {payload['duration_s']:.1f} s")
+    if payload.get("n_cells") is not None:
+        print(f"  n_cells   : {payload['n_cells']}")
+    if payload.get("n_timesteps") is not None:
+        print(f"  n_timesteps: {payload['n_timesteps']}")
+    if args.detail:
+        zarr_path = payload.get("zarr_path", "")
+        zarr_ok = "OK" if payload.get("zarr_exists") else "MISSING"
+        print(f"  zarr       : {zarr_path} ({zarr_ok})")
+        groups = payload.get("zarr_groups", [])
+        if groups:
+            print("  groups     :")
+            for group in groups:
+                print(f"    - {group}")
+
+    # Metrics / parameters tables still require a direct catalog read.
     with SimulationCatalog(workspace_root) as catalog:
-        sid = resolve_sim_id(catalog, args.sim_id)
-        sim = catalog[sid]
-
-        payload: dict[str, object] = {
-            "sim_id": sim.sim_id,
-            "name": sim.name,
-            "project": sim.project,
-            "solver": sim.solver,
-            "status": sim.status,
-            "duration_s": sim.duration_s,
-            "n_cells": sim.n_cells,
-            "n_timesteps": sim.n_timesteps,
-        }
-
-        zarr_path = catalog.zarr_path_for(sid)
-        zarr_exists = zarr_path.exists()
-        sub_files: list[str] = []
-        if args.detail:
-            payload["zarr_path"] = str(zarr_path)
-            payload["zarr_exists"] = zarr_exists
-            if zarr_exists and zarr_path.is_dir():
-                try:
-                    sub_files = sorted(p.name for p in zarr_path.iterdir() if p.is_dir())[:20]
-                except OSError:
-                    sub_files = []
-            payload["zarr_groups"] = sub_files
-
-        if args.json:
-            print(json.dumps(payload, indent=2, default=str))
-            return
-
-        print(f"Simulation {sim.name or sim.sim_id[:8]}")
-        print(f"  sim_id    : {sim.sim_id}")
-        print(f"  project   : {sim.project}")
-        print(f"  solver    : {sim.solver}")
-        print(f"  status    : {sim.status}")
-        if sim.duration_s is not None:
-            print(f"  duration  : {sim.duration_s:.1f} s")
-        if sim.n_cells is not None:
-            print(f"  n_cells   : {sim.n_cells}")
-        if sim.n_timesteps is not None:
-            print(f"  n_timesteps: {sim.n_timesteps}")
-
-        if args.detail:
-            print(f"  zarr       : {zarr_path} ({'OK' if zarr_exists else 'MISSING'})")
-            if sub_files:
-                print("  groups     :")
-                for name in sub_files:
-                    print(f"    - {name}")
-
+        sim = catalog[payload["sim_id"]]
         metrics = sim.metrics
         if not metrics.empty:
             print("Metrics:")

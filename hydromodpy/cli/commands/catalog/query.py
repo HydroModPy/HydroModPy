@@ -1,4 +1,7 @@
-"""``hmp catalog query`` - run a SQL statement against the workspace DuckDB catalog."""
+"""``hmp catalog query`` - run a SQL statement against the workspace DuckDB.
+
+Thin wrapper around :func:`hydromodpy.query_catalog`.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +9,9 @@ import argparse
 import sys
 from pathlib import Path
 
+import duckdb
+
 from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, find_catalog_root
-from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "query"
 HELP: str = "Run a SQL statement against the workspace catalog.duckdb"
@@ -37,26 +41,16 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import duckdb
+    import hydromodpy as hmp
 
     workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
-    catalog_path = workspace_root / CATALOG_FILENAME
-    if not catalog_path.exists():
-        print(f"No catalog at {workspace_root}", file=sys.stderr)
-        sys.exit(EXIT_NOT_FOUND)
-
-    sql = args.sql.strip()
-    if args.limit is not None:
-        sql = f"SELECT * FROM ({sql}) LIMIT {int(args.limit)}"
-
     try:
-        conn = duckdb.connect(str(catalog_path), read_only=True)
-        try:
-            df = conn.execute(sql).fetchdf()
-        finally:
-            conn.close()
+        df = hmp.query_catalog(args.sql, workspace=workspace_root, limit=args.limit)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
     except duckdb.Error as exc:
         print(f"SQL error: {exc}", file=sys.stderr)
         sys.exit(EXIT_GENERIC)

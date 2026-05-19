@@ -682,6 +682,187 @@ def _has_geographic_feature(sim: Any, feature_name: str) -> bool:
     return feature_name in names
 
 
+def list_simulations(
+    workspace: Any,
+    *,
+    project: str | None = None,
+    solver: str | None = None,
+    catchment: str | None = None,
+    limit: int | None = None,
+) -> Any:
+    """List simulations recorded in a workspace catalog.
+
+    Iterates over per-project ``catalog.duckdb`` files inside ``workspace``
+    and returns a concatenated DataFrame of simulation rows ordered by
+    ``created_at DESC``. Filters apply as substring matches on ``solver``
+    and ``catchment``, exact match on ``project``.
+
+    Parameters
+    ----------
+    workspace
+        Workspace directory containing a ``projects/`` tree.
+    project, solver, catchment, limit
+        Optional filters.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Combined simulation rows. Empty when the workspace has no project
+        catalog or no row matches the filters.
+    """
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    workspace_root = Path(workspace).expanduser().resolve()
+    projects_dir = workspace_root / "projects"
+    if not projects_dir.is_dir():
+        import pandas as pd
+
+        return pd.DataFrame()
+
+    if project:
+        project_roots = [projects_dir / project]
+    else:
+        project_roots = sorted(
+            p for p in projects_dir.iterdir() if p.is_dir() and (p / CATALOG_FILENAME).exists()
+        )
+
+    import pandas as pd
+
+    frames: list[pd.DataFrame] = []
+    for project_dir in project_roots:
+        if not (project_dir / CATALOG_FILENAME).exists():
+            continue
+        with SimulationCatalog(project_dir) as catalog:
+            sims = catalog.list_simulations(order_by="created_at DESC")
+        if sims.empty:
+            continue
+        if solver:
+            sims = sims[sims["solver"].fillna("").str.contains(solver, case=False)]
+        if catchment and "catchment" in sims.columns:
+            sims = sims[sims["catchment"].fillna("").str.contains(catchment, case=False)]
+        sims = sims.assign(project=project_dir.name)
+        frames.append(sims)
+    if not frames:
+        return pd.DataFrame()
+    out = pd.concat(frames, ignore_index=True)
+    if limit is not None:
+        out = out.head(int(limit))
+    return out
+
+
+def show_simulation(
+    sim_ref: str,
+    *,
+    workspace: Any,
+    detail: bool = False,
+) -> dict:
+    """Return a metadata dict describing one simulation.
+
+    Parameters
+    ----------
+    sim_ref
+        Full sim id, unique prefix (>= 4 chars), or simulation name.
+    workspace
+        Project catalog root.
+    detail
+        When ``True``, also reports the Zarr store layout (groups, paths).
+
+    Returns
+    -------
+    dict
+        Simulation metadata. Includes ``zarr_path``, ``zarr_exists`` and
+        ``zarr_groups`` when ``detail=True``.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the workspace has no ``catalog.duckdb``.
+    hydromodpy.results.catalog.SimulationNotFoundError
+        If ``sim_ref`` cannot be resolved.
+    """
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    workspace_root = Path(workspace).expanduser().resolve()
+    if not (workspace_root / CATALOG_FILENAME).exists():
+        raise FileNotFoundError(f"No catalog at {workspace_root}")
+
+    with SimulationCatalog(workspace_root) as catalog:
+        sid = catalog.resolve(sim_ref)
+        sim = catalog[sid]
+        payload: dict = {
+            "sim_id": sim.sim_id,
+            "name": sim.name,
+            "project": sim.project,
+            "solver": sim.solver,
+            "status": sim.status,
+            "duration_s": sim.duration_s,
+            "n_cells": sim.n_cells,
+            "n_timesteps": sim.n_timesteps,
+        }
+        if detail:
+            zarr_path = catalog.zarr_path_for(sid)
+            payload["zarr_path"] = str(zarr_path)
+            payload["zarr_exists"] = zarr_path.exists()
+            groups: list[str] = []
+            if zarr_path.exists() and zarr_path.is_dir():
+                try:
+                    groups = sorted(p.name for p in zarr_path.iterdir() if p.is_dir())[:20]
+                except OSError:
+                    groups = []
+            payload["zarr_groups"] = groups
+        return payload
+
+
+def query_catalog(
+    sql: str,
+    *,
+    workspace: Any,
+    limit: int | None = None,
+) -> Any:
+    """Run a read-only SQL statement against the workspace catalog DuckDB.
+
+    Parameters
+    ----------
+    sql
+        SQL statement (SELECT, PRAGMA, ...).
+    workspace
+        Project catalog root.
+    limit
+        Optional outer ``LIMIT`` wrapped around the statement.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Result rows.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the workspace has no ``catalog.duckdb``.
+    duckdb.Error
+        If the SQL statement is invalid or the catalog rejects it.
+    """
+    import duckdb
+
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    workspace_root = Path(workspace).expanduser().resolve()
+    catalog_path = workspace_root / CATALOG_FILENAME
+    if not catalog_path.exists():
+        raise FileNotFoundError(f"No catalog at {workspace_root}")
+
+    statement = sql.strip()
+    if limit is not None:
+        statement = f"SELECT * FROM ({statement}) LIMIT {int(limit)}"
+    conn = duckdb.connect(str(catalog_path), read_only=True)
+    try:
+        return conn.execute(statement).fetchdf()
+    finally:
+        conn.close()
+
+
 def doctor() -> dict:
     """Lightweight environment diagnostic.
 
