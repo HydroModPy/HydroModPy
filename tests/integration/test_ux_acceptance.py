@@ -64,7 +64,7 @@ def test_config_template_generates_toml(monkeypatch, tmp_path) -> None:
     out = tmp_path / "cfg.toml"
     _run_cli(
         monkeypatch,
-        ["hmp", "config", "template", str(out), "--profile", "user"],
+        ["hmp", "dev", "config", "template", str(out), "--profile", "user"],
     )
     assert out.is_file()
     assert out.stat().st_size > 0
@@ -101,7 +101,7 @@ def test_doctor_reports_without_crash(monkeypatch, capsys) -> None:
 
 def test_completion_all_shells(monkeypatch, capsys) -> None:
     for shell in ("bash", "zsh", "fish"):
-        _run_cli(monkeypatch, ["hmp", "completion", shell])
+        _run_cli(monkeypatch, ["hmp", "dev", "completion", shell])
         out = capsys.readouterr().out
         assert len(out) > 0
         assert any(token in out for token in ("hmp", "_hmp"))

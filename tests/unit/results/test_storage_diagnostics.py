@@ -130,7 +130,7 @@ def test_doctor_probe_returns_cli_check_shape(tmp_path):
 
 
 def test_manage_backend_exposes_and_cleans_diagnostic_paths(tmp_path):
-    from hydromodpy.cli.commands.manage import _WorkspaceManagerBackend
+    from hydromodpy.cli.commands.dev.manage import _WorkspaceManagerBackend
 
     workspace = tmp_path / "workspace"
     with SimulationCatalog(workspace) as catalog:

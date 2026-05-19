@@ -50,7 +50,7 @@ def test_version_flag_prints_version(monkeypatch, capsys) -> None:
 
 @pytest.mark.parametrize("shell", ["bash", "zsh", "fish"])
 def test_completion_emits_script(monkeypatch, capsys, shell: str) -> None:
-    monkeypatch.setattr(sys, "argv", ["hmp", "completion", shell])
+    monkeypatch.setattr(sys, "argv", ["hmp", "dev", "completion", shell])
     main()
     out = capsys.readouterr().out
     assert "hmp" in out
@@ -80,7 +80,7 @@ def test_dev_run_script_help(monkeypatch, capsys) -> None:
 
 def test_config_check_reports_missing_file(monkeypatch, capsys, tmp_path) -> None:
     missing = tmp_path / "nope.toml"
-    code = _run_cli(monkeypatch, ["hmp", "config", "check", str(missing)])
+    code = _run_cli(monkeypatch, ["hmp", "dev", "config", "check", str(missing)])
     assert code == 10
 
 
@@ -88,7 +88,7 @@ def test_config_check_reports_invalid_toml(monkeypatch, capsys, tmp_path) -> Non
     """Invalid TOML syntax must exit with EXIT_CONFIG=14."""
     bad = tmp_path / "bad.toml"
     bad.write_text("[section\nmissing = close_bracket\n", encoding="utf-8")
-    code = _run_cli(monkeypatch, ["hmp", "config", "check", str(bad)])
+    code = _run_cli(monkeypatch, ["hmp", "dev", "config", "check", str(bad)])
     assert code == 14
     err = capsys.readouterr().err
     assert "invalid toml" in err.lower() or "config" in err.lower()
@@ -100,7 +100,7 @@ def test_config_template_writes_toml(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(
         sys,
         "argv",
-        ["hmp", "config", "template", str(out), "--profile", "user"],
+        ["hmp", "dev", "config", "template", str(out), "--profile", "user"],
     )
     main()
     assert out.is_file()
