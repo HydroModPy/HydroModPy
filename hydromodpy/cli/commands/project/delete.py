@@ -21,7 +21,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.project import delete_project
 
     if not args.force:
         if not sys.stdin.isatty():
@@ -37,7 +37,7 @@ def run(args: argparse.Namespace) -> None:
             sys.exit(EXIT_USER_ABORT)
 
     try:
-        result = hmp.delete_project(args.project, workspace=args.workspace, force=args.force)
+        result = delete_project(args.project, workspace=args.workspace, force=args.force)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

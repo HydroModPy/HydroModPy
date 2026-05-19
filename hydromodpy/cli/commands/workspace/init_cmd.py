@@ -25,11 +25,11 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.workspace import init_workspace
 
     resolved = args.path or getattr(args, "path_opt", None)
     try:
-        result = hmp.init_workspace(
+        result = init_workspace(
             resolved,
             force=args.force,
             project_name=args.project_name,

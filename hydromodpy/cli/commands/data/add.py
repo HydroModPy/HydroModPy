@@ -28,14 +28,14 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.data import add_data_entry
 
     if not args.variable:
         print("--type is required (e.g. --type piezometry)", file=sys.stderr)
         sys.exit(EXIT_CONFIG)
 
     try:
-        result = hmp.add_data_entry(
+        result = add_data_entry(
             args.file,
             variable=args.variable,
             provider=args.provider,

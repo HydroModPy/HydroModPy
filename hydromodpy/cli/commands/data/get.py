@@ -46,10 +46,10 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.data import fetch_data_variable
 
     try:
-        result = hmp.fetch_data_variable(
+        result = fetch_data_variable(
             args.variable, bbox=args.bbox, workspace=args.workspace, source=args.source
         )
     except ValueError as exc:

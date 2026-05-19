@@ -18,9 +18,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.workspace import prune_workspaces
 
-    removed = hmp.prune_workspaces()
+    removed = prune_workspaces()
     if not removed:
         print("No stale workspaces to prune.")
         sys.exit(EXIT_OK)

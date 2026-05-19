@@ -19,8 +19,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.workspace import forget_workspace
 
-    hmp.forget_workspace(args.workspace_id)
+    forget_workspace(args.workspace_id)
     print(f"Forgot workspace {args.workspace_id}.")
     sys.exit(EXIT_OK)

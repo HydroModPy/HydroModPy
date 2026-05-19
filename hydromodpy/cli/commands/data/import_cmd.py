@@ -25,11 +25,11 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.data import import_package
     from hydromodpy.results.importers import InputCollisionError
 
     try:
-        sim_id = hmp.import_package(
+        sim_id = import_package(
             args.package,
             workspace=args.workspace,
             as_project=args.as_project,

@@ -49,7 +49,7 @@ def run(args: argparse.Namespace) -> None:
 
 
 def _cmd_purge(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.privacy import purge_simulation
 
     if not args.yes:
         if not sys.stdin.isatty():
@@ -65,7 +65,7 @@ def _cmd_purge(args: argparse.Namespace) -> None:
             sys.exit(EXIT_CONFIG)
 
     try:
-        result = hmp.purge_simulation(
+        result = purge_simulation(
             args.sim_ref,
             workspace=args.workspace,
             reason=args.reason,
@@ -85,10 +85,10 @@ def _cmd_purge(args: argparse.Namespace) -> None:
 
 
 def _cmd_verify(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.privacy import verify_purge_certificate
 
     try:
-        result = hmp.verify_purge_certificate(args.certificate, strict=args.strict)
+        result = verify_purge_certificate(args.certificate, strict=args.strict)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

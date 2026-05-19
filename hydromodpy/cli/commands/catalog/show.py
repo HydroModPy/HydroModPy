@@ -37,7 +37,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.catalog import show_simulation
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
         SimulationCatalog,
@@ -52,7 +52,7 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        payload = hmp.show_simulation(args.sim_id, workspace=workspace_root, detail=args.detail)
+        payload = show_simulation(args.sim_id, workspace=workspace_root, detail=args.detail)
     except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

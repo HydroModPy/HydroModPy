@@ -38,24 +38,29 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.dev import (
+        lock_archive,
+        lock_restore,
+        lock_update,
+        lock_verify,
+    )
 
     sub = getattr(args, "lock_command", None)
     if sub == "update":
-        written = hmp.lock_update(args.workspace, output=args.output)
+        written = lock_update(args.workspace, output=args.output)
         print(f"  Lockfile written: {written}")
         return
     if sub == "archive":
-        dest = hmp.lock_archive(args.output, workspace=args.workspace)
+        dest = lock_archive(args.output, workspace=args.workspace)
         print(f"  Archive written: {dest}")
         return
     if sub == "restore":
-        dest = hmp.lock_restore(args.input, workspace=args.workspace, output=args.output)
+        dest = lock_restore(args.input, workspace=args.workspace, output=args.output)
         print(f"  Restored {args.input} -> {dest}")
         return
     if sub == "verify":
         try:
-            result = hmp.lock_verify(args.workspace, lockfile=args.lockfile, strict=args.strict)
+            result = lock_verify(args.workspace, lockfile=args.lockfile, strict=args.strict)
         except FileNotFoundError as exc:
             print(f"  {exc}", file=sys.stderr)
             sys.exit(EXIT_NOT_FOUND)

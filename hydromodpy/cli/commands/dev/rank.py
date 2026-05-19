@@ -24,7 +24,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.dev import rank_simulations
 
     if args.bottom is not None:
         n, top = args.bottom, False
@@ -35,9 +35,7 @@ def run(args: argparse.Namespace) -> None:
     if not _higher_is_better(args.metric):
         top = not top
 
-    df = hmp.rank_simulations(
-        args.project, workspace=args.workspace, metric=args.metric, top=top, n=n
-    )
+    df = rank_simulations(args.project, workspace=args.workspace, metric=args.metric, top=top, n=n)
     if df.empty:
         print(
             f"No simulations with metric '{args.metric}' in project '{args.project}'",

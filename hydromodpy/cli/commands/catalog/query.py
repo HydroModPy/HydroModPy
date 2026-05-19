@@ -41,13 +41,13 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.catalog import query_catalog
 
     workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
     )
     try:
-        df = hmp.query_catalog(args.sql, workspace=workspace_root, limit=args.limit)
+        df = query_catalog(args.sql, workspace=workspace_root, limit=args.limit)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

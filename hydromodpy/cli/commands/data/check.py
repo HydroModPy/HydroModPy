@@ -23,9 +23,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.data import check_data_cache
 
-    result = hmp.check_data_cache(args.workspace, variable=args.variable, fix=args.fix)
+    result = check_data_cache(args.workspace, variable=args.variable, fix=args.fix)
     if result["fix_summary"] is not None:
         s = result["fix_summary"]
         print(

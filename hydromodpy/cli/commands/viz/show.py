@@ -23,14 +23,14 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.viz import render_figure
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
         SimulationNotFoundError,
     )
 
     try:
-        save = hmp.render_figure(
+        save = render_figure(
             args.sim_ref, args.figure, workspace=args.workspace, output=args.output
         )
     except (AmbiguousReferenceError, SimulationNotFoundError) as exc:

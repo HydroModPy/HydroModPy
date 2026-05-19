@@ -20,9 +20,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.workspace import search_workspaces
 
-    df = hmp.search_workspaces(args.term, limit=args.limit)
+    df = search_workspaces(args.term, limit=args.limit)
     if df is None or df.empty:
         print(f"No matches for {args.term!r}.")
         sys.exit(EXIT_OK)

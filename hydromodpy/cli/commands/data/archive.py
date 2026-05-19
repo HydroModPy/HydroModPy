@@ -17,7 +17,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.data import archive_data_cache
 
-    dest = hmp.archive_data_cache(args.output, workspace=args.workspace)
+    dest = archive_data_cache(args.output, workspace=args.workspace)
     print(f"  Archived cache to {dest}")

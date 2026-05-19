@@ -20,9 +20,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.data import remove_data_entries
 
-    n = hmp.remove_data_entries(
+    n = remove_data_entries(
         args.workspace,
         variable=args.variable,
         provider=args.provider,

@@ -26,14 +26,14 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.catalog import vacuum
 
     if args.all or (not args.catalog and not args.cache):
         do_catalog, do_cache = True, True
     else:
         do_catalog, do_cache = args.catalog, args.cache
 
-    result = hmp.vacuum(args.workspace, catalog=do_catalog, cache=do_cache)
+    result = vacuum(args.workspace, catalog=do_catalog, cache=do_cache)
     print("Vacuum summary:")
     for key, value in result["counts"].items():
         print(f"  {key}: {value}")

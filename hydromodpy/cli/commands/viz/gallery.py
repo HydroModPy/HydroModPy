@@ -25,11 +25,11 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.viz import render_gallery
 
     only = [s.strip() for s in args.only.split(",") if s.strip()] if args.only else None
     try:
-        paths = hmp.render_gallery(
+        paths = render_gallery(
             args.config,
             run_name=args.run_name,
             sim_ref=args.sim_ref,

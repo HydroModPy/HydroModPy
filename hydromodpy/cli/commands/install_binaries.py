@@ -32,13 +32,13 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.dev import install_binaries
 
     subset = (
         [name.strip() for name in args.subset.split(",") if name.strip()] if args.subset else None
     )
     try:
-        result = hmp.install_binaries(
+        result = install_binaries(
             subset=subset,
             mf6_prt=args.mf6_prt,
             bindir=args.bindir,

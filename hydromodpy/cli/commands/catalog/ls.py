@@ -51,7 +51,7 @@ def _resolve_workspace(workspace_arg: str | None) -> Path:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.catalog import list_simulations
     from hydromodpy.results.catalog import short_id
 
     workspace_root = _resolve_workspace(args.workspace)
@@ -59,7 +59,7 @@ def run(args: argparse.Namespace) -> None:
         print(f"No projects/ directory found in {workspace_root}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
-    df = hmp.list_simulations(
+    df = list_simulations(
         workspace_root,
         project=args.project,
         solver=args.solver,

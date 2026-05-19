@@ -17,8 +17,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.data import restore_data_cache
 
     src = args.input
-    dest = hmp.restore_data_cache(src, workspace=args.workspace)
+    dest = restore_data_cache(src, workspace=args.workspace)
     print(f"  Restored {src} into {dest}")

@@ -29,12 +29,12 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.audit import audit_list, audit_verify
 
     sub = getattr(args, "audit_command", None)
     if sub == "list":
         try:
-            df = hmp.audit_list(args.workspace, since=args.since, limit=args.limit)
+            df = audit_list(args.workspace, since=args.since, limit=args.limit)
         except FileNotFoundError as exc:
             print(str(exc), file=sys.stderr)
             sys.exit(EXIT_NOT_FOUND)
@@ -45,7 +45,7 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_OK)
     if sub == "verify":
         try:
-            result = hmp.audit_verify(args.workspace, strict=args.strict)
+            result = audit_verify(args.workspace, strict=args.strict)
         except FileNotFoundError as exc:
             print(str(exc), file=sys.stderr)
             sys.exit(EXIT_NOT_FOUND)

@@ -21,10 +21,10 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.project import create_project
 
     try:
-        project_dir = hmp.create_project(args.project, workspace=args.workspace)
+        project_dir = create_project(args.project, workspace=args.workspace)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

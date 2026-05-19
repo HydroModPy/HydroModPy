@@ -28,7 +28,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.workspace import clean_workspace
 
     groups = {"all"} if args.all_groups else set()
     for name in ("results", "data_cache", "runtime", "exports", "scratch", "figures"):
@@ -37,7 +37,7 @@ def run(args: argparse.Namespace) -> None:
     dry_run = bool(args.dry_run) or not args.yes
 
     try:
-        result = hmp.clean_workspace(args.workspace, groups=groups, dry_run=dry_run)
+        result = clean_workspace(args.workspace, groups=groups, dry_run=dry_run)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

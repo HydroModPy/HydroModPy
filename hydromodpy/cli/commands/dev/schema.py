@@ -29,17 +29,17 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.dev import export_schema, validate_field
 
     sub = getattr(args, "schema_command", None)
     if sub == "export":
-        written = hmp.export_schema(args.output)
+        written = export_schema(args.output)
         for key, path in written.items():
             print(f"{key}: {path}", file=sys.stderr)
         return
     if sub == "validate-field":
         context = _load_context(args.context)
-        payload = hmp.validate_field(args.path, args.value, context=context)
+        payload = validate_field(args.path, args.value, context=context)
         print(json.dumps(payload, indent=2, ensure_ascii=False))
         if not payload.get("valid", False):
             sys.exit(EXIT_CONFIG)
@@ -64,8 +64,8 @@ def _load_context(ctx_path: str | None) -> dict | None:
 
 # Backwards-compat for tests.unit.test_schema_export which imports _cmd_export.
 def _cmd_export(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.dev import export_schema
 
-    written = hmp.export_schema(getattr(args, "output", None) or "schema")
+    written = export_schema(getattr(args, "output", None) or "schema")
     for key, path in written.items():
         print(f"{key}: {path}", file=sys.stderr)

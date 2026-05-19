@@ -20,10 +20,10 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.catalog import gc
 
     try:
-        result = hmp.gc(args.workspace, dry_run=args.dry_run)
+        result = gc(args.workspace, dry_run=args.dry_run)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

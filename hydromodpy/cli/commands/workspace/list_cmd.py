@@ -19,9 +19,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.workspace import list_workspaces
 
-    df = hmp.list_workspaces()
+    df = list_workspaces()
     if df is None or df.empty:
         print("(no registered workspaces)")
         sys.exit(EXIT_OK)

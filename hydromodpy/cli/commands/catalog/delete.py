@@ -32,7 +32,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.catalog import delete_simulation
 
     workspace_root = find_catalog_root(
         Path(getattr(args, "workspace", None) or Path.cwd()).expanduser().resolve()
@@ -52,7 +52,7 @@ def run(args: argparse.Namespace) -> None:
             sys.exit(EXIT_USER_ABORT)
 
     try:
-        result = hmp.delete_simulation(
+        result = delete_simulation(
             args.sim_id,
             workspace=workspace_root,
             keep_storage=args.keep_storage,
@@ -73,7 +73,7 @@ def delete_simulation_artifacts(
     remove_storage: bool = True,
 ) -> dict[str, object]:
     """Legacy helper used by ``hydromodpy.cli.commands.dev.manage``."""
-    from hydromodpy._api import _path_size
+    from hydromodpy.cli._workers.catalog import _path_size
 
     zarr_path = catalog.zarr_path_for(sid)
     parquet_dir = catalog.parquet_dir_for(sid)

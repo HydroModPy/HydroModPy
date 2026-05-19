@@ -20,9 +20,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    import hydromodpy as hmp
+    from hydromodpy.cli._workers.data import prune_data_cache
 
-    n = hmp.prune_data_cache(
+    n = prune_data_cache(
         args.workspace, older_than_days=args.older_than, delete_files=args.delete_files
     )
     print(f"  Pruned {n} entry(ies) older than {args.older_than} day(s).")
