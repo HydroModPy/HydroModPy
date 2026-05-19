@@ -1,4 +1,4 @@
-"""Tests for ``hmp vacuum``."""
+"""Tests for ``hmp catalog vacuum``."""
 
 from __future__ import annotations
 

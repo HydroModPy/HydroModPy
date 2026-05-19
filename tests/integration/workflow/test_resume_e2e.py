@@ -4,7 +4,7 @@ Drives :class:`Pipeline` against a fresh workspace + catalog. A first run
 crashes on step 3, a second run consults the workflow journal to resume
 from step 3 onwards. The test also verifies that the heartbeat thread keeps
 ``last_heartbeat`` fresh during the run, and that a hard-crash leaves a
-stale row visible to ``hmp gc``.
+stale row visible to ``hmp catalog gc``.
 """
 
 from __future__ import annotations
