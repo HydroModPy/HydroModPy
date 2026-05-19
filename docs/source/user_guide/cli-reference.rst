@@ -59,52 +59,24 @@ Command inventory
    * - ``hmp report``
      - Calibration reporting
      - Render the HTML report for a calibration session.
-   * - ``hmp export``
-     - Export
-     - Export geographic data or simulation results to external formats.
-   * - ``hmp export-package``
-     - Export
-     - Bundle a simulation as a portable ``.hmp`` archive (tar.zst with
-       RO-Crate manifest).
+   * - ``hmp data``
+     - Workspace data cache and ``.hmp`` package exchange
+     - ``ls``, ``get``, ``check``, ``add``, ``remove``, ``prune``,
+       ``archive``, ``restore``, ``export``, ``export-package``,
+       ``import``.
    * - ``hmp test``
      - Test runner
      - Run unit, regression, validation, PETSc, or benchmark-oriented test
        subsets.
-   * - ``hmp data``
-     - Data-cache management
-     - Inspect, validate, or register custom data artifacts.
-   * - ``hmp lock``
-     - Reproducibility
-     - Update, verify, archive, or restore the data lockfile.
-   * - ``hmp compare``
-     - Pairwise comparison
-     - Compare two simulations by id, prefix, or name.
-   * - ``hmp add``
-     - Package import
-     - Import a portable ``.hmp`` archive and dematerialize bundled inputs.
-   * - ``hmp import``
-     - Package import
-     - Import a portable ``.hmp`` package into a workspace.
    * - ``hmp doctor``
      - Environment diagnosis
      - Check Python, dependencies, solver binaries, workspace, data cache, and
-       result-storage consistency.
-   * - ``hmp manage``
-     - Local catalog UI
-     - Open a local browser UI for DuckDB tables, result diagnostics, and
-       explicit cleanup or legacy-name normalization of selected result
-       artefacts.
+       result-storage consistency. Also exposed as ``hmp dev doctor``.
    * - ``hmp install-binaries``
      - Solver binaries
      - Download MODFLOW, MODPATH, and MT3D-USGS binaries into the managed
        HydroModPy cache. Use ``--mf6-prt`` when you only need the MODFLOW 6
        executable that contains the PRT model.
-   * - ``hmp rank``
-     - Ranking
-     - Rank simulations for a project by one metric.
-   * - ``hmp completion``
-     - Shell integration
-     - Emit completion scripts for bash, zsh, or fish.
    * - ``hmp privacy``
      - Data governance
      - ``purge`` deletes a simulation with a signed certificate.

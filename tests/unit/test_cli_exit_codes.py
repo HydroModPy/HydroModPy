@@ -105,7 +105,7 @@ def test_compare_missing_workspace_returns_not_found(monkeypatch, tmp_path) -> N
     missing.mkdir()
     code = _run(
         monkeypatch,
-        ["hmp", "compare", "sim_a", "sim_b", "--workspace", str(missing)],
+        ["hmp", "report", "compare", "sim_a", "sim_b", "--workspace", str(missing)],
     )
     assert code == 10
 

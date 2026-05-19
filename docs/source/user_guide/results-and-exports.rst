@@ -64,7 +64,7 @@ CLI reading path
    hmp catalog show <sim_id> --detail
    hmp best my_basin --metric nse
    hmp worst my_basin --metric nse
-   hmp compare <sim_a> <sim_b>
+   hmp report compare <sim_a> <sim_b>
    hmp viz show <sim_id> <figure>
 
 ``sim_id`` accepts a unique prefix. Use ``hmp catalog show --detail`` when you
