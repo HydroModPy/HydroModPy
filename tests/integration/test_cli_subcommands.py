@@ -81,15 +81,15 @@ def test_dev_run_script_help(monkeypatch, capsys) -> None:
 def test_config_check_reports_missing_file(monkeypatch, capsys, tmp_path) -> None:
     missing = tmp_path / "nope.toml"
     code = _run_cli(monkeypatch, ["hmp", "config", "check", str(missing)])
-    assert code == 3
+    assert code == 10
 
 
 def test_config_check_reports_invalid_toml(monkeypatch, capsys, tmp_path) -> None:
-    """Invalid TOML syntax must exit with EXIT_CONFIG=1."""
+    """Invalid TOML syntax must exit with EXIT_CONFIG=14."""
     bad = tmp_path / "bad.toml"
     bad.write_text("[section\nmissing = close_bracket\n", encoding="utf-8")
     code = _run_cli(monkeypatch, ["hmp", "config", "check", str(bad)])
-    assert code == 1
+    assert code == 14
     err = capsys.readouterr().err
     assert "invalid toml" in err.lower() or "config" in err.lower()
 
