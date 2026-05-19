@@ -36,7 +36,7 @@ def _make_workspace_with_catalog(tmp_path: Path) -> Path:
 
 
 def test_vacuum_help_displays(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "vacuum", "--help"])
+    code = _run(monkeypatch, ["hmp", "catalog", "vacuum", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     assert "--catalog" in out
@@ -46,7 +46,7 @@ def test_vacuum_help_displays(monkeypatch, capsys) -> None:
 
 def test_vacuum_basic_invocation(monkeypatch, tmp_path, capsys) -> None:
     workspace = _make_workspace_with_catalog(tmp_path)
-    code = _run(monkeypatch, ["hmp", "vacuum", "--workspace", str(workspace)])
+    code = _run(monkeypatch, ["hmp", "catalog", "vacuum", "--workspace", str(workspace)])
     assert code == 0
     out = capsys.readouterr().out
     assert "catalog_checkpoints" in out
@@ -54,7 +54,9 @@ def test_vacuum_basic_invocation(monkeypatch, tmp_path, capsys) -> None:
 
 def test_vacuum_catalog_only(monkeypatch, tmp_path, capsys) -> None:
     workspace = _make_workspace_with_catalog(tmp_path)
-    code = _run(monkeypatch, ["hmp", "vacuum", "--workspace", str(workspace), "--catalog"])
+    code = _run(
+        monkeypatch, ["hmp", "catalog", "vacuum", "--workspace", str(workspace), "--catalog"]
+    )
     assert code == 0
     out = capsys.readouterr().out
     assert "CHECKPOINT" in out
@@ -62,7 +64,7 @@ def test_vacuum_catalog_only(monkeypatch, tmp_path, capsys) -> None:
 
 def test_vacuum_cache_only_with_no_cache(monkeypatch, tmp_path, capsys) -> None:
     workspace = _make_workspace_with_catalog(tmp_path)
-    code = _run(monkeypatch, ["hmp", "vacuum", "--workspace", str(workspace), "--cache"])
+    code = _run(monkeypatch, ["hmp", "catalog", "vacuum", "--workspace", str(workspace), "--cache"])
     assert code == 0
     out = capsys.readouterr().out
     # cache.duckdb missing -> 0 cache_checkpoints, still success

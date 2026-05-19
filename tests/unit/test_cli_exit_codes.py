@@ -96,7 +96,7 @@ def test_run_unsupported_extension_returns_config(monkeypatch, tmp_path, capsys)
 def test_show_missing_workspace_returns_not_found(monkeypatch, tmp_path, capsys) -> None:
     missing = tmp_path / "empty_ws"
     missing.mkdir()
-    code = _run(monkeypatch, ["hmp", "show", "abcd", "--workspace", str(missing)])
+    code = _run(monkeypatch, ["hmp", "catalog", "show", "abcd", "--workspace", str(missing)])
     assert code == 10
 
 

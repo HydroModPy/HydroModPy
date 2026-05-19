@@ -3,10 +3,10 @@
 Exercises the canonical newcomer flow end-to-end (without running the solver):
 
     hmp init
-    hmp new <project>
+    hmp project new <project>
     hmp config template
     hmp run --dry-run
-    hmp list
+    hmp project list
     hmp doctor
 
 The assertions check that each step surfaces human-readable output and
@@ -53,7 +53,7 @@ def test_new_creates_project_and_files(monkeypatch, capsys, tmp_path) -> None:
     capsys.readouterr()
     _run_cli(
         monkeypatch,
-        ["hmp", "new", "demo_project", "--workspace", str(ws)],
+        ["hmp", "project", "new", "demo_project", "--workspace", str(ws)],
     )
     project_dir = ws / "projects" / "demo_project"
     assert project_dir.is_dir()
@@ -85,7 +85,7 @@ def test_list_empty_workspace(monkeypatch, capsys, tmp_path) -> None:
     capsys.readouterr()
     _run_cli(
         monkeypatch,
-        ["hmp", "list", "--workspace", str(ws)],
+        ["hmp", "project", "list", "--workspace", str(ws)],
     )
     # No projects yet; should just return quietly with exit 0.
     # (``hmp init`` creates projects/ but doesn't put any project inside.)
