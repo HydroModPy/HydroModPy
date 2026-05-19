@@ -1,9 +1,13 @@
-"""``hmp workspace`` family - workspace lifecycle and maintenance commands.
+"""``hmp workspace`` family - workspace lifecycle and global-index commands.
 
 Sub-actions:
 
 - ``hmp workspace init [<path>]``: scaffold a HydroModPy workspace.
 - ``hmp workspace list``: list workspaces registered in the global index.
+- ``hmp workspace register <uri>``: register a workspace in the global index.
+- ``hmp workspace search <term>``: full-text search across registered workspaces.
+- ``hmp workspace forget <workspace_id>``: drop a workspace registration.
+- ``hmp workspace prune``: drop registrations whose catalog.duckdb is missing.
 - ``hmp workspace clean [--dry-run]``: remove generated workspace artefacts.
 """
 
@@ -11,12 +15,22 @@ from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli.commands.workspace import clean, init_cmd, list_cmd
+from hydromodpy.cli.commands.workspace import (
+    clean,
+    forget,
+    init_cmd,
+    list_cmd,
+    prune,
+    search,
+)
+from hydromodpy.cli.commands.workspace import (
+    register as register_cmd,
+)
 
 NAME: str = "workspace"
-HELP: str = "Workspace lifecycle and maintenance commands"
+HELP: str = "Workspace lifecycle, global-index registration, and maintenance"
 
-ACTIONS = (init_cmd, list_cmd, clean)
+ACTIONS = (init_cmd, list_cmd, register_cmd, search, forget, prune, clean)
 
 
 def register(subparsers) -> argparse.ArgumentParser:

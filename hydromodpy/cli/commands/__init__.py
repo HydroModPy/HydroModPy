@@ -23,9 +23,6 @@ from hydromodpy.cli.commands import (
     viz,
     workspace,
 )
-from hydromodpy.cli.commands import (
-    index as index_cmd,
-)
 
 ALL_COMMANDS = (
     workspace,
@@ -42,7 +39,6 @@ ALL_COMMANDS = (
     report,
     doctor,
     install_binaries,
-    index_cmd,
 )
 
 __all__ = ("ALL_COMMANDS",)

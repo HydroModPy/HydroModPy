@@ -1,4 +1,4 @@
-"""Tests for ``hmp index``."""
+"""Tests for ``hmp workspace`` global-index actions (register/search/forget/prune)."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def isolated_state(monkeypatch, tmp_path):
 
 
 def test_index_help_displays(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "index", "--help"])
+    code = _run(monkeypatch, ["hmp", "workspace", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     assert "search" in out
@@ -60,28 +60,28 @@ def test_index_help_displays(monkeypatch, capsys) -> None:
 
 
 def test_index_search_help_displays(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "index", "search", "--help"])
+    code = _run(monkeypatch, ["hmp", "workspace", "search", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     assert "term" in out
 
 
 def test_index_search_empty_returns_zero(monkeypatch, capsys, isolated_state) -> None:
-    code = _run(monkeypatch, ["hmp", "index", "search", "anything"])
+    code = _run(monkeypatch, ["hmp", "workspace", "search", "anything"])
     assert code == 0
     out = capsys.readouterr().out
     assert "No matches" in out
 
 
 def test_index_prune_empty_returns_zero(monkeypatch, capsys, isolated_state) -> None:
-    code = _run(monkeypatch, ["hmp", "index", "prune"])
+    code = _run(monkeypatch, ["hmp", "workspace", "prune"])
     assert code == 0
     out = capsys.readouterr().out
     assert "No stale" in out or "Pruned" in out
 
 
 def test_index_forget_unknown_returns_zero(monkeypatch, capsys, isolated_state) -> None:
-    code = _run(monkeypatch, ["hmp", "index", "forget", "nonexistent-id"])
+    code = _run(monkeypatch, ["hmp", "workspace", "forget", "nonexistent-id"])
     # forget silently no-ops when the row is absent
     assert code == 0
     out = capsys.readouterr().out
@@ -93,7 +93,7 @@ def test_register_workspace_via_cli(monkeypatch, capsys, tmp_path, isolated_stat
     ws = tmp_path / "ws_a"
     _seed_workspace_with_catalog(ws)
 
-    code = _run(monkeypatch, ["hmp", "index", "register", str(ws), "--label", "alpha"])
+    code = _run(monkeypatch, ["hmp", "workspace", "register", str(ws), "--label", "alpha"])
     assert code == 0
     workspace_id = capsys.readouterr().out.strip()
     assert workspace_id
@@ -116,7 +116,7 @@ def test_register_missing_catalog_exits_not_found(
     """Registering a path without ``catalog.duckdb`` returns EXIT_NOT_FOUND."""
     ws = tmp_path / "empty_ws"
     ws.mkdir()
-    code = _run(monkeypatch, ["hmp", "index", "register", str(ws)])
+    code = _run(monkeypatch, ["hmp", "workspace", "register", str(ws)])
     assert code == 10
     err = capsys.readouterr().err
     assert "catalog.duckdb" in err
@@ -124,7 +124,7 @@ def test_register_missing_catalog_exits_not_found(
 
 def test_register_help_mentions_workspace_uri(monkeypatch, capsys) -> None:
     """``hmp index register --help`` documents the workspace_uri arg."""
-    code = _run(monkeypatch, ["hmp", "index", "register", "--help"])
+    code = _run(monkeypatch, ["hmp", "workspace", "register", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     assert "workspace_uri" in out
