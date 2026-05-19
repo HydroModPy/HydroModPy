@@ -355,6 +355,9 @@ For questions or collaboration requests, contact:
    Home <self>
    Get started <getting_started/index>
    User Guide <user_guide/index>
+   Python API <python_api/index>
+   CLI <cli/index>
+   OO Patterns <oo/index>
    Gallery <capability_gallery/index>
    API Reference <api/index>
    Developer <architecture/index>
