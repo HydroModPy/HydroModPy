@@ -1,10 +1,9 @@
-"""``hmp project new`` - create a new project inside a workspace."""
+"""``hmp project new`` - thin wrapper around :func:`hydromodpy.create_project`."""
 
 from __future__ import annotations
 
 import argparse
 import sys
-from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND
 from hydromodpy.core.state.paths import PROJECT_TOML_FILENAME
@@ -15,33 +14,21 @@ HELP: str = "Create a new project inside the workspace"
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    parser.add_argument(
-        "project",
-        help="Project name (will be created under projects/)",
-    )
-    parser.add_argument(
-        "--workspace",
-        default=None,
-        help="Workspace root (default: ~/hydromodpy/)",
-    )
+    parser.add_argument("project", help="Project name (under projects/)")
+    parser.add_argument("--workspace", default=None, help="Workspace root (default: ~/hydromodpy/)")
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.data.scaffold import DEFAULT_ROOT, create_project
+    import hydromodpy as hmp
 
-    workspace_root = Path(args.workspace or DEFAULT_ROOT).expanduser().resolve()
-    layout_ok = (workspace_root / "data").is_dir() or (workspace_root / "projects").is_dir()
-    if not layout_ok:
-        print(
-            f"'{workspace_root}' does not look like a HydroModPy workspace. "
-            "Run 'hmp workspace init <workspace>' first or use --workspace.",
-            file=sys.stderr,
-        )
+    try:
+        project_dir = hmp.create_project(args.project, workspace=args.workspace)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
 
-    project_dir = create_project(workspace_root, args.project)
     print(f"Project created: {project_dir}")
     print()
     print("Files:")

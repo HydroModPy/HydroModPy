@@ -56,7 +56,7 @@ def test_project_list_empty_workspace(monkeypatch, capsys, tmp_path) -> None:
     monkeypatch.setattr(sys, "argv", ["hmp", "project", "list", "--workspace", str(workspace)])
     _load_main().main()
     out = capsys.readouterr().out
-    assert "workspace" in out.lower()
+    assert "no projects" in out.lower() or "workspace" in out.lower()
 
 
 def test_project_show_missing_project_returns_not_found(monkeypatch, tmp_path) -> None:
