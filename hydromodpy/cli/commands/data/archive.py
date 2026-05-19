@@ -1,11 +1,8 @@
-"""``hmp data archive`` - archive the workspace cache to a portable file."""
+"""``hmp data archive`` - thin wrapper around :func:`hydromodpy.archive_data_cache`."""
 
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-
-from hydromodpy.cli.helpers import resolve_workspace
 
 NAME: str = "archive"
 HELP: str = "Archive the cache (data + lockfile) to a portable file"
@@ -20,12 +17,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.data.data_freeze import archive_lockfile
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    import hydromodpy as hmp
 
-    workspace = resolve_workspace(args.workspace)
-    db_path = workspace / "data" / "cache.duckdb"
-    dest = Path(args.output).expanduser().resolve()
-    with DataCatalogDuckDB(db_path) as catalog:
-        archive_lockfile(catalog, dest)
+    dest = hmp.archive_data_cache(args.output, workspace=args.workspace)
     print(f"  Archived cache to {dest}")

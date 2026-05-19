@@ -1,11 +1,8 @@
-"""``hmp data restore`` - restore a cache archive into the workspace."""
+"""``hmp data restore`` - thin wrapper around :func:`hydromodpy.restore_data_cache`."""
 
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-
-from hydromodpy.cli.helpers import resolve_workspace
 
 NAME: str = "restore"
 HELP: str = "Restore a cache archive into the workspace"
@@ -20,10 +17,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.data.data_freeze import restore_archive
+    import hydromodpy as hmp
 
-    workspace = resolve_workspace(args.workspace)
-    src = Path(args.input).expanduser().resolve()
-    dest = workspace / "data" / "imported"
-    restore_archive(src, dest)
+    src = args.input
+    dest = hmp.restore_data_cache(src, workspace=args.workspace)
     print(f"  Restored {src} into {dest}")

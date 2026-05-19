@@ -1,10 +1,8 @@
-"""``hmp data prune`` - drop cache entries older than N days."""
+"""``hmp data prune`` - thin wrapper around :func:`hydromodpy.prune_data_cache`."""
 
 from __future__ import annotations
 
 import argparse
-
-from hydromodpy.cli.helpers import resolve_workspace
 
 NAME: str = "prune"
 HELP: str = "Drop cache entries older than N days"
@@ -22,16 +20,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+    import hydromodpy as hmp
 
-    workspace = resolve_workspace(args.workspace)
-    db_path = workspace / "data" / "cache.duckdb"
-    if not db_path.exists():
-        print(f"  (no cache at {db_path})")
-        return
-    with DataCatalogDuckDB(db_path) as catalog:
-        n = catalog.prune_older_than(
-            days=args.older_than,
-            delete_files=args.delete_files,
-        )
+    n = hmp.prune_data_cache(
+        args.workspace, older_than_days=args.older_than, delete_files=args.delete_files
+    )
     print(f"  Pruned {n} entry(ies) older than {args.older_than} day(s).")
