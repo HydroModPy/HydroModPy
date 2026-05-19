@@ -59,7 +59,7 @@ def test_vacuum_catalog_only(monkeypatch, tmp_path, capsys) -> None:
     )
     assert code == 0
     out = capsys.readouterr().out
-    assert "CHECKPOINT" in out
+    assert "catalog_checkpoints" in out
 
 
 def test_vacuum_cache_only_with_no_cache(monkeypatch, tmp_path, capsys) -> None:

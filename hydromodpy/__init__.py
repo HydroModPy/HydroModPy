@@ -16,8 +16,10 @@ from hydromodpy._api import (
     compare_pair,
     create_project,
     delete_project,
+    delete_simulation,
     doctor,
     forget_workspace,
+    gc,
     index,
     init_workspace,
     list_projects,
@@ -37,6 +39,7 @@ from hydromodpy._api import (
     show_project,
     show_simulation,
     testbed,
+    vacuum,
 )
 from hydromodpy._bootstrap import bootstrap
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
@@ -82,6 +85,9 @@ _DIRECT_EXPORTS = [
     "forget_workspace",
     "prune_workspaces",
     "clean_workspace",
+    "gc",
+    "vacuum",
+    "delete_simulation",
     "bootstrap_proj",
     "doctor",
     "log_manager",
