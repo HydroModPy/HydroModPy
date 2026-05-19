@@ -61,6 +61,7 @@ from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccesso
 from hydromodpy.project.catalog import ProjectCatalog
 from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
 from hydromodpy.project.session import ProjectSession
+from hydromodpy.project.state import PROJECT_ATTR_TO_STATE_FIELD, ProjectState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.data import LoadedDataContext
@@ -84,6 +85,25 @@ class Project:
 
     Builds the geographic/domain/data context once, then allows running
     multiple simulations with parameter overrides.
+
+    Three concerns split the public surface:
+
+    1. **Factory and lifecycle** - constructors (``__init__``, ``lazy``,
+       ``from_toml`` / ``from_json`` / ``from_dict``, ``rerun``), context
+       manager (``__enter__`` / ``__exit__``), ``close``, ``__repr__`` and
+       the inspection / accessor properties (``data``, ``runs``, ``cfg``,
+       ``geographic``, ``domain``, ``store``, ``time_grid``,
+       ``loaded_data``, ``workflow_context``, ``has_mesh``, ``data_loaded``,
+       ``__getitem__``).
+    2. **Model phase** - ``setup_workspace``, ``build_geographic``,
+       ``rebuild_geographic``, ``load_data``, ``reload_data``,
+       ``build_mesh``.
+    3. **Run phase** - ``run``, ``calibrate`` and the prepared-run wrapper
+       ``session()`` returning a :class:`ProjectSession`.
+
+    TOML-only workflows that do not benefit from setup-once state
+    (``overview``, ``mesh``, ``compare``, ``report``) live on
+    :mod:`hydromodpy._api`.
 
     Parameters
     ----------
@@ -146,6 +166,7 @@ class Project:
         """
         from hydromodpy.project import phases as project_phases
 
+        object.__setattr__(self, "_state", ProjectState())
         project_phases.configure(
             self,
             config,
@@ -153,12 +174,35 @@ class Project:
             headless=headless,
             no_display=no_display,
         )
-        self._runner = ProjectRunner(self)
-        self._catalog = ProjectCatalog(self)
+        object.__setattr__(self, "_runner", ProjectRunner(self))
+        object.__setattr__(self, "_catalog", ProjectCatalog(self))
         if not _lazy:
             self.build_geographic()
             self.load_data()
             self.build_mesh()
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Proxy state-field assignments to :attr:`_state`.
+
+        Names declared in :data:`PROJECT_ATTR_TO_STATE_FIELD` are routed to the
+        :class:`ProjectState` container; everything else (``_runner``,
+        ``_catalog``, ``_state`` itself) lives directly on the Project instance.
+        """
+        target = PROJECT_ATTR_TO_STATE_FIELD.get(name)
+        state = self.__dict__.get("_state") if target is not None else None
+        if target is not None and state is not None:
+            object.__setattr__(state, target, value)
+            return
+        object.__setattr__(self, name, value)
+
+    def __getattr__(self, name: str) -> Any:
+        """Forward unknown attribute reads to :attr:`_state` when applicable."""
+        target = PROJECT_ATTR_TO_STATE_FIELD.get(name)
+        if target is not None:
+            state = self.__dict__.get("_state")
+            if state is not None:
+                return getattr(state, target)
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     @classmethod
     def lazy(
