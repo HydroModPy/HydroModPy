@@ -141,7 +141,8 @@ The simulation catalog is queryable from the same CLI:
    hmp rank --metric nse --top 1               # top-ranked run in project
    hmp rank --metric nse --bottom 1            # bottom-ranked run in project
    hmp compare <sim_a> <sim_b>                 # side-by-side comparison
-   hmp display <sim_id> <figure>               # render one figure
+   hmp viz show <sim_id> <figure>              # render one figure
+   hmp viz gallery <config.toml>               # render the [display] gallery
 
 A ``sim_id`` accepts a unique prefix, so ``hmp catalog show ab12`` matches
 the single run starting with ``ab12``.

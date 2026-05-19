@@ -52,12 +52,10 @@ Command inventory
      - Developer diagnostics
      - Inspect internal configuration and workflow surfaces used during
        development.
-   * - ``hmp display``
-     - Figure rendering
-     - Render registered display figures for one persisted simulation.
    * - ``hmp viz``
-     - Visualization helpers
-     - ``serve`` launches the Streamlit configuration UI.
+     - Figure rendering and UI
+     - ``show <sim_ref> <figure>``, ``gallery <config.toml>``, and
+       ``serve`` (Streamlit configuration UI).
    * - ``hmp report``
      - Calibration reporting
      - Render the HTML report for a calibration session.

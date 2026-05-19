@@ -65,7 +65,7 @@ CLI reading path
    hmp best my_basin --metric nse
    hmp worst my_basin --metric nse
    hmp compare <sim_a> <sim_b>
-   hmp display <sim_id>
+   hmp viz show <sim_id> <figure>
 
 ``sim_id`` accepts a unique prefix. Use ``hmp catalog show --detail`` when you
 need file and store details (mesh, Zarr layout), and the plain

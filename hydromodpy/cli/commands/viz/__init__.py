@@ -2,23 +2,22 @@
 
 Sub-actions:
 
+- ``hmp viz show <sim_ref> <figure>``: render one figure for one simulation.
+- ``hmp viz gallery <config.toml>``: render the [display] figure gallery for
+  one or several runs of the TOML.
 - ``hmp viz serve``: launch the Streamlit-based configuration / inspection UI.
-
-``hmp display`` (single-figure render) and ``hmp report`` (HTML report)
-still live at the top level. They will be folded into this family in a
-subsequent iteration of the interface refactor.
 """
 
 from __future__ import annotations
 
 import argparse
 
-from hydromodpy.cli.commands.viz import serve
+from hydromodpy.cli.commands.viz import gallery, serve, show
 
 NAME: str = "viz"
-HELP: str = "Visualization helpers (streamlit UI, future show/gallery)"
+HELP: str = "Visualization helpers (show, gallery, streamlit UI)"
 
-ACTIONS = (serve,)
+ACTIONS = (show, gallery, serve)
 
 
 def register(subparsers) -> argparse.ArgumentParser:
