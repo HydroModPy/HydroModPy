@@ -1,4 +1,4 @@
-"""``hmp workspace list`` - list workspaces registered in the global index."""
+"""``hmp workspace list`` - thin wrapper around :func:`hydromodpy.list_workspaces`."""
 
 from __future__ import annotations
 
@@ -13,21 +13,15 @@ HELP: str = "List workspaces registered in the machine-wide global index"
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Emit a JSON document instead of a formatted table",
-    )
+    parser.add_argument("--json", action="store_true", help="Emit JSON instead of a table")
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.core.state.global_index import GlobalIndex
+    import hydromodpy as hmp
 
-    with GlobalIndex(read_only=True) as gi:
-        df = gi.list_workspaces()
-
+    df = hmp.list_workspaces()
     if df is None or df.empty:
         print("(no registered workspaces)")
         sys.exit(EXIT_OK)

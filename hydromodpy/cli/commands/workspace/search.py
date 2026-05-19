@@ -1,4 +1,4 @@
-"""``hmp workspace search`` - full-text search across registered workspaces."""
+"""``hmp workspace search`` - thin wrapper around :func:`hydromodpy.search_workspaces`."""
 
 from __future__ import annotations
 
@@ -14,26 +14,19 @@ HELP: str = "Full-text search across all workspaces registered in the global ind
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     parser.add_argument("term", help="Free-form search term")
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=20,
-        help="Maximum number of rows to print (default: 20)",
-    )
+    parser.add_argument("--limit", type=int, default=20, help="Maximum rows to print")
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.core.state.global_index import GlobalIndex
+    import hydromodpy as hmp
 
-    with GlobalIndex(read_only=True) as gi:
-        df = gi.search(args.term)
+    df = hmp.search_workspaces(args.term, limit=args.limit)
     if df is None or df.empty:
         print(f"No matches for {args.term!r}.")
         sys.exit(EXIT_OK)
 
-    df = df.head(args.limit)
     columns = [
         c for c in ("workspace_id", "sim_id", "name", "project", "description") if c in df.columns
     ]

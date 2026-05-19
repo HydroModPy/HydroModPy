@@ -1,4 +1,4 @@
-"""``hmp workspace forget`` - drop a workspace registration from the global index."""
+"""``hmp workspace forget`` - thin wrapper around :func:`hydromodpy.forget_workspace`."""
 
 from __future__ import annotations
 
@@ -19,9 +19,8 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.core.state.global_index import GlobalIndex
+    import hydromodpy as hmp
 
-    with GlobalIndex() as gi:
-        gi.forget(args.workspace_id)
+    hmp.forget_workspace(args.workspace_id)
     print(f"Forgot workspace {args.workspace_id}.")
     sys.exit(EXIT_OK)

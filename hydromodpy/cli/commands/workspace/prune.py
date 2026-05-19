@@ -1,4 +1,4 @@
-"""``hmp workspace prune`` - drop registrations whose catalog.duckdb is missing."""
+"""``hmp workspace prune`` - thin wrapper around :func:`hydromodpy.prune_workspaces`."""
 
 from __future__ import annotations
 
@@ -18,10 +18,9 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.core.state.global_index import GlobalIndex
+    import hydromodpy as hmp
 
-    with GlobalIndex() as gi:
-        removed = gi.prune()
+    removed = hmp.prune_workspaces()
     if not removed:
         print("No stale workspaces to prune.")
         sys.exit(EXIT_OK)
