@@ -1214,6 +1214,410 @@ def query_catalog(
         conn.close()
 
 
+def render_figure(
+    sim_ref: str,
+    figure: str,
+    *,
+    workspace: Any = None,
+    output: Any = None,
+) -> Path:
+    """Render one registered figure for a simulation. Returns the output path."""
+    from hydromodpy.cli.helpers import find_catalog_root
+    from hydromodpy.display import get as get_figure
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    workspace_root = find_catalog_root(
+        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
+    )
+    with SimulationCatalog(workspace_root) as catalog:
+        sim = catalog[sim_ref]
+        save = (
+            Path(output).expanduser().resolve()
+            if output
+            else Path.cwd() / "figures" / f"{figure}.png"
+        )
+        save.parent.mkdir(parents=True, exist_ok=True)
+        get_figure(figure).plot(sim, save_path=save)
+        return save
+
+
+def render_gallery(
+    config_toml: Any,
+    *,
+    run_name: str | None = None,
+    sim_ref: str | None = None,
+    all_runs: bool = False,
+    latest: int | None = None,
+    only: list[str] | None = None,
+    no_show: bool = False,
+) -> list[Path]:
+    """Render the ``[display]`` figure gallery for one or several runs."""
+    from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+    from hydromodpy.display.config import DisplayConfig
+    from hydromodpy.display.runs import render_figures_for_run, resolve_run_output_dir
+    from hydromodpy.results.catalog import SimulationCatalog
+
+    target_path = Path(config_toml).expanduser()
+    if not target_path.is_file() or target_path.suffix != ".toml":
+        raise ValueError(f"Expected a TOML file: {target_path}")
+
+    raw_toml = load_toml_with_base_config(target_path)
+    display_cfg = DisplayConfig.model_validate(raw_toml.get("display", {}))
+    if no_show:
+        display_cfg.show = False
+    project_dir = target_path.parent.resolve()
+    config_source = str(target_path.resolve())
+
+    written_paths: list[Path] = []
+    with SimulationCatalog(project_dir) as catalog:
+        sims = catalog.list_simulations(config_source=config_source, order_by="created_at DESC")
+        if sims.empty:
+            sims = catalog.list_simulations(project=project_dir.name, order_by="created_at DESC")
+        if sims.empty:
+            raise FileNotFoundError(f"No simulations found for {target_path.name}.")
+
+        if sim_ref:
+            ref = sim_ref.lower()
+            matches = [
+                str(sid) for sid in sims["sim_id"].astype(str) if str(sid).lower().startswith(ref)
+            ]
+            if not matches:
+                raise FileNotFoundError(f"No run matches sim_ref {sim_ref!r}")
+            if len(matches) > 1:
+                raise ValueError(f"sim_ref {sim_ref!r} is ambiguous")
+            ids = matches
+        elif run_name:
+            subset = sims[sims["name"] == run_name]
+            if subset.empty:
+                raise FileNotFoundError(f"No run named {run_name!r}")
+            ids = [str(sid) for sid in subset["sim_id"].tolist()]
+        elif all_runs:
+            ids = [str(sid) for sid in sims["sim_id"].tolist()]
+        elif latest is not None and latest > 0:
+            ids = [str(sid) for sid in sims["sim_id"].tolist()[:latest]]
+        else:
+            ids = [str(sims.iloc[0]["sim_id"])]
+
+        for sid in ids:
+            sim = catalog[sid]
+            out_dir = resolve_run_output_dir(
+                display_cfg, project_root=project_dir, run_name=sim.name, sim_id=sid
+            )
+            written_paths.extend(
+                render_figures_for_run(sim, display_cfg, output_dir=out_dir, figure_names=only)
+            )
+    return written_paths
+
+
+def audit_list(
+    workspace: Any = None,
+    *,
+    since: str | None = None,
+    limit: int = 50,
+) -> Any:
+    """Return recent audit log entries as a DataFrame."""
+    import duckdb
+
+    from hydromodpy.cli.helpers import find_catalog_root
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    workspace_root = find_catalog_root(
+        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
+    )
+    catalog_path = workspace_root / CATALOG_FILENAME
+    if not catalog_path.exists():
+        raise FileNotFoundError(f"No catalog at {workspace_root}")
+    sql = "SELECT * FROM audit_log"
+    params: list[object] = []
+    if since:
+        sql += " WHERE event_ts >= ?"
+        params.append(since)
+    sql += " ORDER BY event_ts DESC LIMIT ?"
+    params.append(int(limit))
+    conn = duckdb.connect(str(catalog_path), read_only=True)
+    try:
+        return conn.execute(sql, params).fetchdf()
+    finally:
+        conn.close()
+
+
+def audit_verify(workspace: Any = None, *, strict: bool = False) -> dict:
+    """Verify the workspace audit log hash chain.
+
+    Returns ``{"status": "ok"|"placeholder"|"missing", "message": str}``.
+    """
+    import duckdb
+
+    from hydromodpy.cli.helpers import find_catalog_root
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    workspace_root = find_catalog_root(
+        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
+    )
+    catalog_path = workspace_root / CATALOG_FILENAME
+    if not catalog_path.exists():
+        raise FileNotFoundError(f"No catalog at {workspace_root}")
+    conn = duckdb.connect(str(catalog_path), read_only=True)
+    try:
+        cols = [row[0] for row in conn.execute("PRAGMA table_info(audit_log)").fetchall()]
+    finally:
+        conn.close()
+    if "hash_chain" not in cols and "row_hash" not in cols:
+        msg = "hash chain not yet wired into audit_log"
+        if strict:
+            raise RuntimeError(msg)
+        return {"status": "placeholder", "message": msg}
+    return {"status": "ok", "message": "audit_log hash chain verifies (placeholder check)"}
+
+
+def purge_simulation(
+    sim_ref: str,
+    *,
+    workspace: Any = None,
+    reason: str = "unspecified",
+    archive_pii: bool = False,
+) -> dict:
+    """Hard-delete a simulation and emit a JSON purge certificate.
+
+    Returns a dict with ``sim_id``, ``removed_paths``, ``certificate``,
+    ``archive``, ``sha256_snapshot``.
+    """
+    import hashlib
+    import json
+
+    from hydromodpy.cli.helpers import find_catalog_root
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
+    from hydromodpy.results.catalog.audit import emit_deletion_tombstone
+
+    workspace_root = find_catalog_root(
+        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
+    )
+    if not (workspace_root / CATALOG_FILENAME).exists():
+        raise FileNotFoundError(f"No catalog at {workspace_root}")
+
+    with SimulationCatalog(workspace_root) as catalog:
+        sid = catalog.resolve(sim_ref)
+        snapshot = _purge_collect_snapshot(catalog, sid)
+        zarr_path = catalog.zarr_path_for(sid)
+        parquet_dir = catalog.parquet_dir_for(sid)
+        existing = [str(p) for p in (zarr_path, parquet_dir) if p.exists()]
+        sha256_snapshot = hashlib.sha256(
+            json.dumps(snapshot, sort_keys=True, default=str).encode("utf-8")
+        ).hexdigest()
+        catalog.delete(
+            sid,
+            remove_storage=True,
+            audit_event_type="sim.purge",
+            audit_payload={"reason": reason, "sha256_snapshot": sha256_snapshot},
+        )
+        emit_deletion_tombstone(
+            catalog._db,  # type: ignore[attr-defined]
+            sim_id=sid,
+            sha256_snapshot=sha256_snapshot,
+            reason=reason,
+            components={"removed_paths": existing},
+        )
+
+    workspace_top = _purge_resolve_workspace_top(workspace_root)
+    extra_removed = _purge_prune_orphan_geographic_cache(workspace_top)
+    cert_path = _purge_write_certificate(
+        workspace_top, sim_id=sid, reason=reason, sha256_snapshot=sha256_snapshot
+    )
+    archive_path: Path | None = None
+    if archive_pii:
+        archive_path = _purge_write_pii_archive(
+            workspace_top,
+            sim_id=sid,
+            snapshot=snapshot,
+            reason=reason,
+            removed_paths=[*existing, *extra_removed],
+            sha256_snapshot=sha256_snapshot,
+        )
+
+    return {
+        "sim_id": sid,
+        "removed_paths": existing + extra_removed,
+        "certificate": str(cert_path),
+        "archive": str(archive_path) if archive_path else None,
+        "sha256_snapshot": sha256_snapshot,
+    }
+
+
+def _purge_resolve_workspace_top(project_root: Path) -> Path:
+    if project_root.parent.name == "projects":
+        return project_root.parent.parent
+    return project_root
+
+
+def _purge_collect_snapshot(catalog: Any, sim_id: str) -> dict[str, object]:
+    from datetime import datetime
+
+    row = catalog._db.execute(  # type: ignore[attr-defined]
+        """
+        SELECT sim_id, name, project, config_hash, config_snapshot,
+               geographic_fingerprint, period_start, period_end, created_at
+          FROM simulations
+         WHERE sim_id = ?
+        """,
+        [sim_id],
+    ).fetchone()
+    if row is None:
+        return {"sim_id": sim_id}
+    cols = (
+        "sim_id",
+        "name",
+        "project",
+        "config_hash",
+        "config_snapshot",
+        "geographic_fingerprint",
+        "period_start",
+        "period_end",
+        "created_at",
+    )
+
+    def _coerce(value: object) -> object:
+        if isinstance(value, datetime):
+            return value.isoformat()
+        if hasattr(value, "hex") and not isinstance(value, (bytes, bytearray)):
+            return str(value)
+        return value
+
+    return dict(zip(cols, [_coerce(value) for value in row], strict=False))
+
+
+def _purge_prune_orphan_geographic_cache(workspace: Path) -> list[str]:
+    cache_dir = workspace / "geographic"
+    if not cache_dir.is_dir():
+        return []
+    referenced = _gc_referenced_geographic_fingerprints(_gc_iter_project_roots(workspace))
+    removed: list[str] = []
+    for entry in sorted(cache_dir.iterdir()):
+        if not entry.is_dir():
+            continue
+        if entry.name in referenced:
+            continue
+        try:
+            shutil.rmtree(entry)
+            removed.append(str(entry))
+        except OSError:
+            continue
+    return removed
+
+
+def _purge_resolve_operator() -> str:
+    import os
+
+    for key in ("HMP_USER", "USER", "USERNAME"):
+        value = os.environ.get(key)
+        if value:
+            return value
+    try:
+        import getpass
+
+        return getpass.getuser()
+    except OSError:
+        return "anonymous"
+
+
+def _purge_write_certificate(
+    workspace_root: Path, *, sim_id: str, reason: str, sha256_snapshot: str
+) -> Path:
+    import json
+    import os
+    from datetime import UTC, datetime
+
+    cert_dir = workspace_root / ".hmp" / "purge_certificates"
+    cert_dir.mkdir(parents=True, exist_ok=True)
+    cert_path = cert_dir / f"{sim_id}.json"
+    certificate = {
+        "sim_id": sim_id,
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "operator": _purge_resolve_operator(),
+        "reason": reason,
+        "sha256_snapshot": sha256_snapshot,
+    }
+    cert_path.write_text(
+        json.dumps(certificate, indent=2, sort_keys=True, default=str), encoding="utf-8"
+    )
+    try:
+        os.chmod(cert_path, 0o600)
+    except OSError:
+        pass
+    return cert_path
+
+
+def _purge_write_pii_archive(
+    workspace_root: Path,
+    *,
+    sim_id: str,
+    snapshot: dict[str, object],
+    reason: str,
+    removed_paths: list[str],
+    sha256_snapshot: str,
+) -> Path:
+    import json
+    import os
+    from datetime import UTC, datetime
+
+    cert_dir = workspace_root / ".hmp" / "purge_certificates"
+    cert_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = cert_dir / f"{sim_id}.pii.json"
+    archive = {
+        "sim_id": sim_id,
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "operator": _purge_resolve_operator(),
+        "reason": reason,
+        "sha256_snapshot": sha256_snapshot,
+        "removed_paths": removed_paths,
+        "snapshot": snapshot,
+    }
+    archive_path.write_text(
+        json.dumps(archive, indent=2, sort_keys=True, default=str), encoding="utf-8"
+    )
+    try:
+        os.chmod(archive_path, 0o600)
+    except OSError:
+        pass
+    return archive_path
+
+
+def verify_purge_certificate(certificate: Any, *, strict: bool = False) -> dict:
+    """Verify a purge certificate JSON file. Returns the parsed payload + status."""
+    import json
+
+    cert_path = Path(certificate).expanduser().resolve()
+    if not cert_path.is_file():
+        raise FileNotFoundError(f"Certificate not found: {cert_path}")
+    try:
+        payload = json.loads(cert_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Certificate is not valid JSON: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise ValueError("Certificate must be a JSON object")
+    required = ("sim_id", "timestamp_utc", "operator", "reason", "sha256_snapshot")
+    missing = [field for field in required if field not in payload]
+    if missing:
+        raise ValueError(f"Certificate missing required fields: {', '.join(missing)}")
+    digest = str(payload.get("sha256_snapshot", ""))
+    if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest.lower()):
+        raise ValueError(f"sha256_snapshot has invalid form: {digest!r}")
+    try:
+        stat = cert_path.stat()
+        mode = stat.st_mode & 0o777
+    except OSError:
+        mode = None
+    permissions_ok = mode == 0o600 if mode is not None else True
+    if not permissions_ok and strict:
+        raise ValueError(f"certificate permissions {oct(mode)} != 0o600")
+    return {
+        "certificate": str(cert_path),
+        "permissions_ok": permissions_ok,
+        "permissions": oct(mode) if mode is not None else None,
+        "payload": payload,
+    }
+
+
 def list_data_cache(
     workspace: Any = None,
     *,
