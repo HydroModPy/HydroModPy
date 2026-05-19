@@ -11,6 +11,7 @@ import importlib
 from hydromodpy import catalog  # noqa: F401  --  expose ``hmp.catalog`` namespace
 from hydromodpy._api import (
     calibrate,
+    compare,
     compare_pair,
     doctor,
     index,
@@ -48,6 +49,7 @@ _DIRECT_EXPORTS = [
     "calibrate",
     "index",
     "overview",
+    "compare",
     "compare_pair",
     "mesh",
     "testbed",

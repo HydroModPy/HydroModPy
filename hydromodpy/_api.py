@@ -288,6 +288,52 @@ def overview(config: Any, **kwargs: Any) -> Any:
     return dispatch_workflow(workflow, config_path, **kwargs)
 
 
+def compare(config: Any) -> Any:
+    """Run the comparison workflow declared by a TOML file.
+
+    Equivalent to ``hmp run cmp.toml`` when the file declares
+    ``[workflow] mode = "comparison"``. For pairwise metric tables between two
+    persisted simulations, see :func:`compare_pair`.
+
+    Parameters
+    ----------
+    config
+        TOML file containing ``[workflow] mode = "comparison"``.
+
+    Returns
+    -------
+    Any
+        Comparison workflow summary.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the TOML path does not exist.
+    hydromodpy.core.exceptions.ConfigError
+        If the TOML payload fails validation or has the wrong workflow mode.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.compare("comparison.toml")
+
+    See Also
+    --------
+    compare_pair
+        Pairwise metric comparison between two already-persisted simulations.
+    """
+    from hydromodpy.project.dispatch.workflow import dispatch_workflow
+    from hydromodpy.workflow.dispatch import resolve_workflow
+
+    config_path = Path(config).expanduser().resolve()
+    workflow = resolve_workflow(
+        config_path,
+        cli_workflow="comparison",
+        require_toml_field=True,
+    )
+    return dispatch_workflow(workflow, config_path)
+
+
 def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     """Compare two simulations by id or result object.
 
@@ -326,6 +372,10 @@ def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
 def testbed(toml_path: Any) -> Any:
     """Run a TOML-driven method testbed.
 
+    Delegates to the workflow dispatcher (``run_testbed``) so the launcher
+    resolution (``TestbedLauncher`` vs ``RegionalLabProfileLauncher``) matches
+    the CLI path. The profile is read from the TOML payload.
+
     Parameters
     ----------
     toml_path
@@ -348,9 +398,9 @@ def testbed(toml_path: Any) -> Any:
     >>> import hydromodpy as hmp
     >>> hmp.testbed("testbed_methods.toml")
     """
-    from hydromodpy.analysis.testbed.runtime import TestbedLauncher
+    from hydromodpy.project.dispatch.workflow import run_testbed
 
-    return TestbedLauncher(toml_path).run()
+    return run_testbed(Path(toml_path).expanduser().resolve())
 
 
 def mesh(toml_path: Any) -> dict:

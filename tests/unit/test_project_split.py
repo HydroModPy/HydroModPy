@@ -46,9 +46,17 @@ def test_project_no_longer_exposes_prepared_run_primitives() -> None:
 
 
 def test_project_keeps_canonical_run_phase_verbs() -> None:
-    """``Project`` keeps the high-level run-phase verbs used by the CLI."""
-    for name in ("run", "calibrate", "mesh", "report", "overview", "compare"):
+    """``Project`` keeps the high-level run-phase verbs that benefit from setup-once state."""
+    for name in ("run", "calibrate"):
         assert hasattr(Project, name), f"Project lost canonical verb {name!r}"
+
+
+def test_project_drops_toml_only_workflow_verbs() -> None:
+    """TOML-only workflows live on ``hmp._api``, not on ``Project``."""
+    for name in ("overview", "compare", "mesh", "report"):
+        assert not hasattr(Project, name), (
+            f"Project still exposes {name!r}; the canonical entry point is hmp.{name}()"
+        )
 
 
 def test_project_keeps_model_phase_verbs() -> None:

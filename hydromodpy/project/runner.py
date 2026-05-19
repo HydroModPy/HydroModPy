@@ -1,11 +1,13 @@
 """Run-phase orchestration for :class:`hydromodpy.project.Project`.
 
-Holds the high-level workflow entry points: ``run``, ``simulate``,
-``sweep``, ``calibrate``, ``mesh`` and ``report``. The prepared-run
-primitives (``prepare``, ``execute``, ``ingest``, ``render``,
-``cleanup``) live in :mod:`hydromodpy.project.prepared_run` and are
-composed into the runner so the legacy ``project._runner.prepare(...)``
-access pattern keeps working.
+Holds the high-level workflow entry points kept on ``Project``: ``run``,
+``simulate``, ``sweep`` and ``calibrate``. The prepared-run primitives
+(``prepare``, ``execute``, ``ingest``, ``render``, ``cleanup``) live in
+:mod:`hydromodpy.project.prepared_run` and are composed into the runner so
+the legacy ``project._runner.prepare(...)`` access pattern keeps working.
+
+TOML-only workflows that do not benefit from setup-once state (``overview``,
+``mesh``, ``compare``, ``report``) live in :mod:`hydromodpy._api`.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, ResumeError
+from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.prepared_run import DEFAULT_RUN_NAME_TEMPLATE, ProjectPreparedRun
 
@@ -412,47 +414,6 @@ class ProjectRunner:
             name_template=name_template,
         )
         return SimulationGroup(sim_ids, self._project._store)
-
-    def mesh(self) -> dict:
-        """Run the standalone mesh-only workflow defined by this project."""
-        project = self._project
-        if project._config_path is not None:
-            from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
-
-            return MeshCatchmentLauncher(project._config_path).run()
-        if project.cfg.mesh_catchment is None:
-            raise ConfigMissingError(
-                "Project.mesh() requires cfg.mesh_catchment when Project was "
-                "created from an in-memory HydroModPyConfig."
-            )
-
-        project.build_mesh()
-        return dict(project._ctx.setup.mesh_summary or {})
-
-    def report(self, session_id: str | None = None) -> Path:
-        """Render the HTML report for a calibration session."""
-        from hydromodpy.calibration.report import resolve_calibration_session_id
-        from hydromodpy.results.catalog import SimulationCatalog
-        from hydromodpy.workflow.steps.calibration import (
-            step_render_calibration_report,
-        )
-
-        project = self._project
-        workspace_root = self._resolve_workspace_path()
-        catalog = project._store
-        owns_catalog = catalog is None
-        if owns_catalog:
-            catalog = SimulationCatalog(workspace_root)
-        try:
-            full_id = resolve_calibration_session_id(catalog, session_id)
-            return step_render_calibration_report(
-                catalog=catalog,
-                session_id=full_id,
-                workspace_root=workspace_root,
-            )
-        finally:
-            if owns_catalog:
-                catalog.close()
 
     # -- Helpers ----------------------------------------------------------
 

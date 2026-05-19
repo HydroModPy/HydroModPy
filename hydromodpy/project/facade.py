@@ -17,12 +17,17 @@ The facade is composed of four cohesive helpers:
   prepared-run primitives (``prepare`` / ``execute`` / ``ingest`` /
   ``render`` / ``cleanup``).
 - :class:`hydromodpy.project.runner.ProjectRunner` (``project._runner``):
-  internal runner for ``run`` / ``calibrate`` / ``mesh`` / ``report``.
+  internal runner for ``run`` / ``calibrate``.
 - :class:`hydromodpy.project.catalog.ProjectCatalog` (``project._catalog``):
   catalog access (``store``, ``runs``, ``data``) and lifecycle (``close``).
 - :mod:`hydromodpy.project.phases`: model-phase verbs that mutate the
   project directly (``configure``, ``setup_workspace``, ``build_geographic``,
   ``load_data``, ``build_mesh``).
+
+Workflows that run from a TOML payload but do not benefit from setup-once
+state (``overview``, ``mesh``, ``compare``, ``report``) are not methods on
+``Project``. Use :mod:`hydromodpy._api` (``hmp.overview``, ``hmp.mesh``,
+``hmp.compare``, ``hmp.report``) instead.
 
 Example
 -------
@@ -50,7 +55,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, PipelineError
+from hydromodpy.core.exceptions import ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project.catalog import ProjectCatalog
@@ -487,10 +492,9 @@ class Project:
         """Return the run-phase orchestration facade bound to this project.
 
         ``session`` exposes the prepared-run primitives (``prepare``,
-        ``execute``, ``ingest``, ``render``, ``cleanup``) plus
-        ``simulate`` and ``sweep``. The top-level verbs ``run``,
-        ``calibrate``, ``mesh``, ``report``, ``overview`` and
-        ``compare`` remain on :class:`Project` for the common case.
+        ``execute``, ``ingest``, ``render``, ``cleanup``) plus ``simulate``
+        and ``sweep``. The high-level verbs ``run`` and ``calibrate`` remain
+        on :class:`Project` for the common case.
         """
         return ProjectSession(self)
 
@@ -569,60 +573,6 @@ class Project:
             no_display=no_display,
             **overrides,
         )
-
-    def overview(self, *, config_path: str | Path | None = None):
-        """Generate the watershed identity card.
-
-        Parameters
-        ----------
-        config_path
-            Optional path to the overview TOML. Defaults to the project's
-            originating TOML when one is available.
-
-        Returns
-        -------
-        Any
-            Overview launcher result.
-
-        Raises
-        ------
-        ConfigError
-            If no TOML path is available for the overview workflow.
-        """
-        from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
-
-        path = config_path if config_path is not None else self._config_path
-        if path is None:
-            raise ConfigError("project.overview() requires a TOML path for now")
-        return DataOverviewLauncher(path).run()
-
-    def compare(self, *, config_path: str | Path | None = None):
-        """Run the comparison workflow declared in a TOML config.
-
-        Parameters
-        ----------
-        config_path
-            Optional path to the comparison TOML. Defaults to the project's
-            originating TOML when one is available.
-
-        Returns
-        -------
-        Any
-            Comparison launcher result.
-
-        Raises
-        ------
-        ConfigError
-            If no TOML path is available for the comparison workflow.
-        """
-        from hydromodpy.analysis.comparison.experiment_launcher import (
-            SimulationComparisonLauncher,
-        )
-
-        path = config_path if config_path is not None else self._config_path
-        if path is None:
-            raise ConfigError("project.compare() requires a TOML path for now")
-        return SimulationComparisonLauncher(path).run()
 
     def calibrate(
         self,
@@ -736,44 +686,6 @@ class Project:
             objective=kwargs.get("objective"),
             return_report=kwargs.get("return_report", True),
         )
-
-    def mesh(self) -> dict:
-        """Run the standalone mesh-only workflow defined by this project.
-
-        Returns
-        -------
-        dict
-            Mesh launcher summary payload.
-
-        Raises
-        ------
-        MeshGenerationError
-            If the mesh generator fails to produce a valid mesh.
-        """
-        return self._runner.mesh()
-
-    def report(self, session_id: str | None = None) -> Path:
-        """Render the HTML report for a calibration session.
-
-        Parameters
-        ----------
-        session_id
-            Calibration session UUID. ``None`` falls back to the latest
-            session in the workspace.
-
-        Returns
-        -------
-        pathlib.Path
-            Path to the rendered HTML report.
-
-        Raises
-        ------
-        RunNotFoundError
-            If ``session_id`` cannot be resolved in the catalog.
-        DisplayError
-            If the report template fails to render.
-        """
-        return self._runner.report(session_id)
 
     # -- Lifecycle --------------------------------------------------------
 
