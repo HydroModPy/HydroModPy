@@ -74,6 +74,20 @@ def register(subparsers) -> argparse.ArgumentParser:
         ),
     )
 
+    verify = sub.add_parser(
+        "verify",
+        help="Verify a purge certificate JSON (schema, permissions, fields)",
+    )
+    verify.add_argument(
+        "certificate",
+        help="Path to a purge certificate JSON file",
+    )
+    verify.add_argument(
+        "--strict",
+        action="store_true",
+        help="Require POSIX permissions 0o600 (default: warn but pass)",
+    )
+
     parser.set_defaults(_handler=run)
     return parser
 
@@ -83,8 +97,58 @@ def run(args: argparse.Namespace) -> None:
     if sub == "purge":
         _cmd_purge(args)
         return
-    print("Usage: hmp privacy {purge} [options]", file=sys.stderr)
+    if sub == "verify":
+        _cmd_verify(args)
+        return
+    print("Usage: hmp privacy {purge|verify} [options]", file=sys.stderr)
     sys.exit(EXIT_CONFIG)
+
+
+def _cmd_verify(args: argparse.Namespace) -> None:
+    """Verify a purge certificate file: schema, fields, optional permissions."""
+    cert_path = Path(args.certificate).expanduser().resolve()
+    if not cert_path.is_file():
+        print(f"Certificate not found: {cert_path}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    try:
+        payload = json.loads(cert_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"Certificate is not valid JSON: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+    if not isinstance(payload, dict):
+        print("Certificate must be a JSON object", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    required = ("sim_id", "timestamp_utc", "operator", "reason", "sha256_snapshot")
+    missing = [field for field in required if field not in payload]
+    if missing:
+        print(f"Certificate missing required fields: {', '.join(missing)}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    digest = str(payload.get("sha256_snapshot", ""))
+    if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest.lower()):
+        print(f"sha256_snapshot has invalid form: {digest!r}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    try:
+        stat = cert_path.stat()
+        mode = stat.st_mode & 0o777
+    except OSError:
+        mode = None
+    if mode is not None and mode != 0o600:
+        message = f"WARNING: certificate permissions {oct(mode)}, expected 0o600"
+        if args.strict:
+            print(message, file=sys.stderr)
+            sys.exit(EXIT_CONFIG)
+        print(message, file=sys.stderr)
+
+    print(f"OK: certificate {cert_path} verifies")
+    print(f"  sim_id      : {payload['sim_id']}")
+    print(f"  timestamp   : {payload['timestamp_utc']}")
+    print(f"  operator    : {payload['operator']}")
+    print(f"  sha256      : {payload['sha256_snapshot'][:16]}...")
+    sys.exit(EXIT_OK)
 
 
 def _cmd_purge(args: argparse.Namespace) -> None:

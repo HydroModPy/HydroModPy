@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from hydromodpy.cli.commands import (
     add,
+    audit,
+    calibrate,
     catalog,
     compare,
     completion,
@@ -30,6 +32,7 @@ from hydromodpy.cli.commands import (
     run,
     schema,
     test,
+    viz,
     workspace,
 )
 from hydromodpy.cli.commands import (
@@ -43,6 +46,7 @@ ALL_COMMANDS = (
     config_cmd,
     schema,
     run,
+    calibrate,
     dev,
     display,
     report,
@@ -60,6 +64,8 @@ ALL_COMMANDS = (
     rank,
     completion,
     privacy,
+    audit,
+    viz,
     index_cmd,
 )
 
