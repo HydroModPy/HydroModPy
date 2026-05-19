@@ -1,4 +1,4 @@
-"""``hmp init`` - scaffold a HydroModPy data workspace."""
+"""``hmp workspace init`` - scaffold a HydroModPy data workspace."""
 
 from __future__ import annotations
 
@@ -76,7 +76,9 @@ def run(args: argparse.Namespace) -> None:
     auto_register_workspace(result, label=args.project_name or result.name)
 
     print(f"Workspace: {result}")
-    print(f"Scaffolded at {result}/. Create projects with `hmp new <name> --workspace {result}`.")
+    print(
+        f"Scaffolded at {result}/. Create projects with `hmp project new <name> --workspace {result}`."
+    )
     print()
     print("Layout:")
     print(f"  {result}/{WORKSPACE_TOML_FILENAME}")

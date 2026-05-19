@@ -1,4 +1,4 @@
-"""``hmp workspace`` - manage workspace-level runtime artifacts."""
+"""``hmp workspace clean`` - remove generated workspace artifacts."""
 
 from __future__ import annotations
 
@@ -10,50 +10,44 @@ from pathlib import Path
 from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, find_workspace_root
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 
-NAME: str = "workspace"
-HELP: str = "Manage a HydroModPy workspace"
+NAME: str = "clean"
+HELP: str = "Remove generated workspace artifacts"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    commands = parser.add_subparsers(dest="workspace_command", required=True)
-
-    clean = commands.add_parser(
-        "clean",
-        help="Remove generated workspace artifacts",
-    )
-    clean.add_argument("--workspace", default=None, help="Workspace root")
-    clean.add_argument("--all", action="store_true", help="Clean every generated artifact group")
-    clean.add_argument(
+    parser.add_argument("--workspace", default=None, help="Workspace root")
+    parser.add_argument("--all", action="store_true", help="Clean every generated artifact group")
+    parser.add_argument(
         "--results",
         action="store_true",
         help="Remove project catalog.duckdb files and simulations/ folders",
     )
-    clean.add_argument(
+    parser.add_argument(
         "--data-cache", action="store_true", help="Remove data/cache.duckdb and data/blobs/"
     )
-    clean.add_argument("--runtime", action="store_true", help="Remove .hmp/")
-    clean.add_argument("--exports", action="store_true", help="Remove exports/")
-    clean.add_argument(
+    parser.add_argument("--runtime", action="store_true", help="Remove .hmp/")
+    parser.add_argument("--exports", action="store_true", help="Remove exports/")
+    parser.add_argument(
         "--scratch", action="store_true", help="Remove project .solver_scratch/ folders"
     )
-    clean.add_argument("--figures", action="store_true", help="Remove project figures/ folders")
-    clean.add_argument("-y", "--yes", action="store_true", help="Delete without dry-run")
-
+    parser.add_argument("--figures", action="store_true", help="Remove project figures/ folders")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="List paths that would be removed without deleting them",
+    )
+    parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        help="Delete without confirmation (alias of disabling --dry-run)",
+    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    command = getattr(args, "workspace_command", None)
-    if command == "clean":
-        _cmd_clean(args)
-        return
-    print("Usage: hmp workspace {clean} [options]", file=sys.stderr)
-    sys.exit(EXIT_CONFIG)
-
-
-def _cmd_clean(args: argparse.Namespace) -> None:
     workspace = _resolve_workspace(getattr(args, "workspace", None))
     groups = _selected_groups(args)
     if not groups:
@@ -67,12 +61,13 @@ def _cmd_clean(args: argparse.Namespace) -> None:
         print(f"No generated artifacts found in {workspace}.")
         return
 
-    action = "Deleting" if args.yes else "Dry-run, would delete"
+    dry = bool(getattr(args, "dry_run", False)) or not args.yes
+    action = "Dry-run, would delete" if dry else "Deleting"
     print(f"{action} {len(existing)} path(s) in {workspace}:")
     for target in existing:
         print(f"  {target}")
 
-    if not args.yes:
+    if dry:
         print("Re-run with --yes to delete.")
         return
 
@@ -98,7 +93,7 @@ def _selected_groups(args: argparse.Namespace) -> set[str]:
     groups: set[str] = set()
     if args.results:
         groups.add("results")
-    if args.data_cache:
+    if getattr(args, "data_cache", False):
         groups.add("data_cache")
     if args.runtime:
         groups.add("runtime")

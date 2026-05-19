@@ -20,7 +20,6 @@ from hydromodpy.cli.commands import (
     export,
     export_package,
     import_cmd,
-    init,
     install_binaries,
     lock,
     manage,
@@ -38,7 +37,7 @@ from hydromodpy.cli.commands import (
 )
 
 ALL_COMMANDS = (
-    init,
+    workspace,
     project,
     catalog,
     config_cmd,
@@ -59,7 +58,6 @@ ALL_COMMANDS = (
     manage,
     install_binaries,
     rank,
-    workspace,
     completion,
     privacy,
     index_cmd,

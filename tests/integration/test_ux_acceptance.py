@@ -2,7 +2,7 @@
 
 Exercises the canonical newcomer flow end-to-end (without running the solver):
 
-    hmp init
+    hmp workspace init
     hmp project new <project>
     hmp config template
     hmp run --dry-run
@@ -39,7 +39,7 @@ def _run_cli(monkeypatch, argv: list[str], *, expect_exit: bool = False) -> int:
 
 def test_init_creates_workspace(monkeypatch, capsys, tmp_path) -> None:
     ws = tmp_path / "workspace"
-    _run_cli(monkeypatch, ["hmp", "init", "--path", str(ws)])
+    _run_cli(monkeypatch, ["hmp", "workspace", "init", "--path", str(ws)])
     assert ws.is_dir()
     assert (ws / "projects").is_dir()
     assert (ws / "data").is_dir()
@@ -49,7 +49,7 @@ def test_init_creates_workspace(monkeypatch, capsys, tmp_path) -> None:
 
 def test_new_creates_project_and_files(monkeypatch, capsys, tmp_path) -> None:
     ws = tmp_path / "workspace"
-    _run_cli(monkeypatch, ["hmp", "init", "--path", str(ws)])
+    _run_cli(monkeypatch, ["hmp", "workspace", "init", "--path", str(ws)])
     capsys.readouterr()
     _run_cli(
         monkeypatch,
@@ -81,7 +81,7 @@ def test_run_dry_run_surfaces_plan(monkeypatch, capsys, tmp_path) -> None:
 
 def test_list_empty_workspace(monkeypatch, capsys, tmp_path) -> None:
     ws = tmp_path / "workspace"
-    _run_cli(monkeypatch, ["hmp", "init", "--path", str(ws)])
+    _run_cli(monkeypatch, ["hmp", "workspace", "init", "--path", str(ws)])
     capsys.readouterr()
     _run_cli(
         monkeypatch,
