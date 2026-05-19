@@ -133,8 +133,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     :class:`~hydromodpy.workflow.dispatch.WorkflowMissingError` is raised and
     the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
     """
+    import hydromodpy as hmp
     from hydromodpy.display.banner import print_hydromodpy
-    from hydromodpy.project.dispatch.workflow import DISPATCH
     from hydromodpy.workflow.dispatch import (
         WorkflowError,
         resolve_workflow,
@@ -208,11 +208,9 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
-    runner = DISPATCH[workflow]
-
     try:
         if workflow == "simulation":
-            summary = runner(
+            summary = hmp.run(
                 run_path,
                 resume=resume,
                 from_step=from_step,
@@ -221,7 +219,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
                 frozen=frozen,
             )
         else:
-            summary = runner(run_path)
+            summary = hmp.run(run_path)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_USER_ABORT)

@@ -48,26 +48,18 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.calibration.report import resolve_calibration_session_id
+    import hydromodpy as hmp
     from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
-    from hydromodpy.results.catalog import SimulationCatalog
-    from hydromodpy.workflow.steps.calibration import step_render_calibration_report
 
     workspace_root = args.workspace or find_catalog_root(Path.cwd())
-    with SimulationCatalog(workspace_root) as catalog:
-        try:
-            session_id = resolve_calibration_session_id(catalog, args.session_id)
-        except ConfigMissingError as exc:
-            print(str(exc), file=sys.stderr)
-            sys.exit(EXIT_NOT_FOUND)
-        except ConfigError as exc:
-            print(str(exc), file=sys.stderr)
-            sys.exit(EXIT_CONFIG)
-        out_path = step_render_calibration_report(
-            catalog=catalog,
-            session_id=session_id,
-            workspace_root=workspace_root,
-        )
+    try:
+        out_path = hmp.report(args.session_id, workspace=workspace_root)
+    except ConfigMissingError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+    except ConfigError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
     print(f"wrote {out_path}", file=sys.stderr)
     if args.open_browser:
         import webbrowser

@@ -117,7 +117,7 @@ def test_register_missing_catalog_exits_not_found(
     ws = tmp_path / "empty_ws"
     ws.mkdir()
     code = _run(monkeypatch, ["hmp", "index", "register", str(ws)])
-    assert code == 3
+    assert code == 10
     err = capsys.readouterr().err
     assert "catalog.duckdb" in err
 

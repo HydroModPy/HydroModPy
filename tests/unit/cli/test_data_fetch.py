@@ -80,7 +80,7 @@ def test_data_fetch_unknown_variable_fails(monkeypatch, tmp_path, capsys) -> Non
         monkeypatch,
         ["hmp", "data", "fetch", "not_a_var", "--workspace", str(workspace)],
     )
-    assert code == 1
+    assert code == 14
     err = capsys.readouterr().err
     assert "Unknown variable" in err
 

@@ -22,12 +22,18 @@ Command inventory
    * - Command
      - Main role
      - Typical use
-   * - ``hmp init``
-     - Workspace setup
-     - Create the catalog, data cache, projects folder, and simulation folder.
-   * - ``hmp new``
-     - Project scaffolding
-     - Create a new project and starter TOML files inside a workspace.
+   * - ``hmp workspace``
+     - Workspace lifecycle
+     - ``init`` scaffolds a workspace, ``list`` enumerates registered
+       workspaces, ``clean`` removes generated artefacts.
+   * - ``hmp project``
+     - Project lifecycle
+     - ``new``, ``list``, ``show``, ``delete`` (the last requires
+       ``--force`` outside a TTY).
+   * - ``hmp catalog``
+     - Catalog browsing and maintenance
+     - ``ls``, ``query "<SQL>"``, ``show <sim_id> [--detail]``,
+       ``gc``, ``vacuum``, ``delete``.
    * - ``hmp config``
      - Configuration tooling
      - Generate templates, validate TOML files, list modules, or open the
@@ -38,8 +44,10 @@ Command inventory
    * - ``hmp run``
      - Workflow execution
      - Execute ``simulation``, ``overview``, ``calibration``,
-       ``comparison``, or ``testbed`` TOML workflows, or run a
-       Python prototype script.
+       ``comparison``, or ``testbed`` TOML workflows.
+   * - ``hmp calibrate``
+     - Calibration shortcut
+     - Top-level wrapper around ``hmp.calibrate(<toml>)``.
    * - ``hmp dev``
      - Developer diagnostics
      - Inspect internal configuration and workflow surfaces used during
@@ -47,12 +55,12 @@ Command inventory
    * - ``hmp display``
      - Figure rendering
      - Render registered display figures for one persisted simulation.
+   * - ``hmp viz``
+     - Visualization helpers
+     - ``serve`` launches the Streamlit configuration UI.
    * - ``hmp report``
      - Calibration reporting
      - Render the HTML report for a calibration session.
-   * - ``hmp list``
-     - Catalog browsing
-     - List projects or runs in a workspace.
    * - ``hmp export``
      - Export
      - Export geographic data or simulation results to external formats.
@@ -70,9 +78,6 @@ Command inventory
    * - ``hmp lock``
      - Reproducibility
      - Update, verify, archive, or restore the data lockfile.
-   * - ``hmp show``
-     - Run summary
-     - Show metadata, metrics, and parameters for a simulation.
    * - ``hmp compare``
      - Pairwise comparison
      - Compare two simulations by id, prefix, or name.
@@ -86,9 +91,6 @@ Command inventory
      - Environment diagnosis
      - Check Python, dependencies, solver binaries, workspace, data cache, and
        result-storage consistency.
-   * - ``hmp inspect``
-     - Run inspection
-     - Inspect metadata, mesh, status, files, and persisted artifacts.
    * - ``hmp manage``
      - Local catalog UI
      - Open a local browser UI for DuckDB tables, result diagnostics, and
@@ -102,25 +104,17 @@ Command inventory
    * - ``hmp rank``
      - Ranking
      - Rank simulations for a project by one metric.
-   * - ``hmp delete``
-     - Catalog cleanup
-     - Delete a simulation from DuckDB and remove its Zarr store.
-   * - ``hmp workspace``
-     - Workspace utilities
-     - Inspect or initialize workspace paths and storage conventions.
    * - ``hmp completion``
      - Shell integration
      - Emit completion scripts for bash, zsh, or fish.
-   * - ``hmp gc``
-     - Maintenance
-     - Garbage-collect orphan calibration sessions, geographic_cache, tmp
-       parquet, and stale running simulations.
-   * - ``hmp vacuum``
-     - Maintenance
-     - CHECKPOINT DuckDB catalogs and consolidate Zarr metadata.
    * - ``hmp privacy``
      - Data governance
-     - Hard-delete a simulation and emit a JSON purge certificate.
+     - ``purge`` deletes a simulation with a signed certificate.
+       ``verify`` validates an existing certificate.
+   * - ``hmp audit``
+     - Workspace audit log
+     - ``list`` prints recent events. ``verify`` replays the hash chain
+       (placeholder until the chain is wired).
    * - ``hmp index``
      - Cross-workspace discovery
      - Search, forget, or prune entries of the machine-wide global index.

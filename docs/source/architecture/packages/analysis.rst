@@ -35,7 +35,7 @@ Each analysis subsystem is reachable through:
   or ``"testbed"`` and routes to the matching launcher under
   ``analysis/``. Regional campaigns use ``"testbed"`` with
   ``[testbed].profile = "regional_lab"``.
-- The Python facade: ``Project.compare()`` / ``Project.testbed()``.
+- The Python facade: ``hmp.compare(toml)`` / ``hmp.testbed(toml)``.
 - Direct primitives under ``analysis/<subsystem>/`` for embedding
   inside another analysis loop.
 

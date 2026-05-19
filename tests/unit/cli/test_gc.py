@@ -1,4 +1,4 @@
-"""Tests for ``hmp gc``."""
+"""Tests for ``hmp catalog gc``."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def _make_project_with_catalog(workspace: Path, project_name: str = "demo") -> P
 
 
 def test_gc_help_displays(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "gc", "--help"])
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     assert "usage" in out.lower()
@@ -52,7 +52,7 @@ def test_gc_help_displays(monkeypatch, capsys) -> None:
 
 def test_gc_dry_run_on_empty_workspace(monkeypatch, tmp_path, capsys) -> None:
     workspace = _make_minimal_workspace(tmp_path)
-    code = _run(monkeypatch, ["hmp", "gc", "--workspace", str(workspace), "--dry-run"])
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--dry-run"])
     assert code == 0
     out = capsys.readouterr().out
     assert "[dry-run]" in out
@@ -64,7 +64,7 @@ def test_gc_dry_run_on_empty_workspace(monkeypatch, tmp_path, capsys) -> None:
 
 def test_gc_basic_invocation_no_targets(monkeypatch, tmp_path, capsys) -> None:
     workspace = _make_minimal_workspace(tmp_path)
-    code = _run(monkeypatch, ["hmp", "gc", "--workspace", str(workspace)])
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace)])
     assert code == 0
     out = capsys.readouterr().out
     assert "Summary" in out
@@ -74,7 +74,7 @@ def test_gc_removes_tmp_parquet(monkeypatch, tmp_path, capsys) -> None:
     workspace = _make_minimal_workspace(tmp_path)
     tmp_file = workspace / "data" / "spurious.tmp-abc.parquet"
     tmp_file.write_bytes(b"x")
-    code = _run(monkeypatch, ["hmp", "gc", "--workspace", str(workspace)])
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace)])
     assert code == 0
     assert not tmp_file.exists()
 
@@ -85,7 +85,7 @@ def test_gc_removes_orphan_geographic_cache(monkeypatch, tmp_path, capsys) -> No
     cache_dir.mkdir(parents=True)
     (cache_dir / "blob.bin").write_bytes(b"y")
 
-    code = _run(monkeypatch, ["hmp", "gc", "--workspace", str(workspace)])
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace)])
     assert code == 0
     assert not cache_dir.exists()
 
@@ -94,7 +94,7 @@ def test_gc_dry_run_does_not_remove_anything(monkeypatch, tmp_path) -> None:
     workspace = _make_minimal_workspace(tmp_path)
     tmp_file = workspace / "data" / "still.tmp-keep.parquet"
     tmp_file.write_bytes(b"keep")
-    code = _run(monkeypatch, ["hmp", "gc", "--workspace", str(workspace), "--dry-run"])
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace), "--dry-run"])
     assert code == 0
     assert tmp_file.exists()
 
@@ -129,7 +129,7 @@ def test_gc_marks_stale_running_simulation(monkeypatch, tmp_path) -> None:
     finally:
         conn.close()
 
-    code = _run(monkeypatch, ["hmp", "gc", "--workspace", str(workspace)])
+    code = _run(monkeypatch, ["hmp", "catalog", "gc", "--workspace", str(workspace)])
     assert code == 0
 
     conn = duckdb.connect(str(cat_path), read_only=True)

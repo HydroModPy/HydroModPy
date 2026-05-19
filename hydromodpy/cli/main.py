@@ -2,6 +2,10 @@
 
 Builds the argparse tree from :mod:`hydromodpy.cli.commands` and invokes
 the subcommand handler attached via ``parser.set_defaults(_handler=...)``.
+Unhandled exceptions are mapped to typed exit codes by
+:func:`hydromodpy.cli.helpers.exit_code_for` so the shell sees a meaningful
+status (POSIX-conventional 130 for SIGINT, 10..19 for specific failure
+categories).
 """
 
 from __future__ import annotations
@@ -11,7 +15,7 @@ import platform
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_OK
+from hydromodpy.cli.helpers import EXIT_OK, exit_code_for
 
 
 def _version_string() -> str:
@@ -61,7 +65,12 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Parse ``argv`` and dispatch to the matching subcommand."""
+    """Parse ``argv`` and dispatch to the matching subcommand.
+
+    Unhandled exceptions raised by a subcommand handler are routed through
+    :func:`hydromodpy.cli.helpers.exit_code_for` so the shell sees the right
+    typed exit code. ``SystemExit`` propagates unchanged.
+    """
     parser = _build_parser()
     args = parser.parse_args(argv)
 
@@ -69,7 +78,14 @@ def main(argv: list[str] | None = None) -> None:
     if handler is None:
         parser.print_help()
         sys.exit(EXIT_OK)
-    handler(args)
+    try:
+        handler(args)
+    except SystemExit:
+        raise
+    except BaseException as exc:
+        message = str(exc) or type(exc).__name__
+        print(message, file=sys.stderr)
+        sys.exit(exit_code_for(exc))
 
 
 if __name__ == "__main__":

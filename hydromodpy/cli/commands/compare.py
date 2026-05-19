@@ -25,7 +25,7 @@ def register(subparsers) -> argparse.ArgumentParser:
 
 
 def run(args: argparse.Namespace) -> None:
-    from hydromodpy.analysis.comparison.pairwise import compare_pair
+    import hydromodpy as hmp
     from hydromodpy.results.catalog import (
         AmbiguousReferenceError,
         SimulationNotFoundError,
@@ -39,7 +39,7 @@ def run(args: argparse.Namespace) -> None:
         sys.exit(EXIT_NOT_FOUND)
 
     try:
-        df = compare_pair(args.sim_a, args.sim_b, workspace=workspace_root)
+        df = hmp.compare_pair(args.sim_a, args.sim_b, workspace=workspace_root)
     except (AmbiguousReferenceError, SimulationNotFoundError) as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

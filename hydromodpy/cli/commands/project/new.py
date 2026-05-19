@@ -1,4 +1,4 @@
-"""``hmp new`` - create a new project inside a workspace."""
+"""``hmp project new`` - create a new project inside a workspace."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ def run(args: argparse.Namespace) -> None:
     if not layout_ok:
         print(
             f"'{workspace_root}' does not look like a HydroModPy workspace. "
-            "Run 'hmp init <workspace>' first or use --workspace.",
+            "Run 'hmp workspace init <workspace>' first or use --workspace.",
             file=sys.stderr,
         )
         sys.exit(EXIT_NOT_FOUND)

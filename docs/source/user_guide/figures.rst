@@ -59,7 +59,7 @@ with:
 
 .. code-block:: bash
 
-   hmp inspect <sim_id>
-   hmp show <sim_id>
+   hmp catalog show <sim_id> --detail
+   hmp catalog show <sim_id>
 
 For low-level display objects, see :doc:`../api/index`.

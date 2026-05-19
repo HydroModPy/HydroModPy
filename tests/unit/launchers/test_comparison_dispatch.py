@@ -74,12 +74,16 @@ def test_dispatch_rejects_comparison_without_simulations(tmp_path: Path) -> None
         resolve_comparison_launcher(config_path)
 
 
-def test_project_compare_invokes_simulation_comparison_launcher(
-    monkeypatch, tmp_path: Path
-) -> None:
-    from hydromodpy.project import Project
+def test_hmp_compare_invokes_simulation_comparison_launcher(monkeypatch, tmp_path: Path) -> None:
+    import hydromodpy as hmp
 
-    config_path = tmp_path / "comparison.toml"
+    config_path = _write_toml(
+        tmp_path / "comparison.toml",
+        '[workflow]\nmode = "comparison"\n'
+        "[comparison]\nbase_simulation_config = 'base.toml'\n"
+        "[[comparison.simulation]]\nid = 'sim_a'\nsolver = 'modflow6'\n"
+        "[[comparison.observable]]\nname = 'head'\nvariable = 'head'\ncell_index = 0\n",
+    )
     captured: dict[str, object] = {}
 
     class FakeSimulationComparisonLauncher:
@@ -94,10 +98,7 @@ def test_project_compare_invokes_simulation_comparison_launcher(
         FakeSimulationComparisonLauncher,
     )
 
-    project = object.__new__(Project)
-    project._config_path = config_path
+    summary = hmp.compare(config_path)
 
-    summary = project.compare()
-
-    assert captured["path"] == config_path
+    assert captured["path"] == config_path.resolve()
     assert summary == {"launcher": "simulation_comparison"}

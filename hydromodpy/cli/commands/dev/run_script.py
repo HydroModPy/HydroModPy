@@ -1,4 +1,4 @@
-"""Developer-only CLI helpers."""
+"""``hmp dev run-script`` - run a Python prototype script outside ``hmp run``."""
 
 from __future__ import annotations
 
@@ -9,38 +9,23 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import EXIT_NOT_FOUND
 
-NAME: str = "dev"
-HELP: str = "Run developer-only commands"
+NAME: str = "run-script"
+HELP: str = "Run a Python prototype script outside the stable hmp run contract"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    commands = parser.add_subparsers(dest="dev_command", required=True)
-
-    script = commands.add_parser(
-        "run-script",
-        help="Run a Python prototype script outside the stable hmp run contract",
-    )
-    script.add_argument("script", type=Path, help="Path to a Python script")
-    script.add_argument(
+    parser.add_argument("script", type=Path, help="Path to a Python script")
+    parser.add_argument(
         "script_args",
         nargs=argparse.REMAINDER,
         help="Arguments forwarded to the Python script",
     )
-    script.set_defaults(_handler=run_script)
+    parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
-    """Dispatch a developer command."""
-    handler = getattr(args, "_handler", None)
-    if handler is None:
-        raise SystemExit(2)
-    handler(args)
-
-
-def run_script(args: argparse.Namespace) -> None:
-    """Run a Python prototype script as a subprocess."""
     from hydromodpy.display.banner import print_hydromodpy
 
     script_path = Path(args.script).expanduser().resolve()

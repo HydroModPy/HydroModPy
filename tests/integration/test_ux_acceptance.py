@@ -2,11 +2,11 @@
 
 Exercises the canonical newcomer flow end-to-end (without running the solver):
 
-    hmp init
-    hmp new <project>
+    hmp workspace init
+    hmp project new <project>
     hmp config template
     hmp run --dry-run
-    hmp list
+    hmp project list
     hmp doctor
 
 The assertions check that each step surfaces human-readable output and
@@ -39,7 +39,7 @@ def _run_cli(monkeypatch, argv: list[str], *, expect_exit: bool = False) -> int:
 
 def test_init_creates_workspace(monkeypatch, capsys, tmp_path) -> None:
     ws = tmp_path / "workspace"
-    _run_cli(monkeypatch, ["hmp", "init", "--path", str(ws)])
+    _run_cli(monkeypatch, ["hmp", "workspace", "init", "--path", str(ws)])
     assert ws.is_dir()
     assert (ws / "projects").is_dir()
     assert (ws / "data").is_dir()
@@ -49,11 +49,11 @@ def test_init_creates_workspace(monkeypatch, capsys, tmp_path) -> None:
 
 def test_new_creates_project_and_files(monkeypatch, capsys, tmp_path) -> None:
     ws = tmp_path / "workspace"
-    _run_cli(monkeypatch, ["hmp", "init", "--path", str(ws)])
+    _run_cli(monkeypatch, ["hmp", "workspace", "init", "--path", str(ws)])
     capsys.readouterr()
     _run_cli(
         monkeypatch,
-        ["hmp", "new", "demo_project", "--workspace", str(ws)],
+        ["hmp", "project", "new", "demo_project", "--workspace", str(ws)],
     )
     project_dir = ws / "projects" / "demo_project"
     assert project_dir.is_dir()
@@ -64,7 +64,7 @@ def test_config_template_generates_toml(monkeypatch, tmp_path) -> None:
     out = tmp_path / "cfg.toml"
     _run_cli(
         monkeypatch,
-        ["hmp", "config", "template", str(out), "--profile", "user"],
+        ["hmp", "dev", "config", "template", str(out), "--profile", "user"],
     )
     assert out.is_file()
     assert out.stat().st_size > 0
@@ -81,11 +81,11 @@ def test_run_dry_run_surfaces_plan(monkeypatch, capsys, tmp_path) -> None:
 
 def test_list_empty_workspace(monkeypatch, capsys, tmp_path) -> None:
     ws = tmp_path / "workspace"
-    _run_cli(monkeypatch, ["hmp", "init", "--path", str(ws)])
+    _run_cli(monkeypatch, ["hmp", "workspace", "init", "--path", str(ws)])
     capsys.readouterr()
     _run_cli(
         monkeypatch,
-        ["hmp", "list", "--workspace", str(ws)],
+        ["hmp", "project", "list", "--workspace", str(ws)],
     )
     # No projects yet; should just return quietly with exit 0.
     # (``hmp init`` creates projects/ but doesn't put any project inside.)
@@ -101,7 +101,7 @@ def test_doctor_reports_without_crash(monkeypatch, capsys) -> None:
 
 def test_completion_all_shells(monkeypatch, capsys) -> None:
     for shell in ("bash", "zsh", "fish"):
-        _run_cli(monkeypatch, ["hmp", "completion", shell])
+        _run_cli(monkeypatch, ["hmp", "dev", "completion", shell])
         out = capsys.readouterr().out
         assert len(out) > 0
         assert any(token in out for token in ("hmp", "_hmp"))

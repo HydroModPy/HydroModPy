@@ -87,8 +87,9 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     """Drive ``hmp init`` + ``hmp data fetch`` + catalog access end-to-end."""
     workspace = tmp_path / "fresh_workspace"
 
-    # ----- Step 1: hmp init --------------------------------------------------
+    # ----- Step 1: hmp workspace init ----------------------------------------
     result = _run_hmp(
+        "workspace",
         "init",
         str(workspace),
         "--project-name",
@@ -99,7 +100,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         "test@example.com",
     )
     assert result.returncode == 0, (
-        f"`hmp init` failed (rc={result.returncode}).\n"
+        f"`hmp workspace init` failed (rc={result.returncode}).\n"
         f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
     assert workspace.is_dir()
