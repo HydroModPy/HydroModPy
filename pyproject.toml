@@ -168,6 +168,7 @@ exclude = ["hydromodpy_annex*"]
 hydromodpy = ["py.typed"]
 "hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
+"hydromodpy.cli.commands.dev.manage.static" = ["*.html"]
 
 [tool.coverage.run]
 source = [
