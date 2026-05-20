@@ -36,6 +36,7 @@ tolerances:
   - {src: "<root>",    tgt: project,  reason: "root facade lazy-resolves Project through hydromodpy.project"}
   - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
   - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
+  - {src: core,        tgt: physics,  reason: "core.time.tmesh_* uses FlowRegime/normalize_flow_regime to validate steady vs transient stress periods"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a

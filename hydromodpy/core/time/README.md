@@ -1,6 +1,6 @@
 # Temporal
 
-`hydromodpy/solver/utils/temporal/` contains the time-discretization layer used
+`hydromodpy/core/time/` contains the time-discretization layer used
 to build solver stress periods.
 
 - `tmesh_generation.py`: temporal mesh/grid generation class (`TmeshGenerator`).

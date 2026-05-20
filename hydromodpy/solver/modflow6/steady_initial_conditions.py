@@ -9,13 +9,13 @@ from pathlib import Path
 import flopy
 import numpy as np
 
+from hydromodpy.core.time.steady_initialization import (
+    single_period_mean_forcing_time_grid,
+)
 from hydromodpy.solver.modflow_common import ModflowPreprocessOptions, ModflowRunOptions
 from hydromodpy.solver.steady_initial_conditions import (
     flow_uses_steady_state_initial_condition,
     steady_flow_copy_for_initialization,
-)
-from hydromodpy.solver.utils.temporal.steady_initialization import (
-    single_period_mean_forcing_time_grid,
 )
 
 _STEADY_INIT_DVCLOSE_MIN = 1e-3

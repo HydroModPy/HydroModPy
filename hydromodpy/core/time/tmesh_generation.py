@@ -16,9 +16,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.time.tmesh_config import TMeshConfig
 from hydromodpy.core.units import factor_to_seconds, to_pandas_timedelta_unit
 from hydromodpy.physics.flow.regime import normalize_flow_regime
-from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 
 _VALID_FLOW_REGIMES = {"steady", "transient"}
 _VALID_GEN_METHODS = {"synthetic_regular", "from_chron"}
