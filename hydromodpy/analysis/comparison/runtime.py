@@ -16,13 +16,13 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison._solver_protocol import (
-    get_solver_registry_provider,
-)
 from hydromodpy.analysis.comparison.config import (
     ComparisonObservable,
     ComparisonSimulation,
     RuntimeComparisonConfig,
+)
+from hydromodpy.core.contracts.solver_registry import (
+    get_solver_registry_provider,
 )
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.solver_diagnostics import (
@@ -180,8 +180,7 @@ def _candidate_solver_sections(solver_name: str | None = None) -> tuple[str, ...
         sections.append(str(solver_name).strip().lower())
 
     provider = get_solver_registry_provider()
-    if provider is not None:
-        sections.extend(provider.distributed_flow_solver_sections())
+    sections.extend(provider.distributed_flow_solver_sections())
 
     return tuple(dict.fromkeys(section for section in sections if section))
 

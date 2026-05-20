@@ -14,8 +14,8 @@ from hydromodpy.core.config_kit.types import (
     IdentifierStr,
     TimePeriodUnit,
 )
+from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.core.units import normalize_time_unit, parse_scalar_and_unit
-from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
 from hydromodpy.simulation.planning.results_config import ResultsConfig
 
 _VALID_STEP_UNITS = {"hour", "day", "month", "year"}

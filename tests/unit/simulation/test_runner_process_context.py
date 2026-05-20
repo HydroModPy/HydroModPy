@@ -59,13 +59,13 @@ def test_runner_ensures_process_context_before_before_process_callback(monkeypat
         ("flow", "modflow_nwt"): flow_adapter,
         ("transport", "mt3dms"): transport_adapter,
     }
-    from hydromodpy.simulation import _solver_protocol
+    from hydromodpy.core.contracts import solver_registry
 
     class _FakeProvider:
         def get_solver_adapter(self, process_type, solver_name):
             return adapters[(process_type, solver_name)]
 
-    monkeypatch.setattr(_solver_protocol, "_PROVIDER", _FakeProvider())
+    monkeypatch.setattr(solver_registry, "_PROVIDER", _FakeProvider())
 
     observations: dict[str, tuple[bool, bool]] = {}
     state = _build_state()
@@ -150,13 +150,13 @@ def test_run_solver_step_uses_injected_launcher() -> None:
 
 
 def test_runner_records_mesh_process_without_solver_adapter(monkeypatch) -> None:
-    from hydromodpy.simulation import _solver_protocol
+    from hydromodpy.core.contracts import solver_registry
 
     class _Provider:
         def get_solver_adapter(self, process_type, solver_name):
             raise AssertionError("mesh process should not request a solver adapter")
 
-    monkeypatch.setattr(_solver_protocol, "_PROVIDER", _Provider())
+    monkeypatch.setattr(solver_registry, "_PROVIDER", _Provider())
     state = _build_state()
     state.setup.mesh_summary = {"output_mesh": "mesh.msh", "n_cells": 12}
     plan = SimulationPlan(

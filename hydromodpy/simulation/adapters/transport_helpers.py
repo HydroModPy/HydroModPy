@@ -7,7 +7,7 @@ rather than leaking into a specific solver backend.
 
 from __future__ import annotations
 
-from hydromodpy.simulation._solver_protocol import get_solver_registry_provider
+from hydromodpy.core.contracts.solver_registry import get_solver_registry_provider
 from hydromodpy.simulation.planning.plan import ProcessRun, RunContext, SimulationPlan
 
 
