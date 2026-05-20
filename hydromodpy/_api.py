@@ -185,7 +185,6 @@ def run(config: Any, **kwargs: Any) -> Any:
     headless = bool(kwargs.pop("headless", False))
 
     if isinstance(config, (str, Path)):
-        from hydromodpy.project import Project
         from hydromodpy.project.dispatch.workflow import dispatch_workflow
         from hydromodpy.workflow.dispatch import resolve_workflow
 
@@ -195,9 +194,6 @@ def run(config: Any, **kwargs: Any) -> Any:
             cli_workflow=None,
             require_toml_field=True,
         )
-        if workflow == "simulation":
-            with Project(config_path, headless=headless) as project:
-                return project.run(**kwargs)
         return dispatch_workflow(workflow, config_path, **kwargs)
 
     from hydromodpy.project import Project
