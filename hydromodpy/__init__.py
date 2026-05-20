@@ -10,6 +10,7 @@ import importlib
 # so the verbs in `hydromodpy/_api` are re-exported here on purpose.
 from hydromodpy import catalog  # noqa: F401  --  expose ``hmp.catalog`` namespace
 from hydromodpy._api import (
+    audit_prune,
     calibrate,
     compare,
     compare_pair,
@@ -54,6 +55,7 @@ _DIRECT_EXPORTS = [
     "mesh",
     "testbed",
     "report",
+    "audit_prune",
     "bootstrap_proj",
     "doctor",
     "log_manager",
