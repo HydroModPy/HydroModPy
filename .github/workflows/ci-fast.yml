@@ -96,10 +96,15 @@ jobs:
 
       # Keep the unit tier serial on CI: xdist workers can terminate inside
       # native geospatial stacks and leave the job stuck near completion.
-      - name: Run unit tests (without whitebox backend)
+      # Whitebox-heavy tiers (backend + geographic + delineation) run in
+      # their own pytest invocations because the native binding accumulates
+      # state across DEM workflows and aborts after several runs in one process.
+      - name: Run unit tests (without whitebox-heavy tiers)
         run: |
           python -m pytest tests/unit/ \
             --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/geographic \
+            --ignore=tests/unit/delineation \
             -q \
             --cov=hydromodpy \
             --cov-report=
@@ -110,6 +115,24 @@ jobs:
             --cov=hydromodpy \
             --cov-append \
             --cov-report=
+
+      - name: Run delineation tests (fresh process per file)
+        run: |
+          for f in tests/unit/delineation/test_*.py; do
+            python -m pytest "$f" -q \
+              --cov=hydromodpy \
+              --cov-append \
+              --cov-report= || exit 1
+          done
+
+      - name: Run geographic tests (fresh process per file)
+        run: |
+          for f in tests/unit/geographic/test_*.py; do
+            python -m pytest "$f" -q \
+              --cov=hydromodpy \
+              --cov-append \
+              --cov-report= || exit 1
+          done
 
       - name: Report coverage
         if: always()
