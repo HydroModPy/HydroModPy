@@ -1,4 +1,4 @@
-"""Adapter for the ``transport/modflow6prt`` solver pair."""
+"""Adapter for the ``transport/modflow6_prt`` solver pair."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def _prt_output_suffix(runs: list[ProcessRun], run: ProcessRun) -> str:
     prt_runs = [
         planned
         for planned in runs
-        if planned.process_type == "transport" and planned.solver == "modflow6prt"
+        if planned.process_type == "transport" and planned.solver == "modflow6_prt"
     ]
     for index, planned in enumerate(prt_runs, start=1):
         if planned.id == run.id:
@@ -28,10 +28,10 @@ def _prt_output_suffix(runs: list[ProcessRun], run: ProcessRun) -> str:
 
 
 class Modflow6PrtTransportAdapter:
-    """Adapter for ``transport/modflow6prt`` particle tracking runs."""
+    """Adapter for ``transport/modflow6_prt`` particle tracking runs."""
 
     process_type = "transport"
-    solver_name = "modflow6prt"
+    solver_name = "modflow6_prt"
     requires: tuple[tuple[str, str], ...] = (("flow", "modflow6"),)
     produces_particles: bool = True
 
