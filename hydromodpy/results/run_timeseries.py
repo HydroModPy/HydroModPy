@@ -301,11 +301,11 @@ class RunTimeseriesMixin:
         ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
         ``zone_id``).
         """
-        rows = self._catalog.connection.execute(
+        rows = self._catalog.backend.fetch_all(
             "SELECT param_name, value FROM parameters "
             "WHERE sim_id = ? AND (zone_id IS NULL OR zone_id = ?)",
             [self._sim_id, "__global__"],
-        ).fetchall()
+        )
         return {name: float(val) for name, val in rows}
 
     def recharge_forcing(self) -> pd.Series:
