@@ -211,6 +211,14 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     if resume is not None:
         _emit_config_replay_audit(run_path, resume=str(resume))
 
+    if frozen:
+        try:
+            _verify_frozen_inputs_strict(run_path, raw_toml)
+        except FrozenVerificationError as exc:
+            print(f"--frozen: {exc}", file=sys.stderr)
+            _cleanup_effective_toml(effective_path, source=config_path)
+            sys.exit(EXIT_CONFIG)
+
     try:
         if workflow == "simulation":
             summary = hmp.run(
@@ -250,6 +258,60 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         if value is None:
             continue
         print(f"  {key}: {value}", file=sys.stderr)
+
+
+class FrozenVerificationError(RuntimeError):
+    """Raised when ``--frozen`` finds a lockfile drift before running anything."""
+
+
+def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) -> None:
+    """Verify the workspace lockfile before launching a ``--frozen`` run.
+
+    Walks the same workspace-resolution logic as the post-run lockfile
+    writer, opens the data cache, and calls
+    :func:`hydromodpy.data.data_freeze.verify_inputs_strict` against the
+    project's ``hydromodpy.lock``. Any mismatch aborts the run.
+    """
+    from hydromodpy.data.data_freeze import (
+        LOCKFILE_NAME,
+        verify_inputs_strict,
+    )
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None
+    project_root = config_path.parent
+    if isinstance(workspace_payload, dict):
+        declared = workspace_payload.get("project_root")
+        if declared:
+            candidate = Path(declared).expanduser()
+            if not candidate.is_absolute():
+                candidate = (config_path.parent / candidate).resolve()
+            project_root = candidate
+
+    lockfile_path = project_root / LOCKFILE_NAME
+    if not lockfile_path.is_file():
+        raise FrozenVerificationError(
+            f"hydromodpy.lock not found at {lockfile_path}; --frozen requires a prior run."
+        )
+
+    data_dir = _resolve_workspace_data_dir(workspace_payload, project_root)
+    db_path = data_dir / "cache.duckdb"
+    if not db_path.is_file():
+        raise FrozenVerificationError(
+            f"Data cache not found at {db_path}; --frozen requires a populated workspace."
+        )
+
+    try:
+        with DataCatalogDuckDB(db_path) as catalog:
+            mismatches = verify_inputs_strict(catalog, lockfile_path)
+    except Exception as exc:  # noqa: BLE001 - any catalog error aborts the run
+        raise FrozenVerificationError(f"Could not verify lockfile {lockfile_path}: {exc}") from exc
+    if mismatches:
+        first = mismatches[0]
+        raise FrozenVerificationError(
+            f"{len(mismatches)} lockfile mismatch(es); first: "
+            f"{first.kind} on {first.path} (variable={first.variable})"
+        )
 
 
 def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
