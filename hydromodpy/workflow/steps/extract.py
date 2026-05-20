@@ -34,7 +34,7 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str) -> None:
     Observation ingestion is part of the scientific record. Failures abort
     the run instead of leaving the catalog half populated.
     """
-    from hydromodpy.simulation.extraction.extractors.observation_ingest import (
+    from hydromodpy.simulation.extraction.derivation.observation_ingest import (
         ingest_observations,
     )
 

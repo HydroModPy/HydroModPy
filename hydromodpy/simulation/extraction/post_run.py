@@ -169,7 +169,7 @@ def derive_run_outputs(
 
     # Phase 3: aggregate catchment timeseries from spatial fields
     if getattr(extractor, "category", None) != "lumped":
-        from hydromodpy.simulation.extraction.extractors.catchment_aggregation import (
+        from hydromodpy.simulation.extraction.derivation.catchment_aggregation import (
             aggregate_catchment_timeseries,
         )
 

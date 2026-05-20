@@ -175,7 +175,7 @@ class RunTimeseriesMixin:
 
         Observation series are persisted in the catalog ``timeseries`` table
         with an ``_obs`` suffix on the variable name (see
-        :func:`hydromodpy.simulation.extraction.extractors.observation_ingest.ingest_observations`).
+        :func:`hydromodpy.simulation.extraction.derivation.observation_ingest.ingest_observations`).
         This accessor strips that suffix on read so callers query with the
         canonical variable name (``discharge``, ``head``, ...).
 

@@ -551,7 +551,7 @@ class Modflow6OutputAdapter:
         config: dict | None = None,
     ) -> None:
         """Compute derived variables from stored head fields."""
-        from hydromodpy.simulation.extraction.extractors.derived import compute_derived
+        from hydromodpy.simulation.extraction.derivation.derived import compute_derived
 
         cfg = config or {}
         compute_derived(sim_id, store, cfg)

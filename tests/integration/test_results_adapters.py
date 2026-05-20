@@ -10,7 +10,7 @@ import pytest
 
 from hydromodpy.calibration.lumped import Gr4jFlowExtractor
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.simulation.extraction.extractors.derived import compute_derived
+from hydromodpy.simulation.extraction.derivation.derived import compute_derived
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 
 
