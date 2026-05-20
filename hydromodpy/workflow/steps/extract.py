@@ -105,6 +105,9 @@ class ExtractStep:
     tout: ClassVar[type] = ExtractedState
     config_sections: ClassVar[tuple[str, ...]] = ()
 
+    def depends_on(self) -> tuple[str, ...]:
+        return ("run_solver",)
+
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
         if ctx is None:

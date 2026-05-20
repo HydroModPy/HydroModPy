@@ -33,6 +33,9 @@ class RunSolverStep:
     def __init__(self, launcher: Launcher | None = None) -> None:
         self.launcher = launcher
 
+    def depends_on(self) -> tuple[str, ...]:
+        return ("prepare_solver",)
+
     def artifacts(self, state: PipelineState) -> tuple[str, ...]:
         """Return workspace-relative paths produced by the solver run."""
         from hydromodpy.workflow.steps.prepare_solver import _store_sim_artifacts
