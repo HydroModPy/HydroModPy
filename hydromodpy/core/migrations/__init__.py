@@ -15,6 +15,14 @@ Public API
   :class:`MigrationDiscoveryError`, :class:`MigrationExecutionError`.
 """
 
+from hydromodpy.core.migrations.auto_boot import (
+    MAX_BACKUPS,
+    AutoMigrationDisabled,
+    backup_path_for,
+    ensure_schema_safe,
+    list_backups,
+    restore_backup,
+)
 from hydromodpy.core.migrations.errors import (
     MigrationDiscoveryError,
     MigrationError,
@@ -36,6 +44,8 @@ from hydromodpy.core.migrations.runner import (
 __all__ = [
     "DEFAULT_COMPONENT",
     "DEFAULT_LOCK_TIMEOUT",
+    "MAX_BACKUPS",
+    "AutoMigrationDisabled",
     "Migration",
     "MigrationDiscoveryError",
     "MigrationError",
@@ -43,8 +53,12 @@ __all__ = [
     "SchemaIntegrityError",
     "apply_migration",
     "apply_migrations",
+    "backup_path_for",
     "current_version",
     "discover_migrations",
     "ensure_schema",
+    "ensure_schema_safe",
+    "list_backups",
+    "restore_backup",
     "target_version",
 ]
