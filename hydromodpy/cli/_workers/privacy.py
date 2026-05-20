@@ -184,17 +184,18 @@ def _purge_prune_orphan_geographic_cache(workspace: Path) -> list[str]:
 
 
 def _purge_resolve_operator() -> str:
-    import os
+    """Resolve the purge operator through the active ``AuthBackend``.
 
-    for key in ("HMP_USER", "USER", "USERNAME"):
-        value = os.environ.get(key)
-        if value:
-            return value
+    Delegates to :func:`hydromodpy.core.auth.get_auth_backend` so the purge
+    certificate, the deletion tombstone, and the audit row all carry the
+    same identity. Falls back to ``"anonymous"`` if the backend itself
+    fails (matches the historical CLI contract).
+    """
     try:
-        import getpass
+        from hydromodpy.core.auth import get_auth_backend
 
-        return getpass.getuser()
-    except OSError:
+        return get_auth_backend().current_user() or "anonymous"
+    except Exception:  # noqa: BLE001 - purge must not crash on identity probe
         return "anonymous"
 
 
