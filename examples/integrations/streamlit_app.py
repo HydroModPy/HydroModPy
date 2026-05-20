@@ -2,12 +2,12 @@
 
 Run with::
 
-    hmp schema export --output ./schema/
+    hmp dev schema export --output ./schema/
     streamlit run examples/integrations/streamlit_app.py
 
 The goal is to demonstrate that a frontend can render a form without
 importing HydroModPy directly - only the three JSON files produced by
-``hmp schema export`` are read. ``streamlit`` is **not** part of the
+``hmp dev schema export`` are read. ``streamlit`` is **not** part of the
 HydroModPy dependencies; install it separately if you want to try the
 example (``pip install streamlit``).
 
