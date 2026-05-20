@@ -670,10 +670,11 @@ class TestSimulationGroup:
 
         sids = [_register(catalog) for _ in range(2)]
 
-        def fake_run_sweep(project, *, parameters, strategy, name_template):
+        def fake_run_sweep(project, *, parameters, strategy, name_template, parallel=1):
             assert parameters == {"K": [1.0, 2.0]}
             assert strategy == "enumerate"
             assert name_template == "{param}_{value:.4g}"
+            assert parallel == 1
             return sids
 
         monkeypatch.setattr("hydromodpy.workflow.parallel.run_sweep", fake_run_sweep)

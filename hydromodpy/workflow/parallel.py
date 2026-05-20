@@ -68,15 +68,37 @@ def run_sweep(
     parameters: dict[str, list[float] | dict],
     strategy: str,
     name_template: str,
+    parallel: int = 1,
 ) -> list[str]:
-    """Execute one run per parameter point sequentially. Returns the sim_ids."""
-    sim_ids: list[str] = []
-    for point in expand_parameters(parameters, strategy):
+    """Execute one run per parameter point. Returns the sim_ids.
+
+    ``parallel`` controls how many trials may run concurrently:
+
+    - ``parallel <= 1`` keeps the legacy sequential loop.
+    - ``parallel > 1`` dispatches trials through a thread pool. Threads
+      are used over processes because the live ``Project`` (DuckDB
+      catalog, Zarr store, in-memory ``WorkflowContext``) is not
+      pickle-safe and a single project drives every trial.
+    """
+    if parallel < 1:
+        raise ConfigError("run_sweep: 'parallel' must be >= 1")
+
+    points = expand_parameters(parameters, strategy)
+    if not points:
+        return []
+
+    def _one(point: dict[str, float]) -> str:
         param, value = next(iter(point.items()))
         name = name_template.format(param=param, value=value)
         run = project.run(name=name, **point)
-        sim_ids.append(run.sim_id)
-    return sim_ids
+        return run.sim_id
+
+    if parallel == 1 or len(points) == 1:
+        return [_one(point) for point in points]
+
+    workers = min(parallel, len(points))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(_one, points))
 
 
 # ---------------------------------------------------------------------------

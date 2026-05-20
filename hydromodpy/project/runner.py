@@ -414,17 +414,23 @@ class ProjectRunner:
         name_template: str = "{param}_{value:.4g}",
         parallel: int = 1,
     ):
-        """Run N simulations from a parameter table."""
+        """Run N simulations from a parameter table.
+
+        ``parallel > 1`` enables the thread-pool backend in
+        :func:`hydromodpy.workflow.parallel.run_sweep`. Threads are
+        chosen over processes because the live ``Project`` (DuckDB
+        catalog, Zarr store, in-memory ``WorkflowContext``) is not
+        pickle-safe.
+        """
         from hydromodpy.results.simulation_group import SimulationGroup
         from hydromodpy.workflow.parallel import run_sweep
 
-        if parallel != 1:
-            raise NotImplementedError("Parallel sweep requires worker pool setup")
         sim_ids = run_sweep(
             self._project,
             parameters=parameters,
             strategy=strategy,
             name_template=name_template,
+            parallel=parallel,
         )
         return SimulationGroup(sim_ids, self._project._store)
 
