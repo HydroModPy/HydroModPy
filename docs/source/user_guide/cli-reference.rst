@@ -23,8 +23,10 @@ Command inventory
      - Main role
      - Typical use
    * - ``hmp workspace``
-     - Workspace lifecycle
+     - Workspace lifecycle and global-index registration
      - ``init`` scaffolds a workspace, ``list`` enumerates registered
+       workspaces, ``register``/``forget``/``prune`` manage the global
+       index, ``search`` runs a full-text query across registered
        workspaces, ``clean`` removes generated artefacts.
    * - ``hmp project``
      - Project lifecycle
@@ -34,13 +36,6 @@ Command inventory
      - Catalog browsing and maintenance
      - ``ls``, ``query "<SQL>"``, ``show <sim_id> [--detail]``,
        ``gc``, ``vacuum``, ``delete``.
-   * - ``hmp config``
-     - Configuration tooling
-     - Generate templates, validate TOML files, list modules, or open the
-       interactive configuration wizard.
-   * - ``hmp schema``
-     - Frontend integration
-     - Export JSON Schema and companion metadata for UI integrations.
    * - ``hmp run``
      - Workflow execution
      - Execute ``simulation``, ``overview``, ``calibration``,
@@ -49,9 +44,11 @@ Command inventory
      - Calibration shortcut
      - Top-level wrapper around ``hmp.calibrate(<toml>)``.
    * - ``hmp dev``
-     - Developer diagnostics
-     - Inspect internal configuration and workflow surfaces used during
-       development.
+     - Developer diagnostics and tooling
+     - ``config`` generates templates or validates TOML files, ``schema``
+       exports JSON Schema and companion metadata for UI integrations,
+       ``doctor``, ``lock``, ``rank``, ``manage``, ``completion``, and
+       ``run-script`` cover the remaining developer surfaces.
    * - ``hmp viz``
      - Figure rendering and UI
      - ``show <sim_ref> <figure>``, ``gallery <config.toml>``, and
@@ -85,9 +82,6 @@ Command inventory
      - Workspace audit log
      - ``list`` prints recent events. ``verify`` replays the hash chain
        (placeholder until the chain is wired).
-   * - ``hmp index``
-     - Cross-workspace discovery
-     - Search, forget, or prune entries of the machine-wide global index.
 
 Workflow execution flags
 ------------------------
@@ -137,10 +131,11 @@ Some commands expose their own subcommands:
 
 .. code-block:: bash
 
-   hmp config template --help
-   hmp config check --help
+   hmp dev config template --help
+   hmp dev config check --help
+   hmp dev schema export --help
    hmp data list --help
-   hmp lock verify --help
+   hmp dev lock verify --help
    hmp test validation --help
 
 Use :doc:`../getting_started/cli-quickstart` for the first-run path and

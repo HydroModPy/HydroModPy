@@ -252,6 +252,7 @@ def run_calibration_core(
         evaluator=wrapped_evaluator,
         max_iter=cfg.max_iter,
         batch_size=cfg.batch_size,
+        parallel=cfg.parallel,
         cache=engine_cache,
         cache_context=cache_context,
         session_id=session_id,

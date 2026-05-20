@@ -9,7 +9,7 @@ TOML section: ``[simulation]``
 
 Pydantic model: ``SimulationConfig`` defined in ``hydromodpy.simulation.planning.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L244>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L294>`__
 
 Minimal orchestration block declared under ``[simulation]``.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">name</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L254>`__
+   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L304>`__
 
       Human-readable simulation name.
 
@@ -50,7 +50,7 @@ Fields
         <code class="hmp-field-name">run_id</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L301>`__
+   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L350>`__
 
       Run identifier used as the output subfolder name under results_simulations/. When empty, derived from the TOML filename at load time (e.g. run_steady_nwt.toml -> steady_nwt).
 
@@ -66,7 +66,7 @@ Fields
         <code class="hmp-field-name">on_collision</code>
       </div>
 
-   :bdg-primary:`Literal['replace', 'fail', 'version']` :bdg-secondary:`default = "replace"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L310>`__
+   :bdg-primary:`Literal['replace', 'fail', 'version']` :bdg-secondary:`default = "replace"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L359>`__
 
       Behavior when registering a simulation whose ``name`` already exists in this project. ``replace`` soft-replaces (the previous sim keeps its UUID but loses its name), ``fail`` raises an error, ``version`` auto-suffixes ``name.v2``, ``name.v3`` ...
 
@@ -80,7 +80,7 @@ Fields
         <code class="hmp-field-name">description</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L303>`__
+   :bdg-primary:`str` :bdg-secondary:`default = ""` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L352>`__
 
       Short free-text description of the simulation intent.
 
@@ -94,7 +94,7 @@ Fields
         <code class="hmp-field-name">scientific_objective</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L326>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L375>`__
 
       Scientific objective used for catalog and ML stratification.
 
@@ -108,7 +108,7 @@ Fields
         <code class="hmp-field-name">contact_email</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L330>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L379>`__
 
       Contact email for the simulation metadata.
 
@@ -122,7 +122,7 @@ Fields
         <code class="hmp-field-name">doi</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L334>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L383>`__
 
       DOI or reference identifier for the simulation metadata.
 
@@ -136,7 +136,7 @@ Fields
         <code class="hmp-field-name">study_area_name</code>
       </div>
 
-   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L338>`__
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L387>`__
 
       Human-readable study area name.
 
@@ -150,7 +150,7 @@ Fields
         <code class="hmp-field-name">outlet_x</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L342>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L391>`__
 
       Outlet X coordinate in the project CRS units.
 
@@ -164,7 +164,7 @@ Fields
         <code class="hmp-field-name">outlet_y</code>
       </div>
 
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L346>`__
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L395>`__
 
       Outlet Y coordinate in the project CRS units.
 
@@ -180,7 +180,7 @@ Fields
         <code class="hmp-field-toml">[simulation.time]</code>
       </div>
 
-   :bdg-primary:`SimulationTimeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L251>`__
+   :bdg-primary:`SimulationTimeConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L301>`__
 
       Optional canonical simulation window used to align solver temporal settings and validate forcing coverage. Required for launcher flow processes and for runtime features that explicitly consume simulation-window dates.
 
@@ -297,72 +297,136 @@ Fields
         <code class="hmp-field-toml">[[simulation.process]]</code>
       </div>
 
-   :bdg-primary:`list[SimulationProcessConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L275>`__
+   :bdg-primary:`type = "flow" | "transport" | "mesh"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L324>`__
 
       Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported.
 
-   .. dropdown:: Fields of ``SimulationProcessConfig``
-      :icon: list-unordered
-      :animate: fade-in-slide-down
+      Pick a tab below: setting ``type`` selects the matching schema.
 
-      .. rst-class:: hmp-config-fields hmp-config-fields-nested
+   .. tab-set::
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: simulation-process-id
+      .. tab-item:: flow
 
-         .. raw:: html
+         TOML: ``[simulation.process.flow]`` -- model ``FlowProcessConfig`` (set ``type = "flow"``).
 
-            <div class="hmp-field-header" data-toml-path="simulation.process.id">
-              <code class="hmp-field-name">id</code>
-            </div>
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L156>`__
+            .. container:: hmp-field hmp-field-level-user
+               :name: simulation-process-flow-id
 
-            User-facing identifier for the process. This id is required and must be unique within the simulation.
+               .. raw:: html
 
-         **Example:** ``"flow_main"``
+                  <div class="hmp-field-header" data-toml-path="simulation.process.flow.id">
+                    <code class="hmp-field-name">id</code>
+                  </div>
 
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L171>`__
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: simulation-process-type
+                  User-facing identifier for the process. This id is required and must be unique within the simulation.
 
-         .. raw:: html
-
-            <div class="hmp-field-header" data-toml-path="simulation.process.type">
-              <code class="hmp-field-name">type</code>
-            </div>
-
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L163>`__
-
-            Requested process family executed by the launcher.
+               **Example:** ``"flow_main"``
 
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: simulation-process-solvers
+            .. container:: hmp-field hmp-field-level-user
+               :name: simulation-process-flow-solvers
 
-         .. raw:: html
+               .. raw:: html
 
-            <div class="hmp-field-header" data-toml-path="simulation.process.solvers">
-              <code class="hmp-field-name">solvers</code>
-            </div>
+                  <div class="hmp-field-header" data-toml-path="simulation.process.flow.solvers">
+                    <code class="hmp-field-name">solvers</code>
+                  </div>
 
-         :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L166>`__
+               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L178>`__
 
-            Ordered list of active solver names for this process. Each listed solver is executed in order. Required for solver-backed processes such as flow and transport.
+                  Ordered list of active flow solver names. At least one solver is required for flow processes.
 
 
-      .. container:: hmp-field hmp-field-level-user
-         :name: simulation-process-backend
 
-         .. raw:: html
+      .. tab-item:: transport
 
-            <div class="hmp-field-header" data-toml-path="simulation.process.backend">
-              <code class="hmp-field-name">backend</code>
-            </div>
+         TOML: ``[simulation.process.transport]`` -- model ``TransportProcessConfig`` (set ``type = "transport"``).
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L174>`__
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-            Backend used by non-solver orchestration processes. Currently only used by type='mesh', where backend='catchment' delegates to the [mesh_catchment] runtime.
+            .. container:: hmp-field hmp-field-level-user
+               :name: simulation-process-transport-id
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="simulation.process.transport.id">
+                    <code class="hmp-field-name">id</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L207>`__
+
+                  User-facing identifier for the process. This id is required and must be unique within the simulation.
+
+               **Example:** ``"flow_main"``
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: simulation-process-transport-solvers
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="simulation.process.transport.solvers">
+                    <code class="hmp-field-name">solvers</code>
+                  </div>
+
+               :bdg-primary:`list[str]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L214>`__
+
+                  Ordered list of active transport solver names. At least one solver is required for transport processes.
+
+
+
+      .. tab-item:: mesh
+
+         TOML: ``[simulation.process.mesh]`` -- model ``MeshProcessConfig`` (set ``type = "mesh"``).
+
+         .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: simulation-process-mesh-id
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="simulation.process.mesh.id">
+                    <code class="hmp-field-name">id</code>
+                  </div>
+
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L243>`__
+
+                  User-facing identifier for the process. This id is required and must be unique within the simulation.
+
+               **Example:** ``"flow_main"``
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: simulation-process-mesh-backend
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="simulation.process.mesh.backend">
+                    <code class="hmp-field-name">backend</code>
+                  </div>
+
+               :bdg-primary:`Literal['catchment']` :bdg-secondary:`default = "catchment"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L250>`__
+
+                  Backend used by the mesh process. Currently only 'catchment' is supported (delegates to the [mesh_catchment] runtime).
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: simulation-process-mesh-solvers
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="simulation.process.mesh.solvers">
+                    <code class="hmp-field-name">solvers</code>
+                  </div>
+
+               :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L257>`__
+
+                  Reserved for future use. Mesh processes must not declare solvers; set 'backend' instead.
 
 
 
@@ -378,7 +442,7 @@ Fields
         <code class="hmp-field-toml">[simulation.results]</code>
       </div>
 
-   :bdg-primary:`ResultsConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L366>`__
+   :bdg-primary:`ResultsConfig` :bdg-info:`factory` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L415>`__
 
       Results storage and export configuration loaded from [simulation.results]. Controls SimulationCatalog, derived variables, and automated exports.
 
@@ -948,7 +1012,7 @@ Fields
         <code class="hmp-field-name">rng_seed</code>
       </div>
 
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L374>`__
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/simulation/planning/config.py#L423>`__
 
       Master RNG seed for the simulation. When set, every stochastic consumer (mesh point sampling, synthetic forcing, ...) derives its own deterministic sub-seed via ``hydromodpy.core.rng.RngManager``. Persisted in ``runs_environment.rng_seed`` so the run can be re-executed from the catalog snapshot.
 
@@ -987,9 +1051,8 @@ Starter TOML snippet
 
       [[simulation.process]]
       # id = ""  # REQUIRED
-      # type = ""  # REQUIRED
-      # solvers = ...  # factory default
-      # backend = ...  # default = None
+      # type = "flow"
+      # solvers = []  # REQUIRED
 
 Cases using this section
 ------------------------

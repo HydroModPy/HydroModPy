@@ -197,9 +197,15 @@ class ProjectRunner:
         dry_run: bool = False,
         frozen: bool = False,
         no_display: bool = False,
+        parallel: bool = True,
         **overrides,
     ) -> Run | None:
-        """Run the simulation through the canonical workflow Pipeline."""
+        """Run the simulation through the canonical workflow Pipeline.
+
+        ``parallel`` (default True) lets the Pipeline dispatch independent
+        Kahn cohorts through a thread pool. Pass ``parallel=False`` to
+        force the legacy sequential path (useful for debugging).
+        """
         from hydromodpy.workflow.internals.state import PipelineState
         from hydromodpy.workflow.orchestrator import standard_steps
         from hydromodpy.workflow.runner import Pipeline
@@ -297,7 +303,7 @@ class ProjectRunner:
             set_frozen_mode(True)
 
         try:
-            final = pipeline.run(initial, resume_from=resume_from)
+            final = pipeline.run(initial, resume_from=resume_from, parallel=parallel)
         except Exception:
             from hydromodpy.project import phases as project_phases
 
@@ -414,17 +420,23 @@ class ProjectRunner:
         name_template: str = "{param}_{value:.4g}",
         parallel: int = 1,
     ):
-        """Run N simulations from a parameter table."""
+        """Run N simulations from a parameter table.
+
+        ``parallel > 1`` enables the thread-pool backend in
+        :func:`hydromodpy.workflow.parallel.run_sweep`. Threads are
+        chosen over processes because the live ``Project`` (DuckDB
+        catalog, Zarr store, in-memory ``WorkflowContext``) is not
+        pickle-safe.
+        """
         from hydromodpy.results.simulation_group import SimulationGroup
         from hydromodpy.workflow.parallel import run_sweep
 
-        if parallel != 1:
-            raise NotImplementedError("Parallel sweep requires worker pool setup")
         sim_ids = run_sweep(
             self._project,
             parameters=parameters,
             strategy=strategy,
             name_template=name_template,
+            parallel=parallel,
         )
         return SimulationGroup(sim_ids, self._project._store)
 

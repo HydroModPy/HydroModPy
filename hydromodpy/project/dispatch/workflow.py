@@ -44,6 +44,7 @@ def run_simulation(
     no_display: bool = False,
     frozen: bool = False,
     dry_run: bool = False,
+    parallel: bool = True,
 ) -> dict[str, Any]:
     """Execute a single simulation from a TOML file."""
     from hydromodpy.project import Project
@@ -58,6 +59,7 @@ def run_simulation(
             dry_run=dry_run,
             frozen=frozen,
             no_display=no_display,
+            parallel=parallel,
         )
         if result is None:
             return {}

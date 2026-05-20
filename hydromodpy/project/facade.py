@@ -554,6 +554,7 @@ class Project:
         dry_run: bool = False,
         frozen: bool = False,
         no_display: bool = False,
+        parallel: bool = True,
         **overrides,
     ) -> Run | None:
         """Run the configured workflow and return its result.
@@ -615,6 +616,7 @@ class Project:
             dry_run=dry_run,
             frozen=frozen,
             no_display=no_display,
+            parallel=parallel,
             **overrides,
         )
 

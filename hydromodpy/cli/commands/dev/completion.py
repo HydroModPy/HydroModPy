@@ -10,6 +10,18 @@ The walk relies on the family ``ACTIONS`` attribute and on a one-shot
 introspection of each ``register(subparsers)`` to harvest the long-form
 flags. The introspection runs at script-emission time, so completion
 scripts pick up changes after every ``hmp dev completion <shell> > out``.
+
+Alternative path: ``argcomplete`` ships with HydroModPy and is wired
+through :func:`hydromodpy.cli.main._enable_argcomplete`. Users who prefer
+the dynamic ``argcomplete`` route just need to evaluate the helper script
+in their shell, no static file generation required::
+
+    # bash / zsh
+    eval "$(register-python-argcomplete hmp)"
+    eval "$(register-python-argcomplete hydromodpy)"
+
+    # fish (one-shot)
+    register-python-argcomplete --shell fish hmp | source
 """
 
 from __future__ import annotations
@@ -104,6 +116,14 @@ def register(subparsers) -> argparse.ArgumentParser:
         "shell",
         choices=["bash", "zsh", "fish"],
         help="Shell flavour to emit completion for",
+    )
+    parser.add_argument(
+        "--argcomplete",
+        action="store_true",
+        help=(
+            "Emit the register-python-argcomplete eval line instead of the "
+            "static script (dynamic completion via the argcomplete package)."
+        ),
     )
     parser.set_defaults(_handler=run)
     return parser
@@ -217,7 +237,26 @@ def _top_level_for_zsh(names: Iterable[str]) -> str:
     return " ".join(f"'{n}:{n}'" for n in names)
 
 
+def _argcomplete_snippet(shell: str) -> str:
+    """Return the snippet that wires argcomplete for the given shell."""
+    if shell == "fish":
+        return (
+            "# fish completion via argcomplete\n"
+            "register-python-argcomplete --shell fish hmp | source\n"
+            "register-python-argcomplete --shell fish hydromodpy | source\n"
+        )
+    return (
+        "# bash/zsh completion via argcomplete\n"
+        'eval "$(register-python-argcomplete hmp)"\n'
+        'eval "$(register-python-argcomplete hydromodpy)"\n'
+    )
+
+
 def run(args: argparse.Namespace) -> None:
+    if getattr(args, "argcomplete", False):
+        sys.stdout.write(_argcomplete_snippet(args.shell))
+        return
+
     top, family_actions = _collect_top_level_and_actions()
     command_flags = _all_command_flags()
 

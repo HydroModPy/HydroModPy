@@ -8,6 +8,8 @@ status (POSIX-conventional 130 for SIGINT, 10..19 for specific failure
 categories).
 """
 
+# PYTHON_ARGCOMPLETE_OK
+
 from __future__ import annotations
 
 import argparse
@@ -64,6 +66,19 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _enable_argcomplete(parser: argparse.ArgumentParser) -> None:
+    """Wire shell completion via argcomplete when the dep is installed.
+
+    Activation requires ``register-python-argcomplete hmp`` in the user's
+    shell. The optional import keeps argcomplete a soft dependency.
+    """
+    try:
+        import argcomplete
+    except ImportError:
+        return
+    argcomplete.autocomplete(parser)
+
+
 def main(argv: list[str] | None = None) -> None:
     """Parse ``argv`` and dispatch to the matching subcommand.
 
@@ -72,6 +87,7 @@ def main(argv: list[str] | None = None) -> None:
     typed exit code. ``SystemExit`` propagates unchanged.
     """
     parser = _build_parser()
+    _enable_argcomplete(parser)
     args = parser.parse_args(argv)
 
     handler = getattr(args, "_handler", None)

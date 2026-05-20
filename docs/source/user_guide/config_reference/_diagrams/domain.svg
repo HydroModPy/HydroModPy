@@ -186,11 +186,11 @@
 <polygon fill="none" stroke="black" points="908.25,-352.25 908.25,-374.75 1081.5,-374.75 1081.5,-352.25 908.25,-352.25"/>
 <text xml:space="preserve" text-anchor="start" x="971.62" y="-358.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">center_x</text>
 <polygon fill="none" stroke="black" points="1081.5,-352.25 1081.5,-374.75 1234.5,-374.75 1234.5,-352.25 1081.5,-352.25"/>
-<text xml:space="preserve" text-anchor="start" x="1125.75" y="-358.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="1117.5" y="-358.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[float]</text>
 <polygon fill="none" stroke="black" points="908.25,-329.75 908.25,-352.25 1081.5,-352.25 1081.5,-329.75 908.25,-329.75"/>
 <text xml:space="preserve" text-anchor="start" x="971.62" y="-335.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">center_y</text>
 <polygon fill="none" stroke="black" points="1081.5,-329.75 1081.5,-352.25 1234.5,-352.25 1234.5,-329.75 1081.5,-329.75"/>
-<text xml:space="preserve" text-anchor="start" x="1125.75" y="-335.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="1117.5" y="-335.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[float]</text>
 <polygon fill="none" stroke="black" points="908.25,-307.25 908.25,-329.75 1081.5,-329.75 1081.5,-307.25 908.25,-307.25"/>
 <text xml:space="preserve" text-anchor="start" x="911.25" y="-313.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">default_cell_samples_per_axis</text>
 <polygon fill="none" stroke="black" points="1081.5,-307.25 1081.5,-329.75 1234.5,-329.75 1234.5,-307.25 1081.5,-307.25"/>

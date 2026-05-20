@@ -340,7 +340,7 @@ def test_hmp_dev_run_script_executes_python_scripts(monkeypatch, tmp_path) -> No
         captured["cwd"] = cwd
         return SimpleNamespace(returncode=0)
 
-    monkeypatch.setattr("hydromodpy.cli.commands.dev.subprocess.run", fake_run)
+    monkeypatch.setattr("hydromodpy.cli.commands.dev.run_script.subprocess.run", fake_run)
     monkeypatch.setattr(
         "sys.argv",
         ["hmp", "dev", "run-script", str(script), "--case", "demo"],

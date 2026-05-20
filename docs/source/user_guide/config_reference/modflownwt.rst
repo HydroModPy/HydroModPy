@@ -9,7 +9,7 @@ TOML section: ``[modflownwt]``
 
 Pydantic model: ``ModflowConfig`` defined in ``hydromodpy.solver.modflow_nwt.nwt.nwt_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L228>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L220>`__
 
 Expert-level MODFLOW configuration organized by concern.
 
@@ -38,7 +38,7 @@ Fields
         <code class="hmp-field-toml">[modflownwt.runtime]</code>
       </div>
 
-   :bdg-primary:`ModflowRuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L231>`__
+   :bdg-primary:`ModflowRuntimeConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L223>`__
 
       MODFLOW runtime package options grouped by package.
 
@@ -623,7 +623,7 @@ Fields
         <code class="hmp-field-toml">[modflownwt.process_specific]</code>
       </div>
 
-   :bdg-primary:`ModflowProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L235>`__
+   :bdg-primary:`ModflowProcessSpecificConfig` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L227>`__
 
       Process-specific package controls (currently UPW/EVT knobs).
 
@@ -658,7 +658,7 @@ Fields
 
          :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L210>`__
 
-            Extinction depth [L] used by the EVT package (EXDP).
+            Extinction depth (metres) used by the EVT package (EXDP). Accepts inline units, e.g. '1 m', '50 cm'.
 
 
 
@@ -674,7 +674,7 @@ Fields
         <code class="hmp-field-toml">[modflownwt.sgrid]</code>
       </div>
 
-   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L239>`__
+   :bdg-primary:`SolverSGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L231>`__
 
       Spatial-grid payload split into `[...sgrid.planar]` and `[...sgrid.vertical]`.
 
@@ -869,7 +869,7 @@ Fields
         <code class="hmp-field-toml">[modflownwt.tgrid]</code>
       </div>
 
-   :bdg-primary:`TMeshConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L245>`__
+   :bdg-primary:`TMeshConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/modflow_nwt/nwt/nwt_config.py#L237>`__
 
       Optional temporal discretization payload as one validated `TMeshConfig` model. In launcher mode, stress periods are driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps `firstpersteady`.
 

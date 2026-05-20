@@ -44,7 +44,8 @@ jobs:
         run: ruff format --check .
 
       - name: Audit declared dependencies for known vulnerabilities
-        run: pip-audit --strict --vulnerability-service osv .
+        # PYSEC-2024-277: joblib transitive dep (via sklearn/pandas), no fix released yet.
+        run: pip-audit --strict --vulnerability-service osv --ignore-vuln PYSEC-2024-277 .
 
   gitleaks:
     name: Gitleaks secret scan

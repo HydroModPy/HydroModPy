@@ -273,8 +273,8 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [solver]
-      # Groundwater flow solver backend registered for the 'flow' process.
-      solver_engine = "modflow6"
+      # Active flow backend selector (discriminated union).
+      # backend = ...  # uses factory default
 
 .. dropdown:: ``[modflownwt]`` (ModflowConfig)
    :icon: gear
@@ -470,6 +470,8 @@ Sub-models are linked back to their per-section page.
       max_iter = 100
       # Number of suggestions drawn per ask (for parallel optimizers).
       batch_size = 1
+      # Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.
+      parallel = 1
       # Random seed for reproducibility.
       # seed = ...  # default = None
       # How much to persist per iteration: - 'none': 1 DuckDB row per iteration, no Zarr. - 'best_n': same + promote top N to full simulations after the loop. - 'all': every iteration becomes a full simulation (Zarr included).
@@ -478,6 +480,8 @@ Sub-models are linked back to their per-section page.
       save_best_n = 10
       # Enable params_hash content-addressable cache.
       use_cache = true
+      # Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path.
+      lightweight_extraction = true
       # Metric key used by the default ScalarObjective.
       objective = "nse"
       # Observed variable (for ObservationSet).

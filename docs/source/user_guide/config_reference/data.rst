@@ -113,84 +113,123 @@ Fields
               <code class="hmp-field-toml">[[data.dem.sources]]</code>
             </div>
 
-         :bdg-primary:`list[DemSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L87>`__
+         :bdg-primary:`source = "custom" | "ign_bdalti"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L88>`__
 
             At least one DEM data source.
 
-         .. dropdown:: Fields of ``DemSourceConfig``
-            :icon: list-unordered
-            :animate: fade-in-slide-down
+            Pick a tab below: setting ``source`` selects the matching schema.
 
-            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+         .. tab-set::
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-dem-sources-source
+            .. tab-item:: custom
 
-               .. raw:: html
+               TOML: ``[data.dem.sources.custom]`` -- model ``CustomDemSource`` (set ``source = "custom"``).
 
-                  <div class="hmp-field-header" data-toml-path="data.dem.sources.source">
-                    <code class="hmp-field-name">source</code>
-                  </div>
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-               :bdg-primary:`Literal['custom', 'ign_bdalti']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L27>`__
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-custom-mask-path
 
-                  Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_bdalti' for the IGN BD ALTI 25 m MNT.
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.custom.mask_path">
+                          <code class="hmp-field-name">mask_path</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-dem-sources-path
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L32>`__
 
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.dem.sources.path">
-                    <code class="hmp-field-name">path</code>
-                  </div>
-
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L36>`__
-
-                  Path to custom DEM file or directory (TIF, ASC, NC).
+                        SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-dem-sources-mask-path
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-custom-extent
 
-               .. raw:: html
+                     .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="data.dem.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.custom.extent">
+                          <code class="hmp-field-name">extent</code>
+                        </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L46>`__
+                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L32>`__
 
-                  SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
-
-
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-dem-sources-extent
-
-               .. raw:: html
-
-                  <div class="hmp-field-header" data-toml-path="data.dem.sources.extent">
-                    <code class="hmp-field-name">extent</code>
-                  </div>
-
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L50>`__
-
-                  Use project extent for bbox-based data retrieval.
+                        Use project extent for bbox-based data retrieval.
 
 
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-dem-sources-force-refresh
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-dem-sources-custom-force-refresh
 
-               .. raw:: html
+                     .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="data.dem.sources.force_refresh">
-                    <code class="hmp-field-name">force_refresh</code>
-                  </div>
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.custom.force_refresh">
+                          <code class="hmp-field-name">force_refresh</code>
+                        </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L56>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L32>`__
 
-                  Ignore cache and re-download from API.
+                        Ignore cache and re-download from API.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-custom-path
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.custom.path">
+                          <code class="hmp-field-name">path</code>
+                        </div>
+
+                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L39>`__
+
+                        Path to custom DEM file or directory (TIF, ASC, NC).
+
+
+
+            .. tab-item:: ign_bdalti
+
+               TOML: ``[data.dem.sources.ign_bdalti]`` -- model ``IgnBdaltiDemSource`` (set ``source = "ign_bdalti"``).
+
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-bdalti-mask-path
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_bdalti.mask_path">
+                          <code class="hmp-field-name">mask_path</code>
+                        </div>
+
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L49>`__
+
+                        SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-bdalti-extent
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_bdalti.extent">
+                          <code class="hmp-field-name">extent</code>
+                        </div>
+
+                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L49>`__
+
+                        Use project extent for bbox-based data retrieval.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-dem-sources-ign-bdalti-force-refresh
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_bdalti.force_refresh">
+                          <code class="hmp-field-name">force_refresh</code>
+                        </div>
+
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/dem/config.py#L49>`__
+
+                        Ignore cache and re-download from API.
 
 
 
@@ -229,168 +268,256 @@ Fields
               <code class="hmp-field-toml">[[data.geology.sources]]</code>
             </div>
 
-         :bdg-primary:`list[GeologySourceConfig]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L140>`__
+         :bdg-primary:`source = "custom" | "brgm_1m" | "brgm_50k"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L138>`__
 
             At least one geology data source. Defaults to BRGM 1:1M.
 
-         .. dropdown:: Fields of ``GeologySourceConfig``
-            :icon: list-unordered
-            :animate: fade-in-slide-down
+            Pick a tab below: setting ``source`` selects the matching schema.
 
-            .. rst-class:: hmp-config-fields hmp-config-fields-nested
+         .. tab-set::
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-geology-sources-source
+            .. tab-item:: custom
 
-               .. raw:: html
+               TOML: ``[data.geology.sources.custom]`` -- model ``CustomGeologySource`` (set ``source = "custom"``).
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.source">
-                    <code class="hmp-field-name">source</code>
-                  </div>
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
-               :bdg-primary:`Literal['custom', 'brgm_1m', 'brgm_50k']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L31>`__
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-geology-sources-custom-mask-path
 
-                  Data provider: 'custom' for user files (SHP/GPKG/TIF/CSV), 'brgm_1m' for the 1:1M national geological map, 'brgm_50k' for the 1:50K departmental geological maps.
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.mask_path">
+                          <code class="hmp-field-name">mask_path</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-geology-sources-path
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L40>`__
 
-               .. raw:: html
+                        SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.path">
-                    <code class="hmp-field-name">path</code>
-                  </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L41>`__
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-geology-sources-custom-extent
 
-                  Path to custom geology file or directory (SHP, GPKG, TIF, CSV).
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.extent">
+                          <code class="hmp-field-name">extent</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-geology-sources-code-field
+                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L40>`__
 
-               .. raw:: html
+                        Use project extent for bbox-based data retrieval.
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.code_field">
-                    <code class="hmp-field-name">code_field</code>
-                  </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L49>`__
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-geology-sources-custom-force-refresh
 
-                  Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector sources. Ignored for BRGM sources (always CODE_LEG).
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.force_refresh">
+                          <code class="hmp-field-name">force_refresh</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-geology-sources-values-table-path
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L40>`__
 
-               .. raw:: html
+                        Ignore cache and re-download from API.
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.values_table_path">
-                    <code class="hmp-field-name">values_table_path</code>
-                  </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L57>`__
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-geology-sources-custom-path
 
-                  Optional CSV linking geology codes to descriptions. Columns: geology_code, description.
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.path">
+                          <code class="hmp-field-name">path</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-geology-sources-col-x
+                     :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L47>`__
 
-               .. raw:: html
+                        Path to custom geology file or directory (SHP, GPKG, TIF, CSV).
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.col_x">
-                    <code class="hmp-field-name">col_x</code>
-                  </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L66>`__
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-geology-sources-custom-code-field
 
-                  Column for X coordinate in CSV.
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.code_field">
+                          <code class="hmp-field-name">code_field</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-geology-sources-col-y
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L55>`__
 
-               .. raw:: html
+                        Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector sources.
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.col_y">
-                    <code class="hmp-field-name">col_y</code>
-                  </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L70>`__
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-geology-sources-custom-values-table-path
 
-                  Column for Y coordinate in CSV.
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.values_table_path">
+                          <code class="hmp-field-name">values_table_path</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-geology-sources-col-code
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L62>`__
 
-               .. raw:: html
+                        Optional CSV linking geology codes to descriptions. Columns: geology_code, description.
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.col_code">
-                    <code class="hmp-field-name">col_code</code>
-                  </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "geology_code"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L74>`__
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-geology-sources-custom-col-x
 
-                  Column for geology code in CSV.
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.col_x">
+                          <code class="hmp-field-name">col_x</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-geology-sources-default-crs
+                     :bdg-primary:`str` :bdg-secondary:`default = "x"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L69>`__
 
-               .. raw:: html
+                        Column for X coordinate in CSV.
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.default_crs">
-                    <code class="hmp-field-name">default_crs</code>
-                  </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L78>`__
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-geology-sources-custom-col-y
 
-                  Default CRS for CSV points.
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.col_y">
+                          <code class="hmp-field-name">col_y</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-geology-sources-mask-path
+                     :bdg-primary:`str` :bdg-secondary:`default = "y"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L73>`__
 
-               .. raw:: html
+                        Column for Y coordinate in CSV.
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.mask_path">
-                    <code class="hmp-field-name">mask_path</code>
-                  </div>
 
-               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L84>`__
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-geology-sources-custom-col-code
 
-                  SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.col_code">
+                          <code class="hmp-field-name">col_code</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-user
-               :name: data-geology-sources-extent
+                     :bdg-primary:`str` :bdg-secondary:`default = "geology_code"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L77>`__
 
-               .. raw:: html
+                        Column for geology code in CSV.
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.extent">
-                    <code class="hmp-field-name">extent</code>
-                  </div>
 
-               :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L88>`__
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-geology-sources-custom-default-crs
 
-                  Use project extent for bbox-based data retrieval.
+                     .. raw:: html
 
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.custom.default_crs">
+                          <code class="hmp-field-name">default_crs</code>
+                        </div>
 
-            .. container:: hmp-field hmp-field-level-dev
-               :name: data-geology-sources-force-refresh
+                     :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L81>`__
 
-               .. raw:: html
+                        Default CRS for CSV points.
 
-                  <div class="hmp-field-header" data-toml-path="data.geology.sources.force_refresh">
-                    <code class="hmp-field-name">force_refresh</code>
-                  </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L94>`__
 
-                  Ignore cache and re-download from API.
+            .. tab-item:: brgm_1m
+
+               TOML: ``[data.geology.sources.brgm_1m]`` -- model ``BrgmGeology1mSource`` (set ``source = "brgm_1m"``).
+
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-geology-sources-brgm-1m-mask-path
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_1m.mask_path">
+                          <code class="hmp-field-name">mask_path</code>
+                        </div>
+
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L87>`__
+
+                        SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-geology-sources-brgm-1m-extent
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_1m.extent">
+                          <code class="hmp-field-name">extent</code>
+                        </div>
+
+                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L87>`__
+
+                        Use project extent for bbox-based data retrieval.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-geology-sources-brgm-1m-force-refresh
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_1m.force_refresh">
+                          <code class="hmp-field-name">force_refresh</code>
+                        </div>
+
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L87>`__
+
+                        Ignore cache and re-download from API.
+
+
+
+            .. tab-item:: brgm_50k
+
+               TOML: ``[data.geology.sources.brgm_50k]`` -- model ``BrgmGeology50kSource`` (set ``source = "brgm_50k"``).
+
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-geology-sources-brgm-50k-mask-path
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_50k.mask_path">
+                          <code class="hmp-field-name">mask_path</code>
+                        </div>
+
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L96>`__
+
+                        SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-geology-sources-brgm-50k-extent
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_50k.extent">
+                          <code class="hmp-field-name">extent</code>
+                        </div>
+
+                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L96>`__
+
+                        Use project extent for bbox-based data retrieval.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-geology-sources-brgm-50k-force-refresh
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.geology.sources.brgm_50k.force_refresh">
+                          <code class="hmp-field-name">force_refresh</code>
+                        </div>
+
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L96>`__
+
+                        Ignore cache and re-download from API.
 
 
 
@@ -404,7 +531,7 @@ Fields
               <code class="hmp-field-name">id</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "field_geology"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L146>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "field_geology"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L144>`__
 
             Identifier of the geology spatial field.
 
@@ -418,7 +545,7 @@ Fields
               <code class="hmp-field-name">cell_samples_per_axis</code>
             </div>
 
-         :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L129>`__
+         :bdg-primary:`int` :bdg-secondary:`default = 8` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/geology/config.py#L127>`__
 
             Sub-sampling density for GeologyField.on_mesh(). Higher = more precise geology interface, slower runtime.
 

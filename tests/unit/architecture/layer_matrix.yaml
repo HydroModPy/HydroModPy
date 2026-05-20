@@ -42,6 +42,8 @@ tolerances:
   - {src: analysis,    tgt: reporting, reason: "comparison experiment_launcher writes the HTML report at the end of the orchestration (candidate to move into workflow/)"}
   - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
   - {src: core,        tgt: physics,  reason: "core.time.tmesh_* uses FlowRegime/normalize_flow_regime to validate steady vs transient stress periods"}
+  - {src: data,        tgt: results,  reason: "cross-DB ATTACH bridge: data.DataEntry.used_by reads results.cross_db (commit 1bd5f31ef)"}
+  - {src: results,     tgt: data,     reason: "cross-DB ATTACH bridge: results.cross_db reads DataCatalogDuckDB via ATTACH read-only (commit 1bd5f31ef)"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a

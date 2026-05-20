@@ -9,7 +9,7 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import find_catalog_root
 
 # ---------------------------------------------------------------------------
 # Standardised exit codes (interface refactor, see reports/99_target_architecture.md §5.3).
@@ -95,14 +95,6 @@ def find_workspace_root(project_dir: Path) -> Path:
         if (parent / "projects").is_dir() or (parent / "data").is_dir():
             return parent
     return start
-
-
-def find_catalog_root(project_dir: Path) -> Path:
-    """Walk up from ``project_dir`` to find a project-local catalog."""
-    for parent in [project_dir] + list(project_dir.parents):
-        if (parent / CATALOG_FILENAME).exists():
-            return parent
-    return project_dir
 
 
 def find_data_workspace(start: Path) -> Path | None:

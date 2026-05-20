@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from hydromodpy.core.exceptions import ConfigError, SolverError
 from hydromodpy.simulation.planning.plan import (
     ProcessRun,
     RunContext,
@@ -137,7 +138,7 @@ def test_extract_head_requires_station_cells(tmp_path: Path) -> None:
     _write_state_history(tmp_path, head_history=head)
     ctx = _build_ctx("flow_main::boussinesq", tmp_path)
 
-    with pytest.raises(ValueError, match="head calibration requires station_cells"):
+    with pytest.raises(ConfigError, match="head calibration requires station_cells"):
         BoussinesqFlowAdapter().extract_calibration_series(ctx, store=None, variable="head")
 
 
@@ -160,7 +161,7 @@ def test_extract_head_rejects_multiple_stations(tmp_path: Path) -> None:
     _write_state_history(tmp_path, head_history=head)
     ctx = _build_ctx("flow_main::boussinesq", tmp_path)
 
-    with pytest.raises(ValueError, match="single entry"):
+    with pytest.raises(ConfigError, match="single entry"):
         BoussinesqFlowAdapter().extract_calibration_series(
             ctx,
             store=None,
@@ -200,5 +201,5 @@ def test_extract_raises_when_no_output_dir_recorded(tmp_path: Path) -> None:
         state=state,
     )
 
-    with pytest.raises(RuntimeError, match="No solver output recorded"):
+    with pytest.raises(SolverError, match="No solver output recorded"):
         BoussinesqFlowAdapter().extract_calibration_series(ctx, store=None, variable="discharge")
