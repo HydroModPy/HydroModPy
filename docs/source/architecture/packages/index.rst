@@ -94,8 +94,15 @@ Subpackages
       :link: analysis
       :link-type: doc
 
-      Cross-run analysis: regional batch, simulation comparison,
-      testbed, stream-network metrics.
+      Cross-run analysis: simulation comparison and testbed variants
+      (including the regional_lab profile).
+
+   .. grid-item-card:: reporting
+      :link: reporting
+      :link-type: doc
+
+      HTML composites: calibration session report, comparison web
+      report, streamlit configurator.
 
    .. grid-item-card:: workflow
       :link: workflow
@@ -131,6 +138,7 @@ Subpackages
    results
    display
    analysis
+   reporting
    workflow
    schema
    cli
