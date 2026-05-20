@@ -14,9 +14,10 @@ Architecture map
 
 The current calibration stack is split into four layers:
 
-- ``hydromodpy/calibration/runner.py`` owns the
+- ``hydromodpy/calibration/cli_runner.py`` owns the
   ``hmp run <calibration.toml>`` workflow entry point: validates the
   config, builds the engine, runs the optimizer, writes the report.
+  ``programmatic_runner.py`` exposes the same flow for in-process use.
 - ``hydromodpy/simulation/execution/trial.py`` owns the prepare-once,
   evaluate-many primitive used by every trial inside the ask/tell
   loop.
@@ -34,7 +35,7 @@ When reading the code from the published docs:
 
 1. ``hydromodpy/cli/commands/run.py`` (``[workflow].mode =
    "calibration"`` dispatch)
-2. ``hydromodpy/calibration/runner.py``
+2. ``hydromodpy/calibration/cli_runner.py``
 3. ``hydromodpy/calibration/engine.py``
 4. ``hydromodpy/simulation/execution/trial.py``
 5. one case under ``hydromodpy/calibration/cases/``
@@ -106,7 +107,7 @@ Notes:
 - Case packages under ``hydromodpy/calibration/cases`` are expected
   to stay thin adapters around the shared engine.
 - CLI-specific concerns such as manifests, reruns, and report
-  persistence are owned by ``hydromodpy/calibration/runner.py`` and
+  persistence are owned by ``hydromodpy/calibration/cli_runner.py`` and
   the reporting helpers in
   ``hydromodpy/calibration/persistence.py`` and ``report.py``.
 
