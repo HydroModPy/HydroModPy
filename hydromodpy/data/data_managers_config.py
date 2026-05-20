@@ -416,17 +416,64 @@ def _is_path_field(annotation) -> bool:
     return Path in getattr(annotation, "__args__", ())
 
 
-def _inner_model_type(annotation) -> type[BaseModel] | None:
-    """Return the inner BaseModel type for ``list[SomeModel]`` annotations."""
+def _inner_model_type(annotation) -> type[BaseModel] | tuple[type[BaseModel], ...] | None:
+    """Return the inner BaseModel type(s) for ``list[SomeModel]`` annotations.
+
+    Handles both plain ``list[Model]`` and ``list[Annotated[A | B, ...]]``
+    discriminated unions (returns the tuple of variant classes in the latter
+    case).
+    """
+    import typing
+
     args = getattr(annotation, "__args__", ())
-    for arg in args:
-        if isinstance(arg, type) and issubclass(arg, BaseModel):
-            return arg
     origin = getattr(annotation, "__origin__", None)
     if origin is list and args:
         inner = args[0]
         if isinstance(inner, type) and issubclass(inner, BaseModel):
             return inner
+        # Annotated[A | B, ...] or A | B
+        inner_origin = typing.get_origin(inner)
+        inner_args = typing.get_args(inner)
+        if inner_origin is typing.Annotated:  # type: ignore[comparison-overlap]
+            inner = inner_args[0]
+            inner_origin = typing.get_origin(inner)
+            inner_args = typing.get_args(inner)
+        # Union of BaseModel variants
+        import types as _types
+
+        if inner_origin in (typing.Union, _types.UnionType):
+            variants = tuple(
+                a for a in inner_args if isinstance(a, type) and issubclass(a, BaseModel)
+            )
+            if variants:
+                return variants
+    for arg in args:
+        if isinstance(arg, type) and issubclass(arg, BaseModel):
+            return arg
+    return None
+
+
+def _select_union_variant(
+    variants: tuple[type[BaseModel], ...],
+    payload: Mapping[str, Any],
+) -> type[BaseModel] | None:
+    """Pick the variant whose discriminator literal matches ``payload``.
+
+    Inspects the first field with a ``Literal`` annotation across variants
+    (typically ``source``) and matches its single literal value.
+    """
+    import typing
+
+    for variant in variants:
+        for field_name, field_info in variant.model_fields.items():
+            annotation = field_info.annotation
+            origin = typing.get_origin(annotation)
+            if origin is not typing.Literal:
+                continue
+            literals = typing.get_args(annotation)
+            if len(literals) == 1 and payload.get(field_name) == literals[0]:
+                return variant
+            break
     return None
 
 
@@ -476,15 +523,23 @@ def _resolve_section_paths(
                 )
             continue
 
-        # Recurse into list[BaseModel] fields (e.g. sources).
-        inner_cls = _inner_model_type(field_info.annotation)
-        if inner_cls is not None and isinstance(value, list):
+        # Recurse into list[BaseModel] fields (e.g. sources). Supports
+        # plain models and discriminated unions of models.
+        inner = _inner_model_type(field_info.annotation)
+        if inner is not None and isinstance(value, list):
             for item in value:
-                if isinstance(item, dict):
-                    _resolve_section_paths(
-                        item,
-                        inner_cls,
-                        base,
-                        workspace_data_dir=workspace_data_dir,
-                        role_hint=role_hint,
-                    )
+                if not isinstance(item, dict):
+                    continue
+                if isinstance(inner, tuple):
+                    variant_cls = _select_union_variant(inner, item)
+                    if variant_cls is None:
+                        continue
+                else:
+                    variant_cls = inner
+                _resolve_section_paths(
+                    item,
+                    variant_cls,
+                    base,
+                    workspace_data_dir=workspace_data_dir,
+                    role_hint=role_hint,
+                )
