@@ -42,18 +42,20 @@ class SimulationsNamespace:
         columns are silently ignored.
         """
         catalog = self._open()
+        backend = catalog.backend
         view = "v_simulation_summary"
-        if not catalog.connection.execute(
+        view_row = backend.fetch_one(
             "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
             [view],
-        ).fetchone()[0]:
+        )
+        if not (view_row and view_row[0]):
             view = "simulations"
         available_cols = {
             row[0]
-            for row in catalog.connection.execute(
+            for row in backend.fetch_all(
                 "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
                 [view],
-            ).fetchall()
+            )
         }
         clauses: list[str] = []
         params: list[Any] = []
@@ -65,14 +67,12 @@ class SimulationsNamespace:
         sql = f"SELECT * FROM {view}"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
-        return catalog.connection.execute(sql, params).fetchdf()
+        return backend.query(sql, params)
 
     def get(self, sim_id: str) -> pd.DataFrame:
         """Return one simulation row (empty DataFrame when ``sim_id`` is unknown)."""
         catalog = self._open()
-        return catalog.connection.execute(
-            "SELECT * FROM simulations WHERE sim_id = ?", [str(sim_id)]
-        ).fetchdf()
+        return catalog.backend.query("SELECT * FROM simulations WHERE sim_id = ?", [str(sim_id)])
 
     def list(self) -> pd.DataFrame:
         """Return every simulation registered in the project catalog."""
