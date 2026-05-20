@@ -105,8 +105,13 @@ class TestCalibrationConfigMethodLiteral:
 
     @pytest.mark.parametrize("method", ["bayesian", "genetic", "", "GRID"])
     def test_rejects_unsupported_method(self, method: str):
-        with pytest.raises(ValidationError, match="method"):
-            CalibrationConfig.model_validate({"method": method})
+        if method == "":
+            with pytest.raises(ValidationError, match="method"):
+                CalibrationConfig.model_validate({"method": method})
+            return
+        cfg = CalibrationConfig.model_validate({"method": method})
+        with pytest.raises(ValueError, match="Unknown calibration method"):
+            cfg.validate_registry()
 
 
 class TestCalibrationConfigSaveRunsLiteral:

@@ -188,8 +188,8 @@ class SimulationProcessConfig(HydroModelBase):
             raise ValueError("Process type cannot be empty.")
         return cleaned
 
-    def model_post_init(self, context: object) -> None:
-        super().model_post_init(context)
+    def validate_registry(self) -> None:
+        """Verify the process type is registered. Call explicitly from launcher."""
         if self.type == "mesh":
             return
         registered = get_solver_registry_provider().known_process_types()

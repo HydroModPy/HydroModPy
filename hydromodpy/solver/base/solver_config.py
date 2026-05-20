@@ -8,7 +8,6 @@ from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.solver.base import registry
 
 
 class SolverConfig(HydroModelBase):
@@ -28,8 +27,10 @@ class SolverConfig(HydroModelBase):
             raise ValueError("solver.solver_engine cannot be empty.")
         return cleaned
 
-    def model_post_init(self, context: object) -> None:
-        super().model_post_init(context)
+    def validate_registry(self) -> None:
+        """Verify the selected engine is registered. Call explicitly from launcher."""
+        from hydromodpy.solver.base import registry
+
         registry.load_plugins()
         if not registry.is_supported("flow", self.solver_engine):
             known = ", ".join(name for _, name in registry.pairs_for_process("flow"))
