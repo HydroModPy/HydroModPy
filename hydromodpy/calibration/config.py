@@ -409,7 +409,14 @@ class CalibrationConfig(HydroModelBase):
     )
 
     def validate_registry(self) -> None:
-        """Verify the selected method is registered. Call explicitly from launcher."""
+        """Verify the selected method is registered and its kwargs validate.
+
+        The discriminated union :data:`CalibrationMethodConfig` raises eagerly
+        when ``optimizer_kwargs`` carries keys foreign to ``method`` so the
+        failure happens at config-load time instead of inside the adapter
+        constructor.
+        """
+        from hydromodpy.calibration.method_config import validate_method_kwargs
         from hydromodpy.calibration.optimizer import available_optimizers
 
         available = available_optimizers()
@@ -417,6 +424,7 @@ class CalibrationConfig(HydroModelBase):
             raise ValueError(
                 f"Unknown calibration method {self.method!r}. Available methods: {available}"
             )
+        validate_method_kwargs(self.method, self.optimizer_kwargs)
 
     @field_validator("candidates_root", mode="before")
     @classmethod
