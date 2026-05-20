@@ -719,8 +719,7 @@ def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]
     """
     import duckdb
 
-    from hydromodpy.cli.helpers import find_catalog_root
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, find_catalog_root
     from hydromodpy.results.catalog.audit import apply_retention
 
     workspace_root = find_catalog_root(
