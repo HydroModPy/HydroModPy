@@ -2574,7 +2574,7 @@ def _build_simulation_comparison_payload(
         read_json_file,
         read_simulation_run_metadata,
     )
-    from hydromodpy.analysis.comparison.runtime_observables import (
+    from hydromodpy.analysis.comparison.runtime.observables import (
         extract_observable_rows,
     )
     from hydromodpy.core.toml_io.loader import load_toml_with_base_config
@@ -4358,7 +4358,7 @@ def _generate_simulation_comparison_case(
         SUMMARY_METRIC_FIELDS,
         write_metrics_csv,
     )
-    from hydromodpy.analysis.comparison.runtime_observables import write_observables_csv
+    from hydromodpy.analysis.comparison.runtime.observables import write_observables_csv
 
     config_path_relative = str(spec.metadata["comparison_config_path"])
     config_path = _repo_path(config_path_relative)
