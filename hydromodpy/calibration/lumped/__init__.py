@@ -8,5 +8,16 @@ layer is reserved for backends that produce on-disk simulation artifacts
 
 from hydromodpy.calibration.lumped.gr4j_adapter import Gr4jAdapter
 from hydromodpy.calibration.lumped.gr4j_flow import Gr4jFlowExtractor
+from hydromodpy.calibration.lumped.ram_cache import (
+    LumpedRamCache,
+    load_series,
+    stash_series,
+)
 
-__all__ = ["Gr4jAdapter", "Gr4jFlowExtractor"]
+__all__ = [
+    "Gr4jAdapter",
+    "Gr4jFlowExtractor",
+    "LumpedRamCache",
+    "stash_series",
+    "load_series",
+]

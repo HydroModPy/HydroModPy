@@ -51,23 +51,41 @@ class Gr4jAdapter:
         station_cells: Mapping[str, tuple[int, int, int]] | None = None,
         time_index: pd.DatetimeIndex | None = None,
     ) -> pd.Series:
-        """Read the simulated series for *variable* from the cold-path store.
+        """Read the simulated series for *variable* from RAM or the cold store.
 
-        After calibration converges, ``promote_trial`` writes the best GR4J
-        trial to the catalog under ``station_id="outlet"`` (or the station id
-        provided via ``station_cells``). This method queries that timeseries
-        back so downstream metric computation goes through the same shape as
-        MODFLOW backends.
+        Two paths are supported:
+
+        - **Lightweight (``store=None``)**: read the series the GR4J runner
+          stashed in the per-trial :class:`LumpedRamCache`. This skips every
+          DuckDB / Parquet write so calibration trials stay strictly in
+          memory.
+        - **Cold (``store`` non-None)**: query the ``SimulationCatalog``.
+          ``promote_trial`` writes the best GR4J trial under
+          ``station_id="outlet"`` (or the id provided via ``station_cells``)
+          and this method reads it back for full-fidelity reporting.
         """
-        del ctx
-        if store is None:
-            raise NotImplementedError(
-                "GR4J calibration extraction requires a catalog store; "
-                "lightweight RAM extraction is not implemented."
-            )
         station_id = "outlet"
         if station_cells:
             station_id = next(iter(station_cells))
+
+        if store is None:
+            from hydromodpy.calibration.lumped.ram_cache import load_series
+
+            execution = getattr(getattr(ctx, "state", None), "execution", None)
+            if execution is None:
+                raise NotImplementedError(
+                    "GR4J lightweight calibration extraction requires a trial "
+                    "context that exposes execution state."
+                )
+            series = load_series(execution, station_id, variable)
+            if series is None or getattr(series, "empty", True):
+                raise KeyError(
+                    f"No GR4J RAM-cached series for station={station_id!r}, "
+                    f"variable={variable!r}. Did the trial stash its outputs?"
+                )
+            if time_index is not None and len(time_index) == len(series):
+                return pd.Series(series.values, index=time_index, name=variable)
+            return pd.Series(series.values, name=variable)
 
         sim_id = self._latest_sim_id(store)
         if sim_id is None:

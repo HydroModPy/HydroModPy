@@ -354,6 +354,12 @@ class CalibrationConfig(HydroModelBase):
         default=True,
         description="Enable params_hash content-addressable cache.",
     )
+    lightweight_extraction: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description="Skip Parquet/Zarr writes for lumped models (GR4J, ...) and "
+        "read simulated series from the per-trial RAM cache instead. Only the "
+        "promoted runs go through the catalog write path.",
+    )
     objective: Annotated[str, Profile.USER] = Field(
         default="nse",
         description="Metric key used by the default ScalarObjective.",
