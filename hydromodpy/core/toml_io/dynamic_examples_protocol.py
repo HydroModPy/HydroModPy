@@ -1,6 +1,6 @@
 """Protocol decoupling the TOML generator from physics/spatial.
 
-The 14x14 layer matrix forbids ``core -> physics`` and ``core -> spatial``.
+The 15x15 layer matrix forbids ``core -> physics`` and ``core -> spatial``.
 The TOML scaffolding generator emits documented examples for the dynamic
 ``[flow.param.*]``, ``[flow.bc.*]`` and ``[flow.sinks_sources.*]`` blocks
 that depend on classes living in those layers. The provider below is wired in

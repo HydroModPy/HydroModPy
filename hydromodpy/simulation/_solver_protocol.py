@@ -1,6 +1,6 @@
 """Protocol decoupling simulation orchestration from the solver registry.
 
-The 14x14 layer matrix forbids ``simulation -> solver``. Planning, the
+The 15x15 layer matrix forbids ``simulation -> solver``. Planning, the
 runner, post-run ingestion and transport helpers however need to query
 the solver registry to: list the registered process types, resolve a
 pair's prerequisites, instantiate an adapter, look up an extractor.
