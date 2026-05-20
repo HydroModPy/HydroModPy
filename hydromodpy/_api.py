@@ -209,16 +209,19 @@ def run(config: Any, **kwargs: Any) -> Any:
 def calibrate(config: Any, **kwargs: Any) -> Any:
     """Run a calibration workflow from a TOML file or config object.
 
-    This helper opens a lazy ``Project`` and delegates to
-    ``Project.calibrate``. It is the Python equivalent of launching a
-    calibration TOML through the CLI dispatcher.
+    Paths route directly to :func:`run_calibration_cli`; in-memory config
+    objects open a lazy :class:`Project` so :func:`run_calibration_programmatic`
+    has the project context it requires.
 
     Parameters
     ----------
     config
         Calibration TOML path or validated configuration object.
     kwargs
-        Options forwarded to ``Project.calibrate``.
+        Options forwarded to the underlying calibration runner. The
+        ``headless`` keyword controls the project initialization for the
+        in-memory config branch and is ignored for the TOML branch (which
+        builds no project).
 
     Returns
     -------
@@ -241,19 +244,23 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
 
     See Also
     --------
-    hydromodpy.project.Project.calibrate
-        Project method used by this facade.
+    hydromodpy.calibration.runner.run_calibration_cli
+        TOML entry point used by the path branch.
+    hydromodpy.calibration.runner.run_calibration_programmatic
+        Python entry point used by the config-object branch.
     hydromodpy.calibration.CalibrationReport
         Structured calibration result.
     """
+    if isinstance(config, (str, Path)):
+        from hydromodpy.calibration.runner import run_calibration_cli
+
+        kwargs.pop("headless", None)
+        return run_calibration_cli(Path(config).expanduser().resolve(), **kwargs)
+
     from hydromodpy.project import Project
 
-    if isinstance(config, (str, Path)):
-        config_path = Path(config).expanduser().resolve()
-        with Project.lazy(config_path, headless=kwargs.pop("headless", True)) as project:
-            return project.calibrate(config_path=config_path, **kwargs)
-
-    with Project.lazy(config, headless=kwargs.pop("headless", True)) as project:
+    headless = bool(kwargs.pop("headless", True))
+    with Project.lazy(config, headless=headless) as project:
         return project.calibrate(**kwargs)
 
 
