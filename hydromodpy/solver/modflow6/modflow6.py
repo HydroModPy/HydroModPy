@@ -28,7 +28,7 @@ from hydromodpy.solver.modflow6.build import (
     run_pre_processing,
     select_active_dem,
     write_solver_grid_template,
-    xt3d_enabled,
+    xt3d_is_enabled,
     xt3d_mode,
     xt3d_requested,
 )
@@ -147,7 +147,7 @@ class Modflow6(Solver):
         return xt3d_requested(self)
 
     def _xt3d_is_enabled(self, solver_mesh=None) -> bool:
-        return xt3d_enabled(self, solver_mesh)
+        return xt3d_is_enabled(self, solver_mesh)
 
     def _xt3d_activation_mode(self, solver_mesh=None) -> str:
         return xt3d_mode(self, solver_mesh)
