@@ -21,7 +21,6 @@ import flopy.utils.binaryfile as fpu
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
-from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import ensure_solver_binary
 
 from ._filt_processing import filter_pathlines
@@ -44,7 +43,7 @@ from ._resolvers import (
 logger = get_logger(__name__)
 
 
-class Modpath(Solver):
+class Modpath:
     """Particle tracking driver around a completed MODFLOW-NWT run.
 
     ``Modpath`` builds a MODPATH-6 input deck from the paired groundwater flow

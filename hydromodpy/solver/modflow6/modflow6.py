@@ -16,7 +16,6 @@ from dataclasses import dataclass
 import numpy as np
 
 from hydromodpy.core.io.filesystem import create_folder
-from hydromodpy.solver import Solver
 from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.build import (
     apply_preprocess_options,
@@ -80,7 +79,7 @@ class Modflow6RuntimeParams:
     ims_complexity: str = "COMPLEX"
 
 
-class Modflow6(Solver):
+class Modflow6:
     """Flow solver based on MODFLOW 6 (GWF)."""
 
     def __init__(

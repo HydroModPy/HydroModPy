@@ -22,7 +22,6 @@ from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver.base.protocols import DomainLike
-from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import (
     SolverRoutingContext,
     build_solver_routing_context,
@@ -61,7 +60,7 @@ logger = get_logger(__name__)
 MODFLOW_LENUNI_METERS = 2
 
 
-class ModflowNwt(Solver):
+class ModflowNwt:
     """MODFLOW-NWT solver lifecycle facade.
 
     Drives pre-processing, processing, and post-processing for the
