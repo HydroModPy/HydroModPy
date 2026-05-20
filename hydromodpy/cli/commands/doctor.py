@@ -54,11 +54,26 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Surface lifecycle issues (orphan sims, tmp parquet, stale running rows)",
     )
+    parser.add_argument(
+        "--restore-backup",
+        default=None,
+        metavar="TS",
+        help=(
+            "Restore the workspace catalog from a pre-migration backup. "
+            "TS is the ISO 8601 timestamp suffix of the backup file "
+            "(e.g. 20260520T143015Z)."
+        ),
+    )
     parser.set_defaults(_handler=run)
     return parser
 
 
 def run(args: argparse.Namespace) -> None:
+    restore_ts = getattr(args, "restore_backup", None)
+    if restore_ts is not None:
+        _restore_backup(args.workspace, restore_ts)
+        return
+
     report = _build_report(args.workspace, toml=args.toml)
 
     if getattr(args, "cross_catalog", False):
@@ -75,6 +90,31 @@ def run(args: argparse.Namespace) -> None:
 
     if any(entry.get("status") == "KO" for entry in report["checks"]):
         sys.exit(1)
+
+
+def _restore_backup(workspace_arg: str | None, timestamp: str) -> None:
+    """Restore the catalog from a pre-migration backup tagged ``timestamp``."""
+    from hydromodpy.cli.helpers import find_catalog_root
+    from hydromodpy.core.migrations.auto_boot import backup_path_for, restore_backup
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+
+    base = Path(workspace_arg).expanduser().resolve() if workspace_arg else Path.cwd().resolve()
+    try:
+        workspace_root = find_catalog_root(base)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
+    catalog_path = workspace_root / CATALOG_FILENAME
+    backup = backup_path_for(catalog_path, timestamp=timestamp)
+    if not backup.is_file():
+        print(f"No backup found at {backup}", file=sys.stderr)
+        sys.exit(1)
+    try:
+        restore_backup(catalog_path, backup)
+    except Exception as exc:  # noqa: BLE001 - surface to the user
+        print(f"Restore failed: {exc}", file=sys.stderr)
+        sys.exit(1)
+    print(f"Restored {catalog_path} from {backup}")
 
 
 def _build_report(workspace_arg: str | None, *, toml: str | None = None) -> dict:
