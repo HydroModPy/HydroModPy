@@ -353,3 +353,13 @@ module = [
 ]
 ignore_missing_imports = true
 follow_imports = "skip"
+
+# Strict gate on the foundational layers. Other layers stay advisory and
+# tighten progressively as type debt is paid down.
+[[tool.mypy.overrides]]
+module = [
+    "hydromodpy.core.*",
+    "hydromodpy.schema.*",
+    "hydromodpy.config.*",
+]
+strict = true
