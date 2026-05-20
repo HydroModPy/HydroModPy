@@ -8,18 +8,12 @@ in the order they should be registered on the top-level parser.
 from __future__ import annotations
 
 from hydromodpy.cli.commands import (
-    add,
     audit,
     calibrate,
     catalog,
-    compare,
     data,
     dev,
-    display,
     doctor,
-    export,
-    export_package,
-    import_cmd,
     install_binaries,
     privacy,
     project,
@@ -28,33 +22,23 @@ from hydromodpy.cli.commands import (
     test,
     viz,
     workspace,
-)
-from hydromodpy.cli.commands import (
-    index as index_cmd,
 )
 
 ALL_COMMANDS = (
     workspace,
     project,
     catalog,
+    data,
+    viz,
+    dev,
+    audit,
+    privacy,
     run,
     calibrate,
-    dev,
-    display,
-    report,
-    export,
-    export_package,
     test,
-    data,
-    compare,
-    add,
-    import_cmd,
+    report,
     doctor,
     install_binaries,
-    privacy,
-    audit,
-    viz,
-    index_cmd,
 )
 
 __all__ = ("ALL_COMMANDS",)

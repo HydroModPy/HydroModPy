@@ -15,7 +15,7 @@ from uuid import UUID
 
 import pandas as pd
 
-from hydromodpy.cli.commands.catalog.delete import delete_simulation_artifacts
+from hydromodpy.cli._workers.catalog import delete_simulation_artifacts
 from hydromodpy.cli.helpers import EXIT_CONFIG, resolve_workspace
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME

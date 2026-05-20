@@ -20,7 +20,8 @@ From the CLI:
 
 .. code-block:: bash
 
-   hmp display <sim_id>
+   hmp viz show <sim_id> <figure>
+   hmp viz gallery project.toml
    hmp run project.toml --no-display
 
 Registered figure names
@@ -46,7 +47,8 @@ section. Exact options depend on the current configuration schema:
    [display]
    figures = ["piezometric_map", "water_budget", "simulated_active_network"]
 
-Use ``hmp display <sim_id>`` to rerender figures after a run, and use
+Use ``hmp viz gallery project.toml`` to rerender all figures after a run,
+``hmp viz show <sim_id> <figure>`` to rerender one figure, and
 ``--no-display`` during ``hmp run`` when the workflow should persist results
 without rendering report figures.
 

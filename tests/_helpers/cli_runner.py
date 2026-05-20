@@ -53,6 +53,8 @@ class CliRunner:
         from hydromodpy.cli.main import main as cli_main
 
         argv = list(args)
+        if argv and argv[0] in {"hmp", "hydromodpy"}:
+            argv = argv[1:]
         stdout_buf = io.StringIO()
         stderr_buf = io.StringIO()
         exit_code = 0

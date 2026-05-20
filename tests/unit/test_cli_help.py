@@ -48,7 +48,7 @@ def test_subcommand_help(monkeypatch, capsys, subcommand: str) -> None:
 
 
 def test_data_subcommands_help(monkeypatch, capsys) -> None:
-    for sub in ("check", "list", "add"):
+    for sub in ("check", "ls", "add", "get", "remove", "prune", "archive", "restore"):
         code = _run_help(monkeypatch, ["hmp", "data", sub, "--help"])
         assert code == 0, f"data {sub} --help failed"
         out = capsys.readouterr().out
