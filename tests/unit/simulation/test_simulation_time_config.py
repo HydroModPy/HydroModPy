@@ -184,7 +184,7 @@ def test_simulation_mesh_process_uses_backend_not_solvers() -> None:
 
 
 def test_simulation_mesh_process_rejects_solvers() -> None:
-    with pytest.raises(ValueError, match="type='mesh' must use backend"):
+    with pytest.raises(ValueError, match="solvers"):
         SimulationConfig.model_validate(
             {
                 "name": "bad-mesh",

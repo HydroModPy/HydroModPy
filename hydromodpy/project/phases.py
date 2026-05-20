@@ -289,8 +289,8 @@ def ensure_simulation_block(project: Project) -> None:
         return
 
     from hydromodpy.simulation.planning.config import (
+        FlowProcessConfig,
         SimulationConfig,
-        SimulationProcessConfig,
         SimulationTimeConfig,
     )
     from hydromodpy.workflow.steps.planning import DEFAULT_FLOW_PROCESS_ID
@@ -316,9 +316,8 @@ def ensure_simulation_block(project: Project) -> None:
             end_datetime=end,
         ),
         process=[
-            SimulationProcessConfig(
+            FlowProcessConfig(
                 id=DEFAULT_FLOW_PROCESS_ID,
-                type="flow",
                 solvers=[project._solver],
             )
         ],

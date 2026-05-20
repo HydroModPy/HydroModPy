@@ -51,6 +51,9 @@ LAZY_IMPORTS: dict[str, str] = {
     "SimulationConfig": "hydromodpy.simulation.planning.config",
     "SimulationTimeConfig": "hydromodpy.simulation.planning.config",
     "SimulationProcessConfig": "hydromodpy.simulation.planning.config",
+    "FlowProcessConfig": "hydromodpy.simulation.planning.config",
+    "TransportProcessConfig": "hydromodpy.simulation.planning.config",
+    "MeshProcessConfig": "hydromodpy.simulation.planning.config",
     # Display
     "DisplayConfig": "hydromodpy.display.config",
     # Data variables (public surface)

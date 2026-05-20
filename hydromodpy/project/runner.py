@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
@@ -343,8 +343,10 @@ class ProjectRunner:
     ) -> Run:
         """Run one simulation with orchestration specified from Python."""
         from hydromodpy.simulation.planning.config import (
-            SimulationProcessConfig,
+            FlowProcessConfig,
+            MeshProcessConfig,
             SimulationTimeConfig,
+            TransportProcessConfig,
         )
 
         project = self._project
@@ -367,27 +369,38 @@ class ProjectRunner:
             project._ctx.setup.time_grid = project._time_grid
 
         if processes is not None:
-            resolved: list[SimulationProcessConfig] = []
+            resolved: list[Any] = []
             for idx, entry in enumerate(processes):
                 if isinstance(entry, str):
                     proc_type, solver_name = entry, project._solver
                 else:
                     proc_type, solver_name = entry
-                if str(proc_type).strip().lower() == "mesh":
+                ptype = str(proc_type).strip().lower()
+                if ptype == "mesh":
                     resolved.append(
-                        SimulationProcessConfig(
+                        MeshProcessConfig(
                             id=f"{proc_type}_{idx}",
-                            type=proc_type,
                             backend=str(solver_name or "catchment"),
                         )
                     )
-                else:
+                elif ptype == "flow":
                     resolved.append(
-                        SimulationProcessConfig(
+                        FlowProcessConfig(
                             id=f"{proc_type}_{idx}",
-                            type=proc_type,
                             solvers=[solver_name],
                         )
+                    )
+                elif ptype == "transport":
+                    resolved.append(
+                        TransportProcessConfig(
+                            id=f"{proc_type}_{idx}",
+                            solvers=[solver_name],
+                        )
+                    )
+                else:
+                    raise ValueError(
+                        f"Unknown process type '{proc_type}'. "
+                        "Supported types: flow, transport, mesh."
                     )
             project.cfg.simulation.process = resolved
 
