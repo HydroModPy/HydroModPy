@@ -72,9 +72,4 @@ def _print_help_when_missing(parser: argparse.ArgumentParser, args: argparse.Nam
         parser.print_help()
 
 
-# Backwards-compatible export used by tests (``from hydromodpy.cli.commands.data
-# import _parse_bbox``). Keep it pointing to the canonical implementation.
-_parse_bbox = get._parse_bbox
-
-
-__all__ = ("NAME", "HELP", "ACTIONS", "register", "_parse_bbox")
+__all__ = ("NAME", "HELP", "ACTIONS", "register")

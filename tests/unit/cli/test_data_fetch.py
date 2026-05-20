@@ -158,7 +158,7 @@ def test_bbox_three_values_fails(monkeypatch, tmp_path, capsys) -> None:
 
 def test_parse_bbox_helper_returns_tuple_of_floats() -> None:
     """The argparse type returns a 4-tuple of floats."""
-    from hydromodpy.cli.commands.data import _parse_bbox
+    from hydromodpy.cli.commands.data.get import _parse_bbox
 
     parsed = _parse_bbox("-1.17,48.4,-1.0,48.5")
     assert parsed == (-1.17, 48.4, -1.0, 48.5)
@@ -169,7 +169,7 @@ def test_parse_bbox_helper_rejects_non_float() -> None:
     """The argparse type raises ``ArgumentTypeError`` on non-float."""
     import argparse as _argparse
 
-    from hydromodpy.cli.commands.data import _parse_bbox
+    from hydromodpy.cli.commands.data.get import _parse_bbox
 
     with pytest.raises(_argparse.ArgumentTypeError):
         _parse_bbox("a,b,c,d")

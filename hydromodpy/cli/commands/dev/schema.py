@@ -60,12 +60,3 @@ def _load_context(ctx_path: str | None) -> dict | None:
         sys.exit(EXIT_NOT_FOUND)
     with ctx_file.open("rb") as fh:
         return tomllib.load(fh)
-
-
-# Backwards-compat for tests.unit.test_schema_export which imports _cmd_export.
-def _cmd_export(args: argparse.Namespace) -> None:
-    from hydromodpy.cli._workers.dev import export_schema
-
-    written = export_schema(getattr(args, "output", None) or "schema")
-    for key, path in written.items():
-        print(f"{key}: {path}", file=sys.stderr)

@@ -7,6 +7,30 @@ from pathlib import Path
 from typing import Any
 
 
+def delete_simulation_artifacts(
+    catalog: Any,
+    sid: str,
+    *,
+    remove_storage: bool = True,
+) -> dict[str, object]:
+    """Delete one simulation through an already-open catalog.
+
+    Used by ``hydromodpy.cli.commands.dev.manage`` when iterating over many
+    sims inside a single catalog session. ``delete_simulation`` is the
+    open-and-delete variant exposed via ``hmp catalog delete``.
+    """
+    zarr_path = catalog.zarr_path_for(sid)
+    parquet_dir = catalog.parquet_dir_for(sid)
+    existing_paths = [path for path in (zarr_path, parquet_dir) if path.exists()]
+    freed = sum(_path_size(p) for p in existing_paths) if remove_storage else 0
+    catalog.delete(sid, remove_storage=remove_storage)
+    return {
+        "sim_id": sid,
+        "freed_bytes": freed,
+        "removed_paths": [str(p) for p in existing_paths] if remove_storage else [],
+    }
+
+
 def list_simulations(
     workspace: Any,
     *,

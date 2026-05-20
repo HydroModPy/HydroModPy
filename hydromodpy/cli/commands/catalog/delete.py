@@ -1,11 +1,10 @@
-"""``hmp catalog delete`` - thin wrapper around :func:`hydromodpy.delete_simulation`."""
+"""``hmp catalog delete`` - thin wrapper around the ``catalog`` worker."""
 
 from __future__ import annotations
 
 import argparse
 import sys
 from pathlib import Path
-from typing import Any
 
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
@@ -64,24 +63,3 @@ def run(args: argparse.Namespace) -> None:
     for removed_path in result["removed_paths"]:
         print(f"  removed: {removed_path}")
     print(f"Deleted simulation {result['sim_id']}")
-
-
-def delete_simulation_artifacts(
-    catalog: Any,
-    sid: str,
-    *,
-    remove_storage: bool = True,
-) -> dict[str, object]:
-    """Legacy helper used by ``hydromodpy.cli.commands.dev.manage``."""
-    from hydromodpy.cli._workers.catalog import _path_size
-
-    zarr_path = catalog.zarr_path_for(sid)
-    parquet_dir = catalog.parquet_dir_for(sid)
-    existing_paths = [path for path in (zarr_path, parquet_dir) if path.exists()]
-    freed = sum(_path_size(p) for p in existing_paths) if remove_storage else 0
-    catalog.delete(sid, remove_storage=remove_storage)
-    return {
-        "sim_id": sid,
-        "freed_bytes": freed,
-        "removed_paths": [str(p) for p in existing_paths] if remove_storage else [],
-    }
