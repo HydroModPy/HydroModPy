@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import Field, field_validator, model_validator
 
@@ -150,95 +150,145 @@ class SimulationTimeConfig(HydroModelBase):
         return self
 
 
-class SimulationProcessConfig(HydroModelBase):
-    """One requested process entry under ``[[simulation.process]]``."""
+class _ProcessBase(HydroModelBase):
+    """Shared fields for simulation process entries.
+
+    Concrete variants below specialize ``type`` to a single literal so the
+    enclosing union (``SimulationProcessConfig``) can dispatch via Pydantic's
+    standard ``discriminator="type"`` engine.
+    """
 
     id: Annotated[IdentifierStr, Profile.USER] = Field(
+        ...,
         description=(
             "User-facing identifier for the process. "
             "This id is required and must be unique within the simulation."
         ),
         examples=["flow_main"],
     )
-    type: Annotated[str, Profile.USER] = Field(
-        description="Requested process family executed by the launcher.",
+
+
+class FlowProcessConfig(_ProcessBase):
+    """``[[simulation.process]]`` entry for a flow process."""
+
+    type: Annotated[Literal["flow"], Profile.USER] = Field(
+        default="flow",
+        description="Discriminator selecting the 'flow' process family.",
     )
     solvers: Annotated[list[str], Profile.USER] = Field(
-        default_factory=list,
+        ...,
+        min_length=1,
         description=(
-            "Ordered list of active solver names for this process. Each listed "
-            "solver is executed in order. Required for solver-backed processes "
-            "such as flow and transport."
+            "Ordered list of active flow solver names. At least one solver is "
+            "required for flow processes."
         ),
     )
-    backend: Annotated[str | None, Profile.USER] = Field(
-        default=None,
-        description=(
-            "Backend used by non-solver orchestration processes. Currently only "
-            "used by type='mesh', where backend='catchment' delegates to the "
-            "[mesh_catchment] runtime."
-        ),
-    )
-
-    @field_validator("type")
-    @classmethod
-    def _validate_type(cls, value: str) -> str:
-        cleaned = value.strip().lower()
-        if not cleaned:
-            raise ValueError("Process type cannot be empty.")
-        return cleaned
-
-    def validate_registry(self) -> None:
-        """Verify the process type is registered. Call explicitly from launcher."""
-        if self.type == "mesh":
-            return
-        registered = get_solver_registry_provider().known_process_types()
-        if self.type not in registered:
-            raise ValueError(
-                f"Unknown process type '{self.type}'. "
-                f"Registered types: {', '.join(sorted((*registered, 'mesh')))}."
-            )
 
     @field_validator("solvers")
     @classmethod
     def _validate_solvers(cls, value: list[str]) -> list[str]:
         cleaned = [solver.strip() for solver in value if solver and solver.strip()]
-        return cleaned
-
-    @field_validator("backend")
-    @classmethod
-    def _validate_backend(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        cleaned = value.strip().lower()
         if not cleaned:
-            raise ValueError("Process backend cannot be empty.")
+            raise ValueError(
+                "simulation.process entries with type='flow' require at least one solver."
+            )
         return cleaned
 
-    @model_validator(mode="after")
-    def _validate_process_execution_contract(self):
-        if self.type == "mesh":
-            if self.solvers:
-                raise ValueError(
-                    "simulation.process entries with type='mesh' must use backend, not solvers."
-                )
-            backend = self.backend or "catchment"
-            if backend != "catchment":
-                raise ValueError(
-                    "simulation.process entries with type='mesh' currently "
-                    "support only backend='catchment'."
-                )
-            object.__setattr__(self, "backend", backend)
-            return self
-
-        if self.backend is not None:
-            raise ValueError("simulation.process.backend is only supported for type='mesh'.")
-        if not self.solvers:
+    def validate_registry(self) -> None:
+        """Verify the process family is registered. Call explicitly from launcher."""
+        registered = get_solver_registry_provider().known_process_types()
+        if "flow" not in registered:
             raise ValueError(
-                f"simulation.process entries with type='{self.type}' require "
-                "at least one solver in solvers."
+                f"Unknown process type 'flow'. Registered types: "
+                f"{', '.join(sorted((*registered, 'mesh')))}."
             )
-        return self
+
+
+class TransportProcessConfig(_ProcessBase):
+    """``[[simulation.process]]`` entry for a transport process."""
+
+    type: Annotated[Literal["transport"], Profile.USER] = Field(
+        default="transport",
+        description="Discriminator selecting the 'transport' process family.",
+    )
+    solvers: Annotated[list[str], Profile.USER] = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Ordered list of active transport solver names. At least one "
+            "solver is required for transport processes."
+        ),
+    )
+
+    @field_validator("solvers")
+    @classmethod
+    def _validate_solvers(cls, value: list[str]) -> list[str]:
+        cleaned = [solver.strip() for solver in value if solver and solver.strip()]
+        if not cleaned:
+            raise ValueError(
+                "simulation.process entries with type='transport' require at least one solver."
+            )
+        return cleaned
+
+    def validate_registry(self) -> None:
+        """Verify the process family is registered. Call explicitly from launcher."""
+        registered = get_solver_registry_provider().known_process_types()
+        if "transport" not in registered:
+            raise ValueError(
+                f"Unknown process type 'transport'. Registered types: "
+                f"{', '.join(sorted((*registered, 'mesh')))}."
+            )
+
+
+class MeshProcessConfig(_ProcessBase):
+    """``[[simulation.process]]`` entry for a mesh orchestration process."""
+
+    type: Annotated[Literal["mesh"], Profile.USER] = Field(
+        default="mesh",
+        description="Discriminator selecting the 'mesh' orchestration family.",
+    )
+    backend: Annotated[Literal["catchment"], Profile.USER] = Field(
+        default="catchment",
+        description=(
+            "Backend used by the mesh process. Currently only 'catchment' is "
+            "supported (delegates to the [mesh_catchment] runtime)."
+        ),
+    )
+    solvers: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        max_length=0,
+        description=(
+            "Reserved for future use. Mesh processes must not declare solvers; "
+            "set 'backend' instead."
+        ),
+    )
+
+    def validate_registry(self) -> None:
+        """No-op: mesh is always supported when the launcher is wired."""
+        return
+
+
+SimulationProcessConfig: TypeAlias = Annotated[
+    FlowProcessConfig | TransportProcessConfig | MeshProcessConfig,
+    Field(
+        discriminator="type",
+        description=(
+            "Discriminated union of simulation processes tagged by the 'type' family "
+            "(flow, transport, mesh)."
+        ),
+    ),
+]
+
+
+def _coerce_process_entry(value: Any) -> Any:
+    """Normalize dict entries before discriminator dispatch (lowercase type)."""
+    if isinstance(value, dict):
+        payload = dict(value)
+        raw_type = payload.get("type")
+        if isinstance(raw_type, str):
+            payload["type"] = raw_type.strip().lower()
+        return payload
+    return value
 
 
 class SimulationConfig(HydroModelBase):
@@ -256,12 +306,11 @@ class SimulationConfig(HydroModelBase):
     ) -> SimulationConfig:
         """SimulationConfig with a transient time window and declared solvers."""
         start, end, step = time
-        processes = [SimulationProcessConfig(id="flow_main", type="flow", solvers=[flow])]
+        processes: list[Any] = [FlowProcessConfig(id="flow_main", solvers=[flow])]
         if transport is not None:
             processes.append(
-                SimulationProcessConfig(
+                TransportProcessConfig(
                     id="transport_main",
-                    type="transport",
                     solvers=[transport],
                 )
             )
@@ -384,12 +433,16 @@ class SimulationConfig(HydroModelBase):
         ),
     )
 
+    @field_validator("process", mode="before")
+    @classmethod
+    def _normalize_process_entries(cls, value: object) -> object:
+        if isinstance(value, list):
+            return [_coerce_process_entry(entry) for entry in value]
+        return value
+
     @field_validator("process")
     @classmethod
-    def _validate_unique_process_types(
-        cls,
-        value: list[SimulationProcessConfig],
-    ) -> list[SimulationProcessConfig]:
+    def _validate_unique_process_types(cls, value: list[Any]) -> list[Any]:
         seen_types: set[str] = set()
         for process_cfg in value:
             if process_cfg.type in seen_types:

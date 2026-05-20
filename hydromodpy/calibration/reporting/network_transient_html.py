@@ -1129,7 +1129,7 @@ def _save_outflow_map_grid(
     from matplotlib.collections import PolyCollection
     from matplotlib.colors import LogNorm, Normalize
 
-    from hydromodpy.calibration.network_metrics import active_network_mask
+    from hydromodpy.calibration.metrics.network import active_network_mask
 
     d_ref = np.load(truth_dir / "steady_network_drain_by_cell.npz")["outflow_drain"]
     normalization = _read_json(truth_dir / "normalization.json")

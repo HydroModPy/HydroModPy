@@ -65,7 +65,7 @@ _BUILTIN_PATHS: dict[AdapterKey, str] = {
     ): "hydromodpy.solver.modflow6.adapters.transport:Modflow6GwtTransportAdapter",
     (
         "transport",
-        "modflow6prt",
+        "modflow6_prt",
     ): "hydromodpy.solver.modflow6.adapters.prt:Modflow6PrtTransportAdapter",
 }
 
@@ -76,7 +76,7 @@ _BUILTIN_CAPABILITIES: dict[AdapterKey, Capabilities] = {
     ("transport", "modpath"): frozenset({"transport", "transport:particles"}),
     ("transport", "mt3dms"): frozenset({"transport", "transport:concentration"}),
     ("transport", "modflow6"): frozenset({"transport", "transport:concentration"}),
-    ("transport", "modflow6prt"): frozenset({"transport", "transport:particles"}),
+    ("transport", "modflow6_prt"): frozenset({"transport", "transport:particles"}),
 }
 
 # Dotted paths to in-tree output extractor classes. Keyed on the same
@@ -96,7 +96,7 @@ _BUILTIN_EXTRACTOR_PATHS: dict[AdapterKey, str] = {
     ): "hydromodpy.solver.modflow6.extractors.transport:Modflow6GwtOutputAdapter",
     (
         "transport",
-        "modflow6prt",
+        "modflow6_prt",
     ): "hydromodpy.solver.modflow6.extractors.prt:Modflow6PrtOutputAdapter",
     (
         "transport",

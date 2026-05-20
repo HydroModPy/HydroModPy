@@ -240,15 +240,15 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
 
     See Also
     --------
-    hydromodpy.calibration.runner.run_calibration_cli
+    hydromodpy.calibration.cli_runner.run_calibration_cli
         TOML entry point used by the path branch.
-    hydromodpy.calibration.runner.run_calibration_programmatic
+    hydromodpy.calibration.programmatic_runner.run_calibration_programmatic
         Python entry point used by the config-object branch.
     hydromodpy.calibration.CalibrationReport
         Structured calibration result.
     """
     if isinstance(config, (str, Path)):
-        from hydromodpy.calibration.runner import run_calibration_cli
+        from hydromodpy.calibration.cli_runner import run_calibration_cli
 
         kwargs.pop("headless", None)
         return run_calibration_cli(Path(config).expanduser().resolve(), **kwargs)

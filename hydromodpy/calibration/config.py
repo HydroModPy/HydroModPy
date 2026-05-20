@@ -354,6 +354,12 @@ class CalibrationConfig(HydroModelBase):
         default=True,
         description="Enable params_hash content-addressable cache.",
     )
+    lightweight_extraction: Annotated[bool, Profile.DEV] = Field(
+        default=True,
+        description="Skip Parquet/Zarr writes for lumped models (GR4J, ...) and "
+        "read simulated series from the per-trial RAM cache instead. Only the "
+        "promoted runs go through the catalog write path.",
+    )
     objective: Annotated[str, Profile.USER] = Field(
         default="nse",
         description="Metric key used by the default ScalarObjective.",
@@ -409,7 +415,14 @@ class CalibrationConfig(HydroModelBase):
     )
 
     def validate_registry(self) -> None:
-        """Verify the selected method is registered. Call explicitly from launcher."""
+        """Verify the selected method is registered and its kwargs validate.
+
+        The discriminated union :data:`CalibrationMethodConfig` raises eagerly
+        when ``optimizer_kwargs`` carries keys foreign to ``method`` so the
+        failure happens at config-load time instead of inside the adapter
+        constructor.
+        """
+        from hydromodpy.calibration.method_config import validate_method_kwargs
         from hydromodpy.calibration.optimizer import available_optimizers
 
         available = available_optimizers()
@@ -417,6 +430,7 @@ class CalibrationConfig(HydroModelBase):
             raise ValueError(
                 f"Unknown calibration method {self.method!r}. Available methods: {available}"
             )
+        validate_method_kwargs(self.method, self.optimizer_kwargs)
 
     @field_validator("candidates_root", mode="before")
     @classmethod
@@ -437,18 +451,27 @@ class CalibrationConfig(HydroModelBase):
 
         The discriminated union requires an explicit ``support`` tag. Older
         TOMLs that relied on the previous ``support='point'`` default get a
-        seamless upgrade by injecting the tag here.
+        seamless upgrade by injecting the tag here, with a warning so authors
+        notice the silent default before it bites their boundary/cell intent.
         """
         if not isinstance(value, dict):
             return value
-        return {
-            key: (
-                {"support": "point", **entry}
-                if isinstance(entry, dict) and "support" not in entry
-                else entry
-            )
-            for key, entry in value.items()
-        }
+        out: dict[str, Any] = {}
+        for key, entry in value.items():
+            if isinstance(entry, dict) and "support" not in entry:
+                import warnings
+
+                warnings.warn(
+                    f"calibration.outputs.{key} omits 'support'; defaulting to "
+                    "'point'. Declare support='point'|'boundary'|'cell' to silence "
+                    "this warning.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                out[key] = {"support": "point", **entry}
+            else:
+                out[key] = entry
+        return out
 
     @model_validator(mode="after")
     def _ensure_implicit_objective_block(self) -> CalibrationConfig:

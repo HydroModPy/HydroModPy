@@ -14,7 +14,11 @@ import pandas as pd
 import pytest
 
 # ── Config imports ────────────────────────────────────────────────────
-from hydromodpy.data.variables.dem.config import DemConfig, DemSourceConfig
+from hydromodpy.data.variables.dem.config import (
+    CustomDemSource,
+    DemConfig,
+    IgnBdaltiDemSource,
+)
 from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
 
 # ── Custom loader imports ─────────────────────────────────────────────
@@ -92,24 +96,24 @@ def _make_custom_csv_dir(
 @pytest.mark.fast
 class TestDemConfig:
     def test_valid_custom_source(self, tmp_path):
-        cfg = DemSourceConfig(source="custom", path=tmp_path)
+        cfg = CustomDemSource(path=tmp_path)
         assert cfg.source == "custom"
         assert cfg.path == tmp_path
 
     def test_valid_ign_source(self):
-        cfg = DemSourceConfig(source="ign_bdalti")
+        cfg = IgnBdaltiDemSource()
         assert cfg.source == "ign_bdalti"
 
     def test_custom_requires_path(self):
         with pytest.raises(ValueError, match="path"):
-            DemSourceConfig(source="custom")
+            CustomDemSource()
 
     def test_invalid_source_rejected(self):
         with pytest.raises(ValueError):
-            DemSourceConfig(source="invalid_source")
+            DemConfig(sources=[{"source": "invalid_source"}])
 
     def test_top_level_config(self, tmp_path):
-        cfg = DemConfig(sources=[DemSourceConfig(source="custom", path=tmp_path)])
+        cfg = DemConfig(sources=[CustomDemSource(path=tmp_path)])
         assert len(cfg.sources) == 1
 
     def test_empty_sources_rejected(self):
@@ -118,7 +122,7 @@ class TestDemConfig:
 
     def test_extra_fields_forbidden(self, tmp_path):
         with pytest.raises(ValueError):
-            DemSourceConfig(source="custom", path=tmp_path, bogus=True)
+            CustomDemSource(path=tmp_path, bogus=True)
 
 
 # =====================================================================

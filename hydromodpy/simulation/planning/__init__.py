@@ -5,6 +5,8 @@ from __future__ import annotations
 from importlib import import_module
 
 __all__ = [
+    "FlowProcessConfig",
+    "MeshProcessConfig",
     "ProcessRun",
     "RunContext",
     "RunExecutionResult",
@@ -13,11 +15,15 @@ __all__ = [
     "SimulationPlanner",
     "SimulationProcessConfig",
     "SimulationTimeConfig",
+    "TransportProcessConfig",
 ]
 
 _LAZY_IMPORTS = {
     "SimulationConfig": "hydromodpy.simulation.planning.config:SimulationConfig",
     "SimulationProcessConfig": "hydromodpy.simulation.planning.config:SimulationProcessConfig",
+    "FlowProcessConfig": "hydromodpy.simulation.planning.config:FlowProcessConfig",
+    "TransportProcessConfig": "hydromodpy.simulation.planning.config:TransportProcessConfig",
+    "MeshProcessConfig": "hydromodpy.simulation.planning.config:MeshProcessConfig",
     "SimulationTimeConfig": "hydromodpy.simulation.planning.config:SimulationTimeConfig",
     "ProcessRun": "hydromodpy.simulation.planning.plan:ProcessRun",
     "RunContext": "hydromodpy.simulation.planning.plan:RunContext",

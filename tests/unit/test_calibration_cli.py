@@ -1,4 +1,4 @@
-"""Unit tests for the rewritten :mod:`hydromodpy.calibration.runner`.
+"""Unit tests for the rewritten :mod:`hydromodpy.calibration.cli_runner`.
 
 Exercises the end-to-end wiring of ``run_calibration_cli`` without
 touching MODFLOW: ``prepare_trials`` and ``promote_prepared_trial`` are
@@ -24,10 +24,11 @@ from pathlib import Path
 
 import pytest
 
-from hydromodpy.calibration import runner as runner_module
+from hydromodpy.calibration import cli_runner as runner_module
+from hydromodpy.calibration import promotion as promotion_module
 from hydromodpy.calibration.cache import ParamsHashCache
+from hydromodpy.calibration.cli_runner import run_calibration_cli
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.runner import run_calibration_cli
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -166,7 +167,7 @@ def fake_pipeline(monkeypatch, tmp_path):
         return sim_id
 
     monkeypatch.setattr(runner_module, "prepare_trials", _fake_prepare)
-    monkeypatch.setattr(runner_module, "promote_prepared_trial", _fake_promote)
+    monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fake_promote)
     return promoted
 
 
@@ -311,14 +312,16 @@ class TestCachePreload:
 
         # Intercept cache to observe what gets preloaded.
         preloaded_snapshot: dict = {}
-        real_preload = runner_module._preload_hash_cache
+        from hydromodpy.calibration import state as state_module
+
+        real_preload = state_module.preload_hash_cache
 
         def spy(conn, cache):
             n = real_preload(conn, cache)
             preloaded_snapshot.update(cache._hits)
             return n
 
-        monkeypatch.setattr(runner_module, "_preload_hash_cache", spy)
+        monkeypatch.setattr(runner_module, "preload_hash_cache", spy)
 
         # Session 2 - same TOML, cache should preload.
         run_calibration_cli(calib_toml, metric_fn=quadratic_metric)
@@ -351,7 +354,9 @@ class TestCachePreload:
         )
 
         cache = ParamsHashCache()
-        n_preloaded = runner_module._preload_hash_cache(conn, cache)
+        from hydromodpy.calibration import state as state_module
+
+        n_preloaded = state_module.preload_hash_cache(conn, cache)
 
         assert n_preloaded == 1
         assert "legacyhash" not in cache
@@ -388,7 +393,7 @@ class TestObjectiveEscapeHatch:
 class TestDefaultEvaluatorIsGone:
     def test_no_default_evaluator_is_exported(self):
         """The P1→P2 contract: the user-facing path must not use the mock."""
-        import hydromodpy.calibration.runner as runner
+        import hydromodpy.calibration.cli_runner as runner
 
         assert not hasattr(runner, "_default_evaluator")
 
@@ -414,7 +419,9 @@ class TestConfigOverridePaths:
                 },
             }
         )
-        assert runner_module._override_paths(cfg) == {
+        from hydromodpy.calibration.state import override_paths as resolve_override_paths
+
+        assert resolve_override_paths(cfg) == {
             "K": "flow.param.K.field.value",
             "Sy": "flow.param.Sy.field.value",
         }
@@ -431,8 +438,10 @@ class TestConfigOverridePaths:
                 },
             }
         )
+        from hydromodpy.calibration.state import override_paths as resolve_override_paths
+
         with pytest.raises(ValueError, match="must declare a 'path'"):
-            runner_module._override_paths(cfg)
+            resolve_override_paths(cfg)
 
 
 class TestSessionLifecycle:

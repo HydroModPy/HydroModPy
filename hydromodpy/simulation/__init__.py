@@ -6,8 +6,10 @@ from importlib import import_module
 
 __all__ = [
     "ExecutionRegistry",
+    "FlowProcessConfig",
     "WorkflowContext",
     "LoadedDataContext",
+    "MeshProcessConfig",
     "ProcessRun",
     "RunContext",
     "RunExecutionResult",
@@ -18,6 +20,7 @@ __all__ = [
     "SimulationPlanner",
     "SimulationProcessConfig",
     "SimulationTimeConfig",
+    "TransportProcessConfig",
     "Workspace",
     "WorkspaceConfig",
     "ensure_flow",
@@ -43,6 +46,9 @@ _LAZY_IMPORTS = {
     "SimulationPlan": "hydromodpy.simulation.planning:SimulationPlan",
     "SimulationPlanner": "hydromodpy.simulation.planning:SimulationPlanner",
     "SimulationProcessConfig": "hydromodpy.simulation.planning:SimulationProcessConfig",
+    "FlowProcessConfig": "hydromodpy.simulation.planning:FlowProcessConfig",
+    "TransportProcessConfig": "hydromodpy.simulation.planning:TransportProcessConfig",
+    "MeshProcessConfig": "hydromodpy.simulation.planning:MeshProcessConfig",
     "SimulationTimeConfig": "hydromodpy.simulation.planning:SimulationTimeConfig",
 }
 

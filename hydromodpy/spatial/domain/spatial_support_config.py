@@ -3,12 +3,31 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Annotated, Literal
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import CellSamplingDensity, NonEmptyStr
-from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.core.units import UREG, LengthMeters
+
+
+def _to_meters(value: object, *, label: str) -> float:
+    """Convert a length-like value (number or pint string) to metres."""
+    if value is None:
+        raise ValueError(f"{label} cannot be None.")
+    if isinstance(value, bool):
+        raise TypeError(f"{label} rejects boolean input.")
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        token = value.strip()
+        if token == "":
+            raise ValueError(f"{label}: empty length string is not allowed.")
+        quantity = UREG(token)
+        if not hasattr(quantity, "magnitude"):
+            return float(quantity)
+        return float(quantity.to("m").magnitude)
+    raise TypeError(f"{label}: unsupported length value type {type(value).__name__}.")
 
 
 class DomainSupportBaseConfig(HydroModelBase):
@@ -61,12 +80,9 @@ class GeneratedBandsSupportConfig(DomainSupportBaseConfig):
                         "Relative generated_bands breaks must lie strictly between 0 and 1."
                     )
             else:
-                value_m = float(
-                    parse_length_to_m(
-                        raw_break,
-                        default_unit="m",
-                        label=f"domain.supports.breaks[{index}]",
-                    )
+                value_m = _to_meters(
+                    raw_break,
+                    label=f"domain.supports.breaks[{index}]",
                 )
                 if value_m <= 0.0:
                     raise ValueError("Absolute generated_bands breaks must be > 0.")
@@ -110,37 +126,24 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
         default_factory=list,
         description="Ordered ring labels. Length must be len(radii)+1.",
     )
-    center_x: Annotated[float | None, Profile.DEV] = Field(
+    center_x: Annotated[LengthMeters | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Optional x coordinate of the ring center in projected metres. "
-            "Defaults to the domain midpoint."
+            "Optional x coordinate of the ring center (projected metres). "
+            "Defaults to the domain midpoint. Accepts inline units, e.g. '500 m'."
         ),
     )
-    center_y: Annotated[float | None, Profile.DEV] = Field(
+    center_y: Annotated[LengthMeters | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Optional y coordinate of the ring center in projected metres. "
-            "Defaults to the domain midpoint."
+            "Optional y coordinate of the ring center (projected metres). "
+            "Defaults to the domain midpoint. Accepts inline units."
         ),
     )
     default_cell_samples_per_axis: Annotated[CellSamplingDensity, Profile.DEV] = Field(
         default=8,
         description="Sub-sampling resolution per cell axis used when rasterizing ring masks.",
     )
-
-    @field_validator("center_x", "center_y", mode="before")
-    @classmethod
-    def _normalize_optional_centers(cls, value, info):
-        if value is None:
-            return None
-        return float(
-            parse_length_to_m(
-                value,
-                default_unit="m",
-                label=f"domain.supports.{info.field_name}",
-            )
-        )
 
     @model_validator(mode="before")
     @classmethod
@@ -161,12 +164,9 @@ class GeneratedRingsSupportConfig(DomainSupportBaseConfig):
                         "Relative generated_rings radii must lie strictly between 0 and 1."
                     )
             else:
-                value_m = float(
-                    parse_length_to_m(
-                        raw_radius,
-                        default_unit="m",
-                        label=f"domain.supports.radii[{index}]",
-                    )
+                value_m = _to_meters(
+                    raw_radius,
+                    label=f"domain.supports.radii[{index}]",
                 )
                 if value_m <= 0.0:
                     raise ValueError("Absolute generated_rings radii must be > 0.")

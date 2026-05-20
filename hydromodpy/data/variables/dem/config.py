@@ -3,46 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, TypeAlias
 
-from pydantic import Field, model_validator
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.tracking import InputFile
 
 
-class DemSourceConfig(HydroModelBase):
-    """Configuration for one DEM data source.
+class _DemSourceBase(HydroModelBase):
+    """Shared fields for DEM data sources."""
 
-    Supported sources:
-
-    - ``custom``: user-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF).
-    - ``ign_bdalti``: IGN BD ALTI® 25 m - French national MNT downloaded
-      per-department from the GéoPlateforme.
-
-    The optional mask or extent controls spatial clipping during data loading.
-    """
-
-    source: Annotated[Literal["custom", "ign_bdalti"], Profile.USER] = Field(
-        ...,
-        description=(
-            "Data provider: 'custom' for user files (TIF/ASC/NC), "
-            "'ign_bdalti' for the IGN BD ALTI 25 m MNT."
-        ),
-    )
-
-    # --- Custom source fields ---
-    path: Annotated[
-        Path | None,
-        Profile.USER,
-        InputFile(role="dem", category="data"),
-    ] = Field(
-        default=None,
-        description="Path to custom DEM file or directory (TIF, ASC, NC).",
-    )
-
-    # --- Spatial mask ---
     mask_path: Annotated[Path | None, Profile.USER] = Field(
         default=None,
         description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
@@ -51,19 +23,48 @@ class DemSourceConfig(HydroModelBase):
         default=None,
         description="Use project extent for bbox-based data retrieval.",
     )
-
-    # --- Common ---
     force_refresh: Annotated[bool, Profile.DEV] = Field(
         default=False,
         description="Ignore cache and re-download from API.",
     )
 
-    @model_validator(mode="after")
-    def _check_source_requirements(self) -> DemSourceConfig:
-        if self.source == "custom":
-            if self.path is None:
-                raise ValueError("Custom source requires 'path' (TIF, ASC, or NC file).")
-        return self
+
+class CustomDemSource(_DemSourceBase):
+    """User-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF)."""
+
+    source: Annotated[Literal["custom"], Profile.USER] = Field(
+        default="custom",
+        description="Discriminator tag selecting the 'custom' DEM provider.",
+    )
+    path: Annotated[
+        Path,
+        Profile.USER,
+        InputFile(role="dem", category="data"),
+    ] = Field(
+        ...,
+        description="Path to custom DEM file or directory (TIF, ASC, NC).",
+    )
+
+
+class IgnBdaltiDemSource(_DemSourceBase):
+    """IGN BD ALTI 25 m national DEM downloaded per-department."""
+
+    source: Annotated[Literal["ign_bdalti"], Profile.USER] = Field(
+        default="ign_bdalti",
+        description="Discriminator tag selecting the IGN BD ALTI 25 m DEM provider.",
+    )
+
+
+DemSourceConfig: TypeAlias = Annotated[
+    CustomDemSource | IgnBdaltiDemSource,
+    Field(
+        discriminator="source",
+        description=(
+            "Discriminated union of DEM data sources tagged by the 'source' provider key. "
+            "Use 'custom' for a user file (TIF/ASC/NC) and 'ign_bdalti' for the IGN BD ALTI 25 m MNT."
+        ),
+    ),
+]
 
 
 class DemConfig(HydroModelBase):
@@ -93,9 +94,9 @@ class DemConfig(HydroModelBase):
     @classmethod
     def from_geotiff(cls, path: str | Path, **overrides) -> DemConfig:
         """DemConfig reading a user GeoTIFF (or ASC/NC) file."""
-        return cls(sources=[DemSourceConfig(source="custom", path=Path(path), **overrides)])
+        return cls(sources=[CustomDemSource(path=Path(path), **overrides)])
 
     @classmethod
     def ign_bdalti(cls, **overrides) -> DemConfig:
         """DemConfig pulling from the IGN BD ALTI 25 m national DEM."""
-        return cls(sources=[DemSourceConfig(source="ign_bdalti", **overrides)])
+        return cls(sources=[IgnBdaltiDemSource(**overrides)])

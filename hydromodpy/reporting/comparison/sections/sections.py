@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from hydromodpy.analysis.comparison.web.context import ComparisonWebContext
-from hydromodpy.analysis.comparison.web.html_utils import (
+from hydromodpy.reporting.comparison.context import ComparisonWebContext
+from hydromodpy.reporting.comparison.html_utils import (
     render_links,
     safe,
 )

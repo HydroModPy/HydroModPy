@@ -2,7 +2,7 @@
 
 Launch with::
 
-    streamlit run hydromodpy/display/streamlit_config.py [-- --load config.toml]
+    streamlit run hydromodpy/reporting/streamlit_config.py [-- --load config.toml]
 
 Or via the CLI::
 

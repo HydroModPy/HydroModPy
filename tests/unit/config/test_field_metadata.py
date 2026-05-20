@@ -37,7 +37,7 @@ def test_field_metadata_helper_rejects_typos() -> None:
 
 _SKIP_MODULES = frozenset(
     {
-        "hydromodpy.display.streamlit_config",
+        "hydromodpy.reporting.streamlit_config",
     }
 )
 

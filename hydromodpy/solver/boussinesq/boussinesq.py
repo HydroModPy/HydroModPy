@@ -38,7 +38,6 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     is_boundary_condition_active,
 )
 from hydromodpy.solver.base.protocols import DomainLike
-from hydromodpy.solver.base.solver import Solver
 from hydromodpy.solver.boussinesq.assembly import (
     saturated_thickness_from_head,
 )
@@ -92,7 +91,7 @@ _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 _DEFAULT_SATURATION_EXCESS_REGULARIZATION = 0.05
 
 
-class Boussinesq(Solver):
+class Boussinesq:
     """Boussinesq solver driver compatible with the HydroModPy solver contract.
 
     The class acts as a translator between high-level HydroModPy objects

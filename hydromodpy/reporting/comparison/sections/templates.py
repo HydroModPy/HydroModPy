@@ -7,8 +7,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison.web.context import ComparisonWebContext
-from hydromodpy.analysis.comparison.web.html_utils import (
+from hydromodpy.reporting.comparison.context import ComparisonWebContext
+from hydromodpy.reporting.comparison.html_utils import (
     link_relative,
     safe,
     short,

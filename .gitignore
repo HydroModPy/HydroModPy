@@ -116,6 +116,7 @@ out/
 **/simulations/
 **/exports/
 !tests/integration/exports/
+!hydromodpy/analysis/comparison/exports/
 **/results_simulations/
 **/results_stable/
 **/projects/**/figures/

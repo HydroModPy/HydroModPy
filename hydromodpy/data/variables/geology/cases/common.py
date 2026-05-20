@@ -7,7 +7,20 @@ from pathlib import Path
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from shapely.geometry import box
 
-from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.core.units import UREG
+
+
+def _length_to_meters(value: object, *, default_unit: str) -> float:
+    """Parse a length input (number or pint string) to metres."""
+    if isinstance(value, (int, float)):
+        quantity = UREG.Quantity(float(value), default_unit)
+    elif isinstance(value, str):
+        quantity = UREG(value.strip())
+        if not hasattr(quantity, "magnitude"):
+            quantity = UREG.Quantity(float(quantity), default_unit)
+    else:
+        raise TypeError(f"unsupported length value: {value!r}")
+    return float(quantity.to("m").magnitude)
 
 
 def resolve_case_path(path_like):
@@ -58,13 +71,7 @@ def clip_square_window(
 
     raw_window = window_m if window_m is not None else window_km
     raw_default_unit = "m" if window_m is not None else "km"
-    side_m = float(
-        parse_length_to_m(
-            raw_window,
-            default_unit=raw_default_unit,
-            label="window",
-        )
-    )
+    side_m = _length_to_meters(raw_window, default_unit=raw_default_unit)
     if side_m <= 0.0:
         raise ValueError("window must be > 0")
 
