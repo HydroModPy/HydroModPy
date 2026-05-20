@@ -99,6 +99,8 @@ jobs:
       # Whitebox-heavy tiers (backend + geographic + delineation) run in
       # their own pytest invocations because the native binding accumulates
       # state across DEM workflows and aborts after several runs in one process.
+      # Per-step --cov-fail-under=0 disables the threshold inside each
+      # pytest invocation; the combined report below enforces fail_under.
       - name: Run unit tests (without whitebox-heavy tiers)
         run: |
           python -m pytest tests/unit/ \
@@ -107,14 +109,16 @@ jobs:
             --ignore=tests/unit/delineation \
             -q \
             --cov=hydromodpy \
-            --cov-report=
+            --cov-report= \
+            --cov-fail-under=0
 
       - name: Run whitebox backend tests (serial)
         run: |
           python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py -q \
             --cov=hydromodpy \
             --cov-append \
-            --cov-report=
+            --cov-report= \
+            --cov-fail-under=0
 
       - name: Run delineation tests (fresh process per file)
         run: |
@@ -122,7 +126,8 @@ jobs:
             python -m pytest "$f" -q \
               --cov=hydromodpy \
               --cov-append \
-              --cov-report= || exit 1
+              --cov-report= \
+              --cov-fail-under=0 || exit 1
           done
 
       - name: Run geographic tests (fresh process per file)
@@ -131,14 +136,14 @@ jobs:
             python -m pytest "$f" -q \
               --cov=hydromodpy \
               --cov-append \
-              --cov-report= || exit 1
+              --cov-report= \
+              --cov-fail-under=0 || exit 1
           done
 
-      - name: Report coverage
-        if: always()
+      - name: Report combined coverage
         run: |
-          coverage report --show-missing || true
-          coverage xml || true
+          coverage report --show-missing
+          coverage xml
 
       - name: Upload coverage to Codecov
         if: always()
