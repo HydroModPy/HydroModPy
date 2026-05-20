@@ -104,6 +104,15 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Skip auto-rendering of the figures listed in [display].figures.",
     )
     parser.add_argument(
+        "--no-parallel",
+        action="store_true",
+        dest="no_parallel",
+        help=(
+            "Force the Pipeline to run cohorts sequentially. Useful for "
+            "debugging or to keep deterministic step ordering."
+        ),
+    )
+    parser.add_argument(
         "--overlay",
         action="append",
         default=[],
@@ -197,6 +206,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     no_display = bool(getattr(args, "no_display", False))
     frozen = bool(getattr(args, "frozen", False))
     no_lock = bool(getattr(args, "no_lock", False))
+    parallel = not bool(getattr(args, "no_parallel", False))
 
     if dry_run:
         _print_dry_run(
@@ -247,6 +257,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
                 until_step=until_step,
                 no_display=no_display,
                 frozen=frozen,
+                parallel=parallel,
             )
         else:
             summary = hmp.run(run_path)
