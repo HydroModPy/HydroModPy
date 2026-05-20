@@ -28,7 +28,7 @@ allowed:
   # It sits above the matrix (like ``cli``) so workflow/calibration launchers
   # can be bound to ``Project`` without lower layers depending on the facade.
   project:       [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, project]
-  cli:           [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, project, cli]
+  cli:           ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, project, cli]
 
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Tighten over time.
