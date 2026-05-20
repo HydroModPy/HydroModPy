@@ -155,6 +155,7 @@ def build_cache_context(
     for runtime_key in (
         "max_iter",
         "batch_size",
+        "parallel",
         "save_runs",
         "save_best_n",
         "use_cache",

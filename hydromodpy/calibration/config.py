@@ -332,6 +332,14 @@ class CalibrationConfig(HydroModelBase):
         ge=1,
         description="Number of suggestions drawn per ask (for parallel optimizers).",
     )
+    parallel: Annotated[int, Profile.DEV] = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Number of trials evaluated concurrently inside one batch via a "
+            "thread pool. parallel=1 keeps the legacy sequential loop."
+        ),
+    )
     seed: Annotated[int | None, Profile.USER] = Field(
         default=None,
         description="Random seed for reproducibility.",
