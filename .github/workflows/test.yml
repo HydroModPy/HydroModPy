@@ -100,10 +100,16 @@ jobs:
           pip install -e ".[test,calibration,delineation]"
 
       # The whitebox native backend segfaults under xdist; isolate it.
-      - name: Run unit tests in parallel (without whitebox backend)
+      # The geographic and delineation tests use whitebox heavily through
+      # the geographic pipeline; running several in one process accumulates
+      # native binding state and aborts. Run each whitebox-heavy file in a
+      # fresh pytest invocation.
+      - name: Run unit tests in parallel (without whitebox-heavy tiers)
         run: |
           python -m pytest tests/unit/ \
             --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/geographic \
+            --ignore=tests/unit/delineation \
             -n auto --dist loadgroup \
             --timeout=300 \
             -q
@@ -113,6 +119,18 @@ jobs:
           python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py \
             --timeout=300 \
             -q
+
+      - name: Run delineation tests (fresh process per file)
+        run: |
+          for f in tests/unit/delineation/test_*.py; do
+            python -m pytest "$f" --timeout=300 -q || exit 1
+          done
+
+      - name: Run geographic tests (fresh process per file)
+        run: |
+          for f in tests/unit/geographic/test_*.py; do
+            python -m pytest "$f" --timeout=300 -q || exit 1
+          done
 
   integration:
     name: Integration tier (xdist parallel)

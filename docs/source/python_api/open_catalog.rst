@@ -15,6 +15,7 @@ Reference
 ---------
 
 .. autofunction:: hydromodpy.open_catalog
+   :no-index:
 
 Example
 -------

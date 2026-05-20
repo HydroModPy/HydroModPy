@@ -196,3 +196,4 @@ Looking for one specific case? Browse the flat index of all available gallery ca
    simulation_comparison
    code_comparison
    simulation
+   Examples <../examples/index>

@@ -54,16 +54,58 @@ def install_binaries(
     mf6_prt: bool = False,
     bindir: Any = None,
     upgrade: bool = False,
+    quiet: bool = False,
+    release: str | None = None,
 ) -> dict:
     """Pre-warm the MODFLOW / MODPATH / MT3D-USGS binary cache."""
-    from hydromodpy.core.binaries import install as install_impl
-
-    return install_impl(
-        subset=subset,
-        mf6_prt=mf6_prt,
-        bindir=Path(bindir).expanduser().resolve() if bindir else None,
-        upgrade=upgrade,
+    from hydromodpy.solver.modflow_common.binaries import (
+        DEFAULT_RELEASE,
+        available_solvers,
+        download_solver_binaries,
+        locate_solver_binary,
+        managed_bin_dir,
+        read_manifest,
     )
+
+    target = Path(bindir).expanduser().resolve() if bindir else managed_bin_dir()
+    resolved_release = release or DEFAULT_RELEASE
+
+    if mf6_prt:
+        names = ["mf6"]
+    elif subset:
+        names = list(subset)
+    else:
+        names = list(available_solvers())
+
+    manifest = read_manifest(target)
+    cached = (
+        manifest is not None
+        and manifest.get("release") == resolved_release
+        and set(names).issubset(set(manifest.get("solvers", [])))
+        and all(locate_solver_binary(target, name) is not None for name in names)
+    )
+
+    if cached and not upgrade:
+        return {
+            "already_cached": True,
+            "release": resolved_release,
+            "installed": [],
+            "target": str(target),
+        }
+
+    final_target = download_solver_binaries(
+        bindir=target,
+        subset=names,
+        quiet=quiet,
+        force=upgrade,
+        release=resolved_release,
+    )
+    return {
+        "already_cached": False,
+        "release": resolved_release,
+        "installed": names,
+        "target": str(final_target),
+    }
 
 
 def lock_update(workspace: Any = None, *, output: Any = None) -> Path:

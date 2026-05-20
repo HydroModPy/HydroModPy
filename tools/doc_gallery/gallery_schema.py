@@ -102,7 +102,7 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "These cases show how HydroModPy validates numerical behaviour against "
             "lightweight analytical references, with metrics that stay readable in a doc page."
         ),
-        guide_doc="getting_started/reading-results-pages",
+        guide_doc="user_guide/concepts/reading-results-pages",
         guide_title="How to read gallery, comparison, and validation pages",
     ),
     "calibration": GalleryCategorySpec(
@@ -114,7 +114,7 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "synthetic observations are generated first, then recovered with one or more "
             "calibration strategies on the same solver family."
         ),
-        guide_doc="getting_started/reading-results-pages",
+        guide_doc="user_guide/concepts/reading-results-pages",
         guide_title="How to read gallery, comparison, and validation pages",
     ),
     "geographic": GalleryCategorySpec(
@@ -154,7 +154,7 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "These cases compare multiple modelling methods on the same saved support. "
             "The figures stay lightweight enough for the docs while still exposing map-wide errors."
         ),
-        guide_doc="getting_started/reading-results-pages",
+        guide_doc="user_guide/concepts/reading-results-pages",
         guide_title="How to read gallery, comparison, and validation pages",
     ),
     "code_comparison": GalleryCategorySpec(
@@ -166,7 +166,7 @@ CATEGORY_SPECS: dict[str, GalleryCategorySpec] = {
             "They focus on flux partitioning, storage response, and boundary-condition behaviour "
             "when the goal is cross-code diagnosis rather than validation against an analytical reference."
         ),
-        guide_doc="getting_started/reading-results-pages",
+        guide_doc="user_guide/concepts/reading-results-pages",
         guide_title="How to read gallery, comparison, and validation pages",
     ),
     "simulation": GalleryCategorySpec(

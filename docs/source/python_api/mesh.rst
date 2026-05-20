@@ -17,6 +17,7 @@ Reference
 ---------
 
 .. autofunction:: hydromodpy.mesh
+   :no-index:
 
 Example
 -------

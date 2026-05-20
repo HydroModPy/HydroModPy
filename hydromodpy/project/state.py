@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.run import Run
     from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
-    from hydromodpy.spatial.mesh.runtime import ExternalMeshInput
 
 
 @dataclass(slots=True)
@@ -46,7 +45,7 @@ class ProjectState:
     headless: bool = False
     no_display: bool = False
     mesh_section_data: MeshCatchmentConfig | None = None
-    external_mesh_input: ExternalMeshInput | None = None
+    external_mesh_input: dict[str, str] | None = None
     mesh_constraints_mode: str | None = None
     spatial_support_registry: Any = None
     requested_support_ids: tuple[str, ...] = ()

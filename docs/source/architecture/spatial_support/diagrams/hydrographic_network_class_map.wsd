@@ -111,14 +111,14 @@ reference and generated roles exist.
 end note
 
 note bottom of StreamNetworkMetrics
-Package hydromodpy.analysis.stream_networks.
+Module hydromodpy.results.views (lazy distance metrics).
 The current distance metric is planar and
 cell-based; it is not yet the downslope
 DEM-routing criterion.
 end note
 
 note bottom of StreamNetworkMetrics
-Package hydromodpy.analysis.stream_networks.
+Module hydromodpy.results.views (lazy distance metrics).
 The current distance metric is planar and
 cell-based; it is not yet the downslope
 DEM-routing criterion.

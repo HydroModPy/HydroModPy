@@ -63,8 +63,8 @@ After each ``execute``, ``post_run_results()``:
    tables, JSON manifests).
 4. Cleans up scratch files (``cleanup_solver_outputs``).
 
-Extractors live under
-``simulation/extraction/extractors/``: ``base.py`` (Protocol),
+Derivation helpers live under
+``simulation/extraction/derivation/``: ``base.py`` (Protocol),
 ``observation_ingest.py``, ``catchment_aggregation.py``,
 ``derived.py``. They register through the solver-output-adapter
 registry so each backend can ship its own extractor.

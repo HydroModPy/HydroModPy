@@ -111,6 +111,11 @@ flags only apply to ``[workflow].mode = "simulation"``:
        already exist and match its recorded hash.
    * - ``--no-display``
      - Persist results without rendering configured display figures.
+   * - ``--no-parallel``
+     - Force sequential execution of cohort runs. Parallel cohort execution is
+       enabled by default when the workflow declares multiple independent runs.
+       Use this flag for debugging, deterministic step ordering, single-CPU
+       environments, or when parallel I/O contention is observed.
    * - ``--overlay <path.toml>``
      - Merge an extra TOML payload after the ``base_config`` chain. The flag
        can be repeated; later overlays win.

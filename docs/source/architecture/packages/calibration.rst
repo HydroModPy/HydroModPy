@@ -9,10 +9,18 @@ layer and reuses the prepare-once / evaluate-many primitive in
 Sub-modules
 -----------
 
-- ``calibration/runner.py`` -- CLI driver
+- ``calibration/cli_runner.py`` -- CLI driver
   (``run_calibration_cli``). Loads the TOML, prepares the trial
   context, runs the engine, persists iterations, optionally promotes
   best trials.
+- ``calibration/programmatic_runner.py`` -- in-process driver used
+  by ``hmp.calibrate`` and the regional_lab pipeline.
+- ``calibration/runners/`` -- per-method runner variants
+  (twin experiments, trial helpers, contracts).
+- ``calibration/promotion.py`` -- top-N promotion of best trials to
+  full simulations.
+- ``calibration/state.py`` -- in-memory session state shared between
+  ask/tell loops and the persistence layer.
 - ``calibration/engine.py`` -- ``CalibrationEngine`` drives the
   ask/tell loop until convergence or ``max_iter``. Returns a
   ``CalibrationSession``.
@@ -25,8 +33,6 @@ Sub-modules
   (``recession_brutsaert``, ``groundwater_1d``).
 - ``calibration/lumped/`` -- lumped-model helpers reused by the
   cases.
-- ``calibration/runners/`` -- runner variants
-  (per-method execution, twin experiments, etc.).
 - ``calibration/metrics.py`` -- trial-side metric extractor
   (``build_metric_extractor``).
 - ``calibration/objective.py`` -- ``Objective`` aggregates one or
@@ -77,7 +83,8 @@ deduplicates trials across sessions when ``use_cache = true``
 Key public symbols
 ------------------
 
-- ``hydromodpy.calibration.runner.run_calibration_cli``
+- ``hydromodpy.calibration.cli_runner.run_calibration_cli``
+- ``hydromodpy.calibration.programmatic_runner.run_calibration_programmatic``
 - ``hydromodpy.calibration.engine.CalibrationEngine``
 - ``hydromodpy.calibration.adapters.{Grid, RandomSearch,
   ScipyNelderMead, ScipyDE, OptunaAdapter, CmaEsAdapter,
@@ -93,7 +100,7 @@ Recommended reading path
 ------------------------
 
 1. ``hydromodpy/calibration/__init__.py`` for the public surface.
-2. ``hydromodpy/calibration/runner.py``
+2. ``hydromodpy/calibration/cli_runner.py``
 3. ``hydromodpy/calibration/engine.py``
 4. ``hydromodpy/simulation/execution/trial.py``
 5. one adapter (``hydromodpy/calibration/adapters/optuna_adapter.py``

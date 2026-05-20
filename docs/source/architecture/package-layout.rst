@@ -46,16 +46,15 @@ Subpackages
    * - Subpackage
      - Role and entry file
    * - ``analysis/``
-     - Cross-run analysis: regional batch (``analysis/batch/``),
-       simulation comparison (``analysis/comparison/``), testbed
-       variants (``analysis/testbed/``), stream-network metrics
-       (``analysis/stream_networks/``). Start at
-       ``analysis/__init__.py``. See :doc:`packages/analysis`.
+     - Cross-run analysis: simulation comparison
+       (``analysis/comparison/``) and testbed variants
+       (``analysis/testbed/``, hosting the ``regional_lab`` profile).
+       Start at ``analysis/__init__.py``. See :doc:`packages/analysis`.
    * - ``calibration/``
      - Ask/tell engine, parameter sets, objective dispatch, optimizer
        adapters (CmaEs, Optuna, RandomSearch, ScipyDE,
        ScipyNelderMead, Grid, GpMapping, DaMhGp), persistence,
-       diagnostics, runnable cases. Entry: ``calibration/runner.py``.
+       diagnostics, runnable cases. Entry: ``calibration/cli_runner.py``.
        See :doc:`packages/calibration`.
    * - ``cli/``
      - ``hmp`` and ``hydromodpy`` console entry points. One module per
@@ -117,8 +116,8 @@ Subpackages
        backends (``solver/boussinesq/``, ``solver/modflow6/``,
        ``solver/modflow_nwt/``). Shared helpers in
        ``solver/modflow_common/``, grid abstraction in
-       ``solver/modflow_grid/``, time helpers in
-       ``solver/utils/``. See :doc:`packages/solver`.
+       ``solver/modflow_grid/``. Time helpers now live in
+       ``core/time/``. See :doc:`packages/solver`.
    * - ``spatial/``
      - Spatial-support stack: ``spatial/delineation/`` (Whitebox
        backends), ``spatial/geographic/`` (DEM, watershed, river

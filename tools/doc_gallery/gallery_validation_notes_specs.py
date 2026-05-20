@@ -69,7 +69,7 @@ def build_validation_note_specs() -> tuple[GalleryCaseSpec, ...]:
                 "If a project uses structured grids only, keep the structured default path: XT3D is intentionally not auto-enabled there.",
                 "If a specific unstructured scenario needs the previous behaviour, set `mf6_enable_xt3d = false` explicitly in `[modflow6.runtime]`.",
             ),
-            walkthrough_doc="getting_started/reading-results-pages",
+            walkthrough_doc="user_guide/concepts/reading-results-pages",
             walkthrough_title="How to read gallery, comparison, and validation pages",
             metadata={
                 "process_family": "flow",

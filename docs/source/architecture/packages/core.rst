@@ -15,6 +15,10 @@ Sub-modules
 
    * - Module
      - Role
+   * - ``core/auth/``
+     - :class:`AuthBackend` Protocol plus the bundled
+       :class:`LocalAuthBackend` and :func:`get_auth_backend`
+       selector. See the "Auth backend" section below.
    * - ``core/config_kit/``
      - ``Profile`` enum (USER / DEV / EXPERT), introspection helpers,
        persistence-config base, and shared field-introspection
@@ -94,6 +98,30 @@ Recommended reading path
    contexts.
 5. ``hydromodpy/core/metrics/goodness_of_fit.py`` for the metric
    contract.
+
+Auth backend
+------------
+
+``core/auth/`` carries the actor-resolution abstraction shared by the
+catalog audit trail and the privacy purge worker:
+
+- ``core/auth/protocol.py`` defines :class:`AuthBackend`, a runtime
+  ``Protocol`` with ``current_user()``, ``can_read(resource)`` and
+  ``can_write(resource)``.
+- ``core/auth/backends.py`` ships :class:`LocalAuthBackend`, the
+  permissive default. It reads ``HMP_USER`` then ``USER`` /
+  ``USERNAME`` then :func:`getpass.getuser`, and answers ``True`` to
+  every ACL check.
+- ``core/auth/selection.py`` exposes :func:`get_auth_backend`, which
+  reads the ``HMP_AUTH_BACKEND`` env var (or its argument) to pick
+  an implementation. Unknown names raise ``ValueError`` so misspelt
+  deployment configs fail loudly.
+
+Wiring: ``results/catalog/audit.py:_resolve_actor`` and
+``cli/_workers/privacy.py:_purge_resolve_operator`` both centralise
+actor resolution through :func:`get_auth_backend`. Auth lives in
+``core``, so any layer may consume it; auth itself must not import
+outside ``core``.
 
 Layer-matrix neighbours
 -----------------------

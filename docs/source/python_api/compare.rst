@@ -14,6 +14,7 @@ Reference
 ---------
 
 .. autofunction:: hydromodpy.compare
+   :no-index:
 
 Example
 -------

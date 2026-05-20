@@ -92,7 +92,7 @@ Node by node:
   what you would write for a single run.
 - **``hmp run``**: the unified CLI entry point. It reads
   ``[workflow].mode = "calibration"`` and dispatches to
-  ``hydromodpy.calibration.runner.run_calibration_cli``. Calibration
+  ``hydromodpy.calibration.cli_runner.run_calibration_cli``. Calibration
   has no separate top-level subcommand.
 - **``prepare_trials``**: runs pipeline steps ``[0..earliest)`` exactly
   once. ``earliest`` is computed from the dotted paths declared by
@@ -850,7 +850,7 @@ Programmatic entry point (no CLI needed):
 
 .. code-block:: python
 
-   from hydromodpy.calibration.runner import run_calibration_cli
+   from hydromodpy.calibration.cli_runner import run_calibration_cli
 
    summary = run_calibration_cli(
        "run_calibration_k.toml",

@@ -45,3 +45,16 @@ on the next shell start; no extra step required.
 .. code-block:: bash
 
    hmp dev completion fish > ~/.config/fish/completions/hmp.fish
+
+Bash/zsh argcomplete integration
+--------------------------------
+
+For richer flag completion beyond what ``hmp dev completion`` ships,
+install ``argcomplete`` and source its hook:
+
+.. code-block:: bash
+
+   pip install argcomplete
+   eval "$(register-python-argcomplete hmp)"
+
+Add the eval line to your shell rc file to keep completion active.
