@@ -57,7 +57,7 @@ Foundations
       :link: package-layout
       :link-type: doc
 
-      The 14 subpackages, the top-level facade, and the public-symbol
+      The 16 subpackages, the top-level facade, and the public-symbol
       contract.
 
    .. grid-item-card:: Layered architecture
@@ -65,7 +65,7 @@ Foundations
       :link: layered-architecture
       :link-type: doc
 
-      The strict 14-layer dependency matrix and the one-way import
+      The strict 16-layer dependency matrix and the one-way import
       rule that every commit must respect.
 
    .. grid-item-card:: Storage layout
@@ -90,7 +90,7 @@ Per-package reference
 .. grid:: 1 1 1 1
    :gutter: 2 2 3 3
 
-   .. grid-item-card:: All 14 subpackages
+   .. grid-item-card:: All 16 subpackages
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
       :link: packages/index
       :link-type: doc
