@@ -451,18 +451,27 @@ class CalibrationConfig(HydroModelBase):
 
         The discriminated union requires an explicit ``support`` tag. Older
         TOMLs that relied on the previous ``support='point'`` default get a
-        seamless upgrade by injecting the tag here.
+        seamless upgrade by injecting the tag here, with a warning so authors
+        notice the silent default before it bites their boundary/cell intent.
         """
         if not isinstance(value, dict):
             return value
-        return {
-            key: (
-                {"support": "point", **entry}
-                if isinstance(entry, dict) and "support" not in entry
-                else entry
-            )
-            for key, entry in value.items()
-        }
+        out: dict[str, Any] = {}
+        for key, entry in value.items():
+            if isinstance(entry, dict) and "support" not in entry:
+                import warnings
+
+                warnings.warn(
+                    f"calibration.outputs.{key} omits 'support'; defaulting to "
+                    "'point'. Declare support='point'|'boundary'|'cell' to silence "
+                    "this warning.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                out[key] = {"support": "point", **entry}
+            else:
+                out[key] = entry
+        return out
 
     @model_validator(mode="after")
     def _ensure_implicit_objective_block(self) -> CalibrationConfig:
