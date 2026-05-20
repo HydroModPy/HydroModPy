@@ -140,24 +140,26 @@ def index(db_path: Any = None, *, read_only: bool = False) -> Any:
 def run(config: Any, **kwargs: Any) -> Any:
     """Run a HydroModPy workflow from Python.
 
-    Passing a path executes the same dispatcher as ``hmp run``. Passing an
-    already-built configuration object opens a temporary ``Project`` and calls
-    ``Project.run``.
+    Path and config-object inputs converge on the same dispatch. Simulation
+    workflows return a :class:`~hydromodpy.results.run.Run` (or ``None`` when
+    nothing was persisted, e.g. ``dry_run``). Overview, calibration,
+    comparison and testbed workflows return their adapter ``dict`` summary.
 
     Parameters
     ----------
     config
         TOML path or validated configuration object.
     kwargs
-        Runtime options forwarded to the selected workflow or to
-        ``Project.run``.
+        Runtime options forwarded to the selected workflow. The ``headless``
+        keyword is honored on both branches (path and config object) and
+        controls the underlying ``Project`` interactive side effects.
 
     Returns
     -------
-    Any
-        Workflow result. Simulation workflows usually return a ``Run`` object;
-        overview, mesh, testbed, comparison, and calibration workflows return
-        their own summary objects.
+    Run or None or dict
+        ``Run`` instance (or ``None``) for the ``simulation`` workflow.
+        ``dict`` summary for ``overview``, ``calibration``, ``comparison``
+        and ``testbed`` workflows.
 
     Raises
     ------
@@ -180,7 +182,10 @@ def run(config: Any, **kwargs: Any) -> Any:
     hydromodpy.project.Project.run
         Object-oriented form for repeated runs from one project.
     """
+    headless = bool(kwargs.pop("headless", False))
+
     if isinstance(config, (str, Path)):
+        from hydromodpy.project import Project
         from hydromodpy.project.dispatch.workflow import dispatch_workflow
         from hydromodpy.workflow.dispatch import resolve_workflow
 
@@ -190,11 +195,14 @@ def run(config: Any, **kwargs: Any) -> Any:
             cli_workflow=None,
             require_toml_field=True,
         )
+        if workflow == "simulation":
+            with Project(config_path, headless=headless) as project:
+                return project.run(**kwargs)
         return dispatch_workflow(workflow, config_path, **kwargs)
 
     from hydromodpy.project import Project
 
-    with Project(config, headless=kwargs.pop("headless", False)) as project:
+    with Project(config, headless=headless) as project:
         return project.run(**kwargs)
 
 

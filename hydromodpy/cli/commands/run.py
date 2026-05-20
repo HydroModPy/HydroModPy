@@ -240,9 +240,16 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _post_run_lockfile_write(run_path, raw_toml)
 
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
-    if summary:
-        for key, value in summary.items():
-            print(f"  {key}: {value}", file=sys.stderr)
+    if summary is None:
+        return
+    if isinstance(summary, Mapping):
+        items = summary.items()
+    else:
+        items = ((k, getattr(summary, k, None)) for k in ("sim_id", "name"))
+    for key, value in items:
+        if value is None:
+            continue
+        print(f"  {key}: {value}", file=sys.stderr)
 
 
 def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
