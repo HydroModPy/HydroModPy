@@ -1,12 +1,13 @@
 """Pipeline orchestrator.
 
-``Pipeline`` runs a list of :class:`Step` objects sequentially. State is
-reconstructed from durable artefacts (Zarr, Parquet, DuckDB rows) plus the
-TOML config, never from pickle blobs. The ``workflow_steps`` journal is the
-single source of truth for resume decisions: every step records its
+``Pipeline`` runs a list of :class:`Step` objects sequentially, optionally
+folding parallelisable cohorts through a thread pool. State is reconstructed
+from durable artefacts (Zarr, Parquet, DuckDB rows) plus the TOML config,
+never from pickle blobs. The ``workflow_steps`` journal is the single
+source of truth for resume decisions: every step records its
 ``inputs_hash``, ``outputs_hash`` and ``artifact_uris`` rows there. A
-:class:`HeartbeatPulse` refreshes ``simulations.last_heartbeat`` while a
-step executes so ``hmp gc`` can detect zombie runs.
+:class:`HeartbeatPulse` emits ``heartbeat`` events on ``workflow_events``
+while a step executes so ``hmp gc`` can detect zombie runs.
 
 Two-phase execution
 -------------------
@@ -18,21 +19,11 @@ Two-phase execution
   setup) or restored from artefacts via ``Step.rebuild_state`` (heavy steps
   with declared ``artifacts``). No journal rows are written during this
   phase.
-* **Execute phase** (steps in ``[restart_index, end)``): each step runs
-  fully, the journal records inputs/outputs hashes, and the heartbeat
-  thread keeps the sim row fresh.
-
-Resume integrity
-----------------
-
-``ResolvedRunManifest`` validates the steps blueprint and the config
-SHA-256 before any work starts. The ``ResumePlanner`` then verifies that
-every completed step's ``artifact_uris`` still exists and that
-``outputs_hash`` matches; on mismatch it cascade-invalidates the journal
-rows and forces a full restart. Step failures are wrapped in
-:class:`StepError` so callers can react on a typed exception that exposes
-``step_name``, ``run_id`` and the original ``cause``. ``KeyboardInterrupt``
-and ``SystemExit`` propagate so users can abort via Ctrl+C.
+* **Execute phase** (steps in ``[restart_index, end)``): cohorts are
+  obtained from the Kahn DAG sort; each cohort is dispatched through a
+  :class:`ThreadPoolCohortExecutor` (default) or sequentially when the
+  caller passes ``parallel=False``. The journal records inputs/outputs
+  hashes and the event stream records step_start/step_end markers.
 """
 
 from __future__ import annotations
@@ -68,6 +59,21 @@ class Pipeline:
         self.steps: tuple[Step, ...] = tuple(steps)
         self.workspace = Path(workspace) if workspace is not None else None
         self._catalog = catalog
+        self._parallel: bool = True
+
+    # ------------------------------------------------------------------
+    # DAG helpers
+    # ------------------------------------------------------------------
+
+    def dag(self):
+        """Return the :class:`WorkflowDAG` view of the declared steps."""
+        from hydromodpy.workflow.dag import WorkflowDAG
+
+        return WorkflowDAG(self.steps)
+
+    def cohorts(self) -> tuple[tuple[Step, ...], ...]:
+        """Return the Kahn-sorted parallel cohorts of the pipeline."""
+        return self.dag().topological_order()
 
     # ------------------------------------------------------------------
     # Public API
@@ -78,14 +84,22 @@ class Pipeline:
         state: PipelineState,
         *,
         resume_from: int | None = None,
+        parallel: bool = True,
     ) -> PipelineState:
         """Execute steps sequentially.
 
         ``resume_from`` is the index of the first step to execute fully.
         Steps before that index are reconstructed via ``rebuild_state`` (or
         re-executed in memory when they declare no artefacts).
+
+        ``parallel`` (default True) consumes the Kahn cohort layout: a
+        multi-step cohort is dispatched through a thread pool. The
+        default 12-step pipeline only produces singleton cohorts so the
+        behaviour is identical to the strict for-loop. Pass
+        ``parallel=False`` to fall back to the legacy sequential path.
         """
         from hydromodpy.solver.base import registry as solver_registry
+        from hydromodpy.workflow.events import WorkflowEventStream
         from hydromodpy.workflow.heartbeat import HeartbeatPulse
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
         from hydromodpy.workflow.journal import WorkflowJournal
@@ -93,7 +107,10 @@ class Pipeline:
         solver_registry.load_plugins()
         solver_registry.load_extractor_plugins()
 
+        self._parallel = bool(parallel)
+
         journal: WorkflowJournal | None = None
+        events: WorkflowEventStream | None = None
         catalog = self._catalog
         owns_catalog = False
         if catalog is None and self.workspace is not None:
@@ -107,6 +124,11 @@ class Pipeline:
                 catalog = None
         if catalog is not None:
             journal = WorkflowJournal(catalog)
+            try:
+                events = WorkflowEventStream(catalog)
+            except Exception as exc:
+                logger.debug("pipeline.events_disabled reason=%s", exc)
+                events = None
 
         restart_index = 0 if resume_from is None else int(resume_from)
         restart_index = max(0, min(restart_index, len(self.steps)))
@@ -138,6 +160,7 @@ class Pipeline:
                 journal=journal,
                 manifest=manifest,
                 heartbeat_cls=HeartbeatPulse,
+                events=events,
             )
         finally:
             if owns_catalog and catalog is not None:
@@ -232,30 +255,43 @@ class Pipeline:
         journal: WorkflowJournal | None,
         manifest: object | None,
         heartbeat_cls: type,
+        events: object | None = None,
     ) -> PipelineState:
         """Run every step from ``restart_index`` to the end with journal writes."""
         from hydromodpy.workflow.internals.manifest import ResolvedRunManifest
         from hydromodpy.workflow.journal import WorkflowJournal as _Journal
+        from hydromodpy.workflow.parallel import (
+            SequentialExecutor,
+            ThreadPoolCohortExecutor,
+        )
 
         if restart_index >= len(self.steps):
             return state
 
         previous_hashes: list[str] = []
         config_sha256 = _config_sha256_from_manifest(manifest)
-        heartbeat_ctx = self._heartbeat_for(journal, state, heartbeat_cls)
+        heartbeat_ctx = self._heartbeat_for(journal, state, heartbeat_cls, events=events)
+
+        executor = (
+            ThreadPoolCohortExecutor() if getattr(self, "_parallel", True) else SequentialExecutor()
+        )
+        cohort_layout = self._cohort_layout()
 
         with heartbeat_ctx as pulse:
             _ = pulse  # context only, lifecycle is automatic
-            for index in range(restart_index, len(self.steps)):
-                step = self.steps[index]
-                state = self._execute_step(
-                    step,
+            for cohort_indices in cohort_layout:
+                pending = [idx for idx in cohort_indices if idx >= restart_index]
+                if not pending:
+                    continue
+                state = self._execute_cohort(
+                    pending,
                     state,
-                    index,
+                    executor=executor,
                     journal=journal,
                     journal_cls=_Journal,
                     config_sha256=config_sha256,
                     previous_hashes=previous_hashes,
+                    events=events,
                 )
                 if self.workspace is not None:
                     manifest = (
@@ -265,6 +301,101 @@ class Pipeline:
                     )
                     manifest.write_atomic(self.workspace)
         return state
+
+    def _cohort_layout(self) -> tuple[tuple[int, ...], ...]:
+        """Return cohort layouts as tuples of step indices.
+
+        Falls back to per-step singletons when (a) the DAG cannot be
+        built (cycle, duplicate name) or (b) one or more steps lack an
+        explicit ``depends_on`` declaration. The second case preserves
+        the legacy linear behaviour for ad-hoc test pipelines whose
+        fake steps only define ``name`` and ``run``.
+        """
+        if not all(callable(getattr(s, "depends_on", None)) for s in self.steps):
+            return tuple((idx,) for idx in range(len(self.steps)))
+        try:
+            cohorts = self.cohorts()
+        except Exception as exc:
+            logger.debug("pipeline.cohorts_unavailable reason=%s", exc)
+            return tuple((idx,) for idx in range(len(self.steps)))
+        index_by_id = {id(s): i for i, s in enumerate(self.steps)}
+        layout: list[tuple[int, ...]] = []
+        for cohort in cohorts:
+            entries = [index_by_id[id(s)] for s in cohort if id(s) in index_by_id]
+            if entries:
+                layout.append(tuple(sorted(entries)))
+        if not layout or sum(len(c) for c in layout) != len(self.steps):
+            return tuple((idx,) for idx in range(len(self.steps)))
+        return tuple(layout)
+
+    def _execute_cohort(
+        self,
+        cohort_indices: Sequence[int],
+        state: PipelineState,
+        *,
+        executor,
+        journal: WorkflowJournal | None,
+        journal_cls: type,
+        config_sha256: str | None,
+        previous_hashes: list[str],
+        events: object | None,
+    ) -> PipelineState:
+        """Execute every step of one cohort and merge their state advances.
+
+        Singleton cohorts behave exactly like the legacy linear path.
+        Multi-step cohorts run each step via the executor; their
+        resulting ``state.data`` is merged via a last-write-wins union.
+        """
+        if len(cohort_indices) == 1:
+            index = cohort_indices[0]
+            return self._execute_step(
+                self.steps[index],
+                state,
+                index,
+                journal=journal,
+                journal_cls=journal_cls,
+                config_sha256=config_sha256,
+                previous_hashes=previous_hashes,
+                events=events,
+            )
+
+        base_state = state
+
+        def _worker(index: int) -> PipelineState:
+            scratch_prev: list[str] = list(previous_hashes)
+            return self._execute_step(
+                self.steps[index],
+                base_state,
+                index,
+                journal=journal,
+                journal_cls=journal_cls,
+                config_sha256=config_sha256,
+                previous_hashes=scratch_prev,
+                events=events,
+            )
+
+        outcomes = executor.map(_worker, list(cohort_indices))
+        merged_data = dict(base_state.data)
+        last_index = base_state.step_index
+        last_name = base_state.step_name
+        last_elapsed = base_state.elapsed_ms
+        for outcome in outcomes:
+            merged_data.update(outcome.data)
+            if outcome.step_index > last_index:
+                last_index = outcome.step_index
+                last_name = outcome.step_name
+                last_elapsed = outcome.elapsed_ms
+            if self.workspace is not None:
+                step_idx = outcome.step_index
+                artifact_uris = _collect_artifacts(self.steps[step_idx], outcome, self.workspace)
+                outputs_hash = journal_cls.compute_outputs_hash(self.workspace, artifact_uris)
+                previous_hashes.append(outputs_hash or "")
+        return base_state.advance(
+            step_index=last_index,
+            step_name=last_name,
+            elapsed_ms=last_elapsed,
+            data=merged_data,
+        )
 
     def _execute_step(
         self,
@@ -276,6 +407,7 @@ class Pipeline:
         journal_cls: type,
         config_sha256: str | None,
         previous_hashes: list[str],
+        events: object | None = None,
     ) -> PipelineState:
         name = _step_name(step)
         inputs_hash = journal_cls.compute_inputs_hash(
@@ -301,6 +433,12 @@ class Pipeline:
                     name,
                     exc,
                 )
+        if events is not None:
+            events.step_start(
+                run_id=state.run_id,
+                step_name=name,
+                step_order=index,
+            )
 
         t0 = time.monotonic()
         try:
@@ -314,6 +452,14 @@ class Pipeline:
                 artifact_uris=(),
                 error_message="interrupted",
             )
+            if events is not None:
+                events.step_end(
+                    run_id=state.run_id,
+                    step_name=name,
+                    status="aborted",
+                    duration_s=time.monotonic() - t0,
+                    error="interrupted",
+                )
             raise
         except StepError as exc:
             self._finish_journal_step(
@@ -324,6 +470,14 @@ class Pipeline:
                 artifact_uris=(),
                 error_message=str(exc),
             )
+            if events is not None:
+                events.step_end(
+                    run_id=state.run_id,
+                    step_name=name,
+                    status="failed",
+                    duration_s=time.monotonic() - t0,
+                    error=str(exc),
+                )
             raise
         except Exception as exc:
             self._finish_journal_step(
@@ -334,6 +488,14 @@ class Pipeline:
                 artifact_uris=(),
                 error_message=f"{type(exc).__name__}: {exc}",
             )
+            if events is not None:
+                events.step_end(
+                    run_id=state.run_id,
+                    step_name=name,
+                    status="failed",
+                    duration_s=time.monotonic() - t0,
+                    error=f"{type(exc).__name__}: {exc}",
+                )
             raise StepError(name, exc, run_id=state.run_id) from exc
         elapsed_ms = (time.monotonic() - t0) * 1000.0
         out = out.advance(
@@ -355,6 +517,13 @@ class Pipeline:
             artifact_uris=artifact_uris,
             error_message=None,
         )
+        if events is not None:
+            events.step_end(
+                run_id=state.run_id,
+                step_name=name,
+                status="completed",
+                duration_s=elapsed_ms / 1000.0,
+            )
         return out
 
     @staticmethod
@@ -390,13 +559,21 @@ class Pipeline:
         journal: WorkflowJournal | None,
         state: PipelineState,
         heartbeat_cls: type,
+        *,
+        events: object | None = None,
     ):
         if journal is None:
             return nullcontext()
         sim_id = _state_sim_id(state)
         if not sim_id:
             return nullcontext()
-        return heartbeat_cls(journal, sim_id)
+        return heartbeat_cls(
+            journal,
+            sim_id,
+            events=events,
+            run_id=state.run_id,
+            step_name="pipeline",
+        )
 
 
 def _collect_artifacts(

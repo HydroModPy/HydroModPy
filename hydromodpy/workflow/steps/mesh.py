@@ -238,6 +238,9 @@ class BuildMeshStep:
     tout: ClassVar[type] = MeshedState
     config_sections: ClassVar[tuple[str, ...]] = ("domain.supports",)
 
+    def depends_on(self) -> tuple[str, ...]:
+        return ("load_data",)
+
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.workflow.steps.setup import step_spatial_supports
 
@@ -263,6 +266,29 @@ class BuildMeshStep:
 
         return state.advance(
             step_index=state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+        )
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Reload the mesh from disk artefacts when present, fallback to re-run."""
+        ctx = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("BuildMeshStep.rebuild_state requires 'ctx' in state.data")
+        try:
+            load_mesh_artifacts_from_summary(ctx, strict=False, preserve_preloaded=True)
+        except Exception:
+            return self.run(prior_state)
+        if getattr(ctx.setup, "mesh_planar", None) is None:
+            return self.run(prior_state)
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
             step_name=self.name,
             ctx=ctx,
         )

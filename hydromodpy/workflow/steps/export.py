@@ -128,12 +128,23 @@ def step_cleanup_scratch(
 
 
 class ExportStep:
-    """Save artefacts, finalize and close the catalog."""
+    """Save artefacts, finalize and close the catalog.
+
+    Composed of four concerns: gallery publication
+    (:func:`step_save_run_artifacts`), automatic format export
+    (``auto_export_results``), store finalisation
+    (:func:`step_finalize_store`) and scratch cleanup
+    (:func:`step_cleanup_scratch`). Each remains addressable from
+    notebooks via its function-based helper.
+    """
 
     name = "export"
     tin: ClassVar[type] = DerivedState
     tout: ClassVar[type] = ExportedState
     config_sections: ClassVar[tuple[str, ...]] = ()
+
+    def depends_on(self) -> tuple[str, ...]:
+        return ("derive",)
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")

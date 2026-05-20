@@ -39,6 +39,44 @@ class DeriveStep:
     def __init__(self, registry=None) -> None:
         self._registry = registry if registry is not None else _default_registry
 
+    def depends_on(self) -> tuple[str, ...]:
+        return ("extract",)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace,
+        run_id: str,
+    ) -> PipelineState:
+        """Restore derived names by listing the Zarr ``/derived`` group."""
+        ctx = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("DeriveStep.rebuild_state requires 'ctx' in state.data")
+        derived_names: list[str] = []
+        store = getattr(ctx, "store", None)
+        sim_id = getattr(ctx, "sim_id", None)
+        if store is not None and sim_id is not None:
+            try:
+                sim_zarr = store.open_zarr(sim_id)
+            except Exception:
+                sim_zarr = None
+            if sim_zarr is not None:
+                try:
+                    derived_group = sim_zarr.root.get("derived")
+                    if derived_group is not None:
+                        derived_names = sorted(str(k) for k in derived_group.array_keys())
+                except Exception:
+                    derived_names = []
+                finally:
+                    sim_zarr.close()
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+            derived_names=derived_names,
+        )
+
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
         if ctx is None:

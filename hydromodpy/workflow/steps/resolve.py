@@ -35,6 +35,19 @@ class ResolveStep:
     tout: ClassVar[type] = ResolvedState
     config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
+    def depends_on(self) -> tuple[str, ...]:
+        return ("validate",)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Re-run resolve: idempotent in-memory operation."""
+        return self.run(prior_state)
+
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.core.state.run_state import WorkflowContext
         from hydromodpy.data import DataPlanner
