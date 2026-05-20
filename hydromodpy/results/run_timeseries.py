@@ -283,7 +283,7 @@ class RunTimeseriesMixin:
             raise RuntimeError(
                 f"Simulation '{self._sim_id}' has no n_timesteps recorded (is it completed?)"
             )
-        if start is None or end is None:
+        if start is None or end is None or pd.isna(start) or pd.isna(end):
             raise RuntimeError(
                 f"Simulation '{self._sim_id}' missing period_start/period_end "
                 "in catalog - cannot build a time index."
