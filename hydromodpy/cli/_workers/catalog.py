@@ -223,7 +223,35 @@ def gc(workspace: Any = None, *, dry_run: bool = False) -> dict:
     summary: dict[str, int] = {}
     if not dry_run:
         summary = _gc_apply_plan(workspace_root, plan)
+        _emit_gc_audit_events(workspace_root, summary)
     return {"workspace": str(workspace_root), "plan": plan, "summary": summary, "dry_run": dry_run}
+
+
+def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
+    """Emit one ``gc`` audit row per project catalog reflecting the sweep summary."""
+    import duckdb
+
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog.audit import emit_audit_event
+
+    for project_root in _gc_iter_project_roots(workspace):
+        catalog_path = project_root / CATALOG_FILENAME
+        try:
+            conn = duckdb.connect(str(catalog_path))
+        except duckdb.Error:
+            continue
+        try:
+            emit_audit_event(
+                conn,
+                event_type="gc",
+                actor_kind="cli",
+                project=project_root.name,
+                payload={"summary": dict(summary)},
+            )
+        except Exception:
+            pass
+        finally:
+            conn.close()
 
 
 def vacuum(
@@ -562,12 +590,24 @@ def _vacuum_iter_catalog_files(workspace: Path) -> list[Path]:
 def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
     import duckdb
 
+    from hydromodpy.results.catalog.audit import emit_audit_event
+
     count = 0
     for catalog_path in _vacuum_iter_catalog_files(workspace):
         try:
             conn = duckdb.connect(str(catalog_path))
             try:
                 conn.execute("CHECKPOINT")
+                try:
+                    emit_audit_event(
+                        conn,
+                        event_type="vacuum",
+                        actor_kind="cli",
+                        project=catalog_path.parent.name,
+                        payload={"scope": "catalog"},
+                    )
+                except Exception:
+                    pass
             finally:
                 conn.close()
             count += 1

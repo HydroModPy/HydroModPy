@@ -32,6 +32,35 @@ CATALOG_COMPONENT = "catalog"
 _MIGRATIONS_DIR = Path(__file__).resolve().parent
 
 
+def _emit_migrate_event(
+    connection: duckdb.DuckDBPyConnection,
+    migration: Migration,
+    component: str,
+) -> None:
+    """Best-effort ``migrate`` audit row after a catalog migration commits."""
+    from hydromodpy.results.catalog.audit import emit_audit_event
+
+    try:
+        row = connection.execute(
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'audit_log'"
+        ).fetchone()
+    except Exception:
+        return
+    if not row or int(row[0]) == 0:
+        return
+    emit_audit_event(
+        connection,
+        event_type="migrate",
+        actor_kind="system",
+        payload={
+            "component": component,
+            "version": migration.version,
+            "slug": migration.slug,
+            "checksum": migration.checksum,
+        },
+    )
+
+
 def ensure_schema(
     connection: duckdb.DuckDBPyConnection,
     *,
@@ -42,6 +71,7 @@ def ensure_schema(
         connection,
         versions_dir=versions_dir if versions_dir is not None else _MIGRATIONS_DIR,
         component=CATALOG_COMPONENT,
+        post_apply=_emit_migrate_event,
     )
 
 
@@ -71,7 +101,12 @@ def discover_migrations(versions_dir: Path | None = None) -> list[Migration]:
 
 def apply_migration(connection: duckdb.DuckDBPyConnection, migration: Migration) -> None:
     """Apply one catalog migration in a transaction."""
-    _apply_migration(connection, migration, component=CATALOG_COMPONENT)
+    _apply_migration(
+        connection,
+        migration,
+        component=CATALOG_COMPONENT,
+        post_apply=_emit_migrate_event,
+    )
 
 
 __all__ = [
