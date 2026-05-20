@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 import flopy
 import numpy as np
 
+from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow6.transport import _mf6_safe_name
 
 
@@ -67,18 +68,15 @@ class Modflow6Prt:
 
     def __init__(
         self,
-        domain: object,
-        transport: object,
-        model_modflow: object,
+        domain: DomainLike,
+        transport: TransportLike,
+        model_modflow: FlowModelLike,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
         suffix_name: str = "_prt",
         bin_path: str | None = None,
         **kwargs: object,
     ) -> None:
-        # The ``object`` annotations on domain/transport/model_modflow follow
-        # the duck-typed pattern already used by ``Modflow6Transport``; the
-        # attributes are accessed via getattr/hasattr at runtime.
         del bin_path
         self.domain = domain
         self.transport = transport

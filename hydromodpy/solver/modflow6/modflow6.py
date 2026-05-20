@@ -19,6 +19,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
 )
 from hydromodpy.physics.flow.regime import normalize_flow_regime
 from hydromodpy.solver import Solver
+from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow6.builders import (
     bind_recharge_from_flow,
     build_drain_stress_period_data,
@@ -292,7 +293,7 @@ class Modflow6(Solver):
     def pre_processing(
         self,
         flow: object,
-        domain: object,
+        domain: DomainLike,
         options: ModflowPreprocessOptions | None = None,
         *,
         mesh_planar: object | None = None,

@@ -34,6 +34,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_conditions_mapping_from_flow,
     is_boundary_condition_active,
 )
+from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.base.solver import Solver
 from hydromodpy.solver.boussinesq.assembly import (
     saturated_thickness_from_head,
@@ -105,7 +106,7 @@ class Boussinesq(Solver):
         mesh_bundle: CatchmentMeshBundle | None,
         mesh: BoussinesqMesh | None = None,
         flow: object,
-        domain: object,
+        domain: DomainLike,
         time_grid: object,
         model_folder: str | Path,
         model_name: str,

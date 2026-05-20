@@ -20,6 +20,7 @@ import flopy
 import flopy.utils.binaryfile as fpu
 
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.contracts import Solver
 from hydromodpy.solver.modflow_common import ensure_solver_binary
 
@@ -57,9 +58,9 @@ class Modpath(Solver):
 
     def __init__(
         self,
-        domain: object,
-        transport: object,
-        model_modflow: object | None = None,
+        domain: DomainLike,
+        transport: TransportLike,
+        model_modflow: FlowModelLike | None = None,
         # Workflow settings
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modpath",

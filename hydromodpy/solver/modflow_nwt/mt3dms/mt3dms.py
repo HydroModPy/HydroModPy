@@ -32,6 +32,7 @@ import rasterio
 from hydromodpy.core.io.filesystem import create_folder
 from hydromodpy.core.io.raster_io import export_tif
 from hydromodpy.core.logging import get_logger
+from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow_common import (
     ensure_solver_binary,
     masstransfer,
@@ -54,9 +55,9 @@ class Mt3dms:
 
     def __init__(
         self,
-        domain: object,
-        transport: object,
-        model_modflow: object = None,
+        domain: DomainLike,
+        transport: TransportLike,
+        model_modflow: FlowModelLike | None = None,
         # Worflow settings
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modpath",
