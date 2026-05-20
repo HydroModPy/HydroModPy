@@ -701,7 +701,7 @@ class TestSimulationGroup:
                 self.steps = steps
                 self.workspace = workspace
 
-            def run(self, state, *, resume_from=None):
+            def run(self, state, *, resume_from=None, parallel=False):
                 _Pipeline.counter += 1
                 ctx = state.get("ctx")
                 sim_id = str(uuid.uuid4())
@@ -804,7 +804,7 @@ class TestSimulationGroup:
                 self.steps = steps
                 self.workspace = workspace
 
-            def run(self, state, *, resume_from=None):
+            def run(self, state, *, resume_from=None, parallel=False):
                 ctx = state.get("ctx")
                 observed.append(ctx.parent_sim_id)
                 ctx.sim_id = None
