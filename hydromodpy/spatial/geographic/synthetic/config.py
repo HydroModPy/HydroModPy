@@ -6,24 +6,26 @@ from math import isclose
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, computed_field, field_validator, model_validator
+from pydantic import Field, computed_field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.types import PositiveInt
-from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.core.units import LengthMeters
 
 
 class SyntheticGridConfig(HydroModelBase):
     """Structured-grid support used to generate one synthetic DEM."""
 
-    length_x: Annotated[float, Profile.USER] = Field(
+    length_x: Annotated[LengthMeters, Profile.USER] = Field(
         default=100.0,
-        description="Total domain length along x. Accepts values such as 100, '100 m', or '0.1 km'.",
+        gt=0.0,
+        description="Total domain length along x (metres). Accepts inline units, e.g. '0.1 km'.",
     )
-    length_y: Annotated[float, Profile.USER] = Field(
+    length_y: Annotated[LengthMeters, Profile.USER] = Field(
         default=1.0,
-        description="Total domain length along y. Accepts values such as 1, '1 m', or '0.001 km'.",
+        gt=0.0,
+        description="Total domain length along y (metres). Accepts inline units, e.g. '1 m'.",
     )
     nx: Annotated[PositiveInt, Profile.USER] = Field(
         default=100,
@@ -49,16 +51,6 @@ class SyntheticGridConfig(HydroModelBase):
         default=-9999.0,
         description="Nodata sentinel exported to raster artefacts.",
     )
-
-    @field_validator("length_x", "length_y", mode="before")
-    @classmethod
-    def _normalize_lengths_to_m(cls, value, info):
-        """Parse user-friendly lengths into meters."""
-        label = f"synthetic_geographic.grid.{info.field_name}"
-        length_m = float(parse_length_to_m(value, default_unit="m", label=label))
-        if length_m <= 0.0:
-            raise ValueError(f"{label} must be > 0.")
-        return length_m
 
     @model_validator(mode="after")
     def _validate_grid_geometry(self) -> SyntheticGridConfig:
@@ -160,10 +152,11 @@ class RadialIslandTopography(HydroModelBase):
         default=-1.0,
         description="Submerged ocean-floor elevation (m). Must be < 0.",
     )
-    island_radius: Annotated[float | None, Profile.DEV] = Field(
+    island_radius: Annotated[LengthMeters | None, Profile.DEV] = Field(
         default=None,
         description=(
-            "Circular shoreline radius (m). Defaults to 35% of the smallest domain length."
+            "Circular shoreline radius (metres). Defaults to 35% of the smallest domain length. "
+            "Accepts inline units."
         ),
     )
     crest_elevation: Annotated[float, Profile.DEV] = Field(
@@ -173,23 +166,18 @@ class RadialIslandTopography(HydroModelBase):
             "to sea level at the shoreline."
         ),
     )
-    center_x: Annotated[float | None, Profile.DEV] = Field(
+    center_x: Annotated[LengthMeters | None, Profile.DEV] = Field(
         default=None,
-        description="Optional x coordinate of the island center. Defaults to the grid midpoint.",
+        description=(
+            "Optional x coordinate (metres) of the island center. Defaults to the grid midpoint."
+        ),
     )
-    center_y: Annotated[float | None, Profile.DEV] = Field(
+    center_y: Annotated[LengthMeters | None, Profile.DEV] = Field(
         default=None,
-        description="Optional y coordinate of the island center. Defaults to the grid midpoint.",
+        description=(
+            "Optional y coordinate (metres) of the island center. Defaults to the grid midpoint."
+        ),
     )
-
-    @field_validator("island_radius", "center_x", "center_y", mode="before")
-    @classmethod
-    def _normalize_optional_lengths_to_m(cls, value, info):
-        """Parse optional user-friendly length values into meters."""
-        if value is None:
-            return None
-        label = f"synthetic_geographic.topography.{info.field_name}"
-        return float(parse_length_to_m(value, default_unit="m", label=label))
 
     @model_validator(mode="after")
     def _validate_radial_island_payload(self) -> RadialIslandTopography:

@@ -6,12 +6,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.time.tmesh_config import TMeshConfig
-from hydromodpy.core.units.length import parse_length_to_m
+from hydromodpy.core.units import LengthMeters
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 
@@ -207,22 +207,14 @@ class ModflowProcessSpecificConfig(HydroModelBase):
         default=1.0,
         description="Vertical hydraulic conductivity control passed to the UPW package (VKA).",
     )
-    exdp: Annotated[float, Profile.EXPERT] = Field(
+    exdp: Annotated[LengthMeters, Profile.EXPERT] = Field(
         default=1.0,
-        description="Extinction depth [L] used by the EVT package (EXDP).",
+        gt=0.0,
+        description=(
+            "Extinction depth (metres) used by the EVT package (EXDP). "
+            "Accepts inline units, e.g. '1 m', '50 cm'."
+        ),
     )
-
-    @field_validator("exdp", mode="before")
-    @classmethod
-    def _normalize_exdp(cls, value):
-        if value is None:
-            return None
-        exdp_m = float(
-            parse_length_to_m(value, default_unit="m", label="modflownwt.process_specific.exdp")
-        )
-        if exdp_m <= 0.0:
-            raise ValueError("modflownwt.process_specific.exdp must be > 0.")
-        return exdp_m
 
 
 class ModflowConfig(HydroModelBase):
