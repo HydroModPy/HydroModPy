@@ -84,6 +84,13 @@ Subpackages
 
       Workspace catalog, ``Run`` facade, importers, exporters.
 
+   .. grid-item-card:: catalog
+      :link: catalog
+      :link-type: doc
+
+      V1 facade over the three DuckDB scopes (cache, project, index)
+      and the T6.B mutator surface.
+
    .. grid-item-card:: display
       :link: display
       :link-type: doc
@@ -136,6 +143,7 @@ Subpackages
    simulation
    calibration
    results
+   catalog
    display
    analysis
    reporting
