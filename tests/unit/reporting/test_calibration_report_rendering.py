@@ -41,7 +41,7 @@ def _payload(tmp_path: Path) -> _Payload:
 
 
 def test_render_session_raises_when_requested_figure_is_unknown(tmp_path, monkeypatch) -> None:
-    import hydromodpy.display.calibration_report as report
+    import hydromodpy.reporting.calibration_report as report
 
     monkeypatch.setattr(report, "_figure_names", lambda: ["calibration_trace"])
 
@@ -54,7 +54,7 @@ def test_render_session_raises_when_requested_figure_is_unknown(tmp_path, monkey
 
 
 def test_render_session_raises_when_registered_figure_fails(tmp_path, monkeypatch) -> None:
-    import hydromodpy.display.calibration_report as report
+    import hydromodpy.reporting.calibration_report as report
 
     class _FailingFigure:
         def plot(self, sim, *, save_path: Path, **kwargs) -> None:
@@ -73,7 +73,7 @@ def test_render_session_raises_when_registered_figure_fails(tmp_path, monkeypatc
 
 
 def test_best_obs_vs_sim_requires_observed_data(tmp_path, monkeypatch) -> None:
-    import hydromodpy.display.calibration_report as report
+    import hydromodpy.reporting.calibration_report as report
 
     monkeypatch.setattr(report, "_figure_names", lambda: ["calibration_trace"])
     monkeypatch.setattr(report, "_get_figure", lambda name: _Figure())

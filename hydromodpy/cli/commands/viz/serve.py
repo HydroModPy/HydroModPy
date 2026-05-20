@@ -41,7 +41,7 @@ def run(args: argparse.Namespace) -> None:
         )
         sys.exit(EXIT_CONFIG)
 
-    target = Path(__file__).resolve().parents[3] / "display" / "streamlit_config.py"
+    target = Path(__file__).resolve().parents[3] / "reporting" / "streamlit_config.py"
     if not target.is_file():
         print(f"Streamlit entry point missing: {target}", file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)

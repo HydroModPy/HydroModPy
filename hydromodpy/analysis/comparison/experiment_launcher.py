@@ -34,9 +34,9 @@ from hydromodpy.analysis.comparison.runtime.metadata import (
     discover_result_store,
     read_simulation_run_metadata,
 )
-from hydromodpy.analysis.comparison.web_report import write_comparison_web_report
 from hydromodpy.core.config_kit.root_config_protocol import get_root_config_provider
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.reporting.comparison.render import write_comparison_web_report
 
 
 class SimulationComparisonLauncher:

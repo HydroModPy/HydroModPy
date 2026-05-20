@@ -6,8 +6,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison.web.context import ComparisonWebContext
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+from hydromodpy.reporting.comparison.context import ComparisonWebContext
 
 from .templates import (
     _float_or_none,

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison.web.figures import (
+from hydromodpy.reporting.comparison.figures import (
     FigureCategory,
     categorize_figures,
     configuration_figures,
