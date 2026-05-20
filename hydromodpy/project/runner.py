@@ -197,9 +197,15 @@ class ProjectRunner:
         dry_run: bool = False,
         frozen: bool = False,
         no_display: bool = False,
+        parallel: bool = True,
         **overrides,
     ) -> Run | None:
-        """Run the simulation through the canonical workflow Pipeline."""
+        """Run the simulation through the canonical workflow Pipeline.
+
+        ``parallel`` (default True) lets the Pipeline dispatch independent
+        Kahn cohorts through a thread pool. Pass ``parallel=False`` to
+        force the legacy sequential path (useful for debugging).
+        """
         from hydromodpy.workflow.internals.state import PipelineState
         from hydromodpy.workflow.orchestrator import standard_steps
         from hydromodpy.workflow.runner import Pipeline
@@ -297,7 +303,7 @@ class ProjectRunner:
             set_frozen_mode(True)
 
         try:
-            final = pipeline.run(initial, resume_from=resume_from)
+            final = pipeline.run(initial, resume_from=resume_from, parallel=parallel)
         except Exception:
             from hydromodpy.project import phases as project_phases
 
