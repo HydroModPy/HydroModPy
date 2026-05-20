@@ -12,8 +12,8 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
-from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+from hydromodpy.analysis.comparison.runtime.mesh import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
 
 CLOSURE_STATION_ID = "__global__"
 CLOSURE_VARIABLE = "water_budget"

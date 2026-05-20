@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime.mesh import resolve_bundle_cells
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.solver_diagnostics import (
     TS_VI_OBSTACLE_PERIOD_DIAGNOSTICS_CSV,
@@ -616,7 +616,7 @@ def write_hydrographic_network_metrics_export(
     candidate_role: str = "generated",
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write one flat CSV of per-run hydrographic-network comparison metrics."""
-    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+    from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
 
     rows: list[dict[str, Any]] = []
     skipped_simulations: list[dict[str, Any]] = []
@@ -752,7 +752,7 @@ def write_simulated_active_network_metrics_export(
     persistence_threshold: float = 0.5,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write scalar metrics for the simulated active drainage network."""
-    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+    from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
     from hydromodpy.results import views
 
     rows: list[dict[str, Any]] = []
@@ -917,7 +917,7 @@ def _write_cell_field_network_metrics_export(
     log_label: str,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Shared export loop for cell-field/network comparison metrics."""
-    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+    from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
 
     rows: list[dict[str, Any]] = []
     skipped_simulations: list[dict[str, Any]] = []
@@ -2612,7 +2612,7 @@ def write_budget_exports(
     simulation_summaries: Iterable[Mapping[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Write budget diagnostics derived from Boussinesq state histories."""
-    from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+    from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
 
     rows: list[dict[str, Any]] = []
     for summary in _completed_simulation_summaries(simulation_summaries):

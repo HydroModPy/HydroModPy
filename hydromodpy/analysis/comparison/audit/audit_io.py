@@ -12,7 +12,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison import runtime_metadata
+from hydromodpy.analysis.comparison.runtime import metadata as runtime_metadata
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 _ORIGINAL_DISCOVER_RESULT_STORE = runtime_metadata.discover_result_store

@@ -11,7 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime_metadata import (
+from hydromodpy.analysis.comparison.runtime.metadata import (
     _resolve_project_root_from_config,
     _resolve_recorded_output_path,
     read_json_file,

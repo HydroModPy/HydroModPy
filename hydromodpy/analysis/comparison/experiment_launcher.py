@@ -30,7 +30,7 @@ from hydromodpy.analysis.comparison.run_backend import (
     run_child_with_hmp,
 )
 from hydromodpy.analysis.comparison.runtime import extract_observable_rows
-from hydromodpy.analysis.comparison.runtime_metadata import (
+from hydromodpy.analysis.comparison.runtime.metadata import (
     discover_result_store,
     read_simulation_run_metadata,
 )

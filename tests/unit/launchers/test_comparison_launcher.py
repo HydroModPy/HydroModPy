@@ -37,8 +37,8 @@ from hydromodpy.analysis.comparison.runtime import (
     extract_observable_rows,
     load_variable_series,
 )
-from hydromodpy.analysis.comparison.runtime_observables import select_time_slices
-from hydromodpy.analysis.comparison.runtime_series import TimeSlice, VariableSeries
+from hydromodpy.analysis.comparison.runtime.observables import select_time_slices
+from hydromodpy.analysis.comparison.runtime.series import TimeSlice, VariableSeries
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
 OUTLET_CELL_AREA_M2 = 10.0
@@ -107,7 +107,7 @@ def _patch_result_store(
         _discover,
     )
     monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.runtime_metadata.discover_result_store",
+        "hydromodpy.analysis.comparison.runtime.metadata.discover_result_store",
         _discover,
     )
 
@@ -1080,11 +1080,13 @@ def test_load_variable_series_derives_boussinesq_dry_deficit_flux(
     run_folder = tmp_path / "run_bouss_dry_deficit"
     bundle_dir = tmp_path / "bundle_bouss_dry_deficit"
     run_folder.mkdir(parents=True, exist_ok=True)
-    _write_boussinesq_run_folder(run_folder, bundle_dir)
+    store = _write_boussinesq_run_folder(run_folder, bundle_dir)
 
     series = load_variable_series(
         run_folder=run_folder,
         variable="dry_deficit_flux",
+        store=store,
+        sim_id=SIM_ID,
     )
 
     assert series.variable_name == "dry_deficit_total_m3_s"
