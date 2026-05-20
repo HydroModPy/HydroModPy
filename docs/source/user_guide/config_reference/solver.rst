@@ -9,7 +9,7 @@ TOML section: ``[solver]``
 
 Pydantic model: ``SolverConfig`` defined in ``hydromodpy.solver.base.solver_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L14>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L13>`__
 
 Configuration block defining the active groundwater solver engine.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">solver_engine</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "modflow6"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L17>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "modflow6"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L16>`__
 
       Groundwater flow solver backend registered for the 'flow' process.
 

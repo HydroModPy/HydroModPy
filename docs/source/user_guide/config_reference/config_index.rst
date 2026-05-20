@@ -199,133 +199,133 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-case-id>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L270>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L269>`__
    * - ``geographic.synthetic.grid``
      - ``SyntheticGridConfig``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-grid>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L274>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L273>`__
    * - ``geographic.synthetic.grid.length_x``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-grid-length-x>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L21>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L20>`__
    * - ``geographic.synthetic.grid.length_y``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-grid-length-y>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L25>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L24>`__
    * - ``geographic.synthetic.grid.nx``
      - ``int``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-grid-nx>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L29>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L28>`__
    * - ``geographic.synthetic.grid.ny``
      - ``int``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-grid-ny>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L33>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L32>`__
    * - ``geographic.synthetic.grid.xmin``
      - ``float``
      - dev
      - -
      - `geographic <geographic.html#geographic-synthetic-grid-xmin>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L37>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L36>`__
    * - ``geographic.synthetic.grid.ymin``
      - ``float``
      - dev
      - -
      - `geographic <geographic.html#geographic-synthetic-grid-ymin>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L40>`__
    * - ``geographic.synthetic.grid.crs``
      - ``str``
      - dev
      - -
      - `geographic <geographic.html#geographic-synthetic-grid-crs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L45>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L44>`__
    * - ``geographic.synthetic.grid.nodata``
      - ``float``
      - dev
      - -
      - `geographic <geographic.html#geographic-synthetic-grid-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L49>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L48>`__
    * - ``geographic.synthetic.topography``
      - ``FlatTopography | LinearTopography | RadialIslandTopography``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-topography>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L278>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L277>`__
    * - ``geographic.synthetic.topography.flat.kind``
      - ``Literal['flat']``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-flat-kind>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L119>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L118>`__
    * - ``geographic.synthetic.topography.flat.base_elevation``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-flat-base-elevation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L123>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L122>`__
    * - ``geographic.synthetic.topography.linear.kind``
      - ``Literal['linear']``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-linear-kind>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L132>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L131>`__
    * - ``geographic.synthetic.topography.linear.base_elevation``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-linear-base-elevation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L136>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L135>`__
    * - ``geographic.synthetic.topography.linear.right_to_left_amplitude``
      - ``float``
      - dev
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-linear-right-to-left-amplitude>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L140>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L139>`__
    * - ``geographic.synthetic.topography.radial_island.kind``
      - ``Literal['radial_island']``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-radial-island-kind>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L153>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L152>`__
    * - ``geographic.synthetic.topography.radial_island.base_elevation``
      - ``float``
      - user
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-radial-island-base-elevation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L160>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L159>`__
    * - ``geographic.synthetic.topography.radial_island.island_radius``
      - ``float | None``
      - dev
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-radial-island-island-radius>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L164>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L163>`__
    * - ``geographic.synthetic.topography.radial_island.crest_elevation``
      - ``float``
      - dev
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-radial-island-crest-elevation>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L170>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L169>`__
    * - ``geographic.synthetic.topography.radial_island.center_x``
      - ``float | None``
      - dev
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-radial-island-center-x>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L177>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L176>`__
    * - ``geographic.synthetic.topography.radial_island.center_y``
      - ``float | None``
      - dev
      - -
      - `geographic <geographic.html#geographic-synthetic-topography-radial-island-center-y>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L181>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L180>`__
    * - ``geographic.river_network``
      - ``RiverNetworkConfig``
      - user
@@ -2438,18 +2438,102 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `data <data.html#data-soil-moisture-sources-path>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/data/variables/soil_moisture/config.py#L33>`__
+   * - ``flow.runtime_backend``
+     - ``Literal['local', 'scipy', 'scipy_sparse', 'petsc']``
+     - dev
+     - experimental
+     - `flow <flow.html#flow-runtime-backend>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.surface_interaction_model``
+     - ``Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']``
+     - dev
+     - experimental
+     - `flow <flow.html#flow-surface-interaction-model>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.runtime_max_iterations``
+     - ``int | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-runtime-max-iterations>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.runtime_tol_residual_inf``
+     - ``float | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-runtime-tol-residual-inf>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.runtime_tol_state_update_inf``
+     - ``float | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-runtime-tol-state-update-inf>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.vi_substeps_per_period``
+     - ``int``
+     - dev
+     - -
+     - `flow <flow.html#flow-vi-substeps-per-period>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.vi_substep_on_failure``
+     - ``bool``
+     - dev
+     - -
+     - `flow <flow.html#flow-vi-substep-on-failure>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.vi_max_adaptive_substeps``
+     - ``int | None``
+     - dev
+     - -
+     - `flow <flow.html#flow-vi-max-adaptive-substeps>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.ts_vi_steps_per_period``
+     - ``int``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-steps-per-period>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.ts_vi_adapt``
+     - ``bool``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-adapt>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.ts_vi_dt_min_fraction``
+     - ``float``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-dt-min-fraction>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.ts_vi_dt_max_fraction``
+     - ``float``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-dt-max-fraction>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.ts_vi_type``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-type>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+   * - ``flow.ts_vi_snes_type``
+     - ``str``
+     - dev
+     - -
+     - `flow <flow.html#flow-ts-vi-snes-type>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
    * - ``flow.param_list``
      - ``list[str]``
      - user
      - -
      - `flow <flow.html#flow-param-list>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L193>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L96>`__
    * - ``flow.param``
      - ``dict[str, FlowParam]``
      - user
      - -
      - `flow <flow.html#flow-param>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L201>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L104>`__
    * - ``flow.param.<id>.field``
      - ``FieldHomogeneousSection | FieldHeterogeneousSection``
      - user
@@ -2581,7 +2665,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-ic>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L239>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L142>`__
    * - ``flow.ic.h``
      - ``FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom | FlowICSteadyState``
      - user
@@ -2761,7 +2845,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L205>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L108>`__
    * - ``flow.bc.dirichlet.<id>.id``
      - ``str``
      - user
@@ -2989,7 +3073,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L246>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L149>`__
    * - ``flow.sinks_sources.wells``
      - ``dict[str, FlowWellConfig]``
      - user
@@ -3265,103 +3349,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-active-sinks-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L250>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L153>`__
    * - ``flow.active_bc``
      - ``list[str]``
      - user
      - -
      - `flow <flow.html#flow-active-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L259>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L162>`__
    * - ``flow.flow_regime``
      - ``Literal['steady', 'transient']``
      - user
      - -
      - `flow <flow.html#flow-flow-regime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L67>`__
-   * - ``flow.runtime_backend``
-     - ``Literal['local', 'scipy', 'scipy_sparse', 'petsc']``
-     - dev
-     - experimental
-     - `flow <flow.html#flow-runtime-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L83>`__
-   * - ``flow.surface_interaction_model``
-     - ``Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']``
-     - dev
-     - experimental
-     - `flow <flow.html#flow-surface-interaction-model>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L94>`__
-   * - ``flow.runtime_max_iterations``
-     - ``int | None``
-     - dev
-     - -
-     - `flow <flow.html#flow-runtime-max-iterations>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L116>`__
-   * - ``flow.runtime_tol_residual_inf``
-     - ``float | None``
-     - dev
-     - -
-     - `flow <flow.html#flow-runtime-tol-residual-inf>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L131>`__
-   * - ``flow.runtime_tol_state_update_inf``
-     - ``float | None``
-     - dev
-     - -
-     - `flow <flow.html#flow-runtime-tol-state-update-inf>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L138>`__
-   * - ``flow.vi_substeps_per_period``
-     - ``int``
-     - dev
-     - -
-     - `flow <flow.html#flow-vi-substeps-per-period>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L145>`__
-   * - ``flow.vi_substep_on_failure``
-     - ``bool``
-     - dev
-     - -
-     - `flow <flow.html#flow-vi-substep-on-failure>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L153>`__
-   * - ``flow.vi_max_adaptive_substeps``
-     - ``int | None``
-     - dev
-     - -
-     - `flow <flow.html#flow-vi-max-adaptive-substeps>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L160>`__
-   * - ``flow.ts_vi_steps_per_period``
-     - ``int``
-     - dev
-     - -
-     - `flow <flow.html#flow-ts-vi-steps-per-period>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L166>`__
-   * - ``flow.ts_vi_adapt``
-     - ``bool``
-     - dev
-     - -
-     - `flow <flow.html#flow-ts-vi-adapt>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L173>`__
-   * - ``flow.ts_vi_dt_min_fraction``
-     - ``float``
-     - dev
-     - -
-     - `flow <flow.html#flow-ts-vi-dt-min-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L177>`__
-   * - ``flow.ts_vi_dt_max_fraction``
-     - ``float``
-     - dev
-     - -
-     - `flow <flow.html#flow-ts-vi-dt-max-fraction>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L181>`__
-   * - ``flow.ts_vi_type``
-     - ``str``
-     - dev
-     - -
-     - `flow <flow.html#flow-ts-vi-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L185>`__
-   * - ``flow.ts_vi_snes_type``
-     - ``str``
-     - dev
-     - -
-     - `flow <flow.html#flow-ts-vi-snes-type>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L189>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L80>`__
    * - ``transport.active_sinks_sources``
      - ``list[str]``
      - user
@@ -4063,7 +4063,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `solver <solver.html#solver-solver-engine>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L17>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L16>`__
    * - ``modflownwt.runtime``
      - ``ModflowRuntimeConfig``
      - expert
@@ -4309,67 +4309,67 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-planar>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L193>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L192>`__
    * - ``modflownwt.sgrid.planar.mode``
      - ``Literal['keep_native', 'resample_to_shape']``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-planar-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L146>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L145>`__
    * - ``modflownwt.sgrid.planar.nx``
      - ``Optional[int]``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-planar-nx>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L153>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L152>`__
    * - ``modflownwt.sgrid.planar.ny``
      - ``Optional[int]``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-planar-ny>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L157>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L156>`__
    * - ``modflownwt.sgrid.planar.resampling``
      - ``Literal['bilinear', 'average', 'nearest']``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-planar-resampling>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L161>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L160>`__
    * - ``modflownwt.sgrid.vertical``
      - ``VerticalGridConfig``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-vertical>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L197>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L196>`__
    * - ``modflownwt.sgrid.vertical.genmtd_lay``
      - ``Literal['constant', 'decay', 'list']``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-vertical-genmtd-lay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L64>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L63>`__
    * - ``modflownwt.sgrid.vertical.nlay``
      - ``int | None``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-vertical-nlay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L68>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L67>`__
    * - ``modflownwt.sgrid.vertical.lay_decay``
      - ``float | None``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-vertical-lay-decay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L72>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L71>`__
    * - ``modflownwt.sgrid.vertical.lay_proportions``
      - ``list[float] | None``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-vertical-lay-proportions>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L76>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L75>`__
    * - ``modflownwt.sgrid.vertical.nodata``
      - ``float``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-sgrid-vertical-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L80>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L79>`__
    * - ``modflownwt.tgrid``
      - ``TMeshConfig | None``
      - user
@@ -4381,91 +4381,91 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-itmuni>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L27>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L26>`__
    * - ``modflownwt.tgrid.flow_regime``
      - ``Literal['steady', 'transient']``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-flow-regime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L34>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L33>`__
    * - ``modflownwt.tgrid.genmtd``
      - ``Literal['synthetic_regular', 'from_chron']``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-genmtd>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L40>`__
    * - ``modflownwt.tgrid.nper``
      - ``int``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-nper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L48>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L47>`__
    * - ``modflownwt.tgrid.lenper``
      - ``float | int | list[int] | list[float] | None``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-lenper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L55>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L54>`__
    * - ``modflownwt.tgrid.chron_path``
      - ``str | None``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-chron-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L64>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L63>`__
    * - ``modflownwt.tgrid.chron_dateformat``
      - ``str``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-chron-dateformat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L71>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L70>`__
    * - ``modflownwt.tgrid.chron_colsep``
      - ``str``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-chron-colsep>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L75>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L74>`__
    * - ``modflownwt.tgrid.chron_time_col``
      - ``str``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-chron-time-col>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L79>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L78>`__
    * - ``modflownwt.tgrid.start_datetime``
      - ``Any | None``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-start-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L83>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L82>`__
    * - ``modflownwt.tgrid.end_datetime``
      - ``Any | None``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-end-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L89>`__
    * - ``modflownwt.tgrid.firstpersteady``
      - ``bool``
      - user
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-firstpersteady>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L96>`__
    * - ``modflownwt.tgrid.tsmult``
      - ``int | float | list[int] | list[float]``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-tsmult>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L101>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L100>`__
    * - ``modflownwt.tgrid.ntsp``
      - ``int | list[int]``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-ntsp>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L107>`__
    * - ``modflownwt.tgrid.temporal_nodata``
      - ``float``
      - dev
      - -
      - `modflownwt <modflownwt.html#modflownwt-tgrid-temporal-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L115>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L114>`__
    * - ``modflow6.runtime``
      - ``Modflow6RuntimeConfig``
      - expert
@@ -4591,67 +4591,67 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-planar>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L193>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L192>`__
    * - ``modflow6.sgrid.planar.mode``
      - ``Literal['keep_native', 'resample_to_shape']``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-planar-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L146>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L145>`__
    * - ``modflow6.sgrid.planar.nx``
      - ``Optional[int]``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-planar-nx>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L153>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L152>`__
    * - ``modflow6.sgrid.planar.ny``
      - ``Optional[int]``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-planar-ny>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L157>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L156>`__
    * - ``modflow6.sgrid.planar.resampling``
      - ``Literal['bilinear', 'average', 'nearest']``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-planar-resampling>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L161>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L160>`__
    * - ``modflow6.sgrid.vertical``
      - ``VerticalGridConfig``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L197>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L196>`__
    * - ``modflow6.sgrid.vertical.genmtd_lay``
      - ``Literal['constant', 'decay', 'list']``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical-genmtd-lay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L64>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L63>`__
    * - ``modflow6.sgrid.vertical.nlay``
      - ``int | None``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical-nlay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L68>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L67>`__
    * - ``modflow6.sgrid.vertical.lay_decay``
      - ``float | None``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical-lay-decay>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L72>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L71>`__
    * - ``modflow6.sgrid.vertical.lay_proportions``
      - ``list[float] | None``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical-lay-proportions>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L76>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L75>`__
    * - ``modflow6.sgrid.vertical.nodata``
      - ``float``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-sgrid-vertical-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L80>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L79>`__
    * - ``modflow6.tgrid``
      - ``TMeshConfig | None``
      - user
@@ -4663,91 +4663,91 @@ per-section page (anchor) and to the source declaration on GitHub.
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-itmuni>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L27>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L26>`__
    * - ``modflow6.tgrid.flow_regime``
      - ``Literal['steady', 'transient']``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-flow-regime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L34>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L33>`__
    * - ``modflow6.tgrid.genmtd``
      - ``Literal['synthetic_regular', 'from_chron']``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-genmtd>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L41>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L40>`__
    * - ``modflow6.tgrid.nper``
      - ``int``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-nper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L48>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L47>`__
    * - ``modflow6.tgrid.lenper``
      - ``float | int | list[int] | list[float] | None``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-lenper>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L55>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L54>`__
    * - ``modflow6.tgrid.chron_path``
      - ``str | None``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-chron-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L64>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L63>`__
    * - ``modflow6.tgrid.chron_dateformat``
      - ``str``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-chron-dateformat>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L71>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L70>`__
    * - ``modflow6.tgrid.chron_colsep``
      - ``str``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-chron-colsep>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L75>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L74>`__
    * - ``modflow6.tgrid.chron_time_col``
      - ``str``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-chron-time-col>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L79>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L78>`__
    * - ``modflow6.tgrid.start_datetime``
      - ``Any | None``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-start-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L83>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L82>`__
    * - ``modflow6.tgrid.end_datetime``
      - ``Any | None``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-end-datetime>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L89>`__
    * - ``modflow6.tgrid.firstpersteady``
      - ``bool``
      - user
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-firstpersteady>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L96>`__
    * - ``modflow6.tgrid.tsmult``
      - ``int | float | list[int] | list[float]``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-tsmult>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L101>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L100>`__
    * - ``modflow6.tgrid.ntsp``
      - ``int | list[int]``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-ntsp>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L107>`__
    * - ``modflow6.tgrid.temporal_nodata``
      - ``float``
      - dev
      - -
      - `modflow6 <modflow6.html#modflow6-tgrid-temporal-nodata>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L115>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L114>`__
    * - ``display.enabled``
      - ``bool``
      - user
