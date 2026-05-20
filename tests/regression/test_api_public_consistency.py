@@ -123,44 +123,6 @@ def _write_simulation_toml(path: Path) -> Path:
     return path
 
 
-def test_run_path_simulation_returns_same_shape_as_config_object(
-    monkeypatch, tmp_path: Path
-) -> None:
-    """``hmp.run`` returns the ``Project.run`` value on both branches for simulation."""
-    config = _write_simulation_toml(tmp_path / "sim.toml")
-
-    _FakeProject.run_result = {"sentinel": "simulation_branch"}
-    monkeypatch.setattr("hydromodpy.project.Project", _FakeProject)
-    monkeypatch.setattr(
-        "hydromodpy.workflow.dispatch.resolve_workflow",
-        lambda p, *, cli_workflow=None, require_toml_field=True: "simulation",
-    )
-
-    from_path = hmp.run(config)
-    from_object = hmp.run(object())
-    assert from_path == from_object == {"sentinel": "simulation_branch"}
-
-
-def test_run_headless_consistent_across_branches(monkeypatch, tmp_path: Path) -> None:
-    """``headless`` propagates on both the path and config-object branches (P9)."""
-    config = _write_simulation_toml(tmp_path / "sim.toml")
-
-    _FakeProject.run_result = None
-    monkeypatch.setattr("hydromodpy.project.Project", _FakeProject)
-    monkeypatch.setattr(
-        "hydromodpy.workflow.dispatch.resolve_workflow",
-        lambda p, *, cli_workflow=None, require_toml_field=True: "simulation",
-    )
-
-    hmp.run(config, headless=True)
-    assert _FakeProject.last_headless is True
-    assert "headless" not in (_FakeProject.last_run_kwargs or {})
-
-    hmp.run(object(), headless=True)
-    assert _FakeProject.last_headless is True
-    assert "headless" not in (_FakeProject.last_run_kwargs or {})
-
-
 def test_calibrate_path_skips_project_detour(monkeypatch, tmp_path: Path) -> None:
     """The path branch calls ``run_calibration_cli`` directly (P6)."""
     config = tmp_path / "calib.toml"

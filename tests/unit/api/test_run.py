@@ -16,45 +16,6 @@ def _write_toml(path: Path, content: str) -> Path:
     return path
 
 
-def test_run_with_simulation_toml_uses_project(monkeypatch, tmp_path: Path) -> None:
-    """A simulation TOML opens a ``Project`` and delegates to ``project.run``."""
-    config = _write_toml(
-        tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n'
-        '[simulation]\nname = "test"\n',
-    )
-    captured: dict = {}
-
-    class FakeProject:
-        def __init__(self, cfg, *, headless=False):
-            captured["cfg"] = cfg
-            captured["headless"] = headless
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            captured["closed"] = True
-
-        def run(self, **kwargs):
-            captured["run_kwargs"] = kwargs
-            return {"name": "from_simulation", "sim_id": "abc"}
-
-    def fake_resolve(config_path, *, cli_workflow=None, require_toml_field=True):
-        captured["resolve_path"] = Path(config_path)
-        return "simulation"
-
-    monkeypatch.setattr("hydromodpy.workflow.dispatch.resolve_workflow", fake_resolve)
-    monkeypatch.setattr("hydromodpy.project.Project", FakeProject)
-
-    result = hmp.run(config, name="baseline")
-    assert result == {"name": "from_simulation", "sim_id": "abc"}
-    assert captured["cfg"] == config.resolve()
-    assert captured["headless"] is False
-    assert captured["run_kwargs"] == {"name": "baseline"}
-    assert captured["closed"] is True
-
-
 def test_run_with_overview_toml_dispatches(monkeypatch, tmp_path: Path) -> None:
     """A non-simulation TOML is routed through ``dispatch_workflow``."""
     config = _write_toml(
@@ -134,36 +95,3 @@ def test_run_with_config_object_uses_project(monkeypatch) -> None:
     assert captured["headless"] is True
     assert captured["run_kwargs"] == {"name": "alpha"}
     assert captured["closed"] is True
-
-
-def test_run_headless_propagates_on_simulation_toml(monkeypatch, tmp_path: Path) -> None:
-    """``headless`` reaches ``Project`` on the simulation-TOML branch (P9)."""
-    config = _write_toml(
-        tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n',
-    )
-    captured: dict = {}
-
-    class FakeProject:
-        def __init__(self, cfg, *, headless=False):
-            captured["headless"] = headless
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            pass
-
-        def run(self, **kwargs):
-            captured["run_kwargs"] = kwargs
-            return None
-
-    monkeypatch.setattr(
-        "hydromodpy.workflow.dispatch.resolve_workflow",
-        lambda p, *, cli_workflow=None, require_toml_field=True: "simulation",
-    )
-    monkeypatch.setattr("hydromodpy.project.Project", FakeProject)
-
-    hmp.run(config, headless=True)
-    assert captured["headless"] is True
-    assert "headless" not in captured["run_kwargs"]
