@@ -301,11 +301,11 @@ class RunTimeseriesMixin:
         ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
         ``zone_id``).
         """
-        rows = self._catalog.connection.execute(
+        rows = self._catalog.backend.fetch_all(
             "SELECT param_name, value FROM parameters "
             "WHERE sim_id = ? AND (zone_id IS NULL OR zone_id = ?)",
             [self._sim_id, "__global__"],
-        ).fetchall()
+        )
         return {name: float(val) for name, val in rows}
 
     def recharge_forcing(self) -> pd.Series:
@@ -313,6 +313,19 @@ class RunTimeseriesMixin:
         from hydromodpy.results import views
 
         return views.recharge_forcing(self)
+
+    def input_entries(self) -> pd.DataFrame:
+        """Return cache entries consumed by this run via the SHA-256 bridge.
+
+        Joins ``tracked_files`` (in the project catalog) with
+        ``entries`` (in the workspace cache DB) on ``sha256`` through a
+        DuckDB ATTACH read-only context. Returns an empty DataFrame when
+        the cache DB cannot be located next to the workspace or when no
+        tracked file matches a cache entry.
+        """
+        from hydromodpy.results.catalog.cross_db import run_input_entries
+
+        return run_input_entries(self._catalog, self._sim_id)
 
 
 def _apply_downsample(

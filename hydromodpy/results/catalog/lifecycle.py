@@ -28,9 +28,10 @@ logger = get_logger(__name__)
 class LifecycleMixin:
     """Open/finalize/delete/cleanup/close for :class:`SimulationCatalog`.
 
-    Relies on the facade attributes ``self._backend`` (CatalogBackend port),
-    ``self._db`` (DuckDB connection kept for explicit BEGIN/COMMIT/ROLLBACK
-    blocks and the ``close`` of the owned connection), ``self._workspace``,
+    Relies on the facade attributes ``self._backend`` (CatalogBackend port
+    driving every SQL read/write and the transaction context manager),
+    ``self._db`` (raw DuckDB connection still used by audit.emit so the
+    hash chain shares the same session), ``self._workspace``,
     ``self._simulations_dir``, ``self._paths``, and ``self._open_zarr_handles``.
     """
 
@@ -198,13 +199,10 @@ class LifecycleMixin:
                     )
                     raise RuntimeError(f"Could not pack Zarr store for sim {sid}") from exc
 
-        # Explicit BEGIN/COMMIT/ROLLBACK on self._db: the surrounding logic
-        # is straightforward enough that the port's transaction() context
-        # would also work, but keeping the raw commands avoids any subtle
-        # behaviour change in the failure path. Inner SQL routes through
-        # the backend on the same shared connection.
-        self._db.execute("BEGIN TRANSACTION")
-        try:
+        # Transactional block driven by the backend port (BEGIN/COMMIT/ROLLBACK
+        # are routed through CatalogBackend.transaction() so the same code
+        # path stays valid when the adapter changes).
+        with self._backend.transaction():
             if status == "completed":
                 existing = self._backend.fetch_one(
                     "SELECT scientific_objective FROM simulations WHERE sim_id = ?",
@@ -244,10 +242,6 @@ class LifecycleMixin:
                         WHERE sim_id = ?""",
                     [status, duration_s, sid],
                 )
-            self._db.execute("COMMIT")
-        except Exception:
-            self._db.execute("ROLLBACK")
-            raise
 
     @with_lock_retry()
     def delete(
@@ -285,12 +279,12 @@ class LifecycleMixin:
         if audit_payload:
             payload.update(audit_payload)
 
-        # Explicit BEGIN/COMMIT/ROLLBACK on self._db: emit_audit_event takes
-        # a raw connection by design (audit.py escapes the port), so the
-        # transaction is kept on the same connection. Inner data-table
-        # deletes route through the backend.
-        self._db.execute("BEGIN TRANSACTION")
-        try:
+        # Transactional block driven by the backend port. ``emit_audit_event``
+        # still takes the raw DuckDB connection because the audit module
+        # stays DuckDB-flavoured (hash-chain over the same connection); the
+        # transaction itself is now port-driven, so the rollback path goes
+        # through CatalogBackend.transaction() on a single shared connection.
+        with self._backend.transaction():
             for table in PER_SIM_TABLE_NAMES:
                 self._backend.execute(f"DELETE FROM {table} WHERE sim_id = ?", [sid])
             self._backend.execute(
@@ -305,10 +299,6 @@ class LifecycleMixin:
                 project=project_name,
                 payload=payload,
             )
-            self._db.execute("COMMIT")
-        except Exception:
-            self._db.execute("ROLLBACK")
-            raise
 
         if parquet_dir is not None and parquet_dir.is_dir():
             try:
@@ -330,6 +320,7 @@ class LifecycleMixin:
 
     def close(self) -> None:
         self._close_open_zarr_handles()
+        self._backend.close()
         self._db.close()
 
     def __enter__(self):

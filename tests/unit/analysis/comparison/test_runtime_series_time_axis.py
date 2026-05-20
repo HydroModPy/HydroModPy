@@ -8,7 +8,7 @@ import numpy as np
 from hydromodpy.analysis.comparison.runtime import (
     load_variable_series as load_runtime_variable_series,
 )
-from hydromodpy.analysis.comparison.runtime_series import load_variable_series
+from hydromodpy.analysis.comparison.runtime.series import load_variable_series
 
 
 class _FakeStore:

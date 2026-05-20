@@ -332,7 +332,7 @@ def _extract_simulation_catalog_summary(
 ) -> dict[str, Any]:
     """Collect scalar flow evidence from a completed child simulation."""
     try:
-        from hydromodpy.analysis.comparison.runtime_metadata import discover_result_store
+        from hydromodpy.analysis.comparison.runtime.metadata import discover_result_store
     except Exception:
         return {}
 

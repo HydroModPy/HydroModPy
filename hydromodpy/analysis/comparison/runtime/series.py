@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
-from hydromodpy.analysis.comparison.runtime_physics import (
+from hydromodpy.analysis.comparison.runtime.mesh import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime.physics import (
     _variable_candidates,
     is_nodata_value,
 )
@@ -420,6 +420,93 @@ def _store_source_path(store: SimulationCatalog, sim_id: str) -> Path:
     return Path(getattr(store, "zarr_path", ""))
 
 
+def _load_store_dry_deficit_total_series(
+    store: SimulationCatalog,
+    sim_id: str,
+    *,
+    variable_name: str,
+    run_folder: Path,
+) -> VariableSeries | None:
+    """Try loading dry-deficit totals from the store boussinesq_state group."""
+    sz = None
+    try:
+        sz = store.open_zarr(sim_id)
+        grp = sz.root
+    except (KeyError, Exception):
+        return None
+
+    try:
+        state_grp = grp.get("boussinesq_state")
+        if state_grp is None or "dry_deficit_history_m_s" not in state_grp:
+            return None
+
+        try:
+            values = np.asarray(
+                state_grp["dry_deficit_history_m_s"][:],
+                dtype=float,
+            )
+        except Exception:
+            return None
+
+        if values.ndim == 1:
+            values = values.reshape(1, -1)
+        if values.ndim != 2:
+            return None
+
+        cells = resolve_bundle_cells(
+            run_folder,
+            expected_size=int(values.shape[1]),
+        )
+        if cells is None or cells.area_m2 is None:
+            return None
+        area_m2 = np.asarray(cells.area_m2, dtype=float).reshape(-1)
+        if area_m2.size != values.shape[1]:
+            return None
+
+        positive = np.maximum(values, 0.0)
+        totals_m3_s = np.sum(positive * area_m2[None, :], axis=1, dtype=float)
+
+        period_lengths = np.asarray([], dtype=float)
+        if "period_lengths_seconds" in state_grp:
+            try:
+                period_lengths = np.asarray(
+                    state_grp["period_lengths_seconds"][:],
+                    dtype=float,
+                ).ravel()
+            except Exception:
+                pass
+    finally:
+        if sz is not None:
+            sz.close()
+
+    elapsed_by_index = _elapsed_seconds_from_period_lengths(
+        n_snapshots=int(totals_m3_s.size),
+        period_lengths=period_lengths,
+    )
+    slices = tuple(
+        TimeSlice(
+            time_key=index,
+            time_index=index,
+            values=np.asarray([float(total)], dtype=float),
+            elapsed_seconds=elapsed_by_index[index],
+            is_initial_state=(
+                history_has_initial_snapshot(
+                    n_slices=int(totals_m3_s.size),
+                    period_lengths_seconds=period_lengths,
+                )
+                and index == 0
+            ),
+        )
+        for index, total in enumerate(totals_m3_s.tolist())
+    )
+    return VariableSeries(
+        variable_name=variable_name,
+        source_path=_store_source_path(store, sim_id),
+        slices=slices,
+        cell_ids=None,
+    )
+
+
 def load_variable_series(
     *,
     run_folder: Path,
@@ -449,6 +536,13 @@ def load_variable_series(
             "saturation_excess_total_m3_s",
         }:
             series = _load_store_surface_excess_total_series(
+                store,
+                sim_id,
+                variable_name=variable_name,
+                run_folder=run_folder,
+            )
+        elif variable_name == "dry_deficit_total_m3_s":
+            series = _load_store_dry_deficit_total_series(
                 store,
                 sim_id,
                 variable_name=variable_name,

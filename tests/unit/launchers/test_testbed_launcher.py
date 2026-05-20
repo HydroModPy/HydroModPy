@@ -998,7 +998,7 @@ def test_flow_testbed_enriches_metrics_from_simulation_catalog(
 
     register_testbed_runner_provider(_FakeProvider())
     monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.runtime_metadata.discover_result_store",
+        "hydromodpy.analysis.comparison.runtime.metadata.discover_result_store",
         _fake_discover_result_store,
     )
 
@@ -1075,7 +1075,7 @@ def test_testbed_required_metric_failure_is_persisted(
 
     register_testbed_runner_provider(_FakeProvider())
     monkeypatch.setattr(
-        "hydromodpy.analysis.comparison.runtime_metadata.discover_result_store",
+        "hydromodpy.analysis.comparison.runtime.metadata.discover_result_store",
         _fake_discover_result_store,
     )
 

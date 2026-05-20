@@ -18,8 +18,6 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
-import duckdb
-
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.results.catalog.audit import audited, emit_audit_event
@@ -29,6 +27,7 @@ from hydromodpy.results.catalog.constants import (
 from hydromodpy.results.catalog.constants import (
     validate_solver_code as _validate_solver_code,
 )
+from hydromodpy.results.catalog.ports import CatalogBackend
 from hydromodpy.results.catalog.storage_paths import build_storage_basename
 from hydromodpy.results.storage_contract import SIMULATIONS_DIRNAME, ZARR_SUFFIX
 from hydromodpy.results.zarr_store import SimulationZarr, _windows_long_path
@@ -52,15 +51,15 @@ def _coerce_timestamp(value: Any) -> Any:
 
 
 def _next_available_version(
-    db: duckdb.DuckDBPyConnection,
+    backend: CatalogBackend,
     project: str,
     base_name: str,
 ) -> str:
-    """Return ``base_name.v{n}`` where ``n`` is the smallest free integer ≥ 2."""
-    rows = db.execute(
+    """Return ``base_name.v{n}`` where ``n`` is the smallest free integer >= 2."""
+    rows = backend.fetch_all(
         "SELECT name FROM simulations WHERE project = ? AND (name = ? OR name LIKE ?)",
         [project, base_name, base_name + ".v%"],
-    ).fetchall()
+    )
     existing = {r[0] for r in rows}
     n = 2
     while f"{base_name}.v{n}" in existing:
@@ -175,185 +174,175 @@ class RegistrationMixin:
         zarr_tmp: Path | None = None
         zarr_final: Path | None = None
         storage_basename: str | None = None
-        main_transaction_started = False
 
         try:
-            # Explicit BEGIN/COMMIT/ROLLBACK on self._db: the surrounding
-            # cleanup (zarr_tmp/zarr_final filesystem rollback) is tied to
-            # the same try/except, so keep the transaction control out of
-            # the port abstraction. Inner SQL still routes through the
-            # backend on the same shared connection.
-            self._db.execute("BEGIN TRANSACTION")
-            main_transaction_started = True
-
-            if name:
-                existing = self._backend.fetch_one(
-                    "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
-                    [project, name],
-                )
-                if existing:
-                    existing_sid = str(existing[0])
-                    if on_collision == "fail":
-                        raise DuplicateSimulationNameError(project, name, existing_sid)
-                    if on_collision == "replace":
-                        self._backend.execute(
-                            "UPDATE simulations SET name = NULL WHERE sim_id = ?",
-                            [existing_sid],
-                        )
-                        replaced_sid = existing_sid
-                        logger.info(
-                            "Reassigning name '%s' in project '%s' "
-                            "(previous sim %s kept, name cleared)",
-                            name,
-                            project,
-                            _short_id(existing_sid),
-                        )
-                    elif on_collision == "version":
-                        final_name = _next_available_version(self._db, project, name)
-                        logger.info(
-                            "Auto-versioned '%s' -> '%s' in project '%s'",
-                            name,
-                            final_name,
-                            project,
-                        )
-                    else:
-                        raise ValueError(f"Unknown on_collision mode: '{on_collision}'")
-
-            if solver_category is None:
-                solver_category = _resolve_solver_category(solver)
-            solver_code_v2 = _validate_solver_code(solver)
-
-            config_json = json.dumps(config) if config else None
-            snapshot_source = config_snapshot if config_snapshot is not None else config
-            snapshot_json = json.dumps(snapshot_source) if snapshot_source is not None else None
-            config_hash = None
-            if config:
-                config_hash = hashlib.sha256(
-                    json.dumps(config, sort_keys=True).encode()
-                ).hexdigest()
-
-            bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
-            if bbox is not None and len(bbox) == 4:
-                bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax = (float(v) for v in bbox)
-
-            crs_wkt = crs
-            if crs_epsg is None and crs:
-                crs_epsg = _epsg_from_crs(crs)
-
-            topology = mesh_topology
-            p_start = _coerce_timestamp(period_start)
-            p_end = _coerce_timestamp(period_end)
-
-            storage_basename = build_storage_basename(project, final_name, sid)
-            zarr_path = f"{SIMULATIONS_DIRNAME}/{storage_basename}{ZARR_SUFFIX}"
-            parent_sid = str(parent_sim_id) if parent_sim_id else None
-            config_source_str = str(config_source) if config_source is not None else None
-
-            if n_cells is not None and n_layers is not None:
-                zarr_final = self._workspace / zarr_path
-                _windows_long_path(zarr_final.parent).mkdir(parents=True, exist_ok=True)
-                zarr_tmp = zarr_final.with_name(f".{_short_id(sid)}.staging.zarr")
-                if zarr_final.exists():
-                    raise FileExistsError(f"Zarr store already exists: {zarr_final}")
-                if zarr_tmp.exists():
-                    shutil.rmtree(_windows_long_path(zarr_tmp))
-                staged = SimulationZarr.create(
-                    zarr_tmp,
-                    n_cells=n_cells,
-                    n_layers=n_layers,
-                    cell_types=cell_types,
-                    geographic_fingerprint=geographic_fingerprint,
-                )
-                staged.close()
-                _windows_long_path(zarr_tmp).rename(_windows_long_path(zarr_final))
-
-            self._backend.execute(
-                """INSERT INTO simulations
-                   (sim_id, name, project,
-                    solver_id, status_id, flow_regime_id, mesh_topology_id,
-                    n_cells, n_layers, n_timesteps,
-                    bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
-                    crs_wkt, crs_epsg,
-                    period_start, period_end, time_unit,
-                    config_toml, config_snapshot, config_hash, config_source,
-                    zarr_path, storage_basename, parent_sim_id, mesh_hash,
-                    geographic_fingerprint, notes,
-                    description, scientific_objective, contact_email, doi,
-                    study_area_name, outlet_x, outlet_y)
-                   VALUES (?, ?, ?,
-                           (SELECT id FROM solvers WHERE code = ?),
-                           (SELECT id FROM statuses WHERE code = ?),
-                           (SELECT id FROM flow_regimes WHERE code = ?),
-                           (SELECT id FROM mesh_topologies WHERE code = ?),
-                           ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?, ?, ?, ?,
-                           ?, ?, ?, ?,
-                           ?, ?,
-                           ?, ?, ?, ?,
-                           ?, ?, ?)""",
-                [
-                    sid,
-                    final_name,
-                    project,
-                    solver_code_v2,
-                    "running",
-                    flow_regime,
-                    topology,
-                    n_cells,
-                    n_layers,
-                    n_timesteps,
-                    bbox_xmin,
-                    bbox_ymin,
-                    bbox_xmax,
-                    bbox_ymax,
-                    crs_wkt,
-                    crs_epsg,
-                    p_start,
-                    p_end,
-                    time_unit,
-                    config_json,
-                    snapshot_json,
-                    config_hash,
-                    config_source_str,
-                    zarr_path,
-                    storage_basename,
-                    parent_sid,
-                    mesh_hash,
-                    geographic_fingerprint,
-                    notes,
-                    description,
-                    scientific_objective,
-                    contact_email,
-                    doi,
-                    study_area_name,
-                    outlet_x,
-                    outlet_y,
-                ],
-            )
-            if tags:
-                for tag in tags:
-                    self._backend.execute(
-                        "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
-                        [sid, str(tag)],
+            # Transactional block driven by the backend port. The surrounding
+            # try/except still owns the filesystem rollback (zarr_tmp /
+            # zarr_final), so we open the port transaction inside the
+            # try block and let ``CatalogBackend.transaction()`` handle the
+            # rollback on exception before the outer cleanup runs.
+            with self._backend.transaction():
+                if name:
+                    existing = self._backend.fetch_one(
+                        "SELECT sim_id FROM simulations WHERE project = ? AND name = ?",
+                        [project, name],
                     )
-                    try:
-                        emit_audit_event(
-                            self._db,
-                            event_type="sim.tag_add",
-                            sim_id=sid,
-                            project=project,
-                            payload={"tag": str(tag)},
+                    if existing:
+                        existing_sid = str(existing[0])
+                        if on_collision == "fail":
+                            raise DuplicateSimulationNameError(project, name, existing_sid)
+                        if on_collision == "replace":
+                            self._backend.execute(
+                                "UPDATE simulations SET name = NULL WHERE sim_id = ?",
+                                [existing_sid],
+                            )
+                            replaced_sid = existing_sid
+                            logger.info(
+                                "Reassigning name '%s' in project '%s' "
+                                "(previous sim %s kept, name cleared)",
+                                name,
+                                project,
+                                _short_id(existing_sid),
+                            )
+                        elif on_collision == "version":
+                            final_name = _next_available_version(self._backend, project, name)
+                            logger.info(
+                                "Auto-versioned '%s' -> '%s' in project '%s'",
+                                name,
+                                final_name,
+                                project,
+                            )
+                        else:
+                            raise ValueError(f"Unknown on_collision mode: '{on_collision}'")
+
+                if solver_category is None:
+                    solver_category = _resolve_solver_category(solver)
+                solver_code_v2 = _validate_solver_code(solver)
+
+                config_json = json.dumps(config) if config else None
+                snapshot_source = config_snapshot if config_snapshot is not None else config
+                snapshot_json = json.dumps(snapshot_source) if snapshot_source is not None else None
+                config_hash = None
+                if config:
+                    config_hash = hashlib.sha256(
+                        json.dumps(config, sort_keys=True).encode()
+                    ).hexdigest()
+
+                bbox_xmin = bbox_ymin = bbox_xmax = bbox_ymax = None
+                if bbox is not None and len(bbox) == 4:
+                    bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax = (float(v) for v in bbox)
+
+                crs_wkt = crs
+                if crs_epsg is None and crs:
+                    crs_epsg = _epsg_from_crs(crs)
+
+                topology = mesh_topology
+                p_start = _coerce_timestamp(period_start)
+                p_end = _coerce_timestamp(period_end)
+
+                storage_basename = build_storage_basename(project, final_name, sid)
+                zarr_path = f"{SIMULATIONS_DIRNAME}/{storage_basename}{ZARR_SUFFIX}"
+                parent_sid = str(parent_sim_id) if parent_sim_id else None
+                config_source_str = str(config_source) if config_source is not None else None
+
+                if n_cells is not None and n_layers is not None:
+                    zarr_final = self._workspace / zarr_path
+                    _windows_long_path(zarr_final.parent).mkdir(parents=True, exist_ok=True)
+                    zarr_tmp = zarr_final.with_name(f".{_short_id(sid)}.staging.zarr")
+                    if zarr_final.exists():
+                        raise FileExistsError(f"Zarr store already exists: {zarr_final}")
+                    if zarr_tmp.exists():
+                        shutil.rmtree(_windows_long_path(zarr_tmp))
+                    staged = SimulationZarr.create(
+                        zarr_tmp,
+                        n_cells=n_cells,
+                        n_layers=n_layers,
+                        cell_types=cell_types,
+                        geographic_fingerprint=geographic_fingerprint,
+                    )
+                    staged.close()
+                    _windows_long_path(zarr_tmp).rename(_windows_long_path(zarr_final))
+
+                self._backend.execute(
+                    """INSERT INTO simulations
+                       (sim_id, name, project,
+                        solver_id, status_id, flow_regime_id, mesh_topology_id,
+                        n_cells, n_layers, n_timesteps,
+                        bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
+                        crs_wkt, crs_epsg,
+                        period_start, period_end, time_unit,
+                        config_toml, config_snapshot, config_hash, config_source,
+                        zarr_path, storage_basename, parent_sim_id, mesh_hash,
+                        geographic_fingerprint, notes,
+                        description, scientific_objective, contact_email, doi,
+                        study_area_name, outlet_x, outlet_y)
+                       VALUES (?, ?, ?,
+                               (SELECT id FROM solvers WHERE code = ?),
+                               (SELECT id FROM statuses WHERE code = ?),
+                               (SELECT id FROM flow_regimes WHERE code = ?),
+                               (SELECT id FROM mesh_topologies WHERE code = ?),
+                               ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                               ?, ?, ?, ?, ?, ?, ?,
+                               ?, ?, ?, ?,
+                               ?, ?,
+                               ?, ?, ?, ?,
+                               ?, ?, ?)""",
+                    [
+                        sid,
+                        final_name,
+                        project,
+                        solver_code_v2,
+                        "running",
+                        flow_regime,
+                        topology,
+                        n_cells,
+                        n_layers,
+                        n_timesteps,
+                        bbox_xmin,
+                        bbox_ymin,
+                        bbox_xmax,
+                        bbox_ymax,
+                        crs_wkt,
+                        crs_epsg,
+                        p_start,
+                        p_end,
+                        time_unit,
+                        config_json,
+                        snapshot_json,
+                        config_hash,
+                        config_source_str,
+                        zarr_path,
+                        storage_basename,
+                        parent_sid,
+                        mesh_hash,
+                        geographic_fingerprint,
+                        notes,
+                        description,
+                        scientific_objective,
+                        contact_email,
+                        doi,
+                        study_area_name,
+                        outlet_x,
+                        outlet_y,
+                    ],
+                )
+                if tags:
+                    for tag in tags:
+                        self._backend.execute(
+                            "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
+                            [sid, str(tag)],
                         )
-                    except Exception as exc:  # noqa: BLE001 - audit must not raise
-                        logger.warning("audit emission failed for sim.tag_add: %s", exc)
-            self._db.execute("COMMIT")
-            main_transaction_started = False
+                        try:
+                            emit_audit_event(
+                                self._db,
+                                event_type="sim.tag_add",
+                                sim_id=sid,
+                                project=project,
+                                payload={"tag": str(tag)},
+                            )
+                        except Exception as exc:  # noqa: BLE001 - audit must not raise
+                            logger.warning("audit emission failed for sim.tag_add: %s", exc)
         except Exception:
-            if main_transaction_started:
-                try:
-                    self._db.execute("ROLLBACK")
-                except Exception:
-                    pass
             self._paths.forget(sid)
             if zarr_tmp is not None and zarr_tmp.exists():
                 shutil.rmtree(zarr_tmp)

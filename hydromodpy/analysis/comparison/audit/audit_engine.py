@@ -12,7 +12,7 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
+from hydromodpy.analysis.comparison.runtime.mesh import resolve_bundle_cells
 
 from .audit_io import (
     HEAD_ABOVE_TOP_FRACTION_TOL,

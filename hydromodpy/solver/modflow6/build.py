@@ -74,11 +74,6 @@ def xt3d_requested(model) -> bool | None:
     return xt3d_requested_value(model)
 
 
-def xt3d_enabled(model, solver_mesh=None) -> bool:
-    """Return whether XT3D is active for this run."""
-    return xt3d_is_enabled(model, solver_mesh)
-
-
 def xt3d_mode(model, solver_mesh=None) -> str:
     """Return the XT3D activation mode."""
     return xt3d_activation_mode(model, solver_mesh)
@@ -99,7 +94,7 @@ def log_xt3d_resolution(model, solver_mesh=None) -> None:
     logger.info(
         "MF6 XT3D resolution: mode=%s enabled=%s structured=%s",
         xt3d_mode(model, solver_mesh),
-        xt3d_enabled(model, solver_mesh),
+        xt3d_is_enabled(model, solver_mesh),
         bool(getattr(solver_mesh, "is_structured", True)),
     )
 

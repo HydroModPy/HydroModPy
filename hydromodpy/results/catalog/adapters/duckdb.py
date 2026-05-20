@@ -223,6 +223,31 @@ class DuckDBBackend:
         else:
             self._connection.execute("COMMIT")
 
+    @contextmanager
+    def attach_read_only(self, db_path: str | Path, alias: str) -> Iterator[None]:
+        """ATTACH ``db_path`` in read-only mode under ``alias`` for the block.
+
+        DuckDB-specific helper used to federate the cache and catalog
+        databases for cross-DB joins (``Run.input_entries``,
+        ``DataEntry.used_by``). The alias is detached on exit, even on
+        failure, so the connection state stays clean. ATTACH is not part
+        of the ``CatalogBackend`` Protocol because the semantics differ
+        widely across SQL engines; future Postgres-flavoured adapters
+        will expose an equivalent via FDW or a dedicated helper.
+        """
+        if not all(ch.isalnum() or ch == "_" for ch in alias):
+            raise ValueError(f"Invalid attach alias: {alias!r}")
+        path_str = str(Path(db_path))
+        path_literal = path_str.replace("'", "''")
+        self._connection.execute(f"ATTACH '{path_literal}' AS {alias} (READ_ONLY)")
+        try:
+            yield
+        finally:
+            try:
+                self._connection.execute(f"DETACH {alias}")
+            except Exception:
+                pass
+
     def close(self) -> None:
         """Close the owned DuckDB connection. No-op if not owned."""
         if self._owns_connection:

@@ -14,11 +14,11 @@ from hydromodpy.analysis.comparison.config import (
     ComparisonObservable,
     ComparisonSimulation,
 )
-from hydromodpy.analysis.comparison.runtime_mesh import (
+from hydromodpy.analysis.comparison.runtime.mesh import (
     CellCentroidTable,
     resolve_bundle_cells,
 )
-from hydromodpy.analysis.comparison.runtime_physics import (
+from hydromodpy.analysis.comparison.runtime.physics import (
     _NODATA_SENTINELS,
     _convert_accumulation_rate_to_m3_s,
     _convert_flux_m3_s_to_depth_m_per_day,
@@ -27,7 +27,7 @@ from hydromodpy.analysis.comparison.runtime_physics import (
     _native_unit_for_variable,
     is_nodata_value,
 )
-from hydromodpy.analysis.comparison.runtime_series import (
+from hydromodpy.analysis.comparison.runtime.series import (
     TimeSlice,
     VariableSeries,
     load_variable_series,

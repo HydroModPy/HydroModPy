@@ -130,7 +130,7 @@ class SimulationCatalog(
         )
         self._simulations_dir.mkdir(parents=True, exist_ok=True)
         self._open_zarr_handles: list[SimulationZarr] = []
-        self._paths = StoragePathResolver(self._db, self._simulations_dir)
+        self._paths = StoragePathResolver(self._backend, self._simulations_dir)
 
         self._backend.ensure_schema()
         ensure_parquet_views(self._db, self._simulations_dir)

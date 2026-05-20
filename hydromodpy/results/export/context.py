@@ -204,28 +204,14 @@ class FairExportContext:
 
 
 def _fetch_one(catalog: Any, sql: str, params: list[Any]) -> dict[str, Any] | None:
-    backend = getattr(catalog, "backend", None)
-    if backend is None:
-        cur = catalog.connection.execute(sql, params)
-        row = cur.fetchone()
-        if row is None:
-            return None
-        names = [d[0] for d in cur.description]
-        return dict(zip(names, row, strict=False))
-    df = backend.query(sql, params)
+    df = catalog.backend.query(sql, params)
     if df.empty:
         return None
     return {str(k): df.iloc[0][k] for k in df.columns}
 
 
 def _fetch_all(catalog: Any, sql: str, params: list[Any]) -> list[dict[str, Any]]:
-    backend = getattr(catalog, "backend", None)
-    if backend is None:
-        cur = catalog.connection.execute(sql, params)
-        rows = cur.fetchall()
-        names = [d[0] for d in cur.description]
-        return [dict(zip(names, row, strict=False)) for row in rows]
-    df = backend.query(sql, params)
+    df = catalog.backend.query(sql, params)
     if df.empty:
         return []
     return df.to_dict("records")

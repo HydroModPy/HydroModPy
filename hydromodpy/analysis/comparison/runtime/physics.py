@@ -60,6 +60,12 @@ def _variable_candidates(variable: str) -> tuple[str, ...]:
         "head": ["watertable_elevation"],
         "depth": ["watertable_depth"],
         "drainage_flux": ["drainage_flux_history_m3_s", "drainage_flux_m3_s"],
+        "dry_deficit_flux": [
+            "dry_deficit_total_m3_s",
+            "dry_deficit_history_m_s",
+        ],
+        "dry_deficit_rate": ["dry_deficit_history_m_s"],
+        "dry_deficit_map": ["dry_deficit_history_m_s"],
     }
     candidates.extend(alias_map.get(lowered, []))
     return tuple(dict.fromkeys(candidates))

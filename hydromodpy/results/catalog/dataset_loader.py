@@ -121,9 +121,9 @@ class DatasetLoader:
         if not filters:
             from hydromodpy.results.simulation_group import SimulationGroup
 
-            rows = self._catalog.connection.execute(
+            rows = self._catalog.backend.fetch_all(
                 "SELECT CAST(sim_id AS VARCHAR) FROM simulations ORDER BY created_at DESC"
-            ).fetchall()
+            )
             return SimulationGroup([str(r[0]) for r in rows], self._catalog)
         return self._catalog.find(**filters)
 

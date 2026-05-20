@@ -281,12 +281,12 @@ class SimulationGroup:
         if not self._sim_ids:
             raise ValueError("Empty group")
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        row = self._catalog.connection.execute(
+        row = self._catalog.backend.fetch_one(
             f"SELECT m.sim_id FROM metrics m "
             f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value DESC LIMIT 1",
             self._sim_ids + [metric],
-        ).fetchone()
+        )
         if row is None:
             raise KeyError(f"No metric '{metric}' found in group")
         return Run(str(row[0]), self._catalog)
@@ -306,12 +306,12 @@ class SimulationGroup:
         if not self._sim_ids:
             raise ValueError("Empty group")
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        row = self._catalog.connection.execute(
+        row = self._catalog.backend.fetch_one(
             f"SELECT m.sim_id FROM metrics m "
             f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value ASC LIMIT 1",
             self._sim_ids + [metric],
-        ).fetchone()
+        )
         if row is None:
             raise KeyError(f"No metric '{metric}' found in group")
         return Run(str(row[0]), self._catalog)
@@ -335,12 +335,12 @@ class SimulationGroup:
             return self
         placeholders = ", ".join(["?"] * len(self._sim_ids))
         order = "ASC" if ascending else "DESC"
-        rows = self._catalog.connection.execute(
+        rows = self._catalog.backend.fetch_all(
             f"SELECT m.sim_id FROM metrics m "
             f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value {order}",
             self._sim_ids + [metric],
-        ).fetchall()
+        )
         sorted_ids = [str(r[0]) for r in rows]
         return SimulationGroup(sorted_ids, self._catalog)
 
