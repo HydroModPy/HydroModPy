@@ -14,6 +14,7 @@ Reference
 ---------
 
 .. autofunction:: hydromodpy.calibrate
+   :no-index:
 
 Example
 -------

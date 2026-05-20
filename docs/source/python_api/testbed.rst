@@ -14,6 +14,7 @@ Reference
 ---------
 
 .. autofunction:: hydromodpy.testbed
+   :no-index:
 
 Example
 -------

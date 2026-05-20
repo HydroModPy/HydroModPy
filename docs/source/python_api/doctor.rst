@@ -16,6 +16,7 @@ Reference
 ---------
 
 .. autofunction:: hydromodpy.doctor
+   :no-index:
 
 Example
 -------
