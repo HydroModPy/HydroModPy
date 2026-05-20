@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display._ugrid import last_timestep
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.ugrid import last_timestep
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

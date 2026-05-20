@@ -756,7 +756,7 @@ class CompactNetworkSynthesisBuilder:
             return None
 
     def _plot_watershed_context(self, ax, run) -> str:
-        from hydromodpy.display._map_axes import overlay_watershed_contour
+        from hydromodpy.display.map_axes import overlay_watershed_contour
 
         context_watershed = self._context_watershed_gdf()
         if context_watershed is not None and not context_watershed.empty:
@@ -851,8 +851,8 @@ class CompactNetworkSynthesisBuilder:
         import numpy as np
         from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 
-        from hydromodpy.display._map_axes import style_map_axes
-        from hydromodpy.display._ugrid import render_face_field
+        from hydromodpy.display.map_axes import style_map_axes
+        from hydromodpy.display.ugrid import render_face_field
 
         values = self._log10_positive(self._mean_positive_flux(run, variable))
         finite = values[np.isfinite(values)]
@@ -1043,7 +1043,7 @@ class CompactNetworkSynthesisBuilder:
         import numpy as np
         from matplotlib.lines import Line2D
 
-        from hydromodpy.display._map_axes import style_map_axes
+        from hydromodpy.display.map_axes import style_map_axes
 
         layers = self._context_topography_layers(run)
         finite_values = [
