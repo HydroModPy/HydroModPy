@@ -265,25 +265,25 @@ def register(
             bbox=bx,
         )
 
-    conn = catalog._conn
+    backend = catalog.backend
     # Look for existing entry
     if station_id is not None:
-        existing = conn.execute(
+        existing = backend.fetch_one(
             "SELECT id FROM entries WHERE variable = ? AND source = ? AND station_id = ?",
             [variable, source, station_id],
-        ).fetchone()
+        )
     else:
-        existing = conn.execute(
+        existing = backend.fetch_one(
             "SELECT id FROM entries WHERE variable = ? AND source = ? "
             "AND station_id IS NULL AND file_path = ?",
             [variable, source, encoded_path],
-        ).fetchone()
+        )
 
     for attempt in range(_RETRY):
         try:
             if existing is not None:
                 eid = existing[0]
-                conn.execute(
+                backend.execute(
                     """UPDATE entries SET
                        bbox_xmin=?, bbox_ymin=?, bbox_xmax=?, bbox_ymax=?,
                        crs=?, date_start=?, date_end=?, frequency=?,
@@ -311,7 +311,7 @@ def register(
                 )
                 return eid
             else:
-                conn.execute(
+                backend.execute(
                     """INSERT INTO entries
                        (variable, source, station_id,
                         bbox_xmin, bbox_ymin, bbox_xmax, bbox_ymax,
@@ -340,7 +340,7 @@ def register(
                         json_or_none(fetch_metadata),
                     ],
                 )
-                row = conn.execute("SELECT currval('entries_seq')").fetchone()
+                row = backend.fetch_one("SELECT currval('entries_seq')")
                 return row[0]
         except duckdb.IOException:
             if attempt < _RETRY - 1:
