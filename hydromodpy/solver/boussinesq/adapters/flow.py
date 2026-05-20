@@ -16,7 +16,7 @@ from typing import Any
 
 import pandas as pd
 
-from hydromodpy.core.exceptions import SolverDivergedError
+from hydromodpy.core.exceptions import ConfigError, SolverDivergedError, SolverError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
@@ -74,14 +74,14 @@ class BoussinesqFlowAdapter:
         del store
         output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
         if output_dir is None:
-            raise RuntimeError(f"No solver output recorded for run {ctx.run.id!r}")
+            raise SolverError(f"No solver output recorded for run {ctx.run.id!r}")
         output_dir = Path(output_dir)
 
         if variable == "discharge":
             return extract_discharge_history(output_dir, time_index=time_index)
         if variable == "head":
             if not station_cells:
-                raise ValueError("head calibration requires station_cells")
+                raise ConfigError("head calibration requires station_cells")
             series_by_station = extract_head_history_at_cells(
                 output_dir,
                 station_cells=station_cells,
@@ -93,7 +93,7 @@ class BoussinesqFlowAdapter:
                     return series_by_station[station_id]
                 except KeyError as exc:
                     raise KeyError(f"No head series extracted for station {station_id!r}") from exc
-            raise ValueError(
+            raise ConfigError(
                 "extract_calibration_series returns one series; pass station_cells "
                 "with a single entry per call for head calibration."
             )
