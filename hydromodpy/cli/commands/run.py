@@ -31,9 +31,19 @@ NAME: str = "run"
 HELP: str = "Run a workflow from a TOML config"
 
 
+def _step_choices() -> list[str]:
+    """Return the canonical 12-step pipeline names for shell completion."""
+    try:
+        from hydromodpy.workflow.orchestrator import standard_steps
+
+        return [getattr(s, "name", type(s).__name__) for s in standard_steps()]
+    except Exception:
+        return []
+
+
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    parser.add_argument(
+    config_arg = parser.add_argument(
         "config",
         type=Path,
         help="Path to a TOML config",
@@ -44,20 +54,29 @@ def register(subparsers) -> argparse.ArgumentParser:
         metavar="RUN_ID",
         help="Resume a simulation from its last checkpoint.",
     )
-    parser.add_argument(
+    from_arg = parser.add_argument(
         "--from",
         dest="from_step",
         default=None,
         metavar="STEP",
         help="Resume from a specific pipeline step (name or index).",
     )
-    parser.add_argument(
+    until_arg = parser.add_argument(
         "--until",
         dest="until_step",
         default=None,
         metavar="STEP",
         help="Stop after the specified pipeline step (name or index).",
     )
+    try:
+        from argcomplete.completers import ChoicesCompleter, FilesCompleter
+
+        config_arg.completer = FilesCompleter(("toml",))  # type: ignore[attr-defined]
+        step_completer = ChoicesCompleter(_step_choices())
+        from_arg.completer = step_completer  # type: ignore[attr-defined]
+        until_arg.completer = step_completer  # type: ignore[attr-defined]
+    except ImportError:
+        pass
     parser.add_argument(
         "--dry-run",
         action="store_true",
