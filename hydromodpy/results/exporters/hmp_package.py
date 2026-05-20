@@ -562,10 +562,10 @@ def export_hmp_package(
             else output.with_suffix(".hmp")
         )
 
-    row = catalog.connection.execute(
+    row = catalog.backend.fetch_one(
         "SELECT zarr_path, geographic_fingerprint, project FROM simulations WHERE sim_id = ?",
         [sid],
-    ).fetchone()
+    )
     if row is None:
         raise KeyError(f"Simulation '{sid}' not found")
     zarr_rel, geo_fp, project_name = row
@@ -634,10 +634,10 @@ def _check_project_conflict(
     incoming_project = manifest.get("project")
     if not incoming_project:
         return
-    existing_sid = catalog.connection.execute(
+    existing_sid = catalog.backend.fetch_one(
         "SELECT sim_id FROM simulations WHERE project = ? LIMIT 1",
         [incoming_project],
-    ).fetchone()
+    )
     if existing_sid is not None:
         raise ValueError(
             f"Project '{incoming_project}' already exists in this workspace. "
@@ -778,10 +778,10 @@ def import_hmp_package(
                     f"expected {entry['sha256']}, got {actual}"
                 )
 
-        existing = catalog.connection.execute(
+        existing = catalog.backend.fetch_one(
             "SELECT sim_id FROM simulations WHERE sim_id = ?",
             [sid],
-        ).fetchone()
+        )
         if existing is not None:
             if not force:
                 raise ValueError(f"Simulation '{sid}' already exists. Use force=True to overwrite.")
@@ -812,26 +812,24 @@ def import_hmp_package(
 
         from hydromodpy.results.catalog.storage_paths import build_storage_basename
 
-        catalog.connection.begin()
-        try:
+        with catalog.backend.transaction():
+            # _restore_catalog_snapshot still takes a raw DuckDB connection
+            # because the snapshot file is a transient one-sim DuckDB and is
+            # DuckDB-only by construction (.hmp archive contract).
             _restore_catalog_snapshot(catalog.connection, snap_path)
             workspace = catalog.workspace_path
-            row = catalog.connection.execute(
+            row = catalog.backend.fetch_one(
                 "SELECT project, name FROM simulations WHERE sim_id = ?",
                 [sid],
-            ).fetchone()
+            )
             project_final = row[0] if row else None
             name_final = row[1] if row else None
             basename = build_storage_basename(project_final, name_final, sid)
             zarr_path = f"{SIMULATIONS_DIRNAME}/{basename}{ZARR_ZIP_SUFFIX}"
-            catalog.connection.execute(
+            catalog.backend.execute(
                 "UPDATE simulations SET zarr_path = ?, storage_basename = ? WHERE sim_id = ?",
                 [zarr_path, basename, sid],
             )
-            catalog.connection.commit()
-        except Exception:
-            catalog.connection.rollback()
-            raise
 
         catalog._paths.cache_basename(sid, basename)
 
