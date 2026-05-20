@@ -14,7 +14,7 @@ _PUBLISHED_SIMULATION_COMPARISON_ROOT = Path(
 )
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_SIMULATION_COMPARISON_NEXT_STEPS = (
-    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+    "Use :doc:`the gallery and validation reading guide </user_guide/concepts/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
     "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation.",
 )
 
@@ -150,7 +150,7 @@ def _published_simulation_comparison_spec(
         next_steps=_string_tuple(payload, "next_steps")
         or _DEFAULT_SIMULATION_COMPARISON_NEXT_STEPS,
         walkthrough_doc=str(
-            payload.get("walkthrough_doc", "getting_started/reading-results-pages")
+            payload.get("walkthrough_doc", "user_guide/concepts/reading-results-pages")
         ),
         walkthrough_title=str(
             payload.get("walkthrough_title", "the gallery and validation reading guide")
@@ -220,7 +220,7 @@ def _build_simulation_comparison_case_spec(
         key_parameters=key_parameters,
         how_to_read=how_to_read,
         next_steps=next_steps,
-        walkthrough_doc="getting_started/reading-results-pages",
+        walkthrough_doc="user_guide/concepts/reading-results-pages",
         walkthrough_title="the gallery and validation reading guide",
         metadata={
             "static_summary_path": f"{_SIMULATION_COMPARISON_STATIC_ROOT}/{slug}_summary.json",
@@ -294,10 +294,10 @@ def build_simulation_comparison_specs() -> tuple[GalleryCaseSpec, ...]:
                 "Do not read this page as a validation benchmark: it is a solver-to-solver comparison, not a comparison against an analytical truth.",
             ),
             next_steps=(
-                "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+                "Use :doc:`the gallery and validation reading guide </user_guide/concepts/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
                 "If you need to understand the reference MODFLOW 6 run itself, go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>`.",
             ),
-            walkthrough_doc="getting_started/reading-results-pages",
+            walkthrough_doc="user_guide/concepts/reading-results-pages",
             walkthrough_title="the gallery and validation reading guide",
             metadata={
                 "static_summary_path": (
