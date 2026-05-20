@@ -207,6 +207,27 @@ class DuckDBCacheBackend:
         else:
             self._connection.execute("COMMIT")
 
+    @contextmanager
+    def attach_read_only(self, db_path: str | Path, alias: str) -> Iterator[None]:
+        """ATTACH ``db_path`` in read-only mode under ``alias`` for the block.
+
+        Mirror of the helper on the catalog-side DuckDB adapter so the
+        cache can federate with a project catalog DB for cross-DB joins
+        (``DataEntry.used_by``).
+        """
+        if not all(ch.isalnum() or ch == "_" for ch in alias):
+            raise ValueError(f"Invalid attach alias: {alias!r}")
+        path_str = str(Path(db_path))
+        path_literal = path_str.replace("'", "''")
+        self._connection.execute(f"ATTACH '{path_literal}' AS {alias} (READ_ONLY)")
+        try:
+            yield
+        finally:
+            try:
+                self._connection.execute(f"DETACH {alias}")
+            except Exception:
+                pass
+
     def close(self) -> None:
         if self._owns_connection:
             try:

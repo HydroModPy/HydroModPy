@@ -314,6 +314,19 @@ class RunTimeseriesMixin:
 
         return views.recharge_forcing(self)
 
+    def input_entries(self) -> pd.DataFrame:
+        """Return cache entries consumed by this run via the SHA-256 bridge.
+
+        Joins ``tracked_files`` (in the project catalog) with
+        ``entries`` (in the workspace cache DB) on ``sha256`` through a
+        DuckDB ATTACH read-only context. Returns an empty DataFrame when
+        the cache DB cannot be located next to the workspace or when no
+        tracked file matches a cache entry.
+        """
+        from hydromodpy.results.catalog.cross_db import run_input_entries
+
+        return run_input_entries(self._catalog, self._sim_id)
+
 
 def _apply_downsample(
     series: pd.Series,
