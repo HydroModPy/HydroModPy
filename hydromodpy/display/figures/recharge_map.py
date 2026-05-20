@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hydromodpy.display._map_axes import overlay_watershed_contour, style_map_axes
-from hydromodpy.display._ugrid import last_timestep, render_face_field
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.map_axes import overlay_watershed_contour, style_map_axes
+from hydromodpy.display.ugrid import last_timestep, render_face_field
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

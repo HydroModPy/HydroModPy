@@ -19,7 +19,6 @@ import functools
 import hashlib
 import inspect
 import json
-import os
 import socket
 import subprocess
 from collections.abc import Callable
@@ -60,11 +59,19 @@ AuditActorKind = Literal["os_user", "principal", "system", "cli", "api"]
 
 
 def _resolve_actor() -> str:
+    """Resolve the current actor name through the active ``AuthBackend``.
+
+    Delegates to :func:`hydromodpy.core.auth.get_auth_backend` so every audit
+    site shares the same identity source. Failures fall back to the literal
+    ``"unknown"`` rather than raising, matching the historical contract that
+    audit emission never breaks the surrounding transaction.
+    """
     try:
-        name = os.getlogin()
-    except OSError:
-        name = os.environ.get("USER") or os.environ.get("LOGNAME") or ""
-    return name or "unknown"
+        from hydromodpy.core.auth import get_auth_backend
+
+        return get_auth_backend().current_user() or "unknown"
+    except Exception:  # noqa: BLE001 - audit fallback must not raise
+        return "unknown"
 
 
 def _resolve_hostname() -> str:

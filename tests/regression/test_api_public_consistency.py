@@ -38,6 +38,7 @@ _DIRECT_EXPORTS = frozenset(
         "mesh",
         "testbed",
         "report",
+        "audit_prune",
         "doctor",
         "bootstrap_proj",
         "log_manager",

@@ -693,6 +693,49 @@ def _has_geographic_feature(sim: Any, feature_name: str) -> bool:
     return feature_name in names
 
 
+def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]:
+    """Apply ``retention_policies`` to ``audit_log`` for the workspace catalog.
+
+    Parameters
+    ----------
+    workspace
+        Path to a workspace or project directory. Resolved via
+        :func:`hydromodpy.cli.helpers.find_catalog_root` so any path under
+        the project tree works. ``None`` resolves to the current directory.
+    apply
+        ``False`` (default) counts rows that would be removed without
+        modifying the file. ``True`` actually deletes rows.
+
+    Returns
+    -------
+    dict[str, int]
+        Mapping ``event_type -> rows_affected``. Empty when no retention
+        policy is registered.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the workspace does not host a ``catalog.duckdb``.
+    """
+    import duckdb
+
+    from hydromodpy.cli.helpers import find_catalog_root
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog.audit import apply_retention
+
+    workspace_root = find_catalog_root(
+        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
+    )
+    catalog_path = workspace_root / CATALOG_FILENAME
+    if not catalog_path.is_file():
+        raise FileNotFoundError(f"No catalog at {workspace_root}")
+    conn = duckdb.connect(str(catalog_path))
+    try:
+        return apply_retention(conn, dry_run=not apply)
+    finally:
+        conn.close()
+
+
 def doctor() -> dict:
     """Lightweight environment diagnostic.
 

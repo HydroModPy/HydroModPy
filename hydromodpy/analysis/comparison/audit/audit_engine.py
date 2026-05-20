@@ -1,119 +1,32 @@
-"""Post-run equivalence audit for simulation-comparison experiments."""
+"""Compute layer of the equivalence audit.
+
+Pure functions that consume audit subjects (loaded by ``audit_io``) and
+build the comparison report dictionary returned by
+``build_equivalence_audit``.
+"""
 
 from __future__ import annotations
 
-import json
 import math
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.analysis.comparison import runtime_metadata
 from hydromodpy.analysis.comparison.runtime_mesh import resolve_bundle_cells
-from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
-_ORIGINAL_DISCOVER_RESULT_STORE = runtime_metadata.discover_result_store
-discover_result_store = _ORIGINAL_DISCOVER_RESULT_STORE
-
-
-def _discover_result_store(*args: Any, **kwargs: Any) -> Any:
-    """Resolve stores while preserving old test monkeypatch entry points."""
-    local_func = globals().get("discover_result_store", _ORIGINAL_DISCOVER_RESULT_STORE)
-    module_func = runtime_metadata.discover_result_store
-    if local_func is not _ORIGINAL_DISCOVER_RESULT_STORE and local_func is not module_func:
-        return local_func(*args, **kwargs)
-    return module_func(*args, **kwargs)
-
-
-STRICT_METADATA_KEYS = (
-    "mesh_hash",
-    "mesh_topology",
-    "n_cells",
-    "n_layers",
-    "n_timesteps",
-    "crs_epsg",
-    "bbox_xmin",
-    "bbox_ymin",
-    "bbox_xmax",
-    "bbox_ymax",
-    "period_start",
-    "period_end",
-    "time_unit",
-    "geographic_fingerprint",
+from .audit_io import (
+    HEAD_ABOVE_TOP_FRACTION_TOL,
+    HEAD_ABOVE_TOP_TOL_M,
+    INITIAL_STATE_MISMATCH_SELECTORS,
+    PHYSICAL_CONFIG_SECTIONS,
+    RECHARGE_ABS_TOL_M3_S,
+    RECHARGE_COMPONENT,
+    RECHARGE_REL_TOL,
+    STRICT_METADATA_KEYS,
+    _load_audit_subject,
+    _normalized_value,
+    _section_fingerprint,
 )
-
-PHYSICAL_CONFIG_SECTIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("simulation.time", ("simulation", "time")),
-    ("geographic", ("geographic",)),
-    ("domain", ("domain",)),
-    ("mesh_catchment", ("mesh_catchment",)),
-    ("mesh_input", ("mesh_input",)),
-    ("data.recharge", ("data", "recharge")),
-    ("flow.flow_regime", ("flow", "flow_regime")),
-    ("flow.active_sinks_sources", ("flow", "active_sinks_sources")),
-    ("flow.active_bc", ("flow", "active_bc")),
-    ("flow.param", ("flow", "param")),
-    ("flow.ic", ("flow", "ic")),
-    ("flow.bc", ("flow", "bc")),
-    ("flow.sinks_sources.recharge", ("flow", "sinks_sources", "recharge")),
-)
-
-RECHARGE_COMPONENT = "recharge_total_m3_s"
-RECHARGE_REL_TOL = 1.0e-2
-RECHARGE_ABS_TOL_M3_S = 1.0e-6
-HEAD_ABOVE_TOP_FRACTION_TOL = 5.0e-2
-HEAD_ABOVE_TOP_TOL_M = 0.1
-INITIAL_STATE_MISMATCH_SELECTORS = {"first", "initial", "initial_state"}
-
-
-def _jsonable(value: Any) -> Any:
-    if value is None:
-        return None
-    if isinstance(value, float) and not math.isfinite(value):
-        return None
-    if isinstance(value, (str, int, bool)):
-        return value
-    try:
-        if value != value:  # NaN
-            return None
-    except Exception:
-        pass
-    return str(value)
-
-
-def _normalized_value(value: Any) -> str:
-    item = _jsonable(value)
-    return "" if item is None else str(item)
-
-
-def _canonical_payload(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {
-            str(key): _canonical_payload(value[key])
-            for key in sorted(value, key=lambda item: str(item))
-        }
-    if isinstance(value, list):
-        return [_canonical_payload(item) for item in value]
-    if isinstance(value, tuple):
-        return [_canonical_payload(item) for item in value]
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            return None
-        return float(f"{value:.15g}")
-    return _jsonable(value)
-
-
-def _nested_value(payload: Mapping[str, Any], path: tuple[str, ...]) -> Any:
-    current: Any = payload
-    for key in path:
-        if not isinstance(current, Mapping) or key not in current:
-            return None
-        current = current[key]
-    return current
-
-
-def _section_fingerprint(value: Any) -> str:
-    return json.dumps(_canonical_payload(value), sort_keys=True, separators=(",", ":"))
 
 
 def _solver_name(subject: Mapping[str, Any]) -> str:
@@ -187,115 +100,6 @@ def _is_expected_boussinesq_drainage_bc_difference(
     if not (candidate_ignored and reference_ignored):
         return False
     return _section_fingerprint(candidate_normalized) == _section_fingerprint(reference_normalized)
-
-
-def _config_signature(config_path: Path | None) -> dict[str, Any]:
-    if config_path is None:
-        return {"status": "missing_config_path", "sections": {}, "fingerprints": {}}
-    try:
-        payload = load_toml_with_base_config(config_path)
-    except Exception as exc:
-        return {
-            "status": "load_error",
-            "message": str(exc),
-            "sections": {},
-            "fingerprints": {},
-        }
-
-    sections: dict[str, Any] = {}
-    fingerprints: dict[str, str] = {}
-    for label, path in PHYSICAL_CONFIG_SECTIONS:
-        value = _canonical_payload(_nested_value(payload, path))
-        if value is None:
-            continue
-        sections[label] = value
-        fingerprints[label] = _section_fingerprint(value)
-    return {
-        "status": "loaded",
-        "config_path": str(config_path),
-        "sections": sections,
-        "fingerprints": fingerprints,
-    }
-
-
-def _simulation_row(store: Any, sim_id: str) -> dict[str, Any]:
-    sims = store.list_simulations()
-    if sims.empty or "sim_id" not in sims.columns:
-        return {}
-    matches = sims.loc[sims["sim_id"].astype(str) == str(sim_id)]
-    if matches.empty:
-        return {}
-    return {key: _jsonable(value) for key, value in matches.iloc[-1].to_dict().items()}
-
-
-def _parameter_signature(store: Any, sim_id: str) -> list[dict[str, Any]]:
-    try:
-        rows = store.connection.execute(
-            """
-            SELECT param_name, zone_id, value, unit, parameterization
-              FROM parameters
-             WHERE sim_id = ?
-             ORDER BY param_name, zone_id
-            """,
-            [str(sim_id)],
-        ).fetchall()
-    except Exception:
-        return []
-    return [
-        {
-            "param_name": str(row[0]),
-            "zone_id": str(row[1]),
-            "value": None if row[2] is None else float(row[2]),
-            "unit": "" if row[3] is None else str(row[3]),
-            "parameterization": "" if row[4] is None else str(row[4]),
-        }
-        for row in rows
-    ]
-
-
-def _budget_rows(summary: Mapping[str, Any], store: Any, sim_id: str) -> list[dict[str, Any]]:
-    try:
-        from hydromodpy.analysis.comparison.exports import (
-            _load_boussinesq_budget_rows,
-            _load_catalog_budget_rows,
-        )
-
-        rows = _load_catalog_budget_rows(summary, store, sim_id)
-        rows.extend(_load_boussinesq_budget_rows(summary, store=store, sim_id=sim_id))
-        return rows
-    except Exception:
-        return []
-
-
-def _component_series(
-    rows: Iterable[Mapping[str, Any]],
-    component: str,
-) -> dict[str, float]:
-    series: dict[str, float] = {}
-    for row in rows:
-        if str(row.get("component", "")) != component:
-            continue
-        try:
-            elapsed = float(row.get("elapsed_seconds"))
-            value = float(row.get("value"))
-        except Exception:
-            continue
-        if not (math.isfinite(elapsed) and math.isfinite(value)):
-            continue
-        series[f"elapsed_seconds:{elapsed:.9g}"] = value
-    return series
-
-
-def _series_summary(series: Mapping[str, float]) -> dict[str, Any]:
-    values = [float(value) for value in series.values() if math.isfinite(float(value))]
-    if not values:
-        return {"count": 0}
-    return {
-        "count": len(values),
-        "min": min(values),
-        "max": max(values),
-        "mean": sum(values) / len(values),
-    }
 
 
 def _compare_scalar_series(
@@ -669,53 +473,6 @@ def _initial_state_policy_diagnostics(
     return diagnostics
 
 
-def _load_audit_subject(summary: Mapping[str, Any]) -> dict[str, Any]:
-    config_path_raw = summary.get("config_path")
-    config_path = None if config_path_raw in (None, "") else Path(str(config_path_raw))
-    preferred_sim_id = summary.get("sim_id")
-    preferred_name = summary.get("run_name")
-    store, sim_id = _discover_result_store(
-        config_path,
-        preferred_sim_id=(None if preferred_sim_id in (None, "") else str(preferred_sim_id)),
-        preferred_name=None if preferred_name in (None, "") else str(preferred_name),
-    )
-    try:
-        config_signature = _config_signature(config_path)
-        if store is None or sim_id is None:
-            return {
-                "id": summary.get("id", ""),
-                "solver": summary.get("solver", ""),
-                "status": "missing_store",
-                "metadata": {},
-                "parameters": [],
-                "physical_config": config_signature,
-                "budget_components": {},
-            }
-        budget_rows = _budget_rows(summary, store, str(sim_id))
-        recharge_series = _component_series(budget_rows, RECHARGE_COMPONENT)
-        return {
-            "id": summary.get("id", ""),
-            "solver": summary.get("solver", ""),
-            "status": "loaded",
-            "sim_id": str(sim_id),
-            "metadata": _simulation_row(store, str(sim_id)),
-            "parameters": _parameter_signature(store, str(sim_id)),
-            "physical_config": config_signature,
-            "budget_components": {
-                RECHARGE_COMPONENT: {
-                    "summary": _series_summary(recharge_series),
-                    "series": recharge_series,
-                }
-            },
-        }
-    finally:
-        if store is not None:
-            try:
-                store.close()
-            except Exception:
-                pass
-
-
 def build_equivalence_audit(
     *,
     simulation_summaries: Iterable[Mapping[str, Any]] | None = None,
@@ -948,130 +705,3 @@ def build_equivalence_audit(
         "issues": issues,
         "ignored_issues": ignored_issues,
     }
-
-
-def write_audit_files(
-    *,
-    comparison_root: Path,
-    audit: Mapping[str, Any],
-) -> tuple[Path, Path]:
-    """Write machine-readable and Markdown audit summaries."""
-    comparison_root.mkdir(parents=True, exist_ok=True)
-    json_path = comparison_root / "comparison_audit.json"
-    json_path.write_text(json.dumps(audit, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
-
-    lines = [
-        f"# Comparison Audit: {audit.get('status', '')}",
-        "",
-        f"- Reference simulation: `{audit.get('reference_simulation', '')}`",
-        f"- Mode: `{audit.get('mode', '')}`",
-        f"- Issues: {len(audit.get('issues', []))}",
-        f"- Physical config sections: {len(audit.get('physical_config_sections', []))}",
-        "",
-        "## Issues",
-    ]
-    issues = list(audit.get("issues", []))
-    ignored_issues = list(audit.get("ignored_issues", []))
-    if not issues:
-        lines.append("- No equivalence issue detected.")
-    else:
-        for issue in issues:
-            field = issue.get("field")
-            suffix = f" field=`{field}`" if field else ""
-            simulation_id = issue.get("simulation_id", "")
-            lines.append(
-                f"- `{issue.get('level', '')}` / `{issue.get('kind', '')}`"
-                f" simulation=`{simulation_id}`{suffix}"
-            )
-    if ignored_issues:
-        lines.extend(["", "## Ignored Differences"])
-        for issue in ignored_issues:
-            field = issue.get("field")
-            suffix = f" field=`{field}`" if field else ""
-            simulation_id = issue.get("simulation_id", "")
-            lines.append(
-                f"- `{issue.get('kind', '')}` simulation=`{simulation_id}`{suffix}: "
-                f"{issue.get('message', '')}"
-            )
-    config_issue_count = sum(
-        1 for issue in issues if issue.get("kind") == "config_section_mismatch"
-    )
-    lines.extend(["", "## Physical Config Checks"])
-    if config_issue_count:
-        lines.append(f"- Physical config section mismatches: {config_issue_count}.")
-    else:
-        lines.append("- No physical config section mismatch detected.")
-
-    lines.extend(["", "## Recharge Budget Checks"])
-    subjects = list(audit.get("subjects", []))
-    wrote_check = False
-    for subject in subjects:
-        checks = subject.get("budget_checks", {})
-        check = checks.get(RECHARGE_COMPONENT)
-        if not isinstance(check, Mapping):
-            continue
-        wrote_check = True
-        lines.append(
-            "- "
-            f"`{subject.get('id', '')}` / `{RECHARGE_COMPONENT}`: "
-            f"status=`{check.get('status', '')}`, "
-            f"pairs={check.get('n_pairs', '')}, "
-            f"max_abs_diff={check.get('max_abs_diff', '')}, "
-            f"max_abs_rel_diff={check.get('max_abs_rel_diff', '')}"
-        )
-    if not wrote_check:
-        lines.append("- No comparable recharge budget check was produced.")
-
-    initial_policy = list(audit.get("initial_state_policy", []))
-    lines.extend(["", "## Initial-State Policy"])
-    if not initial_policy:
-        lines.append("- No mixed initial-state policy was detected.")
-    else:
-        for item in initial_policy:
-            with_initial = ", ".join(item.get("simulations_with_initial_state", []))
-            without_initial = ", ".join(item.get("simulations_without_initial_state", []))
-            lines.append(
-                "- "
-                f"`{item.get('observable', '')}` requested_time=`{item.get('requested_time', '')}`: "
-                f"with_initial=`{with_initial}`, without_initial=`{without_initial}`, "
-                f"severity=`{item.get('severity', '')}`"
-            )
-
-    head_bounds = list(audit.get("head_bounds", []))
-    lines.extend(["", "## Head Bounds"])
-    if not head_bounds:
-        lines.append("- No head/top-bottom diagnostic was produced.")
-    else:
-        for item in head_bounds:
-            simulation_id = item.get("simulation_id", "")
-            lines.append(
-                "- "
-                f"`{simulation_id}` / `{item.get('observable', '')}`: "
-                f"above_top_fraction={item.get('above_top_fraction', '')}, "
-                f"above_top_max_m={item.get('above_top_max_m', '')}, "
-                f"below_bottom_fraction={item.get('below_bottom_fraction', '')}"
-            )
-
-    diagnostics = list(audit.get("head_recharge_response", []))
-    lines.extend(["", "## Head-Recharge Response"])
-    if not diagnostics:
-        lines.append("- No point-head diagnostic was produced.")
-    else:
-        for item in diagnostics:
-            simulation_id = item.get("simulation_id", "")
-            lines.append(
-                "- "
-                f"`{simulation_id}` / `{item.get('observable', '')}`: "
-                f"head_range_m={item.get('head_range_m', '')}, "
-                f"corr_delta_recharge_delta_head={item.get('corr_delta_recharge_delta_head', '')}, "
-                f"same_sign_delta_fraction={item.get('same_sign_delta_fraction', '')}"
-            )
-    md_path = comparison_root / "comparison_audit.md"
-    md_path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
-    return json_path, md_path
-
-
-__all__ = (
-    "build_equivalence_audit",
-    "write_audit_files",
-)

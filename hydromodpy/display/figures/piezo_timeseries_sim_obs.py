@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from hydromodpy.core.units.labels import axis_label
-from hydromodpy.display._map_axes import style_date_axis
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.map_axes import style_date_axis
 from hydromodpy.results.time_alignment import (
     normalize_datetime_series,
     observed_on_simulation_index,
