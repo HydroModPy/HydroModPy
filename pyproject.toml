@@ -177,6 +177,7 @@ source = [
     "hydromodpy.spatial",
     "hydromodpy.physics",
     "hydromodpy.data",
+    "hydromodpy.catalog",
     "hydromodpy.results",
     "hydromodpy.simulation",
     "hydromodpy.solver",
@@ -184,6 +185,8 @@ source = [
     "hydromodpy.display",
     "hydromodpy.analysis",
     "hydromodpy.workflow",
+    "hydromodpy.project",
+    "hydromodpy.cli",
 ]
 parallel = true
 omit = [
@@ -199,6 +202,7 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+fail_under = 80
 exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.",
@@ -349,3 +353,13 @@ module = [
 ]
 ignore_missing_imports = true
 follow_imports = "skip"
+
+# Strict gate on the foundational layers. Other layers stay advisory and
+# tighten progressively as type debt is paid down.
+[[tool.mypy.overrides]]
+module = [
+    "hydromodpy.core.*",
+    "hydromodpy.schema.*",
+    "hydromodpy.config.*",
+]
+strict = true

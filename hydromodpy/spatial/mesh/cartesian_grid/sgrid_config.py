@@ -11,7 +11,6 @@ Design choices
 
 from __future__ import annotations
 
-import tomllib
 import warnings
 from collections.abc import Mapping
 from math import isclose
@@ -495,9 +494,10 @@ class SGridConfig(HydroModelBase):
     @classmethod
     def from_toml(cls, config_path: str | Path):
         """Load TOML, resolve relative paths, then validate."""
+        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
         path = Path(config_path).expanduser().resolve()
-        with path.open("rb") as stream:
-            payload = tomllib.load(stream)
+        payload = load_toml_with_base_config(path)
 
         if not isinstance(payload, Mapping) or "sgrid" not in payload:
             raise ValueError(f"Invalid sgrid configuration in {path}: missing [sgrid] section")

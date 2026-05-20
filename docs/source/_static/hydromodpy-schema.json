@@ -4028,128 +4028,8 @@
     },
     "FlowConfig": {
       "additionalProperties": false,
-      "description": "Flow-process configuration.\n\nParameters are declared in `param_list` (ordered list of ids), and\nparameter payloads are stored in `param`.",
+      "description": "Flow-process configuration.\n\nParameters are declared in `param_list` (ordered list of ids), and\nparameter payloads are stored in `param`. The 13 flat\n``runtime_*``/``vi_*``/``ts_vi_*`` Boussinesq knobs are declared on\n:class:`FlowRuntimeFields` and grouped together by the\n:attr:`runtime` property as a :class:`FlowRuntimeConfig` view.",
       "properties": {
-        "param_list": {
-          "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
-          "examples": [
-            [
-              "K",
-              "Sy",
-              "Ss"
-            ]
-          ],
-          "items": {
-            "type": "string"
-          },
-          "title": "Param List",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "param": {
-          "additionalProperties": {
-            "$ref": "#/$defs/FlowParam"
-          },
-          "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads.",
-          "title": "Param",
-          "type": "object",
-          "x-hmp-profile": "user"
-        },
-        "ic": {
-          "$ref": "#/$defs/FlowInitialConditions",
-          "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).",
-          "x-hmp-profile": "user"
-        },
-        "bc": {
-          "additionalProperties": {
-            "discriminator": {
-              "mapping": {
-                "cauchy": "#/$defs/CauchyBC",
-                "dirichlet": "#/$defs/DirichletBC",
-                "robin": "#/$defs/RobinBC"
-              },
-              "propertyName": "kind"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/$defs/DirichletBC"
-              },
-              {
-                "$ref": "#/$defs/CauchyBC"
-              },
-              {
-                "$ref": "#/$defs/RobinBC"
-              }
-            ]
-          },
-          "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- ``[flow.bc.cauchy.drainage]``\n- ``[flow.bc.robin.drainage]``\n- ``[flow.bc.<custom_id>]`` for generic payloads\n\n**Common keys**\n\n- ``value`` (required): numeric or ``'<value> <unit>'``\n- ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.\n\n**Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).",
-          "title": "Bc",
-          "type": "object",
-          "x-hmp-profile": "user"
-        },
-        "sinks_sources": {
-          "$ref": "#/$defs/FlowSinksSourcesConfig",
-          "description": "Typed sinks/sources payload (for example pumping wells).",
-          "x-hmp-profile": "user"
-        },
-        "active_sinks_sources": {
-          "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
-          "examples": [
-            [
-              "recharge"
-            ],
-            [
-              "recharge",
-              "wells"
-            ]
-          ],
-          "items": {
-            "pattern": "^[a-z][a-z0-9_]*$",
-            "type": "string"
-          },
-          "title": "Active Sinks Sources",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "active_bc": {
-          "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.",
-          "examples": [
-            [
-              "ocean"
-            ],
-            [
-              "west_side",
-              "east_side",
-              "drainage"
-            ]
-          ],
-          "items": {
-            "pattern": "^[a-z][a-z0-9_]*$",
-            "type": "string"
-          },
-          "title": "Active Bc",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "flow_regime": {
-          "default": "transient",
-          "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
-          "display_name_fr": "R\u00e9gime d'\u00e9coulement",
-          "enum": [
-            "steady",
-            "transient"
-          ],
-          "examples": [
-            "steady",
-            "transient"
-          ],
-          "help_text_fr": "R\u00e9gime stationnaire (steady) ou transitoire (transient). Le r\u00e9gime transitoire requiert une condition initiale [flow.ic].",
-          "title": "Flow Regime",
-          "type": "string",
-          "unit": "-",
-          "widget_type": "select",
-          "x-hmp-profile": "user"
-        },
         "runtime_backend": {
           "default": "local",
           "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.",
@@ -4328,6 +4208,126 @@
           "title": "Ts Vi Snes Type",
           "type": "string",
           "x-hmp-profile": "dev"
+        },
+        "param_list": {
+          "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
+          "examples": [
+            [
+              "K",
+              "Sy",
+              "Ss"
+            ]
+          ],
+          "items": {
+            "type": "string"
+          },
+          "title": "Param List",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "param": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FlowParam"
+          },
+          "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads.",
+          "title": "Param",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "ic": {
+          "$ref": "#/$defs/FlowInitialConditions",
+          "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).",
+          "x-hmp-profile": "user"
+        },
+        "bc": {
+          "additionalProperties": {
+            "discriminator": {
+              "mapping": {
+                "cauchy": "#/$defs/CauchyBC",
+                "dirichlet": "#/$defs/DirichletBC",
+                "robin": "#/$defs/RobinBC"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/DirichletBC"
+              },
+              {
+                "$ref": "#/$defs/CauchyBC"
+              },
+              {
+                "$ref": "#/$defs/RobinBC"
+              }
+            ]
+          },
+          "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- ``[flow.bc.cauchy.drainage]``\n- ``[flow.bc.robin.drainage]``\n- ``[flow.bc.<custom_id>]`` for generic payloads\n\n**Common keys**\n\n- ``value`` (required): numeric or ``'<value> <unit>'``\n- ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.\n\n**Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).",
+          "title": "Bc",
+          "type": "object",
+          "x-hmp-profile": "user"
+        },
+        "sinks_sources": {
+          "$ref": "#/$defs/FlowSinksSourcesConfig",
+          "description": "Typed sinks/sources payload (for example pumping wells).",
+          "x-hmp-profile": "user"
+        },
+        "active_sinks_sources": {
+          "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
+          "examples": [
+            [
+              "recharge"
+            ],
+            [
+              "recharge",
+              "wells"
+            ]
+          ],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Active Sinks Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "active_bc": {
+          "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.",
+          "examples": [
+            [
+              "ocean"
+            ],
+            [
+              "west_side",
+              "east_side",
+              "drainage"
+            ]
+          ],
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "type": "string"
+          },
+          "title": "Active Bc",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "flow_regime": {
+          "default": "transient",
+          "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
+          "display_name_fr": "R\u00e9gime d'\u00e9coulement",
+          "enum": [
+            "steady",
+            "transient"
+          ],
+          "examples": [
+            "steady",
+            "transient"
+          ],
+          "help_text_fr": "R\u00e9gime stationnaire (steady) ou transitoire (transient). Le r\u00e9gime transitoire requiert une condition initiale [flow.ic].",
+          "title": "Flow Regime",
+          "type": "string",
+          "unit": "-",
+          "widget_type": "select",
+          "x-hmp-profile": "user"
         }
       },
       "title": "FlowConfig",

@@ -22,7 +22,7 @@ from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
 from hydromodpy.results.array_fingerprint import fingerprint
-from hydromodpy.results.catalog.audit import audited
+from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.writes_helpers import (
     _coerce_timestamp,
@@ -516,6 +516,16 @@ class WritesMixinDuckDB:
                 ],
             )
             written += 1
+        if written > 0:
+            try:
+                emit_audit_event(
+                    self._db,
+                    event_type="tracked_file.add",
+                    sim_id=sid,
+                    payload={"n_entries": int(written)},
+                )
+            except Exception as exc:  # noqa: BLE001 - audit must not raise
+                logger.warning("audit emission failed for tracked_file.add: %s", exc)
         return written
 
     @with_lock_retry()

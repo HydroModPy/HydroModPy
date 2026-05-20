@@ -145,8 +145,9 @@ def test_solver_config_accepts_registered_plugin_flow_solver() -> None:
 
 
 def test_solver_config_rejects_unknown_flow_solver() -> None:
+    cfg = SolverConfig.model_validate({"solver_engine": "missing"})
     with pytest.raises(ValueError, match="Unknown flow solver"):
-        SolverConfig.model_validate({"solver_engine": "missing"})
+        cfg.validate_registry()
 
 
 def test_unregister_removes_entry() -> None:

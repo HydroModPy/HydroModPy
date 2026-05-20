@@ -5,12 +5,12 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.config import HydroModPyConfig
+from hydromodpy.core.time.tmesh_config import TMeshConfig
 from hydromodpy.solver.modflow6 import Modflow6Config
 from hydromodpy.solver.modflow_nwt.nwt import (
     ModflowConfig,
     ModflowSpecifParams,
 )
-from hydromodpy.solver.utils.temporal.tmesh_config import TMeshConfig
 from hydromodpy.spatial.mesh.cartesian_grid.sgrid_config import SolverSGridConfig
 
 

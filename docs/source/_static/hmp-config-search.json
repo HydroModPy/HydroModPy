@@ -365,7 +365,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-case-id",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L270",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L269",
     "description": "Identifier used by local case runners and outputs."
   },
   {
@@ -377,7 +377,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-grid",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L274",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L273",
     "description": "Synthetic grid definition (extent and cell size)."
   },
   {
@@ -389,7 +389,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-grid-length-x",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L21",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L20",
     "description": "Total domain length along x. Accepts values such as 100, '100 m', or '0.1 km'."
   },
   {
@@ -401,7 +401,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-grid-length-y",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L25",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L24",
     "description": "Total domain length along y. Accepts values such as 1, '1 m', or '0.001 km'."
   },
   {
@@ -413,7 +413,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-grid-nx",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L29",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L28",
     "description": "Number of cells along x."
   },
   {
@@ -425,7 +425,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-grid-ny",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L33",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L32",
     "description": "Number of cells along y."
   },
   {
@@ -437,7 +437,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-grid-xmin",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L37",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L36",
     "description": "Lower x coordinate of the support extent."
   },
   {
@@ -449,7 +449,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-grid-ymin",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L41",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L40",
     "description": "Lower y coordinate of the support extent."
   },
   {
@@ -461,7 +461,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-grid-crs",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L45",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L44",
     "description": "Projected CRS attached to synthetic outputs."
   },
   {
@@ -473,7 +473,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-grid-nodata",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L49",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L48",
     "description": "Nodata sentinel exported to raster artefacts."
   },
   {
@@ -485,7 +485,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L278",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L277",
     "description": "Synthetic topography definition (shape, elevations, slope)."
   },
   {
@@ -497,7 +497,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-flat-kind",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L119",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L118",
     "description": ""
   },
   {
@@ -509,7 +509,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-flat-base-elevation",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L123",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L122",
     "description": ""
   },
   {
@@ -521,7 +521,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-linear-kind",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L132",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L131",
     "description": ""
   },
   {
@@ -533,7 +533,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-linear-base-elevation",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L136",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L135",
     "description": ""
   },
   {
@@ -545,7 +545,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-linear-right-to-left-amplitude",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L140",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L139",
     "description": ""
   },
   {
@@ -557,7 +557,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-radial-island-kind",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L153",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L152",
     "description": ""
   },
   {
@@ -569,7 +569,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-radial-island-base-elevation",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L160",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L159",
     "description": ""
   },
   {
@@ -581,7 +581,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-radial-island-island-radius",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L164",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L163",
     "description": ""
   },
   {
@@ -593,7 +593,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-radial-island-crest-elevation",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L170",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L169",
     "description": ""
   },
   {
@@ -605,7 +605,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-radial-island-center-x",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L177",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L176",
     "description": ""
   },
   {
@@ -617,7 +617,7 @@
     "section": "geographic",
     "anchor": "geographic-synthetic-topography-radial-island-center-y",
     "page": "geographic.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L181",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L180",
     "description": ""
   },
   {
@@ -4929,6 +4929,182 @@
     "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file."
   },
   {
+    "path": "flow.runtime_backend",
+    "name": "runtime_backend",
+    "type": "Literal['local', 'scipy', 'scipy_sparse', 'petsc']",
+    "profile": "dev",
+    "stability": "experimental",
+    "section": "flow",
+    "anchor": "flow-runtime-backend",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.",
+    "examples": [
+      "\"local\"",
+      "\"scipy_sparse\""
+    ]
+  },
+  {
+    "path": "flow.surface_interaction_model",
+    "name": "surface_interaction_model",
+    "type": "Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']",
+    "profile": "dev",
+    "stability": "experimental",
+    "section": "flow",
+    "anchor": "flow-surface-interaction-model",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experi",
+    "examples": [
+      "\"auto\"",
+      "\"regularized_partition\""
+    ]
+  },
+  {
+    "path": "flow.runtime_max_iterations",
+    "name": "runtime_max_iterations",
+    "type": "int | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-runtime-max-iterations",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend."
+  },
+  {
+    "path": "flow.runtime_tol_residual_inf",
+    "name": "runtime_tol_residual_inf",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-runtime-tol-residual-inf",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend."
+  },
+  {
+    "path": "flow.runtime_tol_state_update_inf",
+    "name": "runtime_tol_state_update_inf",
+    "type": "float | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-runtime-tol-state-update-inf",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it."
+  },
+  {
+    "path": "flow.vi_substeps_per_period",
+    "name": "vi_substeps_per_period",
+    "type": "int",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-vi-substeps-per-period",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep."
+  },
+  {
+    "path": "flow.vi_substep_on_failure",
+    "name": "vi_substep_on_failure",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-vi-substep-on-failure",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "When true, retry a failed PETSc VI obstacle stress period with increasing substep counts."
+  },
+  {
+    "path": "flow.vi_max_adaptive_substeps",
+    "name": "vi_max_adaptive_substeps",
+    "type": "int | None",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-vi-max-adaptive-substeps",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries."
+  },
+  {
+    "path": "flow.ts_vi_steps_per_period",
+    "name": "ts_vi_steps_per_period",
+    "type": "int",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-steps-per-period",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime."
+  },
+  {
+    "path": "flow.ts_vi_adapt",
+    "name": "ts_vi_adapt",
+    "type": "bool",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-adapt",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime."
+  },
+  {
+    "path": "flow.ts_vi_dt_min_fraction",
+    "name": "ts_vi_dt_min_fraction",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-dt-min-fraction",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Minimum TS VI time-step as a fraction of the stress-period length."
+  },
+  {
+    "path": "flow.ts_vi_dt_max_fraction",
+    "name": "ts_vi_dt_max_fraction",
+    "type": "float",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-dt-max-fraction",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "Maximum TS VI time-step as a fraction of the stress-period length."
+  },
+  {
+    "path": "flow.ts_vi_type",
+    "name": "ts_vi_type",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-type",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "PETSc TS type for the experimental TS VI obstacle runtime."
+  },
+  {
+    "path": "flow.ts_vi_snes_type",
+    "name": "ts_vi_snes_type",
+    "type": "str",
+    "profile": "dev",
+    "stability": "stable",
+    "section": "flow",
+    "anchor": "flow-ts-vi-snes-type",
+    "page": "flow.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70",
+    "description": "PETSc SNES type for the experimental TS VI obstacle runtime."
+  },
+  {
     "path": "flow.param_list",
     "name": "param_list",
     "type": "list[str]",
@@ -4937,7 +5113,7 @@
     "section": "flow",
     "anchor": "flow-param-list",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L193",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L96",
     "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
     "examples": [
       "[\"K\", \"Sy\", \"Ss\"]"
@@ -4952,7 +5128,7 @@
     "section": "flow",
     "anchor": "flow-param",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L201",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L104",
     "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads."
   },
   {
@@ -5216,7 +5392,7 @@
     "section": "flow",
     "anchor": "flow-ic",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L239",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L142",
     "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition)."
   },
   {
@@ -5576,7 +5752,7 @@
     "section": "flow",
     "anchor": "flow-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L205",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L108",
     "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``"
   },
   {
@@ -6032,7 +6208,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L246",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L149",
     "description": "Typed sinks/sources payload (for example pumping wells)."
   },
   {
@@ -6584,7 +6760,7 @@
     "section": "flow",
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L250",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L153",
     "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
     "examples": [
       "[\"recharge\"]",
@@ -6600,7 +6776,7 @@
     "section": "flow",
     "anchor": "flow-active-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L259",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L162",
     "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An em",
     "examples": [
       "[\"ocean\"]",
@@ -6616,188 +6792,12 @@
     "section": "flow",
     "anchor": "flow-flow-regime",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L67",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L80",
     "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
     "examples": [
       "\"steady\"",
       "\"transient\""
     ]
-  },
-  {
-    "path": "flow.runtime_backend",
-    "name": "runtime_backend",
-    "type": "Literal['local', 'scipy', 'scipy_sparse', 'petsc']",
-    "profile": "dev",
-    "stability": "experimental",
-    "section": "flow",
-    "anchor": "flow-runtime-backend",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L83",
-    "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.",
-    "examples": [
-      "\"local\"",
-      "\"scipy_sparse\""
-    ]
-  },
-  {
-    "path": "flow.surface_interaction_model",
-    "name": "surface_interaction_model",
-    "type": "Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']",
-    "profile": "dev",
-    "stability": "experimental",
-    "section": "flow",
-    "anchor": "flow-surface-interaction-model",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L94",
-    "description": "Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experi",
-    "examples": [
-      "\"auto\"",
-      "\"regularized_partition\""
-    ]
-  },
-  {
-    "path": "flow.runtime_max_iterations",
-    "name": "runtime_max_iterations",
-    "type": "int | None",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-runtime-max-iterations",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L116",
-    "description": "Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend."
-  },
-  {
-    "path": "flow.runtime_tol_residual_inf",
-    "name": "runtime_tol_residual_inf",
-    "type": "float | None",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-runtime-tol-residual-inf",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L131",
-    "description": "Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend."
-  },
-  {
-    "path": "flow.runtime_tol_state_update_inf",
-    "name": "runtime_tol_state_update_inf",
-    "type": "float | None",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-runtime-tol-state-update-inf",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L138",
-    "description": "Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it."
-  },
-  {
-    "path": "flow.vi_substeps_per_period",
-    "name": "vi_substeps_per_period",
-    "type": "int",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-vi-substeps-per-period",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L145",
-    "description": "Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep."
-  },
-  {
-    "path": "flow.vi_substep_on_failure",
-    "name": "vi_substep_on_failure",
-    "type": "bool",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-vi-substep-on-failure",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L153",
-    "description": "When true, retry a failed PETSc VI obstacle stress period with increasing substep counts."
-  },
-  {
-    "path": "flow.vi_max_adaptive_substeps",
-    "name": "vi_max_adaptive_substeps",
-    "type": "int | None",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-vi-max-adaptive-substeps",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L160",
-    "description": "Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries."
-  },
-  {
-    "path": "flow.ts_vi_steps_per_period",
-    "name": "ts_vi_steps_per_period",
-    "type": "int",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-ts-vi-steps-per-period",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L166",
-    "description": "Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime."
-  },
-  {
-    "path": "flow.ts_vi_adapt",
-    "name": "ts_vi_adapt",
-    "type": "bool",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-ts-vi-adapt",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L173",
-    "description": "Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime."
-  },
-  {
-    "path": "flow.ts_vi_dt_min_fraction",
-    "name": "ts_vi_dt_min_fraction",
-    "type": "float",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-ts-vi-dt-min-fraction",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L177",
-    "description": "Minimum TS VI time-step as a fraction of the stress-period length."
-  },
-  {
-    "path": "flow.ts_vi_dt_max_fraction",
-    "name": "ts_vi_dt_max_fraction",
-    "type": "float",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-ts-vi-dt-max-fraction",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L181",
-    "description": "Maximum TS VI time-step as a fraction of the stress-period length."
-  },
-  {
-    "path": "flow.ts_vi_type",
-    "name": "ts_vi_type",
-    "type": "str",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-ts-vi-type",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L185",
-    "description": "PETSc TS type for the experimental TS VI obstacle runtime."
-  },
-  {
-    "path": "flow.ts_vi_snes_type",
-    "name": "ts_vi_snes_type",
-    "type": "str",
-    "profile": "dev",
-    "stability": "stable",
-    "section": "flow",
-    "anchor": "flow-ts-vi-snes-type",
-    "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L189",
-    "description": "PETSc SNES type for the experimental TS VI obstacle runtime."
   },
   {
     "path": "transport.active_sinks_sources",
@@ -8216,7 +8216,7 @@
     "section": "solver",
     "anchor": "solver-solver-engine",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L17",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L16",
     "description": "Groundwater flow solver backend registered for the 'flow' process."
   },
   {
@@ -8708,7 +8708,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-planar",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L193",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L192",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -8720,7 +8720,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-planar-mode",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L146",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L145",
     "description": "Planar solver-grid mode: keep the native domain support or resample to an explicit (ny, nx) target shape."
   },
   {
@@ -8732,7 +8732,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-planar-nx",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L153",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L152",
     "description": "Target number of columns when planar mode is 'resample_to_shape'."
   },
   {
@@ -8744,7 +8744,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-planar-ny",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L157",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L156",
     "description": "Target number of rows when planar mode is 'resample_to_shape'."
   },
   {
@@ -8756,7 +8756,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-planar-resampling",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L161",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L160",
     "description": "Resampling rule applied when planar mode is 'resample_to_shape'."
   },
   {
@@ -8768,7 +8768,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L197",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L196",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -8780,7 +8780,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical-genmtd-lay",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L63",
     "description": "Vertical-layering strategy."
   },
   {
@@ -8792,7 +8792,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical-nlay",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L68",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L67",
     "description": "Number of layers (required for constant/decay, ignored for list)."
   },
   {
@@ -8804,7 +8804,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical-lay-decay",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L71",
     "description": "Decay exponent (>1) for decay layering."
   },
   {
@@ -8816,7 +8816,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical-lay-proportions",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L76",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L75",
     "description": "Explicit layer fractions when genmtd_lay='list' (must sum to 1)."
   },
   {
@@ -8828,7 +8828,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-sgrid-vertical-nodata",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L80",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L79",
     "description": "No-data sentinel value."
   },
   {
@@ -8852,7 +8852,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-itmuni",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L27",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L26",
     "description": "Time unit used to interpret lenper values. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility."
   },
   {
@@ -8864,7 +8864,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-flow-regime",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L34",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L33",
     "description": "Flow regime used to derive the steady/transient stress-period flags. In launcher mode this field is generally derived from [flow].flow_regime."
   },
   {
@@ -8876,7 +8876,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-genmtd",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L41",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L40",
     "description": "Temporal generation method. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility."
   },
   {
@@ -8888,7 +8888,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-nper",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L48",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L47",
     "description": "Stress-period count. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -8900,7 +8900,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-lenper",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L55",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L54",
     "description": "Stress-period length(s) interpreted with itmuni. Scalar means one regular step length repeated nper times; list means one explicit value per stress period. In launcher mode this is mirrored from [simulation.time] and is not the authoritativ"
   },
   {
@@ -8912,7 +8912,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-chron-path",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L63",
     "description": "Chronicle file path used when genmtd='from_chron'. In launcher mode this field is generally not used."
   },
   {
@@ -8924,7 +8924,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-chron-dateformat",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L70",
     "description": "Date format string used to parse the chronicle file."
   },
   {
@@ -8936,7 +8936,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-chron-colsep",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L74",
     "description": "Column separator used in the chronicle file."
   },
   {
@@ -8948,7 +8948,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-chron-time-col",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L78",
     "description": "Name of the time/date column in the chronicle file."
   },
   {
@@ -8960,7 +8960,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-start-datetime",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L83",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L82",
     "description": "Lower datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -8972,7 +8972,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-end-datetime",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L89",
     "description": "Upper datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -8984,7 +8984,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-firstpersteady",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L96",
     "description": "Whether the first stress period is treated as steady-state."
   },
   {
@@ -8996,7 +8996,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-tsmult",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L101",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L100",
     "description": "Time-step multiplier per stress period (scalar or list). In launcher mode this field is currently forced to 1.0 and generally not intended for manual editing."
   },
   {
@@ -9008,7 +9008,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-ntsp",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L108",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L107",
     "description": "Number of time steps per stress period (scalar or list). In launcher mode this field is currently forced to 1 and generally not intended for manual editing."
   },
   {
@@ -9020,7 +9020,7 @@
     "section": "modflownwt",
     "anchor": "modflownwt-tgrid-temporal-nodata",
     "page": "modflownwt.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L115",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L114",
     "description": "No-data sentinel value for temporal data."
   },
   {
@@ -9272,7 +9272,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-planar",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L193",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L192",
     "description": "Planar discretization of the solver grid."
   },
   {
@@ -9284,7 +9284,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-planar-mode",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L146",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L145",
     "description": "Planar solver-grid mode: keep the native domain support or resample to an explicit (ny, nx) target shape."
   },
   {
@@ -9296,7 +9296,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-planar-nx",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L153",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L152",
     "description": "Target number of columns when planar mode is 'resample_to_shape'."
   },
   {
@@ -9308,7 +9308,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-planar-ny",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L157",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L156",
     "description": "Target number of rows when planar mode is 'resample_to_shape'."
   },
   {
@@ -9320,7 +9320,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-planar-resampling",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L161",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L160",
     "description": "Resampling rule applied when planar mode is 'resample_to_shape'."
   },
   {
@@ -9332,7 +9332,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L197",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L196",
     "description": "Vertical layering of the solver grid."
   },
   {
@@ -9344,7 +9344,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical-genmtd-lay",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L63",
     "description": "Vertical-layering strategy."
   },
   {
@@ -9356,7 +9356,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical-nlay",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L68",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L67",
     "description": "Number of layers (required for constant/decay, ignored for list)."
   },
   {
@@ -9368,7 +9368,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical-lay-decay",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L72",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L71",
     "description": "Decay exponent (>1) for decay layering."
   },
   {
@@ -9380,7 +9380,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical-lay-proportions",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L76",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L75",
     "description": "Explicit layer fractions when genmtd_lay='list' (must sum to 1)."
   },
   {
@@ -9392,7 +9392,7 @@
     "section": "modflow6",
     "anchor": "modflow6-sgrid-vertical-nodata",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L80",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/mesh/cartesian_grid/sgrid_config.py#L79",
     "description": "No-data sentinel value."
   },
   {
@@ -9416,7 +9416,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-itmuni",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L27",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L26",
     "description": "Time unit used to interpret lenper values. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility."
   },
   {
@@ -9428,7 +9428,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-flow-regime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L34",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L33",
     "description": "Flow regime used to derive the steady/transient stress-period flags. In launcher mode this field is generally derived from [flow].flow_regime."
   },
   {
@@ -9440,7 +9440,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-genmtd",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L41",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L40",
     "description": "Temporal generation method. In launcher mode stress periods come from [simulation.time], so this field is mirrored only for compatibility."
   },
   {
@@ -9452,7 +9452,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-nper",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L48",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L47",
     "description": "Stress-period count. In launcher mode this is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -9464,7 +9464,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-lenper",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L55",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L54",
     "description": "Stress-period length(s) interpreted with itmuni. Scalar means one regular step length repeated nper times; list means one explicit value per stress period. In launcher mode this is mirrored from [simulation.time] and is not the authoritativ"
   },
   {
@@ -9476,7 +9476,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-chron-path",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L64",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L63",
     "description": "Chronicle file path used when genmtd='from_chron'. In launcher mode this field is generally not used."
   },
   {
@@ -9488,7 +9488,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-chron-dateformat",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L71",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L70",
     "description": "Date format string used to parse the chronicle file."
   },
   {
@@ -9500,7 +9500,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-chron-colsep",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L75",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L74",
     "description": "Column separator used in the chronicle file."
   },
   {
@@ -9512,7 +9512,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-chron-time-col",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L79",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L78",
     "description": "Name of the time/date column in the chronicle file."
   },
   {
@@ -9524,7 +9524,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-start-datetime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L83",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L82",
     "description": "Lower datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -9536,7 +9536,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-end-datetime",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L89",
     "description": "Upper datetime bound used by the temporal mesh. In launcher mode this field is mirrored from [simulation.time] and is not the authoritative source."
   },
   {
@@ -9548,7 +9548,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-firstpersteady",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L96",
     "description": "Whether the first stress period is treated as steady-state."
   },
   {
@@ -9560,7 +9560,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-tsmult",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L101",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L100",
     "description": "Time-step multiplier per stress period (scalar or list). In launcher mode this field is currently forced to 1.0 and generally not intended for manual editing."
   },
   {
@@ -9572,7 +9572,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-ntsp",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L108",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L107",
     "description": "Number of time steps per stress period (scalar or list). In launcher mode this field is currently forced to 1 and generally not intended for manual editing."
   },
   {
@@ -9584,7 +9584,7 @@
     "section": "modflow6",
     "anchor": "modflow6-tgrid-temporal-nodata",
     "page": "modflow6.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/utils/temporal/tmesh_config.py#L115",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/time/tmesh_config.py#L114",
     "description": "No-data sentinel value for temporal data."
   },
   {

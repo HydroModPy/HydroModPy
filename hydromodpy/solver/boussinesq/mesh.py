@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
+from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.boussinesq._mesh_builders import (
     assemble_mesh_arrays_from_bundle,
     build_planar_mesh_kwargs,
@@ -231,7 +232,7 @@ class BoussinesqMesh:
         cls,
         mesh: GmshPlanarMesh2D,
         *,
-        domain: object,
+        domain: DomainLike,
         hydraulic_conductivity_m_s,
         storage_coefficient,
         river_trace: object | None = None,

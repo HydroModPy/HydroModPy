@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tomllib
 from math import isclose
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
@@ -319,12 +318,6 @@ class SyntheticGeographicConfig(HydroModelBase):
         ...
         ```
         """
-        toml_path = Path(path)
-        with toml_path.open("rb") as stream:
-            raw_toml = tomllib.load(stream)
-        section = raw_toml.get("synthetic_geographic")
-        if section is None:
-            raise ValueError(f"Missing [synthetic_geographic] section in TOML file: {toml_path}")
-        if not isinstance(section, dict):
-            raise ValueError("[synthetic_geographic] must be a mapping payload.")
-        return cls.model_validate(section)
+        from hydromodpy.core.toml_io.loader import validate_toml
+
+        return validate_toml(cls, path, section="synthetic_geographic")

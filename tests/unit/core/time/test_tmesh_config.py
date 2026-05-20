@@ -11,8 +11,8 @@ import pytest
 
 
 def _load_tmesh_config_module():
-    repo_root = Path(__file__).resolve().parents[5]
-    module_path = repo_root / "hydromodpy" / "solver" / "utils" / "temporal" / "tmesh_config.py"
+    repo_root = Path(__file__).resolve().parents[4]
+    module_path = repo_root / "hydromodpy" / "core" / "time" / "tmesh_config.py"
     module_name = f"_test_tmesh_config_{uuid.uuid4().hex}"
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     assert spec is not None and spec.loader is not None

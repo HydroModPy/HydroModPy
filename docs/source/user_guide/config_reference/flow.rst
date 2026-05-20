@@ -9,12 +9,15 @@ TOML section: ``[flow]``
 
 Pydantic model: ``FlowConfig`` defined in ``hydromodpy.physics.flow.flow_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L60>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
 
 Flow-process configuration.
 
 Parameters are declared in `param_list` (ordered list of ids), and
-parameter payloads are stored in `param`.
+parameter payloads are stored in `param`. The 13 flat
+``runtime_*``/``vi_*``/``ts_vi_*`` Boussinesq knobs are declared on
+:class:`FlowRuntimeFields` and grouped together by the
+:attr:`runtime` property as a :class:`FlowRuntimeConfig` view.
 
 .. raw:: html
 
@@ -30,6 +33,214 @@ Fields
 
 .. rst-class:: hmp-config-fields
 
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-runtime-backend
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.runtime_backend">
+        <code class="hmp-field-name">runtime_backend</code>
+      </div>
+
+   :bdg-primary:`Literal['local', 'scipy', 'scipy_sparse', 'petsc']` :bdg-secondary:`default = "local"` :bdg-warning:`dev` :bdg-warning:`experimental` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.
+
+   .. admonition:: Examples
+      :class: hmp-field-examples
+
+      * ``"local"``
+      * ``"scipy_sparse"``
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-surface-interaction-model
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.surface_interaction_model">
+        <code class="hmp-field-name">surface_interaction_model</code>
+      </div>
+
+   :bdg-primary:`Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` :bdg-warning:`experimental` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experimental PETSc head-only VI obstacle formulation; 'auto' keeps the historical backend-dependent default.
+
+   .. admonition:: Examples
+      :class: hmp-field-examples
+
+      * ``"auto"``
+      * ``"regularized_partition"``
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-runtime-max-iterations
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.runtime_max_iterations">
+        <code class="hmp-field-name">runtime_max_iterations</code>
+      </div>
+
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-runtime-tol-residual-inf
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.runtime_tol_residual_inf">
+        <code class="hmp-field-name">runtime_tol_residual_inf</code>
+      </div>
+
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-runtime-tol-state-update-inf
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.runtime_tol_state_update_inf">
+        <code class="hmp-field-name">runtime_tol_state_update_inf</code>
+      </div>
+
+   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-vi-substeps-per-period
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.vi_substeps_per_period">
+        <code class="hmp-field-name">vi_substeps_per_period</code>
+      </div>
+
+   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-vi-substep-on-failure
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.vi_substep_on_failure">
+        <code class="hmp-field-name">vi_substep_on_failure</code>
+      </div>
+
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      When true, retry a failed PETSc VI obstacle stress period with increasing substep counts.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-vi-max-adaptive-substeps
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.vi_max_adaptive_substeps">
+        <code class="hmp-field-name">vi_max_adaptive_substeps</code>
+      </div>
+
+   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-ts-vi-steps-per-period
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.ts_vi_steps_per_period">
+        <code class="hmp-field-name">ts_vi_steps_per_period</code>
+      </div>
+
+   :bdg-primary:`int` :bdg-secondary:`default = 4` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-ts-vi-adapt
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.ts_vi_adapt">
+        <code class="hmp-field-name">ts_vi_adapt</code>
+      </div>
+
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-ts-vi-dt-min-fraction
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.ts_vi_dt_min_fraction">
+        <code class="hmp-field-name">ts_vi_dt_min_fraction</code>
+      </div>
+
+   :bdg-primary:`float` :bdg-secondary:`default = 0.015625` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Minimum TS VI time-step as a fraction of the stress-period length.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-ts-vi-dt-max-fraction
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.ts_vi_dt_max_fraction">
+        <code class="hmp-field-name">ts_vi_dt_max_fraction</code>
+      </div>
+
+   :bdg-primary:`float` :bdg-secondary:`default = 0.25` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      Maximum TS VI time-step as a fraction of the stress-period length.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-ts-vi-type
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.ts_vi_type">
+        <code class="hmp-field-name">ts_vi_type</code>
+      </div>
+
+   :bdg-primary:`str` :bdg-secondary:`default = "beuler"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      PETSc TS type for the experimental TS VI obstacle runtime.
+
+
+.. container:: hmp-field hmp-field-level-dev
+   :name: flow-ts-vi-snes-type
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="flow.ts_vi_snes_type">
+        <code class="hmp-field-name">ts_vi_snes_type</code>
+      </div>
+
+   :bdg-primary:`str` :bdg-secondary:`default = "vinewtonrsls"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L70>`__
+
+      PETSc SNES type for the experimental TS VI obstacle runtime.
+
+
 .. container:: hmp-field hmp-field-level-user
    :name: flow-param-list
 
@@ -39,7 +250,7 @@ Fields
         <code class="hmp-field-name">param_list</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L193>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L96>`__
 
       Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).
 
@@ -57,7 +268,7 @@ Fields
         <code class="hmp-field-toml">[flow.param.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, FlowParam]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L201>`__
+   :bdg-primary:`dict[str, FlowParam]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L104>`__
 
       Mapping of flow-parameter identifiers to native FieldParamConfig payloads.
 
@@ -377,7 +588,7 @@ Fields
         <code class="hmp-field-toml">[flow.ic]</code>
       </div>
 
-   :bdg-primary:`FlowInitialConditions` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L239>`__
+   :bdg-primary:`FlowInitialConditions` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L142>`__
 
       Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).
 
@@ -777,7 +988,7 @@ Fields
         <code class="hmp-field-toml">[flow.bc.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`kind = "dirichlet" | "cauchy" | "robin"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L205>`__
+   :bdg-primary:`kind = "dirichlet" | "cauchy" | "robin"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L108>`__
 
       Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.
 
@@ -1304,7 +1515,7 @@ Fields
         <code class="hmp-field-toml">[flow.sinks_sources]</code>
       </div>
 
-   :bdg-primary:`FlowSinksSourcesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L246>`__
+   :bdg-primary:`FlowSinksSourcesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L149>`__
 
       Typed sinks/sources payload (for example pumping wells).
 
@@ -1959,7 +2170,7 @@ Fields
         <code class="hmp-field-name">active_sinks_sources</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L250>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L153>`__
 
       Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.
 
@@ -1979,7 +2190,7 @@ Fields
         <code class="hmp-field-name">active_bc</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L259>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L162>`__
 
       Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
 
@@ -1999,7 +2210,7 @@ Fields
         <code class="hmp-field-name">flow_regime</code>
       </div>
 
-   :bdg-primary:`Literal['steady', 'transient']` :bdg-secondary:`default = "transient"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L67>`__
+   :bdg-primary:`Literal['steady', 'transient']` :bdg-secondary:`default = "transient"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L80>`__
 
       Global flow simulation regime used by solvers consuming [flow] (steady or transient).
 
@@ -2008,214 +2219,6 @@ Fields
 
       * ``"steady"``
       * ``"transient"``
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-runtime-backend
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.runtime_backend">
-        <code class="hmp-field-name">runtime_backend</code>
-      </div>
-
-   :bdg-primary:`Literal['local', 'scipy', 'scipy_sparse', 'petsc']` :bdg-secondary:`default = "local"` :bdg-warning:`dev` :bdg-warning:`experimental` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L83>`__
-
-      Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.
-
-   .. admonition:: Examples
-      :class: hmp-field-examples
-
-      * ``"local"``
-      * ``"scipy_sparse"``
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-surface-interaction-model
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.surface_interaction_model">
-        <code class="hmp-field-name">surface_interaction_model</code>
-      </div>
-
-   :bdg-primary:`Literal['auto', 'regularized_partition', 'complementarity', 'vi_obstacle', 'ts_vi_obstacle']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` :bdg-warning:`experimental` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L94>`__
-
-      Optional Boussinesq surface-interaction closure selector. 'regularized_partition' uses the Marcais-style q_ex = G_r(theta) R(balance) law; 'complementarity' uses the mixed PETSc q_ex-perp-(z_top-h) formulation; 'vi_obstacle' uses the experimental PETSc head-only VI obstacle formulation; 'auto' keeps the historical backend-dependent default.
-
-   .. admonition:: Examples
-      :class: hmp-field-examples
-
-      * ``"auto"``
-      * ``"regularized_partition"``
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-runtime-max-iterations
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.runtime_max_iterations">
-        <code class="hmp-field-name">runtime_max_iterations</code>
-      </div>
-
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L116>`__
-
-      Optional override for the nonlinear iteration budget used by the Boussinesq runtime backend.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-runtime-tol-residual-inf
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.runtime_tol_residual_inf">
-        <code class="hmp-field-name">runtime_tol_residual_inf</code>
-      </div>
-
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L131>`__
-
-      Optional override for the infinity-norm residual tolerance used by the Boussinesq runtime backend.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-runtime-tol-state-update-inf
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.runtime_tol_state_update_inf">
-        <code class="hmp-field-name">runtime_tol_state_update_inf</code>
-      </div>
-
-   :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L138>`__
-
-      Optional override for the infinity-norm state-update tolerance used by Boussinesq backends that track it.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-vi-substeps-per-period
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.vi_substeps_per_period">
-        <code class="hmp-field-name">vi_substeps_per_period</code>
-      </div>
-
-   :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L145>`__
-
-      Fixed number of Backward-Euler substeps per stress period for the experimental PETSc VI obstacle runtime. Rate-based forcing values are kept unchanged on each substep.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-vi-substep-on-failure
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.vi_substep_on_failure">
-        <code class="hmp-field-name">vi_substep_on_failure</code>
-      </div>
-
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L153>`__
-
-      When true, retry a failed PETSc VI obstacle stress period with increasing substep counts.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-vi-max-adaptive-substeps
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.vi_max_adaptive_substeps">
-        <code class="hmp-field-name">vi_max_adaptive_substeps</code>
-      </div>
-
-   :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L160>`__
-
-      Maximum number of PETSc VI obstacle substeps allowed for adaptive failure retries.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-ts-vi-steps-per-period
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.ts_vi_steps_per_period">
-        <code class="hmp-field-name">ts_vi_steps_per_period</code>
-      </div>
-
-   :bdg-primary:`int` :bdg-secondary:`default = 4` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L166>`__
-
-      Fixed PETSc TS Backward-Euler steps per stress period for the experimental TS VI obstacle runtime.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-ts-vi-adapt
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.ts_vi_adapt">
-        <code class="hmp-field-name">ts_vi_adapt</code>
-      </div>
-
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L173>`__
-
-      Enable experimental PETSc TS adaptivity for the TS VI obstacle runtime.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-ts-vi-dt-min-fraction
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.ts_vi_dt_min_fraction">
-        <code class="hmp-field-name">ts_vi_dt_min_fraction</code>
-      </div>
-
-   :bdg-primary:`float` :bdg-secondary:`default = 0.015625` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L177>`__
-
-      Minimum TS VI time-step as a fraction of the stress-period length.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-ts-vi-dt-max-fraction
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.ts_vi_dt_max_fraction">
-        <code class="hmp-field-name">ts_vi_dt_max_fraction</code>
-      </div>
-
-   :bdg-primary:`float` :bdg-secondary:`default = 0.25` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L181>`__
-
-      Maximum TS VI time-step as a fraction of the stress-period length.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-ts-vi-type
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.ts_vi_type">
-        <code class="hmp-field-name">ts_vi_type</code>
-      </div>
-
-   :bdg-primary:`str` :bdg-secondary:`default = "beuler"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L185>`__
-
-      PETSc TS type for the experimental TS VI obstacle runtime.
-
-
-.. container:: hmp-field hmp-field-level-dev
-   :name: flow-ts-vi-snes-type
-
-   .. raw:: html
-
-      <div class="hmp-field-header" data-toml-path="flow.ts_vi_snes_type">
-        <code class="hmp-field-name">ts_vi_snes_type</code>
-      </div>
-
-   :bdg-primary:`str` :bdg-secondary:`default = "vinewtonrsls"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L189>`__
-
-      PETSc SNES type for the experimental TS VI obstacle runtime.
 
 
 Starter TOML snippet

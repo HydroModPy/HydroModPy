@@ -9,6 +9,8 @@ layers at module-load time: configs from ``physics/``, ``solver/``,
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 _BOOTSTRAPPED = False
 
 
@@ -117,25 +119,18 @@ def _register_calibration_contracts() -> None:
     register_trial_promotion_provider(ProjectTrialPromotionProvider())
 
 
-def _register_analysis_contracts() -> None:
-    """Wire runtime providers into analysis helpers.
+def _register_solver_registry_provider() -> None:
+    """Wire a single solver-registry provider for simulation and analysis.
 
-    Analysis cannot import the solver layer (cf. layer matrix), so the
-    distributed flow solver lookup is injected here through the
+    The 15x15 layer matrix forbids ``simulation -> solver`` and
+    ``analysis -> solver``. Both consumers reach the registry through the
     ``SolverRegistryProvider`` Protocol declared in
-    :mod:`hydromodpy.analysis.comparison._solver_protocol`.
-
-    Testbed child workflow execution is injected through
-    ``TestbedRunnerProvider`` so the analysis package never imports the
-    workflow package.
+    :mod:`hydromodpy.core.contracts.solver_registry`. The singleton lives
+    in ``core`` so the two consumers share one provider instead of
+    maintaining parallel module-level state.
     """
-    from hydromodpy.analysis.comparison import _solver_protocol
-    from hydromodpy.project.dispatch.workflow import ProjectTestbedRunnerProvider
+    from hydromodpy.core.contracts import solver_registry
     from hydromodpy.solver.base import registry as _registry
-    from hydromodpy.workflow.testbed import (
-        register_default_testbed_runner_provider,
-        set_default_testbed_runner_provider_factory,
-    )
 
     class _RegistryProvider:
         def distributed_flow_solver_sections(self) -> tuple[str, ...]:
@@ -152,23 +147,6 @@ def _register_analysis_contracts() -> None:
                     sections.append(name)
             return tuple(sections)
 
-    _solver_protocol.set_solver_registry_provider(_RegistryProvider())
-    set_default_testbed_runner_provider_factory(ProjectTestbedRunnerProvider)
-    register_default_testbed_runner_provider()
-
-
-def _register_simulation_contracts() -> None:
-    """Wire the solver registry into simulation orchestration.
-
-    Simulation must not import the solver layer (cf. layer matrix). The
-    planner, runner, post-run hook and transport helpers reach the registry
-    through the ``SolverRegistryProvider`` Protocol declared in
-    :mod:`hydromodpy.simulation._solver_protocol`.
-    """
-    from hydromodpy.simulation import _solver_protocol as _sim_protocol
-    from hydromodpy.solver.base import registry as _registry
-
-    class _RegistryProvider:
         def known_process_types(self) -> set[str]:
             return _registry.known_process_types()
 
@@ -186,13 +164,30 @@ def _register_simulation_contracts() -> None:
         def get_extractor_instance(self, process_type: str, solver_name: str):
             return _registry.get_extractor_instance(process_type, solver_name)
 
-    _sim_protocol.set_solver_registry_provider(_RegistryProvider())
+    solver_registry.set_solver_registry_provider(_RegistryProvider())
+
+
+def _register_analysis_contracts() -> None:
+    """Wire testbed runner provider into the analysis layer.
+
+    Testbed child workflow execution is injected through
+    ``TestbedRunnerProvider`` so the analysis package never imports the
+    workflow package.
+    """
+    from hydromodpy.project.dispatch.workflow import ProjectTestbedRunnerProvider
+    from hydromodpy.workflow.testbed import (
+        register_default_testbed_runner_provider,
+        set_default_testbed_runner_provider_factory,
+    )
+
+    set_default_testbed_runner_provider_factory(ProjectTestbedRunnerProvider)
+    register_default_testbed_runner_provider()
 
 
 def _register_root_config_contracts() -> None:
     """Wire HydroModPyConfig into the core config_kit registry.
 
-    The 14x14 layer matrix forbids ``core -> config``. The
+    The 15x15 layer matrix forbids ``core -> config``. The
     config_kit registry, JSON Schema exporter and other downstream layers
     (results, schema) reach the root model through the
     ``RootConfigProvider`` Protocol declared in
@@ -223,7 +218,7 @@ def _register_root_config_contracts() -> None:
 def _register_dynamic_flow_examples_contract() -> None:
     """Wire dynamic-flow TOML examples into the core toml_io generator.
 
-    The 14x14 layer matrix forbids ``core -> physics`` and
+    The 15x15 layer matrix forbids ``core -> physics`` and
     ``core -> spatial``. The TOML generator delegates the rendering of
     dynamic ``[flow.param.*]``, ``[flow.bc.*]`` and ``[flow.sinks_sources.*]``
     example blocks to the provider declared in
@@ -235,17 +230,30 @@ def _register_dynamic_flow_examples_contract() -> None:
     dynamic_examples_protocol.set_dynamic_flow_examples_provider(DynamicFlowExamples())
 
 
+_BOOTSTRAP_HOOKS: tuple[Callable[[], None], ...] = (
+    _register_physics_contracts,
+    _register_spatial_contracts,
+    _register_calibration_contracts,
+    _register_solver_registry_provider,
+    _register_analysis_contracts,
+    _rebuild_forward_refs,
+    _register_root_config_contracts,
+    _register_dynamic_flow_examples_contract,
+)
+
+
 def bootstrap() -> None:
-    """Resolve HydroModPyConfig forward references. Idempotent."""
+    """Resolve HydroModPyConfig forward references and wire DI contracts.
+
+    Idempotent: subsequent calls short-circuit on ``_BOOTSTRAPPED``. The
+    hook order is significant: ``_rebuild_forward_refs`` must precede the
+    hooks that observe the fully rebuilt ``HydroModPyConfig``
+    (``_register_root_config_contracts``,
+    ``_register_dynamic_flow_examples_contract``).
+    """
     global _BOOTSTRAPPED
     if _BOOTSTRAPPED:
         return
-    _register_physics_contracts()
-    _register_spatial_contracts()
-    _register_calibration_contracts()
-    _register_analysis_contracts()
-    _register_simulation_contracts()
-    _rebuild_forward_refs()
-    _register_root_config_contracts()
-    _register_dynamic_flow_examples_contract()
+    for hook in _BOOTSTRAP_HOOKS:
+        hook()
     _BOOTSTRAPPED = True

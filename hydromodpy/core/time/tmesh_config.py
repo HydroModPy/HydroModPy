@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import tomllib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -254,8 +253,10 @@ class TMeshConfig(HydroModelBase):
         section: str = "tmesh",
     ):
         """Load TOML section, resolve relative paths, then validate."""
+        from hydromodpy.core.toml_io.loader import load_toml_with_base_config
+
         path = Path(config_path).expanduser().resolve()
-        payload = tomllib.loads(path.read_text(encoding="utf-8-sig"))
+        payload = load_toml_with_base_config(path)
         section_cfg = dict(get_nested_section(payload, section))
         if section_cfg.get("chron_path") is not None:
             section_cfg["chron_path"] = resolve_path(section_cfg["chron_path"], path.parent)

@@ -16,51 +16,45 @@ def _write_toml(path: Path, content: str) -> Path:
     return path
 
 
-def test_run_with_path_dispatches_via_workflow(monkeypatch, tmp_path: Path) -> None:
-    """A TOML path is routed through ``dispatch_workflow``."""
+def test_run_with_overview_toml_dispatches(monkeypatch, tmp_path: Path) -> None:
+    """A non-simulation TOML is routed through ``dispatch_workflow``."""
     config = _write_toml(
-        tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n'
-        '[simulation]\nname = "test"\n',
+        tmp_path / "ov.toml",
+        '[workflow]\nmode = "overview"\n',
     )
     captured: dict = {}
 
     def fake_resolve(config_path, *, cli_workflow=None, require_toml_field=True):
-        captured["config_path"] = Path(config_path)
-        captured["cli_workflow"] = cli_workflow
-        captured["require_toml_field"] = require_toml_field
-        return "simulation"
+        captured["resolve_path"] = Path(config_path)
+        return "overview"
 
     def fake_dispatch(workflow, config_path, **kwargs):
         captured["workflow"] = workflow
         captured["dispatch_path"] = Path(config_path)
         captured["kwargs"] = kwargs
-        return {"sim_id": "abc"}
+        return {"summary": "ok"}
 
     monkeypatch.setattr("hydromodpy.workflow.dispatch.resolve_workflow", fake_resolve)
     monkeypatch.setattr("hydromodpy.project.dispatch.workflow.dispatch_workflow", fake_dispatch)
 
-    result = hmp.run(config, name="baseline")
-    assert result == {"sim_id": "abc"}
-    assert captured["workflow"] == "simulation"
+    result = hmp.run(config)
+    assert result == {"summary": "ok"}
+    assert captured["workflow"] == "overview"
     assert captured["dispatch_path"] == config.resolve()
-    assert captured["kwargs"] == {"name": "baseline"}
-    assert captured["cli_workflow"] is None
-    assert captured["require_toml_field"] is True
+    assert captured["kwargs"] == {}
 
 
 def test_run_with_string_path_resolves(monkeypatch, tmp_path: Path) -> None:
-    """A string path is expanded and resolved before dispatch."""
+    """A string path is expanded and resolved before routing."""
     config = _write_toml(
-        tmp_path / "config.toml",
-        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n'
-        '[simulation]\nname = "test"\n',
+        tmp_path / "ov.toml",
+        '[workflow]\nmode = "overview"\n',
     )
     captured: dict = {}
 
     monkeypatch.setattr(
         "hydromodpy.workflow.dispatch.resolve_workflow",
-        lambda p, *, cli_workflow=None, require_toml_field=True: "simulation",
+        lambda p, *, cli_workflow=None, require_toml_field=True: "overview",
     )
 
     def fake_dispatch(workflow, config_path, **kwargs):

@@ -150,29 +150,6 @@ Sub-models are linked back to their per-section page.
    .. code-block:: toml
 
       [flow]
-      # Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).
-      # example: param_list = ["K", "Sy", "Ss"]
-      # param_list = ...  # uses factory default
-      # Mapping of flow-parameter identifiers to native FieldParamConfig payloads.
-      # param = ...  # uses factory default
-      # Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).
-      # ic = ...  # uses factory default
-      # Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side`` - ``[flow.bc.cauchy.drainage]`` - ``[flow.bc.robin.drainage]`` - ``[flow.bc.<custom_id>]`` for generic payloads  **Common keys**  - ``value`` (required): numeric or ``'<value> <unit>'`` - ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage  **Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.  **Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.  **Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).
-      # bc = ...  # uses factory default
-      # Typed sinks/sources payload (for example pumping wells).
-      # sinks_sources = ...  # uses factory default
-      # Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.
-      # example: active_sinks_sources = ["recharge"]
-      # example: active_sinks_sources = ["recharge", "wells"]
-      # active_sinks_sources = ...  # uses factory default
-      # Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
-      # example: active_bc = ["ocean"]
-      # example: active_bc = ["west_side", "east_side", "drainage"]
-      # active_bc = ...  # uses factory default
-      # Global flow simulation regime used by solvers consuming [flow] (steady or transient).
-      # example: flow_regime = "steady"
-      # example: flow_regime = "transient"
-      flow_regime = "transient"
       # Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.
       # example: runtime_backend = "local"
       # example: runtime_backend = "scipy_sparse"
@@ -205,6 +182,29 @@ Sub-models are linked back to their per-section page.
       ts_vi_type = "beuler"
       # PETSc SNES type for the experimental TS VI obstacle runtime.
       ts_vi_snes_type = "vinewtonrsls"
+      # Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).
+      # example: param_list = ["K", "Sy", "Ss"]
+      # param_list = ...  # uses factory default
+      # Mapping of flow-parameter identifiers to native FieldParamConfig payloads.
+      # param = ...  # uses factory default
+      # Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).
+      # ic = ...  # uses factory default
+      # Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.  **Supported TOML sections**  - ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side`` - ``[flow.bc.cauchy.drainage]`` - ``[flow.bc.robin.drainage]`` - ``[flow.bc.<custom_id>]`` for generic payloads  **Common keys**  - ``value`` (required): numeric or ``'<value> <unit>'`` - ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage  **Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.  **Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.  **Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).
+      # bc = ...  # uses factory default
+      # Typed sinks/sources payload (for example pumping wells).
+      # sinks_sources = ...  # uses factory default
+      # Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.
+      # example: active_sinks_sources = ["recharge"]
+      # example: active_sinks_sources = ["recharge", "wells"]
+      # active_sinks_sources = ...  # uses factory default
+      # Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
+      # example: active_bc = ["ocean"]
+      # example: active_bc = ["west_side", "east_side", "drainage"]
+      # active_bc = ...  # uses factory default
+      # Global flow simulation regime used by solvers consuming [flow] (steady or transient).
+      # example: flow_regime = "steady"
+      # example: flow_regime = "transient"
+      flow_regime = "transient"
 
 .. dropdown:: ``[transport]`` (TransportConfig)
    :icon: gear

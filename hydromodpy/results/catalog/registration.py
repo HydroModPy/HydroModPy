@@ -22,7 +22,7 @@ import duckdb
 
 from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
-from hydromodpy.results.catalog.audit import audited
+from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import (
     solver_category as _resolve_solver_category,
 )
@@ -336,6 +336,16 @@ class RegistrationMixin:
                         "INSERT INTO tags (sim_id, tag) VALUES (?, ?)",
                         [sid, str(tag)],
                     )
+                    try:
+                        emit_audit_event(
+                            self._db,
+                            event_type="sim.tag_add",
+                            sim_id=sid,
+                            project=project,
+                            payload={"tag": str(tag)},
+                        )
+                    except Exception as exc:  # noqa: BLE001 - audit must not raise
+                        logger.warning("audit emission failed for sim.tag_add: %s", exc)
             self._db.execute("COMMIT")
             main_transaction_started = False
         except Exception:

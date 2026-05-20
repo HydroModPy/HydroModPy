@@ -408,8 +408,8 @@ class CalibrationConfig(HydroModelBase):
         "(catalog, Zarr, Parquet, lockfile) for calibration outputs.",
     )
 
-    def model_post_init(self, context: object) -> None:
-        super().model_post_init(context)
+    def validate_registry(self) -> None:
+        """Verify the selected method is registered. Call explicitly from launcher."""
         from hydromodpy.calibration.optimizer import available_optimizers
 
         available = available_optimizers()

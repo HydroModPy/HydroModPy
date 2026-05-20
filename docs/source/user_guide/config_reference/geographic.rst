@@ -337,7 +337,7 @@ Fields
               <code class="hmp-field-name">case_id</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "flat20"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L270>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "flat20"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L269>`__
 
             Identifier used by local case runners and outputs.
 
@@ -353,7 +353,7 @@ Fields
               <code class="hmp-field-toml">[geographic.synthetic.grid]</code>
             </div>
 
-         :bdg-primary:`SyntheticGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L274>`__
+         :bdg-primary:`SyntheticGridConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L273>`__
 
             Synthetic grid definition (extent and cell size).
 
@@ -372,7 +372,7 @@ Fields
                     <code class="hmp-field-name">length_x</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 100.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L21>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 100.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L20>`__
 
                   Total domain length along x. Accepts values such as 100, '100 m', or '0.1 km'.
 
@@ -386,7 +386,7 @@ Fields
                     <code class="hmp-field-name">length_y</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L25>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L24>`__
 
                   Total domain length along y. Accepts values such as 1, '1 m', or '0.001 km'.
 
@@ -400,7 +400,7 @@ Fields
                     <code class="hmp-field-name">nx</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L29>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L28>`__
 
                   Number of cells along x.
 
@@ -414,7 +414,7 @@ Fields
                     <code class="hmp-field-name">ny</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L33>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L32>`__
 
                   Number of cells along y.
 
@@ -428,7 +428,7 @@ Fields
                     <code class="hmp-field-name">xmin</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L37>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L36>`__
 
                   Lower x coordinate of the support extent.
 
@@ -442,7 +442,7 @@ Fields
                     <code class="hmp-field-name">ymin</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L41>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L40>`__
 
                   Lower y coordinate of the support extent.
 
@@ -456,7 +456,7 @@ Fields
                     <code class="hmp-field-name">crs</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L45>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "EPSG:2154"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L44>`__
 
                   Projected CRS attached to synthetic outputs.
 
@@ -470,7 +470,7 @@ Fields
                     <code class="hmp-field-name">nodata</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L49>`__
+               :bdg-primary:`float` :bdg-secondary:`default = -9999.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L48>`__
 
                   Nodata sentinel exported to raster artefacts.
 
@@ -488,7 +488,7 @@ Fields
               <code class="hmp-field-toml">[geographic.synthetic.topography]</code>
             </div>
 
-         :bdg-primary:`kind = "flat" | "linear" | "radial_island"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L278>`__
+         :bdg-primary:`kind = "flat" | "linear" | "radial_island"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L277>`__
 
             Synthetic topography definition (shape, elevations, slope).
 
@@ -511,7 +511,7 @@ Fields
                           <code class="hmp-field-name">base_elevation</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 20.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L123>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 20.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L122>`__
 
                         Constant surface elevation (m).
 
@@ -532,7 +532,7 @@ Fields
                           <code class="hmp-field-name">base_elevation</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 20.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L136>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 20.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L135>`__
 
                         Reference elevation (m) on the right boundary.
 
@@ -546,7 +546,7 @@ Fields
                           <code class="hmp-field-name">right_to_left_amplitude</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L140>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L139>`__
 
                         Additional elevation reached on the left boundary relative to the right boundary. Positive values make the surface rise from right to left.
 
@@ -567,7 +567,7 @@ Fields
                           <code class="hmp-field-name">base_elevation</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = -1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L160>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = -1.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L159>`__
 
                         Submerged ocean-floor elevation (m). Must be < 0.
 
@@ -581,7 +581,7 @@ Fields
                           <code class="hmp-field-name">island_radius</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L164>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L163>`__
 
                         Circular shoreline radius (m). Defaults to 35% of the smallest domain length.
 
@@ -595,7 +595,7 @@ Fields
                           <code class="hmp-field-name">crest_elevation</code>
                         </div>
 
-                     :bdg-primary:`float` :bdg-secondary:`default = 10.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L170>`__
+                     :bdg-primary:`float` :bdg-secondary:`default = 10.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L169>`__
 
                         Central island elevation (m). The land surface decays nonlinearly to sea level at the shoreline.
 
@@ -609,7 +609,7 @@ Fields
                           <code class="hmp-field-name">center_x</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L177>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L176>`__
 
                         Optional x coordinate of the island center. Defaults to the grid midpoint.
 
@@ -623,7 +623,7 @@ Fields
                           <code class="hmp-field-name">center_y</code>
                         </div>
 
-                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L181>`__
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/spatial/geographic/synthetic/config.py#L180>`__
 
                         Optional y coordinate of the island center. Defaults to the grid midpoint.
 

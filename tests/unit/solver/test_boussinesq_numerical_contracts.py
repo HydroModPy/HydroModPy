@@ -173,7 +173,7 @@ def test_boussinesq_extractor_raises_on_invalid_surface_metadata(tmp_path: Path)
 
 
 def test_boussinesq_derive_propagates_derived_failures(monkeypatch) -> None:
-    from hydromodpy.simulation.extraction.extractors import derived as derived_module
+    from hydromodpy.simulation.extraction.derivation import derived as derived_module
 
     def fail_compute_derived(_sim_id: str, _store: object, _config: dict) -> None:
         raise RuntimeError("derived failed")

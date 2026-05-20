@@ -1,6 +1,6 @@
 # Data Managers - Architecture complete
 
-> Derniere mise a jour : 2026-05-16 (V1 release)
+> Derniere mise a jour : 2026-05-20 (V1 release, T12 refresh)
 
 ---
 
@@ -64,39 +64,69 @@ TOML [data]
 
 ## 2. Arborescence
 
+Racine reelle : `hydromodpy/data/` (l'ancien nom `data_managers/` n'existe
+plus, on garde la denomination logique « data managers » pour la couche).
+
 ```
-data_managers/
+hydromodpy/data/
 ├── __init__.py                 # API publique
 ├── README.md                   # Doc orchestration racine
 ├── structure.md                # Ce fichier
 ├── data_managers_config.py     # Schema Pydantic [data]
+├── data_managers.py            # Conteneur runtime leger
 ├── planner.py                  # Moteur d'inference
 ├── plan.py                     # DataLoadPlan (frozen dataclass)
-├── data_managers.py            # Conteneur runtime leger
-├── runtime_loader.py           # Dispatch chargement par type
+├── loader.py                   # DataManagersRuntimeLoader (dispatch)
 ├── store.py                    # DataStore (facade utilisateur)
 ├── scaffold.py                 # Initialisation workspace (hmp init)
+├── _dispatch.py                # Registre {variable -> Manager}
+├── base_manager_variable.py    # BaseVariableManager (donnees ponctuelles)
+├── base_manager_field.py       # BaseFieldManager (donnees grille)
+├── _base_manager_common.py     # Helpers partages aux deux bases
+├── base_config.py              # Mixins de config (sources, custom, ...)
+├── auto_scan.py                # Scan automatique des sources custom
+├── data_freeze.py              # Snapshot reproductible des inputs
+├── entry.py                    # Entree CatalogEntry (DuckDB row)
+├── layout.py                   # Resolution arborescence workspace
+├── sidecars.py                 # Sidecars meta (.json a cote des fichiers)
+│
+├── adapters/                   # Conversions de format
+│   ├── asc_to_geotiff.py
+│   ├── csv_to_parquet.py
+│   └── shp_to_geoparquet.py
 │
 ├── contracts/                  # Contrats de sortie
 │   ├── load_result.py          # LoadResult
 │   ├── timeseries.py           # PointRecord
-│   ├── spatial_field.py        # FieldRecord
+│   ├── spatial_field.py        # FieldRecord (lazy dataset)
 │   └── location.py             # StationLocation
 │
+├── schemas/                    # Pandera : 5 contrats d'entree
+│   ├── timeseries.py           # TimeSeriesSchema
+│   ├── stations.py             # StationCollectionSchema
+│   ├── dem.py                  # DEMContract
+│   ├── lithology.py            # LithologyTableSchema
+│   ├── catchment.py            # CatchmentPolygonSchema
+│   └── validation.py           # validate_warn_only, STRICT_ENV_VAR
+│
 ├── registry/                   # Catalogue DuckDB
-│   ├── catalog_duckdb.py       # DataCatalogDuckDB (DuckDB natif, retry backoff)
+│   ├── catalog_duckdb.py       # DataCatalogDuckDB (DuckDB natif)
+│   ├── cache_lifecycle.py      # subsume, invalidate, cleanup
+│   ├── cache_queries.py        # find_cached, list_entries
+│   ├── cache_store.py          # Insert / upsert
+│   ├── migrations/             # 0001_initial.sql + runner partage
 │   └── constants.py            # SENTINEL_CUSTOM, SENTINEL_EMPTY
 │
 ├── common/                     # Utilitaires partages
-│   ├── base_manager.py         # BaseVariableManager (donnees ponctuelles)
-│   ├── base_field_manager.py   # BaseFieldManager (donnees grille)
 │   ├── api_client.py           # HTTP retry / pagination
 │   ├── io_helpers.py           # Parsing fichiers, lecture CSV/LOC
 │   ├── geo_helpers.py          # Bbox, haversine, masques spatiaux
 │   ├── unit_helpers.py         # Conversions d'unites
 │   ├── validation.py           # Completude, colonnes requises
 │   ├── export.py               # Export CSV (chroniques + metadata)
+│   ├── progress.py             # Progress bar partagee
 │   ├── custom_grid_loader.py   # Chargement NetCDF / GeoTIFF custom
+│   ├── custom_point_loader.py  # Chargement CSV / LOC custom
 │   ├── administrative/         # Subdivisions France (departements)
 │   │   └── france.py           # find_departments_in_bbox()
 │   └── clients/                # Clients API multi-variables
@@ -104,6 +134,8 @@ data_managers/
 │       └── sim2_variables.py   # Registre SIM2 (11 variables)
 │
 └── variables/                  # 17 managers par variable
+    ├── _sim2_field_manager.py        # Base partagee SIM2
+    ├── timeseries_variable_config.py # Mixin chronique
     ├── dem/                    # MNT
     ├── geology/                # Geologie
     ├── hydrography/            # Reseau hydrographique
@@ -122,6 +154,16 @@ data_managers/
     ├── radiation/              # Rayonnement
     └── soil_moisture/          # Indice d'humidite du sol
 ```
+
+**Invariants stables** :
+- 3 scopes DuckDB (`cache.duckdb` / `catalog.duckdb` / `index.duckdb`) cf §0.
+- 17 variables reparties en 9 climatiques + 4 hydro ponctuelles + 3 spatiales
+  + 1 oceanique (cf §5).
+- 5 schemas Pandera dans `schemas/` (timeseries, stations, dem, lithology,
+  catchment), point d'entree unique pour valider les inputs custom et API.
+- Pas d'imports `data -> simulation/solver/results`. Les contrats sortants
+  (`LoadResult`, `PointRecord`, `FieldRecord`) sont les seuls points de
+  contact avec les couches downstream.
 
 ---
 
