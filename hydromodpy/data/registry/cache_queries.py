@@ -89,8 +89,8 @@ def find_cached(
         params.append(dt_to_str(date_end))
 
     query += " ORDER BY id DESC LIMIT 1"
-    conn = catalog._conn
-    row = conn.execute(query, params).fetchone()
+    backend = catalog.backend
+    row = backend.fetch_one(query, params)
     if row is None:
         reject_frozen_cache_miss(
             catalog,
@@ -100,7 +100,8 @@ def find_cached(
         )
         return None
 
-    cols = [d[0] for d in conn.description]
+    desc = backend.description() or []
+    cols = [d[0] for d in desc]
     entry = CatalogEntry(**dict(zip(cols, row, strict=False)))
     reject_frozen_entry_mismatch(catalog, entry)
     return entry
@@ -133,7 +134,7 @@ def list_entries(
     if limit is not None:
         query += f" LIMIT {limit}"
 
-    df = catalog._conn.execute(query, params).fetchdf()
+    df = catalog.backend.query(query, params)
     if "is_custom" in df.columns:
         df["is_custom"] = df["is_custom"].astype(bool)
     for column in ("date_start", "date_end"):
@@ -144,10 +145,10 @@ def list_entries(
 
 def table_names(catalog: DataCatalogDuckDB) -> list[str]:
     """Return the list of tables present in the catalog."""
-    rows = catalog._conn.execute(
+    rows = catalog.backend.fetch_all(
         "SELECT table_name FROM information_schema.tables "
         "WHERE table_schema = 'main' ORDER BY table_name"
-    ).fetchall()
+    )
     return [r[0] for r in rows]
 
 
