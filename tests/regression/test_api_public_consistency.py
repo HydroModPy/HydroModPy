@@ -140,7 +140,7 @@ def test_calibrate_path_skips_project_detour(monkeypatch, tmp_path: Path) -> Non
         def lazy(cls, cfg, *, headless=True):
             raise AssertionError("Project.lazy must not be used on the TOML branch")
 
-    monkeypatch.setattr("hydromodpy.calibration.runner.run_calibration_cli", fake_cli)
+    monkeypatch.setattr("hydromodpy.calibration.cli_runner.run_calibration_cli", fake_cli)
     monkeypatch.setattr("hydromodpy.project.Project", _SentinelProject)
 
     result = hmp.calibrate(config)

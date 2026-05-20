@@ -677,7 +677,7 @@ class Project:
         from hydromodpy.core.exceptions import ConfigMissingError
 
         if config_path is not None:
-            from hydromodpy.calibration.runner import run_calibration_cli
+            from hydromodpy.calibration.cli_runner import run_calibration_cli
 
             return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
 
@@ -688,7 +688,7 @@ class Project:
             )
 
         from hydromodpy.calibration.config import CalibrationConfig
-        from hydromodpy.calibration.runner import run_calibration_programmatic
+        from hydromodpy.calibration.programmatic_runner import run_calibration_programmatic
 
         payload: dict[str, object] = {}
         if method is not None:
