@@ -66,7 +66,7 @@ Solver Coverage
 
       .. code-block:: bash
 
-         python -m validation_cases.analytical.steady.dupuit_divide_river_1d.run_case --no-show --solver modflownwt
+         python -m validation_cases.analytical.steady.dupuit_divide_river_1d.run_case --no-show --solver modflow_nwt
 
    .. tab-item:: MODFLOW 6
 

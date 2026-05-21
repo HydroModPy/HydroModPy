@@ -18,7 +18,7 @@ from validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1
 @pytest.mark.parametrize(
     ("solver", "require_modflow", "require_modflow6"),
     [
-        pytest.param("modflownwt", True, False, id="modflownwt"),
+        pytest.param("modflow_nwt", True, False, id="modflow_nwt"),
         pytest.param("modflow6", False, True, id="modflow6"),
         pytest.param("modflow6_irregular_tri", False, True, id="modflow6_irregular_tri"),
         pytest.param("boussinesq", False, False, id="boussinesq"),

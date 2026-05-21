@@ -156,7 +156,7 @@
       "config_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/config_modflownwt.toml",
       "tolerance_path": "validation_cases/analytical/transient/linearized_unconfined_recharge_step_1d/tolerances.toml",
       "expected_output": "Expected output: 60 periods, spatial shape 5 x 50",
-      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case --no-show --solver modflownwt",
+      "command": "python -m validation_cases.analytical.transient.linearized_unconfined_recharge_step_1d.run_case --no-show --solver modflow_nwt",
       "metric_lines": [
         "Space-time RMSE: 0.0061 m",
         "Space-time max abs error: 0.0148 m",

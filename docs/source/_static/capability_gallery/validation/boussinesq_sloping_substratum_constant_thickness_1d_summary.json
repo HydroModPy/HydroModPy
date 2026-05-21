@@ -20,7 +20,7 @@
   "what_it_shows": [
     "isolate the substratum-slope contribution without recharge, drainage, or seepage,",
     "keep an exact solution where the saturated thickness stays constant,",
-    "compare `modflownwt`, `modflow6`, `modflow6_irregular_tri`, and the local `boussinesq` backend on the same sloping geometry.",
+    "compare `modflow_nwt`, `modflow6`, `modflow6_irregular_tri`, and the local `boussinesq` backend on the same sloping geometry.",
     "Direct validation that the sloping-bottom term is carried consistently across the three backends in the simplest exact regime",
     "Primary metrics: head-profile RMSE, max abs error, cross-row spread.",
     "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
@@ -160,7 +160,7 @@
       "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/config_modflownwt.toml",
       "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_constant_thickness_1d/tolerances.toml",
       "expected_output": "Expected shape: 5 x 40",
-      "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_constant_thickness_1d.run_case --no-show --solver modflownwt",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_constant_thickness_1d.run_case --no-show --solver modflow_nwt",
       "metric_lines": [
         "Head-profile RMSE: 0.0000 m",
         "Head-profile max abs error: 0.0000 m",

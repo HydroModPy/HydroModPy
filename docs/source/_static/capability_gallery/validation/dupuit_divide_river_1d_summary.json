@@ -150,7 +150,7 @@
       "config_path": "validation_cases/analytical/steady/dupuit_divide_river_1d/config_modflownwt.toml",
       "tolerance_path": "validation_cases/analytical/steady/dupuit_divide_river_1d/tolerances.toml",
       "expected_output": "Expected shape: 5 x 40",
-      "command": "python -m validation_cases.analytical.steady.dupuit_divide_river_1d.run_case --no-show --solver modflownwt",
+      "command": "python -m validation_cases.analytical.steady.dupuit_divide_river_1d.run_case --no-show --solver modflow_nwt",
       "metric_lines": [
         "Head-profile RMSE: 0.0380 m",
         "Head-profile max abs error: 0.0465 m",

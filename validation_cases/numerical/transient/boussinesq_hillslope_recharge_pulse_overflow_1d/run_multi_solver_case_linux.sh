@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../../../.." && pwd)"
-OUTPUT_ROOT="${1:-/mnt/c/Users/dreuzy/Documents/HydroModPyOutputs/bouss_multi_linux}"
+OUTPUT_ROOT="${1:-${HMP_OUTPUT_ROOT:-${HOME}/HydroModPyOutputs}/bouss_multi_linux}"
 
 cd "${REPO_ROOT}"
 

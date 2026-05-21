@@ -17,7 +17,7 @@ coverage_policy = "ignore"
 [[simulation.process]]
 id = "flow_validation"
 type = "flow"
-solvers = ["modflownwt"]
+solvers = ["modflow_nwt"]
 
 [workspace]
 project_root = "C:/codes/HydroModPy/validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d"
