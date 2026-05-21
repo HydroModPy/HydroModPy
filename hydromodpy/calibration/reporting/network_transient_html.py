@@ -1,26 +1,8 @@
-"""Build diagnostic HTML pages for transient network calibration runs.
-
-The module-level path constants below (``REAL_ROOT``, ``WEB_ROOT``,
-``FIGURE_ROOT``, ``TRUTH_PACKAGE_CANDIDATES``, ``SCORE_TABLE_CANDIDATES``,
-``REFERENCE_RUN_ROOT``, ``STEADY_SUMMARY_CSV``, ``PATH_BASE``, ``PAGE_TITLE``
-and ``SOURCE_TRANSIENT_CONFIG``) are *defaults* pointing at the B0 example
-project (``examples/projects/12_calibration_network_transient_b0``). The
-public entry points :func:`build_network_transient_html` and
-:func:`build_network_transient_html_from_args` rebind them at runtime via
-:func:`_configure_from_args`, so callers must pass explicit paths when the
-report targets a different project. Only ``SOURCE_TRANSIENT_CONFIG`` is read
-from outside the module (the workflow calibration step uses it as a fallback
-default).
-"""
-
 from __future__ import annotations
 
-import csv
 import json
-import tomllib
-from argparse import ArgumentParser, Namespace
+from argparse import Namespace
 from collections.abc import Iterable
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -30,9 +12,11 @@ from hydromodpy.calibration.network_transient_truth import (
     mesh_cell_geometry,
     q_total_release_from_drain_by_cell,
 )
+from hydromodpy.calibration.reporting.network_transient import args as _nt_args
+from hydromodpy.calibration.reporting.network_transient import io as _nt_io
+from hydromodpy.calibration.reporting.network_transient import sections as _sections
 from hydromodpy.calibration.reporting.network_transient import state as _state
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.results.html_helpers import link_relative, safe_html
 from hydromodpy.results.run import Run
 
 REPO_ROOT = _state.REPO_ROOT
@@ -50,32 +34,7 @@ REFERENCE_RUN_ROOT = _state.REFERENCE_RUN_ROOT
 STEADY_SUMMARY_CSV = _state.STEADY_SUMMARY_CSV
 
 
-@dataclass(frozen=True)
-class NetworkTransientHtmlArtifactReport:
-    """Resolved artifact contract for one network/transient HTML report."""
-
-    real_root: Path
-    truth_dir: Path | None
-    score_table: Path | None
-    available: tuple[str, ...]
-    required_missing: tuple[str, ...]
-    optional_missing: tuple[str, ...]
-
-    @property
-    def ok(self) -> bool:
-        return not self.required_missing
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "schema": "hydromodpy.calibration.network_transient_html_artifacts.v1",
-            "ok": self.ok,
-            "real_root": str(self.real_root),
-            "truth_dir": None if self.truth_dir is None else str(self.truth_dir),
-            "score_table": None if self.score_table is None else str(self.score_table),
-            "available": list(self.available),
-            "required_missing": list(self.required_missing),
-            "optional_missing": list(self.optional_missing),
-        }
+NetworkTransientHtmlArtifactReport = _nt_io.NetworkTransientHtmlArtifactReport
 
 
 def main() -> None:
@@ -162,65 +121,11 @@ def build_network_transient_html_from_args(args: Namespace) -> Path:
 
 
 def _parse_args() -> Namespace:
-    parser = ArgumentParser(
-        description="Build the MF6 network/transient calibration diagnostic HTML page."
+    return _nt_args.parse_args(
+        real_root=REAL_ROOT,
+        source_transient_config=SOURCE_TRANSIENT_CONFIG,
+        page_title=PAGE_TITLE,
     )
-    parser.add_argument(
-        "--real-root",
-        type=Path,
-        default=REAL_ROOT,
-        help="Root directory containing truth packages, score tables and run outputs.",
-    )
-    parser.add_argument(
-        "--web-root",
-        type=Path,
-        default=None,
-        help="Output web directory. Defaults to <real-root>/web.",
-    )
-    parser.add_argument(
-        "--source-transient-config",
-        type=Path,
-        default=SOURCE_TRANSIENT_CONFIG,
-        help="Transient TOML config used to read recharge and source K values.",
-    )
-    parser.add_argument(
-        "--path-base",
-        type=Path,
-        default=None,
-        help="Base directory used to resolve relative catalog paths found in score CSVs. Defaults to the project root inferred from real-root.",
-    )
-    parser.add_argument(
-        "--page-title",
-        default=PAGE_TITLE,
-        help="Title displayed at the top of the generated HTML page.",
-    )
-    parser.add_argument(
-        "--reference-run-root",
-        type=Path,
-        default=None,
-        help="Run catalog used for watershed/topography/map context. Defaults to the mK=0.65 steady run under real-root.",
-    )
-    parser.add_argument(
-        "--steady-summary-csv",
-        type=Path,
-        default=None,
-        help="CSV summary used by the didactic steady-balance figure. Defaults to <real-root>/steady_mK_network_extent_summary.csv.",
-    )
-    parser.add_argument(
-        "--truth-package",
-        type=Path,
-        action="append",
-        default=None,
-        help="Truth package candidate. Can be supplied multiple times; the first existing path is used.",
-    )
-    parser.add_argument(
-        "--score-table",
-        type=Path,
-        action="append",
-        default=None,
-        help="Score CSV candidate. Can be supplied multiple times; the first table with completed rows is used.",
-    )
-    return parser.parse_args()
 
 
 def _configure_from_args(args: Namespace) -> None:
@@ -241,7 +146,9 @@ def _configure_from_args(args: Namespace) -> None:
     PAGE_TITLE = args.page_title
     SOURCE_TRANSIENT_CONFIG = args.source_transient_config.resolve()
     PATH_BASE = (
-        args.path_base.resolve() if args.path_base is not None else _default_path_base(REAL_ROOT)
+        args.path_base.resolve()
+        if args.path_base is not None
+        else _nt_io.default_path_base(REAL_ROOT)
     )
     REFERENCE_RUN_ROOT = (
         args.reference_run_root.resolve()
@@ -254,33 +161,11 @@ def _configure_from_args(args: Namespace) -> None:
         else REAL_ROOT / "steady_mK_network_extent_summary.csv"
     )
     TRUTH_PACKAGE_CANDIDATES = tuple(
-        path.resolve() for path in (args.truth_package or _default_truth_packages(REAL_ROOT))
+        path.resolve() for path in (args.truth_package or _nt_io.default_truth_packages(REAL_ROOT))
     )
     SCORE_TABLE_CANDIDATES = tuple(
-        path.resolve() for path in (args.score_table or _default_score_tables(REAL_ROOT))
+        path.resolve() for path in (args.score_table or _nt_io.default_score_tables(REAL_ROOT))
     )
-
-
-def _default_truth_packages(real_root: Path) -> tuple[Path, ...]:
-    return (
-        real_root / "site_01_truth_package_mK_0p65",
-        real_root / "site_01_truth_package",
-    )
-
-
-def _default_score_tables(real_root: Path) -> tuple[Path, ...]:
-    return (
-        real_root / "site_01_parameter_grid_scores_mK_0p65.csv",
-        real_root / "site_01_candidate_scores_mK_0p65.csv",
-        real_root / "site_01_candidate_scores.csv",
-        real_root / "site_01_parameter_grid_light_scores_mK_0p65.csv",
-    )
-
-
-def _default_path_base(real_root: Path) -> Path:
-    if real_root.name == "real_runs" and real_root.parent.name == "outputs":
-        return real_root.parent.parent.resolve()
-    return real_root.resolve()
 
 
 def inspect_network_transient_html_artifacts(
@@ -293,133 +178,23 @@ def inspect_network_transient_html_artifacts(
     score_tables: Iterable[Path] | None = None,
 ) -> NetworkTransientHtmlArtifactReport:
     """Inspect whether the standard network/transient HTML artifacts are present."""
-
-    resolved_real_root = Path(real_root).resolve()
-    truth_candidates = tuple(
-        Path(path).resolve()
-        for path in (truth_packages or _default_truth_packages(resolved_real_root))
-    )
-    score_candidates = tuple(
-        Path(path).resolve() for path in (score_tables or _default_score_tables(resolved_real_root))
-    )
-    truth_dir = _first_existing(truth_candidates)
-    score_table = _first_score_table(score_candidates)
-    reference_root = (
-        Path(reference_run_root).resolve()
-        if reference_run_root is not None
-        else resolved_real_root / "candidate_mK_0p65_Sy_0p05_steady_mf6"
-    )
-    steady_csv = (
-        Path(steady_summary_csv).resolve()
-        if steady_summary_csv is not None
-        else resolved_real_root / "steady_mK_network_extent_summary.csv"
-    )
-
-    available: list[str] = []
-    required_missing: list[str] = []
-    optional_missing: list[str] = []
-
-    def check(name: str, path: Path | None, *, required: bool) -> None:
-        if path is not None and path.exists():
-            available.append(name)
-            return
-        (required_missing if required else optional_missing).append(name)
-
-    check("truth_package", truth_dir, required=True)
-    if truth_dir is not None:
-        check("truth.metadata_json", truth_dir / "metadata.json", required=True)
-        check("truth.normalization_json", truth_dir / "normalization.json", required=True)
-        check(
-            "truth.transient_q_total_release_csv",
-            truth_dir / "transient_q_total_release.csv",
-            required=True,
-        )
-        check(
-            "truth.steady_network_drain_by_cell_npz",
-            truth_dir / "steady_network_drain_by_cell.npz",
-            required=False,
-        )
-        check(
-            "truth.steady_network_active_mask_npz",
-            truth_dir / "steady_network_active_mask.npz",
-            required=False,
-        )
-    check("score_table", score_table, required=True)
-    if score_table is not None and score_table.exists():
-        rows = _read_csv(score_table)
-        if any(row.get("status") == "completed" for row in rows):
-            available.append("score_table.completed_rows")
-        else:
-            required_missing.append("score_table.completed_rows")
-    check("source_transient_config", Path(source_transient_config).resolve(), required=False)
-    check("reference_run_root", reference_root, required=False)
-    check("steady_summary_csv", steady_csv, required=False)
-
-    return NetworkTransientHtmlArtifactReport(
-        real_root=resolved_real_root,
-        truth_dir=truth_dir,
-        score_table=score_table,
-        available=tuple(available),
-        required_missing=tuple(required_missing),
-        optional_missing=tuple(optional_missing),
+    return _nt_io.inspect_network_transient_html_artifacts(
+        real_root=real_root,
+        source_transient_config=source_transient_config,
+        reference_run_root=reference_run_root,
+        steady_summary_csv=steady_summary_csv,
+        truth_packages=truth_packages,
+        score_tables=score_tables,
     )
 
 
-def _read_csv(path: Path) -> list[dict[str, str]]:
-    if not path.is_file():
-        return []
-    with path.open("r", encoding="utf-8-sig", newline="") as fh:
-        return list(csv.DictReader(fh))
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        return {}
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
-def _read_toml(path: Path) -> dict[str, Any]:
-    if not path.is_file():
-        return {}
-    return tomllib.loads(path.read_text(encoding="utf-8"))
-
-
-def _first_existing(paths: tuple[Path, ...]) -> Path | None:
-    for path in paths:
-        if path.exists():
-            return path
-    return None
-
-
-def _first_score_table(paths: tuple[Path, ...]) -> Path | None:
-    for path in paths:
-        if not path.exists():
-            continue
-        rows = _read_csv(path)
-        if any(row.get("status") == "completed" for row in rows):
-            return path
-    return _first_existing(paths)
-
-
-def _read_truth_discharge(path: Path) -> list[float]:
-    rows = _read_csv(path)
-    return [_float(row.get("q_total_release")) for row in rows]
-
-
-def _float(value: Any, default: float = float("nan")) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _fmt(value: Any, digits: int = 4) -> str:
-    val = _float(value)
-    if not np.isfinite(val):
-        return ""
-    if abs(val) >= 1e4 or (abs(val) < 1e-3 and val != 0.0):
-        return f"{val:.{digits}e}"
-    return f"{val:.{digits}f}"
+_read_csv = _nt_io.read_csv
+_read_json = _nt_io.read_json
+_read_toml = _nt_io.read_toml
+_read_truth_discharge = _nt_io.read_truth_discharge
+_float = _nt_io.coerce_float
+_fmt = _nt_io.fmt_float
+_as_int_str = _nt_io.as_int_str
 
 
 def _generate_figures(
@@ -1712,343 +1487,11 @@ def _score_file_path(raw: Any) -> Path | None:
     return (Path.cwd() / path).resolve()
 
 
-def _page(
-    *,
-    normalization: dict[str, Any],
-    score_rows: list[dict[str, str]],
-    figures: dict[str, Path],
-    truth_dir: Path | None,
-    score_table: Path | None,
-    artifact_report: NetworkTransientHtmlArtifactReport,
-) -> str:
-    truth_label = _truth_label(truth_dir)
-    score_label = link_relative(WEB_ROOT, score_table) if score_table is not None else ""
-    return f"""<!doctype html>
-<html lang="fr">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{safe_html(PAGE_TITLE)}</title>
-  <style>
-    :root {{
-      color-scheme: light;
-      --fg: #1f2933;
-      --muted: #5d6875;
-      --line: #d7dde5;
-      --soft: #f4f7fa;
-      --blue: #2662a5;
-      --green: #26826a;
-      --red: #b5413c;
-      --orange: #b66a1f;
-    }}
-    body {{
-      margin: 0;
-      font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--fg);
-      background: #ffffff;
-    }}
-    header {{
-      padding: 24px 30px 16px;
-      border-bottom: 1px solid var(--line);
-    }}
-    main {{
-      padding: 18px 30px 34px;
-      display: grid;
-      gap: 22px;
-    }}
-    h1, h2, h3 {{ margin: 0; line-height: 1.2; }}
-    h1 {{ font-size: 25px; }}
-    h2 {{ font-size: 19px; }}
-    h3 {{ font-size: 15px; margin-bottom: 8px; }}
-    p {{ margin: 7px 0 0; color: var(--muted); }}
-    code {{ background: #eef2f5; padding: 1px 4px; border-radius: 4px; }}
-    table {{
-      border-collapse: collapse;
-      width: 100%;
-      font-size: 13px;
-    }}
-    th, td {{
-      border-bottom: 1px solid var(--line);
-      padding: 7px 8px;
-      text-align: right;
-      white-space: nowrap;
-    }}
-    th:first-child, td:first-child {{ text-align: left; }}
-    th {{ background: var(--soft); font-weight: 650; color: #2c3744; }}
-    .lead {{ max-width: 1050px; font-size: 15px; }}
-    .equation {{
-      margin-top: 12px;
-      padding: 10px 12px;
-      background: var(--soft);
-      border-left: 4px solid var(--blue);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      color: #26313d;
-    }}
-    .grid {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(285px, 1fr));
-      gap: 16px;
-      align-items: start;
-    }}
-    .wide-grid {{
-      display: grid;
-      grid-template-columns: minmax(330px, 0.85fr) minmax(460px, 1.15fr);
-      gap: 16px;
-      align-items: start;
-    }}
-    @media (max-width: 920px) {{ .wide-grid {{ grid-template-columns: 1fr; }} }}
-    .panel {{
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 14px;
-      overflow-x: auto;
-    }}
-    .metric-row {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 8px;
-      margin-top: 10px;
-    }}
-    .metric {{
-      border-left: 3px solid var(--blue);
-      background: var(--soft);
-      padding: 7px 9px;
-    }}
-    .metric span {{ display: block; color: var(--muted); font-size: 12px; }}
-    .metric strong {{ font-size: 15px; }}
-    .figure-grid {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-      gap: 14px;
-      align-items: start;
-      margin-top: 12px;
-    }}
-    .figure-card {{
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      padding: 10px;
-      background: #fff;
-    }}
-    .figure-card img {{
-      display: block;
-      width: 100%;
-      height: auto;
-    }}
-    .caption {{
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 7px;
-    }}
-    .note {{ color: var(--muted); font-size: 12px; margin-top: 8px; }}
-    .muted {{ color: var(--muted); }}
-    svg {{ max-width: 100%; height: auto; }}
-  </style>
-</head>
-<body>
-  <header>
-    <h1>{safe_html(PAGE_TITLE)}</h1>
-    <p class="lead">Diagnostic reproductible de calibration. La cible synthetique est construite avec <code>{safe_html(truth_label)}</code>; les autres simulations sont lues comme candidats dans la table de score.</p>
-  </header>
-  <main>
-    <section class="panel">
-      <h2>Probleme de calibration</h2>
-      <p>On cherche deux parametres globaux: le multiplicateur de conductivite hydraulique <code>mK</code> et le stockage specifique libre <code>Sy</code>. Le permanent sert a definir le reseau de drainage/affleurement cible, puis le transitoire mensuel compare la chronique de flux total <code>Q_total_release</code>.</p>
-      <div class="equation">J(mK, Sy) = 0.5 C_reseau_phys(mK) + 0.5 C_debit_phys(mK, Sy)</div>
-      {_best_candidate_summary(score_rows, truth_dir)}
-      <p class="note">Normalisation et reference: <code>{safe_html(str(truth_dir or ""))}</code>. Table de scores: <code>{safe_html(score_label)}</code>.</p>
-      {_artifact_contract_summary(artifact_report)}
-    </section>
-
-    <section class="wide-grid">
-      <div class="panel">
-        <h2>Configuration spatiale et temporelle</h2>
-        {_configuration_metrics(normalization, truth_dir)}
-        <p class="note">Les axes des cartes de drainage ci-dessous sont exprimes en kilometres relatifs a l'exutoire.</p>
-      </div>
-      <div class="panel">
-        <h2>Recharge imposee</h2>
-        {_figure_card(figures.get("recharge_chronicle"), "Chronique de recharge", "Recharge mensuelle issue de la configuration transitoire source; la moyenne sert aussi a construire le permanent de reference.")}
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Contexte bassin et permanent cible</h2>
-      <p>Le budget steady brut est peu explicite seul. La figure didactique rappelle que le bilan total ferme surtout le volume, tandis que le signal de calibration reseau vient de la repartition spatiale des cellules drainantes.</p>
-      <div class="figure-grid">
-        {_figure_card(figures.get("watershed_id_card"), "Bassin, maillage et exutoire", "Carte d'identite reutilisee depuis les modules de diagnostic existants.")}
-        {_figure_card(figures.get("dem_context_map"), "Contexte topographique / DEM", "Le raster DEM est utilise quand il est present dans le catalogue. Sinon la figure indique et utilise le repli <code>z_top_mean</code> porte par le maillage.")}
-        {_figure_card(figures.get("steady_balance_didactic"), "Lecture didactique du permanent", "Bilan total du permanent cible et effet de mK sur Q_total_release et l'extension du drainage actif.")}
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Fonction objectif dans l'espace des parametres</h2>
-      <p>Les trois panneaux se lisent dans le plan <code>(mK, Sy)</code>: objectif sur les flux, objectif sur les affleurements/drainage, puis objectif combine. Les couleurs sont logarithmiques pour rendre visibles les faibles gradients pres de l'optimum et les valeurs elevees aux bords du domaine explore. L'etoile marque la valeur cible synthetique; le cercle rouge marque le minimum trouve. Les coupes 1D precisent ensuite quelle direction de parametre est la mieux contrainte.</p>
-      <div class="figure-grid">
-        {_figure_card(figures.get("objective_parameter_maps"), "Objectifs flux, reseau et combine", "Echelle de couleur logarithmique. Les cases blanches correspondent aux simulations non terminees ou absentes de la grille.")}
-        {_figure_card(figures.get("objective_profile_cuts"), "Coupes autour de la cible", "Coupes a mK cible et Sy cible, avec les trois termes de cout en echelle logarithmique.")}
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Cartes de drainage vis-a-vis de la cible</h2>
-      <p>La carte de gauche est la cible synthetique. La carte de droite est le meilleur candidat non cible. Les valeurs actives de <code>outflow_drain</code> sont affichees sur une echelle logarithmique, au-dessus de la topographie, du contour de bassin et du reseau hydrographique en filigrane. L'affichage est limite aux bornes du bassin versant.</p>
-      {_figure_card(figures.get("outflow_drain_maps"), "Cible et meilleur candidat sur fond topographique", "Drainage actif en couleur, cellules inactives en gris transparent, axes en kilometres relatifs a l'exutoire.")}
-    </section>
-
-    <section class="panel">
-      <h2>Chroniques de flux</h2>
-      <p>La courbe noire est la cible synthetique. L'optimum calcule est en rouge. Toutes les autres chroniques candidates disponibles sont superposees en gris pour montrer l'amplitude de variabilite des flux.</p>
-      {_figure_card(figures.get("q_total_release_timeseries"), "Q_total_release mensuel", "Somme de tous les flux <code>outflow_drain</code> sortant du domaine a chaque periode.")}
-    </section>
-  </main>
-</body>
-</html>
-"""
-
-
-def _truth_label(truth_dir: Path | None) -> str:
-    if truth_dir is None:
-        return "absent"
-    metadata = _read_json(truth_dir / "metadata.json")
-    mk = metadata.get("mK_true")
-    sy = metadata.get("Sy_true")
-    if mk is not None and sy is not None:
-        return f"{truth_dir.name} (mK={mk}, Sy={sy})"
-    return truth_dir.name
-
-
-def _artifact_contract_summary(report: NetworkTransientHtmlArtifactReport) -> str:
-    required = len(report.required_missing)
-    optional = len(report.optional_missing)
-    status = "complet" if report.ok else "incomplet"
-    cells = [
-        f'<div class="metric"><span>contrat artefacts</span><strong>{status}</strong></div>',
-        f'<div class="metric"><span>manquants requis</span><strong>{required}</strong></div>',
-        f'<div class="metric"><span>manquants optionnels</span><strong>{optional}</strong></div>',
-    ]
-    details = ""
-    if report.required_missing or report.optional_missing:
-        missing = list(report.required_missing) + list(report.optional_missing)
-        details = (
-            '<p class="note">Artefacts absents ou non exploitables: '
-            f"<code>{safe_html(', '.join(missing[:8]))}</code>"
-            f"{' ...' if len(missing) > 8 else ''}</p>"
-        )
-    return f'<div class="metric-row">{"".join(cells)}</div>{details}'
-
-
-def _best_candidate_summary(score_rows: list[dict[str, str]], truth_dir: Path | None) -> str:
-    completed = [row for row in score_rows if row.get("status") == "completed"]
-    if not completed:
-        return '<p class="note">Aucun candidat termine dans la table de score.</p>'
-    failed_count = len([row for row in score_rows if row.get("status") != "completed"])
-    best_candidates = [row for row in completed if not _candidate_is_truth(row)] or completed
-    best = min(best_candidates, key=lambda row: _float(row.get("J"), float("inf")))
-    target = _truth_parameters(truth_dir)
-    target_text = ""
-    if target is not None:
-        target_text = (
-            f'<div class="metric"><span>valeur cible</span>'
-            f"<strong>mK={_fmt(target[0], 2)}, Sy={_fmt(target[1], 3)}</strong></div>"
-        )
-    cells = [
-        target_text,
-        f'<div class="metric"><span>points termines</span><strong>{len(completed)} / {len(score_rows)}</strong></div>',
-        f'<div class="metric"><span>points en echec</span><strong>{failed_count}</strong></div>',
-        f'<div class="metric"><span>meilleur candidat non cible</span><strong>{safe_html(best.get("candidate_id", ""))}</strong></div>',
-        f'<div class="metric"><span>mK trouve</span><strong>{_fmt(best.get("mK"), 2)}</strong></div>',
-        f'<div class="metric"><span>Sy trouve</span><strong>{_fmt(best.get("Sy"), 3)}</strong></div>',
-        f'<div class="metric"><span>J minimum</span><strong>{_fmt(best.get("J"), 5)}</strong></div>',
-    ]
-    return f'<div class="metric-row">{"".join(cell for cell in cells if cell)}</div>'
-
-
-def _configuration_metrics(normalization: dict[str, Any], truth_dir: Path | None) -> str:
-    metadata = _read_json(truth_dir / "metadata.json") if truth_dir is not None else {}
-    q_rows = _read_csv(truth_dir / "transient_q_total_release.csv") if truth_dir is not None else []
-    active_count = ""
-    if truth_dir is not None and (truth_dir / "steady_network_active_mask.npz").is_file():
-        active = np.load(truth_dir / "steady_network_active_mask.npz")["active_mask"]
-        active_count = str(int(np.asarray(active, dtype=bool).sum()))
-    recharge = _recharge_values_from_config()
-    period_text = ""
-    if q_rows:
-        period_text = f"{q_rows[0].get('datetime', '')} -> {q_rows[-1].get('datetime', '')}"
-    conductivity = _conductivity_context(metadata)
-    values = [
-        ("site", metadata.get("site_id", "")),
-        ("solveur", metadata.get("steady_solver", "modflow6")),
-        ("cellules DISV", metadata.get("n_cells", "")),
-        ("periodes debit", metadata.get("n_timesteps", "")),
-        ("fenetre temporelle", period_text),
-        ("pas de temps", "mensuel"),
-        ("cellules drainantes cible", active_count),
-        ("Q steady cible", f"{_fmt(normalization.get('Q_ref_steady'), 5)} m3/s"),
-        ("Q moyen cible", f"{_fmt(normalization.get('Qbar_ref'), 5)} m3/s"),
-        ("L reseau cible", f"{_fmt(normalization.get('L_ref'), 1)} m"),
-        ("d_tol", f"{_fmt(normalization.get('d_tol'), 1)} m"),
-        (
-            "recharge moyenne",
-            f"{_fmt(float(np.nanmean(recharge)) if recharge.size else np.nan, 3)} mm/j",
-        ),
-        ("K moyen cible", f"{_fmt(conductivity.get('K_mean_target'), 4)} m/s"),
-        ("K median cible", f"{_fmt(conductivity.get('K_median_target'), 4)} m/s"),
-        ("K moyen / R moyen", _fmt(conductivity.get("K_over_R_mean"), 2)),
-    ]
-    cells = []
-    for label, value in values:
-        cells.append(
-            f'<div class="metric"><span>{safe_html(str(label))}</span>'
-            f"<strong>{safe_html(str(value))}</strong></div>"
-        )
-    return f'<div class="metric-row">{"".join(cells)}</div>'
-
-
-def _conductivity_context(metadata: dict[str, Any]) -> dict[str, float]:
-    mk = _float(metadata.get("mK_true"), 1.0)
-    values = _source_k_values()
-    recharge = _recharge_values_from_config()
-    recharge_mean = float(np.nanmean(recharge)) if recharge.size else float("nan")
-    recharge_m_s = recharge_mean * 1.0e-3 / 86400.0
-    if values.size == 0:
-        return {}
-    k_mean = float(np.nanmean(values) * mk)
-    k_median = float(np.nanmedian(values) * mk)
-    return {
-        "K_mean_target": k_mean,
-        "K_median_target": k_median,
-        "K_over_R_mean": k_mean / recharge_m_s if recharge_m_s > 0.0 else float("nan"),
-    }
-
-
-def _source_k_values() -> np.ndarray:
-    cfg = _read_toml(SOURCE_TRANSIENT_CONFIG)
-    flow = cfg.get("flow", {}) if isinstance(cfg.get("flow"), dict) else {}
-    param = flow.get("param", {}) if isinstance(flow.get("param"), dict) else {}
-    k_param = param.get("K", {}) if isinstance(param.get("K"), dict) else {}
-    k_cfg = k_param.get("field", {}) if isinstance(k_param.get("field"), dict) else {}
-    raw_path = k_cfg.get("values_csv_file")
-    if not raw_path:
-        return np.asarray([], dtype=float)
-    path = Path(str(raw_path))
-    if not path.is_absolute():
-        path = (SOURCE_TRANSIENT_CONFIG.parent / path).resolve()
-    rows = _read_csv(path)
-    return np.asarray([_float(row.get("K_value")) for row in rows], dtype=float)
-
-
-def _figure_card(path: Path | None, title: str, caption: str) -> str:
-    if path is None or not path.is_file():
-        return (
-            f'<div class="figure-card"><h3>{safe_html(title)}</h3>'
-            '<p class="muted">Figure non disponible pour cette relance.</p></div>'
-        )
-    href = safe_html(link_relative(WEB_ROOT, path))
-    return (
-        f'<figure class="figure-card"><h3>{safe_html(title)}</h3>'
-        f'<a href="{href}"><img src="{href}" alt="{safe_html(title)}"></a>'
-        f'<figcaption class="caption">{caption}</figcaption></figure>'
+def _page(**kwargs: Any) -> str:
+    return _sections.build_page(
+        **kwargs,
+        page_title=PAGE_TITLE,
+        web_root=WEB_ROOT,
     )
 
 
