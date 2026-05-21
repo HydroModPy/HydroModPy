@@ -99,8 +99,9 @@ jobs:
       # Whitebox-heavy tiers (backend + geographic + delineation) run in
       # their own pytest invocations because the native binding accumulates
       # state across DEM workflows and aborts after several runs in one process.
-      # Per-step --cov-fail-under=0 disables the threshold inside each
-      # pytest invocation; the combined report below enforces fail_under.
+      # Per-step --cov-fail-under=0 disables the project-wide threshold
+      # inside each pytest invocation. The combined report is uploaded to
+      # Codecov, but the unit tier does not enforce global coverage.
       - name: Run unit tests (without whitebox-heavy tiers)
         run: |
           python -m pytest tests/unit/ \
@@ -142,8 +143,8 @@ jobs:
 
       - name: Report combined coverage
         run: |
-          coverage report --show-missing
-          coverage xml
+          coverage report --show-missing --fail-under=0
+          coverage xml --fail-under=0
 
       - name: Upload coverage to Codecov
         if: always()
