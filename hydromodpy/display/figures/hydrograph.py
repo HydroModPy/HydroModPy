@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hydromodpy.display._map_axes import style_date_axis
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.map_axes import style_date_axis
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

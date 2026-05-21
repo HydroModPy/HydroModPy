@@ -65,7 +65,7 @@ workflow?":
 
 1. ``hydromodpy/cli/commands/run.py`` ([workflow].mode = "calibration"
    dispatch)
-2. ``hydromodpy/calibration/runner.py`` (calibration entry point)
+2. ``hydromodpy/calibration/cli_runner.py`` (calibration entry point)
 3. ``hydromodpy/calibration/engine.py`` and the ``CalibrationEngine``
    protocol
 4. ``hydromodpy/simulation/execution/trial.py`` (prepare-once,

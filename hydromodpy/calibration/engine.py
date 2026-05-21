@@ -18,6 +18,7 @@ import math
 import time
 import uuid
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -87,6 +88,7 @@ class CalibrationEngine:
     evaluator: EvaluatorFn
     max_iter: int = 100
     batch_size: int = 1
+    parallel: int = 1
     cache: ParamsHashCache | None = None
     cache_context: Mapping[str, Any] | None = None
     progress: ProgressReporter | None = None
@@ -109,10 +111,8 @@ class CalibrationEngine:
                 suggestions = self.optimizer.ask(n=take)
                 if not suggestions:
                     break
-                results: list[EvaluationResult] = []
-                for sugg in suggestions:
-                    result = self._evaluate_with_cache(sugg)
-                    results.append(result)
+                results = self._evaluate_batch(suggestions)
+                for sugg, result in zip(suggestions, results, strict=True):
                     session.history.append(result)
                     reporter.update(sugg.trial_id, result)
                     if self.on_iteration is not None:
@@ -128,6 +128,24 @@ class CalibrationEngine:
             if callable(close_optimizer):
                 close_optimizer()
         return session
+
+    def _evaluate_batch(
+        self,
+        suggestions: list[ParamSuggestion],
+    ) -> list[EvaluationResult]:
+        """Run every suggestion of one batch and return their results in order.
+
+        ``parallel <= 1`` keeps the legacy sequential loop. ``parallel > 1``
+        dispatches trials through a :class:`ThreadPoolExecutor`. Threads
+        are used over processes because evaluators close over a live
+        ``Project`` whose DuckDB connection and Zarr handles are not
+        pickle-safe.
+        """
+        if self.parallel <= 1 or len(suggestions) <= 1:
+            return [self._evaluate_with_cache(sugg) for sugg in suggestions]
+        workers = min(self.parallel, len(suggestions))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            return list(pool.map(self._evaluate_with_cache, suggestions))
 
     def _evaluate_with_cache(self, sugg: ParamSuggestion) -> EvaluationResult:
         if self.cache is None:

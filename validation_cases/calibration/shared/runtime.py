@@ -1705,7 +1705,7 @@ def run_twin_benchmark_case(
             objective_blocks=tuple(definition.objective_block_specs),
         )
 
-        from hydromodpy.calibration.runner import run_calibration_cli
+        from hydromodpy.calibration.cli_runner import run_calibration_cli
 
         session_prepare_t0 = time.perf_counter()
         report = run_calibration_cli(

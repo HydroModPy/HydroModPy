@@ -31,6 +31,19 @@ class ValidateStep:
     tout: ClassVar[type] = ValidatedState
     config_sections: ClassVar[tuple[str, ...]] = ("workspace", "simulation")
 
+    def depends_on(self) -> tuple[str, ...]:
+        return ()
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Re-run validation: idempotent in-memory operation."""
+        return self.run(prior_state)
+
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.config import HydroModPyConfig
 

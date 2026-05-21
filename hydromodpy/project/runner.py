@@ -1,11 +1,13 @@
 """Run-phase orchestration for :class:`hydromodpy.project.Project`.
 
-Holds the high-level workflow entry points: ``run``, ``simulate``,
-``sweep``, ``calibrate``, ``mesh`` and ``report``. The prepared-run
-primitives (``prepare``, ``execute``, ``ingest``, ``render``,
-``cleanup``) live in :mod:`hydromodpy.project.prepared_run` and are
-composed into the runner so the legacy ``project._runner.prepare(...)``
-access pattern keeps working.
+Holds the high-level workflow entry points kept on ``Project``: ``run``,
+``simulate``, ``sweep`` and ``calibrate``. The prepared-run primitives
+(``prepare``, ``execute``, ``ingest``, ``render``, ``cleanup``) live in
+:mod:`hydromodpy.project.prepared_run` and are composed into the runner so
+the legacy ``project._runner.prepare(...)`` access pattern keeps working.
+
+TOML-only workflows that do not benefit from setup-once state (``overview``,
+``mesh``, ``compare``, ``report``) live in :mod:`hydromodpy._api`.
 """
 
 from __future__ import annotations
@@ -13,9 +15,9 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, ResumeError
+from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.prepared_run import DEFAULT_RUN_NAME_TEMPLATE, ProjectPreparedRun
 
@@ -195,9 +197,15 @@ class ProjectRunner:
         dry_run: bool = False,
         frozen: bool = False,
         no_display: bool = False,
+        parallel: bool = True,
         **overrides,
     ) -> Run | None:
-        """Run the simulation through the canonical workflow Pipeline."""
+        """Run the simulation through the canonical workflow Pipeline.
+
+        ``parallel`` (default True) lets the Pipeline dispatch independent
+        Kahn cohorts through a thread pool. Pass ``parallel=False`` to
+        force the legacy sequential path (useful for debugging).
+        """
         from hydromodpy.workflow.internals.state import PipelineState
         from hydromodpy.workflow.orchestrator import standard_steps
         from hydromodpy.workflow.runner import Pipeline
@@ -295,7 +303,7 @@ class ProjectRunner:
             set_frozen_mode(True)
 
         try:
-            final = pipeline.run(initial, resume_from=resume_from)
+            final = pipeline.run(initial, resume_from=resume_from, parallel=parallel)
         except Exception:
             from hydromodpy.project import phases as project_phases
 
@@ -341,8 +349,10 @@ class ProjectRunner:
     ) -> Run:
         """Run one simulation with orchestration specified from Python."""
         from hydromodpy.simulation.planning.config import (
-            SimulationProcessConfig,
+            FlowProcessConfig,
+            MeshProcessConfig,
             SimulationTimeConfig,
+            TransportProcessConfig,
         )
 
         project = self._project
@@ -365,27 +375,38 @@ class ProjectRunner:
             project._ctx.setup.time_grid = project._time_grid
 
         if processes is not None:
-            resolved: list[SimulationProcessConfig] = []
+            resolved: list[Any] = []
             for idx, entry in enumerate(processes):
                 if isinstance(entry, str):
                     proc_type, solver_name = entry, project._solver
                 else:
                     proc_type, solver_name = entry
-                if str(proc_type).strip().lower() == "mesh":
+                ptype = str(proc_type).strip().lower()
+                if ptype == "mesh":
                     resolved.append(
-                        SimulationProcessConfig(
+                        MeshProcessConfig(
                             id=f"{proc_type}_{idx}",
-                            type=proc_type,
                             backend=str(solver_name or "catchment"),
                         )
                     )
-                else:
+                elif ptype == "flow":
                     resolved.append(
-                        SimulationProcessConfig(
+                        FlowProcessConfig(
                             id=f"{proc_type}_{idx}",
-                            type=proc_type,
                             solvers=[solver_name],
                         )
+                    )
+                elif ptype == "transport":
+                    resolved.append(
+                        TransportProcessConfig(
+                            id=f"{proc_type}_{idx}",
+                            solvers=[solver_name],
+                        )
+                    )
+                else:
+                    raise ValueError(
+                        f"Unknown process type '{proc_type}'. "
+                        "Supported types: flow, transport, mesh."
                     )
             project.cfg.simulation.process = resolved
 
@@ -399,60 +420,25 @@ class ProjectRunner:
         name_template: str = "{param}_{value:.4g}",
         parallel: int = 1,
     ):
-        """Run N simulations from a parameter table."""
+        """Run N simulations from a parameter table.
+
+        ``parallel > 1`` enables the thread-pool backend in
+        :func:`hydromodpy.workflow.parallel.run_sweep`. Threads are
+        chosen over processes because the live ``Project`` (DuckDB
+        catalog, Zarr store, in-memory ``WorkflowContext``) is not
+        pickle-safe.
+        """
         from hydromodpy.results.simulation_group import SimulationGroup
         from hydromodpy.workflow.parallel import run_sweep
 
-        if parallel != 1:
-            raise NotImplementedError("Parallel sweep requires worker pool setup")
         sim_ids = run_sweep(
             self._project,
             parameters=parameters,
             strategy=strategy,
             name_template=name_template,
+            parallel=parallel,
         )
         return SimulationGroup(sim_ids, self._project._store)
-
-    def mesh(self) -> dict:
-        """Run the standalone mesh-only workflow defined by this project."""
-        project = self._project
-        if project._config_path is not None:
-            from hydromodpy.workflow.pipelines.mesh import MeshCatchmentLauncher
-
-            return MeshCatchmentLauncher(project._config_path).run()
-        if project.cfg.mesh_catchment is None:
-            raise ConfigMissingError(
-                "Project.mesh() requires cfg.mesh_catchment when Project was "
-                "created from an in-memory HydroModPyConfig."
-            )
-
-        project.build_mesh()
-        return dict(project._ctx.setup.mesh_summary or {})
-
-    def report(self, session_id: str | None = None) -> Path:
-        """Render the HTML report for a calibration session."""
-        from hydromodpy.calibration.report import resolve_calibration_session_id
-        from hydromodpy.results.catalog import SimulationCatalog
-        from hydromodpy.workflow.steps.calibration import (
-            step_render_calibration_report,
-        )
-
-        project = self._project
-        workspace_root = self._resolve_workspace_path()
-        catalog = project._store
-        owns_catalog = catalog is None
-        if owns_catalog:
-            catalog = SimulationCatalog(workspace_root)
-        try:
-            full_id = resolve_calibration_session_id(catalog, session_id)
-            return step_render_calibration_report(
-                catalog=catalog,
-                session_id=full_id,
-                workspace_root=workspace_root,
-            )
-        finally:
-            if owns_catalog:
-                catalog.close()
 
     # -- Helpers ----------------------------------------------------------
 

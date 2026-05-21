@@ -5,10 +5,10 @@
 # Packages absent from the row's list are forbidden (CI flags them).
 
 allowed:
-  "<root>":      ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, cli]
+  "<root>":      ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow, catalog, cli]
   core:          [core]
   schema:        [core, schema, config]
-  config:        [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow]
+  config:        [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow]
   physics:       [core, schema, physics]
   data:          [core, schema, data, spatial]
   spatial:       [core, schema, spatial]
@@ -18,7 +18,11 @@ allowed:
   results:       [core, schema, config, results, spatial]
   display:       [core, schema, results, display]
   analysis:      [core, schema, physics, data, results, display, analysis]
-  workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow]
+  # ``reporting`` hosts HTML composites (calibration session report,
+  # comparison web report, streamlit UI). It assembles figures from
+  # ``display`` and features from ``analysis`` so it sits above both.
+  reporting:     [core, schema, config, results, display, analysis, reporting]
+  workflow:      [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow]
   # ``catalog`` is the V1 facade over the three DuckDB scopes (cache, project, index).
   # It reaches into ``core``, ``data`` and ``results`` to wrap the underlying
   # stores. The reverse (data/results importing catalog) is forbidden so the
@@ -27,15 +31,19 @@ allowed:
   # ``project`` hosts the public ``Project`` facade and its dispatch adapters.
   # It sits above the matrix (like ``cli``) so workflow/calibration launchers
   # can be bound to ``Project`` without lower layers depending on the facade.
-  project:       [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, project]
-  cli:           [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, workflow, catalog, project, cli]
+  project:       [core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow, catalog, project]
+  cli:           ["<root>", core, schema, config, physics, data, spatial, simulation, solver, calibration, results, display, analysis, reporting, workflow, catalog, project, cli]
 
 # Cross-edges tolerated for now. Each tolerance must point at a documented
 # rationale. Tighten over time.
 tolerances:
   - {src: "<root>",    tgt: project,  reason: "root facade lazy-resolves Project through hydromodpy.project"}
   - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
+  - {src: analysis,    tgt: reporting, reason: "comparison experiment_launcher writes the HTML report at the end of the orchestration (candidate to move into workflow/)"}
   - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
+  - {src: core,        tgt: physics,  reason: "core.time.tmesh_* uses FlowRegime/normalize_flow_regime to validate steady vs transient stress periods"}
+  - {src: data,        tgt: results,  reason: "cross-DB ATTACH bridge: data.DataEntry.used_by reads results.cross_db (commit 1bd5f31ef)"}
+  - {src: results,     tgt: data,     reason: "cross-DB ATTACH bridge: results.cross_db reads DataCatalogDuckDB via ATTACH read-only (commit 1bd5f31ef)"}
 
 # Files exempt from the layer rule. Bootstrap shims that wire forward refs,
 # plus *.cases.run_*case.py CLI entrypoints that load HydroModPyConfig from a

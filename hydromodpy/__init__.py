@@ -4,6 +4,28 @@ from __future__ import annotations
 
 import importlib
 
+# Public API facade. This is the single allowed exception to the
+# "no aliases / no re-exports" rule in CLAUDE.md. CLI verbs and Python
+# user code must reach the same canonical symbols through this module,
+# so the verbs in `hydromodpy/_api` are re-exported here on purpose.
+from hydromodpy import catalog  # noqa: F401  --  expose ``hmp.catalog`` namespace
+from hydromodpy._api import (
+    audit_prune,
+    calibrate,
+    compare,
+    compare_pair,
+    doctor,
+    index,
+    mesh,
+    open,
+    open_catalog,
+    overview,
+    read,
+    report,
+    run,
+    testbed,
+)
+from hydromodpy._bootstrap import bootstrap
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
 from hydromodpy._lazy import MODULE_EXPORTS as _MODULE_EXPORTS
 from hydromodpy.core.version import __version__
@@ -13,7 +35,30 @@ __email__ = (
     "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"
 )
 
-_DIRECT_EXPORTS = ["__version__"]
+_log_manager = LogManager(mode="verbose", log_dir=None, overwrite=False)
+# Public access to log manager for users
+log_manager = _log_manager
+
+_DIRECT_EXPORTS = [
+    "open",
+    "open_catalog",
+    "catalog",
+    "read",
+    "run",
+    "calibrate",
+    "index",
+    "overview",
+    "compare",
+    "compare_pair",
+    "mesh",
+    "testbed",
+    "report",
+    "audit_prune",
+    "bootstrap_proj",
+    "doctor",
+    "log_manager",
+    "__version__",
+]
 
 
 def __getattr__(name: str):

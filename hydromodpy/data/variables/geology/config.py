@@ -5,7 +5,7 @@ from __future__ import annotations
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import Field, ValidationError, model_validator
 
@@ -20,38 +20,43 @@ from hydromodpy.core.config_kit.types import (
 from hydromodpy.core.tracking import InputFile
 
 
-class GeologySourceConfig(HydroModelBase):
-    """Configuration for one geology data source.
+class _GeologySourceBase(HydroModelBase):
+    """Shared fields for geology data sources."""
 
-    Sources can be user-provided vector, raster, or CSV files, or BRGM
-    geological maps at 1:1M or 1:50K scale. Custom vector sources need a code
-    field so HydroModPy can map lithological units to model parameters.
-    """
-
-    source: Annotated[Literal["custom", "brgm_1m", "brgm_50k"], Profile.USER] = Field(
-        ...,
-        description=(
-            "Data provider: 'custom' for user files (SHP/GPKG/TIF/CSV), "
-            "'brgm_1m' for the 1:1M national geological map, "
-            "'brgm_50k' for the 1:50K departmental geological maps."
-        ),
+    mask_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+    )
+    extent: Annotated[Literal["watershed", "study_area"] | None, Profile.USER] = Field(
+        default=None,
+        description="Use project extent for bbox-based data retrieval.",
+    )
+    force_refresh: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Ignore cache and re-download from API.",
     )
 
-    # --- Custom source fields ---
+
+class CustomGeologySource(_GeologySourceBase):
+    """User-provided geology file (SHP/GPKG/TIF/CSV)."""
+
+    source: Annotated[Literal["custom"], Profile.USER] = Field(
+        default="custom",
+        description="Discriminator tag selecting the 'custom' geology provider.",
+    )
     path: Annotated[
-        Path | None,
+        Path,
         Profile.USER,
         InputFile(role="geology", category="data"),
     ] = Field(
-        default=None,
+        ...,
         description="Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
     )
     code_field: Annotated[str | None, Profile.USER] = Field(
         default=None,
         description=(
             "Attribute column for geology codes in custom vector files "
-            "(SHP/GPKG). Required for custom vector sources. "
-            "Ignored for BRGM sources (always CODE_LEG)."
+            "(SHP/GPKG). Required for custom vector sources."
         ),
     )
     values_table_path: Annotated[Path | None, Profile.USER] = Field(
@@ -61,8 +66,6 @@ class GeologySourceConfig(HydroModelBase):
             "Columns: geology_code, description."
         ),
     )
-
-    # --- CSV interpolation fields ---
     col_x: Annotated[str, Profile.DEV] = Field(
         default="x",
         description="Column for X coordinate in CSV.",
@@ -80,39 +83,34 @@ class GeologySourceConfig(HydroModelBase):
         description="Default CRS for CSV points.",
     )
 
-    # --- Spatial mask ---
-    mask_path: Annotated[Path | None, Profile.USER] = Field(
-        default=None,
-        description="SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
-    )
-    extent: Annotated[Literal["watershed", "study_area"] | None, Profile.USER] = Field(
-        default=None,
-        description="Use project extent for bbox-based data retrieval.",
+
+class BrgmGeology1mSource(_GeologySourceBase):
+    """BRGM 1:1M national geological map (CODE_LEG legend)."""
+
+    source: Annotated[Literal["brgm_1m"], Profile.USER] = Field(
+        default="brgm_1m",
+        description="Discriminator tag selecting the BRGM 1:1M geology provider.",
     )
 
-    # --- Common ---
-    force_refresh: Annotated[bool, Profile.DEV] = Field(
-        default=False,
-        description="Ignore cache and re-download from API.",
+
+class BrgmGeology50kSource(_GeologySourceBase):
+    """BRGM 1:50K departmental geological map (CODE_LEG legend)."""
+
+    source: Annotated[Literal["brgm_50k"], Profile.USER] = Field(
+        default="brgm_50k",
+        description="Discriminator tag selecting the BRGM 1:50K geology provider.",
     )
 
-    @model_validator(mode="after")
-    def _check_source_requirements(self) -> GeologySourceConfig:
-        if self.source == "custom":
-            if self.path is None:
-                raise ValueError(
-                    "Custom source requires 'path' (SHP, GPKG, TIF, or CSV file/directory)."
-                )
-            # code_field is required for custom vector sources.
-            # For raster/CSV the code_field is unused (raster has numeric bands,
-            # CSV uses col_code).  We validate at load time when we know the
-            # file extension.
-        if self.source in ("brgm_1m", "brgm_50k") and self.code_field is not None:
-            raise ValueError(
-                f"'code_field' must not be set for '{self.source}' sources - "
-                "BRGM data always uses 'CODE_LEG'."
-            )
-        return self
+
+GeologySourceConfig: TypeAlias = Annotated[
+    CustomGeologySource | BrgmGeology1mSource | BrgmGeology50kSource,
+    Field(
+        discriminator="source",
+        description=(
+            "Discriminated union of geology data sources tagged by the 'source' provider key."
+        ),
+    ),
+]
 
 
 class GeologyConfig(HydroModelBase):
@@ -138,7 +136,7 @@ class GeologyConfig(HydroModelBase):
     """
 
     sources: Annotated[list[GeologySourceConfig], Profile.USER] = Field(
-        default_factory=lambda: [GeologySourceConfig(source="brgm_1m")],
+        default_factory=lambda: [BrgmGeology1mSource()],
         min_length=1,
         description="At least one geology data source. Defaults to BRGM 1:1M.",
     )
@@ -158,12 +156,12 @@ class GeologyConfig(HydroModelBase):
     @classmethod
     def brgm_1m(cls, **overrides) -> GeologyConfig:
         """GeologyConfig backed by the BRGM 1:1M national map."""
-        return cls(sources=[GeologySourceConfig(source="brgm_1m")], **overrides)
+        return cls(sources=[BrgmGeology1mSource()], **overrides)
 
     @classmethod
     def brgm_50k(cls, **overrides) -> GeologyConfig:
         """GeologyConfig backed by the BRGM 1:50K departmental maps."""
-        return cls(sources=[GeologySourceConfig(source="brgm_50k")], **overrides)
+        return cls(sources=[BrgmGeology50kSource()], **overrides)
 
     @classmethod
     def from_shapefile(
@@ -176,8 +174,7 @@ class GeologyConfig(HydroModelBase):
         """GeologyConfig from a custom polygon shapefile (SHP or GPKG)."""
         return cls(
             sources=[
-                GeologySourceConfig(
-                    source="custom",
+                CustomGeologySource(
                     path=Path(path),
                     code_field=code_field,
                 )
@@ -189,7 +186,7 @@ class GeologyConfig(HydroModelBase):
     def from_geotiff(cls, path: str | Path, **overrides) -> GeologyConfig:
         """GeologyConfig from a pre-rasterized GeoTIFF."""
         return cls(
-            sources=[GeologySourceConfig(source="custom", path=Path(path))],
+            sources=[CustomGeologySource(path=Path(path))],
             **overrides,
         )
 

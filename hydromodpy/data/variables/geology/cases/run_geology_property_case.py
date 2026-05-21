@@ -13,8 +13,8 @@ import numpy as np
 from rasterio.features import rasterize
 from rasterio.transform import from_bounds
 
-from hydromodpy.core.units import parse_length_to_m
 from hydromodpy.data.variables.geology.cases.common import (
+    _length_to_meters,
     clip_square_window,
     format_axes_ticks_km,
     resolve_case_path,
@@ -163,7 +163,7 @@ def _load_display_geology(args, geology_config_path):
     window_polygon = None
 
     if not bool(args.global_map):
-        window_m = float(parse_length_to_m(args.window_km, default_unit="km", label="window_km"))
+        window_m = _length_to_meters(args.window_km, default_unit="km")
         gdf, window_polygon = clip_square_window(
             gdf,
             center_x=float(args.center_x),

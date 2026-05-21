@@ -477,14 +477,44 @@ def _placeholder(field_info: FieldInfo) -> str:
 
 
 def _resolve_list_basemodel_type(field_info: FieldInfo) -> type[BaseModel] | None:
-    """If field is ``list[SomeBaseModel]``, return the item class, else None."""
+    """If field is ``list[SomeBaseModel]``, return the item class, else None.
+
+    Handles ``list[Annotated[Union[A, B], Field(discriminator=...)]]`` by
+    returning a representative concrete BaseModel from the union (preferring
+    the default_factory's runtime type when one item is set).
+    """
     origin = get_origin(field_info.annotation)
     if origin is not list:
         return None
     args = get_args(field_info.annotation)
-    if args and isinstance(args[0], type) and issubclass(args[0], BaseModel):
-        return args[0]
-    return None
+    if not args:
+        return None
+    item = args[0]
+    if isinstance(item, type) and issubclass(item, BaseModel):
+        return item
+
+    inner_args = get_args(item)
+    if not inner_args:
+        return None
+    candidates = [a for a in inner_args if isinstance(a, type) and issubclass(a, BaseModel)]
+    if not candidates:
+        for a in inner_args:
+            for sub in get_args(a):
+                if isinstance(sub, type) and issubclass(sub, BaseModel):
+                    candidates.append(sub)
+    if not candidates:
+        return None
+
+    if field_info.default_factory is not None:
+        try:
+            default_value = field_info.default_factory()
+        except Exception:
+            default_value = None
+        if isinstance(default_value, list) and default_value:
+            head = default_value[0]
+            if isinstance(head, BaseModel):
+                return type(head)
+    return candidates[0]
 
 
 def _relativize_paths_in_dict(d: dict, toml_dir: Path) -> None:

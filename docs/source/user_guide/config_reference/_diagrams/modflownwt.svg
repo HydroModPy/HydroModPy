@@ -10,185 +10,10 @@
 <title>Entity Relationship Diagram created by erdantic</title>
 <polygon fill="white" stroke="none" points="-4,4 -4,-1540.25 1127.5,-1540.25 1127.5,4 -4,4"/>
 <text xml:space="preserve" text-anchor="middle" x="561.75" y="-5.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="9.00" fill="#a8a8a8">Created by erdantic v1.2.1 &lt;https://github.com/drivendataorg/erdantic&gt;</text>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.BasConfig -->
+<!-- hydromodpy.core.time.tmesh_config.TMeshConfig -->
 <g id="node1" class="node">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.BasConfig</title>
-<g id="a_node1"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.BasConfig&#10;&#10;BAS package settings.&#10;">
-<polygon fill="none" stroke="black" points="935.62,-1059.5 935.62,-1082 1007.62,-1082 1007.62,-1059.5 935.62,-1059.5"/>
-<text xml:space="preserve" text-anchor="start" x="941.62" y="-1066.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">BasConfig</text>
-<polygon fill="none" stroke="black" points="935.62,-1037 935.62,-1059.5 976.88,-1059.5 976.88,-1037 935.62,-1037"/>
-<text xml:space="preserve" text-anchor="start" x="938.62" y="-1043.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">hnoflo</text>
-<polygon fill="none" stroke="black" points="976.88,-1037 976.88,-1059.5 1007.62,-1059.5 1007.62,-1037 976.88,-1037"/>
-<text xml:space="preserve" text-anchor="start" x="979.88" y="-1043.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float</text>
-</a>
-</g>
-</g>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.DisConfig -->
-<g id="node2" class="node">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.DisConfig</title>
-<g id="a_node2"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.DisConfig&#10;&#10;DIS package settings.&#10;">
-<polygon fill="none" stroke="black" points="939.75,-1140.5 939.75,-1163 1003.5,-1163 1003.5,-1140.5 939.75,-1140.5"/>
-<text xml:space="preserve" text-anchor="start" x="942.75" y="-1147.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">DisConfig</text>
-<polygon fill="none" stroke="black" points="939.75,-1118 939.75,-1140.5 982.5,-1140.5 982.5,-1118 939.75,-1118"/>
-<text xml:space="preserve" text-anchor="start" x="943.12" y="-1124.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">itmuni</text>
-<polygon fill="none" stroke="black" points="982.5,-1118 982.5,-1140.5 1003.5,-1140.5 1003.5,-1118 982.5,-1118"/>
-<text xml:space="preserve" text-anchor="start" x="985.88" y="-1124.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-</a>
-</g>
-</g>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.EvtConfig -->
-<g id="node3" class="node">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.EvtConfig</title>
-<g id="a_node3"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.EvtConfig&#10;&#10;EVT package settings.&#10;">
-<polygon fill="none" stroke="black" points="939,-852 939,-874.5 1004.25,-874.5 1004.25,-852 939,-852"/>
-<text xml:space="preserve" text-anchor="start" x="942" y="-859.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">EvtConfig</text>
-<polygon fill="none" stroke="black" points="939,-829.5 939,-852 982.88,-852 982.88,-829.5 939,-829.5"/>
-<text xml:space="preserve" text-anchor="start" x="942.56" y="-835.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nevtop</text>
-<polygon fill="none" stroke="black" points="982.88,-829.5 982.88,-852 1004.25,-852 1004.25,-829.5 982.88,-829.5"/>
-<text xml:space="preserve" text-anchor="start" x="986.44" y="-835.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-<polygon fill="none" stroke="black" points="939,-807 939,-829.5 982.88,-829.5 982.88,-807 939,-807"/>
-<text xml:space="preserve" text-anchor="start" x="950.81" y="-813.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ievt</text>
-<polygon fill="none" stroke="black" points="982.88,-807 982.88,-829.5 1004.25,-829.5 1004.25,-807 982.88,-807"/>
-<text xml:space="preserve" text-anchor="start" x="986.44" y="-813.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-<polygon fill="none" stroke="black" points="939,-784.5 939,-807 982.88,-807 982.88,-784.5 939,-784.5"/>
-<text xml:space="preserve" text-anchor="start" x="942.94" y="-790.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ipakcb</text>
-<polygon fill="none" stroke="black" points="982.88,-784.5 982.88,-807 1004.25,-807 1004.25,-784.5 982.88,-784.5"/>
-<text xml:space="preserve" text-anchor="start" x="986.44" y="-790.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
-</a>
-</g>
-</g>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.LmtConfig -->
-<g id="node4" class="node">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.LmtConfig</title>
-<g id="a_node4"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.LmtConfig&#10;&#10;LMT package settings.&#10;">
-<polygon fill="none" stroke="black" points="910.88,-563 910.88,-585.5 1032.38,-585.5 1032.38,-563 910.88,-563"/>
-<text xml:space="preserve" text-anchor="start" x="939.38" y="-570.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">LmtConfig</text>
-<polygon fill="none" stroke="black" points="910.88,-540.5 910.88,-563 1012.88,-563 1012.88,-540.5 910.88,-540.5"/>
-<text xml:space="preserve" text-anchor="start" x="913.88" y="-546.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_file_name</text>
-<polygon fill="none" stroke="black" points="1012.88,-540.5 1012.88,-563 1032.38,-563 1032.38,-540.5 1012.88,-540.5"/>
-<text xml:space="preserve" text-anchor="start" x="1015.88" y="-546.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
-<polygon fill="none" stroke="black" points="910.88,-518 910.88,-540.5 1012.88,-540.5 1012.88,-518 910.88,-518"/>
-<text xml:space="preserve" text-anchor="start" x="936" y="-524.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extension</text>
-<polygon fill="none" stroke="black" points="1012.88,-518 1012.88,-540.5 1032.38,-540.5 1032.38,-518 1012.88,-518"/>
-<text xml:space="preserve" text-anchor="start" x="1015.88" y="-524.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
-<polygon fill="none" stroke="black" points="910.88,-495.5 910.88,-518 1012.88,-518 1012.88,-495.5 910.88,-495.5"/>
-<text xml:space="preserve" text-anchor="start" x="922.88" y="-501.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_format</text>
-<polygon fill="none" stroke="black" points="1012.88,-495.5 1012.88,-518 1032.38,-518 1032.38,-495.5 1012.88,-495.5"/>
-<text xml:space="preserve" text-anchor="start" x="1015.88" y="-501.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
-</a>
-</g>
-</g>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig -->
-<g id="node5" class="node">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig</title>
-<g id="a_node5"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig&#10;&#10;Expert&#45;level MODFLOW configuration organized by concern.&#10;">
-<polygon fill="none" stroke="black" points="0,-567.25 0,-589.75 275.25,-589.75 275.25,-567.25 0,-567.25"/>
-<text xml:space="preserve" text-anchor="start" x="91.88" y="-574.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">ModflowConfig</text>
-<polygon fill="none" stroke="black" points="0,-544.75 0,-567.25 95.25,-567.25 95.25,-544.75 0,-544.75"/>
-<text xml:space="preserve" text-anchor="start" x="26.25" y="-550.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">runtime</text>
-<polygon fill="none" stroke="black" points="95.25,-544.75 95.25,-567.25 275.25,-567.25 275.25,-544.75 95.25,-544.75"/>
-<text xml:space="preserve" text-anchor="start" x="117.38" y="-550.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ModflowRuntimeConfig</text>
-<polygon fill="none" stroke="black" points="0,-522.25 0,-544.75 95.25,-544.75 95.25,-522.25 0,-522.25"/>
-<text xml:space="preserve" text-anchor="start" x="3" y="-528.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">process_specific</text>
-<polygon fill="none" stroke="black" points="95.25,-522.25 95.25,-544.75 275.25,-544.75 275.25,-522.25 95.25,-522.25"/>
-<text xml:space="preserve" text-anchor="start" x="98.25" y="-528.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ModflowProcessSpecificConfig</text>
-<polygon fill="none" stroke="black" points="0,-499.75 0,-522.25 95.25,-522.25 95.25,-499.75 0,-499.75"/>
-<text xml:space="preserve" text-anchor="start" x="34.12" y="-505.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">sgrid</text>
-<polygon fill="none" stroke="black" points="95.25,-499.75 95.25,-522.25 275.25,-522.25 275.25,-499.75 95.25,-499.75"/>
-<text xml:space="preserve" text-anchor="start" x="132.75" y="-505.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">SolverSGridConfig</text>
-<polygon fill="none" stroke="black" points="0,-477.25 0,-499.75 95.25,-499.75 95.25,-477.25 0,-477.25"/>
-<text xml:space="preserve" text-anchor="start" x="34.88" y="-483.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">tgrid</text>
-<polygon fill="none" stroke="black" points="95.25,-477.25 95.25,-499.75 275.25,-499.75 275.25,-477.25 95.25,-477.25"/>
-<text xml:space="preserve" text-anchor="start" x="127.12" y="-483.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">TMeshConfig | None</text>
-</a>
-</g>
-</g>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig -->
-<g id="node6" class="node">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig</title>
-<g id="a_node6"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig&#10;&#10;Process&#45;specific parameters used by selected MODFLOW packages.&#10;">
-<polygon fill="none" stroke="black" points="454.5,-563.75 454.5,-586.25 640.5,-586.25 640.5,-563.75 454.5,-563.75"/>
-<text xml:space="preserve" text-anchor="start" x="457.5" y="-570.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">ModflowProcessSpecificConfig</text>
-<polygon fill="none" stroke="black" points="454.5,-541.25 454.5,-563.75 548.25,-563.75 548.25,-541.25 454.5,-541.25"/>
-<text xml:space="preserve" text-anchor="start" x="491.62" y="-547.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">vka</text>
-<polygon fill="none" stroke="black" points="548.25,-541.25 548.25,-563.75 640.5,-563.75 640.5,-541.25 548.25,-541.25"/>
-<text xml:space="preserve" text-anchor="start" x="582" y="-547.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float</text>
-<polygon fill="none" stroke="black" points="454.5,-518.75 454.5,-541.25 548.25,-541.25 548.25,-518.75 454.5,-518.75"/>
-<text xml:space="preserve" text-anchor="start" x="488.25" y="-524.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">exdp</text>
-<polygon fill="none" stroke="black" points="548.25,-518.75 548.25,-541.25 640.5,-541.25 640.5,-518.75 548.25,-518.75"/>
-<text xml:space="preserve" text-anchor="start" x="582" y="-524.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float</text>
-</a>
-</g>
-</g>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig&#45;&gt;hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig -->
-<g id="edge1" class="edge">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig:e&#45;&gt;hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig:w</title>
-<path fill="none" stroke="black" d="M284.94,-533.7C353.13,-536.63 372.92,-570.09 438.73,-574.52"/>
-<polyline fill="none" stroke="black" points="275.25,-533.5 280.25,-533.61"/>
-<polyline fill="none" stroke="black" points="280.25,-533.61 285.25,-533.71"/>
-<polyline fill="none" stroke="black" points="453.5,-575 448.5,-574.84"/>
-<polygon fill="black" stroke="black" points="447.67,-569.81 447.34,-579.8 445.34,-579.74 445.67,-569.74 447.67,-569.81"/>
-<polyline fill="none" stroke="black" points="448.5,-574.84 443.51,-574.67"/>
-<polygon fill="black" stroke="black" points="442.67,-569.64 442.34,-579.64 440.34,-579.57 440.67,-569.58 442.67,-569.64"/>
-<polyline fill="none" stroke="black" points="443.51,-574.67 438.51,-574.51"/>
-</g>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig -->
-<g id="node7" class="node">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig</title>
-<g id="a_node7"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig&#10;&#10;Expert runtime settings grouped by MODFLOW&#45;NWT package.&#10;">
-<polygon fill="none" stroke="black" points="473.25,-964.25 473.25,-986.75 621.75,-986.75 621.75,-964.25 473.25,-964.25"/>
-<text xml:space="preserve" text-anchor="start" x="476.25" y="-971.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">ModflowRuntimeConfig</text>
-<polygon fill="none" stroke="black" points="473.25,-941.75 473.25,-964.25 511.12,-964.25 511.12,-941.75 473.25,-941.75"/>
-<text xml:space="preserve" text-anchor="start" x="482.06" y="-947.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nwt</text>
-<polygon fill="none" stroke="black" points="511.12,-941.75 511.12,-964.25 621.75,-964.25 621.75,-941.75 511.12,-941.75"/>
-<text xml:space="preserve" text-anchor="start" x="518.44" y="-947.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">NwtSolverConfig</text>
-<polygon fill="none" stroke="black" points="473.25,-919.25 473.25,-941.75 511.12,-941.75 511.12,-919.25 473.25,-919.25"/>
-<text xml:space="preserve" text-anchor="start" x="484.31" y="-925.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dis</text>
-<polygon fill="none" stroke="black" points="511.12,-919.25 511.12,-941.75 621.75,-941.75 621.75,-919.25 511.12,-919.25"/>
-<text xml:space="preserve" text-anchor="start" x="538.31" y="-925.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">DisConfig</text>
-<polygon fill="none" stroke="black" points="473.25,-896.75 473.25,-919.25 511.12,-919.25 511.12,-896.75 473.25,-896.75"/>
-<text xml:space="preserve" text-anchor="start" x="483.19" y="-902.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bas</text>
-<polygon fill="none" stroke="black" points="511.12,-896.75 511.12,-919.25 621.75,-919.25 621.75,-896.75 511.12,-896.75"/>
-<text xml:space="preserve" text-anchor="start" x="537.56" y="-902.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">BasConfig</text>
-<polygon fill="none" stroke="black" points="473.25,-874.25 473.25,-896.75 511.12,-896.75 511.12,-874.25 473.25,-874.25"/>
-<text xml:space="preserve" text-anchor="start" x="480.56" y="-880.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">upw</text>
-<polygon fill="none" stroke="black" points="511.12,-874.25 511.12,-896.75 621.75,-896.75 621.75,-874.25 511.12,-874.25"/>
-<text xml:space="preserve" text-anchor="start" x="534.56" y="-880.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">UpwConfig</text>
-<polygon fill="none" stroke="black" points="473.25,-851.75 473.25,-874.25 511.12,-874.25 511.12,-851.75 473.25,-851.75"/>
-<text xml:space="preserve" text-anchor="start" x="483.94" y="-857.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">evt</text>
-<polygon fill="none" stroke="black" points="511.12,-851.75 511.12,-874.25 621.75,-874.25 621.75,-851.75 511.12,-851.75"/>
-<text xml:space="preserve" text-anchor="start" x="538.31" y="-857.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">EvtConfig</text>
-<polygon fill="none" stroke="black" points="473.25,-829.25 473.25,-851.75 511.12,-851.75 511.12,-829.25 473.25,-829.25"/>
-<text xml:space="preserve" text-anchor="start" x="485.81" y="-835.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">oc</text>
-<polygon fill="none" stroke="black" points="511.12,-829.25 511.12,-851.75 621.75,-851.75 621.75,-829.25 511.12,-829.25"/>
-<text xml:space="preserve" text-anchor="start" x="539.81" y="-835.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">OcConfig</text>
-<polygon fill="none" stroke="black" points="473.25,-806.75 473.25,-829.25 511.12,-829.25 511.12,-806.75 473.25,-806.75"/>
-<text xml:space="preserve" text-anchor="start" x="482.44" y="-812.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">wel</text>
-<polygon fill="none" stroke="black" points="511.12,-806.75 511.12,-829.25 621.75,-829.25 621.75,-806.75 511.12,-806.75"/>
-<text xml:space="preserve" text-anchor="start" x="536.81" y="-812.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">WelConfig</text>
-<polygon fill="none" stroke="black" points="473.25,-784.25 473.25,-806.75 511.12,-806.75 511.12,-784.25 473.25,-784.25"/>
-<text xml:space="preserve" text-anchor="start" x="482.81" y="-790.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">lmt</text>
-<polygon fill="none" stroke="black" points="511.12,-784.25 511.12,-806.75 621.75,-806.75 621.75,-784.25 511.12,-784.25"/>
-<text xml:space="preserve" text-anchor="start" x="536.06" y="-790.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">LmtConfig</text>
-</a>
-</g>
-</g>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig&#45;&gt;hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig -->
-<g id="edge2" class="edge">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig:e&#45;&gt;hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig:w</title>
-<path fill="none" stroke="black" d="M285.16,-556.34C469.32,-569.46 280.01,-954.77 457.33,-974.7"/>
-<polyline fill="none" stroke="black" points="275.25,-556 280.25,-556.17"/>
-<polyline fill="none" stroke="black" points="280.25,-556.17 285.24,-556.35"/>
-<polyline fill="none" stroke="black" points="472.25,-975.5 467.26,-975.23"/>
-<polygon fill="black" stroke="black" points="466.53,-970.19 465.99,-980.17 463.99,-980.06 464.53,-970.08 466.53,-970.19"/>
-<polyline fill="none" stroke="black" points="467.26,-975.23 462.26,-974.96"/>
-<polygon fill="black" stroke="black" points="461.53,-969.92 461,-979.9 459,-979.8 459.54,-969.81 461.53,-969.92"/>
-<polyline fill="none" stroke="black" points="462.26,-974.96 457.27,-974.7"/>
-</g>
-<!-- hydromodpy.solver.utils.temporal.tmesh_config.TMeshConfig -->
-<g id="node8" class="node">
-<title>hydromodpy.solver.utils.temporal.tmesh_config.TMeshConfig</title>
-<g id="a_node8"><a xlink:title="hydromodpy.solver.utils.temporal.tmesh_config.TMeshConfig&#10;&#10;Validated input model for ``TmeshGenerator`` settings.&#10;">
+<title>hydromodpy.core.time.tmesh_config.TMeshConfig</title>
+<g id="a_node1"><a xlink:title="hydromodpy.core.time.tmesh_config.TMeshConfig&#10;&#10;Validated input model for ``TmeshGenerator`` settings.&#10;">
 <polygon fill="none" stroke="black" points="383.25,-356 383.25,-378.5 711.75,-378.5 711.75,-356 383.25,-356"/>
 <text xml:space="preserve" text-anchor="start" x="507.38" y="-363.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">TMeshConfig</text>
 <polygon fill="none" stroke="black" points="383.25,-333.5 383.25,-356 486,-356 486,-333.5 383.25,-333.5"/>
@@ -254,9 +79,102 @@
 </a>
 </g>
 </g>
-<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig&#45;&gt;hydromodpy.solver.utils.temporal.tmesh_config.TMeshConfig -->
-<g id="edge3" class="edge">
-<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig:e&#45;&gt;hydromodpy.solver.utils.temporal.tmesh_config.TMeshConfig:w</title>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.BasConfig -->
+<g id="node2" class="node">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.BasConfig</title>
+<g id="a_node2"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.BasConfig&#10;&#10;BAS package settings.&#10;">
+<polygon fill="none" stroke="black" points="935.62,-1059.5 935.62,-1082 1007.62,-1082 1007.62,-1059.5 935.62,-1059.5"/>
+<text xml:space="preserve" text-anchor="start" x="941.62" y="-1066.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">BasConfig</text>
+<polygon fill="none" stroke="black" points="935.62,-1037 935.62,-1059.5 976.88,-1059.5 976.88,-1037 935.62,-1037"/>
+<text xml:space="preserve" text-anchor="start" x="938.62" y="-1043.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">hnoflo</text>
+<polygon fill="none" stroke="black" points="976.88,-1037 976.88,-1059.5 1007.62,-1059.5 1007.62,-1037 976.88,-1037"/>
+<text xml:space="preserve" text-anchor="start" x="979.88" y="-1043.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float</text>
+</a>
+</g>
+</g>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.DisConfig -->
+<g id="node3" class="node">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.DisConfig</title>
+<g id="a_node3"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.DisConfig&#10;&#10;DIS package settings.&#10;">
+<polygon fill="none" stroke="black" points="939.75,-1140.5 939.75,-1163 1003.5,-1163 1003.5,-1140.5 939.75,-1140.5"/>
+<text xml:space="preserve" text-anchor="start" x="942.75" y="-1147.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">DisConfig</text>
+<polygon fill="none" stroke="black" points="939.75,-1118 939.75,-1140.5 982.5,-1140.5 982.5,-1118 939.75,-1118"/>
+<text xml:space="preserve" text-anchor="start" x="943.12" y="-1124.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">itmuni</text>
+<polygon fill="none" stroke="black" points="982.5,-1118 982.5,-1140.5 1003.5,-1140.5 1003.5,-1118 982.5,-1118"/>
+<text xml:space="preserve" text-anchor="start" x="985.88" y="-1124.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+</a>
+</g>
+</g>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.EvtConfig -->
+<g id="node4" class="node">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.EvtConfig</title>
+<g id="a_node4"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.EvtConfig&#10;&#10;EVT package settings.&#10;">
+<polygon fill="none" stroke="black" points="939,-852 939,-874.5 1004.25,-874.5 1004.25,-852 939,-852"/>
+<text xml:space="preserve" text-anchor="start" x="942" y="-859.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">EvtConfig</text>
+<polygon fill="none" stroke="black" points="939,-829.5 939,-852 982.88,-852 982.88,-829.5 939,-829.5"/>
+<text xml:space="preserve" text-anchor="start" x="942.56" y="-835.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nevtop</text>
+<polygon fill="none" stroke="black" points="982.88,-829.5 982.88,-852 1004.25,-852 1004.25,-829.5 982.88,-829.5"/>
+<text xml:space="preserve" text-anchor="start" x="986.44" y="-835.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+<polygon fill="none" stroke="black" points="939,-807 939,-829.5 982.88,-829.5 982.88,-807 939,-807"/>
+<text xml:space="preserve" text-anchor="start" x="950.81" y="-813.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ievt</text>
+<polygon fill="none" stroke="black" points="982.88,-807 982.88,-829.5 1004.25,-829.5 1004.25,-807 982.88,-807"/>
+<text xml:space="preserve" text-anchor="start" x="986.44" y="-813.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+<polygon fill="none" stroke="black" points="939,-784.5 939,-807 982.88,-807 982.88,-784.5 939,-784.5"/>
+<text xml:space="preserve" text-anchor="start" x="942.94" y="-790.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ipakcb</text>
+<polygon fill="none" stroke="black" points="982.88,-784.5 982.88,-807 1004.25,-807 1004.25,-784.5 982.88,-784.5"/>
+<text xml:space="preserve" text-anchor="start" x="986.44" y="-790.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">int</text>
+</a>
+</g>
+</g>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.LmtConfig -->
+<g id="node5" class="node">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.LmtConfig</title>
+<g id="a_node5"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.LmtConfig&#10;&#10;LMT package settings.&#10;">
+<polygon fill="none" stroke="black" points="910.88,-563 910.88,-585.5 1032.38,-585.5 1032.38,-563 910.88,-563"/>
+<text xml:space="preserve" text-anchor="start" x="939.38" y="-570.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">LmtConfig</text>
+<polygon fill="none" stroke="black" points="910.88,-540.5 910.88,-563 1012.88,-563 1012.88,-540.5 910.88,-540.5"/>
+<text xml:space="preserve" text-anchor="start" x="913.88" y="-546.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_file_name</text>
+<polygon fill="none" stroke="black" points="1012.88,-540.5 1012.88,-563 1032.38,-563 1032.38,-540.5 1012.88,-540.5"/>
+<text xml:space="preserve" text-anchor="start" x="1015.88" y="-546.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<polygon fill="none" stroke="black" points="910.88,-518 910.88,-540.5 1012.88,-540.5 1012.88,-518 910.88,-518"/>
+<text xml:space="preserve" text-anchor="start" x="936" y="-524.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">extension</text>
+<polygon fill="none" stroke="black" points="1012.88,-518 1012.88,-540.5 1032.38,-540.5 1032.38,-518 1012.88,-518"/>
+<text xml:space="preserve" text-anchor="start" x="1015.88" y="-524.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+<polygon fill="none" stroke="black" points="910.88,-495.5 910.88,-518 1012.88,-518 1012.88,-495.5 910.88,-495.5"/>
+<text xml:space="preserve" text-anchor="start" x="922.88" y="-501.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">output_format</text>
+<polygon fill="none" stroke="black" points="1012.88,-495.5 1012.88,-518 1032.38,-518 1032.38,-495.5 1012.88,-495.5"/>
+<text xml:space="preserve" text-anchor="start" x="1015.88" y="-501.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str</text>
+</a>
+</g>
+</g>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig -->
+<g id="node6" class="node">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig</title>
+<g id="a_node6"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig&#10;&#10;Expert&#45;level MODFLOW configuration organized by concern.&#10;">
+<polygon fill="none" stroke="black" points="0,-567.25 0,-589.75 275.25,-589.75 275.25,-567.25 0,-567.25"/>
+<text xml:space="preserve" text-anchor="start" x="91.88" y="-574.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">ModflowConfig</text>
+<polygon fill="none" stroke="black" points="0,-544.75 0,-567.25 95.25,-567.25 95.25,-544.75 0,-544.75"/>
+<text xml:space="preserve" text-anchor="start" x="26.25" y="-550.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">runtime</text>
+<polygon fill="none" stroke="black" points="95.25,-544.75 95.25,-567.25 275.25,-567.25 275.25,-544.75 95.25,-544.75"/>
+<text xml:space="preserve" text-anchor="start" x="117.38" y="-550.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ModflowRuntimeConfig</text>
+<polygon fill="none" stroke="black" points="0,-522.25 0,-544.75 95.25,-544.75 95.25,-522.25 0,-522.25"/>
+<text xml:space="preserve" text-anchor="start" x="3" y="-528.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">process_specific</text>
+<polygon fill="none" stroke="black" points="95.25,-522.25 95.25,-544.75 275.25,-544.75 275.25,-522.25 95.25,-522.25"/>
+<text xml:space="preserve" text-anchor="start" x="98.25" y="-528.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">ModflowProcessSpecificConfig</text>
+<polygon fill="none" stroke="black" points="0,-499.75 0,-522.25 95.25,-522.25 95.25,-499.75 0,-499.75"/>
+<text xml:space="preserve" text-anchor="start" x="34.12" y="-505.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">sgrid</text>
+<polygon fill="none" stroke="black" points="95.25,-499.75 95.25,-522.25 275.25,-522.25 275.25,-499.75 95.25,-499.75"/>
+<text xml:space="preserve" text-anchor="start" x="132.75" y="-505.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">SolverSGridConfig</text>
+<polygon fill="none" stroke="black" points="0,-477.25 0,-499.75 95.25,-499.75 95.25,-477.25 0,-477.25"/>
+<text xml:space="preserve" text-anchor="start" x="34.88" y="-483.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">tgrid</text>
+<polygon fill="none" stroke="black" points="95.25,-477.25 95.25,-499.75 275.25,-499.75 275.25,-477.25 95.25,-477.25"/>
+<text xml:space="preserve" text-anchor="start" x="127.12" y="-483.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">TMeshConfig | None</text>
+</a>
+</g>
+</g>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig&#45;&gt;hydromodpy.core.time.tmesh_config.TMeshConfig -->
+<g id="edge1" class="edge">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig:e&#45;&gt;hydromodpy.core.time.tmesh_config.TMeshConfig:w</title>
 <path fill="none" stroke="black" d="M285.07,-487.66C339.4,-477.81 318.77,-384.18 368.55,-369.25"/>
 <polyline fill="none" stroke="black" points="275.25,-488.5 280.23,-488.07"/>
 <polyline fill="none" stroke="black" points="280.23,-488.07 285.21,-487.65"/>
@@ -265,6 +183,88 @@
 <polyline fill="none" stroke="black" points="378.3,-367.93 373.34,-368.6"/>
 <polygon fill="black" stroke="black" points="371.68,-363.78 373.03,-373.69 371.04,-373.96 369.69,-364.05 371.68,-363.78"/>
 <polyline fill="none" stroke="black" points="373.34,-368.6 368.39,-369.28"/>
+</g>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig -->
+<g id="node7" class="node">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig</title>
+<g id="a_node7"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig&#10;&#10;Process&#45;specific parameters used by selected MODFLOW packages.&#10;">
+<polygon fill="none" stroke="black" points="454.5,-563.75 454.5,-586.25 640.5,-586.25 640.5,-563.75 454.5,-563.75"/>
+<text xml:space="preserve" text-anchor="start" x="457.5" y="-570.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">ModflowProcessSpecificConfig</text>
+<polygon fill="none" stroke="black" points="454.5,-541.25 454.5,-563.75 548.25,-563.75 548.25,-541.25 454.5,-541.25"/>
+<text xml:space="preserve" text-anchor="start" x="491.62" y="-547.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">vka</text>
+<polygon fill="none" stroke="black" points="548.25,-541.25 548.25,-563.75 640.5,-563.75 640.5,-541.25 548.25,-541.25"/>
+<text xml:space="preserve" text-anchor="start" x="582" y="-547.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float</text>
+<polygon fill="none" stroke="black" points="454.5,-518.75 454.5,-541.25 548.25,-541.25 548.25,-518.75 454.5,-518.75"/>
+<text xml:space="preserve" text-anchor="start" x="488.25" y="-524.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">exdp</text>
+<polygon fill="none" stroke="black" points="548.25,-518.75 548.25,-541.25 640.5,-541.25 640.5,-518.75 548.25,-518.75"/>
+<text xml:space="preserve" text-anchor="start" x="582" y="-524.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float</text>
+</a>
+</g>
+</g>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig&#45;&gt;hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig -->
+<g id="edge2" class="edge">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig:e&#45;&gt;hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowProcessSpecificConfig:w</title>
+<path fill="none" stroke="black" d="M284.94,-533.7C353.13,-536.63 372.92,-570.09 438.73,-574.52"/>
+<polyline fill="none" stroke="black" points="275.25,-533.5 280.25,-533.61"/>
+<polyline fill="none" stroke="black" points="280.25,-533.61 285.25,-533.71"/>
+<polyline fill="none" stroke="black" points="453.5,-575 448.5,-574.84"/>
+<polygon fill="black" stroke="black" points="447.67,-569.81 447.34,-579.8 445.34,-579.74 445.67,-569.74 447.67,-569.81"/>
+<polyline fill="none" stroke="black" points="448.5,-574.84 443.51,-574.67"/>
+<polygon fill="black" stroke="black" points="442.67,-569.64 442.34,-579.64 440.34,-579.57 440.67,-569.58 442.67,-569.64"/>
+<polyline fill="none" stroke="black" points="443.51,-574.67 438.51,-574.51"/>
+</g>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig -->
+<g id="node8" class="node">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig</title>
+<g id="a_node8"><a xlink:title="hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig&#10;&#10;Expert runtime settings grouped by MODFLOW&#45;NWT package.&#10;">
+<polygon fill="none" stroke="black" points="473.25,-964.25 473.25,-986.75 621.75,-986.75 621.75,-964.25 473.25,-964.25"/>
+<text xml:space="preserve" text-anchor="start" x="476.25" y="-971.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">ModflowRuntimeConfig</text>
+<polygon fill="none" stroke="black" points="473.25,-941.75 473.25,-964.25 511.12,-964.25 511.12,-941.75 473.25,-941.75"/>
+<text xml:space="preserve" text-anchor="start" x="482.06" y="-947.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">nwt</text>
+<polygon fill="none" stroke="black" points="511.12,-941.75 511.12,-964.25 621.75,-964.25 621.75,-941.75 511.12,-941.75"/>
+<text xml:space="preserve" text-anchor="start" x="518.44" y="-947.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">NwtSolverConfig</text>
+<polygon fill="none" stroke="black" points="473.25,-919.25 473.25,-941.75 511.12,-941.75 511.12,-919.25 473.25,-919.25"/>
+<text xml:space="preserve" text-anchor="start" x="484.31" y="-925.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">dis</text>
+<polygon fill="none" stroke="black" points="511.12,-919.25 511.12,-941.75 621.75,-941.75 621.75,-919.25 511.12,-919.25"/>
+<text xml:space="preserve" text-anchor="start" x="538.31" y="-925.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">DisConfig</text>
+<polygon fill="none" stroke="black" points="473.25,-896.75 473.25,-919.25 511.12,-919.25 511.12,-896.75 473.25,-896.75"/>
+<text xml:space="preserve" text-anchor="start" x="483.19" y="-902.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">bas</text>
+<polygon fill="none" stroke="black" points="511.12,-896.75 511.12,-919.25 621.75,-919.25 621.75,-896.75 511.12,-896.75"/>
+<text xml:space="preserve" text-anchor="start" x="537.56" y="-902.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">BasConfig</text>
+<polygon fill="none" stroke="black" points="473.25,-874.25 473.25,-896.75 511.12,-896.75 511.12,-874.25 473.25,-874.25"/>
+<text xml:space="preserve" text-anchor="start" x="480.56" y="-880.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">upw</text>
+<polygon fill="none" stroke="black" points="511.12,-874.25 511.12,-896.75 621.75,-896.75 621.75,-874.25 511.12,-874.25"/>
+<text xml:space="preserve" text-anchor="start" x="534.56" y="-880.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">UpwConfig</text>
+<polygon fill="none" stroke="black" points="473.25,-851.75 473.25,-874.25 511.12,-874.25 511.12,-851.75 473.25,-851.75"/>
+<text xml:space="preserve" text-anchor="start" x="483.94" y="-857.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">evt</text>
+<polygon fill="none" stroke="black" points="511.12,-851.75 511.12,-874.25 621.75,-874.25 621.75,-851.75 511.12,-851.75"/>
+<text xml:space="preserve" text-anchor="start" x="538.31" y="-857.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">EvtConfig</text>
+<polygon fill="none" stroke="black" points="473.25,-829.25 473.25,-851.75 511.12,-851.75 511.12,-829.25 473.25,-829.25"/>
+<text xml:space="preserve" text-anchor="start" x="485.81" y="-835.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">oc</text>
+<polygon fill="none" stroke="black" points="511.12,-829.25 511.12,-851.75 621.75,-851.75 621.75,-829.25 511.12,-829.25"/>
+<text xml:space="preserve" text-anchor="start" x="539.81" y="-835.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">OcConfig</text>
+<polygon fill="none" stroke="black" points="473.25,-806.75 473.25,-829.25 511.12,-829.25 511.12,-806.75 473.25,-806.75"/>
+<text xml:space="preserve" text-anchor="start" x="482.44" y="-812.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">wel</text>
+<polygon fill="none" stroke="black" points="511.12,-806.75 511.12,-829.25 621.75,-829.25 621.75,-806.75 511.12,-806.75"/>
+<text xml:space="preserve" text-anchor="start" x="536.81" y="-812.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">WelConfig</text>
+<polygon fill="none" stroke="black" points="473.25,-784.25 473.25,-806.75 511.12,-806.75 511.12,-784.25 473.25,-784.25"/>
+<text xml:space="preserve" text-anchor="start" x="482.81" y="-790.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">lmt</text>
+<polygon fill="none" stroke="black" points="511.12,-784.25 511.12,-806.75 621.75,-806.75 621.75,-784.25 511.12,-784.25"/>
+<text xml:space="preserve" text-anchor="start" x="536.06" y="-790.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">LmtConfig</text>
+</a>
+</g>
+</g>
+<!-- hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig&#45;&gt;hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig -->
+<g id="edge3" class="edge">
+<title>hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowConfig:e&#45;&gt;hydromodpy.solver.modflow_nwt.nwt.nwt_config.ModflowRuntimeConfig:w</title>
+<path fill="none" stroke="black" d="M285.16,-556.34C469.32,-569.46 280.01,-954.77 457.33,-974.7"/>
+<polyline fill="none" stroke="black" points="275.25,-556 280.25,-556.17"/>
+<polyline fill="none" stroke="black" points="280.25,-556.17 285.24,-556.35"/>
+<polyline fill="none" stroke="black" points="472.25,-975.5 467.26,-975.23"/>
+<polygon fill="black" stroke="black" points="466.53,-970.19 465.99,-980.17 463.99,-980.06 464.53,-970.08 466.53,-970.19"/>
+<polyline fill="none" stroke="black" points="467.26,-975.23 462.26,-974.96"/>
+<polygon fill="black" stroke="black" points="461.53,-969.92 461,-979.9 459,-979.8 459.54,-969.81 461.53,-969.92"/>
+<polyline fill="none" stroke="black" points="462.26,-974.96 457.27,-974.7"/>
 </g>
 <!-- hydromodpy.spatial.mesh.cartesian_grid.sgrid_config.SolverSGridConfig -->
 <g id="node9" class="node">

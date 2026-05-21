@@ -241,8 +241,7 @@ computes useful summaries such as:
 
 These are lazy result views implemented in ``hydromodpy.results.views``:
 they read persisted fields, mesh geometry, and hydrographic-network roles from
-the run without mutating the catalog. ``hydromodpy.analysis.stream_networks``
-re-routes the same distance view under the analysis subpackage.
+the run without mutating the catalog.
 
 What is still missing is the canonical storage rule that decides which
 thresholded or aggregated active network should become the persisted

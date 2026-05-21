@@ -9,20 +9,65 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.core.state.paths import find_catalog_root
 
 # ---------------------------------------------------------------------------
-# Standardised exit codes (architecture_cible/10_ux_cli_api.md §5.1).
+# Standardised exit codes (interface refactor, see reports/99_target_architecture.md §5.3).
+# Typed codes 10..19 map onto specific exception classes; 0/1/2 keep their
+# POSIX-conventional meaning; 130 is the standard SIGINT termination code.
 # ---------------------------------------------------------------------------
 
 EXIT_OK = 0
-EXIT_CONFIG = 1
-EXIT_RUN_FAILED = 2
-EXIT_NOT_FOUND = 3
-EXIT_USER_ABORT = 4
-EXIT_DATA_ERROR = 5
-EXIT_SOLVER_ERROR = 6
+EXIT_GENERIC = 1
+EXIT_USAGE = 2
+EXIT_NOT_FOUND = 10
+EXIT_SCHEMA_MISMATCH = 11
+EXIT_WRITE_CONFLICT = 12
+EXIT_READ_ONLY = 13
+EXIT_CONFIG = 14
+EXIT_SOLVER_ERROR = 15
+EXIT_VALIDATION = 16
+EXIT_CROSS_PROJECTS = 17
+EXIT_BACKUP_FAILED = 18
+EXIT_MIGRATION_FAILED = 19
 EXIT_SIGINT = 130
+
+# Legacy aliases kept for backwards compatibility with existing call sites
+# that have not been migrated to the typed scheme yet. New code should use
+# the named ``EXIT_*`` constants above.
+EXIT_RUN_FAILED = EXIT_GENERIC
+EXIT_USER_ABORT = EXIT_SIGINT
+EXIT_DATA_ERROR = EXIT_VALIDATION
+
+
+def exit_code_for(exc: BaseException) -> int:
+    """Map an exception instance to the matching typed exit code.
+
+    Returns :data:`EXIT_GENERIC` when no specific mapping is registered.
+    :class:`KeyboardInterrupt` is routed to :data:`EXIT_SIGINT` (POSIX 130).
+    """
+    from hydromodpy.core import exceptions as hmp_exc
+
+    if isinstance(exc, KeyboardInterrupt):
+        return EXIT_SIGINT
+    if isinstance(exc, FileNotFoundError):
+        return EXIT_NOT_FOUND
+    mapping: tuple[tuple[type[BaseException], int], ...] = (
+        (getattr(hmp_exc, "SchemaVersionMismatchError", type("_n", (), {})), EXIT_SCHEMA_MISMATCH),
+        (getattr(hmp_exc, "WriteConflictError", type("_n", (), {})), EXIT_WRITE_CONFLICT),
+        (getattr(hmp_exc, "ReadOnlyError", type("_n", (), {})), EXIT_READ_ONLY),
+        (getattr(hmp_exc, "ConfigError", type("_n", (), {})), EXIT_CONFIG),
+        (getattr(hmp_exc, "ConfigMissingError", type("_n", (), {})), EXIT_CONFIG),
+        (getattr(hmp_exc, "SolverError", type("_n", (), {})), EXIT_SOLVER_ERROR),
+        (getattr(hmp_exc, "DataError", type("_n", (), {})), EXIT_VALIDATION),
+        (getattr(hmp_exc, "CrossProjectsError", type("_n", (), {})), EXIT_CROSS_PROJECTS),
+        (getattr(hmp_exc, "BackupFailedError", type("_n", (), {})), EXIT_BACKUP_FAILED),
+        (getattr(hmp_exc, "MigrationFailedError", type("_n", (), {})), EXIT_MIGRATION_FAILED),
+    )
+    for exc_type, code in mapping:
+        if isinstance(exc, exc_type):
+            return code
+    return EXIT_GENERIC
 
 
 # ---------------------------------------------------------------------------
@@ -50,14 +95,6 @@ def find_workspace_root(project_dir: Path) -> Path:
         if (parent / "projects").is_dir() or (parent / "data").is_dir():
             return parent
     return start
-
-
-def find_catalog_root(project_dir: Path) -> Path:
-    """Walk up from ``project_dir`` to find a project-local catalog."""
-    for parent in [project_dir] + list(project_dir.parents):
-        if (parent / CATALOG_FILENAME).exists():
-            return parent
-    return project_dir
 
 
 def find_data_workspace(start: Path) -> Path | None:
@@ -180,13 +217,23 @@ def build_pytest_runtime_env() -> tuple[Path, dict[str, str]]:
 
 __all__ = (
     "EXIT_OK",
-    "EXIT_CONFIG",
-    "EXIT_RUN_FAILED",
+    "EXIT_GENERIC",
+    "EXIT_USAGE",
     "EXIT_NOT_FOUND",
+    "EXIT_SCHEMA_MISMATCH",
+    "EXIT_WRITE_CONFLICT",
+    "EXIT_READ_ONLY",
+    "EXIT_CONFIG",
+    "EXIT_SOLVER_ERROR",
+    "EXIT_VALIDATION",
+    "EXIT_CROSS_PROJECTS",
+    "EXIT_BACKUP_FAILED",
+    "EXIT_MIGRATION_FAILED",
+    "EXIT_SIGINT",
+    "EXIT_RUN_FAILED",
     "EXIT_USER_ABORT",
     "EXIT_DATA_ERROR",
-    "EXIT_SOLVER_ERROR",
-    "EXIT_SIGINT",
+    "exit_code_for",
     "find_project_root",
     "find_catalog_root",
     "find_workspace_root",

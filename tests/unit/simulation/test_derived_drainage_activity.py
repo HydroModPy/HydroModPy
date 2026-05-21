@@ -11,7 +11,7 @@ from hydromodpy.core.field_routing import (
     drain_budget_to_positive_outflow,
 )
 from hydromodpy.results.catalog import SimulationCatalog
-from hydromodpy.simulation.extraction.extractors.derived import (
+from hydromodpy.simulation.extraction.derivation.derived import (
     DERIVED_VARIABLES,
     compute_derived,
 )

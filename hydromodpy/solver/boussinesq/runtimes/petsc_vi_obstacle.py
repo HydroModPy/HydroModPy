@@ -7,12 +7,17 @@ Fischer-Burmeister residuals. PETSc solves only for ``h`` with explicit bounds
 groundwater balance residual on active bounds is reconstructed as a surface or
 bottom reaction. With an explicit positive Cauchy drainage conductance, the
 upper obstacle is relaxed and the drainage flux term carries the top exchange.
+
+This module is the public facade for the ``petsc_vi`` sub-package, which
+splits the runtime in three concerns:
+
+- ``petsc_vi.petsc``: pure PETSc utility helpers (SNES configuration, diagnostics).
+- ``petsc_vi.obstacle``: obstacle-specific math (clipping, reactions, projected residual).
+- ``petsc_vi.vi``: VI orchestration (substeps, diagnostics, top-level SNESVI).
 """
 
 from __future__ import annotations
 
-import os
-from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
 
@@ -21,12 +26,7 @@ import numpy as np
 from hydromodpy.solver.boussinesq.assembly import (
     BoussinesqAssembly,
     assemble_steady_residual_with_saturation_excess,
-    assemble_transient_residual_with_saturation_excess,
 )
-from hydromodpy.solver.boussinesq.jacobian.semianalytic import (
-    build_sparse_semianalytic_base_jacobian_triplets,
-)
-from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 from hydromodpy.solver.boussinesq.runtime_contract import (
     RuntimeSolveResult,
     SteadySolveInputs,
@@ -35,21 +35,63 @@ from hydromodpy.solver.boussinesq.runtime_contract import (
 from hydromodpy.solver.boussinesq.runtimes.dry_equilibrium import (
     detect_dry_equilibrium,
 )
-from hydromodpy.solver.boussinesq.runtimes.execution_common import (
-    apply_residual_tolerance,
-    build_runtime_result,
-    residual_norm_inf,
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
+    clip_head_to_bounds as _clip_head_to_bounds,
 )
-from hydromodpy.solver.boussinesq.runtimes.petsc_common import (
-    _coo_to_csr,
-    _require_petsc,
-    _snes_reason_label,
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
+    obstacle_tolerance as _obstacle_tolerance,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
+    prescribed_head_cells as _prescribed_head_cells,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
+    projected_vi_residual as _projected_vi_residual,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.obstacle import (
+    reconstruct_obstacle_reactions as _reconstruct_obstacle_reactions,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.petsc import (
+    accept_failed_snes_by_projected_tolerance as _accept_failed_snes_by_projected_tolerance,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.petsc import (
+    configure_vi_snes as _configure_vi_snes,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    attempt_diagnostic_record as _attempt_diagnostic_record,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    dry_equilibrium_result as _dry_equilibrium_result,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    normalize_substep_count as _normalize_substep_count,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    period_substep_diagnostics as _period_substep_diagnostics,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    restored_transient_failure_result as _restored_transient_failure_result,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    solve_transient_vi_substep as _solve_transient_vi_substep,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    solve_vi_obstacle_problem as _solve_vi_obstacle_problem,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    substep_attempt_counts as _substep_attempt_counts,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    substep_diagnostic_record as _substep_diagnostic_record,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    sum_attempt_iterations as _sum_attempt_iterations,
+)
+from hydromodpy.solver.boussinesq.runtimes.petsc_vi.vi import (
+    sum_substep_iterations as _sum_substep_iterations,
 )
 from hydromodpy.solver.boussinesq.runtimes.vi_bounds import (
     variable_bounds as _variable_bounds,
 )
-
-_DEFAULT_PC_FACTOR_SHIFT_AMOUNT = 1.0e-10
 
 
 def solve_transient_step(inputs: TransientStepInputs) -> RuntimeSolveResult:
@@ -225,863 +267,11 @@ def solve_steady_problem(inputs: SteadySolveInputs) -> RuntimeSolveResult:
     )
 
 
-def _solve_transient_vi_substep(
-    *,
-    inputs: TransientStepInputs,
-    head_prev_m: np.ndarray,
-    head_initial_guess_m: np.ndarray,
-    dt_seconds: float,
-    zero_surface_rate_m_s: np.ndarray,
-    prescribed_head_m_by_cell: np.ndarray | None,
-) -> RuntimeSolveResult:
-    """Solve one Backward-Euler PETSc VI substep with period forcing held fixed."""
-    head_prev = np.asarray(head_prev_m, dtype=float).copy()
-
-    def _assembly_for(head_m: np.ndarray) -> BoussinesqAssembly:
-        return assemble_transient_residual_with_saturation_excess(
-            inputs.mesh,
-            head_m=head_m,
-            head_prev_m=head_prev,
-            dt_seconds=float(dt_seconds),
-            saturation_excess_rate_m_s=zero_surface_rate_m_s,
-            recharge_rate_m_s=inputs.recharge_rate_m_s,
-            well_flux_m3_s=inputs.well_flux_m3_s,
-            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-            regularization_radius=float(inputs.options.regularization_radius),
-        )
-
-    return _solve_vi_obstacle_problem(
-        assembly_for=_assembly_for,
-        head_initial_guess_m=np.asarray(head_initial_guess_m, dtype=float),
-        mesh=inputs.mesh,
-        dt_seconds=float(dt_seconds),
-        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
-        drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-        max_iterations=int(inputs.options.max_iterations),
-        tol_residual_inf=float(inputs.options.tol_residual_inf),
-        tol_state_update_inf=float(inputs.options.tol_state_update_inf),
-        backend_name="petsc",
-    )
-
-
-def _restored_transient_failure_result(
-    *,
-    inputs: TransientStepInputs,
-    head_start_m: np.ndarray,
-    prescribed_head_m_by_cell: np.ndarray | None,
-    zero_surface_rate_m_s: np.ndarray,
-    failed_result: RuntimeSolveResult,
-) -> RuntimeSolveResult:
-    """Return a failed period result restored to the period-start head."""
-    head_start = np.asarray(head_start_m, dtype=float).copy()
-    raw_assembly = assemble_transient_residual_with_saturation_excess(
-        inputs.mesh,
-        head_m=head_start,
-        head_prev_m=head_start,
-        dt_seconds=float(inputs.dt_seconds),
-        saturation_excess_rate_m_s=zero_surface_rate_m_s,
-        recharge_rate_m_s=inputs.recharge_rate_m_s,
-        well_flux_m3_s=inputs.well_flux_m3_s,
-        prescribed_head_m_by_cell=prescribed_head_m_by_cell,
-        drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-        regularization_radius=float(inputs.options.regularization_radius),
-    )
-    _, upper_bound, prescribed_mask = _variable_bounds(
-        inputs.mesh,
-        prescribed_head_m_by_cell,
-        drainage_conductance_m2_s=inputs.drainage_conductance_m2_s,
-    )
-    physical_lower = np.asarray(inputs.mesh.z_bottom_m, dtype=float).reshape(-1)
-    physical_upper = upper_bound.copy()
-    assembly, _ = _reconstruct_obstacle_reactions(
-        mesh=inputs.mesh,
-        assembly=raw_assembly,
-        head_m=head_start,
-        physical_lower_m=physical_lower,
-        physical_upper_m=physical_upper,
-        prescribed_mask=prescribed_mask,
-        tol_h=_obstacle_tolerance(float(inputs.options.tol_state_update_inf)),
-    )
-    return replace(failed_result, head_m=head_start, assembly=assembly)
-
-
-def _normalize_substep_count(value: int, *, label: str) -> int:
-    """Return a positive substep count."""
-    count = int(value)
-    if count <= 0:
-        raise ValueError(f"{label} must be a positive integer; got {count}.")
-    return count
-
-
-def _substep_attempt_counts(
-    *,
-    requested_substeps: int,
-    adaptive_enabled: bool,
-    max_adaptive_substeps: int,
-) -> tuple[int, ...]:
-    """Return the fixed/adaptive substep counts to try for one period."""
-    requested = _normalize_substep_count(
-        requested_substeps,
-        label="vi_substeps_per_period",
-    )
-    if not bool(adaptive_enabled):
-        return (requested,)
-    maximum = max(
-        requested,
-        _normalize_substep_count(
-            max_adaptive_substeps,
-            label="vi_max_adaptive_substeps",
-        ),
-    )
-    attempts = [requested]
-    while attempts[-1] < maximum:
-        next_count = min(2 * attempts[-1], maximum)
-        if next_count == attempts[-1]:
-            break
-        attempts.append(int(next_count))
-    return tuple(attempts)
-
-
-def _substep_diagnostic_record(
-    *,
-    result: RuntimeSolveResult,
-    attempt_index: int,
-    substep_index: int,
-    n_substeps_attempted: int,
-    dt_sub_seconds: float,
-) -> dict[str, Any]:
-    """Return one JSON-friendly diagnostic record for a substep solve."""
-    diagnostics = dict(result.diagnostics or {})
-    return {
-        "attempt_index": int(attempt_index),
-        "substep_index": int(substep_index),
-        "n_substeps_attempted": int(n_substeps_attempted),
-        "dt_sub_seconds": float(dt_sub_seconds),
-        "success": bool(result.converged),
-        "termination_reason": str(result.termination_reason),
-        "snes_reason": int(diagnostics.get("snes_converged_reason", 0) or 0),
-        "snes_reason_label": diagnostics.get("snes_converged_reason_label"),
-        "ksp_reason": int(diagnostics.get("ksp_converged_reason", 0) or 0),
-        "ksp_reason_label": diagnostics.get("ksp_converged_reason_label"),
-        "snes_iterations": int(diagnostics.get("snes_iterations", result.iterations) or 0),
-        "ksp_iterations": int(diagnostics.get("ksp_iterations", 0) or 0),
-        "max_lower_violation_m": float(diagnostics.get("max_violation_lower_m", 0.0) or 0.0),
-        "max_upper_violation_m": float(diagnostics.get("max_violation_upper_m", 0.0) or 0.0),
-        "active_top_count": int(diagnostics.get("surface_active_cells", 0) or 0),
-        "active_bottom_count": int(diagnostics.get("bottom_active_cells", 0) or 0),
-        "free_count": int(diagnostics.get("free_cells", 0) or 0),
-        "surface_reaction_total_m3_s": float(
-            diagnostics.get("surface_reaction_total_m3_s", 0.0) or 0.0
-        ),
-        "bottom_reaction_total_m3_s": float(
-            diagnostics.get("bottom_reaction_total_m3_s", 0.0) or 0.0
-        ),
-        "surface_reaction_total_m3": diagnostics.get("surface_reaction_total_m3"),
-        "bottom_reaction_total_m3": diagnostics.get("bottom_reaction_total_m3"),
-        "residual_norm_free": float(diagnostics.get("free_residual_norm_inf", 0.0) or 0.0),
-        "residual_norm_projected": float(
-            diagnostics.get("projected_vi_residual_norm_inf", result.residual_norm_inf) or 0.0
-        ),
-        "snes_type": diagnostics.get("snes_type"),
-        "ksp_type": diagnostics.get("ksp_type"),
-        "pc_type": diagnostics.get("pc_type"),
-        "pc_factor_shift_type": diagnostics.get("pc_factor_shift_type"),
-        "pc_factor_shift_amount": diagnostics.get("pc_factor_shift_amount"),
-        "petsc_options": diagnostics.get("petsc_options"),
-        "h_min_m": float(np.min(result.head_m)) if result.head_m.size else None,
-        "h_max_m": float(np.max(result.head_m)) if result.head_m.size else None,
-        "residual_min_m3_s": float(np.min(result.assembly.flow_residual_m3_s))
-        if result.assembly.flow_residual_m3_s.size
-        else None,
-        "residual_max_m3_s": float(np.max(result.assembly.flow_residual_m3_s))
-        if result.assembly.flow_residual_m3_s.size
-        else None,
-    }
-
-
-def _attempt_diagnostic_record(
-    *,
-    attempt_index: int,
-    n_substeps: int,
-    substep_records: list[dict[str, Any]],
-) -> dict[str, Any]:
-    """Return one compact diagnostic record for a fixed-substep attempt."""
-    success = bool(substep_records) and all(bool(item["success"]) for item in substep_records)
-    failed = [item for item in substep_records if not bool(item["success"])]
-    return {
-        "attempt_index": int(attempt_index),
-        "n_substeps": int(n_substeps),
-        "success": success,
-        "completed_substeps": int(sum(1 for item in substep_records if bool(item["success"]))),
-        "failed_substep_index": None if not failed else int(failed[0]["substep_index"]),
-        "termination_reason": None if not failed else str(failed[0]["termination_reason"]),
-        "snes_iterations": _sum_substep_iterations(substep_records),
-        "ksp_iterations": _sum_substep_ksp_iterations(substep_records),
-        "substeps": list(substep_records),
-    }
-
-
-def _period_substep_diagnostics(
-    *,
-    final_result: RuntimeSolveResult,
-    requested_substeps: int,
-    used_substeps: int,
-    attempt_counts: tuple[int, ...],
-    attempt_summaries: list[dict[str, Any]],
-    substep_records: list[dict[str, Any]],
-    adaptive_used: bool,
-    success: bool,
-) -> dict[str, Any]:
-    """Return period-level diagnostics, preserving final SNESVI diagnostics."""
-    diagnostics = dict(final_result.diagnostics or {})
-    attempted_substeps = [
-        int(item.get("n_substeps", used_substeps) or used_substeps) for item in attempt_summaries
-    ]
-    diagnostics.update(
-        {
-            "vi_substeps_requested": int(requested_substeps),
-            "vi_substeps_used": int(used_substeps),
-            "vi_substep_attempts": attempted_substeps or [int(value) for value in attempt_counts],
-            "vi_substep_adaptive_used": bool(adaptive_used),
-            "vi_substep_success": bool(success),
-            "vi_substep_attempt_details": list(attempt_summaries),
-            "vi_substep_details": list(substep_records),
-            "vi_substep_total_snes_iterations": _sum_attempt_iterations(
-                attempt_summaries[-1:] if success else attempt_summaries
-            ),
-            "vi_substep_total_ksp_iterations": _sum_attempt_ksp_iterations(
-                attempt_summaries[-1:] if success else attempt_summaries
-            ),
-            "vi_substep_rate_forcing_rescaled": False,
-            "vi_substep_surface_reaction_total_m3": _sum_optional_float(
-                substep_records,
-                "surface_reaction_total_m3",
-            ),
-            "vi_substep_bottom_reaction_total_m3": _sum_optional_float(
-                substep_records,
-                "bottom_reaction_total_m3",
-            ),
-        }
-    )
-    return diagnostics
-
-
-def _sum_substep_iterations(records: list[dict[str, Any]]) -> int:
-    """Return the total nonlinear iterations across substep records."""
-    return int(sum(int(item.get("snes_iterations", 0) or 0) for item in records))
-
-
-def _sum_substep_ksp_iterations(records: list[dict[str, Any]]) -> int:
-    """Return the total linear iterations across substep records."""
-    return int(sum(int(item.get("ksp_iterations", 0) or 0) for item in records))
-
-
-def _sum_attempt_iterations(attempts: list[dict[str, Any]]) -> int:
-    """Return the total nonlinear iterations across attempt records."""
-    return int(sum(int(item.get("snes_iterations", 0) or 0) for item in attempts))
-
-
-def _sum_attempt_ksp_iterations(attempts: list[dict[str, Any]]) -> int:
-    """Return the total linear iterations across attempt records."""
-    return int(sum(int(item.get("ksp_iterations", 0) or 0) for item in attempts))
-
-
-def _sum_optional_float(records: list[dict[str, Any]], key: str) -> float:
-    """Return the sum of nullable float values in substep records."""
-    total = 0.0
-    for item in records:
-        value = item.get(key)
-        if value is not None:
-            total += float(value)
-    return float(total)
-
-
-def _dry_equilibrium_result(
-    *,
-    mesh: BoussinesqMesh,
-    assembly_for: Callable[[np.ndarray], BoussinesqAssembly],
-    head_m: np.ndarray,
-    prescribed_head_m_by_cell: np.ndarray | None,
-    drainage_conductance_m2_s: np.ndarray | float | None,
-    tol_state_update_inf: float,
-    backend_name: str,
-    dry_diagnostics: dict[str, Any],
-) -> RuntimeSolveResult:
-    """Build a steady RuntimeSolveResult for a detected dry VI equilibrium."""
-    lower_bound, upper_bound, prescribed_mask = _variable_bounds(
-        mesh,
-        prescribed_head_m_by_cell,
-        drainage_conductance_m2_s=drainage_conductance_m2_s,
-    )
-    head = _clip_head_to_bounds(
-        np.asarray(head_m, dtype=float),
-        lower=lower_bound,
-        upper=upper_bound,
-    )
-    raw_assembly = assembly_for(head)
-    tol_h = _obstacle_tolerance(tol_state_update_inf)
-    reacted_assembly, reaction_diagnostics = _reconstruct_obstacle_reactions(
-        mesh=mesh,
-        assembly=raw_assembly,
-        head_m=head,
-        physical_lower_m=np.asarray(mesh.z_bottom_m, dtype=float).reshape(-1),
-        physical_upper_m=upper_bound,
-        prescribed_mask=prescribed_mask,
-        tol_h=tol_h,
-    )
-    projected_residual = _projected_vi_residual(
-        residual=np.asarray(raw_assembly.solver_residual, dtype=float),
-        head_m=head,
-        lower_m=lower_bound,
-        upper_m=upper_bound,
-        prescribed_mask=prescribed_mask,
-        tol_h=tol_h,
-    )
-    residual_norm = residual_norm_inf(projected_residual)
-    diagnostics: dict[str, Any] = {
-        "snes_converged_reason": 0,
-        "snes_converged_reason_label": "DRY_EQUILIBRIUM_DETECTED",
-        "snes_iterations": 0,
-        "ksp_iterations": 0,
-        "ksp_converged_reason": 0,
-        "ksp_converged_reason_label": "KSP_NOT_RUN_DRY_EQUILIBRIUM",
-        "max_violation_lower_m": float(np.max(np.maximum(lower_bound - head, 0.0))),
-        "max_violation_upper_m": float(np.max(np.maximum(head - upper_bound, 0.0))),
-        "free_residual_norm_inf": _free_residual_norm(
-            residual=np.asarray(raw_assembly.flow_residual_m3_s, dtype=float),
-            head_m=head,
-            lower_m=np.asarray(mesh.z_bottom_m, dtype=float).reshape(-1),
-            upper_m=upper_bound,
-            prescribed_mask=prescribed_mask,
-            tol_h=tol_h,
-        ),
-        "projected_vi_residual_norm_inf": residual_norm,
-        "accepted_by_projected_tolerance": True,
-        "surface_reaction_total_m3": None,
-        "bottom_reaction_total_m3": None,
-    }
-    diagnostics.update(reaction_diagnostics)
-    diagnostics.update(dry_diagnostics)
-    return build_runtime_result(
-        head_m=head,
-        assembly=reacted_assembly,
-        converged=True,
-        iterations=0,
-        residual_norm_inf_value=residual_norm,
-        backend_name=str(backend_name),
-        termination_reason="dry equilibrium detected before PETSc SNESVI",
-        diagnostics=diagnostics,
-    )
-
-
-def _solve_vi_obstacle_problem(
-    *,
-    assembly_for: Callable[[np.ndarray], BoussinesqAssembly],
-    head_initial_guess_m: np.ndarray,
-    mesh: BoussinesqMesh,
-    dt_seconds: float | None,
-    prescribed_head_m_by_cell: np.ndarray | None,
-    drainage_conductance_m2_s: np.ndarray | float | None,
-    max_iterations: int,
-    tol_residual_inf: float,
-    tol_state_update_inf: float,
-    backend_name: str,
-) -> RuntimeSolveResult:
-    """Run one PETSc SNESVI solve on the bounded head-only residual."""
-    PETSc = _require_petsc()
-    petsc_index_dtype = np.dtype(PETSc.IntType)
-    n_cells = int(mesh.n_cells)
-    lower_bound, upper_bound, prescribed_mask = _variable_bounds(
-        mesh,
-        prescribed_head_m_by_cell,
-        drainage_conductance_m2_s=drainage_conductance_m2_s,
-    )
-    physical_lower = np.asarray(mesh.z_bottom_m, dtype=float).reshape(-1)
-    physical_upper = upper_bound.copy()
-    head0 = _clip_head_to_bounds(head_initial_guess_m, lower=lower_bound, upper=upper_bound)
-
-    solution = PETSc.Vec().createSeq(n_cells, comm=PETSc.COMM_SELF)
-    residual_template = PETSc.Vec().createSeq(n_cells, comm=PETSc.COMM_SELF)
-    lower_vec = PETSc.Vec().createSeq(n_cells, comm=PETSc.COMM_SELF)
-    upper_vec = PETSc.Vec().createSeq(n_cells, comm=PETSc.COMM_SELF)
-    jacobian = PETSc.Mat().createAIJ(
-        [n_cells, n_cells],
-        nnz=12,
-        comm=PETSc.COMM_SELF,
-    )
-    jacobian.setUp()
-    jacobian.setOption(PETSc.Mat.Option.NEW_NONZERO_ALLOCATION_ERR, False)
-    np.asarray(solution.getArray(), dtype=float)[:] = head0
-    np.asarray(lower_vec.getArray(), dtype=float)[:] = lower_bound
-    np.asarray(upper_vec.getArray(), dtype=float)[:] = upper_bound
-
-    current_assembly = assembly_for(head0)
-
-    def _residual(_snes, state_vec, residual_vec) -> None:
-        nonlocal current_assembly
-        head_m = np.asarray(state_vec.getArray(readonly=True), dtype=float)
-        current_assembly = assembly_for(head_m)
-        residual = np.asarray(residual_vec.getArray(), dtype=float)
-        residual[:] = np.asarray(current_assembly.solver_residual, dtype=float)
-
-    def _jacobian(_snes, state_vec, jac, preconditioner) -> None:
-        head_m = np.asarray(state_vec.getArray(readonly=True), dtype=float)
-        data, row_indices, col_indices = build_sparse_semianalytic_base_jacobian_triplets(
-            mesh,
-            head_m,
-            dt_seconds=dt_seconds,
-            prescribed_head_m_by_cell=prescribed_head_m_by_cell,
-            drainage_conductance_m2_s=drainage_conductance_m2_s,
-        )
-        indptr, indices, values = _coo_to_csr(
-            n_rows=n_cells,
-            n_cols=n_cells,
-            row_indices=row_indices,
-            col_indices=col_indices,
-            data=data,
-            index_dtype=petsc_index_dtype,
-        )
-        for matrix in (jac,) if jac is preconditioner else (jac, preconditioner):
-            matrix.zeroEntries()
-            if values.size != 0:
-                matrix.setValuesCSR(indptr, indices, values)
-            matrix.assemble()
-
-    snes = PETSc.SNES().create(comm=PETSc.COMM_SELF)
-    snes.setFunction(_residual, residual_template)
-    snes.setJacobian(_jacobian, jacobian, jacobian)
-    snes.setVariableBounds(lower_vec, upper_vec)
-    _configure_vi_snes(
-        PETSc,
-        snes,
-        tol_residual_inf=float(tol_residual_inf),
-        max_iterations=int(max_iterations),
-    )
-
-    snes.solve(None, solution)
-    head = np.asarray(solution.getArray(readonly=True), dtype=float).copy()
-    raw_assembly = assembly_for(head)
-    tol_h = _obstacle_tolerance(tol_state_update_inf)
-    reacted_assembly, reaction_diagnostics = _reconstruct_obstacle_reactions(
-        mesh=mesh,
-        assembly=raw_assembly,
-        head_m=head,
-        physical_lower_m=physical_lower,
-        physical_upper_m=physical_upper,
-        prescribed_mask=prescribed_mask,
-        tol_h=tol_h,
-    )
-    projected_residual = _projected_vi_residual(
-        residual=np.asarray(raw_assembly.solver_residual, dtype=float),
-        head_m=head,
-        lower_m=lower_bound,
-        upper_m=upper_bound,
-        prescribed_mask=prescribed_mask,
-        tol_h=tol_h,
-    )
-    residual_norm = residual_norm_inf(projected_residual)
-    max_violation_lower_m = float(np.max(np.maximum(physical_lower - head, 0.0)))
-    max_violation_upper_m = float(np.max(np.maximum(head - physical_upper, 0.0)))
-    converged_reason = int(snes.getConvergedReason())
-    reason_label = _snes_reason_label(converged_reason)
-    termination_reason_base = (
-        f"petsc SNESVI converged reason {converged_reason} ({reason_label})"
-        if converged_reason > 0
-        else f"petsc SNESVI failed reason {converged_reason} ({reason_label})"
-    )
-    accepted_by_projected_tolerance = _accept_failed_snes_by_projected_tolerance(
-        converged_reason=converged_reason,
-        residual_norm_inf_value=residual_norm,
-        tol_residual_inf=tol_residual_inf,
-        max_violation_lower_m=max_violation_lower_m,
-        max_violation_upper_m=max_violation_upper_m,
-        tol_h=tol_h,
-    )
-    if accepted_by_projected_tolerance:
-        termination_reason_base = (
-            f"{termination_reason_base}; accepted because projected_vi_residual_inf="
-            f"{residual_norm:.3e} <= tol_residual_inf={float(tol_residual_inf):.3e} "
-            "and VI bounds are satisfied"
-        )
-    converged, termination_reason = apply_residual_tolerance(
-        success=converged_reason > 0 or accepted_by_projected_tolerance,
-        residual_norm_inf_value=residual_norm,
-        tol_residual_inf=float(tol_residual_inf),
-        termination_reason=termination_reason_base,
-        residual_label="projected_vi_residual_inf",
-    )
-    diagnostics = _solver_diagnostics(
-        snes,
-        converged_reason=converged_reason,
-        reason_label=reason_label,
-        projected_vi_residual_norm_inf=residual_norm,
-        free_residual_norm_inf_value=_free_residual_norm(
-            residual=np.asarray(raw_assembly.flow_residual_m3_s, dtype=float),
-            head_m=head,
-            lower_m=physical_lower,
-            upper_m=physical_upper,
-            prescribed_mask=prescribed_mask,
-            tol_h=tol_h,
-        ),
-        max_violation_lower_m=max_violation_lower_m,
-        max_violation_upper_m=max_violation_upper_m,
-        reaction_diagnostics=reaction_diagnostics,
-        dt_seconds=dt_seconds,
-    )
-    diagnostics["accepted_by_projected_tolerance"] = bool(accepted_by_projected_tolerance)
-    return build_runtime_result(
-        head_m=head,
-        assembly=reacted_assembly,
-        converged=bool(converged),
-        iterations=int(snes.getIterationNumber()),
-        residual_norm_inf_value=residual_norm,
-        backend_name=str(backend_name),
-        termination_reason=termination_reason,
-        diagnostics=diagnostics,
-    )
-
-
-def _configure_vi_snes(
-    PETSc,
-    snes,
-    *,
-    tol_residual_inf: float,
-    max_iterations: int,
-) -> None:
-    """Apply experimental PETSc VI defaults while keeping options overrideable."""
-    snes.setType("vinewtonrsls")
-    max_iteration_count = int(max_iterations)
-    snes.setTolerances(
-        atol=float(tol_residual_inf),
-        rtol=0.0,
-        stol=0.0,
-        max_it=max_iteration_count,
-    )
-    snes.setMaxFunctionEvaluations(max(10000, max_iteration_count * 20))
-    ksp = snes.getKSP()
-    if ksp is not None:
-        ksp.setType("preonly")
-        ksp.setTolerances(rtol=1.0e-12, atol=0.0, max_it=1)
-        pc = ksp.getPC()
-        if pc is not None:
-            pc.setType("lu")
-            pc.setFactorShift(
-                PETSc.Mat.FactorShiftType.NONZERO,
-                _DEFAULT_PC_FACTOR_SHIFT_AMOUNT,
-            )
-            pc.setFromOptions()
-        ksp.setFromOptions()
-    snes.setFromOptions()
-
-
-def _accept_failed_snes_by_projected_tolerance(
-    *,
-    converged_reason: int,
-    residual_norm_inf_value: float,
-    tol_residual_inf: float,
-    max_violation_lower_m: float,
-    max_violation_upper_m: float,
-    tol_h: float,
-) -> bool:
-    """Accept a failed PETSc SNESVI stop only when the VI policy is satisfied."""
-    return (
-        int(converged_reason) <= 0
-        and float(residual_norm_inf_value) <= float(tol_residual_inf)
-        and float(max_violation_lower_m) <= float(tol_h)
-        and float(max_violation_upper_m) <= float(tol_h)
-    )
-
-
-def _prescribed_head_cells(
-    prescribed_head_m_by_cell: np.ndarray | None,
-) -> np.ndarray | None:
-    """Return the canonical prescribed-head cell vector, if provided."""
-    if prescribed_head_m_by_cell is None:
-        return None
-    return np.asarray(prescribed_head_m_by_cell, dtype=float).reshape(-1)
-
-
-def _clip_head_to_bounds(
-    head_m: np.ndarray,
-    *,
-    lower: np.ndarray,
-    upper: np.ndarray,
-) -> np.ndarray:
-    """Return one initial head guess inside the PETSc variable bounds."""
-    head = np.asarray(head_m, dtype=float).reshape(-1).copy()
-    if head.size != np.asarray(lower).size:
-        raise ValueError(
-            f"head_m length must match bounds ({int(head.size)} != {int(np.asarray(lower).size)})."
-        )
-    return np.clip(head, np.asarray(lower, dtype=float), np.asarray(upper, dtype=float))
-
-
-def _obstacle_tolerance(tol_state_update_inf: float) -> float:
-    """Return the tolerance used to classify active obstacle cells."""
-    return max(1.0e-9, 10.0 * float(tol_state_update_inf))
-
-
-def _reconstruct_obstacle_reactions(
-    *,
-    mesh: BoussinesqMesh,
-    assembly: BoussinesqAssembly,
-    head_m: np.ndarray,
-    physical_lower_m: np.ndarray,
-    physical_upper_m: np.ndarray,
-    prescribed_mask: np.ndarray,
-    tol_h: float,
-) -> tuple[BoussinesqAssembly, dict[str, Any]]:
-    """Reconstruct non-negative obstacle reactions from the raw balance residual."""
-    head = np.asarray(head_m, dtype=float).reshape(-1)
-    raw_residual = np.asarray(assembly.flow_residual_m3_s, dtype=float).reshape(-1)
-    free_mask = ~np.asarray(prescribed_mask, dtype=bool).reshape(-1)
-    surface_active = free_mask & (head >= np.asarray(physical_upper_m, dtype=float) - float(tol_h))
-    bottom_active = free_mask & (head <= np.asarray(physical_lower_m, dtype=float) + float(tol_h))
-    interior_free = free_mask & ~(surface_active | bottom_active)
-    surface_reaction = np.where(surface_active, np.maximum(-raw_residual, 0.0), 0.0)
-    bottom_reaction = np.where(bottom_active, np.maximum(raw_residual, 0.0), 0.0)
-    area = np.asarray(mesh.cell_area_m2, dtype=float).reshape(-1)
-    q_ex = np.divide(
-        surface_reaction,
-        area,
-        out=np.zeros(int(mesh.n_cells), dtype=float),
-        where=area > 0.0,
-    )
-    q_dry = np.divide(
-        bottom_reaction,
-        area,
-        out=np.zeros(int(mesh.n_cells), dtype=float),
-        where=area > 0.0,
-    )
-    correction = surface_reaction - bottom_reaction
-    corrected_flow = raw_residual + correction
-    corrected_residual = np.asarray(assembly.residual_m3_s, dtype=float).reshape(-1).copy()
-    corrected_solver = np.asarray(assembly.solver_residual, dtype=float).reshape(-1).copy()
-    corrected_residual[free_mask] = corrected_residual[free_mask] + correction[free_mask]
-    corrected_solver[free_mask] = corrected_solver[free_mask] + correction[free_mask]
-    diagnostics = {
-        "surface_active_cells": int(np.count_nonzero(surface_active)),
-        "bottom_active_cells": int(np.count_nonzero(bottom_active)),
-        "free_cells": int(np.count_nonzero(interior_free)),
-        "surface_reaction_total_m3_s": float(np.sum(surface_reaction)),
-        "bottom_reaction_total_m3_s": float(np.sum(bottom_reaction)),
-        "surface_reaction_wrong_sign_m3_s": float(
-            np.max(np.where(surface_active, np.maximum(raw_residual, 0.0), 0.0))
-        ),
-        "bottom_reaction_wrong_sign_m3_s": float(
-            np.max(np.where(bottom_active, np.maximum(-raw_residual, 0.0), 0.0))
-        ),
-    }
-    reacted_assembly = replace(
-        assembly,
-        saturation_excess_rate_m_s=q_ex,
-        dry_deficit_rate_m_s=q_dry,
-        flow_residual_m3_s=corrected_flow,
-        residual_m3_s=corrected_residual,
-        solver_residual=corrected_solver,
-    )
-    return reacted_assembly, diagnostics
-
-
-def _projected_vi_residual(
-    *,
-    residual: np.ndarray,
-    head_m: np.ndarray,
-    lower_m: np.ndarray,
-    upper_m: np.ndarray,
-    prescribed_mask: np.ndarray,
-    tol_h: float,
-) -> np.ndarray:
-    """Return the residual left after applying bound complementarity signs.
-
-    PETSc SNESVI accepts ``F >= 0`` on a lower active bound and ``F <= 0`` on
-    an upper active bound. This helper mirrors that convention for the
-    HydroModPy residual sign.
-    """
-    values = np.asarray(residual, dtype=float).reshape(-1)
-    head = np.asarray(head_m, dtype=float).reshape(-1)
-    lower = np.asarray(lower_m, dtype=float).reshape(-1)
-    upper = np.asarray(upper_m, dtype=float).reshape(-1)
-    projected = values.copy()
-    prescribed = np.asarray(prescribed_mask, dtype=bool).reshape(-1)
-    free = ~prescribed
-    lower_active = free & (head <= lower + float(tol_h))
-    upper_active = free & (head >= upper - float(tol_h))
-    interior = free & ~(lower_active | upper_active)
-    projected[interior] = values[interior]
-    projected[lower_active] = np.minimum(values[lower_active], 0.0)
-    projected[upper_active] = np.maximum(values[upper_active], 0.0)
-    return projected
-
-
-def _free_residual_norm(
-    *,
-    residual: np.ndarray,
-    head_m: np.ndarray,
-    lower_m: np.ndarray,
-    upper_m: np.ndarray,
-    prescribed_mask: np.ndarray,
-    tol_h: float,
-) -> float:
-    """Return the free-cell raw balance norm, excluding active obstacles."""
-    head = np.asarray(head_m, dtype=float).reshape(-1)
-    lower = np.asarray(lower_m, dtype=float).reshape(-1)
-    upper = np.asarray(upper_m, dtype=float).reshape(-1)
-    free = ~np.asarray(prescribed_mask, dtype=bool).reshape(-1)
-    interior = free & (head > lower + float(tol_h)) & (head < upper - float(tol_h))
-    if not np.any(interior):
-        return 0.0
-    return residual_norm_inf(np.asarray(residual, dtype=float).reshape(-1)[interior])
-
-
-def _solver_diagnostics(
-    snes,
-    *,
-    converged_reason: int,
-    reason_label: str,
-    projected_vi_residual_norm_inf: float,
-    free_residual_norm_inf_value: float,
-    max_violation_lower_m: float,
-    max_violation_upper_m: float,
-    reaction_diagnostics: dict[str, Any],
-    dt_seconds: float | None,
-) -> dict[str, Any]:
-    """Return summary diagnostics exported by the Boussinesq drivers."""
-    diagnostics: dict[str, Any] = {
-        "snes_converged_reason": int(converged_reason),
-        "snes_converged_reason_label": str(reason_label),
-        "snes_iterations": int(snes.getIterationNumber()),
-        "ksp_iterations": int(_linear_iteration_count(snes)),
-        "ksp_converged_reason": int(_linear_converged_reason(snes)),
-        "ksp_converged_reason_label": _ksp_reason_label(_linear_converged_reason(snes)),
-        "max_violation_lower_m": float(max_violation_lower_m),
-        "max_violation_upper_m": float(max_violation_upper_m),
-        "free_residual_norm_inf": float(free_residual_norm_inf_value),
-        "projected_vi_residual_norm_inf": float(projected_vi_residual_norm_inf),
-    }
-    diagnostics.update(_petsc_solver_configuration(snes))
-    diagnostics.update(reaction_diagnostics)
-    diagnostics["surface_reaction_total_m3"] = (
-        None
-        if dt_seconds is None
-        else float(diagnostics["surface_reaction_total_m3_s"]) * float(dt_seconds)
-    )
-    diagnostics["bottom_reaction_total_m3"] = (
-        None
-        if dt_seconds is None
-        else float(diagnostics["bottom_reaction_total_m3_s"]) * float(dt_seconds)
-    )
-    try:
-        diagnostics["petsc_function_norm"] = float(snes.getFunctionNorm())
-    except Exception:
-        diagnostics["petsc_function_norm"] = None
-    return diagnostics
-
-
-def _petsc_solver_configuration(snes) -> dict[str, Any]:
-    """Return PETSc SNES/KSP/PC option values when petsc4py exposes them."""
-    values: dict[str, Any] = {"petsc_options": os.environ.get("PETSC_OPTIONS")}
-    try:
-        values["snes_type"] = snes.getType()
-    except Exception:
-        values["snes_type"] = None
-    try:
-        ksp = snes.getKSP()
-    except Exception:
-        ksp = None
-    if ksp is None:
-        values.update(
-            {
-                "ksp_type": None,
-                "pc_type": None,
-                "pc_factor_shift_type": None,
-                "pc_factor_shift_amount": None,
-            }
-        )
-        return values
-    try:
-        values["ksp_type"] = ksp.getType()
-    except Exception:
-        values["ksp_type"] = None
-    try:
-        pc = ksp.getPC()
-    except Exception:
-        pc = None
-    if pc is None:
-        values["pc_type"] = None
-        values["pc_factor_shift_type"] = None
-        values["pc_factor_shift_amount"] = None
-        return values
-    try:
-        values["pc_type"] = pc.getType()
-    except Exception:
-        values["pc_type"] = None
-    try:
-        values["pc_factor_shift_type"] = str(pc.getFactorShiftType())
-    except Exception:
-        values["pc_factor_shift_type"] = None
-    try:
-        values["pc_factor_shift_amount"] = float(pc.getFactorShiftAmount())
-    except Exception:
-        values["pc_factor_shift_amount"] = None
-    return values
-
-
-def _linear_iteration_count(snes) -> int:
-    """Return PETSc linear iterations when available."""
-    try:
-        return int(snes.getLinearSolveIterations())
-    except Exception:
-        pass
-    try:
-        ksp = snes.getKSP()
-        if ksp is not None:
-            return int(ksp.getIterationNumber())
-    except Exception:
-        pass
-    return 0
-
-
-def _linear_converged_reason(snes) -> int:
-    """Return PETSc KSP converged reason when available."""
-    try:
-        ksp = snes.getKSP()
-        if ksp is not None:
-            return int(ksp.getConvergedReason())
-    except Exception:
-        pass
-    return 0
-
-
-def _ksp_reason_label(reason: int) -> str:
-    """Return one readable label for common PETSc KSP reasons."""
-    labels = {
-        2: "KSP_CONVERGED_RTOL_NORMAL",
-        3: "KSP_CONVERGED_ATOL_NORMAL",
-        4: "KSP_CONVERGED_RTOL",
-        5: "KSP_CONVERGED_ATOL",
-        6: "KSP_CONVERGED_ITS",
-        7: "KSP_CONVERGED_CG_NEG_CURVE",
-        8: "KSP_CONVERGED_CG_CONSTRAINED",
-        9: "KSP_CONVERGED_STEP_LENGTH",
-        -2: "KSP_DIVERGED_NULL",
-        -3: "KSP_DIVERGED_ITS",
-        -4: "KSP_DIVERGED_DTOL",
-        -5: "KSP_DIVERGED_BREAKDOWN",
-        -6: "KSP_DIVERGED_BREAKDOWN_BICG",
-        -7: "KSP_DIVERGED_NONSYMMETRIC",
-        -8: "KSP_DIVERGED_INDEFINITE_PC",
-        -9: "KSP_DIVERGED_NANORINF",
-        -10: "KSP_DIVERGED_INDEFINITE_MAT",
-        -11: "KSP_DIVERGED_PC_FAILED",
-        0: "KSP_CONVERGED_ITERATING",
-    }
-    return labels.get(int(reason), f"KSP_REASON_{int(reason)}")
-
-
 __all__ = [
+    "_accept_failed_snes_by_projected_tolerance",
     "_clip_head_to_bounds",
+    "_configure_vi_snes",
+    "_obstacle_tolerance",
     "_projected_vi_residual",
     "_reconstruct_obstacle_reactions",
     "_variable_bounds",

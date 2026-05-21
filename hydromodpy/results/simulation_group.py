@@ -34,8 +34,6 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from hydromodpy.results.storage_contract import ZARR_ZIP_SUFFIX
-
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -48,82 +46,14 @@ if TYPE_CHECKING:
 def _open_simulation_lazy(catalog: SimulationCatalog, sim_id: str) -> xr.Dataset:
     """Open one simulation's Zarr root as a lazy ``xr.Dataset``.
 
-    Field arrays live under nested subgroups (``derived/*``, ``budget/*``,
-    ``mesh/*``) and HydroModPy writes Zarr v3 stores without the
-    ``dimension_names`` array metadata that ``xr.open_zarr`` needs to map
-    arrays to dims. Both constraints make a single ``xr.open_zarr`` call
-    on the root impossible; instead we assemble the dataset manually
-    (one ``DataArray`` per registered field, dims read from
-    :mod:`hydromodpy.results.field_registry`) and then route the result
-    through :func:`xr.decode_cf` so callers still get CF-aware time
-    decoding for the ``time`` coordinate.
-
-    The data variables stay dask-backed end-to-end, so the dataset is
-    fully lazy: nothing is read until the caller materialises slices.
+    Delegates to :meth:`SimulationZarr.to_xarray` so the registry-driven
+    assembly stays in one place (``results.zarr_store.zarr_reader``);
+    CF time decoding is then applied on the resulting dataset.
     """
-    import dask.array as da
     import xarray as xr
-    import zarr
 
-    from hydromodpy.results import field_registry
-
-    zarr_path = catalog.zarr_path_for(sim_id)
-    if str(zarr_path).endswith(ZARR_ZIP_SUFFIX):
-        store = zarr.storage.ZipStore(str(zarr_path), mode="r")
-        root = zarr.open_group(store, mode="r")
-    else:
-        store = zarr.storage.LocalStore(str(zarr_path))
-        root = zarr.open_group(store, mode="r")
-
-    shape_to_dims = {
-        field_registry.SHAPE_TIME_LAYER_FACE: ("time", "layer", "face"),
-        field_registry.SHAPE_TIME_FACE: ("time", "face"),
-        field_registry.SHAPE_LAYER_FACE: ("layer", "face"),
-        field_registry.SHAPE_FACE: ("face",),
-        field_registry.SHAPE_PARTICLES: ("time", "particle"),
-    }
-
-    data_vars: dict[str, xr.Variable] = {}
-    for name, desc in field_registry.FIELD_REGISTRY.items():
-        path = desc.zarr_path
-        if "/" in path:
-            group_name, var_name = path.split("/", 1)
-            group = root.get(group_name)
-            if group is None or var_name not in group:
-                continue
-            arr = group[var_name]
-        else:
-            if path not in root:
-                continue
-            arr = root[path]
-        dims = shape_to_dims.get(desc.shape, ())
-        if len(dims) != arr.ndim:
-            dims = tuple(f"dim_{i}" for i in range(arr.ndim))
-        chunks = arr.chunks if arr.chunks else "auto"
-        dask_arr = da.from_array(arr, chunks=chunks)
-        data_vars[name] = xr.Variable(dims, dask_arr, attrs=dict(arr.attrs))
-
-    coords: dict[str, xr.Variable] = {}
-    if "time" in root:
-        time_arr = root["time"]
-        time_chunks = time_arr.chunks if time_arr.chunks else "auto"
-        coords["time"] = xr.Variable(
-            ("time",),
-            da.from_array(time_arr, chunks=time_chunks),
-            attrs=dict(time_arr.attrs),
-        )
-    if "crs" in root:
-        crs_arr = root["crs"]
-        coords["crs"] = xr.Variable(
-            (),
-            da.from_array(crs_arr, chunks=()),
-            attrs=dict(crs_arr.attrs),
-        )
-
-    raw = xr.Dataset(data_vars=data_vars, coords=coords, attrs=dict(root.attrs))
-    # ``xr.decode_cf`` applies CF decoding (time epoch, calendar, units)
-    # while preserving dask backing on data variables.
-    return xr.decode_cf(raw, decode_times=True)
+    sz = catalog.open_zarr(sim_id)
+    return xr.decode_cf(sz.to_xarray(), decode_times=True)
 
 
 class SimulationGroup:
@@ -281,12 +211,12 @@ class SimulationGroup:
         if not self._sim_ids:
             raise ValueError("Empty group")
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        row = self._catalog.connection.execute(
+        row = self._catalog.backend.fetch_one(
             f"SELECT m.sim_id FROM metrics m "
             f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value DESC LIMIT 1",
             self._sim_ids + [metric],
-        ).fetchone()
+        )
         if row is None:
             raise KeyError(f"No metric '{metric}' found in group")
         return Run(str(row[0]), self._catalog)
@@ -306,12 +236,12 @@ class SimulationGroup:
         if not self._sim_ids:
             raise ValueError("Empty group")
         placeholders = ", ".join(["?"] * len(self._sim_ids))
-        row = self._catalog.connection.execute(
+        row = self._catalog.backend.fetch_one(
             f"SELECT m.sim_id FROM metrics m "
             f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value ASC LIMIT 1",
             self._sim_ids + [metric],
-        ).fetchone()
+        )
         if row is None:
             raise KeyError(f"No metric '{metric}' found in group")
         return Run(str(row[0]), self._catalog)
@@ -335,12 +265,12 @@ class SimulationGroup:
             return self
         placeholders = ", ".join(["?"] * len(self._sim_ids))
         order = "ASC" if ascending else "DESC"
-        rows = self._catalog.connection.execute(
+        rows = self._catalog.backend.fetch_all(
             f"SELECT m.sim_id FROM metrics m "
             f"WHERE m.sim_id IN ({placeholders}) AND m.metric_name = ? "
             f"ORDER BY m.value {order}",
             self._sim_ids + [metric],
-        ).fetchall()
+        )
         sorted_ids = [str(r[0]) for r in rows]
         return SimulationGroup(sorted_ids, self._catalog)
 
@@ -399,12 +329,14 @@ class SimulationGroup:
     def to_xarray(self, variable: str, *, dim: str = "sim") -> xr.DataArray:
         """Return a lazy stacked ``xarray.DataArray`` of ``variable`` across sims.
 
-        Each per-simulation Zarr store is opened with ``xr.open_zarr`` (dask
-        backend) and arrays are concatenated along ``dim`` whose coordinate
-        values are the simulation ids. Nothing is read into memory until the
-        caller materialises the array (``.compute()``, ``.values``, slicing,
-        etc.). Simulations that lack the variable are skipped silently; if
-        none match, an empty :class:`xarray.DataArray` is returned.
+        Each per-simulation Zarr store is opened via
+        :meth:`SimulationCatalog.open_zarr` and assembled into an
+        ``xarray.Dataset`` by :meth:`SimulationZarr.to_xarray` (dask-backed).
+        Arrays are concatenated along ``dim`` whose coordinate values are
+        the simulation ids. Nothing is read into memory until the caller
+        materialises the array (``.compute()``, ``.values``, slicing,
+        etc.). Simulations that lack the variable are skipped silently;
+        if none match, an empty :class:`xarray.DataArray` is returned.
 
         Parameters
         ----------

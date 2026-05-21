@@ -30,40 +30,24 @@ from hydromodpy.calibration.network_transient_truth import (
     mesh_cell_geometry,
     q_total_release_from_drain_by_cell,
 )
+from hydromodpy.calibration.reporting.network_transient import state as _state
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.html_helpers import link_relative, safe_html
 from hydromodpy.results.run import Run
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_EXAMPLE_ROOT = REPO_ROOT / "examples" / "projects" / "12_calibration_network_transient_b0"
-ROOT = DEFAULT_EXAMPLE_ROOT
-SOURCE_TRANSIENT_CONFIG = (
-    REPO_ROOT
-    / "examples"
-    / "projects"
-    / "10_testbed_workflow"
-    / "boussinesq"
-    / "natural_geology_k"
-    / "base_site_01_mf6_bouss_transient.toml"
-)
-REAL_ROOT = ROOT / "outputs" / "real_runs"
-WEB_ROOT = REAL_ROOT / "web"
-FIGURE_ROOT = WEB_ROOT / "figures"
-PAGE_TITLE = "B0 - calibration MF6 reseau permanent + debit transitoire"
-TRUTH_PACKAGE_CANDIDATES = (
-    REAL_ROOT / "site_01_truth_package_mK_0p65",
-    REAL_ROOT / "site_01_truth_package",
-)
-SCORE_TABLE_CANDIDATES = (
-    REAL_ROOT / "site_01_parameter_grid_scores_mK_0p65.csv",
-    REAL_ROOT / "site_01_candidate_scores_mK_0p65.csv",
-    REAL_ROOT / "site_01_candidate_scores.csv",
-    REAL_ROOT / "site_01_parameter_grid_light_scores_mK_0p65.csv",
-)
-PATH_BASE = ROOT
-
-REFERENCE_RUN_ROOT = REAL_ROOT / "candidate_mK_0p65_Sy_0p05_steady_mf6"
-STEADY_SUMMARY_CSV = REAL_ROOT / "steady_mK_network_extent_summary.csv"
+REPO_ROOT = _state.REPO_ROOT
+DEFAULT_EXAMPLE_ROOT = _state.DEFAULT_EXAMPLE_ROOT
+ROOT = _state.ROOT
+SOURCE_TRANSIENT_CONFIG = _state.SOURCE_TRANSIENT_CONFIG
+REAL_ROOT = _state.REAL_ROOT
+WEB_ROOT = _state.WEB_ROOT
+FIGURE_ROOT = _state.FIGURE_ROOT
+PAGE_TITLE = _state.PAGE_TITLE
+TRUTH_PACKAGE_CANDIDATES = _state.TRUTH_PACKAGE_CANDIDATES
+SCORE_TABLE_CANDIDATES = _state.SCORE_TABLE_CANDIDATES
+PATH_BASE = _state.PATH_BASE
+REFERENCE_RUN_ROOT = _state.REFERENCE_RUN_ROOT
+STEADY_SUMMARY_CSV = _state.STEADY_SUMMARY_CSV
 
 
 @dataclass(frozen=True)
@@ -1145,7 +1129,7 @@ def _save_outflow_map_grid(
     from matplotlib.collections import PolyCollection
     from matplotlib.colors import LogNorm, Normalize
 
-    from hydromodpy.calibration.network_metrics import active_network_mask
+    from hydromodpy.calibration.metrics.network import active_network_mask
 
     d_ref = np.load(truth_dir / "steady_network_drain_by_cell.npz")["outflow_drain"]
     normalization = _read_json(truth_dir / "normalization.json")

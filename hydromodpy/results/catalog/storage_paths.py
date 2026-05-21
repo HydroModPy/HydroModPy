@@ -24,7 +24,7 @@ from hydromodpy.results.storage_contract import (
 )
 
 if TYPE_CHECKING:
-    import duckdb
+    from hydromodpy.results.catalog.ports import CatalogBackend
 
 _SAFE_CHAR_RE = re.compile(r"[^a-z0-9_-]+")
 _COLLAPSE_UNDERSCORE_RE = re.compile(r"_+")
@@ -87,27 +87,28 @@ class StoragePathResolver:
     a fresh DuckDB lookup on every access.
     """
 
-    def __init__(self, db: duckdb.DuckDBPyConnection, simulations_dir: Path) -> None:
-        self._db = db
+    def __init__(self, backend: CatalogBackend, simulations_dir: Path) -> None:
+        self._backend = backend
         self._simulations_dir = simulations_dir
         self._basename_cache: dict[str, str] = {}
 
     def basename_for(self, sim_id: str | UUID) -> str:
         """Return the on-disk basename for ``sim_id``.
 
-        Reads ``simulations.storage_basename``. ``ensure_schema`` guarantees
-        the column is non-NULL for any registered row, so the only fallback
-        is for unknown ``sim_id`` lookups, where the raw string is returned
-        to keep path computation total.
+        Reads ``simulations.storage_basename`` through the catalog backend
+        port. ``ensure_schema`` guarantees the column is non-NULL for any
+        registered row, so the only fallback is for unknown ``sim_id``
+        lookups, where the raw string is returned to keep path computation
+        total.
         """
         sid = str(sim_id)
         cached = self._basename_cache.get(sid)
         if cached is not None:
             return cached
-        row = self._db.execute(
+        row = self._backend.fetch_one(
             "SELECT storage_basename FROM simulations WHERE sim_id = ?",
             [sid],
-        ).fetchone()
+        )
         basename = row[0] if row else sid
         self._basename_cache[sid] = basename
         return basename

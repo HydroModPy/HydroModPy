@@ -117,7 +117,7 @@ def test_derive_catchment_domain_with_explicit_distance(tmp_path: Path):
     products = derive_catchment_domain(
         catchment_path,
         out_dir,
-        buff_area="150",
+        buff_area="150 m",
     )
 
     assert products.buffer_distance_m == pytest.approx(150.0, abs=1e-12)
@@ -137,7 +137,7 @@ def test_build_catchment_zone_codes(tmp_path: Path):
     domain_products = derive_catchment_domain(
         catchment_path,
         out_dir,
-        buff_area="200",
+        buff_area="200 m",
     )
     zone_codes_path = out_dir / "zone_codes.tif"
     products = build_catchment_zone_codes(

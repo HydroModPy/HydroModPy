@@ -3,8 +3,9 @@ solver
 
 ``hydromodpy.solver`` exposes the backend abstraction (``base/``)
 plus three concrete backends: MODFLOW 6, MODFLOW-NWT, and Boussinesq.
-It also hosts shared helpers (``modflow_common``,
-``modflow_grid``, ``utils``) that stay backend-agnostic.
+It also hosts shared helpers (``modflow_common``, ``modflow_grid``)
+that stay backend-agnostic. Time-grid primitives now live in
+``hydromodpy.core.time``.
 
 Sub-modules
 -----------
@@ -30,8 +31,8 @@ Sub-modules
   ``SolverMesh``, ``SolverGridContext``, ``DisDescriptor``,
   ``DisvDescriptor``, ``build_spatial_discretization``,
   ``build_temporal_discretization``.
-- ``solver/utils/temporal/`` -- ``TimeGrid``, ``TmeshGenerator``,
-  ``TMeshConfig`` for stress-period generation.
+- ``core/time/`` (was ``solver/utils/temporal/``) -- ``TimeGrid``,
+  ``TmeshGenerator``, ``TMeshConfig`` for stress-period generation.
 
 Adapter contract
 ----------------
@@ -87,7 +88,7 @@ Key public symbols
 - ``hydromodpy.solver.modflow_grid.{SolverMesh, SolverGridContext,
   DisDescriptor, DisvDescriptor, build_spatial_discretization,
   build_temporal_discretization}``
-- ``hydromodpy.solver.utils.{TimeGrid, TmeshGenerator, TMeshConfig,
+- ``hydromodpy.core.time.{TimeGrid, TmeshGenerator, TMeshConfig,
   load_tmesh_toml, validate_tmesh_config_data}``
 - ``hydromodpy.solver.modflow_common.{flow_adapter_helpers,
   calibration_extractors, flow_translator, binaries,

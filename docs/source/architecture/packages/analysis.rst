@@ -2,29 +2,27 @@ analysis
 ========
 
 ``hydromodpy.analysis`` groups the cross-run analytical workflows
-that consume the catalog: regional batches over many sites,
-shared-case simulation comparison, controlled testbed variants, and
-stream-network metrics.
+that consume the catalog: shared-case simulation comparison and
+controlled testbed variants (including the regional_lab profile).
+HTML composites built on top of these features now live in
+``hydromodpy.reporting``.
 
 Sub-modules
 -----------
 
-- ``analysis/batch/`` -- regional lab. Plans multi-site campaigns
-  (``RegionalLabSiteRecord``), executes them, ingests outputs,
-  reports site-level metrics.
 - ``analysis/comparison/`` -- pairwise and N-way simulation
   comparison. Computes diff and stability metrics, renders maps and
-  series, emits the comparison HTML report.
+  series, and feeds the ``reporting/comparison`` HTML composite.
 - ``analysis/testbed/`` -- controlled-variant matrix
   (mesh / flow). Generates child overlay configs, runs them, and
-  collects evidence (plan, cases, metrics CSV).
-- ``analysis/stream_networks/`` -- planar bidirectional distance
-  metrics, simulated-vs-reference overlap, and active-network
-  metrics consumed by the comparison and the ``Run`` facade.
+  collects evidence (plan, cases, metrics CSV). Hosts the
+  ``regional_lab`` profile that plans multi-site campaigns.
+- ``analysis/capability_gallery.py`` -- gallery rendering helpers.
+- ``analysis/catalog.py`` -- catalog-side analysis helpers.
 - ``analysis/config.py`` -- ``AnalysisConfig`` Pydantic root for
   the ``[analysis]`` TOML section
-  (``analysis.batch``, ``analysis.capability_gallery``,
-  ``analysis.comparison``).
+  (``analysis.capability_gallery``, ``analysis.comparison``,
+  ``analysis.testbed``).
 
 Workflow placement
 ------------------
@@ -35,20 +33,16 @@ Each analysis subsystem is reachable through:
   or ``"testbed"`` and routes to the matching launcher under
   ``analysis/``. Regional campaigns use ``"testbed"`` with
   ``[testbed].profile = "regional_lab"``.
-- The Python facade: ``Project.compare()`` / ``Project.testbed()``.
+- The Python facade: ``hmp.compare(toml)`` / ``hmp.testbed(toml)``.
 - Direct primitives under ``analysis/<subsystem>/`` for embedding
   inside another analysis loop.
 
 Key public symbols
 ------------------
 
-- ``hydromodpy.analysis.batch.{RegionalLabSiteRecord, batch_planning,
-  batch_execution, batch_catalog, batch_reporting}``
 - ``hydromodpy.analysis.comparison.{audit, dispatch,
-  child_materialization, web_report}``
-- ``hydromodpy.analysis.testbed.{plan, cases, metrics}``
-- ``hydromodpy.analysis.stream_networks`` (overlap and distance
-  metrics).
+  child_materialization, reporting}``
+- ``hydromodpy.analysis.testbed.{pipeline, profiles, regional_lab}``
 - ``hydromodpy.analysis.config.AnalysisConfig``
 
 Recommended reading path
@@ -59,9 +53,8 @@ Recommended reading path
    contract.
 3. ``hydromodpy/analysis/comparison/__init__.py`` for the comparison
    pipeline.
-4. ``hydromodpy/analysis/batch/__init__.py`` for the regional lab.
-5. ``hydromodpy/analysis/stream_networks/__init__.py`` for the
-   geometric metrics.
+4. ``hydromodpy/analysis/testbed/regional_lab.py`` for the regional
+   lab profile.
 
 Layer-matrix neighbours
 -----------------------

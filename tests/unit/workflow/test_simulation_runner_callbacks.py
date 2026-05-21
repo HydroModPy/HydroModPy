@@ -14,13 +14,13 @@ class _FailingAdapter:
 
 
 def test_after_process_runs_when_process_run_fails(monkeypatch) -> None:
-    from hydromodpy.simulation import _solver_protocol
+    from hydromodpy.core.contracts import solver_registry
 
     class _FakeProvider:
         def get_solver_adapter(self, _process_type: str, _solver_name: str):
             return _FailingAdapter()
 
-    monkeypatch.setattr(_solver_protocol, "_PROVIDER", _FakeProvider())
+    monkeypatch.setattr(solver_registry, "_PROVIDER", _FakeProvider())
 
     events: list[str] = []
     plan = SimulationPlan(

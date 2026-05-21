@@ -9,6 +9,7 @@ from dataclasses import replace
 import flopy
 import numpy as np
 
+from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow6.postprocess import run_transport_post_processing
 from hydromodpy.solver.modflow_common import (
     ModflowPostprocessOptions,
@@ -34,9 +35,9 @@ class Modflow6Transport:
 
     def __init__(
         self,
-        domain: object,
-        transport: object,
-        model_modflow: object,
+        domain: DomainLike,
+        transport: TransportLike,
+        model_modflow: FlowModelLike,
         model_folder: str = "HydroModPy_outputs",
         model_name: str = "Default_modflow6",
         suffix_name: str = "_gwt",

@@ -88,6 +88,47 @@ class DisplayStep:
     tout: ClassVar[type] = ExportedState
     config_sections: ClassVar[tuple[str, ...]] = ("display",)
 
+    def depends_on(self) -> tuple[str, ...]:
+        return ("export",)
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """List the previously rendered PNGs from the display output dir."""
+        ctx = prior_state.get("ctx")
+        if ctx is None:
+            raise ConfigError("DisplayStep.rebuild_state requires 'ctx' in state.data")
+        rendered: list[Path] = []
+        display_cfg = getattr(ctx.cfg, "display", None)
+        ws = getattr(getattr(ctx, "setup", None), "workspace", None)
+        project_root = getattr(ws, "project_root", None)
+        sim_id = getattr(ctx, "sim_id", None)
+        if display_cfg is not None and project_root is not None and sim_id is not None:
+            try:
+                from hydromodpy.display.runs import resolve_run_output_dir
+
+                run_name = getattr(getattr(ctx, "setup", None), "run_id", None)
+                out_dir = resolve_run_output_dir(
+                    display_cfg,
+                    project_root=project_root,
+                    run_name=run_name,
+                    sim_id=sim_id,
+                )
+                if Path(out_dir).is_dir():
+                    rendered = sorted(Path(out_dir).glob("*.png"))
+            except Exception:
+                rendered = []
+        return prior_state.advance(
+            step_index=prior_state.step_index + 1,
+            step_name=self.name,
+            ctx=ctx,
+            rendered_figures=rendered,
+        )
+
     def run(self, state: PipelineState) -> PipelineState:
         from hydromodpy.display.runs import (
             render_figures_for_run,

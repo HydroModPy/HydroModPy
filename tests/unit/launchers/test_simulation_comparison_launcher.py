@@ -6,9 +6,15 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-import hydromodpy.analysis.comparison.audit as audit_module
+import hydromodpy.analysis.comparison.audit.audit_engine as audit_engine_module
+import hydromodpy.analysis.comparison.audit.audit_io as audit_io_module
 import hydromodpy.analysis.comparison.output_pipeline as output_pipeline_module
 from hydromodpy.analysis.comparison.audit import build_equivalence_audit
+from hydromodpy.analysis.comparison.audit.audit_io import (
+    HEAD_ABOVE_TOP_FRACTION_TOL,
+    HEAD_ABOVE_TOP_TOL_M,
+    RECHARGE_COMPONENT,
+)
 from hydromodpy.analysis.comparison.child_materialization import (
     materialize_child_configs,
 )
@@ -709,7 +715,7 @@ def test_equivalence_audit_flags_physical_config_mismatch(
         sim_id = preferred_sim_id or "sim"
         return FakeStore(sim_id), sim_id
 
-    monkeypatch.setattr(audit_module, "discover_result_store", fake_discover_result_store)
+    monkeypatch.setattr(audit_io_module, "discover_result_store", fake_discover_result_store)
 
     audit = build_equivalence_audit(
         simulation_summaries=[
@@ -743,7 +749,7 @@ def test_equivalence_audit_ignores_method_specific_drainage_conductance_differen
     def physical_config(flow_bc: dict[str, object]) -> dict[str, object]:
         return {
             "sections": {"flow.bc": flow_bc},
-            "fingerprints": {"flow.bc": audit_module._section_fingerprint(flow_bc)},
+            "fingerprints": {"flow.bc": audit_io_module._section_fingerprint(flow_bc)},
         }
 
     ref_bc = {
@@ -778,12 +784,10 @@ def test_equivalence_audit_ignores_method_specific_drainage_conductance_differen
             "metadata": {},
             "parameters": [],
             "physical_config": physical_config(flow_bc),
-            "budget_components": {
-                audit_module.RECHARGE_COMPONENT: {"series": {"elapsed_seconds:0": 0.0}}
-            },
+            "budget_components": {RECHARGE_COMPONENT: {"series": {"elapsed_seconds:0": 0.0}}},
         }
 
-    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+    monkeypatch.setattr(audit_engine_module, "_load_audit_subject", fake_load_audit_subject)
 
     audit = build_equivalence_audit(
         simulation_summaries=[
@@ -822,9 +826,7 @@ def test_equivalence_audit_ignores_modflow6_watertable_above_top(
             "metadata": {},
             "parameters": [],
             "physical_config": {"sections": {}, "fingerprints": {}},
-            "budget_components": {
-                audit_module.RECHARGE_COMPONENT: {"series": {"elapsed_seconds:0": 0.0}}
-            },
+            "budget_components": {RECHARGE_COMPONENT: {"series": {"elapsed_seconds:0": 0.0}}},
         }
 
     def fake_head_bounds_diagnostics(**_: object) -> list[dict[str, object]]:
@@ -838,9 +840,9 @@ def test_equivalence_audit_ignores_modflow6_watertable_above_top(
             }
         ]
 
-    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+    monkeypatch.setattr(audit_engine_module, "_load_audit_subject", fake_load_audit_subject)
     monkeypatch.setattr(
-        audit_module,
+        audit_engine_module,
         "_head_bounds_diagnostics",
         fake_head_bounds_diagnostics,
     )
@@ -868,8 +870,8 @@ def test_equivalence_audit_ignores_modflow6_watertable_above_top(
             ),
             "above_top_fraction": 0.25,
             "above_top_max_m": 1.2,
-            "fraction_tolerance": audit_module.HEAD_ABOVE_TOP_FRACTION_TOL,
-            "height_tolerance_m": audit_module.HEAD_ABOVE_TOP_TOL_M,
+            "fraction_tolerance": HEAD_ABOVE_TOP_FRACTION_TOL,
+            "height_tolerance_m": HEAD_ABOVE_TOP_TOL_M,
         }
     ]
 
@@ -888,10 +890,10 @@ def test_equivalence_audit_treats_missing_disabled_recharge_budget_as_zero(
                 "sections": {"flow.active_sinks_sources": []},
                 "fingerprints": {},
             },
-            "budget_components": {audit_module.RECHARGE_COMPONENT: {"series": series}},
+            "budget_components": {RECHARGE_COMPONENT: {"series": series}},
         }
 
-    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+    monkeypatch.setattr(audit_engine_module, "_load_audit_subject", fake_load_audit_subject)
 
     audit = build_equivalence_audit(
         simulation_summaries=[
@@ -903,7 +905,7 @@ def test_equivalence_audit_treats_missing_disabled_recharge_budget_as_zero(
     )
 
     candidate = next(subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate")
-    recharge_check = candidate["budget_checks"][audit_module.RECHARGE_COMPONENT]
+    recharge_check = candidate["budget_checks"][RECHARGE_COMPONENT]
     assert audit["status"] == "pass"
     assert recharge_check["status"] == "pass"
     assert recharge_check["n_pairs"] == 1
@@ -924,10 +926,10 @@ def test_equivalence_audit_warns_when_configured_recharge_budget_is_missing(
                 "sections": {"flow.active_sinks_sources": ["recharge"]},
                 "fingerprints": {},
             },
-            "budget_components": {audit_module.RECHARGE_COMPONENT: {"series": series}},
+            "budget_components": {RECHARGE_COMPONENT: {"series": series}},
         }
 
-    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+    monkeypatch.setattr(audit_engine_module, "_load_audit_subject", fake_load_audit_subject)
 
     audit = build_equivalence_audit(
         simulation_summaries=[
@@ -939,7 +941,7 @@ def test_equivalence_audit_warns_when_configured_recharge_budget_is_missing(
     )
 
     candidate = next(subject for subject in audit["subjects"] if subject["id"] == "bouss_candidate")
-    recharge_check = candidate["budget_checks"][audit_module.RECHARGE_COMPONENT]
+    recharge_check = candidate["budget_checks"][RECHARGE_COMPONENT]
     assert audit["status"] == "warn"
     assert recharge_check["status"] == "missing_overlap"
     assert any(issue["kind"] == "recharge_budget_mismatch" for issue in audit["issues"])
@@ -955,12 +957,10 @@ def test_equivalence_audit_flags_mixed_initial_state_policy(
             "metadata": {},
             "parameters": [],
             "physical_config": {"fingerprints": {}},
-            "budget_components": {
-                audit_module.RECHARGE_COMPONENT: {"series": {"elapsed_seconds:86400": 1.0}}
-            },
+            "budget_components": {RECHARGE_COMPONENT: {"series": {"elapsed_seconds:86400": 1.0}}},
         }
 
-    monkeypatch.setattr(audit_module, "_load_audit_subject", fake_load_audit_subject)
+    monkeypatch.setattr(audit_engine_module, "_load_audit_subject", fake_load_audit_subject)
 
     audit = build_equivalence_audit(
         simulation_summaries=[

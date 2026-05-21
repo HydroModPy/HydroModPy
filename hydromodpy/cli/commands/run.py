@@ -31,9 +31,19 @@ NAME: str = "run"
 HELP: str = "Run a workflow from a TOML config"
 
 
+def _step_choices() -> list[str]:
+    """Return the canonical 12-step pipeline names for shell completion."""
+    try:
+        from hydromodpy.workflow.orchestrator import standard_steps
+
+        return [getattr(s, "name", type(s).__name__) for s in standard_steps()]
+    except Exception:
+        return []
+
+
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
-    parser.add_argument(
+    config_arg = parser.add_argument(
         "config",
         type=Path,
         help="Path to a TOML config",
@@ -44,20 +54,29 @@ def register(subparsers) -> argparse.ArgumentParser:
         metavar="RUN_ID",
         help="Resume a simulation from its last checkpoint.",
     )
-    parser.add_argument(
+    from_arg = parser.add_argument(
         "--from",
         dest="from_step",
         default=None,
         metavar="STEP",
         help="Resume from a specific pipeline step (name or index).",
     )
-    parser.add_argument(
+    until_arg = parser.add_argument(
         "--until",
         dest="until_step",
         default=None,
         metavar="STEP",
         help="Stop after the specified pipeline step (name or index).",
     )
+    try:
+        from argcomplete.completers import ChoicesCompleter, FilesCompleter
+
+        config_arg.completer = FilesCompleter(("toml",))  # type: ignore[attr-defined]
+        step_completer = ChoicesCompleter(_step_choices())
+        from_arg.completer = step_completer  # type: ignore[attr-defined]
+        until_arg.completer = step_completer  # type: ignore[attr-defined]
+    except ImportError:
+        pass
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -83,6 +102,15 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         dest="no_display",
         help="Skip auto-rendering of the figures listed in [display].figures.",
+    )
+    parser.add_argument(
+        "--no-parallel",
+        action="store_true",
+        dest="no_parallel",
+        help=(
+            "Force the Pipeline to run cohorts sequentially. Useful for "
+            "debugging or to keep deterministic step ordering."
+        ),
     )
     parser.add_argument(
         "--overlay",
@@ -133,8 +161,8 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     :class:`~hydromodpy.workflow.dispatch.WorkflowMissingError` is raised and
     the CLI exits with ``EXIT_CONFIG``. No implicit detection from sections.
     """
+    import hydromodpy as hmp
     from hydromodpy.display.banner import print_hydromodpy
-    from hydromodpy.project.dispatch.workflow import DISPATCH
     from hydromodpy.workflow.dispatch import (
         WorkflowError,
         resolve_workflow,
@@ -178,6 +206,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     no_display = bool(getattr(args, "no_display", False))
     frozen = bool(getattr(args, "frozen", False))
     no_lock = bool(getattr(args, "no_lock", False))
+    parallel = not bool(getattr(args, "no_parallel", False))
 
     if dry_run:
         _print_dry_run(
@@ -208,20 +237,30 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _cleanup_effective_toml(effective_path, source=config_path)
         sys.exit(EXIT_CONFIG)
 
-    runner = DISPATCH[workflow]
+    if resume is not None:
+        _emit_config_replay_audit(run_path, resume=str(resume))
+
+    if frozen:
+        try:
+            _verify_frozen_inputs_strict(run_path, raw_toml)
+        except FrozenVerificationError as exc:
+            print(f"--frozen: {exc}", file=sys.stderr)
+            _cleanup_effective_toml(effective_path, source=config_path)
+            sys.exit(EXIT_CONFIG)
 
     try:
         if workflow == "simulation":
-            summary = runner(
+            summary = hmp.run(
                 run_path,
                 resume=resume,
                 from_step=from_step,
                 until_step=until_step,
                 no_display=no_display,
                 frozen=frozen,
+                parallel=parallel,
             )
         else:
-            summary = runner(run_path)
+            summary = hmp.run(run_path)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
         sys.exit(EXIT_USER_ABORT)
@@ -239,9 +278,106 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
         _post_run_lockfile_write(run_path, raw_toml)
 
     print(f"Workflow '{workflow}' complete: {config_path.name}", file=sys.stderr)
-    if summary:
-        for key, value in summary.items():
-            print(f"  {key}: {value}", file=sys.stderr)
+    if summary is None:
+        return
+    if isinstance(summary, Mapping):
+        items = summary.items()
+    else:
+        items = ((k, getattr(summary, k, None)) for k in ("sim_id", "name"))
+    for key, value in items:
+        if value is None:
+            continue
+        print(f"  {key}: {value}", file=sys.stderr)
+
+
+class FrozenVerificationError(RuntimeError):
+    """Raised when ``--frozen`` finds a lockfile drift before running anything."""
+
+
+def _verify_frozen_inputs_strict(config_path: Path, raw_toml: dict[str, Any]) -> None:
+    """Verify the workspace lockfile before launching a ``--frozen`` run.
+
+    Walks the same workspace-resolution logic as the post-run lockfile
+    writer, opens the data cache, and calls
+    :func:`hydromodpy.data.data_freeze.verify_inputs_strict` against the
+    project's ``hydromodpy.lock``. Any mismatch aborts the run.
+    """
+    from hydromodpy.data.data_freeze import (
+        LOCKFILE_NAME,
+        verify_inputs_strict,
+    )
+    from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
+
+    workspace_payload = raw_toml.get("workspace") if isinstance(raw_toml, dict) else None
+    project_root = config_path.parent
+    if isinstance(workspace_payload, dict):
+        declared = workspace_payload.get("project_root")
+        if declared:
+            candidate = Path(declared).expanduser()
+            if not candidate.is_absolute():
+                candidate = (config_path.parent / candidate).resolve()
+            project_root = candidate
+
+    lockfile_path = project_root / LOCKFILE_NAME
+    if not lockfile_path.is_file():
+        raise FrozenVerificationError(
+            f"hydromodpy.lock not found at {lockfile_path}; --frozen requires a prior run."
+        )
+
+    data_dir = _resolve_workspace_data_dir(workspace_payload, project_root)
+    db_path = data_dir / "cache.duckdb"
+    if not db_path.is_file():
+        raise FrozenVerificationError(
+            f"Data cache not found at {db_path}; --frozen requires a populated workspace."
+        )
+
+    try:
+        with DataCatalogDuckDB(db_path) as catalog:
+            mismatches = verify_inputs_strict(catalog, lockfile_path)
+    except Exception as exc:  # noqa: BLE001 - any catalog error aborts the run
+        raise FrozenVerificationError(f"Could not verify lockfile {lockfile_path}: {exc}") from exc
+    if mismatches:
+        first = mismatches[0]
+        raise FrozenVerificationError(
+            f"{len(mismatches)} lockfile mismatch(es); first: "
+            f"{first.kind} on {first.path} (variable={first.variable})"
+        )
+
+
+def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
+    """Emit one ``config.replay`` audit row when ``hmp run --resume`` fires.
+
+    Best-effort: looks for a catalog next to the config and, failing that,
+    walks up to find a workspace. Any exception is swallowed.
+    """
+    import duckdb
+
+    from hydromodpy.cli.helpers import find_catalog_root
+    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog.audit import emit_audit_event
+
+    try:
+        workspace = find_catalog_root(config_path.parent)
+    except Exception:
+        return
+    catalog_path = workspace / CATALOG_FILENAME
+    if not catalog_path.is_file():
+        return
+    try:
+        conn = duckdb.connect(str(catalog_path))
+    except duckdb.Error:
+        return
+    try:
+        emit_audit_event(
+            conn,
+            event_type="config.replay",
+            actor_kind="cli",
+            payload={"resume": resume, "config": str(config_path)},
+        )
+    except Exception:
+        pass
+    finally:
+        conn.close()
 
 
 def _post_run_lockfile_write(config_path: Path, raw_toml: dict[str, Any]) -> None:

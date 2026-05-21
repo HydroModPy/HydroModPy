@@ -14,10 +14,16 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.exceptions import SolverDivergedError
+import pandas as pd
+
+from hydromodpy.core.exceptions import ConfigError, SolverDivergedError, SolverError
 from hydromodpy.simulation.planning.plan import RunContext, RunExecutionResult
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
 from hydromodpy.solver.boussinesq.boussinesq import Boussinesq
+from hydromodpy.solver.boussinesq.calibration_extractors import (
+    extract_discharge_history,
+    extract_head_history_at_cells,
+)
 from hydromodpy.solver.boussinesq.flow_to_boussinesq_adapter import (
     resolve_bundle_solver_mesh,
     resolve_mesh_bundle,
@@ -54,15 +60,43 @@ class BoussinesqFlowAdapter:
         *,
         variable: str,
         station_cells: Mapping[str, tuple[int, int, int]] | None = None,
-        time_index: Any = None,
-    ) -> Any:
+        time_index: pd.DatetimeIndex | None = None,
+    ) -> pd.Series:
         """Read the simulated calibration series from the Boussinesq scratch dir.
 
-        The Boussinesq output format is not yet wired into the calibration
-        extractor contract. Failing explicitly prevents NaN-scored trials from
-        being reported as valid calibration evaluations.
+        Discharge is reconstructed from ``drainage_flux_history_m3_s`` summed
+        over all cells per timestep (matches the MODFLOW DRAIN convention).
+        Heads are read at flattened cell indices: the Boussinesq mesh is one
+        layer unstructured, so the ``(k, i, j)`` station tuple is interpreted
+        as ``cell_id = j``. ``store`` is accepted for Protocol uniformity but
+        unused on the scratch-dir path.
         """
-        del ctx, store, station_cells, time_index
+        del store
+        output_dir = ctx.state.execution.output_dirs_by_run_id.get(ctx.run.id)
+        if output_dir is None:
+            raise SolverError(f"No solver output recorded for run {ctx.run.id!r}")
+        output_dir = Path(output_dir)
+
+        if variable == "discharge":
+            return extract_discharge_history(output_dir, time_index=time_index)
+        if variable == "head":
+            if not station_cells:
+                raise ConfigError("head calibration requires station_cells")
+            series_by_station = extract_head_history_at_cells(
+                output_dir,
+                station_cells=station_cells,
+                time_index=time_index,
+            )
+            if len(station_cells) == 1:
+                station_id = next(iter(station_cells))
+                try:
+                    return series_by_station[station_id]
+                except KeyError as exc:
+                    raise KeyError(f"No head series extracted for station {station_id!r}") from exc
+            raise ConfigError(
+                "extract_calibration_series returns one series; pass station_cells "
+                "with a single entry per call for head calibration."
+            )
         raise NotImplementedError(
             f"Boussinesq calibration extraction is not implemented for variable {variable!r}."
         )

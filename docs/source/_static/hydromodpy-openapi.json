@@ -239,6 +239,149 @@
         "title": "BasConfig",
         "type": "object"
       },
+      "BoussinesqBackend": {
+        "additionalProperties": false,
+        "description": "Select the Boussinesq flow backend.",
+        "properties": {
+          "backend": {
+            "const": "boussinesq",
+            "default": "boussinesq",
+            "description": "Discriminator tag selecting the Boussinesq flow backend.",
+            "examples": [
+              "boussinesq"
+            ],
+            "title": "Backend",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "BoussinesqBackend",
+        "type": "object"
+      },
+      "BrgmGeology1mSource": {
+        "additionalProperties": false,
+        "description": "BRGM 1:1M national geological map (CODE_LEG legend).",
+        "properties": {
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+            "title": "Mask Path",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "watershed",
+                  "study_area"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Use project extent for bbox-based data retrieval.",
+            "title": "Extent",
+            "x-hmp-profile": "user"
+          },
+          "force_refresh": {
+            "default": false,
+            "description": "Ignore cache and re-download from API.",
+            "examples": [
+              false
+            ],
+            "title": "Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "source": {
+            "const": "brgm_1m",
+            "default": "brgm_1m",
+            "description": "Discriminator tag selecting the BRGM 1:1M geology provider.",
+            "examples": [
+              "brgm_1m"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "BrgmGeology1mSource",
+        "type": "object"
+      },
+      "BrgmGeology50kSource": {
+        "additionalProperties": false,
+        "description": "BRGM 1:50K departmental geological map (CODE_LEG legend).",
+        "properties": {
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+            "title": "Mask Path",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "watershed",
+                  "study_area"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Use project extent for bbox-based data retrieval.",
+            "title": "Extent",
+            "x-hmp-profile": "user"
+          },
+          "force_refresh": {
+            "default": false,
+            "description": "Ignore cache and re-download from API.",
+            "examples": [
+              false
+            ],
+            "title": "Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "source": {
+            "const": "brgm_50k",
+            "default": "brgm_50k",
+            "description": "Discriminator tag selecting the BRGM 1:50K geology provider.",
+            "examples": [
+              "brgm_50k"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "BrgmGeology50kSource",
+        "type": "object"
+      },
       "BudgetConfig": {
         "additionalProperties": false,
         "description": "Budget extraction configuration.",
@@ -897,6 +1040,17 @@
             "type": "integer",
             "x-hmp-profile": "dev"
           },
+          "parallel": {
+            "default": 1,
+            "description": "Number of trials evaluated concurrently inside one batch via a thread pool. parallel=1 keeps the legacy sequential loop.",
+            "examples": [
+              1
+            ],
+            "minimum": 1,
+            "title": "Parallel",
+            "type": "integer",
+            "x-hmp-profile": "dev"
+          },
           "seed": {
             "anyOf": [
               {
@@ -944,6 +1098,16 @@
               true
             ],
             "title": "Use Cache",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "lightweight_extraction": {
+            "default": true,
+            "description": "Skip Parquet/Zarr writes for lumped models (GR4J, ...) and read simulated series from the per-trial RAM cache instead. Only the promoted runs go through the catalog write path.",
+            "examples": [
+              true
+            ],
+            "title": "Lightweight Extraction",
             "type": "boolean",
             "x-hmp-profile": "dev"
           },
@@ -2141,7 +2305,7 @@
           },
           "thickness": {
             "default": 50.0,
-            "description": "Constant aquifer thickness (m) applied below topography.",
+            "description": "Constant aquifer thickness applied below topography (canonical metres). Accepts inline units, e.g. '0.2 km'.",
             "examples": [
               50.0
             ],
@@ -2152,6 +2316,256 @@
           }
         },
         "title": "ConstantThicknessDepthModel",
+        "type": "object"
+      },
+      "CustomBackend": {
+        "additionalProperties": false,
+        "description": "Plugin-registered flow backend identified by a free-form name.\n\nThe discriminator value is the literal string ``\"custom\"``; the actual\nbackend name lives in ``name``. ``SolverConfig.validate_registry()``\nenforces that the name resolves to a registered flow adapter at\nlauncher time.",
+        "properties": {
+          "backend": {
+            "const": "custom",
+            "default": "custom",
+            "description": "Discriminator tag indicating a plugin-provided flow backend.",
+            "examples": [
+              "custom"
+            ],
+            "title": "Backend",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "name": {
+            "description": "Plugin-registered flow backend name (matches registry).",
+            "examples": [
+              "example"
+            ],
+            "title": "Name",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CustomBackend",
+        "type": "object"
+      },
+      "CustomDemSource": {
+        "additionalProperties": false,
+        "description": "User-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF).",
+        "properties": {
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+            "title": "Mask Path",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "watershed",
+                  "study_area"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Use project extent for bbox-based data retrieval.",
+            "title": "Extent",
+            "x-hmp-profile": "user"
+          },
+          "force_refresh": {
+            "default": false,
+            "description": "Ignore cache and re-download from API.",
+            "examples": [
+              false
+            ],
+            "title": "Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "source": {
+            "const": "custom",
+            "default": "custom",
+            "description": "Discriminator tag selecting the 'custom' DEM provider.",
+            "examples": [
+              "custom"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "path": {
+            "description": "Path to custom DEM file or directory (TIF, ASC, NC).",
+            "examples": [
+              "data/input.csv"
+            ],
+            "format": "path",
+            "title": "Path",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "CustomDemSource",
+        "type": "object"
+      },
+      "CustomGeologySource": {
+        "additionalProperties": false,
+        "description": "User-provided geology file (SHP/GPKG/TIF/CSV).",
+        "properties": {
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+            "title": "Mask Path",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "watershed",
+                  "study_area"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Use project extent for bbox-based data retrieval.",
+            "title": "Extent",
+            "x-hmp-profile": "user"
+          },
+          "force_refresh": {
+            "default": false,
+            "description": "Ignore cache and re-download from API.",
+            "examples": [
+              false
+            ],
+            "title": "Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "source": {
+            "const": "custom",
+            "default": "custom",
+            "description": "Discriminator tag selecting the 'custom' geology provider.",
+            "examples": [
+              "custom"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "path": {
+            "description": "Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
+            "examples": [
+              "data/input.csv"
+            ],
+            "format": "path",
+            "title": "Path",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "code_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector sources.",
+            "title": "Code Field",
+            "x-hmp-profile": "user"
+          },
+          "values_table_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional CSV linking geology codes to descriptions. Columns: geology_code, description.",
+            "title": "Values Table Path",
+            "x-hmp-profile": "user"
+          },
+          "col_x": {
+            "default": "x",
+            "description": "Column for X coordinate in CSV.",
+            "examples": [
+              "x"
+            ],
+            "title": "Col X",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_y": {
+            "default": "y",
+            "description": "Column for Y coordinate in CSV.",
+            "examples": [
+              "y"
+            ],
+            "title": "Col Y",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "col_code": {
+            "default": "geology_code",
+            "description": "Column for geology code in CSV.",
+            "examples": [
+              "geology_code"
+            ],
+            "title": "Col Code",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          },
+          "default_crs": {
+            "default": "EPSG:2154",
+            "description": "Default CRS for CSV points.",
+            "examples": [
+              "EPSG:2154"
+            ],
+            "title": "Default Crs",
+            "type": "string",
+            "x-hmp-profile": "dev"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "CustomGeologySource",
         "type": "object"
       },
       "DataManagersConfig": {
@@ -2461,7 +2875,22 @@
           "sources": {
             "description": "At least one DEM data source.",
             "items": {
-              "$ref": "#/components/schemas/DemSourceConfig"
+              "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_bdalti' for the IGN BD ALTI 25 m MNT.",
+              "discriminator": {
+                "mapping": {
+                  "custom": "#/$defs/CustomDemSource",
+                  "ign_bdalti": "#/$defs/IgnBdaltiDemSource"
+                },
+                "propertyName": "source"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CustomDemSource"
+                },
+                {
+                  "$ref": "#/components/schemas/IgnBdaltiDemSource"
+                }
+              ]
             },
             "minItems": 1,
             "title": "Sources",
@@ -2473,88 +2902,6 @@
           "sources"
         ],
         "title": "DemConfig",
-        "type": "object"
-      },
-      "DemSourceConfig": {
-        "additionalProperties": false,
-        "description": "Configuration for one DEM data source.\n\nSupported sources:\n\n- ``custom``: user-provided raster file (GeoTIFF, Esri ASCII Grid, NetCDF).\n- ``ign_bdalti``: IGN BD ALTI\u00ae 25 m - French national MNT downloaded\n  per-department from the G\u00e9oPlateforme.\n\nThe optional mask or extent controls spatial clipping during data loading.",
-        "properties": {
-          "source": {
-            "description": "Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_bdalti' for the IGN BD ALTI 25 m MNT.",
-            "enum": [
-              "custom",
-              "ign_bdalti"
-            ],
-            "examples": [
-              "custom"
-            ],
-            "title": "Source",
-            "type": "string",
-            "x-hmp-profile": "user"
-          },
-          "path": {
-            "anyOf": [
-              {
-                "format": "path",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Path to custom DEM file or directory (TIF, ASC, NC).",
-            "title": "Path",
-            "x-hmp-profile": "user"
-          },
-          "mask_path": {
-            "anyOf": [
-              {
-                "format": "path",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
-            "title": "Mask Path",
-            "x-hmp-profile": "user"
-          },
-          "extent": {
-            "anyOf": [
-              {
-                "enum": [
-                  "watershed",
-                  "study_area"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Use project extent for bbox-based data retrieval.",
-            "title": "Extent",
-            "x-hmp-profile": "user"
-          },
-          "force_refresh": {
-            "default": false,
-            "description": "Ignore cache and re-download from API.",
-            "examples": [
-              false
-            ],
-            "title": "Force Refresh",
-            "type": "boolean",
-            "x-hmp-profile": "dev"
-          }
-        },
-        "required": [
-          "source"
-        ],
-        "title": "DemSourceConfig",
         "type": "object"
       },
       "DerivedConfig": {
@@ -4201,128 +4548,8 @@
       },
       "FlowConfig": {
         "additionalProperties": false,
-        "description": "Flow-process configuration.\n\nParameters are declared in `param_list` (ordered list of ids), and\nparameter payloads are stored in `param`.",
+        "description": "Flow-process configuration.\n\nParameters are declared in `param_list` (ordered list of ids), and\nparameter payloads are stored in `param`. The 13 flat\n``runtime_*``/``vi_*``/``ts_vi_*`` Boussinesq knobs are declared on\n:class:`FlowRuntimeFields` and grouped together by the\n:attr:`runtime` property as a :class:`FlowRuntimeConfig` view.",
         "properties": {
-          "param_list": {
-            "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
-            "examples": [
-              [
-                "K",
-                "Sy",
-                "Ss"
-              ]
-            ],
-            "items": {
-              "type": "string"
-            },
-            "title": "Param List",
-            "type": "array",
-            "x-hmp-profile": "user"
-          },
-          "param": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/FlowParam"
-            },
-            "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads.",
-            "title": "Param",
-            "type": "object",
-            "x-hmp-profile": "user"
-          },
-          "ic": {
-            "$ref": "#/components/schemas/FlowInitialConditions",
-            "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).",
-            "x-hmp-profile": "user"
-          },
-          "bc": {
-            "additionalProperties": {
-              "discriminator": {
-                "mapping": {
-                  "cauchy": "#/$defs/CauchyBC",
-                  "dirichlet": "#/$defs/DirichletBC",
-                  "robin": "#/$defs/RobinBC"
-                },
-                "propertyName": "kind"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/DirichletBC"
-                },
-                {
-                  "$ref": "#/components/schemas/CauchyBC"
-                },
-                {
-                  "$ref": "#/components/schemas/RobinBC"
-                }
-              ]
-            },
-            "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- ``[flow.bc.cauchy.drainage]``\n- ``[flow.bc.robin.drainage]``\n- ``[flow.bc.<custom_id>]`` for generic payloads\n\n**Common keys**\n\n- ``value`` (required): numeric or ``'<value> <unit>'``\n- ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.\n\n**Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).",
-            "title": "Bc",
-            "type": "object",
-            "x-hmp-profile": "user"
-          },
-          "sinks_sources": {
-            "$ref": "#/components/schemas/FlowSinksSourcesConfig",
-            "description": "Typed sinks/sources payload (for example pumping wells).",
-            "x-hmp-profile": "user"
-          },
-          "active_sinks_sources": {
-            "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
-            "examples": [
-              [
-                "recharge"
-              ],
-              [
-                "recharge",
-                "wells"
-              ]
-            ],
-            "items": {
-              "pattern": "^[a-z][a-z0-9_]*$",
-              "type": "string"
-            },
-            "title": "Active Sinks Sources",
-            "type": "array",
-            "x-hmp-profile": "user"
-          },
-          "active_bc": {
-            "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.",
-            "examples": [
-              [
-                "ocean"
-              ],
-              [
-                "west_side",
-                "east_side",
-                "drainage"
-              ]
-            ],
-            "items": {
-              "pattern": "^[a-z][a-z0-9_]*$",
-              "type": "string"
-            },
-            "title": "Active Bc",
-            "type": "array",
-            "x-hmp-profile": "user"
-          },
-          "flow_regime": {
-            "default": "transient",
-            "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
-            "display_name_fr": "R\u00e9gime d'\u00e9coulement",
-            "enum": [
-              "steady",
-              "transient"
-            ],
-            "examples": [
-              "steady",
-              "transient"
-            ],
-            "help_text_fr": "R\u00e9gime stationnaire (steady) ou transitoire (transient). Le r\u00e9gime transitoire requiert une condition initiale [flow.ic].",
-            "title": "Flow Regime",
-            "type": "string",
-            "unit": "-",
-            "widget_type": "select",
-            "x-hmp-profile": "user"
-          },
           "runtime_backend": {
             "default": "local",
             "description": "Optional nonlinear runtime backend hint used by the Boussinesq solver implementation. Other flow solvers may ignore this field.",
@@ -4501,6 +4728,126 @@
             "title": "Ts Vi Snes Type",
             "type": "string",
             "x-hmp-profile": "dev"
+          },
+          "param_list": {
+            "description": "Ordered list of flow-parameter identifiers used to build runtime parameters (for example ['K', 'Ss', 'Sy']).",
+            "examples": [
+              [
+                "K",
+                "Sy",
+                "Ss"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Param List",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "param": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FlowParam"
+            },
+            "description": "Mapping of flow-parameter identifiers to native FieldParamConfig payloads.",
+            "title": "Param",
+            "type": "object",
+            "x-hmp-profile": "user"
+          },
+          "ic": {
+            "$ref": "#/components/schemas/FlowInitialConditions",
+            "description": "Validated flow initial-condition structure parsed from [flow.ic]. Stored as FlowInitialConditions(h=FlowInitialCondition).",
+            "x-hmp-profile": "user"
+          },
+          "bc": {
+            "additionalProperties": {
+              "discriminator": {
+                "mapping": {
+                  "cauchy": "#/$defs/CauchyBC",
+                  "dirichlet": "#/$defs/DirichletBC",
+                  "robin": "#/$defs/RobinBC"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/DirichletBC"
+                },
+                {
+                  "$ref": "#/components/schemas/CauchyBC"
+                },
+                {
+                  "$ref": "#/components/schemas/RobinBC"
+                }
+              ]
+            },
+            "description": "Mapping of flow boundary-condition payloads parsed from ``[flow.bc]``.\n\n**Supported TOML sections**\n\n- ``[flow.bc.dirichlet.<id>]`` where ``<id>`` is one of ``ocean``, ``stream``, ``north_side``, ``south_side``, ``east_side``, ``west_side``\n- ``[flow.bc.cauchy.drainage]``\n- ``[flow.bc.robin.drainage]``\n- ``[flow.bc.<custom_id>]`` for generic payloads\n\n**Common keys**\n\n- ``value`` (required): numeric or ``'<value> <unit>'``\n- ``application_domain``: optional for dirichlet when ``<id>`` implies it (e.g. ``west_side`` -> ``'west side'``); required for ``cauchy`` and ``robin`` drainage\n\n**Allowed application_domain values:** ``top``, ``north side``, ``south side``, ``east side``, ``west side``.\n\n**Default units:** ``m`` for dirichlet, ``m2/s`` for cauchy/robin.\n\n**Cauchy vs Robin:** both map to the same MODFLOW ``DRN`` package; the distinction only matters for the Boussinesq solver, which uses two different surface-interaction closures (``cauchy`` for the linear formulation ``q = C(h - h_ref)``, ``robin`` for the regularized partition / complementarity variants selected by ``flow.surface_interaction_model``).",
+            "title": "Bc",
+            "type": "object",
+            "x-hmp-profile": "user"
+          },
+          "sinks_sources": {
+            "$ref": "#/components/schemas/FlowSinksSourcesConfig",
+            "description": "Typed sinks/sources payload (for example pumping wells).",
+            "x-hmp-profile": "user"
+          },
+          "active_sinks_sources": {
+            "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
+            "examples": [
+              [
+                "recharge"
+              ],
+              [
+                "recharge",
+                "wells"
+              ]
+            ],
+            "items": {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            "title": "Active Sinks Sources",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "active_bc": {
+            "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.",
+            "examples": [
+              [
+                "ocean"
+              ],
+              [
+                "west_side",
+                "east_side",
+                "drainage"
+              ]
+            ],
+            "items": {
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "type": "string"
+            },
+            "title": "Active Bc",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "flow_regime": {
+            "default": "transient",
+            "description": "Global flow simulation regime used by solvers consuming [flow] (steady or transient).",
+            "display_name_fr": "R\u00e9gime d'\u00e9coulement",
+            "enum": [
+              "steady",
+              "transient"
+            ],
+            "examples": [
+              "steady",
+              "transient"
+            ],
+            "help_text_fr": "R\u00e9gime stationnaire (steady) ou transitoire (transient). Le r\u00e9gime transitoire requiert une condition initiale [flow.ic].",
+            "title": "Flow Regime",
+            "type": "string",
+            "unit": "-",
+            "widget_type": "select",
+            "x-hmp-profile": "user"
           }
         },
         "title": "FlowConfig",
@@ -5123,6 +5470,49 @@
           "field"
         ],
         "title": "FlowParam",
+        "type": "object"
+      },
+      "FlowProcessConfig": {
+        "additionalProperties": false,
+        "description": "``[[simulation.process]]`` entry for a flow process.",
+        "properties": {
+          "id": {
+            "description": "User-facing identifier for the process. This id is required and must be unique within the simulation.",
+            "examples": [
+              "flow_main"
+            ],
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Id",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "type": {
+            "const": "flow",
+            "default": "flow",
+            "description": "Discriminator selecting the 'flow' process family.",
+            "examples": [
+              "flow"
+            ],
+            "title": "Type",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "solvers": {
+            "description": "Ordered list of active flow solver names. At least one solver is required for flow processes.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Solvers",
+            "type": "array",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "id",
+          "solvers"
+        ],
+        "title": "FlowProcessConfig",
         "type": "object"
       },
       "FlowRechargeConfig": {
@@ -5828,7 +6218,7 @@
               }
             ],
             "default": null,
-            "description": "Optional x coordinate of the ring center in projected metres. Defaults to the domain midpoint.",
+            "description": "Optional x coordinate of the ring center (projected metres). Defaults to the domain midpoint. Accepts inline units, e.g. '500 m'.",
             "title": "Center X",
             "x-hmp-profile": "dev"
           },
@@ -5842,7 +6232,7 @@
               }
             ],
             "default": null,
-            "description": "Optional y coordinate of the ring center in projected metres. Defaults to the domain midpoint.",
+            "description": "Optional y coordinate of the ring center (projected metres). Defaults to the domain midpoint. Accepts inline units.",
             "title": "Center Y",
             "x-hmp-profile": "dev"
           },
@@ -6017,7 +6407,26 @@
           "sources": {
             "description": "At least one geology data source. Defaults to BRGM 1:1M.",
             "items": {
-              "$ref": "#/components/schemas/GeologySourceConfig"
+              "description": "Discriminated union of geology data sources tagged by the 'source' provider key.",
+              "discriminator": {
+                "mapping": {
+                  "brgm_1m": "#/$defs/BrgmGeology1mSource",
+                  "brgm_50k": "#/$defs/BrgmGeology50kSource",
+                  "custom": "#/$defs/CustomGeologySource"
+                },
+                "propertyName": "source"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/CustomGeologySource"
+                },
+                {
+                  "$ref": "#/components/schemas/BrgmGeology1mSource"
+                },
+                {
+                  "$ref": "#/components/schemas/BrgmGeology50kSource"
+                }
+              ]
             },
             "minItems": 1,
             "title": "Sources",
@@ -6048,158 +6457,6 @@
           }
         },
         "title": "GeologyConfig",
-        "type": "object"
-      },
-      "GeologySourceConfig": {
-        "additionalProperties": false,
-        "description": "Configuration for one geology data source.\n\nSources can be user-provided vector, raster, or CSV files, or BRGM\ngeological maps at 1:1M or 1:50K scale. Custom vector sources need a code\nfield so HydroModPy can map lithological units to model parameters.",
-        "properties": {
-          "source": {
-            "description": "Data provider: 'custom' for user files (SHP/GPKG/TIF/CSV), 'brgm_1m' for the 1:1M national geological map, 'brgm_50k' for the 1:50K departmental geological maps.",
-            "enum": [
-              "custom",
-              "brgm_1m",
-              "brgm_50k"
-            ],
-            "examples": [
-              "custom"
-            ],
-            "title": "Source",
-            "type": "string",
-            "x-hmp-profile": "user"
-          },
-          "path": {
-            "anyOf": [
-              {
-                "format": "path",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Path to custom geology file or directory (SHP, GPKG, TIF, CSV).",
-            "title": "Path",
-            "x-hmp-profile": "user"
-          },
-          "code_field": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Attribute column for geology codes in custom vector files (SHP/GPKG). Required for custom vector sources. Ignored for BRGM sources (always CODE_LEG).",
-            "title": "Code Field",
-            "x-hmp-profile": "user"
-          },
-          "values_table_path": {
-            "anyOf": [
-              {
-                "format": "path",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Optional CSV linking geology codes to descriptions. Columns: geology_code, description.",
-            "title": "Values Table Path",
-            "x-hmp-profile": "user"
-          },
-          "col_x": {
-            "default": "x",
-            "description": "Column for X coordinate in CSV.",
-            "examples": [
-              "x"
-            ],
-            "title": "Col X",
-            "type": "string",
-            "x-hmp-profile": "dev"
-          },
-          "col_y": {
-            "default": "y",
-            "description": "Column for Y coordinate in CSV.",
-            "examples": [
-              "y"
-            ],
-            "title": "Col Y",
-            "type": "string",
-            "x-hmp-profile": "dev"
-          },
-          "col_code": {
-            "default": "geology_code",
-            "description": "Column for geology code in CSV.",
-            "examples": [
-              "geology_code"
-            ],
-            "title": "Col Code",
-            "type": "string",
-            "x-hmp-profile": "dev"
-          },
-          "default_crs": {
-            "default": "EPSG:2154",
-            "description": "Default CRS for CSV points.",
-            "examples": [
-              "EPSG:2154"
-            ],
-            "title": "Default Crs",
-            "type": "string",
-            "x-hmp-profile": "dev"
-          },
-          "mask_path": {
-            "anyOf": [
-              {
-                "format": "path",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
-            "title": "Mask Path",
-            "x-hmp-profile": "user"
-          },
-          "extent": {
-            "anyOf": [
-              {
-                "enum": [
-                  "watershed",
-                  "study_area"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Use project extent for bbox-based data retrieval.",
-            "title": "Extent",
-            "x-hmp-profile": "user"
-          },
-          "force_refresh": {
-            "default": false,
-            "description": "Ignore cache and re-download from API.",
-            "examples": [
-              false
-            ],
-            "title": "Force Refresh",
-            "type": "boolean",
-            "x-hmp-profile": "dev"
-          }
-        },
-        "required": [
-          "source"
-        ],
-        "title": "GeologySourceConfig",
         "type": "object"
       },
       "GeologySupportConfig": {
@@ -6866,6 +7123,68 @@
           "source"
         ],
         "title": "HydrometrySourceConfig",
+        "type": "object"
+      },
+      "IgnBdaltiDemSource": {
+        "additionalProperties": false,
+        "description": "IGN BD ALTI 25 m national DEM downloaded per-department.",
+        "properties": {
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+            "title": "Mask Path",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "watershed",
+                  "study_area"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Use project extent for bbox-based data retrieval.",
+            "title": "Extent",
+            "x-hmp-profile": "user"
+          },
+          "force_refresh": {
+            "default": false,
+            "description": "Ignore cache and re-download from API.",
+            "examples": [
+              false
+            ],
+            "title": "Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
+          },
+          "source": {
+            "const": "ign_bdalti",
+            "default": "ign_bdalti",
+            "description": "Discriminator tag selecting the IGN BD ALTI 25 m DEM provider.",
+            "examples": [
+              "ign_bdalti"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "IgnBdaltiDemSource",
         "type": "object"
       },
       "IntermittencyConfig": {
@@ -8165,6 +8484,78 @@
         "title": "MeshInputConfig",
         "type": "object"
       },
+      "MeshProcessConfig": {
+        "additionalProperties": false,
+        "description": "``[[simulation.process]]`` entry for a mesh orchestration process.",
+        "properties": {
+          "id": {
+            "description": "User-facing identifier for the process. This id is required and must be unique within the simulation.",
+            "examples": [
+              "flow_main"
+            ],
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Id",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "type": {
+            "const": "mesh",
+            "default": "mesh",
+            "description": "Discriminator selecting the 'mesh' orchestration family.",
+            "examples": [
+              "mesh"
+            ],
+            "title": "Type",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "backend": {
+            "const": "catchment",
+            "default": "catchment",
+            "description": "Backend used by the mesh process. Currently only 'catchment' is supported (delegates to the [mesh_catchment] runtime).",
+            "examples": [
+              "catchment"
+            ],
+            "title": "Backend",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "solvers": {
+            "description": "Reserved for future use. Mesh processes must not declare solvers; set 'backend' instead.",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 0,
+            "title": "Solvers",
+            "type": "array",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "MeshProcessConfig",
+        "type": "object"
+      },
+      "Modflow6Backend": {
+        "additionalProperties": false,
+        "description": "Select the MODFLOW 6 flow backend.",
+        "properties": {
+          "backend": {
+            "const": "modflow6",
+            "default": "modflow6",
+            "description": "Discriminator tag selecting the MODFLOW 6 flow backend.",
+            "examples": [
+              "modflow6"
+            ],
+            "title": "Backend",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "Modflow6Backend",
+        "type": "object"
+      },
       "Modflow6Config": {
         "additionalProperties": false,
         "description": "Expert-level MODFLOW 6 configuration organized by concern.",
@@ -8701,6 +9092,25 @@
         "title": "ModflowConfig",
         "type": "object"
       },
+      "ModflowNwtBackend": {
+        "additionalProperties": false,
+        "description": "Select the MODFLOW-NWT flow backend.",
+        "properties": {
+          "backend": {
+            "const": "modflow_nwt",
+            "default": "modflow_nwt",
+            "description": "Discriminator tag selecting the MODFLOW-NWT flow backend.",
+            "examples": [
+              "modflow_nwt"
+            ],
+            "title": "Backend",
+            "type": "string",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "ModflowNwtBackend",
+        "type": "object"
+      },
       "ModflowProcessSpecificConfig": {
         "additionalProperties": false,
         "description": "Process-specific parameters used by selected MODFLOW packages.",
@@ -8717,10 +9127,11 @@
           },
           "exdp": {
             "default": 1.0,
-            "description": "Extinction depth [L] used by the EVT package (EXDP).",
+            "description": "Extinction depth (metres) used by the EVT package (EXDP). Accepts inline units, e.g. '1 m', '50 cm'.",
             "examples": [
               1.0
             ],
+            "exclusiveMinimum": 0.0,
             "title": "Exdp",
             "type": "number",
             "x-hmp-profile": "expert"
@@ -9374,25 +9785,22 @@
             "x-hmp-profile": "user"
           },
           "snap_dist": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string"
-              }
+            "description": "Maximum snapping distance (metres) to move the outlet to the nearest stream cell. Accepts inline units (e.g. 50, '50 m', '0.05 km').",
+            "examples": [
+              1.0
             ],
-            "description": "Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-friendly values (for example 50, '50 m', '0.05 km').",
+            "exclusiveMinimum": 0.0,
             "title": "Snap Dist",
+            "type": "number",
             "x-hmp-profile": "user"
           },
           "buff_area": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "string"
               },
               {
-                "type": "string"
+                "type": "number"
               }
             ],
             "description": "Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').",
@@ -10046,10 +10454,10 @@
           "buff_area": {
             "anyOf": [
               {
-                "type": "number"
+                "type": "string"
               },
               {
-                "type": "string"
+                "type": "number"
               }
             ],
             "description": "Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2 km').",
@@ -10360,7 +10768,7 @@
               }
             ],
             "default": null,
-            "description": "Circular shoreline radius (m). Defaults to 35% of the smallest domain length.",
+            "description": "Circular shoreline radius (metres). Defaults to 35% of the smallest domain length. Accepts inline units.",
             "title": "Island Radius",
             "x-hmp-profile": "dev"
           },
@@ -10384,7 +10792,7 @@
               }
             ],
             "default": null,
-            "description": "Optional x coordinate of the island center. Defaults to the grid midpoint.",
+            "description": "Optional x coordinate (metres) of the island center. Defaults to the grid midpoint.",
             "title": "Center X",
             "x-hmp-profile": "dev"
           },
@@ -10398,7 +10806,7 @@
               }
             ],
             "default": null,
-            "description": "Optional y coordinate of the island center. Defaults to the grid midpoint.",
+            "description": "Optional y coordinate (metres) of the island center. Defaults to the grid midpoint.",
             "title": "Center Y",
             "x-hmp-profile": "dev"
           }
@@ -11938,20 +12346,14 @@
             "x-hmp-profile": "user"
           },
           "min_stream_length_m": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "string"
-              }
-            ],
             "default": 0.0,
-            "description": "Minimum stream length used by short-segment pruning. Accepts SI-friendly values (for example 0, 250, '250 m', '0.5 km').",
+            "description": "Minimum stream length (metres) used by short-segment pruning. Accepts inline units (e.g. 0, 250, '250 m', '0.5 km').",
             "examples": [
               0.0
             ],
+            "minimum": 0.0,
             "title": "Min Stream Length M",
+            "type": "number",
             "x-hmp-profile": "user"
           },
           "compute_strahler_order": {
@@ -12491,7 +12893,26 @@
           "process": {
             "description": "Ordered list of requested processes loaded from [[simulation.process]]. At most one process per type is supported.",
             "items": {
-              "$ref": "#/components/schemas/SimulationProcessConfig"
+              "description": "Discriminated union of simulation processes tagged by the 'type' family (flow, transport, mesh).",
+              "discriminator": {
+                "mapping": {
+                  "flow": "#/$defs/FlowProcessConfig",
+                  "mesh": "#/$defs/MeshProcessConfig",
+                  "transport": "#/$defs/TransportProcessConfig"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/FlowProcessConfig"
+                },
+                {
+                  "$ref": "#/components/schemas/TransportProcessConfig"
+                },
+                {
+                  "$ref": "#/components/schemas/MeshProcessConfig"
+                }
+              ]
             },
             "title": "Process",
             "type": "array",
@@ -12519,60 +12940,6 @@
           }
         },
         "title": "SimulationConfig",
-        "type": "object"
-      },
-      "SimulationProcessConfig": {
-        "additionalProperties": false,
-        "description": "One requested process entry under ``[[simulation.process]]``.",
-        "properties": {
-          "id": {
-            "description": "User-facing identifier for the process. This id is required and must be unique within the simulation.",
-            "examples": [
-              "flow_main"
-            ],
-            "pattern": "^[a-z][a-z0-9_]*$",
-            "title": "Id",
-            "type": "string",
-            "x-hmp-profile": "user"
-          },
-          "type": {
-            "description": "Requested process family executed by the launcher.",
-            "examples": [
-              "example"
-            ],
-            "title": "Type",
-            "type": "string",
-            "x-hmp-profile": "user"
-          },
-          "solvers": {
-            "description": "Ordered list of active solver names for this process. Each listed solver is executed in order. Required for solver-backed processes such as flow and transport.",
-            "items": {
-              "type": "string"
-            },
-            "title": "Solvers",
-            "type": "array",
-            "x-hmp-profile": "user"
-          },
-          "backend": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Backend used by non-solver orchestration processes. Currently only used by type='mesh', where backend='catchment' delegates to the [mesh_catchment] runtime.",
-            "title": "Backend",
-            "x-hmp-profile": "user"
-          }
-        },
-        "required": [
-          "id",
-          "type"
-        ],
-        "title": "SimulationProcessConfig",
         "type": "object"
       },
       "SimulationTimeConfig": {
@@ -12926,16 +13293,34 @@
       },
       "SolverConfig": {
         "additionalProperties": false,
-        "description": "Configuration block defining the active groundwater solver engine.",
+        "description": "Configuration block defining the active groundwater solver engine.\n\nThe block accepts two equivalent payloads:\n\n* Legacy flat form: ``solver_engine = \"modflow6\"``.\n* Discriminated form: ``backend = { backend = \"modflow6\" }`` (built-in)\n  or ``backend = { backend = \"custom\", name = \"pluginsolver\" }``.\n\nBoth are normalized to a ``SolverBackendConfig`` discriminated union.\n``solver_engine`` is exposed as a read-only property mirroring the\nselected backend tag (or plugin name for ``custom``).",
         "properties": {
-          "solver_engine": {
-            "default": "modflow6",
-            "description": "Groundwater flow solver backend registered for the 'flow' process.",
-            "examples": [
-              "modflow6"
+          "backend": {
+            "description": "Active flow backend selector (discriminated union).",
+            "discriminator": {
+              "mapping": {
+                "boussinesq": "#/$defs/BoussinesqBackend",
+                "custom": "#/$defs/CustomBackend",
+                "modflow6": "#/$defs/Modflow6Backend",
+                "modflow_nwt": "#/$defs/ModflowNwtBackend"
+              },
+              "propertyName": "backend"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Modflow6Backend"
+              },
+              {
+                "$ref": "#/components/schemas/ModflowNwtBackend"
+              },
+              {
+                "$ref": "#/components/schemas/BoussinesqBackend"
+              },
+              {
+                "$ref": "#/components/schemas/CustomBackend"
+              }
             ],
-            "title": "Solver Engine",
-            "type": "string",
+            "title": "Backend",
             "x-hmp-profile": "user"
           }
         },
@@ -13013,20 +13398,22 @@
         "properties": {
           "length_x": {
             "default": 100.0,
-            "description": "Total domain length along x. Accepts values such as 100, '100 m', or '0.1 km'.",
+            "description": "Total domain length along x (metres). Accepts inline units, e.g. '0.1 km'.",
             "examples": [
               100.0
             ],
+            "exclusiveMinimum": 0.0,
             "title": "Length X",
             "type": "number",
             "x-hmp-profile": "user"
           },
           "length_y": {
             "default": 1.0,
-            "description": "Total domain length along y. Accepts values such as 1, '1 m', or '0.001 km'.",
+            "description": "Total domain length along y (metres). Accepts inline units, e.g. '1 m'.",
             "examples": [
               1.0
             ],
+            "exclusiveMinimum": 0.0,
             "title": "Length Y",
             "type": "number",
             "x-hmp-profile": "user"
@@ -14333,6 +14720,49 @@
         "title": "TransportMt3dmsConfig",
         "type": "object"
       },
+      "TransportProcessConfig": {
+        "additionalProperties": false,
+        "description": "``[[simulation.process]]`` entry for a transport process.",
+        "properties": {
+          "id": {
+            "description": "User-facing identifier for the process. This id is required and must be unique within the simulation.",
+            "examples": [
+              "flow_main"
+            ],
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Id",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "type": {
+            "const": "transport",
+            "default": "transport",
+            "description": "Discriminator selecting the 'transport' process family.",
+            "examples": [
+              "transport"
+            ],
+            "title": "Type",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "solvers": {
+            "description": "Ordered list of active transport solver names. At least one solver is required for transport processes.",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Solvers",
+            "type": "array",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "id",
+          "solvers"
+        ],
+        "title": "TransportProcessConfig",
+        "type": "object"
+      },
       "TxtCatchDef": {
         "additionalProperties": false,
         "description": "Model domain defined from an XYZ text grid plus a cell size.",
@@ -14364,7 +14794,7 @@
             "x-hmp-profile": "user"
           },
           "cell_size": {
-            "description": "Grid cell size in metres used to rasterise the XYZ point cloud.",
+            "description": "Grid cell size in metres used to rasterise the XYZ point cloud. Accepts inline units (e.g. '25 m', '0.025 km').",
             "examples": [
               1.0
             ],

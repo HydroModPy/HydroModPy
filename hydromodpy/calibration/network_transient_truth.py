@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from hydromodpy.calibration.network_metrics import (
+from hydromodpy.calibration.metrics.network import (
     equivalent_network_length,
     network_cost,
     positive_outflow,

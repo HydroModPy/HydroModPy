@@ -44,8 +44,8 @@ backend, see the [installation guide](https://hydromodpy-docs.readthedocs.io/en/
 Scaffold a workspace, create a project from a template, run it.
 
 ```bash
-hmp init .
-hmp new getting_started --workspace .
+hmp workspace init .
+hmp project new getting_started --workspace .
 hmp run projects/getting_started/run_demo.toml
 ```
 

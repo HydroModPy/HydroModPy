@@ -1,5 +1,17 @@
 """Pydantic-pint annotated types for hydrogeological quantities.
 
+Two flavors are provided:
+
+- ``Length``, ``Area``, ``Volume``, ``Time``, ``FlowRate``, ``Velocity``,
+  ``HydraulicConductivity``, ``SpecificStorage``, ``Dimensionless``:
+  Pydantic-pint Quantity types. Values keep their pint Quantity wrapper
+  (useful for ratio arithmetic / serialization).
+- ``LengthMeters``, ``AreaSquareMeters``, ``VolumetricFlowM3PerSecond``,
+  ``DurationSeconds``, ``HydraulicConductivityMPerS``: float-valued
+  annotated types that accept the same string/number inputs but expose
+  a plain ``float`` in the canonical SI unit. Use these on existing
+  fields whose downstream consumers expect plain numbers.
+
 This module exports `Annotated` type aliases that can be used directly in
 Pydantic v2 models to enforce unit consistency. Each type accepts either a
 bare number (interpreted as the canonical SI unit) or a string "<value> <unit>"
@@ -199,15 +211,115 @@ Dimensionless = Annotated[
 """Dimensionless pint Quantity (``-``)."""
 
 
+# ---------------------------------------------------------------------------
+# SI-float flavors (canonical magnitude). Use when downstream consumers
+# expect a plain ``float`` and not a pint Quantity wrapper.
+# ---------------------------------------------------------------------------
+
+
+def _coerce_to_canonical_float(unit: str):
+    """Build a BeforeValidator that parses any input into a float in ``unit``."""
+
+    def _safe_to_canonical(quantity: Any) -> float:
+        try:
+            return float(quantity.to(unit).magnitude)
+        except Exception as exc:
+            # Re-raise pint dimensional / unit errors as plain ValueError so
+            # Pydantic wraps them into a ValidationError.
+            raise ValueError(str(exc)) from exc
+
+    def _coerce(value: Any) -> Any:
+        if value is None:
+            return None
+        # Already a pint Quantity? Convert to canonical unit magnitude.
+        to = getattr(value, "to", None)
+        magnitude = getattr(value, "magnitude", None)
+        if callable(to) and magnitude is not None:
+            return _safe_to_canonical(value)
+        # Numeric input (but not bool): treated as canonical unit magnitude.
+        if isinstance(value, bool):
+            raise TypeError("numeric field rejected boolean input")
+        if isinstance(value, (int, float)):
+            return float(value)
+        # String input parsed via the shared pint registry.
+        if isinstance(value, str):
+            token = value.strip()
+            if token == "":
+                raise ValueError("empty string is not a valid quantity")
+            try:
+                quantity = UREG(token)
+            except Exception as exc:
+                raise ValueError(str(exc)) from exc
+            mag = getattr(quantity, "magnitude", None)
+            if mag is None:
+                # Pure dimensionless number parsed as a Number, e.g. "50".
+                return float(quantity)
+            return _safe_to_canonical(quantity)
+        # Mapping like {"value": 1, "unit": "km"}.
+        if hasattr(value, "items"):
+            payload = dict(value)
+            if "value" in payload:
+                magnitude_in = float(payload["value"])
+                unit_in = str(payload.get("unit", unit))
+                try:
+                    quantity = UREG.Quantity(magnitude_in, unit_in)
+                except Exception as exc:
+                    raise ValueError(str(exc)) from exc
+                return _safe_to_canonical(quantity)
+        raise TypeError(f"unsupported value for canonical-{unit} float: {value!r}")
+
+    return _coerce
+
+
+LengthMeters = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("m")),
+]
+"""Length in metres expressed as ``float``. Accepts ``"100 m"``, ``"1 km"``, ``50.0``."""
+
+
+AreaSquareMeters = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("m**2")),
+]
+"""Area in m^2 expressed as ``float``."""
+
+
+VolumetricFlowM3PerSecond = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("m**3/s")),
+]
+"""Volumetric flow rate in m^3/s expressed as ``float``."""
+
+
+DurationSeconds = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("s")),
+]
+"""Duration in seconds expressed as ``float``. Accepts ``"1 day"``, ``"3600 s"``."""
+
+
+HydraulicConductivityMPerS = Annotated[
+    float,
+    BeforeValidator(_coerce_to_canonical_float("m/s")),
+]
+"""Hydraulic conductivity in m/s expressed as ``float``."""
+
+
 __all__ = [
     "Area",
+    "AreaSquareMeters",
     "Dimensionless",
+    "DurationSeconds",
     "FlowRate",
     "HydraulicConductivity",
+    "HydraulicConductivityMPerS",
     "Length",
+    "LengthMeters",
     "SpecificStorage",
     "SpecificYield",
     "Time",
     "Velocity",
     "Volume",
+    "VolumetricFlowM3PerSecond",
 ]

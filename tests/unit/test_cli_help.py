@@ -48,7 +48,7 @@ def test_subcommand_help(monkeypatch, capsys, subcommand: str) -> None:
 
 
 def test_data_subcommands_help(monkeypatch, capsys) -> None:
-    for sub in ("check", "list", "add"):
+    for sub in ("check", "ls", "add", "get", "remove", "prune", "archive", "restore"):
         code = _run_help(monkeypatch, ["hmp", "data", sub, "--help"])
         assert code == 0, f"data {sub} --help failed"
         out = capsys.readouterr().out
@@ -64,7 +64,7 @@ def test_dev_subcommands_help(monkeypatch, capsys) -> None:
 
 def test_lock_subcommands_help(monkeypatch, capsys) -> None:
     for sub in ("update", "archive", "restore", "verify"):
-        code = _run_help(monkeypatch, ["hmp", "lock", sub, "--help"])
+        code = _run_help(monkeypatch, ["hmp", "dev", "lock", sub, "--help"])
         assert code == 0, f"lock {sub} --help failed"
         out = capsys.readouterr().out
         assert "usage" in out.lower()
@@ -72,7 +72,7 @@ def test_lock_subcommands_help(monkeypatch, capsys) -> None:
 
 def test_config_subcommands_help(monkeypatch, capsys) -> None:
     for sub in ("template", "check", "wizard"):
-        code = _run_help(monkeypatch, ["hmp", "config", sub, "--help"])
+        code = _run_help(monkeypatch, ["hmp", "dev", "config", sub, "--help"])
         assert code == 0, f"config {sub} --help failed"
         out = capsys.readouterr().out
         assert "usage" in out.lower()

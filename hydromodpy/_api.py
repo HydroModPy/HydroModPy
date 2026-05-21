@@ -140,24 +140,26 @@ def index(db_path: Any = None, *, read_only: bool = False) -> Any:
 def run(config: Any, **kwargs: Any) -> Any:
     """Run a HydroModPy workflow from Python.
 
-    Passing a path executes the same dispatcher as ``hmp run``. Passing an
-    already-built configuration object opens a temporary ``Project`` and calls
-    ``Project.run``.
+    Path and config-object inputs converge on the same dispatch. Simulation
+    workflows return a :class:`~hydromodpy.results.run.Run` (or ``None`` when
+    nothing was persisted, e.g. ``dry_run``). Overview, calibration,
+    comparison and testbed workflows return their adapter ``dict`` summary.
 
     Parameters
     ----------
     config
         TOML path or validated configuration object.
     kwargs
-        Runtime options forwarded to the selected workflow or to
-        ``Project.run``.
+        Runtime options forwarded to the selected workflow. The ``headless``
+        keyword is honored on both branches (path and config object) and
+        controls the underlying ``Project`` interactive side effects.
 
     Returns
     -------
-    Any
-        Workflow result. Simulation workflows usually return a ``Run`` object;
-        overview, mesh, testbed, comparison, and calibration workflows return
-        their own summary objects.
+    Run or None or dict
+        ``Run`` instance (or ``None``) for the ``simulation`` workflow.
+        ``dict`` summary for ``overview``, ``calibration``, ``comparison``
+        and ``testbed`` workflows.
 
     Raises
     ------
@@ -180,6 +182,8 @@ def run(config: Any, **kwargs: Any) -> Any:
     hydromodpy.project.Project.run
         Object-oriented form for repeated runs from one project.
     """
+    headless = bool(kwargs.pop("headless", False))
+
     if isinstance(config, (str, Path)):
         from hydromodpy.project.dispatch.workflow import dispatch_workflow
         from hydromodpy.workflow.dispatch import resolve_workflow
@@ -194,23 +198,26 @@ def run(config: Any, **kwargs: Any) -> Any:
 
     from hydromodpy.project import Project
 
-    with Project(config, headless=kwargs.pop("headless", False)) as project:
+    with Project(config, headless=headless) as project:
         return project.run(**kwargs)
 
 
 def calibrate(config: Any, **kwargs: Any) -> Any:
     """Run a calibration workflow from a TOML file or config object.
 
-    This helper opens a lazy ``Project`` and delegates to
-    ``Project.calibrate``. It is the Python equivalent of launching a
-    calibration TOML through the CLI dispatcher.
+    Paths route directly to :func:`run_calibration_cli`; in-memory config
+    objects open a lazy :class:`Project` so :func:`run_calibration_programmatic`
+    has the project context it requires.
 
     Parameters
     ----------
     config
         Calibration TOML path or validated configuration object.
     kwargs
-        Options forwarded to ``Project.calibrate``.
+        Options forwarded to the underlying calibration runner. The
+        ``headless`` keyword controls the project initialization for the
+        in-memory config branch and is ignored for the TOML branch (which
+        builds no project).
 
     Returns
     -------
@@ -233,19 +240,23 @@ def calibrate(config: Any, **kwargs: Any) -> Any:
 
     See Also
     --------
-    hydromodpy.project.Project.calibrate
-        Project method used by this facade.
+    hydromodpy.calibration.cli_runner.run_calibration_cli
+        TOML entry point used by the path branch.
+    hydromodpy.calibration.programmatic_runner.run_calibration_programmatic
+        Python entry point used by the config-object branch.
     hydromodpy.calibration.CalibrationReport
         Structured calibration result.
     """
+    if isinstance(config, (str, Path)):
+        from hydromodpy.calibration.cli_runner import run_calibration_cli
+
+        kwargs.pop("headless", None)
+        return run_calibration_cli(Path(config).expanduser().resolve(), **kwargs)
+
     from hydromodpy.project import Project
 
-    if isinstance(config, (str, Path)):
-        config_path = Path(config).expanduser().resolve()
-        with Project.lazy(config_path, headless=kwargs.pop("headless", True)) as project:
-            return project.calibrate(config_path=config_path, **kwargs)
-
-    with Project.lazy(config, headless=kwargs.pop("headless", True)) as project:
+    headless = bool(kwargs.pop("headless", True))
+    with Project.lazy(config, headless=headless) as project:
         return project.calibrate(**kwargs)
 
 
@@ -288,6 +299,52 @@ def overview(config: Any, **kwargs: Any) -> Any:
     return dispatch_workflow(workflow, config_path, **kwargs)
 
 
+def compare(config: Any) -> Any:
+    """Run the comparison workflow declared by a TOML file.
+
+    Equivalent to ``hmp run cmp.toml`` when the file declares
+    ``[workflow] mode = "comparison"``. For pairwise metric tables between two
+    persisted simulations, see :func:`compare_pair`.
+
+    Parameters
+    ----------
+    config
+        TOML file containing ``[workflow] mode = "comparison"``.
+
+    Returns
+    -------
+    Any
+        Comparison workflow summary.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the TOML path does not exist.
+    hydromodpy.core.exceptions.ConfigError
+        If the TOML payload fails validation or has the wrong workflow mode.
+
+    Examples
+    --------
+    >>> import hydromodpy as hmp
+    >>> hmp.compare("comparison.toml")
+
+    See Also
+    --------
+    compare_pair
+        Pairwise metric comparison between two already-persisted simulations.
+    """
+    from hydromodpy.project.dispatch.workflow import dispatch_workflow
+    from hydromodpy.workflow.dispatch import resolve_workflow
+
+    config_path = Path(config).expanduser().resolve()
+    workflow = resolve_workflow(
+        config_path,
+        cli_workflow="comparison",
+        require_toml_field=True,
+    )
+    return dispatch_workflow(workflow, config_path)
+
+
 def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
     """Compare two simulations by id or result object.
 
@@ -326,6 +383,10 @@ def compare_pair(sim_a: Any, sim_b: Any, *, workspace: Any = None) -> Any:
 def testbed(toml_path: Any) -> Any:
     """Run a TOML-driven method testbed.
 
+    Delegates to the workflow dispatcher (``run_testbed``) so the launcher
+    resolution (``TestbedLauncher`` vs ``RegionalLabProfileLauncher``) matches
+    the CLI path. The profile is read from the TOML payload.
+
     Parameters
     ----------
     toml_path
@@ -348,9 +409,9 @@ def testbed(toml_path: Any) -> Any:
     >>> import hydromodpy as hmp
     >>> hmp.testbed("testbed_methods.toml")
     """
-    from hydromodpy.analysis.testbed.runtime import TestbedLauncher
+    from hydromodpy.project.dispatch.workflow import run_testbed
 
-    return TestbedLauncher(toml_path).run()
+    return run_testbed(Path(toml_path).expanduser().resolve())
 
 
 def mesh(toml_path: Any) -> dict:
@@ -630,6 +691,48 @@ def _has_geographic_feature(sim: Any, feature_name: str) -> bool:
     except Exception:
         return False
     return feature_name in names
+
+
+def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]:
+    """Apply ``retention_policies`` to ``audit_log`` for the workspace catalog.
+
+    Parameters
+    ----------
+    workspace
+        Path to a workspace or project directory. Resolved via
+        :func:`hydromodpy.cli.helpers.find_catalog_root` so any path under
+        the project tree works. ``None`` resolves to the current directory.
+    apply
+        ``False`` (default) counts rows that would be removed without
+        modifying the file. ``True`` actually deletes rows.
+
+    Returns
+    -------
+    dict[str, int]
+        Mapping ``event_type -> rows_affected``. Empty when no retention
+        policy is registered.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the workspace does not host a ``catalog.duckdb``.
+    """
+    import duckdb
+
+    from hydromodpy.core.state.paths import CATALOG_FILENAME, find_catalog_root
+    from hydromodpy.results.catalog.audit import apply_retention
+
+    workspace_root = find_catalog_root(
+        Path(workspace).expanduser().resolve() if workspace else Path.cwd().resolve()
+    )
+    catalog_path = workspace_root / CATALOG_FILENAME
+    if not catalog_path.is_file():
+        raise FileNotFoundError(f"No catalog at {workspace_root}")
+    conn = duckdb.connect(str(catalog_path))
+    try:
+        return apply_retention(conn, dry_run=not apply)
+    finally:
+        conn.close()
 
 
 def doctor() -> dict:

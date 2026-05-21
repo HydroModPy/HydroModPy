@@ -24,8 +24,28 @@ from hydromodpy.core.units.hydraulic_conductivity import (
     factor_to_m_per_s,
     normalize_m_per_s_unit,
 )
-from hydromodpy.core.units.length import parse_length_to_m
+from hydromodpy.core.units.registry import UREG
 from hydromodpy.core.units.scalar import parse_scalar_and_unit
+
+
+def _length_to_m(value: object, *, label: str) -> float:
+    """Convert a length-like input (number or pint string) to metres."""
+    if value is None:
+        raise ValueError(f"{label} cannot be None.")
+    if isinstance(value, bool):
+        raise TypeError(f"{label} rejects boolean input.")
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        token = value.strip()
+        if token == "":
+            raise ValueError(f"{label}: empty length string is not allowed.")
+        quantity = UREG(token)
+        if not hasattr(quantity, "magnitude"):
+            return float(quantity)
+        return float(quantity.to("m").magnitude)
+    raise TypeError(f"{label}: unsupported length value type {type(value).__name__}.")
+
 
 SUPPORTED_KINDS = ("homogeneous", "heterogeneous")
 SUPPORTED_VERTICAL_PROFILE_MODES = ("none", "exponential", "tabulated")
@@ -243,9 +263,8 @@ class FieldParam:
                 raise KeyError(
                     "vertical_profile mode='exponential' requires 'characteristic_depth'"
                 )
-            characteristic_depth = parse_length_to_m(
+            characteristic_depth = _length_to_m(
                 vertical_profile["characteristic_depth"],
-                default_unit="m",
                 label="vertical_profile.characteristic_depth",
             )
             if not np.isfinite(characteristic_depth) or characteristic_depth <= 0.0:

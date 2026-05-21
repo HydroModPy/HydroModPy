@@ -175,7 +175,7 @@ class RunTimeseriesMixin:
 
         Observation series are persisted in the catalog ``timeseries`` table
         with an ``_obs`` suffix on the variable name (see
-        :func:`hydromodpy.simulation.extraction.extractors.observation_ingest.ingest_observations`).
+        :func:`hydromodpy.simulation.extraction.derivation.observation_ingest.ingest_observations`).
         This accessor strips that suffix on read so callers query with the
         canonical variable name (``discharge``, ``head``, ...).
 
@@ -283,7 +283,7 @@ class RunTimeseriesMixin:
             raise RuntimeError(
                 f"Simulation '{self._sim_id}' has no n_timesteps recorded (is it completed?)"
             )
-        if start is None or end is None:
+        if start is None or end is None or pd.isna(start) or pd.isna(end):
             raise RuntimeError(
                 f"Simulation '{self._sim_id}' missing period_start/period_end "
                 "in catalog - cannot build a time index."
@@ -301,11 +301,11 @@ class RunTimeseriesMixin:
         ``run.parameters`` DataFrame (MultiIndex on ``param_name`` and
         ``zone_id``).
         """
-        rows = self._catalog.connection.execute(
+        rows = self._catalog.backend.fetch_all(
             "SELECT param_name, value FROM parameters "
             "WHERE sim_id = ? AND (zone_id IS NULL OR zone_id = ?)",
             [self._sim_id, "__global__"],
-        ).fetchall()
+        )
         return {name: float(val) for name, val in rows}
 
     def recharge_forcing(self) -> pd.Series:
@@ -313,6 +313,19 @@ class RunTimeseriesMixin:
         from hydromodpy.results import views
 
         return views.recharge_forcing(self)
+
+    def input_entries(self) -> pd.DataFrame:
+        """Return cache entries consumed by this run via the SHA-256 bridge.
+
+        Joins ``tracked_files`` (in the project catalog) with
+        ``entries`` (in the workspace cache DB) on ``sha256`` through a
+        DuckDB ATTACH read-only context. Returns an empty DataFrame when
+        the cache DB cannot be located next to the workspace or when no
+        tracked file matches a cache entry.
+        """
+        from hydromodpy.results.catalog.cross_db import run_input_entries
+
+        return run_input_entries(self._catalog, self._sim_id)
 
 
 def _apply_downsample(

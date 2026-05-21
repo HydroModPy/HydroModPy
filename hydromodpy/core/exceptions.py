@@ -287,6 +287,12 @@ class ResumeIntegrityError(ResumeError):
     code = "HMPY.E509"
 
 
+class WorkflowDAGCycleError(PipelineError):
+    """The workflow DAG declaration contains a dependency cycle."""
+
+    code = "HMPY.E510"
+
+
 # -- Calibration ---------------------------------------------------------------
 
 
@@ -425,6 +431,7 @@ __all__ = [
     "ExtractError",
     "ExportError",
     "WorkspaceLockedError",
+    "WorkflowDAGCycleError",
     # Calibration
     "CalibrationError",
     "ObjectiveError",

@@ -23,7 +23,7 @@ class Modflow6PrtOutputAdapter:
     padding for shorter tracks.
     """
 
-    solver_name = "modflow6prt"
+    solver_name = "modflow6_prt"
     category = "distributed"
 
     def extract(

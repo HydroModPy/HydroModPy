@@ -2,8 +2,8 @@
 
 Covers the pair of operations a user runs when sharing a simulation:
 1. Produce a ``.hmp`` archive (tar.zst) for one finalised sim.
-2. Import it into a fresh workspace via the ``hmp import`` / ``hmp add``
-   CLI verbs and verify the SHA-256 manifest matches every artefact.
+2. Import it into a fresh workspace via the ``hmp data import`` CLI verb
+   and verify the SHA-256 manifest matches every artefact.
 
 Two corner cases are exercised:
 - A fresh, minimal source workspace (Zarr field + Parquet timeseries).
@@ -39,7 +39,7 @@ from hydromodpy.results.exporters.hmp_package import (
 
 # `hmp export-package` is not a registered CLI verb in this codebase: the
 # export is driven via the ``catalog.export_package`` API (also used by the
-# unit and e2e suites). The CLI re-import is driven via ``hmp import``.
+# unit and e2e suites). The CLI re-import is driven via ``hmp data import``.
 # This is the documented gap for the F2 audit.
 CLI_EXPORT_PACKAGE_VERB_EXISTS = False
 
@@ -123,7 +123,7 @@ def test_export_package_layout_and_manifest_sha256(tmp_path: Path) -> None:
 
 @pytest.mark.integration
 def test_export_then_cli_import_roundtrip(tmp_path: Path) -> None:
-    """Export a sim to ``.hmp`` then re-import via ``hmp import`` CLI verb."""
+    """Export a sim to ``.hmp`` then re-import via ``hmp data import`` CLI verb."""
     import hydromodpy as hmp
 
     src_workspace = tmp_path / "source_ws"
@@ -148,6 +148,7 @@ def test_export_then_cli_import_roundtrip(tmp_path: Path) -> None:
             sys.executable,
             "-m",
             "hydromodpy",
+            "data",
             "import",
             str(archive_path),
             "-w",

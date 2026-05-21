@@ -22,7 +22,7 @@ from hydromodpy.core.io.db_retry import with_lock_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
 from hydromodpy.results.array_fingerprint import fingerprint
-from hydromodpy.results.catalog.audit import audited
+from hydromodpy.results.catalog.audit import audited, emit_audit_event
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from hydromodpy.results.catalog.writes_helpers import (
     _coerce_timestamp,
@@ -50,6 +50,71 @@ class WritesMixinDuckDB:
     method early-returns when the relevant ``PersistenceConfig`` flag is
     False, so a single switch governs the DuckDB sink.
     """
+
+    @audited("sim.rename", payload_keys=("new_name",))
+    @with_lock_retry()
+    def rename_simulation(
+        self,
+        sim_id: str | UUID,
+        new_name: str,
+    ) -> None:
+        """Rename a simulation row in-place.
+
+        The (project, name) pair must remain unique: a collision raises
+        :class:`~hydromodpy.results.catalog.registration.DuplicateSimulationNameError`.
+        The audit row carries the new name only; the previous value can be
+        recovered from earlier ``sim.register`` events if needed.
+        """
+        if not self._persistence.save_catalog:
+            return
+        from hydromodpy.results.catalog.registration import (
+            DuplicateSimulationNameError,
+        )
+
+        sid = str(sim_id)
+        if not new_name or not str(new_name).strip():
+            raise ValueError("new_name must be a non-empty string")
+        row = self._backend.fetch_one("SELECT project FROM simulations WHERE sim_id = ?", [sid])
+        if row is None:
+            raise KeyError(f"No simulation with sim_id={sid[:8]}")
+        project = row[0]
+        clash = self._backend.fetch_one(
+            "SELECT sim_id FROM simulations WHERE project = ? AND name = ? AND sim_id <> ?",
+            [project, str(new_name), sid],
+        )
+        if clash is not None:
+            raise DuplicateSimulationNameError(str(project), str(new_name), str(clash[0]))
+        self._backend.execute(
+            "UPDATE simulations SET name = ?, updated_at = current_timestamp WHERE sim_id = ?",
+            [str(new_name), sid],
+        )
+
+    @audited("sim.tag_remove", payload_keys=("tag",))
+    @with_lock_retry()
+    def remove_tag(
+        self,
+        sim_id: str | UUID,
+        tag: str,
+    ) -> bool:
+        """Drop a ``(sim_id, tag)`` row from ``tags``.
+
+        Returns ``True`` when a row was removed, ``False`` when the tag was
+        not attached to ``sim_id``.
+        """
+        if not self._persistence.save_catalog:
+            return False
+        sid = str(sim_id)
+        existing = self._backend.fetch_one(
+            "SELECT 1 FROM tags WHERE sim_id = ? AND tag = ?",
+            [sid, str(tag)],
+        )
+        if existing is None:
+            return False
+        self._backend.execute(
+            "DELETE FROM tags WHERE sim_id = ? AND tag = ?",
+            [sid, str(tag)],
+        )
+        return True
 
     @audited("param.write")
     @with_lock_retry()
@@ -83,6 +148,47 @@ class WritesMixinDuckDB:
                     p.get("parameterization"),
                 ],
             )
+
+    @audited("param.update", payload_keys=("param_name", "value", "zone_id"))
+    @with_lock_retry()
+    def update_parameter(
+        self,
+        sim_id: str | UUID,
+        param_name: str,
+        value: Any,
+        *,
+        zone_id: str | None = None,
+        unit: str | None = None,
+        parameterization: str | None = None,
+    ) -> None:
+        """Update an existing parameter row in-place.
+
+        Distinct from :meth:`write_parameters` (insert + on-conflict-replace):
+        targets one ``(sim_id, param_name, zone_id)`` tuple already present
+        and refreshes ``value`` plus optional ``unit`` / ``parameterization``.
+        Raises ``KeyError`` when the row does not exist so misuse fails loudly.
+        """
+        if not self._persistence.save_catalog:
+            return
+        sid = str(sim_id)
+        zone_val = GLOBAL_ZONE if zone_id is None else str(zone_id)
+        existing = self._backend.fetch_one(
+            "SELECT 1 FROM parameters WHERE sim_id = ? AND param_name = ? AND zone_id = ?",
+            [sid, param_name, zone_val],
+        )
+        if existing is None:
+            raise KeyError(
+                f"No parameter row for sim_id={sid[:8]} param={param_name!r} zone={zone_val!r}"
+            )
+        self._backend.execute(
+            """UPDATE parameters
+                  SET value = ?,
+                      unit = COALESCE(?, unit),
+                      parameterization = COALESCE(?, parameterization),
+                      valid_from = now()
+                WHERE sim_id = ? AND param_name = ? AND zone_id = ?""",
+            [value, unit, parameterization, sid, param_name, zone_val],
+        )
 
     @with_lock_retry()
     def write_station(
@@ -516,7 +622,45 @@ class WritesMixinDuckDB:
                 ],
             )
             written += 1
+        if written > 0:
+            try:
+                emit_audit_event(
+                    self._db,
+                    event_type="tracked_file.add",
+                    sim_id=sid,
+                    payload={"n_entries": int(written)},
+                )
+            except Exception as exc:  # noqa: BLE001 - audit must not raise
+                logger.warning("audit emission failed for tracked_file.add: %s", exc)
         return written
+
+    @audited("tracked_file.remove", payload_keys=("role", "canonical_path"))
+    @with_lock_retry()
+    def remove_tracked_file(
+        self,
+        sim_id: str | UUID,
+        role: str,
+        canonical_path: str,
+    ) -> bool:
+        """Drop one ``(sim_id, role, canonical_path)`` row from ``tracked_files``.
+
+        Returns ``True`` when a row was removed, ``False`` when no match was
+        found (caller can decide whether the absence is an error).
+        """
+        if not self._persistence.save_catalog:
+            return False
+        sid = str(sim_id)
+        existing = self._backend.fetch_one(
+            "SELECT 1 FROM tracked_files WHERE sim_id = ? AND role = ? AND canonical_path = ?",
+            [sid, role, canonical_path],
+        )
+        if existing is None:
+            return False
+        self._backend.execute(
+            "DELETE FROM tracked_files WHERE sim_id = ? AND role = ? AND canonical_path = ?",
+            [sid, role, canonical_path],
+        )
+        return True
 
     @with_lock_retry()
     def write_geographic_metadata(

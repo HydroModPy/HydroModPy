@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
-from hydromodpy.core.units.length import parse_length_to_m
+from hydromodpy.core.units import LengthMeters
 
 
 class ConstantThicknessDepthModel(HydroModelBase):
@@ -24,20 +24,14 @@ class ConstantThicknessDepthModel(HydroModelBase):
             "bottom as top-thickness."
         ),
     )
-    thickness: Annotated[float, Profile.USER] = Field(
+    thickness: Annotated[LengthMeters, Profile.USER] = Field(
         default=50.0,
         gt=0.0,
-        description=("Constant aquifer thickness (m) applied below topography."),
+        description=(
+            "Constant aquifer thickness applied below topography (canonical metres). "
+            "Accepts inline units, e.g. '0.2 km'."
+        ),
     )
-
-    @field_validator("thickness", mode="before")
-    @classmethod
-    def _parse_thickness_to_m(cls, value):
-        return parse_length_to_m(
-            value,
-            default_unit="m",
-            label="domain.depth_model.thickness",
-        )
 
 
 class FlatSubstratumDepthModel(HydroModelBase):

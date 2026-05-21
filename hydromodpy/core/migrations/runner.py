@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Callable
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -146,8 +147,14 @@ def apply_migration(
     migration: Migration,
     *,
     component: str = DEFAULT_COMPONENT,
+    post_apply: Callable[[duckdb.DuckDBPyConnection, Migration, str], None] | None = None,
 ) -> None:
-    """Apply one migration in a transaction and record it for ``component``."""
+    """Apply one migration in a transaction and record it for ``component``.
+
+    ``post_apply`` is invoked after a successful COMMIT and is best-effort:
+    any exception it raises is swallowed (used to emit audit events from
+    callers that depend on a higher layer like ``results``).
+    """
     sql = migration.upgrade_sql
     checksum = migration.checksum
     connection.execute("BEGIN TRANSACTION")
@@ -177,12 +184,19 @@ def apply_migration(
             f"for component {component!r}: {exc}"
         ) from exc
 
+    if post_apply is not None:
+        try:
+            post_apply(connection, migration, component)
+        except Exception:
+            return
+
 
 def ensure_schema(
     connection: duckdb.DuckDBPyConnection,
     *,
     versions_dir: Path,
     component: str = DEFAULT_COMPONENT,
+    post_apply: Callable[[duckdb.DuckDBPyConnection, Migration, str], None] | None = None,
 ) -> None:
     """Bring ``component`` up to the highest available version.
 
@@ -197,7 +211,7 @@ def ensure_schema(
     for migration in migrations:
         recorded = applied.get(migration.version)
         if recorded is None:
-            apply_migration(connection, migration, component=component)
+            apply_migration(connection, migration, component=component, post_apply=post_apply)
             continue
         if recorded != migration.checksum:
             raise SchemaIntegrityError(

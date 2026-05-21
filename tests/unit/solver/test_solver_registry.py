@@ -123,14 +123,14 @@ def test_transport_capabilities_are_explicit() -> None:
     assert registry.capabilities("transport", "modflow6") == frozenset(
         {"transport", "transport:concentration"}
     )
-    assert registry.capabilities("transport", "modflow6prt") == frozenset(
+    assert registry.capabilities("transport", "modflow6_prt") == frozenset(
         {"transport", "transport:particles"}
     )
 
 
-def test_modflow6prt_adapter_and_extractor_are_registered() -> None:
-    adapter_cls = registry.get("transport", "modflow6prt")
-    extractor_cls = registry.get_extractor("transport", "modflow6prt")
+def test_modflow6_prt_adapter_and_extractor_are_registered() -> None:
+    adapter_cls = registry.get("transport", "modflow6_prt")
+    extractor_cls = registry.get_extractor("transport", "modflow6_prt")
 
     assert adapter_cls.__name__ == "Modflow6PrtTransportAdapter"
     assert extractor_cls.__name__ == "Modflow6PrtOutputAdapter"
@@ -145,8 +145,9 @@ def test_solver_config_accepts_registered_plugin_flow_solver() -> None:
 
 
 def test_solver_config_rejects_unknown_flow_solver() -> None:
+    cfg = SolverConfig.model_validate({"solver_engine": "missing"})
     with pytest.raises(ValueError, match="Unknown flow solver"):
-        SolverConfig.model_validate({"solver_engine": "missing"})
+        cfg.validate_registry()
 
 
 def test_unregister_removes_entry() -> None:

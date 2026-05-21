@@ -57,7 +57,7 @@ dependencies = [
     "plotly>=6.7.0,<7",
     "pint>=0.25.3,<1",
     "pydantic-pint>=0.4,<1",
-    "pyarrow>=22.0.0,<23",
+    "pyarrow>=23.0.1,<24",
     "pyproj>=3.7.2,<4",
     "rasterio>=1.4.0,<2",
     "requests>=2.32.5,<3",
@@ -79,6 +79,7 @@ dependencies = [
     "pandera>=0.31.1,<1",
     "platformdirs>=4,<5",
     "filelock>=3.13,<4",
+    "argcomplete>=3.5,<4",
 ]
 
 [project.optional-dependencies]
@@ -168,6 +169,7 @@ exclude = ["hydromodpy_annex*"]
 hydromodpy = ["py.typed"]
 "hydromodpy.physics.hydrology.pyhelp" = ["*.FOR"]
 "hydromodpy.data.common.administrative" = ["*.gpkg"]
+"hydromodpy.cli.commands.dev.manage.static" = ["*.html"]
 
 [tool.coverage.run]
 source = [
@@ -177,6 +179,7 @@ source = [
     "hydromodpy.spatial",
     "hydromodpy.physics",
     "hydromodpy.data",
+    "hydromodpy.catalog",
     "hydromodpy.results",
     "hydromodpy.simulation",
     "hydromodpy.solver",
@@ -184,6 +187,8 @@ source = [
     "hydromodpy.display",
     "hydromodpy.analysis",
     "hydromodpy.workflow",
+    "hydromodpy.project",
+    "hydromodpy.cli",
 ]
 parallel = true
 omit = [
@@ -199,6 +204,7 @@ omit = [
 [tool.coverage.report]
 show_missing = true
 skip_empty = true
+fail_under = 80
 exclude_lines = [
     "pragma: no cover",
     "if __name__ == .__main__.",
@@ -349,3 +355,13 @@ module = [
 ]
 ignore_missing_imports = true
 follow_imports = "skip"
+
+# Strict gate on the foundational layers. Other layers stay advisory and
+# tighten progressively as type debt is paid down.
+[[tool.mypy.overrides]]
+module = [
+    "hydromodpy.core.*",
+    "hydromodpy.schema.*",
+    "hydromodpy.config.*",
+]
+strict = true

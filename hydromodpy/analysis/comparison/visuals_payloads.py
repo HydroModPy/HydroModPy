@@ -17,18 +17,18 @@ from hydromodpy.analysis.comparison.config import (
     ComparisonSimulation,
     RuntimeComparisonConfig,
 )
-from hydromodpy.analysis.comparison.runtime_mesh import (
+from hydromodpy.analysis.comparison.runtime.mesh import (
     resolve_bundle_cells,
     resolve_structured_shape_from_config,
     resolve_structured_shape_from_run_folder,
 )
-from hydromodpy.analysis.comparison.runtime_metadata import (
+from hydromodpy.analysis.comparison.runtime.metadata import (
     _resolve_recorded_output_path,
     discover_result_store,
     read_json_file,
 )
-from hydromodpy.analysis.comparison.runtime_observables import select_time_slices
-from hydromodpy.analysis.comparison.runtime_series import (
+from hydromodpy.analysis.comparison.runtime.observables import select_time_slices
+from hydromodpy.analysis.comparison.runtime.series import (
     VariableSeries,
     load_variable_series,
     mask_depth_series_from_head_nodata,

@@ -19,7 +19,7 @@
     "Use the source pointers and optional source manifest to decide when the bundle needs refresh."
   ],
   "next_steps": [
-    "Use :doc:`the gallery and validation reading guide </getting_started/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
+    "Use :doc:`the gallery and validation reading guide </user_guide/concepts/reading-results-pages>` to distinguish example pages, comparison pages, and validation pages.",
     "Go back to :doc:`the simulation walkthrough </getting_started/simulation-walkthrough>` when you need to inspect one contributing run in isolation."
   ],
   "what_it_shows": [
@@ -29,7 +29,7 @@
   ],
   "reference_highlights": [],
   "equations_rst": [],
-  "walkthrough_doc": "getting_started/reading-results-pages",
+  "walkthrough_doc": "user_guide/concepts/reading-results-pages",
   "walkthrough_title": "the gallery and validation reading guide",
   "reproduction_command": "python -m tools.doc_gallery --only site_03_natural_n1_10km2_mf6_bouss",
   "gallery_update_command": "python -m tools.doc_gallery",

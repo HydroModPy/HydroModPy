@@ -158,6 +158,9 @@ class LoadDataStep:
     tout: ClassVar[type] = LoadedState
     config_sections: ClassVar[tuple[str, ...]] = ("data",)
 
+    def depends_on(self) -> tuple[str, ...]:
+        return ("build_geographic",)
+
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
         if ctx is None:
@@ -170,3 +173,13 @@ class LoadDataStep:
             step_name=self.name,
             ctx=ctx,
         )
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Re-run load_data: data managers consult their local caches."""
+        return self.run(prior_state)

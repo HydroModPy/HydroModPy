@@ -17,7 +17,7 @@ from hydromodpy.spatial.field.core.field_param_config import FieldHomogeneousSec
 _FLOW_PARAM_EXAMPLES: tuple[tuple[str, str, str], ...] = (
     ("K", "homogeneous", "m/s"),
     ("Sy", "homogeneous", "-"),
-    ("Ss", "homogeneous", "m-1"),
+    ("Ss", "homogeneous", "1/m"),
 )
 
 
