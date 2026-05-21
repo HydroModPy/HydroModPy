@@ -1,0 +1,57 @@
+@startuml
+title HydroModPy - Diagramme d'activité (Workflow de simulation)
+
+|Utilisateur|
+start
+:Soumettre une simulation;
+
+|Orchestrateur|
+:Charger la configuration et le modèle;
+if (Configuration valide ?) then (oui)
+  :Résoudre les étapes de préparation;
+else (non)
+  stop
+endif
+:Résoudre la fenêtre [simulation.time];
+if (Fenêtre/step invalides ?) then (oui)
+  stop
+endif
+:Valider la configuration;
+:Construire le contexte géographique;
+:Charger les données (DataStore);
+:Injecter date_start/date_end canoniques dans les managers;
+:Construire ou importer le maillage;
+:Configurer les processus;
+:Définir les paramètres de simulation;
+:Préparer le solveur (register_simulation);
+
+|SimulationRunner|
+fork
+  :Itération sur plan.runs (ProcessRun list);
+  note right: Boucle séquentielle sur runs
+  :Exécuter adapter.execute() (flow/transport/etc);
+  note right: Solveur gère les timesteps\nen interne (MODFLOW, MT3DMS)
+  :Callback after_run;
+fork again
+  :post_run_results() séquentiel;
+  note right: Phase 1: extract\nPhase 2: derive\nPhase 3: export\nPhase 4: cleanup
+end fork
+
+|Orchestrateur|
+:ingest_run → render_run;
+:Dériver les métriques;
+:Exporter artefacts (parquet/zarr/netCDF);
+:Générer les visualisations;
+:Retourner les résultats;
+stop
+
+note right
+  Flux réel de simulation avec exécution séquentielle.
+  Liens code (exemples) :
+  - `prepare_runtime` / `prepare_run` / `execute_run`: hydromodpy/workflow/orchestrator.py
+  - `SimulationRunner`: hydromodpy/simulation/execution/runner.py
+  - `post_run_results`: hydromodpy/simulation/extraction/post_run.py
+  - `adapter.execute`: adapters (flow/transport)
+end note
+
+@enduml

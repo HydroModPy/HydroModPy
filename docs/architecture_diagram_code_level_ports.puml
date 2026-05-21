@@ -1,0 +1,192 @@
+@startuml
+title HydroModPy - Code-Level Component Diagram (Ports and Interfaces)
+left to right direction
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam dpi 140
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+
+skinparam titleFontSize 14
+skinparam legendFontSize 9
+skinparam packageFontSize 10
+skinparam componentFontSize 9
+skinparam interfaceFontSize 9
+skinparam noteFontSize 9
+
+skinparam package {
+  BackgroundColor #F9FAFB
+  BorderColor #94A3B8
+  FontColor #0F172A
+}
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor #64748B
+  FontColor #0F172A
+}
+skinparam interface {
+  BackgroundColor #F8FAFC
+  BorderColor #475569
+  FontColor #0F172A
+}
+skinparam note {
+  BackgroundColor #FFF7D6
+  BorderColor #D4A72C
+  FontColor #111827
+}
+
+skinparam component<<entry>> {
+  BackgroundColor #FFE7B3
+  BorderColor #B45309
+  FontColor #7C2D12
+}
+skinparam component<<provider>> {
+  BackgroundColor #E0F2FE
+  BorderColor #0284C7
+}
+skinparam component<<consumer>> {
+  BackgroundColor #EEF2FF
+  BorderColor #6366F1
+}
+skinparam interface<<protocol>> {
+  BackgroundColor #DCFCE7
+  BorderColor #16A34A
+}
+skinparam interface<<abc>> {
+  BackgroundColor #FCE7E7
+  BorderColor #DC2626
+}
+
+legend right
+|= Notation |= Meaning |
+| <<entry>> | Public entry point |
+| <<provider>> | Provides a contract |
+| <<consumer>> | Requires a contract |
+| <<protocol>> | Python Protocol |
+| <<abc>> | Python ABC |
+| -() | Provided port |
+| -( | Required port |
+| --> | Strong dependency |
+| ..> | Weak dependency |
+endlegend
+
+package "Public API" {
+  component "hydromodpy.__init__" as API <<entry>>
+  component "hydromodpy.project.Project" as Project <<entry>>
+  component "hydromodpy.project_runner.ProjectRunner" as ProjectRunner <<consumer>>
+  component "hydromodpy.project_catalog.ProjectCatalog" as ProjectCatalog <<consumer>>
+  component "hydromodpy.calibration_dispatch" as CalibrationDispatch <<entry>>
+}
+
+package "Workflow Runtime" {
+  component "hydromodpy.workflow.orchestrator" as Orchestrator
+  component "hydromodpy.workflow.runner.Pipeline" as Pipeline
+  component "hydromodpy.workflow.launcher_protocol.Launcher" as LauncherProto <<protocol>>
+  component "hydromodpy.simulation.execution.runner.SimulationRunner" as SimulationRunner <<provider>>
+}
+
+package "Calibration Runtime" {
+  component "hydromodpy.calibration.runner.CalibrationRunner" as CalibrationRunner <<consumer>>
+  component "hydromodpy.calibration.engine.CalibrationEngine" as CalibrationEngine <<provider>>
+  component "hydromodpy.calibration.runners.trial.run_trial_light" as TrialRunner <<consumer>>
+  component "hydromodpy.calibration.runners.trial.promote_prepared_trial" as TrialPromote <<consumer>>
+  component "hydromodpy.calibration.optimizer.Optimizer" as CalibrationOptimizerProto <<protocol>>
+  component "hydromodpy.calibration.adapters.*" as CalibrationAdapters <<provider>>
+}
+
+package "Storage and Catalog" {
+  component "hydromodpy.results.catalog.protocol.SimulationStore" as SimulationStoreProto <<protocol>>
+  component "hydromodpy.results.catalog.facade.SimulationCatalog" as SimulationCatalog <<provider>>
+  component "hydromodpy.data.store.DataStore" as DataStore
+  component "hydromodpy.data._base_manager_common.SourceConfigProtocol" as SourceConfigProto <<protocol>>
+}
+
+package "Solver and Display Contracts" {
+  component "hydromodpy.core.contracts.solver_registry.SolverRegistryProvider" as SolverRegistryProto <<protocol>>
+  component "hydromodpy.solver.base.protocol.SolverAdapter" as SolverAdapterProto <<protocol>>
+  component "solver backends" as SolverBackends <<provider>>
+  component "hydromodpy.display.figure.Figure" as FigureProto <<protocol>>
+  component "hydromodpy.display.figure.BaseFigure" as BaseFigureABC <<abc>>
+}
+
+API --> Project : exposes public API
+API --> CalibrationDispatch : exposes calibration API
+Project --> ProjectRunner : run facade
+Project --> ProjectCatalog : catalog facade
+
+ProjectRunner --> Orchestrator : prepare / execute
+ProjectRunner --> CalibrationDispatch : calibrate facade
+Orchestrator --> Pipeline : canonical flow
+Orchestrator -( LauncherProto : requires launcher
+SimulationRunner -() LauncherProto : provides launcher
+
+CalibrationDispatch --> CalibrationRunner : dispatch calibration
+CalibrationRunner --> CalibrationEngine : drive ask/tell loop
+CalibrationRunner --> TrialRunner : evaluate trials
+CalibrationRunner --> TrialPromote : promote best runs
+CalibrationEngine -( CalibrationOptimizerProto : requires optimizer
+CalibrationAdapters -() CalibrationOptimizerProto : provides adapters
+TrialRunner ..> LauncherProto : uses launcher
+TrialPromote ..> LauncherProto : full rerun
+TrialPromote ..> SimulationStoreProto : persist promoted runs
+
+ProjectCatalog -( SimulationStoreProto : queries store
+ProjectRunner -( SimulationStoreProto : stores / reads runs
+SimulationCatalog -() SimulationStoreProto : provides simulation store
+
+DataStore -( SourceConfigProto : consumes source config
+DataStore ..> SimulationCatalog : uses catalog backend
+
+Orchestrator -( SolverRegistryProto : resolves solvers
+SolverBackends -() SolverAdapterProto : provides adapters
+Orchestrator ..> SolverAdapterProto : dispatches via registry
+
+BaseFigureABC -() FigureProto : provides figure contract
+
+note bottom of Orchestrator
+  Central workflow coordinator.
+  The runtime path is shared by CLI, API and notebooks.
+end note
+
+note bottom of SimulationCatalog
+  Workspace-level result store.
+  Implements the read/write catalog contract.
+end note
+
+note bottom of SimulationRunner
+  Default in-tree launcher.
+  Conforms structurally to the Launcher protocol.
+end note
+
+note bottom of CalibrationRunner
+  Coordinates the calibration workflow.
+  Drives the ask/tell loop and optional promotion.
+end note
+
+note bottom of CalibrationEngine
+  Ask/tell engine used by calibration adapters.
+  Resolves suggestions and convergence.
+end note
+
+note right
+  **DESIGN PATTERNS**
+
+  1) Facade: public API and project accessors
+  2) Orchestrator: workflow and calibration coordinators
+  3) Pipeline: ordered execution path
+  4) Registry: solver and optimizer lookup
+  5) Adapter: solver and calibration backends
+  6) Ports & Adapters: conceptual ports vs real Protocol/ABC
+  7) Strategy: backend selection at runtime
+end note
+
+note right
+  Code-level view: the diagram highlights the real Python contracts
+  used at the boundaries between orchestration, solvers, data loading
+  and result storage.
+
+  Provided ports are shown with -(). Required ports are shown with -(.
+  Concrete plugin implementations live outside the core modules.
+end note
+
+@enduml

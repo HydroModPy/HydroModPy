@@ -1,0 +1,131 @@
+@startuml
+title HydroModPy - Code-Level (Literal) : modules et fonctions
+left to right direction
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam dpi 140
+
+package "Entrées" <<entry>> {
+  component "hydromodpy.cli" as CLI
+  component "hydromodpy.__init__ (API)" as API
+}
+
+package "Facade / Projet" {
+  component "hydromodpy.project.Project" as Project
+  component "hydromodpy.project_runner.ProjectRunner" as ProjectRunner
+  component "hydromodpy.project_catalog.ProjectCatalog" as ProjectCatalog
+}
+
+package "Workflow / Orchestration" {
+  component "hydromodpy.workflow.dispatch" as Dispatch
+  component "hydromodpy.workflow.orchestrator" as Orchestrator
+  component "hydromodpy.workflow.runner.Pipeline" as Pipeline
+}
+
+package "Calibration / Orchestration" {
+  component "hydromodpy.calibration_dispatch" as CalibrationDispatch
+  component "hydromodpy.calibration.engine.CalibrationEngine" as CalibrationEngine
+  component "hydromodpy.calibration.runners.trial.run_trial_light" as TrialRunner
+  component "hydromodpy.calibration.runners.trial.promote_prepared_trial" as TrialPromote
+  component "hydromodpy.calibration.optimizer.Optimizer" as CalibrationOptimizer
+}
+
+package "Simulation" {
+  component "hydromodpy.simulation.execution.runner.SimulationRunner" as SimRunner
+  component "hydromodpy.workflow.launcher_protocol.Launcher (Protocol)" as LauncherProto
+}
+
+package "Results & Data" {
+  component "hydromodpy.results.catalog.facade.SimulationCatalog" as SimulationCatalog
+  component "hydromodpy.results.catalog.protocol.SimulationStore (Protocol)" as SimulationStoreProto
+  component "hydromodpy.data.store.DataStore" as DataStore
+  component "hydromodpy.data._base_manager_common.SourceConfigProtocol (Protocol)" as SourceConfigProto
+}
+
+package "Solveurs / Adapters" {
+  component "hydromodpy.core.contracts.solver_registry.SolverRegistryProvider (Protocol)" as SolverRegistryProto
+  component "hydromodpy.solver.base.protocol.SolverAdapter (Protocol)" as SolverAdapterProto
+  component "adapters / solver backends" as SolverBackends
+}
+
+' Flux principal (fonctions exactes)
+CLI --> Dispatch : hmp run / hydromodpy.cli.main()
+API --> Project : hydromodpy.Project.from_toml() / hydromodpy.run()
+Dispatch --> Orchestrator : hydromodpy.workflow.dispatch.dispatch_workflow()
+API --> CalibrationDispatch : hydromodpy.calibrate() / calibrate_api()
+CalibrationDispatch --> CalibrationEngine : hydromodpy.calibration_dispatch.*
+CalibrationEngine --> CalibrationOptimizer : ask/tell loop
+CalibrationEngine --> TrialRunner : evaluate suggestions
+CalibrationDispatch --> TrialPromote : promote_prepared_trial()
+
+' Orchestrator API exactes
+ProjectRunner --> Orchestrator : prepare_runtime(ctx)
+note right: calls step_setup(), step_data_loading(), step_mesh(), step_mesh_input()
+ProjectRunner --> Orchestrator : prepare_run(ctx, sim_id, name, overrides)
+note right: calls step_build_plan(), step_register_simulation(), step_persist_*()
+ProjectRunner --> Orchestrator : execute_run(ctx, sim_id, final_name)
+note right: calls SimulationRunner.execute(plan, ctx, callbacks)
+ProjectRunner --> Orchestrator : ingest_run(ctx, sim_id)
+ProjectRunner --> Orchestrator : render_run(ctx, sim_id)
+ProjectRunner --> Orchestrator : cleanup_run(ctx, sim_id)
+
+' Pipeline sequence (standard_steps)
+Orchestrator --> Pipeline : standard_steps()
+Pipeline --> "Validate" : ValidateStep()
+"Validate" --> "Resolve" : ResolveStep()
+"Resolve" --> "BuildGeographic" : BuildGeographicStep()
+"BuildGeographic" --> "LoadData" : BuildGeographicStep invokes geographic builders
+"LoadData" --> DataStore : DataStore.load_variable(config)
+"LoadData" --> "BuildMesh" : LoadDataStep -> BuildMeshStep
+"BuildMesh" --> SimulationCatalog : step_persist_mesh(ctx, sim_id)
+"BuildMesh" --> "SetupProcess" : SetupProcessStep()
+"SetupProcess" --> "PrepareSolver" : PrepareSolverStep()
+"PrepareSolver" --> SimulationCatalog : step_register_simulation(ctx, sim_id, plan, project_name, name)
+"PrepareSolver" --> "RunSolver" : RunSolverStep()
+
+' Exécution réelle
+"RunSolver" -( LauncherProto : requires Launcher (Launcher.execute))
+SimRunner -() LauncherProto : provides execute(plan, ctx, callbacks)
+SimRunner -( SolverRegistryProto : calls SolverRegistryProvider.get_solver_adapter(process_type, solver_name))
+SolverRegistryProto -() SolverAdapterProto : get_solver_adapter_class()/get_solver_adapter()
+SolverAdapterProto --> SolverBackends : adapter.execute(ctx) -> invokes solver backend
+SolverBackends --> SimRunner : solver outputs (files, arrays)
+
+' Extraction et écriture
+SimRunner ..> SimulationCatalog : post_run_results(run_ctx, sim_id, results_config, store, run_id)
+Orchestrator ..> SimulationCatalog : step_configure_results(ctx) / step_finalize_store()
+Orchestrator ..> DataStore : uses DataStore.load_variable() and managers
+
+note right
+  Noms exacts utilisés dans le dépôt : fonctions et Protocols cités
+  (voir hydromodpy/workflow/orchestrator.py pour prepare_run/execute_run etc.)
+end note
+
+note bottom of Dispatch
+  Pattern: Facade / Dispatcher
+  Rôle: route les entrées vers le workflow approprié
+end note
+
+note bottom of Orchestrator
+  Pattern: Orchestrator + Pipeline
+  Rôle: enchaîne les phases standard du workflow simulation
+end note
+
+note bottom of CalibrationEngine
+  Pattern: Orchestrator + Strategy
+  Rôle: ask/tell, convergence, sélection d'optimiseur
+end note
+
+note right
+  **DESIGN PATTERNS**
+
+  1) Facade: CLI, API, Project
+  2) Orchestrator: workflow and calibration coordinators
+  3) Pipeline: ordered standard steps
+  4) Registry: solver / optimizer resolution
+  5) Adapter: solver backends and calibration trial execution
+  6) Ports & Adapters: protocols and module boundaries
+  7) Strategy: backend / optimizer selection
+end note
+
+@enduml
