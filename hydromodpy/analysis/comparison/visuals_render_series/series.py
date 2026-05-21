@@ -24,9 +24,9 @@ from hydromodpy.analysis.comparison.visuals_style import (
     _series_style,
     _solver_color,
 )
+from hydromodpy.core.units.time import SECONDS_PER_DAY
 
 from .aggregation import (
-    _SECONDS_PER_DAY,
     _plot_surface_reference_lines,
     _row_time_value,
     _rows_have_elapsed_seconds,
@@ -63,7 +63,7 @@ def _write_timeseries_figure(
         if x_value is None:
             continue
         if use_elapsed_seconds:
-            x_value = x_value / _SECONDS_PER_DAY
+            x_value = x_value / SECONDS_PER_DAY
         key = (
             str(row.get("simulation_id", "")),
             str(row.get("simulation_label", row.get("simulation_id", ""))),
@@ -520,7 +520,7 @@ def _write_comparable_outflow_dashboard(
             continue
         x_value = _safe_float(row.get(x_field))
         if x_value is not None and use_elapsed_seconds:
-            x_value = x_value / _SECONDS_PER_DAY
+            x_value = x_value / SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if x_value is None or value is None:
             continue
@@ -548,7 +548,7 @@ def _write_comparable_outflow_dashboard(
             continue
         x_value = _safe_float(row.get(x_field))
         if x_value is not None and use_elapsed_seconds:
-            x_value = x_value / _SECONDS_PER_DAY
+            x_value = x_value / SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if x_value is None or value is None:
             continue

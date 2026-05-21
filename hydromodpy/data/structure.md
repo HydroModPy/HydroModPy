@@ -134,7 +134,7 @@ hydromodpy/data/
 │       └── sim2_variables.py   # Registre SIM2 (11 variables)
 │
 └── variables/                  # 17 managers par variable
-    ├── _sim2_field_manager.py        # Base partagee SIM2
+    ├── sim2_manager.py               # Base partagee SIM2
     ├── timeseries_variable_config.py # Mixin chronique
     ├── dem/                    # MNT
     ├── geology/                # Geologie

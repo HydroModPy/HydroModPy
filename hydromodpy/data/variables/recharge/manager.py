@@ -6,7 +6,7 @@ from typing import Any
 
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.data.variables._sim2_field_manager import Sim2BackedFieldManager
+from hydromodpy.data.variables.sim2_manager import Sim2BackedFieldManager
 
 
 class RechargeManager(Sim2BackedFieldManager):

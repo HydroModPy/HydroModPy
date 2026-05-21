@@ -13,8 +13,7 @@ from hydromodpy.analysis.comparison.visuals_style import (
     _safe_float,
     _solver_color,
 )
-
-_SECONDS_PER_DAY = 86_400.0
+from hydromodpy.core.units.time import SECONDS_PER_DAY
 
 
 def _rows_have_elapsed_seconds(rows: Iterable[Mapping[str, Any]]) -> bool:
@@ -30,7 +29,7 @@ def _row_time_value(row: Mapping[str, Any], *, use_elapsed_seconds: bool) -> flo
     value = _safe_float(row.get("elapsed_seconds" if use_elapsed_seconds else "time_index"))
     if value is None:
         return None
-    return value / _SECONDS_PER_DAY if use_elapsed_seconds else value
+    return value / SECONDS_PER_DAY if use_elapsed_seconds else value
 
 
 def _time_axis_label(*, use_elapsed_seconds: bool) -> str:
@@ -110,7 +109,7 @@ def _budget_component_points(
             continue
         x_value = _safe_float(row.get(x_field))
         if x_value is not None and use_elapsed_seconds:
-            x_value = x_value / _SECONDS_PER_DAY
+            x_value = x_value / SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if x_value is None or value is None:
             continue

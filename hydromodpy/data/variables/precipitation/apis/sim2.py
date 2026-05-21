@@ -4,24 +4,39 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import xarray as xr
-
 from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.variables.precipitation.config import PrecipitationSourceConfig
+from hydromodpy.data.variables.sim2 import Sim2ComponentSpec, fetch_sim2_components
 
 VARIABLE_NAME = "precipitation"
 INTERNAL_UNIT = "mm/day"
+_SPECS = {
+    "liquid": Sim2ComponentSpec(
+        component="liquid",
+        parameter="PRELIQ_Q",
+        variable="precipitation_liquid",
+        unit=INTERNAL_UNIT,
+    ),
+    "solid": Sim2ComponentSpec(
+        component="solid",
+        parameter="PRENEI_Q",
+        variable="precipitation_solid",
+        unit=INTERNAL_UNIT,
+    ),
+    "total": Sim2ComponentSpec(
+        component="total",
+        parameter="PRELIQ_Q",
+        parameters=("PRELIQ_Q", "PRENEI_Q"),
+        variable="precipitation_total",
+        unit=INTERNAL_UNIT,
+    ),
+}
 
 
-def _sim2_params_for_components(components: list[str]) -> list[str]:
-    """Map component names to SIM2 parameter codes."""
-    params = []
-    if "liquid" in components or "total" in components:
-        params.append("PRELIQ_Q")
-    if "solid" in components or "total" in components:
-        if "PRENEI_Q" not in params:
-            params.append("PRENEI_Q")
-    return params
+def _transform_component(component: str, ds: object) -> object:
+    if component == "total":
+        return ds["PRELIQ_Q"] + ds["PRENEI_Q"]
+    return ds[_SPECS[component].parameter]
 
 
 def fetch(
@@ -34,52 +49,10 @@ def fetch(
 
     Always returns the full spatial grid as FieldRecord(s), one per component.
     """
-    if bbox is None:
-        raise ValueError("SIM2 source requires a bounding box (set extent or mask_path).")
-    if project_period is None:
-        raise ValueError("SIM2 source requires project_period (date_start/date_end).")
-
-    from hydromodpy.data.common.clients.sim2_edr import Sim2EDRClient
-
-    date_range = (
-        f"{project_period[0].strftime('%Y-%m-%d')}/{project_period[1].strftime('%Y-%m-%d')}"
+    return fetch_sim2_components(
+        config.components,
+        specs=_SPECS,
+        bbox=bbox,
+        project_period=project_period,
+        transform=_transform_component,
     )
-    sim2_params = _sim2_params_for_components(config.components)
-
-    client = Sim2EDRClient(
-        bbox=bbox, crs="EPSG:2154", date_range=date_range, output_format="CoverageJSON"
-    )
-    cov_json = client.fetch_cube(parameters=sim2_params)
-    ds = Sim2EDRClient.coverage_json_to_dataset(cov_json)
-
-    results: list[FieldRecord] = []
-
-    for component in config.components:
-        if component == "total":
-            var_data = ds["PRELIQ_Q"] + ds["PRENEI_Q"]
-            var_name = "precipitation_total"
-        elif component == "liquid":
-            var_data = ds["PRELIQ_Q"]
-            var_name = "precipitation_liquid"
-        elif component == "solid":
-            var_data = ds["PRENEI_Q"]
-            var_name = "precipitation_solid"
-        else:
-            continue
-
-        result_ds = xr.Dataset({var_name: var_data})
-        results.append(
-            FieldRecord(
-                variable=var_name,
-                source="sim2",
-                unit=INTERNAL_UNIT,
-                data=result_ds,
-                bbox=bbox,
-                crs="EPSG:2154",
-                date_start=project_period[0],
-                date_end=project_period[1],
-                frequency="D",
-            )
-        )
-
-    return results

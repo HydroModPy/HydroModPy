@@ -19,7 +19,6 @@ from hydromodpy.analysis.comparison.runtime.mesh import (
     resolve_bundle_cells,
 )
 from hydromodpy.analysis.comparison.runtime.physics import (
-    _NODATA_SENTINELS,
     _convert_accumulation_rate_to_m3_s,
     _convert_flux_m3_s_to_depth_m_per_day,
     _convert_rate_m_s_to_m_per_day,
@@ -33,6 +32,7 @@ from hydromodpy.analysis.comparison.runtime.series import (
     load_variable_series,
     mask_depth_series_from_head_nodata,
 )
+from hydromodpy.core.nodata import NODATA_SENTINELS
 
 if TYPE_CHECKING:
     from hydromodpy.results.catalog import SimulationCatalog
@@ -313,7 +313,7 @@ def _reduce(values: Any, *, reducer: str | None, label: str) -> tuple[float, ...
     """Reduce one numeric sequence."""
     arr = np.asarray(values, dtype=float).ravel()
     if arr.size > 0:
-        for sentinel in _NODATA_SENTINELS:
+        for sentinel in NODATA_SENTINELS:
             arr[np.isclose(arr, sentinel, rtol=0.0, atol=1.0e-6)] = np.nan
     if arr.size == 0:
         raise ValueError(f"{label} cannot be empty")

@@ -82,7 +82,7 @@ Python reading path
    run = catalog.latest()
    head0 = hmp.read(run, "head", timestep=0)
    budget = catalog.query_budget(run.sim_id)
-   run.export(variable="head", fmt="netcdf", path="run_outputs/head.nc")
+   catalog.export(run.sim_id, "head", "netcdf", "run_outputs/head.nc")
 
 Common catalog operations include listing simulations, resolving ids, finding
 the latest or best run, querying fields and timeseries, reading budget and
@@ -163,15 +163,15 @@ Export all persisted timeseries to CSV:
 
 .. code-block:: python
 
-   run.to_csv("exports/timeseries.csv")
+   catalog.export(run.sim_id, "*", "csv", "exports/timeseries.csv")
 
 Export one field to common external formats:
 
 .. code-block:: python
 
-   run.export(variable="head", fmt="netcdf", path="exports/head.nc")
-   run.export(variable="head", fmt="geotiff", path="exports/head_last.tif", timestep=-1)
-   run.export(variable="head", fmt="vtu", path="exports/head_last.vtu", timestep=-1)
+   catalog.export(run.sim_id, "head", "netcdf", "exports/head.nc")
+   catalog.export(run.sim_id, "head", "geotiff", "exports/head_last.tif", timestep=-1)
+   catalog.export(run.sim_id, "head", "vtu", "exports/head_last.vtu", timestep=-1)
 
 Package a full run for exchange:
 
@@ -191,16 +191,16 @@ Export formats
      - Command / API
      - Typical use
    * - CSV
-     - ``hmp export`` / ``Run.export``
+     - ``hmp export`` / ``SimulationCatalog.export``
      - Tables, metrics, timeseries, and lightweight exchange.
    * - GeoTIFF
-     - ``hmp export`` / ``Run.export``
+     - ``hmp export`` / ``SimulationCatalog.export``
      - Raster fields for GIS tools.
    * - NetCDF
-     - ``hmp export`` / ``Run.export``
+     - ``hmp export`` / ``SimulationCatalog.export``
      - Gridded scientific arrays and model outputs.
    * - Shapefile
-     - ``hmp export`` / ``Run.export``
+     - ``hmp export`` / ``SimulationCatalog.export``
      - Vector GIS exchange where legacy tooling needs shapefiles.
    * - VTU
      - ``hmp export --vtu``

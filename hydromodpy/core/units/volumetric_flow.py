@@ -10,6 +10,7 @@ from hydromodpy.core.units.scalar import (
 from hydromodpy.core.units.scalar import (
     parse_scalar_and_unit,
 )
+from hydromodpy.core.units.time import SECONDS_PER_DAY
 
 M3_PER_S_CANONICAL_UNITS: tuple[str, ...] = (
     "m3/s",
@@ -55,11 +56,11 @@ _M3_PER_S_UNIT_ALIASES: dict[str, str] = {
 
 _M3_PER_S_FACTORS: dict[str, float] = {
     "m3/s": 1.0,
-    "m3/day": 1.0 / 86400.0,
+    "m3/day": 1.0 / SECONDS_PER_DAY,
     "m3/h": 1.0 / 3600.0,
     "m3/min": 1.0 / 60.0,
     "l/s": 1.0e-3,
-    "l/day": 1.0e-3 / 86400.0,
+    "l/day": 1.0e-3 / SECONDS_PER_DAY,
     "l/h": 1.0e-3 / 3600.0,
     "l/min": 1.0e-3 / 60.0,
 }

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hydromodpy.core.units.time import SECONDS_PER_DAY
 from hydromodpy.physics.flow.history_contract import build_transient_time_axes
 
 if TYPE_CHECKING:
@@ -16,7 +17,6 @@ if TYPE_CHECKING:
     )
 
 
-_SECONDS_PER_DAY = 86_400.0
 _SURFACE_THRESHOLD_ACTIVE_RATE_EPS_M_S = 1.0e-12
 
 
@@ -56,7 +56,7 @@ def elapsed_days_for_snapshots(
     ).snapshot_elapsed_seconds
     used_snapshots = min(snapshot_elapsed_seconds.size, count)
     if used_snapshots > 0:
-        elapsed_days[:used_snapshots] = snapshot_elapsed_seconds[:used_snapshots] / _SECONDS_PER_DAY
+        elapsed_days[:used_snapshots] = snapshot_elapsed_seconds[:used_snapshots] / SECONDS_PER_DAY
         if used_snapshots < count:
             elapsed_days[used_snapshots:] = elapsed_days[used_snapshots - 1]
     return elapsed_days
@@ -181,9 +181,9 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
             positive_saturation_excess * cell_area,
             axis=1,
         )
-        * _SECONDS_PER_DAY
+        * SECONDS_PER_DAY
     )
-    total_dry_deficit_m3_day = np.sum(positive_dry_deficit * cell_area, axis=1) * _SECONDS_PER_DAY
+    total_dry_deficit_m3_day = np.sum(positive_dry_deficit * cell_area, axis=1) * SECONDS_PER_DAY
     used_dry_steps = min(len(period_lengths), max(positive_dry_deficit.shape[0] - 1, 0))
     integrated_dry_deficit_m3 = (
         float(
@@ -251,7 +251,7 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
         final_active_cells / max(n_cells, 1)
     )
     solver.runtime_summary["surface_threshold_peak_cell_rate_mm_day"] = float(
-        np.max(positive_saturation_excess) * _SECONDS_PER_DAY * 1_000.0
+        np.max(positive_saturation_excess) * SECONDS_PER_DAY * 1_000.0
     )
     solver.runtime_summary["surface_threshold_peak_total_m3_day"] = float(
         np.max(total_surface_flux_m3_day) if total_surface_flux_m3_day.size else 0.0
@@ -298,7 +298,7 @@ def record_surface_threshold_summary(solver: Boussinesq) -> None:
         final_dry_deficit_cells / max(n_cells, 1)
     )
     solver.runtime_summary["bottom_constraint_peak_cell_rate_mm_day"] = float(
-        np.max(positive_dry_deficit) * _SECONDS_PER_DAY * 1_000.0
+        np.max(positive_dry_deficit) * SECONDS_PER_DAY * 1_000.0
     )
     solver.runtime_summary["bottom_constraint_peak_total_m3_day"] = float(
         np.max(total_dry_deficit_m3_day) if total_dry_deficit_m3_day.size else 0.0

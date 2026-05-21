@@ -1,4 +1,4 @@
-"""Generic field manager for variables backed by SIM2 + custom CSV sources."""
+"""Generic field manager for variables backed by SIM2 and custom sources."""
 
 from __future__ import annotations
 
@@ -11,18 +11,10 @@ from hydromodpy.data.contracts.timeseries import PointRecord
 
 
 class Sim2BackedFieldManager(BaseFieldManager):
-    """Base class for variables loaded from custom CSVs and the SIM2 EDR API.
-
-    Subclasses set ``VARIABLE_NAME`` and ``INTERNAL_UNIT``. Multi-component
-    SIM2 variables (precipitation, radiation) set
-    ``SIM2_HAS_COMPONENTS = True`` so the SIM2 fetch is keyed by per-component
-    variable names ``f"{VARIABLE_NAME}_{component}"``.
-
-    Variables with extra source kinds (e.g. recharge ``synthetic``) override
-    ``_fetch_from_source`` and delegate to ``super()`` for the common branches.
-    """
+    """Base class for variables loaded from custom sources and the SIM2 API."""
 
     SIM2_HAS_COMPONENTS: ClassVar[bool] = False
+    SIM2_VARIABLE_NAMES: ClassVar[list[str] | None] = None
 
     def _fetch_from_source(self, source_cfg: Any) -> list[FieldRecord | PointRecord]:
         if source_cfg.source == "custom":
@@ -45,11 +37,21 @@ class Sim2BackedFieldManager(BaseFieldManager):
             f"hydromodpy.data.variables.{self.VARIABLE_NAME}.apis.sim2"
         )
         if self.SIM2_HAS_COMPONENTS:
-            variable_names = [f"{self.VARIABLE_NAME}_{c}" for c in source_cfg.components]
+            variable_names = [
+                f"{self.VARIABLE_NAME}_{component}" for component in source_cfg.components
+            ]
             return self._load_or_fetch_fields(
                 source_cfg,
                 "sim2",
                 module.fetch,
                 variable_names=variable_names,
             )
-        return self._load_or_fetch_fields(source_cfg, "sim2", module.fetch)
+        return self._load_or_fetch_fields(
+            source_cfg,
+            "sim2",
+            module.fetch,
+            variable_names=self.SIM2_VARIABLE_NAMES,
+        )
+
+
+__all__ = ["Sim2BackedFieldManager"]

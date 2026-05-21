@@ -76,18 +76,17 @@ Skeleton:
        logger.info("Exported myfmt: %s", output_path)
        return output_path
 
-Wire it through ``Run.export``
-------------------------------
+Wire it through ``SimulationCatalog.export``
+--------------------------------------------
 
-The ``Run.export`` method dispatches on ``fmt``. Add the new branch
-in ``hydromodpy/results/run_export.py`` (or the equivalent
-dispatcher):
+The ``SimulationCatalog.export`` method dispatches on ``fmt``. Add the
+new branch in ``hydromodpy/results/catalog/reads.py``:
 
 .. code-block:: python
 
    if fmt == "myfmt":
        from hydromodpy.results.exporters.myfmt import export_myfmt
-       return export_myfmt(catalog._conn, sim_id, path, **kwargs)
+       return export_myfmt(self._db, sid, path, variable=variable, **kwargs)
 
 Wire it through the CLI
 -----------------------

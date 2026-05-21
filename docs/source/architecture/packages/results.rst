@@ -19,7 +19,7 @@ Sub-modules
   applied by the runner in ``hydromodpy/core/migrations/runner.py``.
 - ``results/run.py`` -- ``Run`` facade exposing read-only access to
   one persisted simulation. Stays below the 50-method limit.
-- ``results/run_array.py``, ``run_timeseries.py``, ``run_export.py``,
+- ``results/run_array.py``, ``run_timeseries.py``,
   ``run_geographic.py``, ``run_hydrographic.py``,
   ``run_environment.py`` -- focused mixins behind the ``Run`` facade.
 - ``results/field_registry.py`` -- maps a logical field name to a
@@ -56,8 +56,7 @@ Run API
   ``fields(variable)``.
 - **Spatial**: ``mesh``, ``grid``, ``dem``,
   ``geographic_features``, ``catchment_mask``, ``outlet``.
-- **Plot / export**: ``plot(figsize, dpi, save_path)``,
-  ``export(variable, fmt, path)``.
+- **Plot**: ``plot(figsize, dpi, save_path)``.
 - **Array provider**: ``run.array.dataset(variable=None)`` returns
   an ``xugrid.UgridDataset``; ``to_xarray_batch()``;
   ``at(timestep, layer)``.
@@ -80,6 +79,8 @@ Catalog operations
   ``calibration_iterations(session_id)``.
 - ``export_package(sim_id, path)``,
   ``import_package(path)``.
+- ``export(sim_id, variable, fmt, path)`` for CSV, NetCDF, GeoTIFF,
+  VTU and Shapefile exports.
 - ``sql(query, params)`` for cross-run analytics.
 
 Field reads go through the ``hmp.read`` facade (see ``hydromodpy.read``

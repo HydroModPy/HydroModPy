@@ -8,12 +8,14 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from hydromodpy.core.units.time import SECONDS_PER_DAY
+
 _TIME_UNIT_SECONDS: dict[str, float] = {
-    "UNKNOWN": 86400.0,
+    "UNKNOWN": SECONDS_PER_DAY,
     "SECONDS": 1.0,
     "MINUTES": 60.0,
     "HOURS": 3600.0,
-    "DAYS": 86400.0,
+    "DAYS": SECONDS_PER_DAY,
     "YEARS": 31557600.0,
 }
 
@@ -59,7 +61,7 @@ def read_time_units_from_tdis(tdis_path: Path) -> str:
 def time_factor_to_days(time_units: str) -> float:
     """Return the factor that converts model time units to days."""
 
-    return _TIME_UNIT_SECONDS.get(time_units.upper(), 86400.0) / 86400.0
+    return _TIME_UNIT_SECONDS.get(time_units.upper(), SECONDS_PER_DAY) / SECONDS_PER_DAY
 
 
 def normalise_prt_columns(frame: pd.DataFrame) -> pd.DataFrame:

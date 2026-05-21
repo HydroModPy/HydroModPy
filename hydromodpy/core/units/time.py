@@ -14,6 +14,7 @@ TIME_CANONICAL_UNITS: tuple[str, ...] = (
     "years",
 )
 
+SECONDS_PER_DAY = 86400.0
 
 _ITMUNI_TO_UNIT: dict[int, str] = {
     1: "seconds",
@@ -55,9 +56,9 @@ _SECONDS_PER_UNIT: dict[str, float] = {
     "seconds": 1.0,
     "minutes": 60.0,
     "hours": 3600.0,
-    "days": 86400.0,
+    "days": SECONDS_PER_DAY,
     # Calendar-dependent by definition; this scalar is only a conventional conversion.
-    "years": 365.25 * 86400.0,
+    "years": 365.25 * SECONDS_PER_DAY,
 }
 
 

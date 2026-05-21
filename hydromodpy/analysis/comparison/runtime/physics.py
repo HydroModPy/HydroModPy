@@ -5,6 +5,9 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from hydromodpy.core.nodata import NODATA_SENTINELS
+from hydromodpy.core.units.time import SECONDS_PER_DAY
+
 
 def _variable_candidates(variable: str) -> tuple[str, ...]:
     """Return postprocess file aliases for one observable variable."""
@@ -121,7 +124,7 @@ def _convert_accumulation_rate_to_m3_s(
     cell_area_m2: float,
 ) -> float:
     """Convert one accumulation depth-rate to a volumetric cell outflow."""
-    return (float(value_m_per_day) * float(cell_area_m2)) / 86400.0
+    return (float(value_m_per_day) * float(cell_area_m2)) / SECONDS_PER_DAY
 
 
 def _convert_flux_m3_s_to_depth_m_per_day(
@@ -130,15 +133,12 @@ def _convert_flux_m3_s_to_depth_m_per_day(
     cell_area_m2: float,
 ) -> float:
     """Convert one volumetric cell flux to a depth-rate over that cell."""
-    return (float(value_m3_s) / float(cell_area_m2)) * 86400.0
+    return (float(value_m3_s) / float(cell_area_m2)) * SECONDS_PER_DAY
 
 
 def _convert_rate_m_s_to_m_per_day(*, value_m_s: float) -> float:
     """Convert one depth-rate from `m/s` to `m/day`."""
-    return float(value_m_s) * 86400.0
-
-
-_NODATA_SENTINELS = (-9999.0, -99999.0, -999999.0)
+    return float(value_m_s) * SECONDS_PER_DAY
 
 
 def is_nodata_value(value: Any) -> bool:
@@ -150,8 +150,7 @@ def is_nodata_value(value: Any) -> bool:
     if not math.isfinite(parsed):
         return True
     return any(
-        math.isclose(parsed, sentinel, rel_tol=0.0, abs_tol=1.0e-6)
-        for sentinel in _NODATA_SENTINELS
+        math.isclose(parsed, sentinel, rel_tol=0.0, abs_tol=1.0e-6) for sentinel in NODATA_SENTINELS
     )
 
 
