@@ -8,6 +8,7 @@ Le snapshot est écrit dans:
   <workspace>/execution_knowledge/<run_id>/raw/runtime_capture.jsonl
 ou dans `--output-dir` si fourni.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -17,15 +18,14 @@ import os
 import shutil
 import sys
 import uuid
+from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-from hydromodpy.validity_frame.auto_capture import ExecutionContext, RuntimeAutoCapture
 
 
 def resolve_callable(spec: str) -> Callable[..., Any]:
@@ -35,7 +35,7 @@ def resolve_callable(spec: str) -> Callable[..., Any]:
     mod = importlib.import_module(module_path)
     if not attr:
         if hasattr(mod, "main"):
-            return getattr(mod, "main")
+            return mod.main
         raise ValueError("callable specification missing attribute after ':'")
     if not hasattr(mod, attr):
         raise AttributeError(f"module {module_path} has no attribute {attr}")
@@ -43,9 +43,13 @@ def resolve_callable(spec: str) -> Callable[..., Any]:
 
 
 def main() -> None:
+    from hydromodpy.validity_frame.auto_capture import ExecutionContext, RuntimeAutoCapture
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--project-toml", type=str, help="Path to hydromodpy TOML config")
-    parser.add_argument("--callable", type=str, help="Dotted module:callable to invoke, e.g. mypkg.mymod:run")
+    parser.add_argument(
+        "--callable", type=str, help="Dotted module:callable to invoke, e.g. mypkg.mymod:run"
+    )
     parser.add_argument("--run-id", type=str, help="Optional run id to use (otherwise uuid4)")
     parser.add_argument("--output-dir", type=str, help="Optional output dir for capture snapshots")
     parser.add_argument(
@@ -94,7 +98,9 @@ def main() -> None:
     elif output_dir is None:
         output_dir = Path.cwd() / "execution_knowledge" / run_id / "raw"
 
-    context = ExecutionContext(run_id=run_id, workspace=str(workspace_path) if workspace_path is not None else None)
+    context = ExecutionContext(
+        run_id=run_id, workspace=str(workspace_path) if workspace_path is not None else None
+    )
     capturer = RuntimeAutoCapture(context=context, output_dir=output_dir)
 
     def _call_project() -> Any:

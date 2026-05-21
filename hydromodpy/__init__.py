@@ -28,7 +28,11 @@ from hydromodpy._api import (
 from hydromodpy._bootstrap import bootstrap
 from hydromodpy._lazy import LAZY_IMPORTS as _LAZY_IMPORTS
 from hydromodpy._lazy import MODULE_EXPORTS as _MODULE_EXPORTS
+from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
+from hydromodpy.core.logging import LogManager
 from hydromodpy.core.version import __version__
+
+bootstrap()
 
 __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = (

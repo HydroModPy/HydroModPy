@@ -21,10 +21,9 @@ class SystemProbe:
             os_release=platform.release(),
             os_version=platform.version(),
             machine=platform.machine(),
-            python_version=platform.python_version()
+            python_version=platform.python_version(),
         )
 
     @staticmethod
     def capture() -> SystemMetrics:
         return SystemProbe.collect()
-

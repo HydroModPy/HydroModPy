@@ -22,7 +22,8 @@ from pathlib import Path
 import pytest
 
 _MESSAGE = (
-    "subprocess is forbidden in unit/ - move this test to integration/ "
+    "subprocess is forbidden in unit/; network access is also forbidden - "
+    "move this test to integration/ "
     "or e2e/, or mark it @pytest.mark.allow_subprocess to opt in."
 )
 
@@ -104,5 +105,6 @@ def _forbid_subprocess_in_unit(request, monkeypatch):
         monkeypatch.setattr(requests, "get", _deny)
         monkeypatch.setattr(requests, "post", _deny)
         monkeypatch.setattr(requests, "request", _deny)
+        monkeypatch.setattr(requests.Session, "request", _deny)
 
     yield

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import traceback
 from dataclasses import dataclass, field
 from typing import Any
@@ -8,6 +9,7 @@ from hydromodpy.validity_frame.probes.hardware import HardwareMetrics, HardwareP
 from hydromodpy.validity_frame.probes.runtime import RuntimeMetrics, RuntimeProbe
 from hydromodpy.validity_frame.probes.solver import SolverMetrics, SolverProbe
 from hydromodpy.validity_frame.probes.system import SystemMetrics, SystemProbe
+
 
 @dataclass(slots=True)
 class AutoCaptureSnapshot:
@@ -20,12 +22,14 @@ class AutoCaptureSnapshot:
     logs: list[str] = field(default_factory=list)
     exception: dict[str, str] | None = None
 
+
 class AutoCaptureCollector:
     def __init__(self, context: ExecutionContext | None = None) -> None:
         self.context = context or ExecutionContext()
 
     def capture_start(self) -> AutoCaptureSnapshot:
         import time
+
         start_time = time.time()
         return AutoCaptureSnapshot(
             execution=self.context,

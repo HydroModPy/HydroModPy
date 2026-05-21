@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 
 @dataclass(slots=True)
@@ -17,6 +16,7 @@ class HardwareMetrics:
     gpu_memory_used_mb: float | None = None
     gpu_utilization_percent: float | None = None
 
+
 class HardwareProbe:
     @staticmethod
     def collect() -> HardwareMetrics:
@@ -24,7 +24,7 @@ class HardwareProbe:
         try:
             import psutil
         except Exception:
-            psutil = None #type: ignore (assignment)
+            psutil = None  # type: ignore (assignment)
 
         if psutil is not None:
             metrics.cpu_count = psutil.cpu_count(logical=False)
@@ -36,7 +36,7 @@ class HardwareProbe:
         try:
             import pynvml
         except Exception:
-            pynvml = None #type: ignore (assignment)
+            pynvml = None  # type: ignore (assignment)
         if pynvml is not None:
             try:
                 pynvml.nvmlInit()

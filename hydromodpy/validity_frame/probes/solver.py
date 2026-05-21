@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+
+
 @dataclass(slots=True)
 class SolverMetrics:
-        solver_name: str | None = None
-        iterations: int | None = None
-        converged: bool | None = None
-        solver_status: str | None = None
+    solver_name: str | None = None
+    iterations: int | None = None
+    converged: bool | None = None
+    solver_status: str | None = None
 
 
 class SolverProbe:

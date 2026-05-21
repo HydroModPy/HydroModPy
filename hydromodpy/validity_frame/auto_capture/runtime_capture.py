@@ -1,13 +1,16 @@
 from __future__ import annotations
+
 import json
 import time
-from dataclasses import asdict
+from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from hydromodpy.validity_frame.auto_capture.collector import AutoCaptureCollector
 from hydromodpy.validity_frame.auto_capture.context import ExecutionContext
+
 
 class RuntimeAutoCapture:
     def __init__(
@@ -17,7 +20,9 @@ class RuntimeAutoCapture:
         output_dir: str | Path | None = None,
     ) -> None:
         self.collector = AutoCaptureCollector(context)
-        self.output_dir = Path(output_dir).expanduser().resolve() if output_dir is not None else None
+        self.output_dir = (
+            Path(output_dir).expanduser().resolve() if output_dir is not None else None
+        )
 
     def _write_snapshot(self, name: str, payload: dict[str, Any]) -> Path | None:
         if self.output_dir is None:
