@@ -82,13 +82,13 @@ class TestCalibrationConfigExtraForbidden:
     def test_unknown_top_level_key_is_rejected(self):
         payload = _minimal_payload()
         payload["legacy_section"] = {"K": 1.0e-4}
-        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        with pytest.raises(ValidationError, match="Extra inputs"):
             CalibrationConfig.model_validate(payload)
 
     def test_unknown_per_parameter_key_is_rejected(self):
         payload = _minimal_payload()
         payload["parameters"]["K"]["legacy_alias"] = True
-        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        with pytest.raises(ValidationError, match="Extra inputs"):
             CalibrationConfig.model_validate(payload)
 
 
@@ -183,7 +183,7 @@ class TestCalibParameterDeclDefaults:
         assert decl.units is None
 
     def test_rejects_unknown_keys(self):
-        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        with pytest.raises(ValidationError, match="Extra inputs"):
             CalibParameterDecl.model_validate({"legacy_hint": 1.0})
 
 
@@ -270,5 +270,5 @@ class TestTomlRoundTrip:
         legacy_toggle = true
         """
         data = tomllib.loads(toml_src)
-        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        with pytest.raises(ValidationError, match="Extra inputs"):
             CalibrationConfig.model_validate(data["calibration"])

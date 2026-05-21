@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from hydromodpy.results.catalog.facade import SimulationCatalog
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 # Tables we expect after migration 0001 has applied.
 _EXPECTED_TABLES: frozenset[str] = frozenset(
@@ -62,11 +63,8 @@ _EXPECTED_TABLES: frozenset[str] = frozenset(
 @pytest.fixture
 def catalog(tmp_path: Path) -> SimulationCatalog:
     """Fresh catalog on a tmp workspace, closed at teardown."""
-    cat = SimulationCatalog(tmp_path)
-    try:
+    with simulation_catalog(tmp_path) as cat:
         yield cat
-    finally:
-        cat.close()
 
 
 def _table_set(cat: SimulationCatalog) -> set[str]:

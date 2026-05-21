@@ -16,6 +16,7 @@ import pytest
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.catalog.adapters.duckdb import DuckDBBackend
 from hydromodpy.results.catalog.ports import CatalogBackend
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 def _sim_id() -> str:
@@ -24,9 +25,8 @@ def _sim_id() -> str:
 
 @pytest.fixture
 def catalog(tmp_path):
-    cat = SimulationCatalog(tmp_path / "workspace")
-    yield cat
-    cat.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 def test_catalog_exposes_backend_as_protocol(catalog: SimulationCatalog) -> None:

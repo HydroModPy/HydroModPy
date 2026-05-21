@@ -11,71 +11,71 @@ import xarray as xr
 
 from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results.catalog import SimulationCatalog
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog_with_data(tmp_path):
     """A catalog with one simulation containing mesh, head field, and timeseries."""
-    c = SimulationCatalog(tmp_path / "workspace")
-    sid = str(uuid4())
+    with simulation_catalog(tmp_path / "workspace") as c:
+        sid = str(uuid4())
 
-    n_cells, n_layers, n_ts = 6, 2, 3
-    reg = c.register_simulation(
-        sid,
-        project="test",
-        solver="modflow_nwt",
-        n_cells=n_cells,
-        n_layers=n_layers,
-        n_timesteps=n_ts,
-        crs="EPSG:2154",
-    )
-    if reg.zarr is not None:
-        reg.zarr.close()
+        n_cells, n_layers, n_ts = 6, 2, 3
+        reg = c.register_simulation(
+            sid,
+            project="test",
+            solver="modflow_nwt",
+            n_cells=n_cells,
+            n_layers=n_layers,
+            n_timesteps=n_ts,
+            crs="EPSG:2154",
+        )
+        if reg.zarr is not None:
+            reg.zarr.close()
 
-    # Triangle mesh (6 triangles, 7 nodes)
-    verts = np.array(
-        [
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [0.5, 0.8],
-            [1.5, 0.8],
-            [0.8, 1.8],
-            [2.0, 0.4],
-            [1.8, 1.6],
-        ],
-        dtype="float64",
-    )
+        # Triangle mesh (6 triangles, 7 nodes)
+        verts = np.array(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [0.5, 0.8],
+                [1.5, 0.8],
+                [0.8, 1.8],
+                [2.0, 0.4],
+                [1.8, 1.6],
+            ],
+            dtype="float64",
+        )
 
-    # 6 cells as triangles; pad connectivity to max_vpf=4 with fill=-1
-    conn = np.array(
-        [
-            [0, 1, 2, -1],
-            [1, 3, 2, -1],
-            [2, 3, 4, -1],
-            [1, 5, 3, -1],
-            [3, 6, 4, -1],
-            [3, 5, 6, -1],
-        ],
-        dtype="int32",
-    )
+        # 6 cells as triangles; pad connectivity to max_vpf=4 with fill=-1
+        conn = np.array(
+            [
+                [0, 1, 2, -1],
+                [1, 3, 2, -1],
+                [2, 3, 4, -1],
+                [1, 5, 3, -1],
+                [3, 6, 4, -1],
+                [3, 5, 6, -1],
+            ],
+            dtype="int32",
+        )
 
-    z_intf = np.array([10.0, 5.0, 0.0])
-    c.write_mesh(sid, verts, conn, z_intf)
-    c.write_time(sid, np.array([0, 86400, 172800], dtype="int64"))
-    c.write_crs(sid, crs_wkt="EPSG:2154", epsg_code=2154)
+        z_intf = np.array([10.0, 5.0, 0.0])
+        c.write_mesh(sid, verts, conn, z_intf)
+        c.write_time(sid, np.array([0, 86400, 172800], dtype="int64"))
+        c.write_crs(sid, crs_wkt="EPSG:2154", epsg_code=2154)
 
-    rng = np.random.default_rng(42)
-    for t in range(n_ts):
-        head = rng.uniform(3.0, 12.0, (n_layers, n_cells))
-        c.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
+        rng = np.random.default_rng(42)
+        for t in range(n_ts):
+            head = rng.uniform(3.0, 12.0, (n_layers, n_cells))
+            c.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
 
-    # Timeseries
-    idx = pd.date_range("2020-01-01", periods=10, freq="D")
-    q = pd.Series(rng.random(10), index=idx, name="discharge")
-    c.write_timeseries(sid, "outlet", "discharge", q, unit="m3/s")
+        # Timeseries
+        idx = pd.date_range("2020-01-01", periods=10, freq="D")
+        q = pd.Series(rng.random(10), index=idx, name="discharge")
+        c.write_timeseries(sid, "outlet", "discharge", q, unit="m3/s")
 
-    yield c, sid, tmp_path
-    c.close()
+        yield c, sid, tmp_path
 
 
 class TestNetCDFExport:

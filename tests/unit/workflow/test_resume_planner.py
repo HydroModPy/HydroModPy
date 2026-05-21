@@ -9,17 +9,15 @@ import pytest
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.workflow.journal import WorkflowJournal
 from hydromodpy.workflow.resume import ResumePlan, ResumePlanner
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 BLUEPRINT = ("resolve", "load", "mesh", "solve", "extract")
 
 
 @pytest.fixture
 def catalog(tmp_path: Path) -> SimulationCatalog:
-    cat = SimulationCatalog(tmp_path)
-    try:
+    with simulation_catalog(tmp_path) as cat:
         yield cat
-    finally:
-        cat.close()
 
 
 @pytest.fixture

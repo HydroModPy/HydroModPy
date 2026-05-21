@@ -15,13 +15,13 @@ from hydromodpy.simulation.extraction.derivation.derived import (
     DERIVED_VARIABLES,
     compute_derived,
 )
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path):
-    catalog = SimulationCatalog(tmp_path / "workspace")
-    yield catalog
-    catalog.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 def _disabled_derived_flags(**enabled: bool) -> dict[str, bool]:

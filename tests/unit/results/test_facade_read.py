@@ -19,6 +19,7 @@ import hydromodpy as hmp
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.errors import FieldNotFoundError
 from hydromodpy.results.run import Run
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 def _sim_id() -> str:
@@ -27,9 +28,8 @@ def _sim_id() -> str:
 
 @pytest.fixture
 def catalog(tmp_path):
-    cat = SimulationCatalog(tmp_path / "workspace")
-    yield cat
-    cat.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 def _seed_field(catalog: SimulationCatalog) -> str:

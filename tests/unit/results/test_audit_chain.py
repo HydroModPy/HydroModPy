@@ -13,17 +13,13 @@ from hydromodpy.results.catalog.audit import (
     emit_audit_event,
     verify_chain,
 )
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path: Path) -> SimulationCatalog:
-    workspace = tmp_path / "ws"
-    workspace.mkdir()
-    cat = SimulationCatalog(workspace)
-    try:
+    with simulation_catalog(tmp_path / "ws") as cat:
         yield cat
-    finally:
-        cat.close()
 
 
 def _emit_three_events(catalog: SimulationCatalog) -> list[str]:

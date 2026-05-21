@@ -10,15 +10,13 @@ import pytest
 from hydromodpy.core.exceptions import JournalError
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.workflow.journal import WorkflowJournal, WorkflowStepRow
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path: Path) -> SimulationCatalog:
-    cat = SimulationCatalog(tmp_path)
-    try:
+    with simulation_catalog(tmp_path) as cat:
         yield cat
-    finally:
-        cat.close()
 
 
 @pytest.fixture

@@ -12,15 +12,13 @@ import pytest
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.workflow.heartbeat import HeartbeatPulse
 from hydromodpy.workflow.journal import WorkflowJournal
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path: Path) -> SimulationCatalog:
-    cat = SimulationCatalog(tmp_path)
-    try:
+    with simulation_catalog(tmp_path) as cat:
         yield cat
-    finally:
-        cat.close()
 
 
 def _register_running_sim(catalog: SimulationCatalog, sim_id: str) -> None:

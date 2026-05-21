@@ -9,13 +9,13 @@ import pytest
 from shapely.geometry import Polygon
 
 from hydromodpy.results.catalog import SimulationCatalog
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path):
-    cat = SimulationCatalog(tmp_path / "workspace")
-    yield cat
-    cat.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 def _sim_id() -> str:

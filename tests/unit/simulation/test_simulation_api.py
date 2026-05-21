@@ -18,13 +18,13 @@ from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
     HYDROGRAPHIC_NETWORK_REFERENCE_FEATURE_NAME,
 )
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path):
-    cat = SimulationCatalog(tmp_path / "workspace")
-    yield cat
-    cat.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 def _sid():
@@ -688,7 +688,6 @@ class TestSimulationGroup:
 
     def test_project_run_handles_survive_later_runs(self, monkeypatch, tmp_path):
         from hydromodpy.project.runner import ProjectRunner
-        from hydromodpy.results.catalog import SimulationCatalog
         from hydromodpy.workflow.internals.state import PipelineState
 
         class _Step:

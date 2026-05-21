@@ -19,13 +19,13 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path):
-    c = SimulationCatalog(tmp_path / "workspace")
-    yield c
-    c.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 def _seed_run(
