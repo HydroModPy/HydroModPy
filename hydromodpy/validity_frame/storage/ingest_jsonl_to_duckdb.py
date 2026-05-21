@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import duckdb
 
 
 TABLE_NAME = "execution_knowledge_records"
@@ -99,10 +102,11 @@ def _normalize_record(payload: dict[str, Any]) -> dict[str, Any]:
         "started_at": started_at,
         "ended_at": ended_at,
         "workspace": workspace,
-        "solver_name": _as_text(execution.get("solver"))
-        or _as_text(solver.get("solver_name")),
+        "solver_name": _as_text(execution.get("solver")) or _as_text(solver.get("solver_name")),
         "solver_iterations": _as_int(
-            execution.get("iteration") if execution.get("iteration") is not None else solver.get("iterations")
+            execution.get("iteration")
+            if execution.get("iteration") is not None
+            else solver.get("iterations")
         ),
         "solver_converged": _as_bool(solver.get("converged")),
         "solver_status": _as_text(solver.get("solver_status")),
@@ -113,10 +117,14 @@ def _normalize_record(payload: dict[str, Any]) -> dict[str, Any]:
         "ram_percent": _as_float(hardware.get("ram_percent")),
         "gpu_name": _as_text(first_gpu.get("name")) or _as_text(hardware.get("gpu_name")),
         "gpu_memory_total_mb": _as_float(
-            first_gpu.get("memory_total_mb") if first_gpu.get("memory_total_mb") is not None else hardware.get("gpu_memory_total_mb")
+            first_gpu.get("memory_total_mb")
+            if first_gpu.get("memory_total_mb") is not None
+            else hardware.get("gpu_memory_total_mb")
         ),
         "gpu_memory_used_mb": _as_float(
-            first_gpu.get("memory_used_mb") if first_gpu.get("memory_used_mb") is not None else hardware.get("gpu_memory_used_mb")
+            first_gpu.get("memory_used_mb")
+            if first_gpu.get("memory_used_mb") is not None
+            else hardware.get("gpu_memory_used_mb")
         ),
         "gpu_utilization_percent": _as_float(
             first_gpu.get("utilization_percent")
@@ -148,8 +156,6 @@ def _normalize_record(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def ensure_table(connection: duckdb.DuckDBPyConnection) -> None:
-    import duckdb
-
     connection.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {TABLE_NAME} (

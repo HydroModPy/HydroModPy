@@ -32,6 +32,8 @@ from hydromodpy.core.io.proj_bootstrap import bootstrap_proj
 from hydromodpy.core.logging import LogManager
 from hydromodpy.core.version import __version__
 
+bootstrap()
+
 __author__ = "Alexandre Gauvain, Ronan Abherve, Jean-Raynald de Dreuzy"
 __email__ = (
     "alexandre.gauvain.ag@gmail.com, ronan.abherve@gmail.com, jean-raynald.de-dreuzy@univ-rennes.fr"

@@ -60,9 +60,12 @@ def _rebuild_forward_refs() -> None:
         "GeographicConfig": GeographicConfig,
         "MeshCatchmentConfig": MeshCatchmentConfig,
         "OverviewConfig": OverviewConfig,
+        "RegionalLabConfig": RegionalLabConfig,
+        "CapabilityGalleryConfig": CapabilityGalleryConfig,
+        "ComparisonSection": ComparisonSection,
     }
     cfg_module.__dict__.update(refs)
-    cfg_module.HydroModPyConfig.model_rebuild()
+    cfg_module.HydroModPyConfig.model_rebuild(force=True)
 
 
 def _register_physics_contracts() -> None:

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass,field
-from datetime import datetime,timezone
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
+
 
 @dataclass(slots=True)
 class Context:
@@ -10,8 +11,9 @@ class Context:
     solver: str | None = None
     iteration: int | None = None
     workspace: str | None = None
-    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    started_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
+
 
 @dataclass(slots=True)
 class ExecutionContext:
@@ -19,5 +21,5 @@ class ExecutionContext:
     solver: str | None = None
     iteration: int | None = None
     workspace: str | None = None
-    started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    started_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     metadata: dict[str, Any] = field(default_factory=dict)
