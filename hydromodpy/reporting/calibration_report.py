@@ -364,10 +364,11 @@ def _render_html(
 
     figure_blocks = []
     for name, path in rendered_figures:
+        filename = html.escape(path.name)
         figure_blocks.append(
             f'<section class="figure">'
             f"<h2>{html.escape(name)}</h2>"
-            f'<img src="figures/{path.name}" alt="{html.escape(name)}"></section>'
+            f'<img src="figures/{filename}" alt="{html.escape(name)}"></section>'
         )
     figures_html = "\n  ".join(figure_blocks) or "<p><em>No figures rendered.</em></p>"
 

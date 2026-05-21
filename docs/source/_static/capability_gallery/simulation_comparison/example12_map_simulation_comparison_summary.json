@@ -50,7 +50,7 @@
   "source_hashes": {
     "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_manifest.json": "aba956c197a08cee559112f8882b17066da9389a54919b9deecb58f1de50df7d",
     "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_comparison_metrics.json": "9c94febd5fd5e0dfae3abc6ea37a87421dc119459d3326fed0cf53b73da71546",
-    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_observables.csv": "8d209c3bf051792251d262c50afbe99f9949147a03607b13895520b66f3010de",
+    "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_observables.csv": "e2f51c69c71658fc584375c92e974180e2f9577d27fbf8f5a33491652e94bf26",
     "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_summary_metrics.csv": "2a9b94243f370f395c1c10cca8e43e7361aef7206a682541c66b04f916e4bed5",
     "docs/source/_static/capability_gallery/simulation_comparison/example12_map_simulation_comparison_difference_metrics.csv": "c472046a7ea9fe3ac2947fd2fdc35d1b7d60d70cedb1f0382f78cf524f863f9d"
   },
