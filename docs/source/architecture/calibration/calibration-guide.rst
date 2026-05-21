@@ -163,15 +163,15 @@ Standard simulation block
    [[simulation.process]]
    id = "flow_main"
    type = "flow"
-   solvers = ["modflownwt"]
+   solvers = ["modflow_nwt"]
 
 The ``[simulation]`` tree is exactly what you write for a single
 ``hmp run``: a name, a time window, and one or more processes.
 **Changing the solver does not change anything in the
 ``[calibration]`` section**: the calibration code is solver-agnostic
-(no ``modflow``, ``modflow6``, ``boussinesq``, or ``solver_engine``
+(no ``modflow``, ``modflow6``, ``boussinesq``, or ``solver.backend``
 string appears anywhere in ``hydromodpy/calibration/``). Swap
-``"modflownwt"`` for ``"modflow6"`` and the same TOML calibrates the
+``"modflow_nwt"`` for ``"modflow6"`` and the same TOML calibrates the
 other solver (subject to the metric extractor coverage noted in §6).
 
 Frozen parameters

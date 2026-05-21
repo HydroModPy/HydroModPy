@@ -159,7 +159,7 @@ has been verified with MODFLOW 6.7.0. If HydroModPy resolves an older cached
 .. code-block:: toml
 
    [modflow6.runtime]
-   mf6_executable_name = "/home/dreuzy/.local/bin/mf6"
+   mf6_executable_name = "mf6"
 
 References
 ----------

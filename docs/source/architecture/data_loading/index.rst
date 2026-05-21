@@ -21,7 +21,7 @@ Code map
   ``Project.load_data()``.
 - ``hydromodpy/data/data_managers.py``: loaded-data container
   published to runtime state.
-- ``hydromodpy/project.py``: orchestration of ``setup_workspace`` /
+- ``hydromodpy/project/facade.py``: orchestration of ``setup_workspace`` /
   ``build_geographic`` / ``load_data``.
 - ``hydromodpy/physics/flow/structure_binders.py``: example downstream
   consumer that expects transferred structures.
@@ -32,7 +32,7 @@ Recommended reading path
 1. ``hydromodpy/data/data_managers_config.py``
 2. ``hydromodpy/data/planner.py``
 3. ``hydromodpy/data/runtime_loader.py``
-4. ``hydromodpy/project.py``
+4. ``hydromodpy/project/facade.py``
 5. one bound family such as ``hydromodpy/data/variables/geology/`` or
    ``hydromodpy/data/variables/hydrometry/``
 

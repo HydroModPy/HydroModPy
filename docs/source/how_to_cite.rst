@@ -123,10 +123,10 @@ results can be reproduced against a specific snapshot of the codebase.
 Reproducibility
 ---------------
 
-Each HydroModPy run writes a ``hydromodpy.lock`` file alongside the
-results. The lock pins the package version, the solver binaries, and
-the resolved configuration tree, so a published result can be
-reproduced from the same TOML config.
+HydroModPy writes ``hydromodpy.lock`` on a best-effort basis when input
+fingerprints and cache metadata are available. Frozen replay treats the
+lock as mandatory; normal runs without enough cache evidence emit a
+reproducibility warning instead of failing.
 
 When citing a specific result, please report the package version and
 the solver binary version (``hmp version``) in addition to the entries

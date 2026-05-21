@@ -72,22 +72,26 @@ Lifecycle methods
 Workflow helpers
 ----------------
 
+The facade exposes ``Project.calibrate()`` for calibration. Run-phase helpers
+that create one or many simulations live on ``project.session()``.
+
 .. list-table::
    :header-rows: 1
    :widths: 28 72
 
    * - Method
      - Role
-   * - ``overview()``
-     - Generate a data/geographic overview without a solver run.
-   * - ``simulate()``
-     - Run a standard simulation workflow.
-   * - ``compare()``
-     - Launch pairwise or workflow-level comparison logic.
-   * - ``calibrate()``
+   * - ``Project.calibrate()``
      - Run calibration from the project configuration.
-   * - ``sweep()``
-     - Execute controlled parameter or configuration sweeps.
+   * - ``project.session().simulate()``
+     - Run a standard simulation workflow.
+   * - ``project.session().sweep()``
+     - Execute controlled parameter or configuration sweeps from Python.
+       Sweep is not a TOML workflow mode in V1.
+
+Overview, comparison and testbed runs are V1 TOML workflows executed through
+``hmp.run(...)`` or the matching top-level Python helper, not ``Project``
+methods.
 
 State accessors
 ---------------

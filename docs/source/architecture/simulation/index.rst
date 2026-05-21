@@ -6,7 +6,7 @@ Simulation Architecture
    <p class="lead">
    Software architecture of the simulation orchestration layer in
    ``hydromodpy.simulation``. The public entry point is the
-   ``Project`` facade in ``hydromodpy/project.py``, instantiated by
+   ``Project`` facade in ``hydromodpy/project/facade.py``, instantiated by
    ``hmp run`` or by user Python code.
    </p>
 

@@ -1,7 +1,7 @@
 Results and Exports
 ===================
 
-HydroModPy v2 writes durable results at the project level. Each project
+HydroModPy V1 writes durable results at the project level. Each project
 holds its own DuckDB catalog with simulation metadata, metrics,
 parameters, budgets, provenance, and lookup tables. Per-run Zarr and
 Parquet stores hold the field arrays, meshes, rasters, timeseries, and
@@ -111,7 +111,7 @@ Resolve a run id prefix, then open the ``Run`` view:
    sim_id = catalog.resolve("ab12")
    run = catalog[sim_id]
 
-Read a field through the v2 facade (dispatches to Zarr or Parquet via
+Read a field through the V1 facade (dispatches to Zarr or Parquet via
 the field registry):
 
 .. code-block:: python

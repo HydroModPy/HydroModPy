@@ -45,10 +45,10 @@ How releases are tagged
 -----------------------
 
 Each release receives a Git tag and, for stable releases, a Zenodo DOI.
-The reproducibility lockfile ``hydromodpy.lock`` written next to every
-run records the exact package version and the solver binary release
-tag, so a published result can be reproduced from the same TOML config
-without reading this changelog.
+The reproducibility lockfile ``hydromodpy.lock`` records the package
+version, solver binary release tag and input fingerprints when that
+evidence is available. Frozen replay requires it; normal runs may only
+emit a reproducibility warning when cache metadata is missing.
 
 See also
 --------

@@ -22,7 +22,7 @@ It focuses on:
 Code map
 --------
 
-- ``hydromodpy/project.py``:
+- ``hydromodpy/project/facade.py``:
   the public ``Project`` facade. Holds the mutable runtime state and
   wires the pipeline phases.
 - ``hydromodpy/cli/commands/run.py`` and
@@ -40,7 +40,7 @@ Recommended reading path
 ------------------------
 
 1. ``hydromodpy/cli/commands/run.py``
-2. ``hydromodpy/project.py``
+2. ``hydromodpy/project/facade.py``
 3. ``hydromodpy/simulation/planning/planner.py``
 4. ``hydromodpy/simulation/planning/plan.py``
 5. ``hydromodpy/simulation/execution/runner.py``

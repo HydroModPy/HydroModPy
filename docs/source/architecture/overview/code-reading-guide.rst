@@ -39,7 +39,7 @@ CLI-driven simulation
 When the question is "how does one TOML turn into solver runs?":
 
 1. ``hydromodpy/cli/commands/run.py`` and ``cli/workflows.py``
-2. ``hydromodpy/project.py`` (``Project`` facade)
+2. ``hydromodpy/project/facade.py`` (``Project`` facade)
 3. ``hydromodpy/simulation/planning/planner.py``
 4. ``hydromodpy/simulation/execution/runner.py``
 5. ``hydromodpy/solver/base/registry.py``

@@ -5,7 +5,7 @@ from __future__ import annotations
 import zarr.codecs
 
 # Default Blosc-zstd codec used by every array written by HydroModPy.
-# clevel=5 with bitshuffle is the v2 sweet spot for groundwater fields.
+# clevel=5 with bitshuffle is the V1 sweet spot for groundwater fields.
 BLOSC_ZSTD = zarr.codecs.BloscCodec(
     cname="zstd",
     clevel=5,
@@ -15,7 +15,7 @@ BLOSC_ZSTD = zarr.codecs.BloscCodec(
 # CF + ACDD + UGRID conventions advertised at the root of every store.
 CF_CONVENTIONS = "CF-1.11, ACDD-1.3, UGRID-1.0"
 
-# Schema version of the Zarr layout produced by HydroModPy v2 (P6).
+# Schema version of the Zarr layout produced by HydroModPy V1 (P6).
 # Stored in the ``meta`` group attributes and validated on open.
 ZARR_SCHEMA_VERSION = "2"
 

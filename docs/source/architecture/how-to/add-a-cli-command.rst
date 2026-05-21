@@ -141,10 +141,9 @@ inventory). If the verb has its own option ladder, expand it there.
 Pitfalls flagged by the layer matrix
 ------------------------------------
 
-- ``cli`` may import everything; the freedom is intentional.
-- ``cli`` -> ``<root>`` is documented as a tolerance: the CLI
-  delegates to the public ``Project`` facade through the top-level
-  ``hydromodpy`` package, not by importing private submodules.
+- ``cli`` may import any stable production layer, plus ``catalog`` and
+  ``project``. It must not depend on experimental ``validity_frame``
+  tooling.
 - Do not implement business logic inside the command file. The CLI
   is a thin dispatcher; logic belongs to the relevant package so
   unit tests can exercise it without subprocess overhead.

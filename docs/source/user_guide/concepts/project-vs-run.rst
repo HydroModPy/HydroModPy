@@ -1,7 +1,7 @@
 Project vs Run
 ==============
 
-HydroModPy v2 names every level of the hierarchy explicitly so the API
+HydroModPy V1 names every level of the hierarchy explicitly so the API
 stops overloading the word "simulation". The contract is
 **workspace > project > run**.
 
@@ -53,7 +53,7 @@ Programmatic flow
    catalog = hmp.open("~/ws/projects/canut")
    best = catalog.best(metric="nse")
 
-   # Read a field through the v2 facade
+   # Read a field through the V1 facade
    head = hmp.read(best, "head", timestep=0)
 
 CLI equivalents
