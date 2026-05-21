@@ -311,3 +311,11 @@ docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_cl
 docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_context_v2.wsd
 docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_fieldparam_sequence_v2.wsd
 docs/readthedocs/source/architecture/spatial_support/diagrams/spatial_support_resolution_activity_v2.wsd
+examples/projects/00_getting_started/catalog.duckdb
+examples/projects/00_getting_started/execution_knowledge/catalog.duckdb
+examples/projects/00_getting_started/execution_knowledge/example_run_00/raw/runtime_capture_failure.json
+examples/projects/00_getting_started/execution_knowledge/example_run_00/raw/runtime_capture_success.json
+examples/projects/00_getting_started/execution_knowledge/example_run_00/raw/runtime_capture.jsonl
+execution_knowledge/myrun1/raw/runtime_capture_success.json
+execution_knowledge/myrun1/raw/runtime_capture.jsonl
+tests/regression/fixtures/projects/launcher_simulation/execution_knowledge/myrun1/raw/runtime_capture_failure.json
