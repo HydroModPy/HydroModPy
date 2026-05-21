@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-VALIDATION_SOLVER_ORDER = ("modflownwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
+VALIDATION_SOLVER_ORDER = ("modflow_nwt", "modflow6", "modflow6_irregular_tri", "boussinesq")
 
 
 @dataclass(frozen=True, slots=True)

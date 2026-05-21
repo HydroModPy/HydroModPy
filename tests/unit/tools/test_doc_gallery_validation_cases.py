@@ -36,31 +36,31 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
 
     assert len(records) == EXPECTED_VALIDATION_CASE_COUNT
     assert records["dupuit_fixed_head_1d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["dupuit_circular_island_ocean_2d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["linearized_unconfined_boundary_piecewise_1d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["boussinesq_fixed_head_piecewise_k_1d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["boussinesq_uniform_recharge_piecewise_k_1d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
@@ -68,13 +68,13 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
     assert records["boussinesq_sloping_substratum_constant_thickness_1d"].metadata[
         "solver_variants"
     ] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["boussinesq_sloping_substratum_fixed_head_1d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
@@ -82,18 +82,18 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
     assert records["boussinesq_sloping_substratum_uniform_recharge_1d"].metadata[
         "solver_variants"
     ] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["linearized_unconfined_drainage_1d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
     )
     assert records["linearized_unconfined_hillslope_drainage_1d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
     )
@@ -101,19 +101,19 @@ def test_build_validation_case_records_discovers_solver_coverage() -> None:
         "boussinesq",
     )
     assert records["late_time_unconfined_pumping_2d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["brutsaert_recession_linearized_deep_1d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
     )
     assert records["brutsaert_recession_boussinesq_thin_1d"].metadata["solver_variants"] == (
-        "modflownwt",
+        "modflow_nwt",
         "modflow6",
         "modflow6_irregular_tri",
         "boussinesq",
@@ -185,7 +185,7 @@ def test_build_case_page_renders_solver_tabs_when_multiple_variants_exist() -> N
         },
         "solver_runs": [
             {
-                "solver": "modflownwt",
+                "solver": "modflow_nwt",
                 "solver_display_name": "MODFLOW-NWT",
                 "image": {
                     "doc_path": "/_static/capability_gallery/validation/synthetic__modflownwt.png",
@@ -214,7 +214,7 @@ def test_build_case_page_renders_solver_tabs_when_multiple_variants_exist() -> N
             },
         ],
         "metadata": {
-            "default_solver": "modflownwt",
+            "default_solver": "modflow_nwt",
         },
     }
 
@@ -237,7 +237,7 @@ def test_build_validation_category_page_groups_cases_by_family() -> None:
                 "deck": "One core-flow benchmark.",
                 "docname": "cases/synthetic_core_case",
                 "metadata": {
-                    "solver_variants": ("modflownwt", "modflow6"),
+                    "solver_variants": ("modflow_nwt", "modflow6"),
                     "process_family": "flow",
                     "process_family_label": "Flow",
                     "validation_family": "core_1d_steady",
@@ -292,7 +292,7 @@ def test_generate_validation_case_skips_missing_solver_figures(
         )
 
     def plotting_function(comparison, *, output_png, show_plot):
-        if comparison.solver == "modflownwt":
+        if comparison.solver == "modflow_nwt":
             output_png.parent.mkdir(parents=True, exist_ok=True)
             output_png.write_bytes(b"fake-png")
 
@@ -327,10 +327,10 @@ def test_generate_validation_case_skips_missing_solver_figures(
             "metric_builder_name": "metric_builder",
             "run_case_file": "README.md",
             "case_dir": "validation_cases/synthetic",
-            "solver_variants": ("modflownwt", "boussinesq"),
-            "default_solver": "modflownwt",
+            "solver_variants": ("modflow_nwt", "boussinesq"),
+            "default_solver": "modflow_nwt",
             "solver_details": {
-                "modflownwt": {"display_name": "MODFLOW-NWT"},
+                "modflow_nwt": {"display_name": "MODFLOW-NWT"},
                 "boussinesq": {"display_name": "Boussinesq"},
             },
         },
@@ -339,12 +339,12 @@ def test_generate_validation_case_skips_missing_solver_figures(
     summary = _generate_validation_case(spec, tmp_path)
 
     solver_runs = {run["solver"]: run for run in summary["solver_runs"]}
-    assert solver_runs["modflownwt"]["image"] is not None
+    assert solver_runs["modflow_nwt"]["image"] is not None
     assert solver_runs["boussinesq"]["image"] is None
     assert summary["artifacts"]["image_repo_paths"] == [
-        "docs/source/_static/capability_gallery/validation/synthetic_validation_case__modflownwt.png"
+        "docs/source/_static/capability_gallery/validation/synthetic_validation_case__modflow_nwt.png"
     ]
 
     page = _build_case_page(summary)
-    assert "synthetic_validation_case__modflownwt.png" in page
+    assert "synthetic_validation_case__modflow_nwt.png" in page
     assert "synthetic_validation_case__boussinesq.png" not in page

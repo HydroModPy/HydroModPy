@@ -90,3 +90,35 @@ def test_best_obs_vs_sim_requires_observed_data(tmp_path, monkeypatch) -> None:
             figure_names=["calibration_trace"],
             output_dir=tmp_path / "report",
         )
+
+
+def test_render_html_escapes_session_rows_figures_and_iteration_preview() -> None:
+    import hydromodpy.reporting.calibration_report as report
+
+    html = report._render_html(
+        {
+            "session_id": "abc-def",
+            "project": "<Project & Co>",
+            "method": 'grid "fast"',
+            "status": "<script>alert(1)</script>",
+            "best_sim_id": "dead-beef",
+        },
+        [
+            {
+                "iteration": 1,
+                "objective_value": 0.125,
+                "status": "<done>",
+                "parameters": {"b": "<tag>", "a": 1},
+            }
+        ],
+        [("<Figure & Name>", Path("unsafe&figure<1>.png"))],
+    )
+
+    assert "<Project & Co>" not in html
+    assert "<script>alert(1)</script>" not in html
+    assert "<Figure & Name>" not in html
+    assert "unsafe&figure<1>.png" not in html
+    assert "&lt;Project &amp; Co&gt;" in html
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+    assert "figures/unsafe&amp;figure&lt;1&gt;.png" in html
+    assert "{&quot;a&quot;: 1, &quot;b&quot;: &quot;&lt;tag&gt;&quot;}" in html

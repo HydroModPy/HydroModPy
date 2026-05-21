@@ -47,7 +47,7 @@ Case Setup
 ----------
 
 - Base config: `project.toml` loads the offline Nancon basin data bundle, activates `recharge`, `etp`, and top `drainage`, and defines the default display contract.
-- Overlay config: `run_transient_nwt.toml` selects the monthly 2000-2002 transient window, the `modflownwt` backend, the homogeneous K/Sy/Ss values, and the stable capability-gallery publication block.
+- Overlay config: `run_transient_nwt.toml` selects the monthly 2000-2002 transient window, the `modflow_nwt` backend, the homogeneous K/Sy/Ss values, and the stable capability-gallery publication block.
 - Execution chain: observed-basin setup -> transient MODFLOW-NWT flow -> catalog-backed figure rendering -> stable publication into `examples/projects/09_capability_gallery/launcher_simulation/nancon_transient_nwt/`.
 
 What It Shows

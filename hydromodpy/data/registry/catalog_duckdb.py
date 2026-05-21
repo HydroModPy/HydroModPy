@@ -21,6 +21,7 @@ import duckdb
 import pandas as pd
 from upath import UPath
 
+from hydromodpy.core.io.db_retry import connect_with_retry
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.registry import cache_lifecycle, cache_queries, cache_store
 from hydromodpy.data.registry._backend import CacheBackend, DuckDBCacheBackend
@@ -48,7 +49,7 @@ class DataCatalogDuckDB:
             db_path = Path(str(db_path))
             db_path.parent.mkdir(parents=True, exist_ok=True)
             self._db_path = db_path
-            self._conn = duckdb.connect(str(db_path))
+            self._conn = connect_with_retry(str(db_path))
 
         _ensure_cache_schema(self._conn)
         self._backend: CacheBackend = DuckDBCacheBackend.from_connection(

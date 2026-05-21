@@ -3,8 +3,8 @@
   "slug": "brutsaert_recession_linearized_deep_1d",
   "title": "Brutsaert Recession Validation: Deep Linearized Aquifer",
   "category": "validation",
-  "deck": "This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.",
-  "summary": "This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.",
+  "deck": "This transient validation case checks that the available `modflow_nwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.",
+  "summary": "This transient validation case checks that the available `modflow_nwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.",
   "case_setup": [
     "homogeneous 1D strip with west divide and east imposed head,",
     "steady uniform recharge used only to build the initial saturated state,",
@@ -155,7 +155,7 @@
       "config_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/config_modflownwt.toml",
       "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/tolerances_modflownwt.toml",
       "expected_output": null,
-      "command": "python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show --solver modflownwt",
+      "command": "python -m validation_cases.analytical.transient.brutsaert_recession_linearized_deep_1d.run_case --no-show --solver modflow_nwt",
       "metric_lines": [
         "Solution: exponential",
         "Initial discharge: 2.707439e-04 m3/s",

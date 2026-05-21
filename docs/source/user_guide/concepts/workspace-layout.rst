@@ -1,7 +1,7 @@
 Workspace Layout
 ================
 
-HydroModPy v2 organises every project around three nested levels:
+HydroModPy V1 organises every project around three nested levels:
 workspace > project > run. The **workspace** is the root directory
 that mutualises an input ``data/`` folder; each **project** holds its
 own ``catalog.duckdb`` plus the ``simulations/`` artefacts; each

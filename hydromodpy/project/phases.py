@@ -274,12 +274,12 @@ def detect_solver(project: Project) -> str:
         if all(proc.type == "mesh" for proc in sim.process):
             return "mesh"
     solver_cfg = getattr(project.cfg, "solver", None)
-    engine = getattr(solver_cfg, "solver_engine", None) if solver_cfg else None
+    engine = getattr(solver_cfg, "backend_name", None) if solver_cfg else None
     if engine:
         return str(engine)
     raise ConfigMissingError(
         "No flow solver declared. Add a [[simulation.process]] entry with "
-        "type='flow' or set [solver] solver_engine."
+        "type='flow' or set [solver.backend]."
     )
 
 

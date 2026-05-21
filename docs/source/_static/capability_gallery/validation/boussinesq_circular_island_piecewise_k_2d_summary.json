@@ -151,7 +151,7 @@
       "config_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/config_modflownwt.toml",
       "tolerance_path": "validation_cases/analytical/steady/boussinesq_circular_island_piecewise_k_2d/tolerances.toml",
       "expected_output": "Expected shape: 61 x 61",
-      "command": "python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver modflownwt",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver modflow_nwt",
       "metric_lines": [
         "Radial head-profile RMSE: 0.0286 m",
         "Radial head-profile max abs error: 0.0544 m",

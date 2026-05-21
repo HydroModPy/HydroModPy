@@ -18,7 +18,7 @@ For launcher-backed analytical cases, the usual workflow is:
 
 1. a pytest file imports one case-specific `run_*_comparison(...)` function,
 2. the comparison function loads `metadata.toml` and the applicable tolerance file,
-3. the shared runtime launches `examples/projects/launcher_simulation`,
+3. the shared runtime launches the canonical `hmp run` path,
 4. postprocessed arrays are loaded from the generated workspace,
 5. the analytical reference is evaluated,
 6. metrics are returned to pytest for assertion.
@@ -50,15 +50,15 @@ Reference note:
 List the selected cases without running them:
 
 ```powershell
-python -m validation_cases.run_cases --solver modflownwt --regime both --list
+python -m validation_cases.run_cases --solver modflow_nwt --regime both --list
 python -m validation_cases.run_cases --solver modflow6 --regime both --list
 ```
 
 Run all steady or transient cases without interactive figures:
 
 ```powershell
-python -m validation_cases.run_cases --solver modflownwt --regime steady --no-show
-python -m validation_cases.run_cases --solver modflownwt --regime transient --no-show
+python -m validation_cases.run_cases --solver modflow_nwt --regime steady --no-show
+python -m validation_cases.run_cases --solver modflow_nwt --regime transient --no-show
 python -m validation_cases.run_cases --solver modflow6 --regime steady --no-show
 python -m validation_cases.run_cases --solver modflow6 --regime transient --no-show
 ```
@@ -66,7 +66,7 @@ python -m validation_cases.run_cases --solver modflow6 --regime transient --no-s
 Run the full analytical inventory for one solver:
 
 ```powershell
-python -m validation_cases.run_cases --solver modflownwt --regime both --no-show
+python -m validation_cases.run_cases --solver modflow_nwt --regime both --no-show
 python -m validation_cases.run_cases --solver modflow6 --regime both --no-show
 python -m validation_cases.run_cases --solver boussinesq --regime both --no-show
 ```
@@ -74,14 +74,14 @@ python -m validation_cases.run_cases --solver boussinesq --regime both --no-show
 Run with figures enabled:
 
 ```powershell
-python -m validation_cases.run_cases --solver modflownwt --regime transient --show
+python -m validation_cases.run_cases --solver modflow_nwt --regime transient --show
 python -m validation_cases.run_cases --solver modflow6 --regime steady --show
 ```
 
 Stop the batch on the first failing case:
 
 ```powershell
-python -m validation_cases.run_cases --solver modflownwt --regime both --no-show --stop-on-error
+python -m validation_cases.run_cases --solver modflow_nwt --regime both --no-show --stop-on-error
 ```
 
 ## Current Scope
@@ -91,7 +91,7 @@ Current cases are mostly:
 - analytical,
 - deterministic,
 - groundwater-flow oriented,
-- shared across `modflownwt`, `modflow6`, and the in-house `boussinesq`
+- shared across `modflow_nwt`, `modflow6`, and the in-house `boussinesq`
   backend where the benchmark physics remains defensible,
 - mirrored on `modflow6_irregular_tri` when a compatible triangular mesh and
   a defensible comparison reduction exist.
@@ -109,7 +109,7 @@ module-only and exists to share analytical formulas across transient cases.
 Launcher-backed case directories typically contain:
 
 - `config_modflownwt.toml`: deterministic launcher configuration for the
-  `modflownwt` variant,
+  MODFLOW-NWT variant,
 - `config_modflow6.toml`: optional `modflow6` variant for the same benchmark
   when solver parity is under validation,
 - `reference.py`: analytical solution and literature references,
@@ -316,7 +316,7 @@ Scientifically, the current suite provides direct validation for:
 - uniform and transient recharge forcing,
 - one deep-aquifer transient benchmark used to suppress linearization error when validating the Boussinesq transient path,
 - one transient hillslope-interception onset benchmark for the dense in-house `boussinesq` runtime,
-- two transient integrated-discharge Brutsaert recession benchmarks available on `modflownwt`, `modflow6`, `modflow6_irregular_tri`, and `boussinesq`,
+- two transient integrated-discharge Brutsaert recession benchmarks available on `modflow_nwt`, `modflow6`, `modflow6_irregular_tri`, and `boussinesq`,
 - MODFLOW 6 irregular triangular meshes for the 1D strip, transient boundary/recharge, Brutsaert recession, circular-island, and late-time radial-pumping families,
 - top `ocean` boundary condition,
 - top distributed `drainage` behavior,

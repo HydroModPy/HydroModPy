@@ -45,7 +45,7 @@
   "source_hashes": {
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_manifest.json": "a3b04a65a9752b52896019bc1dba8a83881e9cbdc0baa61c24ed209f0ab91d97",
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_comparison_metrics.json": "bff0f025e15b0bbb70d6588dad28b9dc95f1aa9e1ad5f407313c7f269a8b52b7",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv": "dac66191a34d8da0c034c9fee0482bf7a7db24b9218a336aa472af9d71ff0a13",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_observables.csv": "53b54dc55920ffa1f56bc9ba618a67e25bec73ba898c033f2a76e55cbb39e81c",
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_summary_metrics.csv": "0feb0079abe467213b2792cfd11b460067ddbde72be50ae339b34344fbdc24fb",
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_mf6_nwt_moderate_same_s60_difference_metrics.csv": "ce520882507401b77c569218b5bc97ed8965c38b373a7cad72a7f895e0394a2f"
   },

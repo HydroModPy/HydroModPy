@@ -1,0 +1,34 @@
+# Lint GitHub Actions workflows when workflow files change.
+
+name: CI / Workflow Lint
+
+on:
+  push:
+    branches: [master, dev]
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+  pull_request:
+    branches: [master, dev]
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: CI / actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint workflow files
+        uses: raven-actions/actionlint@v2

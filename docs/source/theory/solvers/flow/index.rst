@@ -23,7 +23,7 @@ Current Flow Solver Families
      - Solver names
      - Role
    * - MODFLOW family
-     - ``modflownwt``, ``modflow6``
+     - ``modflow_nwt``, ``modflow6``
      - Structured-grid and MODFLOW 6 groundwater-flow backends. Internal
        structure: :doc:`MODFLOW 6 <modflow/modflow6>` and
        :doc:`MODFLOW-NWT <modflow/modflownwt>` pages, plus the

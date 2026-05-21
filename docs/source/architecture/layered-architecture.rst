@@ -1,55 +1,58 @@
 Layered Architecture
 ====================
 
-HydroModPy is built as a strict layered DAG. Every subpackage of
-``hydromodpy/`` belongs to one layer and may only import from a
-restricted set of other layers. The matrix below is the v2 contract
-checked by ``tests/unit/architecture/test_layer_matrix.py`` against
-``tests/unit/architecture/layer_matrix.yaml``.
+HydroModPy is built as a strict layered DAG. Every top-level subpackage
+of ``hydromodpy/`` belongs to one layer and may only import from the
+targets declared in ``tests/unit/architecture/layer_matrix.yaml``.
 
-Ports and Adapters at the storage edge
+The YAML file is the normative contract. This page mirrors the current
+state for readers, but the CI gate reads the YAML directly through
+``tests/unit/architecture/test_layer_matrix.py``.
+
+Ports and adapters at the storage edge
 --------------------------------------
 
-A local **Ports and Adapters** boundary sits between ``results`` and
-any SQL store. All catalog reads and writes go through the
-:class:`~hydromodpy.results.catalog.ports.CatalogBackend` Protocol.
-The in-tree adapter is ``DuckDBBackend``. This is a structural
-contract (no inheritance) so alternative stores can be plugged in by
-implementing the protocol, without changing workflow code.
+The V1 storage contract is DuckDB-first, not backend-agnostic in every
+runtime path. The project catalog uses
+:class:`~hydromodpy.results.catalog.ports.CatalogBackend`, with
+``DuckDBBackend`` as the in-tree implementation. The data cache uses a
+separate DuckDB cache adapter. CLI diagnostics, migration runners and
+portable-package snapshots may open DuckDB directly when documented as
+exceptions in :doc:`storage-layout`.
 
-The same pattern applies to field stores. ``hmp.read`` is the facade
-that dispatches a logical field name to a Zarr or Parquet reader via
-the field registry. See :doc:`/architecture/packages/results` for the
-Python surface.
+Field readers go through ``hmp.read`` which dispatches to Zarr or
+Parquet stores via the field registry. See
+:doc:`/architecture/packages/results` for the Python surface.
 
 The rules
 ---------
 
-1. **One layer per subpackage.** Cross-edges that violate the matrix
-   fail CI.
-2. **One-way dependencies only.** No cycles, even under
-   ``TYPE_CHECKING``.
-3. **``core`` is the kernel leaf.** It must not import any sibling
-   layer.
-4. **Each MODFLOW backend is independent.** ``solver/modflow6/`` and
-   ``solver/modflow_nwt/`` never cross-import; shared helpers live in
-   ``solver/modflow_common/`` and ``solver/modflow_grid/``.
-5. **``hydromodpy_annex/`` may import ``hydromodpy/``.** The reverse
-   is forbidden.
-6. **Cross-package imports of underscored modules are forbidden.**
-   Leading underscore means truly private to the owning package.
-7. **A new edge that violates the matrix is a regression.** When in
-   doubt, ask before adding it.
+1. One layer per top-level subpackage. Cross-edges that violate the
+   matrix fail CI.
+2. One-way dependencies only. No cycles, even under ``TYPE_CHECKING``.
+3. ``core`` is the kernel leaf. It must not import any sibling layer.
+4. Each MODFLOW backend is independent. ``solver/modflow6/`` and
+   ``solver/modflow_nwt/`` never cross-import.
+5. ``hydromodpy_annex/`` may import ``hydromodpy/``. The reverse is
+   forbidden.
+6. Cross-package imports of underscored modules are forbidden. Leading
+   underscore means private to the owning package.
+7. A new edge that violates the matrix is a regression.
 
 Layer matrix
 ------------
 
 .. list-table::
    :header-rows: 1
-   :widths: 14 86
+   :widths: 16 84
 
    * - Source layer
      - Allowed import targets
+   * - ``<root>``
+     - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
+       ``data``, ``spatial``, ``simulation``, ``solver``,
+       ``calibration``, ``results``, ``display``, ``analysis``,
+       ``reporting``, ``workflow``, ``catalog``, ``cli``
    * - ``core``
      - ``core``
    * - ``schema``
@@ -57,11 +60,12 @@ Layer matrix
    * - ``config``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
        ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``analysis``, ``workflow``
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``
    * - ``physics``
      - ``core``, ``schema``, ``physics``
    * - ``data``
-     - ``core``, ``schema``, ``data``
+     - ``core``, ``schema``, ``data``, ``spatial``
    * - ``spatial``
      - ``core``, ``schema``, ``spatial``
    * - ``simulation``
@@ -72,109 +76,86 @@ Layer matrix
        ``simulation``
    * - ``calibration``
      - ``core``, ``schema``, ``physics``, ``data``, ``spatial``,
-       ``solver``, ``simulation``, ``calibration``
+       ``solver``, ``simulation``, ``calibration``, ``results``
    * - ``results``
-     - ``core``, ``schema``, ``config``, ``results``
+     - ``core``, ``schema``, ``config``, ``results``, ``spatial``
    * - ``display``
      - ``core``, ``schema``, ``results``, ``display``
    * - ``analysis``
-     - ``core``, ``schema``, ``data``, ``results``, ``analysis``
+     - ``core``, ``schema``, ``physics``, ``data``, ``results``,
+       ``display``, ``analysis``
+   * - ``reporting``
+     - ``core``, ``schema``, ``config``, ``results``, ``display``,
+       ``analysis``, ``reporting``
    * - ``workflow``
      - ``core``, ``schema``, ``config``, ``physics``, ``data``,
        ``spatial``, ``simulation``, ``solver``, ``calibration``,
-       ``results``, ``display``, ``analysis``, ``workflow``
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``
+   * - ``validity_frame``
+     - ``validity_frame``
+   * - ``catalog``
+     - ``core``, ``schema``, ``data``, ``results``, ``catalog``
+   * - ``project``
+     - ``core``, ``schema``, ``config``, ``physics``, ``data``,
+       ``spatial``, ``simulation``, ``solver``, ``calibration``,
+       ``results``, ``display``, ``analysis``, ``reporting``,
+       ``workflow``, ``catalog``, ``project``
    * - ``cli``
-     - everything (top-level dispatcher)
-   * - ``<root>`` (top-level helpers in ``hydromodpy/``)
-     - everything
-
-The full machine-readable matrix lives in
-``tests/unit/architecture/layer_matrix.yaml``.
+     - ``<root>``, ``core``, ``schema``, ``config``, ``physics``,
+       ``data``, ``spatial``, ``simulation``, ``solver``,
+       ``calibration``, ``results``, ``display``, ``analysis``,
+       ``reporting``, ``workflow``, ``catalog``, ``project``, ``cli``
 
 Documented tolerances
 ---------------------
 
-A few legacy edges are tolerated until further refactoring. Each one
-must point to a documented rationale; CI will fail if a tolerance is
-removed and the underlying edge still exists.
+Tolerances live in ``layer_matrix.yaml`` and must carry a rationale.
+They are temporary or deliberately narrow edges. A contributor should
+tighten them when the underlying edge disappears.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 14 14 72
+Current tolerances cover:
 
-   * - Source
-     - Target
-     - Reason
-   * - ``data``
-     - ``spatial``
-     - Geology field bridging.
-   * - ``calibration``
-     - ``results``
-     - Calibration reads the catalog at planning time.
-   * - ``simulation``
-     - ``solver``
-     - Simulation queries the solver registry.
-   * - ``results``
-     - ``spatial``
-     - Results stores spatial indices.
-   * - ``analysis``
-     - ``physics``
-     - History contract.
-   * - ``calibration``
-     - ``<root>``
-     - Trial promotion launches the public ``Project`` facade.
-   * - ``cli``
-     - ``<root>``
-     - CLI dispatch delegates to the public ``Project`` facade.
-   * - ``workflow``
-     - ``<root>``
-     - Sweep helper accepts ``Project`` facade instances.
-   * - ``analysis``
-     - ``display``
-     - Comparison exports reuse plot mesh loading.
-   * - ``analysis``
-     - ``solver``
-     - Comparison runtime resolves solver families.
-   * - ``results``
-     - ``analysis``
-     - ``Run`` exposes stream-network diagnostics.
-   * - ``physics``
-     - ``spatial``
-     - ``FlowConfig`` embeds spatial ``FieldSection`` discriminated
-       union.
+- root lazy resolution of ``project``;
+- comparison exports reusing display helpers;
+- comparison orchestration writing an HTML report;
+- ``FlowConfig`` embedding a spatial discriminated union;
+- core time validation using flow-regime semantics;
+- read-only cross-DB bridges between data cache and results catalog.
 
-Exempt files
-------------
+Special layers
+--------------
 
-A short list of bootstrap shims and runnable case entry points are
-exempt from the layer rule:
+``catalog``
+   Public V1 facade over cache, project catalog and global index. It
+   may import ``data`` and ``results`` to wrap their stores. The reverse
+   edge is forbidden.
 
-- ``hydromodpy/__init__.py``
-- ``hydromodpy/_bootstrap.py``
-- ``hydromodpy/__main__.py``
-- ``hydromodpy/project.py``
-- ``hydromodpy/spatial/domain/cases/run_domain_case.py``
-- ``hydromodpy/spatial/geographic/cases/reference_catchment_delineation_case/run_case.py``
+``project``
+   Public object-oriented facade. It sits above the matrix like ``cli``
+   so lower layers do not depend on ``Project``.
+
+``validity_frame``
+   Experimental observability tooling. It is installed with the package
+   but isolated from the modeling DAG and is not a stable V1 public API.
 
 How CI checks the matrix
 ------------------------
 
-``tests/unit/architecture/test_layer_matrix.py`` walks every Python
-file in ``hydromodpy/``, parses the imports, and asserts each edge is
-either in the allowed-targets list or in the documented-tolerance
-list. A new violation fails the unit test tier.
+``tests/unit/architecture/test_layer_matrix.py`` parses every Python
+file in ``hydromodpy/`` and asserts each edge is either allowed or
+tolerated. It also checks that every declared package has a per-package
+architecture page.
 
 When refactoring across layers
 ------------------------------
 
 If a refactor needs a new edge that the matrix forbids:
 
-1. Look for an existing intermediary layer (often ``core`` or
-   ``schema`` is enough).
-2. If none fits, propose the change before touching code: tighten the
-   matrix, document the rationale, then update the YAML and the test.
-3. Never add a tolerance silently. Tolerances exist to be tracked and
-   removed, not to be accumulated.
+1. Look for an existing intermediary layer.
+2. If none fits, propose the change before touching code.
+3. Update the YAML and the prose together.
+4. Never add a tolerance silently.
 
 See also
 --------

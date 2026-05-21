@@ -21,7 +21,7 @@ References frequently cited:
 - Anderson, Woessner & Hunt 2015, *Applied Groundwater Modeling*, 2nd ed.
 - ASME V&V 20-2009 terminology (verification vs validation).
 
-The table below records the 30 tolerances enforced today. Every tolerance
+The table below records the 33 tolerances enforced today. Every tolerance
 must carry a rationale before it is merged.
 
 ## Table of tolerances
@@ -58,6 +58,9 @@ must carry a rationale before it is merged.
 | 28 | Linearized transient boundary step 1D (MF6 irregular tri) | cross-row spread | `< 0.005 m` | Triangular mesh lateral asymmetry envelope | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
 | 29 | Linearized transient recharge step deep 1D (MF6 irregular tri) | cross-row spread | `< 0.0007 m` | Triangular mesh lateral asymmetry envelope in the near-linear deep case | RMSE and max-abs thresholds stay identical to the structured transient benchmark |
 | 30 | Brutsaert fast calibration golden | `x_best` component drift | `cma_es: [1e-4, 2.5e-2]`, deterministic methods tighter | Fixed-seed stochastic optimizer envelope across Optuna/cmaes versions | `cma_es` can choose nearby recession exponents with indistinguishable objective values |
+| 31 | Boussinesq drying PETSc cell test | nonlinear residual and dry-cell flux closure | `residual <= 1e-10`, array `atol <= 1e-12` | Solver options request `tol_residual_inf=1e-10`; one-cell geometry has analytical dry equilibrium | Guards the PETSc drying path without mesh-discretization error |
+| 32 | Boussinesq headwater 100 km2 PETSc validation | active surface threshold and complementarity diagnostics | `peak cells > 50`, `peak total > 1e3 m3/d`, complementarity floors `>= -1e-6` | Numerical-regime smoke envelope for the regional headwater benchmark | Ensures the PETSc surface interaction is active and respects non-negative gap/rate to solver precision |
+| 33 | Reservoir calibration validation | recovered `log10(k)` and `n` drift from truth | `< 0.3` | Fixed-iteration optimizer recovery envelope on deterministic synthetic reservoirs | Wide enough for optimizer path variance, tight enough to reject wrong-order parameters |
 
 ## Update policy
 

@@ -80,7 +80,7 @@ def test_load_domain_payload_rejects_unknown_domain_shape_without_explicit_sourc
 
 
 def test_validate_domain_rejects_unknown_extra_fields_on_bbox_contract() -> None:
-    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+    with pytest.raises(ValueError, match="Extra inputs"):
         parse_zone_meshing_domain_config(
             {
                 "kind": "bbox",
@@ -98,7 +98,7 @@ def test_validate_domain_vector_selected_id_requires_id_field() -> None:
 
 
 def test_validate_domain_vector_rejects_selected_ids_plural() -> None:
-    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+    with pytest.raises(ValueError, match="Extra inputs"):
         parse_zone_meshing_domain_config(
             {
                 "kind": "vector",

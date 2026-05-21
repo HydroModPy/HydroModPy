@@ -19,15 +19,15 @@ import pytest
 from hydromodpy.calibration.optimizer import EvaluationResult, ParamSuggestion
 from hydromodpy.calibration.persistence import CalibrationPersistence
 from hydromodpy.results.catalog import SimulationCatalog
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture()
 def catalog(tmp_path: Path):
     """Open an isolated calibration catalog rooted under tmp_path."""
     (tmp_path / "data").mkdir(parents=True, exist_ok=True)
-    catalog = SimulationCatalog(tmp_path)
-    yield catalog
-    catalog.close()
+    with simulation_catalog(tmp_path) as cat:
+        yield cat
 
 
 @pytest.fixture()

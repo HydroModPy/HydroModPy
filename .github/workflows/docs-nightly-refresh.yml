@@ -9,7 +9,7 @@
 # stable on a dedicated self-hosted machine. If needed, replace `ubuntu-latest`
 # below with a self-hosted label that matches your reference workstation.
 
-name: Docs Nightly Refresh
+name: Docs / Nightly Refresh
 
 on:
   schedule:
@@ -28,7 +28,7 @@ env:
 
 jobs:
   refresh-generated-docs:
-    name: Refresh docs artifacts on ${{ matrix.target_branch }}
+    name: Docs / refresh generated artifacts on ${{ matrix.target_branch }}
     runs-on: ubuntu-latest
     timeout-minutes: 240
     strategy:

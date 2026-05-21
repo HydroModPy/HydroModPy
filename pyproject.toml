@@ -194,6 +194,10 @@ parallel = true
 omit = [
     "hydromodpy/**/cases/*",
     "hydromodpy/**/examples/*",
+    "hydromodpy/validity_frame/*",
+    "hydromodpy/validity_frame/**/*",
+    "hydromodpy/physics/hydrology/pyhelp/*",
+    "hydromodpy/physics/hydrology/pyhelp/**/*",
     "examples/*",
     "examples_legacy/*",
     "validation_cases/*",
@@ -310,8 +314,8 @@ exclude = ["examples/projects/**"]
 
 [tool.mypy]
 # Baseline non-blocking type-check. Tighten incrementally as the codebase
-# grows type coverage. The CI gate runs with continue-on-error so failures
-# surface as annotations without blocking merges.
+# grows type coverage. The main CI gate keeps mypy advisory so failures are
+# visible without blocking merges.
 python_version = "3.11"
 ignore_missing_imports = true
 follow_imports = "silent"

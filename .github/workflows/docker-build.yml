@@ -2,7 +2,7 @@
 # or the package source. The image is not pushed to a registry yet, only built
 # locally inside the runner to validate that the multi-stage build still works.
 
-name: Docker build
+name: Docker / Build Smoke
 
 on:
   push:
@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   build:
-    name: Build image
+    name: Docker / build and CLI smoke
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -50,7 +50,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Smoke test image
+      - name: Smoke test image entrypoints
         run: |
           docker run --rm hydromodpy:ci --help
-          docker run --rm hydromodpy:ci doctor || true
+          docker run --rm hydromodpy:ci --version
+
+      - name: Run hmp doctor inside image (advisory)
+        continue-on-error: true
+        run: docker run --rm hydromodpy:ci doctor --json

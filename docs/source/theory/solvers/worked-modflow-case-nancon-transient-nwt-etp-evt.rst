@@ -142,13 +142,13 @@ Run overlay
    [[simulation.process]]
    id = "flow_main"
    type = "flow"
-   solvers = ["modflownwt"]
+   solvers = ["modflow_nwt"]
 
 The overlay keeps the run definition short:
 
 - one monthly transient window over three years,
 - one flow process,
-- solved by ``modflownwt``.
+- solved by ``modflow_nwt``.
 
 One Important Runtime Detail
 ----------------------------

@@ -15,7 +15,7 @@
 #   workflow = publish.yml
 #   environment = pypi
 
-name: Publish to PyPI
+name: Release / PyPI
 
 on:
   push:
@@ -37,7 +37,7 @@ permissions:
 
 jobs:
   build:
-    name: Build sdist and wheel
+    name: Release / build sdist and wheel
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -74,7 +74,7 @@ jobs:
           if-no-files-found: error
 
   sbom:
-    name: Generate CycloneDX SBOM
+    name: Release / generate CycloneDX SBOM
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -119,7 +119,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Upload to PyPI
+    name: Release / upload to PyPI
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -138,7 +138,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
   release:
-    name: Create GitHub release
+    name: Release / create GitHub release
     needs: [publish, sbom]
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -10,7 +10,13 @@ from pydantic import AfterValidator, BeforeValidator, Field
 # String types
 # ---------------------------------------------------------------------------
 
-IdentifierStr = Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$")]
+IdentifierStr = Annotated[
+    str,
+    Field(
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="Snake-case identifier starting with a lowercase letter.",
+    ),
+]
 """Snake-case identifier starting with a lowercase letter."""
 
 
@@ -71,14 +77,23 @@ StripLower = BeforeValidator(_strip_lower)
 # Numeric domains
 # ---------------------------------------------------------------------------
 
-PositiveInt = Annotated[int, Field(gt=0)]
-PositiveFloat = Annotated[float, Field(gt=0.0)]
-NonNegativeInt = Annotated[int, Field(ge=0)]
-NonNegativeFloat = Annotated[float, Field(ge=0.0)]
-Probability = Annotated[float, Field(ge=0.0, le=1.0)]
+PositiveInt = Annotated[int, Field(gt=0, description="Positive integer.")]
+PositiveFloat = Annotated[float, Field(gt=0.0, description="Positive floating-point value.")]
+NonNegativeInt = Annotated[int, Field(ge=0, description="Non-negative integer.")]
+NonNegativeFloat = Annotated[
+    float,
+    Field(ge=0.0, description="Non-negative floating-point value."),
+]
+Probability = Annotated[
+    float,
+    Field(ge=0.0, le=1.0, description="Probability in the closed interval [0, 1]."),
+]
 """Float in the closed interval [0, 1]."""
 
-CellSamplingDensity = Annotated[int, Field(ge=2)]
+CellSamplingDensity = Annotated[
+    int,
+    Field(ge=2, description="Sub-sampling density per cell axis used when rasterising masks."),
+]
 """Sub-sampling density per cell axis used when rasterising masks."""
 
 

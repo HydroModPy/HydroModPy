@@ -139,13 +139,13 @@ def test_modflow6_prt_adapter_and_extractor_are_registered() -> None:
 def test_solver_config_accepts_registered_plugin_flow_solver() -> None:
     registry.register("flow", "pluginsolver", FakeAdapter)
 
-    cfg = SolverConfig.model_validate({"solver_engine": "pluginsolver"})
+    cfg = SolverConfig.model_validate({"backend": {"backend": "custom", "name": "pluginsolver"}})
 
-    assert cfg.solver_engine == "pluginsolver"
+    assert cfg.backend_name == "pluginsolver"
 
 
 def test_solver_config_rejects_unknown_flow_solver() -> None:
-    cfg = SolverConfig.model_validate({"solver_engine": "missing"})
+    cfg = SolverConfig.model_validate({"backend": {"backend": "custom", "name": "missing"}})
     with pytest.raises(ValueError, match="Unknown flow solver"):
         cfg.validate_registry()
 

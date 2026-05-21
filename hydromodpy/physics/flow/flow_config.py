@@ -154,10 +154,11 @@ class FlowConfig(ProcessSpatialConfig, FlowRuntimeFields):
         default_factory=list,
         description=(
             "Explicitly activated sink/source names for this flow run. "
-            "Allowed values: 'recharge', 'wells'. "
+            "Allowed values: 'recharge', 'wells', 'etp'. "
+            "Boussinesq currently rejects 'etp' at solver-contract validation. "
             "An empty list means no sink/source package is assembled by the solver."
         ),
-        examples=[["recharge"], ["recharge", "wells"]],
+        examples=[["recharge"], ["recharge", "wells"], ["etp"]],
     )
     active_bc: Annotated[list[IdentifierStr], Profile.USER] = Field(
         default_factory=list,

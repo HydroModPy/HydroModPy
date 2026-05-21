@@ -1,6 +1,6 @@
-"""Atomic pyarrow Parquet writer with v2 options forced.
+"""Atomic pyarrow Parquet writer with canonical V1 options forced.
 
-Every Parquet file written by HydroModPy v2 goes through
+Every Parquet file written by HydroModPy V1 goes through
 :func:`write_table_atomic`. It centralises:
 
 - ZSTD compression at level 5 (uniform across catalog and blob payloads),
@@ -76,7 +76,7 @@ def write_table_atomic(
     pk_cols: Sequence[str] | None = None,
     overrides: Mapping[str, object] | None = None,
 ) -> Path:
-    """Write ``table`` to ``target`` atomically with the v2 Parquet options.
+    """Write ``table`` to ``target`` atomically with the V1 Parquet options.
 
     Parameters
     ----------

@@ -1,26 +1,22 @@
-"""DataCacheBackend Protocol skeleton.
+"""Data cache backend Protocol.
 
-Symmetric to :class:`hydromodpy.results.catalog.ports.CatalogBackend`.
-This Protocol carves out the read/write surface of the data-side cache
-catalog (today backed by DuckDB) so future swap-in backends (Postgres,
-sqlite, in-memory for tests) can plug in without touching consumers.
-
-This is a skeleton: T3 is responsible for wiring the existing
-``DataCatalogDuckDB`` to this Protocol and migrating call sites. Adjust
-the signatures against the concrete implementation when that wiring
-lands; the names match the current public surface of
-``DataCatalogDuckDB`` so the migration stays mechanical.
+This Protocol carves out the high-level read/write surface of the
+data-side cache catalog. ``DataCatalogDuckDB`` is the V1 implementation.
+The contract is intentionally DuckDB-first: it describes the cache API
+used by consumers, not a promise that another SQL backend is supported
+in V1.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 
+@runtime_checkable
 class DataCacheBackend(Protocol):
-    """Pluggable backend for the data-side cache catalog."""
+    """High-level backend for the data-side cache catalog."""
 
     def register(
         self,

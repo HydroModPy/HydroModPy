@@ -26,7 +26,7 @@ What It Shows
 
 - isolate the substratum-slope contribution without recharge, drainage, or seepage,
 - keep an exact solution where the saturated thickness stays constant,
-- compare `modflownwt`, `modflow6`, `modflow6_irregular_tri`, and the local `boussinesq` backend on the same sloping geometry.
+- compare `modflow_nwt`, `modflow6`, `modflow6_irregular_tri`, and the local `boussinesq` backend on the same sloping geometry.
 - Direct validation that the sloping-bottom term is carried consistently across the three backends in the simplest exact regime
 - Primary metrics: head-profile RMSE, max abs error, cross-row spread.
 - Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends.
@@ -73,7 +73,7 @@ Solver Coverage
 
       .. code-block:: bash
 
-         python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_constant_thickness_1d.run_case --no-show --solver modflownwt
+         python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_constant_thickness_1d.run_case --no-show --solver modflow_nwt
 
    .. tab-item:: MODFLOW 6
 

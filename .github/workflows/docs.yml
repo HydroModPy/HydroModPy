@@ -3,13 +3,27 @@
 # parallel autosummary writing. Uploads the rendered HTML tree as an artifact
 # so PR reviewers can inspect the produced site.
 
-name: Docs Build
+name: Docs / Sphinx
 
 on:
   push:
     branches: [master, dev]
+    paths:
+      - ".github/workflows/docs.yml"
+      - "docs/**"
+      - "hydromodpy/**"
+      - "pyproject.toml"
+      - "README.md"
+      - "CONTRIBUTING.md"
   pull_request:
     branches: [master, dev]
+    paths:
+      - ".github/workflows/docs.yml"
+      - "docs/**"
+      - "hydromodpy/**"
+      - "pyproject.toml"
+      - "README.md"
+      - "CONTRIBUTING.md"
   workflow_dispatch:
 
 concurrency:
@@ -25,7 +39,7 @@ env:
 
 jobs:
   html-strict:
-    name: Sphinx html-strict (parallel)
+    name: Docs / html-strict py3.13
     runs-on: ubuntu-latest
     timeout-minutes: 40
 

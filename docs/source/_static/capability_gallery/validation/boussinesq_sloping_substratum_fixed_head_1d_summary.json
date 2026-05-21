@@ -20,7 +20,7 @@
   "what_it_shows": [
     "keep the same simple sloping geometry as the constant-thickness case,",
     "remove recharge and drainage so the comparison isolates only the lateral Boussinesq balance on a sloping bottom,",
-    "compare `modflownwt`, `modflow6`, `modflow6_irregular_tri`, and the local `boussinesq` backend against one semi-analytical no-recharge profile.",
+    "compare `modflow_nwt`, `modflow6`, `modflow6_irregular_tri`, and the local `boussinesq` backend against one semi-analytical no-recharge profile.",
     "Direct validation of sloping-bottom flow beyond the trivial constant-thickness branch",
     "Primary metrics: head-profile RMSE, max abs error, cross-row spread.",
     "Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends."
@@ -160,7 +160,7 @@
       "config_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/config_modflownwt.toml",
       "tolerance_path": "validation_cases/analytical/steady/boussinesq_sloping_substratum_fixed_head_1d/tolerances.toml",
       "expected_output": "Expected shape: 5 x 40",
-      "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.run_case --no-show --solver modflownwt",
+      "command": "python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_fixed_head_1d.run_case --no-show --solver modflow_nwt",
       "metric_lines": [
         "Head-profile RMSE: 0.0146 m",
         "Head-profile max abs error: 0.0215 m",

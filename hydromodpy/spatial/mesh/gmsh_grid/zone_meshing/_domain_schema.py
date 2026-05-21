@@ -100,7 +100,7 @@ ZoneMeshingDomain: TypeAlias = Annotated[
     | ZoneMeshingDomainGeographicBoxBuffer
     | ZoneMeshingDomainGeographicWatershed
     | ZoneMeshingDomainGeographicWatershedBox,
-    Field(discriminator="kind"),
+    Field(discriminator="kind", description="Zone-meshing domain kind discriminator."),
 ]
 """Discriminated union of zone-meshing support domain schemas."""
 

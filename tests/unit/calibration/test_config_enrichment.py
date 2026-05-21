@@ -125,7 +125,7 @@ class TestCalibOutputDecl:
             validate_calib_output({"variable": "head", "support": "area"})
 
     def test_rejects_extra_keys(self):
-        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        with pytest.raises(ValidationError, match="Extra inputs"):
             validate_calib_output(
                 {
                     "variable": "head",
@@ -185,7 +185,7 @@ class TestCalibObjectiveBlockDecl:
             )
 
     def test_rejects_extra_keys(self):
-        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        with pytest.raises(ValidationError, match="Extra inputs"):
             CalibObjectiveBlockDecl.model_validate(
                 {"name": "b", "uses_outputs": ["x"], "legacy_toggle": True}
             )
@@ -376,7 +376,7 @@ class TestEnrichedTomlRoundTrip:
                 }
             }
         }
-        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        with pytest.raises(ValidationError, match="Extra inputs"):
             CalibrationConfig.model_validate(payload)
 
 

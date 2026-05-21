@@ -1,7 +1,7 @@
 """Single ``SolverAdapter`` Protocol.
 
-Every concrete backend (MODFLOW-NWT, MODFLOW 6, Boussinesq, GR4J, third
-party plugin) implements this same contract so the simulation runner stays
+Every concrete backend (MODFLOW-NWT, MODFLOW 6, Boussinesq, third-party
+plugin) implements this same contract so the simulation runner stays
 solver-agnostic. Adapters conform *structurally*: there is no base class to
 inherit from, just four method signatures plus three ``ClassVar`` attributes
 that identify the supported pair and its dependencies.
@@ -68,7 +68,7 @@ class SolverAdapter(Protocol):
         Lightweight calibration trials read straight from the solver scratch dir
         via ``ctx.state.execution.output_dirs_by_run_id``; ``store`` is the
         cold-path :class:`SimulationCatalog` reserved for backends that already
-        wrote results to it (in-memory solvers like GR4J). ``station_cells``
+        wrote results to it. ``station_cells``
         carries a station-id to ``(layer, row, col)`` mapping for head-style
         targets and is unused by discharge-style targets.
         """

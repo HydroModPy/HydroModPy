@@ -58,9 +58,9 @@ Layer-matrix neighbours
 - Allowed targets: ``core``, ``schema``, ``config``, ``results``,
   ``display``, ``analysis``, ``reporting``.
 - Allowed sources: ``workflow``, ``cli``, top-level facade.
-- ``display`` and ``analysis`` cannot import ``reporting``; the edge
-  is one-way (``tests/unit/architecture/test_layer_matrix.py``
-  enforces it).
+- ``display`` cannot import ``reporting``. ``analysis`` has one
+  documented tolerance to ``reporting`` for the comparison HTML report;
+  that edge should not expand.
 
 See also
 --------

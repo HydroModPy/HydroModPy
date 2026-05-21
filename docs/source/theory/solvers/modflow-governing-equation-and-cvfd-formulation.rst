@@ -50,7 +50,7 @@ Scope In HydroModPy
 
 This page is about the HydroModPy use of the MODFLOW groundwater-flow family:
 
-- ``modflownwt`` as the legacy structured-grid flow backend,
+- ``modflow_nwt`` as the legacy structured-grid flow backend,
 - ``modflow6`` as the modern backend for both structured and runtime
   unstructured mesh paths,
 - the common solver-agnostic ``[flow]`` scientific payload that HydroModPy
@@ -177,7 +177,7 @@ The documentation here should therefore make the following choices explicit:
 5. When HydroModPy treats a boundary as imposed head versus head-dependent
    exchange.
 6. Why ``modflow6`` is preferred for irregular runtime meshes.
-7. Why ``modflownwt`` is still kept for legacy structured comparisons and the
+7. Why ``modflow_nwt`` is still kept for legacy structured comparisons and the
    ``MT3DMS`` / ``MODPATH`` ecosystem.
 8. Why XT3D is treated as a first-class numerical-method choice rather than an
    invisible implementation detail.
@@ -207,7 +207,7 @@ The MODFLOW scientific block should grow around the following structure.
    specific to the legacy NWT branch.
 7. Backend-selection rationale.
    Explain when ``modflow6`` is scientifically preferred and when
-   ``modflownwt`` is still the right comparison or compatibility choice.
+   ``modflow_nwt`` is still the right comparison or compatibility choice.
 8. Evidence and comparison reporting.
    Explain what should be reported in validation and comparison pages so that
    solver choice, mesh choice, and XT3D choice are not silently mixed.
@@ -224,7 +224,7 @@ The next concrete additions should now be:
 3. add one short subsection on Newton behaviour and why the legacy NWT path
    still matters for some unconfined structured cases;
 4. connect this page to one public scientific ``modflow6`` versus
-   ``modflownwt`` comparison note;
+   ``modflow_nwt`` comparison note;
 5. connect comparison workflow pages back to the exact method choices they are
    exercising.
 

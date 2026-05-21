@@ -45,7 +45,7 @@
   "source_hashes": {
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_manifest.json": "3634276629af3bfdd1f60b070b8d0316df619b50a881a7e890ec2cb9d9466726",
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_comparison_metrics.json": "1068f8ff802add9e337573b435cb8a8aeb72ca42a1ef48ee0e222b75be8d0578",
-    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv": "42920662935736c937fde89d45a5b3806b20935335ccefd9048aa091bf6cce83",
+    "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_observables.csv": "e6a32932b918bd993971c643c17c93196163ba26be3cc92af74695ab6fb29673",
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_summary_metrics.csv": "ac6c7ea54c2b91a3baa8211d8dd176305aaa6d36a27d2529b982043d4133bb49",
     "docs/source/_static/capability_gallery/simulation_comparison/ex12_multi_simulation_moderate_difference_metrics.csv": "6a174bc32a9b9809b2c4a1e00d676eb16264d02fea709e3ccc7a99cb371ae21c"
   },

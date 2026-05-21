@@ -3,8 +3,8 @@
   "slug": "brutsaert_recession_boussinesq_thin_1d",
   "title": "Brutsaert Recession Validation: Thin Nonlinear Aquifer",
   "category": "validation",
-  "deck": "This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.",
-  "summary": "This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.",
+  "deck": "This transient validation case checks that the available `modflow_nwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.",
+  "summary": "This transient validation case checks that the available `modflow_nwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.",
   "case_setup": [
     "homogeneous 1D strip with west divide and east imposed head,",
     "steady uniform recharge used only to build the initial saturated state,",
@@ -157,7 +157,7 @@
       "config_path": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/config_modflownwt.toml",
       "tolerance_path": "validation_cases/analytical/transient/brutsaert_recession_boussinesq_thin_1d/tolerances_modflownwt.toml",
       "expected_output": null,
-      "command": "python -m validation_cases.analytical.transient.brutsaert_recession_boussinesq_thin_1d.run_case --no-show --solver modflownwt",
+      "command": "python -m validation_cases.analytical.transient.brutsaert_recession_boussinesq_thin_1d.run_case --no-show --solver modflow_nwt",
       "metric_lines": [
         "Solution: boussinesq",
         "Initial discharge: 3.384370e-05 m3/s",

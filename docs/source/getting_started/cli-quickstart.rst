@@ -64,8 +64,8 @@ variants.
 
 The command writes ``projects/my_basin/hydromodpy.toml`` (the project
 config validated by ``HydroModPyConfig``) and an empty
-``projects/my_basin/catalog.duckdb`` deployed via the v2 migration
-runner. See :doc:`../user_guide/concepts/project-vs-run` for the
+``projects/my_basin/catalog.duckdb`` deployed through the schema
+migration runner. See :doc:`../user_guide/concepts/project-vs-run` for the
 project / run distinction.
 
 3. Generate a configuration template

@@ -8,7 +8,7 @@ outputs.
 [![PyPI](https://img.shields.io/pypi/v/hydromodpy.svg)](https://pypi.org/project/hydromodpy/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
 [![License: EPL-2.0](https://img.shields.io/badge/license-EPL--2.0-green.svg)](https://opensource.org/licenses/EPL-2.0)
-[![CI Fast](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml/badge.svg?branch=dev)](https://github.com/HydroModPy/HydroModPy/actions/workflows/ci-fast.yml?query=branch%3Adev)
+[![CI](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml/badge.svg?branch=dev)](https://github.com/HydroModPy/HydroModPy/actions/workflows/main-ci.yml?query=branch%3Adev)
 [![Documentation](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=dev)](https://hydromodpy-docs.readthedocs.io/en/dev/)
 [![Codecov](https://codecov.io/gh/HydroModPy/HydroModPy/branch/dev/graph/badge.svg)](https://codecov.io/gh/HydroModPy/HydroModPy/tree/dev)
 

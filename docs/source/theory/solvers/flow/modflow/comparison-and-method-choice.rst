@@ -2,7 +2,7 @@ Comparison And Method Choice
 ============================
 
 Use this page as the MODFLOW-family entry point when a result differs between
-``flow/modflow6`` and ``flow/modflownwt``.
+``flow/modflow6`` and ``flow/modflow_nwt``.
 
 Before attributing a difference to the numerical backend, check the comparison
 contract in this order:

@@ -43,17 +43,18 @@ the GitHub Actions workflow files.
      - Main CI source
    * - ``unit``
      - 60 s
-     - 15 min on push/PR; part of 45 min cross-OS weekly matrix
-     - ``.github/workflows/ci-fast.yml`` and
+     - 25 min on push/PR; part of 45 min cross-OS weekly matrix
+     - ``.github/workflows/main-ci.yml`` and
        ``.github/workflows/ci-weekly.yml``
    * - ``integration``
      - 300 s
-     - 30 min nightly on Linux
-     - ``.github/workflows/ci-nightly.yml``
+     - 30 min on push/PR after unit tests; 30 min nightly coverage
+     - ``.github/workflows/main-ci.yml`` and
+       ``.github/workflows/ci-nightly.yml``
    * - ``regression`` fast
      - 300 s
-     - 20 min on push/PR; part of 45 min cross-OS weekly matrix
-     - ``.github/workflows/ci-fast.yml`` and
+     - 25 min on push/PR; part of 45 min cross-OS weekly matrix
+     - ``.github/workflows/main-ci.yml`` and
        ``.github/workflows/ci-weekly.yml``
    * - ``regression`` extensive
      - 300 s
@@ -103,8 +104,9 @@ on every operating system. The CI matrix is the practical contract:
      - Suites
      - Notes
    * - Push / pull request on Linux
-     - Unit tests and fast regression
-     - Runs on ``ubuntu-latest`` through ``ci-fast.yml``. This is the
+     - Quality, architecture, fast marker suite, unit, integration,
+       fast regression, wheel smoke, secret scan, advisory mypy
+     - Runs on ``ubuntu-latest`` through ``main-ci.yml``. This is the
        main blocking signal for routine changes.
    * - Nightly Linux
      - Extensive regression, integration, validation excluding PETSc
@@ -144,8 +146,9 @@ entry points are:
        pull-request diff coverage, and per-flag breakdowns when uploads
        are available.
    * - Codecov pull-request comment
-     - The review-time summary for a PR: project coverage, patch
-       coverage, changed files, and any threshold failures.
+     - The review-time summary when a pull-request workflow uploads
+       coverage. The current optimized gate keeps coverage on scheduled
+       suites rather than every PR.
    * - Local ``coverage report --show-missing``
      - The direct local view after running tests with coverage. It
        prints missing lines per Python file.
@@ -205,9 +208,6 @@ Automatic updates already happen through CI:
    * - Workflow
      - Uploaded flags
      - Trigger
-   * - ``ci-fast.yml``
-     - ``unit`` and ``regression-fast``
-     - Push and pull request on ``dev`` or ``master``.
    * - ``ci-nightly.yml``
      - ``regression-extensive``, ``validation``, ``integration``
      - Nightly schedule and manual dispatch.
@@ -216,7 +216,7 @@ Automatic updates already happen through CI:
      - Weekly schedule and manual dispatch.
 
 Because Codecov flags use ``carryforward: true``, the dashboard can keep
-a coherent project-level view even when only the fast push/PR jobs run.
+a coherent project-level view even when only scheduled coverage jobs run.
 If a static coverage number is later needed in the generated HTML docs,
 prefer a small docs-refresh step that reads the Codecov API and commits a
 generated JSON summary on ``dev`` only. Avoid having pull-request CI push

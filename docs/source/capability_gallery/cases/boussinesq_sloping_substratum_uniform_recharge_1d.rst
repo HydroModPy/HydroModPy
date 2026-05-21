@@ -27,7 +27,7 @@ What It Shows
 
 - extend the sloping-substratum validation suite to a recharge-driven regime,
 - keep a simple linear hillslope geometry with fixed heads at both ends,
-- compare `modflownwt`, `modflow6`, `modflow6_irregular_tri`, and the local `boussinesq` backend against one deterministic semi-analytical reference built from the steady 1D Boussinesq balance on `b(x)`.
+- compare `modflow_nwt`, `modflow6`, `modflow6_irregular_tri`, and the local `boussinesq` backend against one deterministic semi-analytical reference built from the steady 1D Boussinesq balance on `b(x)`.
 - Direct validation of the sloping-bottom term combined with uniform recharge on the same simple hillslope geometry
 - Primary metrics: head-profile RMSE, max abs error, cross-row spread.
 - Solver-specific figures and metrics are shown side by side so the same benchmark can be read across backends.
@@ -75,7 +75,7 @@ Solver Coverage
 
       .. code-block:: bash
 
-         python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_uniform_recharge_1d.run_case --no-show --solver modflownwt
+         python -m validation_cases.analytical.steady.boussinesq_sloping_substratum_uniform_recharge_1d.run_case --no-show --solver modflow_nwt
 
    .. tab-item:: MODFLOW 6
 

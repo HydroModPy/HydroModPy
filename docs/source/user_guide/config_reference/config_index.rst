@@ -3427,7 +3427,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-active-bc>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L162>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L163>`__
    * - ``flow.flow_regime``
      - ``Literal['steady', 'transient']``
      - user
@@ -4171,36 +4171,36 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `solver <solver.html#solver-backend>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L114>`__
-   * - ``solver.backend.modflow6.backend``
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L90>`__
+   * - ``solver.backend.backend``
      - ``Literal['modflow6']``
      - user
      - -
-     - `solver <solver.html#solver-backend-modflow6-backend>`__
+     - `solver <solver.html#solver-backend-backend>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L22>`__
-   * - ``solver.backend.modflow_nwt.backend``
+   * - ``solver.backend.backend``
      - ``Literal['modflow_nwt']``
      - user
      - -
-     - `solver <solver.html#solver-backend-modflow-nwt-backend>`__
+     - `solver <solver.html#solver-backend-backend>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L31>`__
-   * - ``solver.backend.boussinesq.backend``
+   * - ``solver.backend.backend``
      - ``Literal['boussinesq']``
      - user
      - -
-     - `solver <solver.html#solver-backend-boussinesq-backend>`__
+     - `solver <solver.html#solver-backend-backend>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L40>`__
-   * - ``solver.backend.custom.backend``
+   * - ``solver.backend.backend``
      - ``Literal['custom']``
      - user
      - -
-     - `solver <solver.html#solver-backend-custom-backend>`__
+     - `solver <solver.html#solver-backend-backend>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L55>`__
-   * - ``solver.backend.custom.name``
+   * - ``solver.backend.name``
      - ``str``
      - user
      - -
-     - `solver <solver.html#solver-backend-custom-name>`__
+     - `solver <solver.html#solver-backend-name>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L59>`__
    * - ``modflownwt.runtime``
      - ``ModflowRuntimeConfig``

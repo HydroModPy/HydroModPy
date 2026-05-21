@@ -23,13 +23,13 @@ import xugrid as xu
 from hydromodpy.core.exceptions import UnknownFieldError
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.run import Run
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path):
-    c = SimulationCatalog(tmp_path / "workspace")
-    yield c
-    c.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 def _quad_mesh(nrow: int = 2, ncol: int = 3):

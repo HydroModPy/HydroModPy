@@ -104,11 +104,6 @@ def _derive_run_id_from_filename(toml_path: Path) -> str:
     return re.sub(r"^run_", "", stem)
 
 
-# Legacy aliases accepted at the top level for migration grace; the
-# real source of truth is :attr:`HydroModPyConfig.model_fields`.
-_LEGACY_TOP_LEVEL_ALIASES = frozenset({"regional_lab"})
-
-
 class HydroModPyConfig(HydroModelBase):
     """
     Top-level configuration for HydroModPy.
@@ -180,9 +175,7 @@ class HydroModPyConfig(HydroModelBase):
     )
     solver: Annotated[SolverConfig, Profile.USER] = Field(
         default_factory=SolverConfig,
-        description=(
-            "Global solver selection loaded from [solver], including the active solver_engine."
-        ),
+        description="Global solver selection loaded from [solver.backend].",
     )
     modflownwt: Annotated[ModflowConfig, Profile.EXPERT] = Field(
         default_factory=ModflowConfig,
@@ -324,12 +317,12 @@ class HydroModPyConfig(HydroModelBase):
         transport_cfg = getattr(self, "transport", None)
         solver_cfg = getattr(self, "solver", None)
         if transport_cfg is not None and solver_cfg is not None:
-            engine = getattr(solver_cfg, "solver_engine", None)
+            engine = getattr(solver_cfg, "backend_name", None)
             engine_value = getattr(engine, "value", engine)
             active_transport_solver = getattr(transport_cfg, "solver", None)
             if engine_value == "boussinesq" and active_transport_solver:
                 raise ValueError(
-                    "solver.solver_engine='boussinesq' does not support the [transport] section"
+                    "solver.backend='boussinesq' does not support the [transport] section"
                 )
 
         return self
@@ -446,9 +439,14 @@ class HydroModPyConfig(HydroModelBase):
         if "batch" in raw:
             raise ValueError(
                 "Section [batch] is no longer supported. Use workflow='testbed' "
-                "with [testbed].profile = 'regional_lab' and [regional_lab] instead."
+                "with [testbed].profile = 'regional_lab' and [analysis.batch] instead."
             )
-        known = set(cls.model_fields) | _LEGACY_TOP_LEVEL_ALIASES
+        if "regional_lab" in raw:
+            raise ValueError(
+                "Section [regional_lab] is not a HydroModPyConfig section. "
+                "Use [analysis.batch] for regional-lab testbed settings."
+            )
+        known = set(cls.model_fields)
         unknown = sorted(set(raw) - known)
         if unknown:
             raise ValueError(f"Unknown top-level TOML section(s): {', '.join(unknown)}")

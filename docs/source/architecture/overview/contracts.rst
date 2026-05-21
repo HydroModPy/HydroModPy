@@ -1,7 +1,7 @@
 Protocols and public contracts
 ==============================
 
-HydroModPy v2 makes its public surface explicit through three layers:
+HydroModPy V1 makes its public surface explicit through three layers:
 
 - the **public facade** ``hydromodpy`` (re-exports ``open``, ``read``,
   ``run``, ``calibrate``, ``index``, ``viz``, ``ml`` stubs);
@@ -137,7 +137,7 @@ For the migration runner mechanics, see :doc:`schema-evolution`.
 Stability promise
 -----------------
 
-The public facade ``hmp.*`` and the two Protocols above are the v2
+The public facade ``hmp.*`` and the two Protocols above are the V1
 stable surface. Backwards-compatibility shims, aliases, and
 re-exports outside the facade are forbidden (see ``CLAUDE.md`` under
 "What this codebase forbids").

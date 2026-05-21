@@ -29,6 +29,8 @@ from typing import Any, Protocol, runtime_checkable
 import duckdb
 import pandas as pd
 
+from hydromodpy.core.io.db_retry import connect_with_retry
+
 
 @runtime_checkable
 class CacheBackend(Protocol):
@@ -99,7 +101,7 @@ class DuckDBCacheBackend:
 
     def __init__(self, path: str | Path) -> None:
         self._path: Path | None = Path(path)
-        self._connection: duckdb.DuckDBPyConnection = duckdb.connect(str(self._path))
+        self._connection: duckdb.DuckDBPyConnection = connect_with_retry(str(self._path))
         self._owns_connection = True
         self._last_description: list[tuple[str, str]] | None = None
 

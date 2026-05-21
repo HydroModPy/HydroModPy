@@ -119,10 +119,10 @@ Flat index of all 87 curated gallery cases. Cases are sorted alphabetically by t
      - Steady synthetic groundwater-flow case used to validate the launcher workflow against the exact 1D Boussinesq solution written on `U = h^2` for an unconfined aquifer with:
    * - :doc:`Brutsaert Recession Validation: Deep Linearized Aquifer <cases/brutsaert_recession_linearized_deep_1d>`
      - Validation Benchmarks
-     - This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.
+     - This transient validation case checks that the available `modflow_nwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.
    * - :doc:`Brutsaert Recession Validation: Thin Nonlinear Aquifer <cases/brutsaert_recession_boussinesq_thin_1d>`
      - Validation Benchmarks
-     - This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.
+     - This transient validation case checks that the available `modflow_nwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.
    * - :doc:`Calibration Twin: Dupuit Fixed-Head 1D <cases/calibration_twin_dupuit_fixed_head_modflow6>`
      - Calibration Benchmarks
      - Steady modflow6 twin calibration benchmark with K_global.

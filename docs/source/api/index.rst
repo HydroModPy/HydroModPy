@@ -15,7 +15,7 @@ Public facade
 -------------
 
 The single supported import path is ``import hydromodpy as hmp``. The
-v2 facade re-exports the verbs and helpers below from
+V1 facade re-exports the verbs and helpers below from
 ``hydromodpy._api``. For the structural contracts and the field
 registry, see :doc:`/architecture/overview/contracts`.
 
@@ -24,6 +24,7 @@ registry, see :doc:`/architecture/overview/contracts`.
    :toctree: generated
 
    hydromodpy.open
+   hydromodpy.open_catalog
    hydromodpy.read
    hydromodpy.run
    hydromodpy.calibrate

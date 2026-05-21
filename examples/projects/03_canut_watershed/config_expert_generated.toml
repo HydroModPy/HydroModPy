@@ -1423,7 +1423,7 @@ plot_conc = true
 [solver]
 # Groundwater solver backend ('modflow_nwt' or 'modflow6').
 # Type: SolverEngine | one of: "modflow_nwt", "modflow6" | Default: "modflow_nwt"
-solver_engine = "modflow_nwt"
+backend = { backend = "modflow_nwt" }
 
 
 # ----------------------------------------------------------------------

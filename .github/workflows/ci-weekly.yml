@@ -1,8 +1,8 @@
-# Weekly cross-platform checks that run Sunday at 05:00 UTC.
+# Weekly cross-platform checks that run Sunday at 05:00 UTC on the default branch.
 # Covers the three supported Python versions on Linux, macOS and Windows.
 # Also runs the end-to-end tier that is too expensive for nightly.
 
-name: CI Weekly
+name: Weekly / Cross Platform
 
 on:
   schedule:
@@ -18,12 +18,13 @@ permissions:
 
 env:
   MPLBACKEND: Agg
+  COVERAGE_OMIT: hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
 
 jobs:
   # Cross-OS matrix on the fast tiers.
   # Catches platform specific regressions without burning every week on the full suite.
   cross-os:
-    name: ${{ matrix.os }} / py${{ matrix.python-version }}
+    name: Weekly / ${{ matrix.os }} py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -73,7 +74,7 @@ jobs:
 
   # End-to-end tier on Linux only. Heavy scenarios that exercise the full pipeline.
   e2e:
-    name: End-to-end (Linux)
+    name: Weekly / end-to-end Linux
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -105,7 +106,7 @@ jobs:
         run: |
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
+            --omit="$COVERAGE_OMIT" \
             -m pytest tests/e2e/ -q
 
       - name: Report coverage
@@ -113,10 +114,10 @@ jobs:
         run: |
           coverage report --rcfile=/dev/null --show-missing \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+            --omit="$COVERAGE_OMIT"
           coverage xml --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+            --omit="$COVERAGE_OMIT"
 
       - name: Upload coverage to Codecov
         if: always()
@@ -130,7 +131,7 @@ jobs:
   # Extensive regression on Linux only. The weekly run keeps a fresh signal
   # in addition to the nightly run, useful if nightly was skipped.
   regression-full:
-    name: Full regression (Linux)
+    name: Weekly / full regression Linux
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:

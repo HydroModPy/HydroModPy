@@ -1,7 +1,7 @@
 Schema Evolution
 ================
 
-HydroModPy v2 ships an **Alembic-like migration runner** that applies
+HydroModPy V1 ships an **Alembic-like migration runner** that applies
 versioned SQL migrations on every DuckDB the toolbox owns, and pins a
 single integer schema version on Zarr and Parquet stores. The runner
 records each application in a ``schema_migrations`` ledger and keeps one

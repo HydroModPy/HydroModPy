@@ -2,9 +2,9 @@ core
 ====
 
 ``hydromodpy.core`` is the kernel leaf. Every other layer may import
-from it; ``core`` itself imports nothing from sibling layers. This is
-the shared vocabulary of units, profiles, metrics, I/O helpers,
-runtime state, and input-file tracking.
+from it. The current YAML has one documented tolerance from ``core`` to
+``physics`` for time-mesh flow-regime validation. This is a narrow
+exception, not a general sibling dependency.
 
 Sub-modules
 -----------
@@ -126,11 +126,12 @@ outside ``core``.
 Layer-matrix neighbours
 -----------------------
 
-- Allowed targets: ``core`` only. The kernel never imports a sibling
-  layer.
+- Allowed targets: ``core`` only.
+- Documented tolerance: ``core`` -> ``physics`` for flow-regime
+  validation in time helpers.
 - Allowed sources: every other layer.
-- No tolerated tolerance points at ``core``: any new edge into a
-  sibling layer is a regression.
+- Any new sibling edge is a regression unless the YAML is updated with
+  an explicit rationale.
 
 See also
 --------

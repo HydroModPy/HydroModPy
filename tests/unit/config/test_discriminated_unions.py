@@ -80,32 +80,32 @@ class TestDataSourceUnion:
 
 class TestSolverConfigUnion:
     def test_modflow6_backend(self) -> None:
-        cfg = SolverConfig(solver_engine="modflow6")
+        cfg = SolverConfig(backend={"backend": "modflow6"})
         assert isinstance(cfg.backend, Modflow6Backend)
-        assert cfg.solver_engine == "modflow6"
+        assert cfg.backend_name == "modflow6"
 
-    def test_modflow_nwt_alias(self) -> None:
-        cfg = SolverConfig(solver_engine="modflownwt")
+    def test_modflow_nwt_backend(self) -> None:
+        cfg = SolverConfig(backend={"backend": "modflow_nwt"})
         assert isinstance(cfg.backend, ModflowNwtBackend)
-        assert cfg.solver_engine == "modflow_nwt"
+        assert cfg.backend_name == "modflow_nwt"
 
     def test_boussinesq_backend(self) -> None:
-        cfg = SolverConfig(solver_engine="boussinesq")
+        cfg = SolverConfig(backend={"backend": "boussinesq"})
         assert isinstance(cfg.backend, BoussinesqBackend)
-        assert cfg.solver_engine == "boussinesq"
+        assert cfg.backend_name == "boussinesq"
 
     def test_plugin_backend_via_custom(self) -> None:
-        cfg = SolverConfig(solver_engine="pluginsolver")
+        cfg = SolverConfig(backend={"backend": "custom", "name": "pluginsolver"})
         assert isinstance(cfg.backend, CustomBackend)
-        assert cfg.solver_engine == "pluginsolver"
+        assert cfg.backend_name == "pluginsolver"
 
     def test_discriminated_payload_form(self) -> None:
         cfg = SolverConfig(backend={"backend": "modflow_nwt"})
         assert isinstance(cfg.backend, ModflowNwtBackend)
 
-    def test_empty_solver_engine_rejected(self) -> None:
+    def test_legacy_solver_engine_rejected(self) -> None:
         with pytest.raises(ValidationError):
-            SolverConfig(solver_engine="")
+            SolverConfig(solver_engine="modflow6")
 
 
 # ---------------------------------------------------------------------------

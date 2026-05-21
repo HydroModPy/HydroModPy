@@ -17,15 +17,13 @@ from hydromodpy.results.catalog.constants import (
     validate_solver_code,
 )
 from hydromodpy.results.catalog.facade import SimulationCatalog
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path: Path):
-    cat = SimulationCatalog(tmp_path)
-    try:
+    with simulation_catalog(tmp_path) as cat:
         yield cat
-    finally:
-        cat.close()
 
 
 def test_validate_solver_code_accepts_canonical_codes() -> None:

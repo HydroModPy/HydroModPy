@@ -157,7 +157,7 @@
       "config_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/config_modflownwt.toml",
       "tolerance_path": "validation_cases/analytical/transient/late_time_unconfined_pumping_2d/tolerances.toml",
       "expected_output": "Expected output: 30 periods, spatial shape 101 x 101",
-      "command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver modflownwt",
+      "command": "python -m validation_cases.analytical.transient.late_time_unconfined_pumping_2d.run_case --no-show --solver modflow_nwt",
       "metric_lines": [
         "Space-time RMSE: 0.0113 m",
         "Space-time max abs error: 0.0624 m",

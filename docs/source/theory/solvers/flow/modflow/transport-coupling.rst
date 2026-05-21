@@ -8,7 +8,7 @@ The flow backend determines which downstream transport route is normally used:
 
 - ``flow/modflow6`` is the preferred upstream flow path for
   ``transport/modflow6gwt``.
-- ``flow/modflownwt`` is the legacy upstream flow path for
+- ``flow/modflow_nwt`` is the legacy upstream flow path for
   ``transport/modpath`` and ``transport/mt3dms``.
 
 Transport coupling should be checked after the flow outputs are already

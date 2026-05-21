@@ -110,7 +110,7 @@ Sections
 
       **[solver]**
       ^^^
-      Global solver selection loaded from [solver], including the active solver_engine.
+      Global solver selection loaded from [solver.backend].
 
    .. grid-item-card::
       :link: modflownwt

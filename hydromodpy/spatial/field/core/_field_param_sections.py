@@ -194,7 +194,7 @@ class FieldHeterogeneousSection(HydroModelBase):
 
 FieldSection: TypeAlias = Annotated[
     FieldHomogeneousSection | FieldHeterogeneousSection,
-    Field(discriminator="kind"),
+    Field(discriminator="kind", description="Field section kind discriminator."),
 ]
 """Discriminated field payload."""
 

@@ -11,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
+from hydromodpy.core.contracts.data_cache_backend import DataCacheBackend
 from hydromodpy.data.registry._backend import CacheBackend, DuckDBCacheBackend
+from hydromodpy.data.registry.catalog_duckdb import DataCatalogDuckDB
 
 
 @pytest.fixture
@@ -26,6 +28,15 @@ def backend(tmp_path: Path) -> DuckDBCacheBackend:
 def test_backend_implements_protocol(backend: DuckDBCacheBackend) -> None:
     """DuckDBCacheBackend satisfies the runtime-checkable CacheBackend Protocol."""
     assert isinstance(backend, CacheBackend)
+
+
+def test_catalog_implements_high_level_data_cache_contract() -> None:
+    """DataCatalogDuckDB satisfies the V1 DataCacheBackend Protocol."""
+    catalog = DataCatalogDuckDB(None)
+    try:
+        assert isinstance(catalog, DataCacheBackend)
+    finally:
+        catalog.close()
 
 
 def test_execute_then_fetch_one(backend: DuckDBCacheBackend) -> None:

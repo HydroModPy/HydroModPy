@@ -1,5 +1,4 @@
-"""Enforce the layer-matrix contract documented in
-``docs/developers/architecture.md``.
+"""Enforce the machine-readable layer-matrix contract.
 
 The layer matrix is a release gate: undocumented cross-layer imports fail
 the suite. Documented tolerances live in ``layer_matrix.yaml`` and must carry
@@ -18,6 +17,9 @@ import yaml
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
 PKG_ROOT = REPO_ROOT / "hydromodpy"
 MATRIX_FILE = pathlib.Path(__file__).with_name("layer_matrix.yaml")
+ARCHITECTURE_PACKAGES_INDEX = (
+    REPO_ROOT / "docs" / "source" / "architecture" / "packages" / "index.rst"
+)
 
 _BUILD_GRAPH_PATH = REPO_ROOT / "tools" / "audit" / "build_graph.py"
 _BUILD_GRAPH_SPEC = importlib.util.spec_from_file_location(
@@ -109,6 +111,31 @@ def test_layer_tolerances_reference_declared_layers() -> None:
         if pair[0] not in declared or pair[1] not in declared:
             unknown.append(pair)
     assert unknown == []
+
+
+def test_layer_tolerances_are_not_redundant() -> None:
+    """Reject tolerances for edges already allowed by the matrix."""
+    matrix = _load_matrix()
+    allowed: dict[str, set[str]] = {k: set(v) for k, v in matrix["allowed"].items()}
+    redundant = sorted(
+        (entry["src"], entry["tgt"])
+        for entry in matrix.get("tolerances", [])
+        if entry["tgt"] in allowed.get(entry["src"], set())
+    )
+    assert redundant == []
+
+
+def test_architecture_package_docs_cover_declared_layers() -> None:
+    """Reject missing per-package architecture pages."""
+    matrix = _load_matrix()
+    declared = set(matrix["allowed"]) - {"<root>"}
+    package_docs = {
+        path.stem
+        for path in ARCHITECTURE_PACKAGES_INDEX.parent.glob("*.rst")
+        if path.name != "index.rst"
+    }
+    missing = sorted(declared - package_docs)
+    assert missing == [], f"Missing architecture package pages: {missing}"
 
 
 def test_annex_one_way() -> None:

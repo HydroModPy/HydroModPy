@@ -8,11 +8,17 @@
 # pytest-benchmark disables itself under pytest-xdist, so this job runs the
 # benchmark phase serially. The rest of the CI keeps xdist enabled.
 
-name: Perf Regression Gate
+name: Performance / Benchmarks
 
 on:
   pull_request:
     branches: [master, dev]
+    paths:
+      - ".github/workflows/perf.yml"
+      - "hydromodpy/**"
+      - "pyproject.toml"
+      - "tests/performance/**"
+      - "tools/ci/perf_compare.py"
   workflow_dispatch:
 
 concurrency:
@@ -29,7 +35,7 @@ env:
 
 jobs:
   perf:
-    name: Pairwise ratio drift vs baseline (30 pct)
+    name: Performance / pairwise drift vs baseline
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

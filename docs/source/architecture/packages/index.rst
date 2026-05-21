@@ -117,6 +117,20 @@ Subpackages
 
       Composable steps and the immutable ``PipelineState`` payload.
 
+   .. grid-item-card:: project
+      :link: project
+      :link-type: doc
+
+      Public ``Project`` facade and dispatch adapters above the
+      workflow layer.
+
+   .. grid-item-card:: validity_frame
+      :link: validity_frame
+      :link-type: doc
+
+      Experimental observability island, isolated from the modeling
+      layers.
+
    .. grid-item-card:: schema
       :link: schema
       :link-type: doc
@@ -148,5 +162,7 @@ Subpackages
    analysis
    reporting
    workflow
+   project
+   validity_frame
    schema
    cli

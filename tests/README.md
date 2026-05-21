@@ -1,7 +1,8 @@
 # HydroModPy Test Suite
 
 This directory holds the automated tests for HydroModPy. It is split into
-three tiers with different purposes, budgets, and selection rules.
+five release tiers plus focused auxiliary tiers with different purposes,
+budgets, and selection rules.
 
 ## Layout
 
@@ -19,7 +20,11 @@ tests/
 │   │   ├── steady/
 │   │   └── transient/
 │   └── numerical/
-└── support/                     # pytest-local helpers (timing tools, etc.)
+├── e2e/                         # subprocess-level command scenarios
+├── performance/                 # pytest-benchmark performance checks
+├── contract/                    # compatibility contracts across implementations
+├── golden/                      # byte-normalized golden helpers
+└── _helpers/                    # pytest-local helpers and shared builders
 ```
 
 ## Tiers
@@ -53,6 +58,17 @@ Declared in `tests/pytest.ini`:
 | `integration` | cross-module workflow test (auto-applied to `tests/integration/`) |
 | `coverage`    | long-running coverage-focused test |
 | `solver_sanity` | benchmark built directly on the solver SDK (e.g. flopy); validates the external solver against an analytical reference, **not** the hydromodpy pipeline |
+| `golden`      | golden-file regression tests (byte-equal Parquet/Zarr, normalized HTML/JSON) |
+| `e2e`         | end-to-end pipeline scenarios |
+| `performance` | performance baseline benchmarks |
+| `unit`        | unit-tier tests, auto-applied by path |
+| `boussinesq`  | Boussinesq solver specific test |
+| `network`     | requires network access |
+| `binary`      | requires a solver binary on `PATH` |
+| `gpu`         | requires a GPU at runtime |
+| `allow_subprocess` | permits subprocess calls inside `unit/` |
+| `timeout`     | per-test timeout in seconds |
+| `xdist_group` | pytest-xdist worker grouping |
 
 The `fast`/`extensive` markers under `tests/regression/` are auto-applied
 based on the file's subdirectory (see `tests/conftest.py`).
@@ -155,9 +171,10 @@ Numerical comparisons use `numpy.testing.assert_allclose` (or equivalent
 signatures (min, p25, p50, p75, p95, max, mean, std, sum) over full-array
 dumps so goldens stay compact and cross-platform stable.
 
-Validation tolerances live alongside the cases under
-`validation_cases/**/tolerances.toml`; see `tests/validation/README.md`
-for the per-case workflow.
+Validation tolerances live in `tests/TOLERANCES.md`, with some
+case-local files under `validation_cases/**/tolerances.toml` when the
+benchmark owns a named envelope. `tests/_helpers/tolerances.py::tol()`
+parses the shared table for tests that need a named tolerance.
 
 ## Writing new tests
 
@@ -187,13 +204,13 @@ usually hiding several independent suites.
 
 ## CI
 
-`.github/workflows/coverage.yml` runs on push to `master`/`dev-refact`/
-`dev-data`/`dev-database` and on PRs to `master`:
+The active GitHub Actions gates are split across `.github/workflows/`:
 
-- **unit job** - `pytest tests/unit/` on Python 3.12 with coverage
-  (`unit` flag on Codecov).
-- **regression job** - `pytest tests/regression/fast/ tests/regression/extensive/`
-  with coverage (`regression` flag on Codecov).
+- **test.yml** - fast, unit and integration tiers on supported Python
+  versions.
+- **ci-fast.yml** - routine fast checks for the development branch.
+- **ci-nightly.yml** - nightly regression and validation coverage.
+- **ci-weekly.yml** - heavier validation and performance coverage.
 
 Validation runs are not part of the fast PR-blocking suite; run them
 manually before a release with `pytest tests/validation/ -q`.

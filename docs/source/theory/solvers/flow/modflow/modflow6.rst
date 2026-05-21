@@ -148,7 +148,7 @@ Minimal Plan Shape
    solvers = ["modflow6"]
 
    [solver]
-   solver_engine = "modflow6"
+   backend = { backend = "modflow6" }
 
 Minimal Process Interpretation
 ------------------------------

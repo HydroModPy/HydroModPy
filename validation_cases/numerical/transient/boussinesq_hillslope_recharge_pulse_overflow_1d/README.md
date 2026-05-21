@@ -52,10 +52,10 @@ python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pul
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --forcing-preset strong --gif --show
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc --forcing-preset alternating --show
 python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --forcing-preset strong --mp4 --frame-step 1 --video-fps 12 --show
-python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --forcing-preset strong --output-root /mnt/c/Users/dreuzy/Documents/HydroModPyOutputs --show
-python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_multi_solver_case --solvers boussinesq petsc_partition petsc --forcing-preset strong --output-root /mnt/c/Users/dreuzy/Documents/HydroModPyOutputs/bouss_multi_linux
-python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_multi_solver_case --solvers boussinesq petsc_partition petsc --context-preset windows_surface_transient --output-root /mnt/c/Users/dreuzy/Documents/HydroModPyOutputs/bouss_multi_linux_windows_context
-bash validation_cases/numerical/transient/boussinesq_hillslope_recharge_pulse_overflow_1d/run_multi_solver_case_linux.sh /mnt/c/Users/dreuzy/Documents/HydroModPyOutputs/bouss_multi_linux
+python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_case --solver petsc_partition --forcing-preset strong --output-root "$HMP_OUTPUT_ROOT" --show
+python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_multi_solver_case --solvers boussinesq petsc_partition petsc --forcing-preset strong --output-root "$HMP_OUTPUT_ROOT/bouss_multi_linux"
+python -m validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.run_multi_solver_case --solvers boussinesq petsc_partition petsc --context-preset windows_surface_transient --output-root "$HMP_OUTPUT_ROOT/bouss_multi_linux_windows_context"
+bash validation_cases/numerical/transient/boussinesq_hillslope_recharge_pulse_overflow_1d/run_multi_solver_case_linux.sh "$HMP_OUTPUT_ROOT/bouss_multi_linux"
 ```
 
 Useful options:
@@ -67,7 +67,7 @@ Useful options:
 - `--overflow-threshold-mm-day X` changes the footprint activation threshold,
 - `--context-preset windows_surface_transient` reuses the exact geometry, recharge chronology, conductance and hydraulic properties of the Windows transient comparison benchmark,
 - the runtime summary now records activation-window counts and state transitions for repeated overflow on/off sequences,
-- `--output-root /mnt/c/...` writes the validation workspace directly to a Windows-visible folder from WSL,
+- `--output-root "$HMP_OUTPUT_ROOT"` writes the validation workspace to a caller-selected folder,
 - `--gif` exports an animated GIF,
 - `--mp4` exports an MP4 video in the same output directory,
 - `--html-animation` exports a browser slider from the rendered frames,

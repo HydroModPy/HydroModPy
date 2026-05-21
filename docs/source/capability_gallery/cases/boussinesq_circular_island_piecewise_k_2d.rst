@@ -69,7 +69,7 @@ Solver Coverage
 
       .. code-block:: bash
 
-         python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver modflownwt
+         python -m validation_cases.analytical.steady.boussinesq_circular_island_piecewise_k_2d.run_case --no-show --solver modflow_nwt
 
    .. tab-item:: MODFLOW 6
 

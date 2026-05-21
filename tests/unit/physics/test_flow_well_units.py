@@ -129,3 +129,68 @@ def test_flow_converts_recharge_mapping_from_mm_day_to_m_s() -> None:
         0: pytest.approx(3.0e-3 / 86400.0),
         1: pytest.approx(6.0e-3 / 86400.0),
     }
+
+
+def test_flow_preserves_negative_recharge_when_evt_routing_is_enabled() -> None:
+    cfg = FlowConfig(
+        sinks_sources=FlowSinksSourcesConfig(
+            recharge={
+                "values": [1.0, -2.0],
+                "units": "mm/day",
+                "negative_to_evt": True,
+            }
+        )
+    )
+
+    flow = Flow(cfg)
+    recharge = flow.sinks_sources["recharge"]
+
+    assert recharge is not None
+    assert recharge.units == "m/s"
+    assert recharge.values == pytest.approx([1.0e-3 / 86400.0, -2.0e-3 / 86400.0])
+
+
+def test_flow_rejects_negative_recharge_when_evt_routing_is_disabled() -> None:
+    with pytest.raises(ValueError, match="flow.sinks_sources.recharge.values must be non-negative"):
+        FlowConfig(
+            sinks_sources=FlowSinksSourcesConfig(
+                recharge={
+                    "values": -1.0,
+                    "units": "mm/day",
+                    "negative_to_evt": False,
+                }
+            )
+        )
+
+
+def test_flow_converts_etp_mapping_from_mm_day_to_m_s() -> None:
+    cfg = FlowConfig(
+        sinks_sources=FlowSinksSourcesConfig(
+            etp={
+                "values": {0: 2.0, 1: 4.0},
+                "units": "mm/day",
+            }
+        )
+    )
+
+    flow = Flow(cfg)
+    etp = flow.sinks_sources["etp"]
+
+    assert etp is not None
+    assert etp.units == "m/s"
+    assert etp.values == {
+        0: pytest.approx(2.0e-3 / 86400.0),
+        1: pytest.approx(4.0e-3 / 86400.0),
+    }
+
+
+def test_flow_rejects_negative_etp_values() -> None:
+    with pytest.raises(ValueError, match="flow.sinks_sources.etp.values must be non-negative"):
+        FlowConfig(
+            sinks_sources=FlowSinksSourcesConfig(
+                etp={
+                    "values": -1.0,
+                    "units": "mm/day",
+                }
+            )
+        )

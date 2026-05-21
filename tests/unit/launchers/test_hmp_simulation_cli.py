@@ -146,6 +146,57 @@ def test_hmp_run_resume_forwards_run_id(monkeypatch, tmp_path) -> None:
     assert captured["kwargs"].get("resume") == "run-1"
 
 
+def test_hmp_run_forwards_step_controls_to_simulation_workflow(monkeypatch, tmp_path) -> None:
+    """Pipeline step controls must reach only the simulation dispatcher."""
+    config = _write_toml(
+        tmp_path / "config.toml",
+        '[workflow]\nmode = "simulation"\n[workspace]\nproject_root = "."\n[simulation]\nname = "test"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path, **kwargs):
+        captured["config_path"] = Path(config_path)
+        captured["kwargs"] = kwargs
+        return {"name": "test", "sim_id": "abc"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "simulation", fake_run)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["hmp", "run", str(config), "--from", "setup", "--until", "solve", "--no-parallel"],
+    )
+
+    main()
+
+    assert captured["config_path"] == config.resolve()
+    assert captured["kwargs"]["from_step"] == "setup"
+    assert captured["kwargs"]["until_step"] == "solve"
+    assert captured["kwargs"]["parallel"] is False
+
+
+def test_hmp_run_rejects_step_controls_for_non_simulation_workflow(monkeypatch, tmp_path) -> None:
+    config = _write_toml(
+        tmp_path / "calib.toml",
+        '[workflow]\nmode = "calibration"\n[calibration]\nmethod = "scipy"\n',
+    )
+
+    called = False
+
+    def fake_run(config_path):
+        nonlocal called
+        called = True
+        return {"mode": "calibration"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "calibration", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config), "--from", "setup"])
+
+    with pytest.raises(SystemExit) as exc_info:
+        main()
+
+    assert exc_info.value.code == EXIT_CONFIG
+    assert called is False
+
+
 def test_hmp_run_dispatches_overview_workflow(monkeypatch, tmp_path) -> None:
     """``hmp run`` with workflow=overview dispatches to run_overview."""
     config = _write_toml(

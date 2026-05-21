@@ -436,6 +436,7 @@
         "cell_id": {
           "anyOf": [
             {
+              "description": "Non-negative integer.",
               "minimum": 0,
               "type": "integer"
             },
@@ -451,6 +452,7 @@
         "row": {
           "anyOf": [
             {
+              "description": "Non-negative integer.",
               "minimum": 0,
               "type": "integer"
             },
@@ -466,6 +468,7 @@
         "col": {
           "anyOf": [
             {
+              "description": "Non-negative integer.",
               "minimum": 0,
               "type": "integer"
             },
@@ -1420,6 +1423,7 @@
         "resolution": {
           "anyOf": [
             {
+              "description": "Positive floating-point value.",
               "exclusiveMinimum": 0.0,
               "type": "number"
             },
@@ -1513,6 +1517,7 @@
           "anyOf": [
             {
               "items": {
+                "description": "Snake-case identifier starting with a lowercase letter.",
                 "pattern": "^[a-z][a-z0-9_]*$",
                 "type": "string"
               },
@@ -1589,6 +1594,7 @@
         "cell_index": {
           "anyOf": [
             {
+              "description": "Non-negative integer.",
               "minimum": 0,
               "type": "integer"
             },
@@ -1605,6 +1611,7 @@
           "anyOf": [
             {
               "items": {
+                "description": "Non-negative integer.",
                 "minimum": 0,
                 "type": "integer"
               },
@@ -1623,6 +1630,7 @@
         "boundary_id": {
           "anyOf": [
             {
+              "description": "Snake-case identifier starting with a lowercase letter.",
               "pattern": "^[a-z][a-z0-9_]*$",
               "type": "string"
             },
@@ -1759,6 +1767,7 @@
         "comparison_id": {
           "anyOf": [
             {
+              "description": "Snake-case identifier starting with a lowercase letter.",
               "pattern": "^[a-z][a-z0-9_]*$",
               "type": "string"
             },
@@ -1820,6 +1829,7 @@
         "reference_simulation": {
           "anyOf": [
             {
+              "description": "Snake-case identifier starting with a lowercase letter.",
               "pattern": "^[a-z][a-z0-9_]*$",
               "type": "string"
             },
@@ -1889,6 +1899,7 @@
       "description": "One generated child simulation in a comparison experiment.",
       "properties": {
         "id": {
+          "description": "Snake-case identifier starting with a lowercase letter.",
           "examples": [
             "example"
           ],
@@ -1961,6 +1972,7 @@
         "mesh_label": {
           "anyOf": [
             {
+              "description": "Snake-case identifier starting with a lowercase letter.",
               "pattern": "^[a-z][a-z0-9_]*$",
               "type": "string"
             },
@@ -3360,6 +3372,7 @@
         "zone_ids": {
           "description": "Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support declarations live under domain.supports.",
           "items": {
+            "description": "Snake-case identifier starting with a lowercase letter.",
             "pattern": "^[a-z][a-z0-9_]*$",
             "type": "string"
           },
@@ -3396,6 +3409,9 @@
                 }
               ]
             }
+          },
+          "propertyNames": {
+            "description": "Snake-case identifier starting with a lowercase letter."
           },
           "title": "Supports",
           "type": "object",
@@ -4085,6 +4101,7 @@
         "min_factor": {
           "anyOf": [
             {
+              "description": "Probability in the closed interval [0, 1].",
               "maximum": 1.0,
               "minimum": 0.0,
               "type": "number"
@@ -4588,6 +4605,7 @@
         },
         "bc": {
           "additionalProperties": {
+            "description": "Boundary-condition kind discriminator.",
             "discriminator": {
               "mapping": {
                 "cauchy": "#/$defs/CauchyBC",
@@ -4619,7 +4637,7 @@
           "x-hmp-profile": "user"
         },
         "active_sinks_sources": {
-          "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
+          "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
           "examples": [
             [
               "recharge"
@@ -4627,9 +4645,13 @@
             [
               "recharge",
               "wells"
+            ],
+            [
+              "etp"
             ]
           ],
           "items": {
+            "description": "Snake-case identifier starting with a lowercase letter.",
             "pattern": "^[a-z][a-z0-9_]*$",
             "type": "string"
           },
@@ -4650,6 +4672,7 @@
             ]
           ],
           "items": {
+            "description": "Snake-case identifier starting with a lowercase letter.",
             "pattern": "^[a-z][a-z0-9_]*$",
             "type": "string"
           },
@@ -6102,6 +6125,7 @@
         "catchment": {
           "anyOf": [
             {
+              "description": "Catchment definition discriminator.",
               "discriminator": {
                 "mapping": {
                   "dem": "#/$defs/DemCatchDef",
@@ -10192,6 +10216,7 @@
         "nx": {
           "anyOf": [
             {
+              "description": "Positive integer.",
               "exclusiveMinimum": 0,
               "type": "integer"
             },
@@ -10207,6 +10232,7 @@
         "ny": {
           "anyOf": [
             {
+              "description": "Positive integer.",
               "exclusiveMinimum": 0,
               "type": "integer"
             },
@@ -13120,7 +13146,7 @@
     },
     "SolverConfig": {
       "additionalProperties": false,
-      "description": "Configuration block defining the active groundwater solver engine.\n\nThe block accepts two equivalent payloads:\n\n* Legacy flat form: ``solver_engine = \"modflow6\"``.\n* Discriminated form: ``backend = { backend = \"modflow6\" }`` (built-in)\n  or ``backend = { backend = \"custom\", name = \"pluginsolver\" }``.\n\nBoth are normalized to a ``SolverBackendConfig`` discriminated union.\n``solver_engine`` is exposed as a read-only property mirroring the\nselected backend tag (or plugin name for ``custom``).",
+      "description": "Configuration block defining the active groundwater solver engine.\n\nThe V1 TOML form is ``backend = { backend = \"modflow6\" }`` for a\nbuilt-in backend, or ``backend = { backend = \"custom\", name = \"x\" }``\nfor a plugin-registered backend.",
       "properties": {
         "backend": {
           "description": "Active flow backend selector (discriminated union).",
@@ -15704,6 +15730,7 @@
         "interface_size": {
           "anyOf": [
             {
+              "description": "Non-negative floating-point value.",
               "minimum": 0.0,
               "type": "number"
             },
@@ -15719,6 +15746,7 @@
         "interface_distance": {
           "anyOf": [
             {
+              "description": "Non-negative floating-point value.",
               "minimum": 0.0,
               "type": "number"
             },
@@ -15757,6 +15785,7 @@
         "cell_size": {
           "anyOf": [
             {
+              "description": "Positive floating-point value.",
               "exclusiveMinimum": 0.0,
               "type": "number"
             },
@@ -15812,6 +15841,7 @@
         "radius": {
           "anyOf": [
             {
+              "description": "Non-negative floating-point value.",
               "minimum": 0.0,
               "type": "number"
             },
@@ -15973,6 +16003,7 @@
         "min_size": {
           "anyOf": [
             {
+              "description": "Non-negative floating-point value.",
               "minimum": 0.0,
               "type": "number"
             },
@@ -15988,6 +16019,7 @@
         "max_size": {
           "anyOf": [
             {
+              "description": "Non-negative floating-point value.",
               "minimum": 0.0,
               "type": "number"
             },
@@ -16057,6 +16089,7 @@
         "interface_size": {
           "anyOf": [
             {
+              "description": "Non-negative floating-point value.",
               "minimum": 0.0,
               "type": "number"
             },
@@ -16072,6 +16105,7 @@
         "interface_distance": {
           "anyOf": [
             {
+              "description": "Non-negative floating-point value.",
               "minimum": 0.0,
               "type": "number"
             },
@@ -16168,7 +16202,7 @@
     },
     "solver": {
       "$ref": "#/$defs/SolverConfig",
-      "description": "Global solver selection loaded from [solver], including the active solver_engine.",
+      "description": "Global solver selection loaded from [solver.backend].",
       "x-hmp-profile": "user"
     },
     "modflownwt": {

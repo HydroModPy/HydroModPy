@@ -15,68 +15,68 @@ from hydromodpy.results.importers import (
     import_netcdf_fields,
     import_zarr_field,
 )
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog_with_data(tmp_path):
     """A catalog with mesh, head field, and a discharge timeseries."""
-    c = SimulationCatalog(tmp_path / "workspace")
-    sid = str(uuid4())
+    with simulation_catalog(tmp_path / "workspace") as c:
+        sid = str(uuid4())
 
-    n_cells, n_layers, n_ts = 6, 2, 3
-    reg = c.register_simulation(
-        sid,
-        project="test",
-        solver="modflow_nwt",
-        n_cells=n_cells,
-        n_layers=n_layers,
-        n_timesteps=n_ts,
-    )
-    if reg.zarr is not None:
-        reg.zarr.close()
+        n_cells, n_layers, n_ts = 6, 2, 3
+        reg = c.register_simulation(
+            sid,
+            project="test",
+            solver="modflow_nwt",
+            n_cells=n_cells,
+            n_layers=n_layers,
+            n_timesteps=n_ts,
+        )
+        if reg.zarr is not None:
+            reg.zarr.close()
 
-    verts = np.array(
-        [
-            [0.0, 0.0],
-            [1.0, 0.0],
-            [0.5, 0.8],
-            [1.5, 0.8],
-            [0.8, 1.8],
-            [2.0, 0.4],
-            [1.8, 1.6],
-        ],
-        dtype="float64",
-    )
-    conn = np.array(
-        [
-            [0, 1, 2, -1],
-            [1, 3, 2, -1],
-            [2, 3, 4, -1],
-            [1, 5, 3, -1],
-            [3, 6, 4, -1],
-            [3, 5, 6, -1],
-        ],
-        dtype="int32",
-    )
-    z_intf = np.array([10.0, 5.0, 0.0])
-    c.write_mesh(sid, verts, conn, z_intf)
-    c.write_time(
-        sid,
-        np.array([1577836800, 1577923200, 1578009600], dtype="int64"),
-        units="seconds since 1970-01-01T00:00:00Z",
-    )
+        verts = np.array(
+            [
+                [0.0, 0.0],
+                [1.0, 0.0],
+                [0.5, 0.8],
+                [1.5, 0.8],
+                [0.8, 1.8],
+                [2.0, 0.4],
+                [1.8, 1.6],
+            ],
+            dtype="float64",
+        )
+        conn = np.array(
+            [
+                [0, 1, 2, -1],
+                [1, 3, 2, -1],
+                [2, 3, 4, -1],
+                [1, 5, 3, -1],
+                [3, 6, 4, -1],
+                [3, 5, 6, -1],
+            ],
+            dtype="int32",
+        )
+        z_intf = np.array([10.0, 5.0, 0.0])
+        c.write_mesh(sid, verts, conn, z_intf)
+        c.write_time(
+            sid,
+            np.array([1577836800, 1577923200, 1578009600], dtype="int64"),
+            units="seconds since 1970-01-01T00:00:00Z",
+        )
 
-    rng = np.random.default_rng(42)
-    for t in range(n_ts):
-        head = rng.uniform(3.0, 12.0, (n_layers, n_cells))
-        c.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
+        rng = np.random.default_rng(42)
+        for t in range(n_ts):
+            head = rng.uniform(3.0, 12.0, (n_layers, n_cells))
+            c.write_field(sid, "head", t, head, n_timesteps=n_ts if t == 0 else None)
 
-    idx = pd.date_range("2020-01-01", periods=10, freq="D")
-    q = pd.Series(rng.random(10), index=idx, name="recharge")
-    c.write_timeseries(sid, "outlet", "recharge", q, unit="m s-1")
+        idx = pd.date_range("2020-01-01", periods=10, freq="D")
+        q = pd.Series(rng.random(10), index=idx, name="recharge")
+        c.write_timeseries(sid, "outlet", "recharge", q, unit="m s-1")
 
-    yield c, sid, tmp_path
-    c.close()
+        yield c, sid, tmp_path
 
 
 class TestImportCSVTimeseries:

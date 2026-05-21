@@ -6905,10 +6905,11 @@
     "anchor": "flow-active-sinks-sources",
     "page": "flow.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L153",
-    "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.",
+    "description": "Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.",
     "examples": [
       "[\"recharge\"]",
-      "[\"recharge\", \"wells\"]"
+      "[\"recharge\", \"wells\"]",
+      "[\"etp\"]"
     ]
   },
   {
@@ -6920,7 +6921,7 @@
     "section": "flow",
     "anchor": "flow-active-bc",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L162",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/flow_config.py#L163",
     "description": "Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An em",
     "examples": [
       "[\"ocean\"]",
@@ -8429,65 +8430,65 @@
     "section": "solver",
     "anchor": "solver-backend",
     "page": "solver.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L114",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L90",
     "description": "Active flow backend selector (discriminated union)."
   },
   {
-    "path": "solver.backend.modflow6.backend",
+    "path": "solver.backend.backend",
     "name": "backend",
     "type": "Literal['modflow6']",
     "profile": "user",
     "stability": "stable",
     "section": "solver",
-    "anchor": "solver-backend-modflow6-backend",
+    "anchor": "solver-backend-backend",
     "page": "solver.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L22",
-    "description": ""
+    "description": "Discriminator tag selecting the MODFLOW 6 flow backend."
   },
   {
-    "path": "solver.backend.modflow_nwt.backend",
+    "path": "solver.backend.backend",
     "name": "backend",
     "type": "Literal['modflow_nwt']",
     "profile": "user",
     "stability": "stable",
     "section": "solver",
-    "anchor": "solver-backend-modflow-nwt-backend",
+    "anchor": "solver-backend-backend",
     "page": "solver.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L31",
-    "description": ""
+    "description": "Discriminator tag selecting the MODFLOW 6 flow backend."
   },
   {
-    "path": "solver.backend.boussinesq.backend",
+    "path": "solver.backend.backend",
     "name": "backend",
     "type": "Literal['boussinesq']",
     "profile": "user",
     "stability": "stable",
     "section": "solver",
-    "anchor": "solver-backend-boussinesq-backend",
+    "anchor": "solver-backend-backend",
     "page": "solver.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L40",
-    "description": ""
+    "description": "Discriminator tag selecting the MODFLOW 6 flow backend."
   },
   {
-    "path": "solver.backend.custom.backend",
+    "path": "solver.backend.backend",
     "name": "backend",
     "type": "Literal['custom']",
     "profile": "user",
     "stability": "stable",
     "section": "solver",
-    "anchor": "solver-backend-custom-backend",
+    "anchor": "solver-backend-backend",
     "page": "solver.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L55",
-    "description": ""
+    "description": "Discriminator tag selecting the MODFLOW 6 flow backend."
   },
   {
-    "path": "solver.backend.custom.name",
+    "path": "solver.backend.name",
     "name": "name",
     "type": "str",
     "profile": "user",
     "stability": "stable",
     "section": "solver",
-    "anchor": "solver-backend-custom-name",
+    "anchor": "solver-backend-name",
     "page": "solver.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L59",
     "description": ""
@@ -11694,7 +11695,7 @@
     "anchor": "analysis-comparison-simulation-id",
     "page": "analysis.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L84",
-    "description": ""
+    "description": "Snake-case identifier starting with a lowercase letter."
   },
   {
     "path": "analysis.comparison.simulation.label",

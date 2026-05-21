@@ -41,12 +41,6 @@ Key Metrics
 Reproduce
 ---------
 
-Run the underlying example or validation case with:
-
-.. code-block:: bash
-
-   python -m hydromodpy.data.variables.geology.cases.run_geology_property_case --geology-config-file gallery_geology_config_brittany.toml --field-param-config-file gallery_field_param_brittany.toml --no-show-plot
-
 Refresh the committed gallery artifacts with:
 
 .. code-block:: bash

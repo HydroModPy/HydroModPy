@@ -19,7 +19,7 @@ For the standard simulation workflow, the runtime path is:
 1. ``hydromodpy/cli/commands/run.py`` (the ``hmp run <toml>`` entry
    point) and ``hydromodpy/cli/workflows.py`` (workflow dispatch)
 2. ``HydroModPyConfig.from_toml(...)`` builds the typed config tree
-3. ``hydromodpy/project.py`` instantiates the public ``Project``
+3. ``hydromodpy/project/facade.py`` instantiates the public ``Project``
    facade and runs setup, data, and optional mesh preparation
 4. ``hydromodpy/workflow/runner.py`` executes the canonical Pipeline
    step sequence when checkpoint/resume is needed
@@ -28,7 +28,7 @@ For the standard simulation workflow, the runtime path is:
 7. one registered adapter under ``hydromodpy/simulation/adapters/``
 8. one concrete solver package under ``hydromodpy/solver/``
 9. solver-side postprocess and catalog persistence through
-   ``hydromodpy/results/catalog.py``
+   ``hydromodpy/results/catalog/facade.py``
 
 Step 1: config loading and project bootstrap
 --------------------------------------------
@@ -153,7 +153,7 @@ on the kind of change:
 - change CLI dispatch or workflow registration:
   ``hydromodpy/cli/workflows.py``
 - change top-level project orchestration or workspace behaviour:
-  ``hydromodpy/project.py``
+  ``hydromodpy/project/facade.py``
 - change planning rules or dependency binding:
   ``hydromodpy/simulation/planning/``
 - change execution order or process transitions:

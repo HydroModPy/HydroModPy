@@ -3,7 +3,7 @@ Add a Solver
 
 A solver in HydroModPy is one ``(process_type, solver_name)`` pair
 bound to a concrete backend. Today three backends ship: ``modflow6``,
-``modflownwt``, and ``boussinesq``. This page documents how to add a
+``modflow_nwt``, and ``boussinesq``. This page documents how to add a
 fourth flow backend or, equivalently, a new ``transport`` /
 ``postprocess`` solver.
 
@@ -17,7 +17,7 @@ A solver implements the ``SolverAdapter`` Protocol declared in
 
    class SolverAdapter(Protocol):
        process_type: ClassVar[str]   # "flow", "transport", "postprocess"
-       solver_name: ClassVar[str]    # "modflow6", "modflownwt", "boussinesq", ...
+       solver_name: ClassVar[str]    # "modflow6", "modflow_nwt", "boussinesq", ...
        requires: ClassVar[tuple[tuple[str, str], ...]] = ()  # upstream (process, solver) pairs
 
        def validate(self, ctx: RunContext) -> None: ...

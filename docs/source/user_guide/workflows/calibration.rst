@@ -130,7 +130,7 @@ Minimal Shape
    [[simulation.process]]
    id = "flow_main"
    type = "flow"
-   solvers = ["modflownwt"]
+   solvers = ["modflow_nwt"]
 
    [calibration]
    method = "optuna"

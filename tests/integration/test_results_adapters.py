@@ -12,13 +12,13 @@ from hydromodpy.calibration.lumped import Gr4jFlowExtractor
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.simulation.extraction.derivation.derived import compute_derived
 from hydromodpy.solver.base.cleanup import cleanup_solver_files
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path):
-    c = SimulationCatalog(tmp_path / "workspace")
-    yield c
-    c.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 class TestGr4jFlowExtractor:

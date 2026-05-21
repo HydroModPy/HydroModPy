@@ -119,11 +119,11 @@ Recommended reading path
 Layer-matrix neighbours
 -----------------------
 
-- Allowed targets: ``core``, ``schema``, ``data``.
-- Documented tolerance: ``data`` -> ``spatial`` for the geology
-  field bridge. Do not extend the tolerance to other variables.
+- Allowed targets: ``core``, ``schema``, ``data``, ``spatial``.
+- Documented tolerance: ``data`` -> ``results`` for the read-only
+  cross-DB ATTACH bridge.
 - Allowed sources: ``simulation``, ``calibration``, ``analysis``,
-  ``config``, ``workflow``, ``cli``.
+  ``config``, ``workflow``, ``catalog``, ``project`` and ``cli``.
 
 See also
 --------

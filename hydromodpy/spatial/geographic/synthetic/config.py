@@ -201,7 +201,7 @@ class RadialIslandTopography(HydroModelBase):
 
 SyntheticTopographyConfig: TypeAlias = Annotated[
     FlatTopography | LinearTopography | RadialIslandTopography,
-    Field(discriminator="kind"),
+    Field(discriminator="kind", description="Synthetic topography kind discriminator."),
 ]
 """Discriminated union of analytical topography variants."""
 

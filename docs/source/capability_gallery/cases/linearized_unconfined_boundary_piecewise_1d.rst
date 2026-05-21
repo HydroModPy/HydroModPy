@@ -68,7 +68,7 @@ Solver Coverage
 
       .. code-block:: bash
 
-         python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show --solver modflownwt
+         python -m validation_cases.analytical.transient.linearized_unconfined_boundary_piecewise_1d.run_case --no-show --solver modflow_nwt
 
    .. tab-item:: MODFLOW 6
 

@@ -14,8 +14,9 @@ Top-level facade
    hydromodpy/
    |-- __init__.py             Lazy public exports plus PROJ bootstrap.
    |-- _api.py                 Top-level helpers (open, run, calibrate,
-   |                           catalog, overview, batch, compare_pair,
-   |                           mesh, testbed, report, doctor).
+   |                           open_catalog, index, overview,
+   |                           compare_pair, mesh, testbed, report,
+   |                           audit_prune, doctor).
    |-- _bootstrap.py           PROJ database setup at import time.
    |-- _lazy.py                Lazy-export tables (LAZY_IMPORTS,
    |                           MODULE_EXPORTS).
@@ -56,6 +57,10 @@ Subpackages
        ScipyNelderMead, Grid, GpMapping, DaMhGp), persistence,
        diagnostics, runnable cases. Entry: ``calibration/cli_runner.py``.
        See :doc:`packages/calibration`.
+   * - ``catalog/``
+     - V1 facade over the three DuckDB scopes: data cache, project
+       catalog, and machine-wide index. Entry: ``catalog/facade.py``.
+       See :doc:`packages/catalog`.
    * - ``cli/``
      - ``hmp`` and ``hydromodpy`` console entry points. One module per
        verb under ``cli/commands/``, registered through ``ALL_COMMANDS``
@@ -132,6 +137,16 @@ Subpackages
        ``workflow/steps/`` hosts the 12 canonical steps;
        ``workflow/pipelines/`` assembles them. See
        :doc:`packages/workflow`.
+   * - ``project/``
+     - Public object-oriented facade above the matrix. It binds
+       workflow and calibration launchers to ``Project`` without
+       making lower layers depend on the facade. Entry:
+       ``project/facade.py``. See :doc:`packages/project`.
+   * - ``validity_frame/``
+     - Experimental observability tooling for runtime capture and
+       JSONL-to-DuckDB ingestion. It is isolated from modeling layers
+       and is not a stable V1 public API. See
+       :doc:`packages/validity_frame`.
 
 Repository folders outside the package
 --------------------------------------

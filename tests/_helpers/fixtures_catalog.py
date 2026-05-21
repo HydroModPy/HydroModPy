@@ -7,6 +7,8 @@ integration and e2e coverage.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -15,6 +17,16 @@ import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
+
+
+@contextmanager
+def simulation_catalog(root: Path) -> Iterator[SimulationCatalog]:
+    """Open a SimulationCatalog and close it after the test."""
+    cat = SimulationCatalog(root)
+    try:
+        yield cat
+    finally:
+        cat.close()
 
 
 def seed_three_simulations(catalog: SimulationCatalog) -> list[str]:
@@ -57,15 +69,13 @@ def seed_three_simulations(catalog: SimulationCatalog) -> list[str]:
 @pytest.fixture
 def empty_catalog(tmp_path: Path) -> SimulationCatalog:
     """Empty catalog rooted in ``tmp_path/workspace``."""
-    cat = SimulationCatalog(tmp_path / "workspace")
-    yield cat
-    cat.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 @pytest.fixture
 def populated_catalog(tmp_path: Path) -> SimulationCatalog:
     """Catalog with three fake simulations (nwt + mf6 + boussinesq)."""
-    cat = SimulationCatalog(tmp_path / "workspace")
-    seed_three_simulations(cat)
-    yield cat
-    cat.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        seed_three_simulations(cat)
+        yield cat

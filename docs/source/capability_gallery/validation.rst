@@ -289,7 +289,7 @@ Transient 1D Recession or Interception Dynamics
 
       **Brutsaert Recession Validation: Thin Nonlinear Aquifer**
       ^^^
-      This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.
+      This transient validation case checks that the available `modflow_nwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the nonlinear Brutsaert recession law on a thin aquifer.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -298,7 +298,7 @@ Transient 1D Recession or Interception Dynamics
 
       **Brutsaert Recession Validation: Deep Linearized Aquifer**
       ^^^
-      This transient validation case checks that the available `modflownwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.
+      This transient validation case checks that the available `modflow_nwt`, `modflow6`, and PETSc `boussinesq` backends reproduce the linearized Brutsaert recession law on a deep aquifer.
 
 Transient 2D Radial Response
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

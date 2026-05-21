@@ -59,14 +59,12 @@ Recommended reading path
 Layer-matrix neighbours
 -----------------------
 
-- Allowed targets: ``core``, ``schema``, ``data``, ``results``,
-  ``analysis``.
-- Documented tolerances: ``analysis`` -> ``physics`` (history
-  contract), ``analysis`` -> ``display`` (comparison exports
-  reuse plot mesh loading), ``analysis`` -> ``solver``
-  (comparison runtime resolves solver families).
-- Allowed sources: ``results`` (``Run`` exposes stream-network
-  diagnostics, documented tolerance), ``workflow``, ``cli``.
+- Allowed targets: ``core``, ``schema``, ``physics``, ``data``,
+  ``results``, ``display``, ``analysis``.
+- Documented tolerance: ``analysis`` -> ``reporting`` while the
+  comparison launcher writes the final HTML report.
+- Allowed sources: ``workflow``, ``reporting``, ``project`` and
+  ``cli``.
 
 See also
 --------

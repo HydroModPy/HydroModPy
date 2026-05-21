@@ -12,6 +12,10 @@ updates:
       time: "06:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns:
+          - "*"
     labels:
       - dependencies
       - python
@@ -24,6 +28,10 @@ updates:
       time: "06:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
     labels:
       - dependencies
       - github-actions
@@ -36,6 +44,10 @@ updates:
       time: "06:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 5
+    groups:
+      docker-images:
+        patterns:
+          - "*"
     labels:
       - dependencies
       - docker

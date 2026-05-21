@@ -148,7 +148,7 @@ CalibrationMethodConfig = Annotated[
     | OptunaMethodConfig
     | GPMappingMethodConfig
     | DaMhGpMethodConfig,
-    Field(discriminator="method"),
+    Field(discriminator="method", description="Calibration method discriminator."),
 ]
 """Discriminated union of calibration method configs, keyed by ``method``."""
 

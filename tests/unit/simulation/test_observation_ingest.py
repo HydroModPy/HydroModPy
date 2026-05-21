@@ -13,13 +13,13 @@ from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.simulation.extraction.derivation.observation_ingest import (
     ingest_observations,
 )
+from tests._helpers.fixtures_catalog import simulation_catalog
 
 
 @pytest.fixture
 def catalog(tmp_path):
-    cat = SimulationCatalog(tmp_path / "workspace")
-    yield cat
-    cat.close()
+    with simulation_catalog(tmp_path / "workspace") as cat:
+        yield cat
 
 
 def _sim_id():

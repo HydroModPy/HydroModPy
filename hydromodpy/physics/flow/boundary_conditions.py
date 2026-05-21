@@ -592,5 +592,5 @@ class RobinBC(_DrainageBC):
 
 BCEntry: TypeAlias = Annotated[
     DirichletBC | CauchyBC | RobinBC,
-    Field(discriminator="kind"),
+    Field(discriminator="kind", description="Boundary-condition kind discriminator."),
 ]

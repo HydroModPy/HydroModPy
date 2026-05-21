@@ -12,6 +12,10 @@ Sub-modules
 - ``cli/main.py`` -- argparse dispatcher; iterates ``ALL_COMMANDS``
   and forwards the parsed namespace to ``args._handler``.
 - ``cli/commands/`` -- one module per verb (see inventory below).
+- ``cli/_workers/`` -- CLI application services for commands whose
+  reusable Python surface is not part of ``hydromodpy._api``. Workers
+  may assemble diagnostics, catalog listings and developer reports, but
+  they must not become hidden scientific workflow implementations.
 - ``cli/workflows.py`` -- workflow dispatcher used by ``hmp run`` to
   pick the right launcher from ``[workflow].mode``.
 
@@ -108,6 +112,15 @@ Each module under ``cli/commands/`` exposes:
 The dispatcher iterates ``ALL_COMMANDS``, calls ``register`` on
 each, then forwards the parsed namespace to ``args._handler``.
 
+For V1, the CLI boundary is:
+
+- ``cli/commands/*.py`` parse arguments, call ``hydromodpy._api`` or a
+  named CLI worker, format output and map errors to exit codes.
+- ``cli/_workers/*.py`` is an application layer for CLI-only features
+  such as catalog browsing, audit display and developer diagnostics.
+- Reusable user-facing workflows should live in ``hydromodpy._api`` or
+  in their domain package, then be called by the command module.
+
 Recommended reading path
 ------------------------
 
@@ -124,13 +137,10 @@ Recommended reading path
 Layer-matrix neighbours
 -----------------------
 
-- Allowed targets: every layer (``cli`` is the top-level
-  dispatcher).
+- Allowed targets: ``<root>``, every stable production layer,
+  ``catalog``, ``project`` and ``cli``. ``validity_frame`` is not part
+  of the stable CLI target set.
 - Allowed sources: none; ``cli`` is a leaf consumer.
-- Documented tolerance: ``cli`` -> ``<root>``, because the
-  dispatcher delegates to the public ``Project`` facade through the
-  top-level ``hydromodpy`` package rather than to private
-  submodules.
 
 See also
 --------

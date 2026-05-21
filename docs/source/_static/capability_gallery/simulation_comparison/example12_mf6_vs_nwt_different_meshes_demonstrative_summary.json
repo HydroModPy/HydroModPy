@@ -45,7 +45,7 @@
   "source_hashes": {
     "docs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_manifest.json": "4f8ab5ea5444ed2684a23d0ca2c848f711991e97f17262dc0be5e9bbbeb5aef3",
     "docs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_comparison_metrics.json": "5a5ce4794a6a06c8e75e5e208a8cdb2eb89ec611f9438712802e75eff7d00842",
-    "docs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_observables.csv": "511a896f1f6ef9b12648c6df55561ef3bb4bb8cebb9c8d5ca4ba8c327fc21db2",
+    "docs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_observables.csv": "4a296220b12ffbad675a64a38f85abce6f4d122b7af86d9509e1543e6e6d0ee3",
     "docs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_summary_metrics.csv": "adafac9662c141946022e6180717ad2544f84d1bc8d5613339d2feb865be5463",
     "docs/source/_static/capability_gallery/simulation_comparison/example12_mf6_vs_nwt_different_meshes_demonstrative_difference_metrics.csv": "92140edd3e799b48e76c98269894ec8ff3816d85b39ac03cbb666ef5da462bec"
   },

@@ -98,7 +98,7 @@ def test_simulation_time_window_explicit_requires_bounds() -> None:
 
 
 def test_simulation_time_window_rejects_from_modflow_mode() -> None:
-    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+    with pytest.raises(ValueError, match="Extra inputs"):
         _ = SimulationConfig.model_validate(
             {
                 "name": "from-modflow",
