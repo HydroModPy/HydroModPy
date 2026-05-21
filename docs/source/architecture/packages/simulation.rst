@@ -95,10 +95,8 @@ Layer-matrix neighbours
 
 - Allowed targets: ``core``, ``schema``, ``physics``, ``spatial``,
   ``data``, ``simulation``.
-- Documented tolerance: ``simulation`` -> ``solver`` for the
-  registry lookup at planning time.
 - Allowed sources: ``solver``, ``calibration``, ``config``,
-  ``workflow``, ``cli``.
+  ``workflow``, ``project`` and ``cli``.
 
 See also
 --------

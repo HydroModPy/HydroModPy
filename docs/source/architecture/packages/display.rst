@@ -99,8 +99,8 @@ Layer-matrix neighbours
 -----------------------
 
 - Allowed targets: ``core``, ``schema``, ``results``, ``display``.
-- Allowed sources: ``analysis`` (tolerance for comparison exports),
-  ``workflow``, ``cli``, top-level facade.
+- Allowed sources: ``analysis``, ``reporting``, ``workflow``,
+  ``project`` and ``cli``.
 - ``display`` must not import ``data``, ``simulation``, ``solver``,
   ``calibration``. Reach data through ``Run`` (``run.field``,
   ``run.timeseries``, ``run.budget``).

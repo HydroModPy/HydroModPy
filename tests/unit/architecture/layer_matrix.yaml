@@ -1,4 +1,4 @@
-# Layer matrix contract - see docs/developers/architecture.md.
+# Layer matrix contract. Source of truth for the architecture docs.
 #
 # Each row lists the set of packages a source layer is allowed to import.
 # A package always implicitly allows imports targeting itself.
@@ -42,7 +42,6 @@ allowed:
 # rationale. Tighten over time.
 tolerances:
   - {src: "<root>",    tgt: project,  reason: "root facade lazy-resolves Project through hydromodpy.project"}
-  - {src: analysis,    tgt: display,  reason: "comparison exports reuse plot mesh loading"}
   - {src: analysis,    tgt: reporting, reason: "comparison experiment_launcher writes the HTML report at the end of the orchestration (candidate to move into workflow/)"}
   - {src: physics,     tgt: spatial,  reason: "FlowConfig embeds spatial FieldSection discriminated union"}
   - {src: core,        tgt: physics,  reason: "core.time.tmesh_* uses FlowRegime/normalize_flow_regime to validate steady vs transient stress periods"}

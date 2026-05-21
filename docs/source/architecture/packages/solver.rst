@@ -7,6 +7,11 @@ It also hosts shared helpers (``modflow_common``, ``modflow_grid``)
 that stay backend-agnostic. Time-grid primitives now live in
 ``hydromodpy.core.time``.
 
+GR4J is not a fourth ``hydromodpy.solver`` backend in V1. It is a
+calibration-side lumped catchment model under
+``hydromodpy.calibration.lumped``; it runs in memory and only promoted
+trials are written through the result catalog.
+
 Sub-modules
 -----------
 
@@ -24,6 +29,9 @@ Sub-modules
   ``extractors/``.
 - ``solver/modflow_nwt/`` -- legacy MODFLOW-NWT wrapper plus
   Modpath / MT3DMS transport adapters.
+- ``calibration/lumped/`` -- GR4J adapter and extractor. This lives
+  outside ``solver/`` because it does not use the staged flow-runner
+  lifecycle or solver binaries.
 - ``solver/modflow_common/`` -- shared MODFLOW-family helpers
   (executables, boundary packages, flux translators, runtime arrays,
   calibration extractors).
@@ -112,10 +120,8 @@ Layer-matrix neighbours
 
 - Allowed targets: ``core``, ``schema``, ``physics``, ``spatial``,
   ``solver``, ``simulation``.
-- Documented tolerance: ``simulation`` -> ``solver`` for the
-  registry lookup. No tolerance flows the other way.
-- Allowed sources: ``calibration``, ``analysis``, ``config``,
-  ``workflow``, ``cli``, top-level facade.
+- Allowed sources: ``config``, ``calibration``, ``workflow``,
+  ``project`` and ``cli``.
 - Each backend folder is independent: ``solver/modflow6/`` cannot
   import ``solver/modflow_nwt/``. Shared helpers live in
   ``solver/modflow_common/`` and ``solver/modflow_grid/``.

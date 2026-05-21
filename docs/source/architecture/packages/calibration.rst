@@ -89,8 +89,6 @@ Key public symbols
 - ``hydromodpy.calibration.adapters.{Grid, RandomSearch,
   ScipyNelderMead, ScipyDE, OptunaAdapter, CmaEsAdapter,
   GpMappingAdapter, DaMhGpAdapter}``
-- ``hydromodpy.calibration.cases.{groundwater_1d,
-  recession_brutsaert}``
 - ``hydromodpy.calibration.metrics.build_metric_extractor``
 - ``hydromodpy.calibration.objective.Objective``
 - ``hydromodpy.calibration.diagnostics.{convergence_rate,
@@ -111,11 +109,9 @@ Layer-matrix neighbours
 -----------------------
 
 - Allowed targets: ``core``, ``schema``, ``physics``, ``data``,
-  ``spatial``, ``solver``, ``simulation``, ``calibration``.
-- Documented tolerances: ``calibration`` -> ``results``
-  (planning-time catalog read), ``calibration`` -> ``<root>``
-  (trial promotion launches the public ``Project`` facade).
-- Allowed sources: ``analysis``, ``config``, ``workflow``, ``cli``.
+  ``spatial``, ``solver``, ``simulation``, ``calibration``,
+  ``results``.
+- Allowed sources: ``config``, ``workflow``, ``project`` and ``cli``.
 
 See also
 --------

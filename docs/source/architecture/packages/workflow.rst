@@ -104,10 +104,11 @@ Recommended reading path
 Layer-matrix neighbours
 -----------------------
 
-- Allowed targets: every layer except ``cli``.
-- Documented tolerance: ``workflow`` -> ``<root>`` because the
-  sweep helper accepts ``Project`` facade instances.
-- Allowed sources: ``cli`` and the top-level facade.
+- Allowed targets: ``core``, ``schema``, ``config``, ``physics``,
+  ``data``, ``spatial``, ``simulation``, ``solver``, ``calibration``,
+  ``results``, ``display``, ``analysis``, ``reporting`` and
+  ``workflow``.
+- Allowed sources: ``project`` and ``cli``.
 
 See also
 --------

@@ -124,12 +124,12 @@ Recommended reading path
 Layer-matrix neighbours
 -----------------------
 
-- Allowed targets: ``core``, ``schema``, ``config``, ``results``.
-- Documented tolerances: ``results`` -> ``spatial`` (spatial
-  indices), ``results`` -> ``analysis`` (Run exposes stream-network
-  diagnostics).
+- Allowed targets: ``core``, ``schema``, ``config``, ``results``,
+  ``spatial``.
+- Documented tolerance: ``results`` -> ``data`` for the read-only
+  cross-DB ATTACH bridge.
 - Allowed sources: ``display``, ``analysis``, ``calibration``,
-  ``workflow``, ``cli``.
+  ``reporting``, ``workflow``, ``catalog``, ``project`` and ``cli``.
 
 See also
 --------
