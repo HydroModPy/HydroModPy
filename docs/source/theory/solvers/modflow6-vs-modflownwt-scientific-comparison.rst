@@ -69,7 +69,7 @@ Why Both Backends Still Exist
 The short answer is:
 
 - ``modflow6`` is the modern and more general path,
-- ``modflownwt`` remains useful as a legacy structured benchmark and for
+- ``modflow_nwt`` remains useful as a legacy structured benchmark and for
   historical workflows that still depend on the MODFLOW-2005 ecosystem.
 
 HydroModPy therefore keeps both for different reasons:
@@ -141,7 +141,7 @@ Discretization Contract: DIS Versus DISV
 
 For HydroModPy, one of the most important differences is geometric.
 
-``modflownwt`` is currently the structured-grid branch. It is the natural path
+``modflow_nwt`` is currently the structured-grid branch. It is the natural path
 when the study deliberately keeps a raster-aligned layered grid and wants
 continuity with legacy MODFLOW-2005 practice.
 
@@ -166,7 +166,7 @@ Internal Flow Law: UPW Versus NPF
 
 The two backends do not expose the same internal flow package.
 
-For ``modflownwt``, the official NWT formulation is tied to the ``UPW``
+For ``modflow_nwt``, the official NWT formulation is tied to the ``UPW``
 package. The USGS NWT documentation states that MODFLOW-NWT must be used with
 UPW and that UPW treats drying and rewetting nonlinearities through a
 continuous head-based function rather than the older discrete wet/dry logic.
@@ -228,7 +228,7 @@ is part of the experiment, especially against the in-house Boussinesq backend.
 Why MODFLOW-NWT Is Still Worth Keeping
 --------------------------------------
 
-``modflownwt`` still matters when the question is specifically about:
+``modflow_nwt`` still matters when the question is specifically about:
 
 - continuity with an established structured-grid workflow,
 - legacy comparability with existing NWT studies,

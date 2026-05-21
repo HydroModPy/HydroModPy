@@ -31,13 +31,13 @@ Read this family as three explicit blocks:
      - Modern MODFLOW 6 GWF route for ``flow/modflow6``: structured and
        runtime DISV-style supports, XT3D choices, and MODFLOW 6 GWT coupling.
    * - MODFLOW-NWT version
-     - :doc:`modflow/modflownwt`
-     - Legacy MODFLOW-NWT route for ``flow/modflownwt``: structured ``sgrid``
+     - :doc:`modflow_nwt <modflow/modflownwt>`
+     - Legacy MODFLOW-NWT route for ``flow/modflow_nwt``: structured ``sgrid``
        support, continuity with historical studies, MODPATH, and MT3DMS.
 
 In HydroModPy, the two active MODFLOW-family flow versions are:
 
-- ``flow/modflownwt``: legacy MODFLOW-NWT route, structured ``sgrid`` support,
+- ``flow/modflow_nwt``: legacy MODFLOW-NWT route, structured ``sgrid`` support,
   and compatibility with MODPATH and MT3DMS.
 - ``flow/modflow6``: modern MODFLOW 6 route, including structured grids and
   runtime DISV-style unstructured meshes where supported.
@@ -89,7 +89,7 @@ If you do not know where to start:
 1. :doc:`../modflow-governing-equation-and-cvfd-formulation` for the
    shared groundwater balance.
 2. :doc:`modflow/modflow6` if you use the modern MODFLOW 6 path, or
-   :doc:`modflow/modflownwt` if you use the legacy MODFLOW-NWT path.
+   :doc:`modflow_nwt <modflow/modflownwt>` if you use the legacy MODFLOW-NWT path.
 3. :doc:`modflow/comparison-and-method-choice` and
    :doc:`modflow/transport-coupling` once the chosen backend is clear.
 4. :doc:`modflow/worked-cases` to anchor everything in a concrete run.
@@ -134,7 +134,7 @@ Backend Version Summary
      - MODFLOW 6 package stack, structured or DISV-style support, XT3D,
        modern output and GWT compatibility.
      - ``transport/modflow6gwt``.
-   * - ``flow/modflownwt``
+   * - ``flow/modflow_nwt``
      - Flow equation, recharge, wells, storage, imposed heads, drainage,
        stress periods, package semantics.
      - Structured-grid continuity, historical MODFLOW-NWT behavior, legacy

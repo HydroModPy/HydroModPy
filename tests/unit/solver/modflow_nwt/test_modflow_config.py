@@ -65,7 +65,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "modflow_nwt"',
+                'backend = { backend = "modflow_nwt" }',
                 "",
                 "[modflownwt.runtime.nwt]",
                 'options = "SIMPLE"',
@@ -101,7 +101,7 @@ def test_hydromodpy_config_loads_modflow_nested_sections(tmp_path: Path):
 
     cfg = HydroModPyConfig.from_toml(toml_path)
 
-    assert cfg.solver.solver_engine == "modflow_nwt"
+    assert cfg.solver.backend_name == "modflow_nwt"
     assert cfg.modflownwt.process_specific.vka == 2.5
     assert cfg.modflownwt.process_specific.exdp == 3.0
     assert cfg.modflownwt.runtime.nwt.options == "SIMPLE"
@@ -137,7 +137,7 @@ def test_hydromodpy_config_rejects_legacy_flat_sgrid_payload(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "modflow_nwt"',
+                'backend = { backend = "modflow_nwt" }',
                 "",
                 "[modflownwt.sgrid]",
                 'genmtd_lay = "decay"',
@@ -170,7 +170,7 @@ def test_hydromodpy_config_rejects_legacy_planar_mode_aliases(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "modflow_nwt"',
+                'backend = { backend = "modflow_nwt" }',
                 "",
                 "[modflownwt.sgrid.planar]",
                 'mode = "shape"',
@@ -207,7 +207,7 @@ def test_hydromodpy_config_loads_modflow_exdp_with_unit_string(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "modflow_nwt"',
+                'backend = { backend = "modflow_nwt" }',
                 "",
                 "[modflownwt.process_specific]",
                 "vka = 2.5",
@@ -294,7 +294,7 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
                 'dem_init_path = "dem.tif"',
                 "",
                 "[solver]",
-                'solver_engine = "modflow6"',
+                'backend = { backend = "modflow6" }',
                 "",
                 "[modflow6.runtime]",
                 'mf6_executable_name = "mf6_custom"',
@@ -311,7 +311,7 @@ def test_hydromodpy_config_loads_independent_modflow6_runtime(tmp_path: Path):
     )
 
     cfg = HydroModPyConfig.from_toml(toml_path)
-    assert cfg.solver.solver_engine == "modflow6"
+    assert cfg.solver.backend_name == "modflow6"
     assert cfg.modflow6.runtime.mf6_executable_name == "mf6_custom"
     assert cfg.modflow6.runtime.mf6_ims_complexity == "SIMPLE"
     assert cfg.modflow6.runtime.mf6_enable_rewet is True

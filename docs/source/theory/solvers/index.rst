@@ -82,7 +82,7 @@ MODFLOW family
       :link: flow/modflow/modflownwt
       :link-type: doc
 
-      MODFLOW-NWT-specific notes for ``flow/modflownwt``: legacy
+      MODFLOW-NWT-specific notes for ``flow/modflow_nwt``: legacy
       structured ``sgrid`` continuity, MODPATH and MT3DMS
       compatibility.
 
@@ -92,7 +92,7 @@ MODFLOW family
       :link-type: doc
 
       Checklist to follow before attributing a difference between
-      ``flow/modflow6`` and ``flow/modflownwt`` to the numerical
+      ``flow/modflow6`` and ``flow/modflow_nwt`` to the numerical
       backend.
 
 Mesh and discretization

@@ -1729,6 +1729,8 @@ Fields
 
                :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/comparison/experiment_config.py#L84>`__
 
+                  Snake-case identifier starting with a lowercase letter.
+
 
             .. container:: hmp-field hmp-field-level-user
                :name: analysis-comparison-simulation-label

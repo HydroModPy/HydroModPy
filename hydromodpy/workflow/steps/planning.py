@@ -157,10 +157,10 @@ def _default_flow_solver(ctx: WorkflowContext) -> str:
     for proc in ctx.cfg.simulation.process or ():
         if proc.type == "flow" and proc.solvers:
             return proc.solvers[0]
-    engine = getattr(getattr(ctx.cfg, "solver", None), "solver_engine", None)
+    engine = getattr(getattr(ctx.cfg, "solver", None), "backend_name", None)
     if engine:
         return str(engine)
-    raise ConfigError("No flow solver declared in simulation.process or solver.solver_engine")
+    raise ConfigError("No flow solver declared in simulation.process or solver.backend")
 
 
 # ---------------------------------------------------------------------------

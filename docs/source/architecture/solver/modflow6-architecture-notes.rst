@@ -23,7 +23,7 @@ Code path
 
 The shortest code-reading path for one ``flow/modflow6`` run is:
 
-1. ``hydromodpy/project.py``
+1. ``hydromodpy/project/facade.py``
 2. ``hydromodpy/simulation/planning/planner.py``
 3. ``hydromodpy/simulation/execution/runner.py``
 4. ``hydromodpy/solver/modflow6/adapters/flow.py``

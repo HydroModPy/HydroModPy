@@ -43,7 +43,7 @@
   <text x="536" y="336" class="label">MODFLOW-NWT route</text>
   <text x="536" y="368" class="small">legacy structured baseline</text>
   <text x="536" y="396" class="small">NWT, UPW, MODPATH, MT3DMS</text>
-  <text x="536" y="424" class="mono">flow/modflownwt</text>
+  <text x="536" y="424" class="mono">flow/modflow_nwt</text>
 
   <path class="arrow" d="M808,168 C868,168 888,238 948,238"/>
   <path class="arrow" d="M808,380 C868,380 888,282 948,282"/>

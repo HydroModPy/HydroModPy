@@ -10,9 +10,9 @@ flow backend as it is used from the project and simulation layers.
 Architecture role
 -----------------
 
-``modflownwt`` is the legacy MODFLOW-family flow backend in HydroModPy:
+``modflow_nwt`` is the legacy MODFLOW-family flow backend in HydroModPy:
 
-- it is planned as one ``("flow", "modflownwt")`` run by the simulation layer,
+- it is planned as one ``("flow", "modflow_nwt")`` run by the simulation layer,
 - it is dispatched through ``solver.modflow_nwt.adapters.flow``,
 - it reuses the shared MODFLOW-family execution lifecycle in
   ``solver.modflow_common.flow_adapter_helpers``,
@@ -22,9 +22,9 @@ Architecture role
 Code path
 ---------
 
-The shortest code-reading path for one ``flow/modflownwt`` run is:
+The shortest code-reading path for one ``flow/modflow_nwt`` run is:
 
-1. ``hydromodpy/project.py``
+1. ``hydromodpy/project/facade.py``
 2. ``hydromodpy/simulation/planning/planner.py``
 3. ``hydromodpy/simulation/execution/runner.py``
 4. ``hydromodpy/solver/modflow_nwt/adapters/flow.py``

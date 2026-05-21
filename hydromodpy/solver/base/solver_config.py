@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, field_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -79,36 +79,12 @@ SolverBackendConfig: TypeAlias = Annotated[
 ]
 
 
-_BACKEND_ALIASES: dict[str, str] = {
-    "modflownwt": "modflow_nwt",
-    "mf6": "modflow6",
-    "nwt": "modflow_nwt",
-}
-
-
-def _engine_payload(engine_token: str) -> dict[str, Any]:
-    """Normalize a free-form engine string into a discriminated backend dict."""
-    cleaned = engine_token.strip().lower()
-    if cleaned == "":
-        raise ValueError("solver.solver_engine cannot be empty.")
-    canonical = _BACKEND_ALIASES.get(cleaned, cleaned)
-    if canonical in BUILTIN_BACKENDS:
-        return {"backend": canonical}
-    return {"backend": "custom", "name": canonical}
-
-
 class SolverConfig(HydroModelBase):
     """Configuration block defining the active groundwater solver engine.
 
-    The block accepts two equivalent payloads:
-
-    * Legacy flat form: ``solver_engine = "modflow6"``.
-    * Discriminated form: ``backend = { backend = "modflow6" }`` (built-in)
-      or ``backend = { backend = "custom", name = "pluginsolver" }``.
-
-    Both are normalized to a ``SolverBackendConfig`` discriminated union.
-    ``solver_engine`` is exposed as a read-only property mirroring the
-    selected backend tag (or plugin name for ``custom``).
+    The V1 TOML form is ``backend = { backend = "modflow6" }`` for a
+    built-in backend, or ``backend = { backend = "custom", name = "x" }``
+    for a plugin-registered backend.
     """
 
     backend: Annotated[SolverBackendConfig, Profile.USER] = Field(
@@ -116,28 +92,9 @@ class SolverConfig(HydroModelBase):
         description="Active flow backend selector (discriminated union).",
     )
 
-    @model_validator(mode="before")
-    @classmethod
-    def _coerce_legacy_payload(cls, value: object) -> object:
-        if not isinstance(value, dict):
-            return value
-        payload = dict(value)
-        if "solver_engine" in payload and "backend" not in payload:
-            raw = payload.pop("solver_engine")
-            payload["backend"] = _engine_payload(str(getattr(raw, "value", raw)))
-        elif "solver_engine" in payload and "backend" in payload:
-            raise ValueError(
-                "solver.solver_engine and solver.backend are mutually exclusive; "
-                "use the discriminated 'backend' block."
-            )
-        if isinstance(payload.get("backend"), str):
-            raw = payload["backend"]
-            payload["backend"] = _engine_payload(str(getattr(raw, "value", raw)))
-        return payload
-
     @property
-    def solver_engine(self) -> str:
-        """Canonical engine name compatible with the solver registry."""
+    def backend_name(self) -> str:
+        """Canonical backend name compatible with the solver registry."""
         if isinstance(self.backend, CustomBackend):
             return self.backend.name
         return self.backend.backend
@@ -147,7 +104,7 @@ class SolverConfig(HydroModelBase):
         from hydromodpy.solver.base import registry
 
         registry.load_plugins()
-        engine = self.solver_engine
+        engine = self.backend_name
         if not registry.is_supported("flow", engine):
             known = ", ".join(name for _, name in registry.pairs_for_process("flow"))
             raise ValueError(f"Unknown flow solver '{engine}'. Registered flow solvers: {known}.")

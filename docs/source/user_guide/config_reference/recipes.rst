@@ -27,7 +27,7 @@ data, no figures by default. Great as a smoke test.
    [[simulation.process]]
    id = "flow"
    type = "flow"
-   solvers = ["modflownwt"]
+   solvers = ["modflow_nwt"]
 
    [workspace]
    project_root = "."

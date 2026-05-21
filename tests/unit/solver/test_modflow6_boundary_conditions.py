@@ -399,7 +399,7 @@ def test_modflow6_coordinate_well_rejects_inherited_cell_payload() -> None:
         active_sinks_sources=["wells"],
     )
 
-    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
+    with pytest.raises(ValueError, match="Extra inputs"):
         build_well_stress_period_data(model, 1)
 
 

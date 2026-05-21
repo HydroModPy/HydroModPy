@@ -134,7 +134,7 @@ A pure analytical-style run with the in-house solver.
    ny = 5
 
    [solver]
-   solver_engine = "boussinesq"
+   backend = { backend = "boussinesq" }
 
    [flow]
    flow_regime = "steady"
@@ -191,11 +191,11 @@ gathers metrics under one parent run.
 
    [[comparison.simulation]]
    name = "modflow6_run"
-   override = "[solver]\nsolver_engine = \"modflow6\""
+   override = "[solver]\nbackend = { backend = \"modflow6\" }"
 
    [[comparison.simulation]]
    name = "boussinesq_run"
-   override = "[solver]\nsolver_engine = \"boussinesq\""
+   override = "[solver]\nbackend = { backend = \"boussinesq\" }"
 
 .. code-block:: bash
 

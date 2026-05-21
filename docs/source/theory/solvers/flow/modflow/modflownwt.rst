@@ -1,7 +1,7 @@
 MODFLOW-NWT Flow
 ================
 
-This page groups scientific reading for ``flow/modflownwt``.
+This page groups scientific reading for ``flow/modflow_nwt``.
 
 Use this path when the study needs continuity with legacy structured-grid
 MODFLOW-NWT workflows or downstream ``transport/modpath`` and
@@ -10,7 +10,7 @@ MODFLOW-NWT workflows or downstream ``transport/modpath`` and
 What Is Repeated From The Common MODFLOW Part
 ---------------------------------------------
 
-``flow/modflownwt`` still uses the common MODFLOW-family contract:
+``flow/modflow_nwt`` still uses the common MODFLOW-family contract:
 
 - hydraulic head is the primary groundwater-flow state;
 - recharge, wells, storage, imposed heads, and drainage are normalized by the
@@ -33,7 +33,7 @@ MODFLOW-NWT Specifics
    * - Topic
      - MODFLOW-NWT interpretation
    * - Process pair
-     - ``flow/modflownwt``.
+     - ``flow/modflow_nwt``.
    * - Backend family
      - MODFLOW-NWT.
    * - Grid support
@@ -59,7 +59,7 @@ Focused Reading
 Typical Use Cases
 -----------------
 
-Use ``flow/modflownwt`` when:
+Use ``flow/modflow_nwt`` when:
 
 - the study is structured-grid only;
 - the target is continuity with an older MODFLOW-NWT workflow;
@@ -154,10 +154,10 @@ Minimal Plan Shape
    [[simulation.process]]
    id = "flow_main"
    type = "flow"
-   solvers = ["modflownwt"]
+   solvers = ["modflow_nwt"]
 
    [solver]
-   solver_engine = "modflownwt"
+   backend = { backend = "modflow_nwt" }
 
 Minimal Process Interpretation
 ------------------------------
@@ -165,7 +165,7 @@ Minimal Process Interpretation
 The short TOML shape above means:
 
 - one ``flow`` process is requested;
-- the selected solver name is ``modflownwt``;
+- the selected solver name is ``modflow_nwt``;
 - HydroModPy resolves common ``Flow`` inputs to the MODFLOW-NWT route;
 - the final scientific interpretation depends on structured support, package
   choices, stress periods, and downstream legacy transport needs.

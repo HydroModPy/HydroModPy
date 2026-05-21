@@ -9,19 +9,13 @@ TOML section: ``[solver]``
 
 Pydantic model: ``SolverConfig`` defined in ``hydromodpy.solver.base.solver_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L100>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L82>`__
 
 Configuration block defining the active groundwater solver engine.
 
-The block accepts two equivalent payloads:
-
-* Legacy flat form: ``solver_engine = "modflow6"``.
-* Discriminated form: ``backend = { backend = "modflow6" }`` (built-in)
-  or ``backend = { backend = "custom", name = "pluginsolver" }``.
-
-Both are normalized to a ``SolverBackendConfig`` discriminated union.
-``solver_engine`` is exposed as a read-only property mirroring the
-selected backend tag (or plugin name for ``custom``).
+The V1 TOML form is ``backend = { backend = "modflow6" }`` for a
+built-in backend, or ``backend = { backend = "custom", name = "x" }``
+for a plugin-registered backend.
 
 .. raw:: html
 
@@ -48,7 +42,7 @@ Fields
         <code class="hmp-field-toml">[solver.backend]</code>
       </div>
 
-   :bdg-primary:`backend = "modflow6" | "modflow_nwt" | "boussinesq" | "custom"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L114>`__
+   :bdg-primary:`backend = "modflow6" | "modflow_nwt" | "boussinesq" | "custom"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L90>`__
 
       Active flow backend selector (discriminated union).
 
@@ -58,37 +52,37 @@ Fields
 
       .. tab-item:: modflow6
 
-         TOML: ``[solver.backend.modflow6]`` -- model ``Modflow6Backend`` (set ``backend = "modflow6"``).
+         TOML: ``[solver.backend]`` with ``backend = "modflow6"`` -- model ``Modflow6Backend`` (set ``backend = "modflow6"``).
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
 
       .. tab-item:: modflow_nwt
 
-         TOML: ``[solver.backend.modflow_nwt]`` -- model ``ModflowNwtBackend`` (set ``backend = "modflow_nwt"``).
+         TOML: ``[solver.backend]`` with ``backend = "modflow_nwt"`` -- model ``ModflowNwtBackend`` (set ``backend = "modflow_nwt"``).
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
 
       .. tab-item:: boussinesq
 
-         TOML: ``[solver.backend.boussinesq]`` -- model ``BoussinesqBackend`` (set ``backend = "boussinesq"``).
+         TOML: ``[solver.backend]`` with ``backend = "boussinesq"`` -- model ``BoussinesqBackend`` (set ``backend = "boussinesq"``).
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
 
       .. tab-item:: custom
 
-         TOML: ``[solver.backend.custom]`` -- model ``CustomBackend`` (set ``backend = "custom"``).
+         TOML: ``[solver.backend]`` with ``backend = "custom"`` -- model ``CustomBackend`` (set ``backend = "custom"``).
 
          .. rst-class:: hmp-config-fields hmp-config-fields-nested
 
             .. container:: hmp-field hmp-field-level-user
-               :name: solver-backend-custom-name
+               :name: solver-backend-name
 
                .. raw:: html
 
-                  <div class="hmp-field-header" data-toml-path="solver.backend.custom.name">
+                  <div class="hmp-field-header" data-toml-path="solver.backend.name">
                     <code class="hmp-field-name">name</code>
                   </div>
 

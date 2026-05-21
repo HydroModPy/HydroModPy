@@ -69,7 +69,7 @@
 <!-- hydromodpy.solver.base.solver_config.SolverConfig -->
 <g id="node5" class="node">
 <title>hydromodpy.solver.base.solver_config.SolverConfig</title>
-<g id="a_node5"><a xlink:title="hydromodpy.solver.base.solver_config.SolverConfig&#10;&#10;Configuration block defining the active groundwater solver engine.&#10;&#10;The block accepts two equivalent payloads:&#10;&#10;* Legacy flat form: ``solver_engine = &quot;modflow6&quot;``.&#10;* Discriminated form: ``backend = { backend = &quot;modflow6&quot; }`` (built&#45;in)&#10; &#160;or ``backend = { backend = &quot;custom&quot;, name = &quot;pluginsolver&quot; }``.&#10;&#10;Both are normalized to a ``SolverBackendConfig`` discriminated union.&#10;``solver_engine`` is exposed as a read&#45;only property mirroring the&#10;selected backend tag (or plugin name for ``custom``).&#10;">
+<g id="a_node5"><a xlink:title="hydromodpy.solver.base.solver_config.SolverConfig&#10;&#10;Configuration block defining the active groundwater solver engine.&#10;&#10;The V1 TOML form is ``backend = { backend = &quot;modflow6&quot; }`` for a&#10;built&#45;in backend, or ``backend = { backend = &quot;custom&quot;, name = &quot;x&quot; }``&#10;for a plugin&#45;registered backend.&#10;">
 <polygon fill="none" stroke="black" points="0,-195 0,-217.5 513.75,-217.5 513.75,-195 0,-195"/>
 <text xml:space="preserve" text-anchor="start" x="219" y="-202.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-weight="bold" font-size="14.00">SolverConfig</text>
 <polygon fill="none" stroke="black" points="0,-172.5 0,-195 51,-195 51,-172.5 0,-172.5"/>

@@ -30,7 +30,7 @@ packages, and the calibration budget.
      - Best fit
      - Mesh support
      - Notes
-   * - ``modflownwt``
+   * - ``modflow_nwt``
      - Legacy MODFLOW-family flow
      - Structured ``sgrid`` only
      - Continuity with historical studies; gateway to the ``MODPATH`` and
@@ -53,7 +53,7 @@ live under ``[modflow6]`` or ``[modflownwt]``. Process binding remains in
 .. code-block:: toml
 
    [solver]
-   solver_engine = "modflow6"
+   backend = { backend = "modflow6" }
 
    [modflow6.runtime]
    xt3d = true
@@ -81,7 +81,7 @@ Four process families exist today.
    * - ``flow``
      - Groundwater-flow simulation. Produces heads, storage changes,
        boundary exchanges, and flow-budget outputs.
-     - ``modflownwt``, ``modflow6``, ``boussinesq``
+     - ``modflow_nwt``, ``modflow6``, ``boussinesq``
      - Active numerical process.
    * - ``transport``
      - Particle tracking or concentration transport driven by a previous
@@ -128,11 +128,11 @@ dispersion, or decay.
      - Notes
    * - ``modpath``
      - Particle tracking.
-     - Earlier ``flow/modflownwt`` run.
+     - Earlier ``flow/modflow_nwt`` run.
      - Uses the MODFLOW-NWT flow model as its velocity source.
    * - ``mt3dms``
      - Concentration transport.
-     - Earlier ``flow/modflownwt`` run.
+     - Earlier ``flow/modflow_nwt`` run.
      - Uses MT3DMS-style species, dispersivity, diffusion, and decay
        parameters.
    * - ``modflow6gwt``
@@ -158,7 +158,7 @@ resolution can bind the transport adapter to the correct flow model.
          [[simulation.process]]
          id = "flow_main"
          type = "flow"
-         solvers = ["modflownwt"]
+         solvers = ["modflow_nwt"]
 
          [[simulation.process]]
          id = "transport_main"

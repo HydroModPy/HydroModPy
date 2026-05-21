@@ -193,9 +193,10 @@ Sub-models are linked back to their per-section page.
       # bc = ...  # uses factory default
       # Typed sinks/sources payload (for example pumping wells).
       # sinks_sources = ...  # uses factory default
-      # Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells'. An empty list means no sink/source package is assembled by the solver.
+      # Explicitly activated sink/source names for this flow run. Allowed values: 'recharge', 'wells', 'etp'. Boussinesq currently rejects 'etp' at solver-contract validation. An empty list means no sink/source package is assembled by the solver.
       # example: active_sinks_sources = ["recharge"]
       # example: active_sinks_sources = ["recharge", "wells"]
+      # example: active_sinks_sources = ["etp"]
       # active_sinks_sources = ...  # uses factory default
       # Explicitly activated boundary-condition ids for this flow run. Allowed values are the canonical ids declared in the flow boundary-condition registry: 'ocean', 'stream', 'north_side', 'south_side', 'east_side', 'west_side', 'drainage'. An empty list means no boundary-condition package is assembled by the solver.
       # example: active_bc = ["ocean"]

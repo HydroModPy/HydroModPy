@@ -615,7 +615,12 @@ def _render_field_block(
                 disc_name, disc_tags = discriminator
                 tag = disc_tags[inner_model]
                 hidden_field = disc_name
-                nested_path = _toml_path(full_path, tag, dynamic_key)
+                inline_discriminator = full_path.split(".")[-1] == disc_name
+                nested_path = (
+                    _toml_path(full_path, dynamic_key)
+                    if inline_discriminator
+                    else _toml_path(full_path, tag, dynamic_key)
+                )
                 child_namespace = anchor_namespace
             else:
                 tag = None
@@ -634,8 +639,13 @@ def _render_field_block(
                 lines.append(f"{item_indent}.. tab-item:: {tag}")
                 lines.append("")
                 tab_body = item_indent + "   "
+                toml_hint = (
+                    f'``[{nested_path}]`` with ``{disc_name} = "{tag}"``'
+                    if full_path.split(".")[-1] == disc_name
+                    else f"``[{nested_path}]``"
+                )
                 lines.append(
-                    f"{tab_body}TOML: ``[{nested_path}]`` -- model "
+                    f"{tab_body}TOML: {toml_hint} -- model "
                     f'``{inner_model.__name__}`` (set ``{disc_name} = "{tag}"``).'
                 )
                 lines.append("")
@@ -1118,7 +1128,11 @@ def _walk_field_paths(
                     continue
                 if discriminator is not None:
                     disc_name, disc_tags = discriminator
-                    nested_path = _toml_path(full_path, disc_tags[inner], dynamic_key)
+                    nested_path = (
+                        _toml_path(full_path, dynamic_key)
+                        if full_path.split(".")[-1] == disc_name
+                        else _toml_path(full_path, disc_tags[inner], dynamic_key)
+                    )
                 else:
                     nested_path = _toml_path(full_path, dynamic_key)
                 out.extend(

@@ -489,7 +489,7 @@ What Should Be Reported In A Methods Section
 If one HydroModPy study relies on a MODFLOW backend, its methods section should
 normally state:
 
-- backend family: ``modflow6`` or ``modflownwt``,
+- backend family: ``modflow6`` or ``modflow_nwt``,
 - geometry contract: structured ``DIS`` or unified ``DISV`` path,
 - whether XT3D is active,
 - whether rewetting is active,
