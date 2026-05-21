@@ -1,6 +1,7 @@
 from __future__ import annotations
 import json
 import time
+from dataclasses import asdict
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
@@ -55,7 +56,7 @@ class RuntimeAutoCapture:
                 solver_source=solver_source,
                 logs=logs,
             )
-            self._write_snapshot("runtime_capture_success.json", snapshot.__dict__)
+            self._write_snapshot("runtime_capture_success.json", asdict(snapshot))
             return result, snapshot
         except BaseException as exc:
             snapshot = self.collector.capture_exception(
@@ -64,5 +65,5 @@ class RuntimeAutoCapture:
                 solver_source=solver_source,
                 logs=logs,
             )
-            self._write_snapshot("runtime_capture_failure.json", snapshot.__dict__)
+            self._write_snapshot("runtime_capture_failure.json", asdict(snapshot))
             raise

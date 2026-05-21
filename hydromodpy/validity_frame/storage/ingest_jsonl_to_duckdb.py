@@ -5,8 +5,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 
-import duckdb
-
 
 TABLE_NAME = "execution_knowledge_records"
 
@@ -150,6 +148,8 @@ def _normalize_record(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def ensure_table(connection: duckdb.DuckDBPyConnection) -> None:
+    import duckdb
+
     connection.execute(
         f"""
         CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
@@ -211,6 +211,8 @@ def ingest_jsonl_file(
     table_name: str = TABLE_NAME,
     on_conflict: str = "replace",
 ) -> IngestionResult:
+    import duckdb
+
     jsonl_path = Path(jsonl_path).expanduser().resolve()
     duckdb_path = Path(duckdb_path).expanduser().resolve()
 
