@@ -146,7 +146,7 @@ class PolygonCatchDef(_CatchDefBase):
 
 CatchDef: TypeAlias = Annotated[
     DemCatchDef | TxtCatchDef | OutletCatchDef | PolygonCatchDef,
-    Field(discriminator="catch_def"),
+    Field(discriminator="catch_def", description="Catchment definition discriminator."),
 ]
 """Discriminated union of catchment definition variants."""
 

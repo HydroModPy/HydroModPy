@@ -151,7 +151,7 @@ class FlowICSteadyState(_FlowICBase):
 
 FlowInitialCondition: TypeAlias = Annotated[
     FlowICTop | FlowICTopOffset | FlowICBottom | FlowICCustom | FlowICSteadyState,
-    Field(discriminator="type"),
+    Field(discriminator="type", description="Flow initial-condition type discriminator."),
 ]
 """Discriminated union of flow initial-condition variants."""
 

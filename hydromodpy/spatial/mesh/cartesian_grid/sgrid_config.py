@@ -264,7 +264,7 @@ class BottomConstantAltitude(HydroModelBase):
 
 BottomConfig: TypeAlias = Annotated[
     BottomFromFilepath | BottomFromRaster | BottomConstantThickness | BottomConstantAltitude,
-    Field(discriminator="kind"),
+    Field(discriminator="kind", description="Bottom-surface kind discriminator."),
 ]
 """Discriminated union of bottom-surface generation methods."""
 
@@ -318,7 +318,7 @@ class LayeringList(HydroModelBase):
 
 LayeringConfig: TypeAlias = Annotated[
     LayeringConstant | LayeringDecay | LayeringList,
-    Field(discriminator="kind"),
+    Field(discriminator="kind", description="Layering kind discriminator."),
 ]
 """Discriminated union of vertical-layering methods."""
 
