@@ -649,8 +649,9 @@ def _lifecycle_checks(workspace_arg: str | None) -> list[dict]:
                 SELECT COUNT(*)
                   FROM simulations s
                   JOIN statuses st ON s.status_id = st.id
+             LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = s.sim_id
                  WHERE st.code = 'running'
-                   AND (s.last_heartbeat IS NULL OR s.last_heartbeat < ?)
+                   AND (wh.last_heartbeat IS NULL OR wh.last_heartbeat < ?)
                 """,
                 [cutoff],
             ).fetchone()

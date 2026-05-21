@@ -1,7 +1,7 @@
 Storage Layout
 ==============
 
-HydroModPy v2 organises storage around three SQL databases plus columnar
+HydroModPy V1 organises storage around three SQL databases plus columnar
 file stores. The model is **workspace > project > run**, with each level
 holding its own catalog:
 
@@ -233,10 +233,12 @@ simulation (catchment outline, drainage network).
 Backend abstraction
 -------------------
 
-All SQL access goes through the
-:class:`~hydromodpy.results.catalog.ports.CatalogBackend` Protocol. The
-in-tree adapter is ``DuckDBBackend``. Alternative adapters can plug in
-by implementing the protocol.
+Project-catalog SQL access goes through the
+:class:`~hydromodpy.results.catalog.ports.CatalogBackend` Protocol in
+normal runtime paths. The in-tree V1 adapter is ``DuckDBBackend``.
+HydroModPy V1 does not promise a fully portable non-DuckDB backend:
+cache stores, diagnostics, migration runners and portable-package
+snapshots are DuckDB-specific by contract.
 Field readers go through ``hmp.read`` which dispatches to Zarr or
 Parquet stores via the field registry. See
 :doc:`/architecture/packages/results` for the Python surface.
@@ -244,16 +246,18 @@ Parquet stores via the field registry. See
 Concurrency and retry
 ---------------------
 
-DuckDB writes use ``connect_with_retry`` and the ``@with_lock_retry``
-decorator on every write path. Zarr writes acquire a ``filelock`` on
-the store root, write to a sibling tmp directory, and promote with
+DuckDB project-catalog writes use ``connect_with_retry`` and the
+``@with_lock_retry`` decorator on write paths. Data-cache writes use the
+data-cache DuckDB adapter. Zarr writes acquire a ``filelock`` on the
+store root, write to a sibling tmp directory, and promote with
 ``os.replace``. Short-lived cross-process lock contention resolves
 transparently instead of surfacing as an error.
 
 Lockfile and reproducibility
 ----------------------------
 
-Every run writes ``hydromodpy.lock`` next to the project catalog. The
+``hydromodpy.lock`` is written best-effort next to the project catalog
+when the run can inspect the input cache and collect fingerprints. The
 lockfile pins:
 
 - the resolved Pydantic configuration tree;
@@ -264,17 +268,38 @@ lockfile pins:
 - input-data fingerprints from ``provenance``.
 
 A frozen replay (``hmp run --frozen``) refuses any source whose
-fingerprint has changed since the lockfile was written.
+fingerprint has changed since the lockfile was written. When no input
+cache is available, a normal run may complete without a lockfile; that
+is a reproducibility warning, not a failed run.
+
+Direct DuckDB exceptions
+------------------------
+
+The normal application path uses catalog/cache adapters. Direct
+``duckdb.connect`` is accepted only for:
+
+- migration runners that bootstrap schema files;
+- concrete backend constructors and adapters;
+- read-only diagnostics and doctor output;
+- portable ``.hmp`` package snapshots;
+- tests and performance benchmarks;
+- developer-only CLI inspection commands;
+- experimental ``validity_frame`` ingestion.
+
+New direct DuckDB calls in user-facing CLI commands or ``hydromodpy._api``
+should be considered a contract regression unless this list is updated
+with a rationale.
 
 Portable ``.hmp`` packages
 --------------------------
 
-``hmp export <sim_id> -o run.hmp`` bundles:
+``hmp export-package <sim_id> -o run.hmp`` bundles:
 
 - the resolved TOML and the lockfile;
 - the matched DuckDB rows for that ``sim_id`` plus referenced rows;
 - the per-simulation Zarr store and Parquet directory;
-- a JSON manifest with the schema version.
+- a JSON manifest with the schema version and SHA-256 checksums;
+- a RO-Crate sidecar when enough metadata is available.
 
 ``hmp add run.hmp`` re-materialises the bundle in the target project,
 refusing packages whose schema version exceeds the current library.
@@ -284,6 +309,7 @@ See also
 
 - :doc:`overview/two-databases` for the cache vs catalog split.
 - :doc:`overview/schema-evolution` for the migration policy.
+- :doc:`artifact-policy` for non-canonical artifacts and sidecars.
 - :doc:`/architecture/packages/results` for the Python API on top of
   this storage (``SimulationCatalog``, ``Run``, ``SimulationGroup``,
   ``hmp.read`` facade).

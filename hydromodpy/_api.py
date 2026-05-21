@@ -717,9 +717,8 @@ def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]
     FileNotFoundError
         If the workspace does not host a ``catalog.duckdb``.
     """
-    import duckdb
-
     from hydromodpy.core.state.paths import CATALOG_FILENAME, find_catalog_root
+    from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.catalog.audit import apply_retention
 
     workspace_root = find_catalog_root(
@@ -728,11 +727,8 @@ def audit_prune(workspace: Any = None, *, apply: bool = False) -> dict[str, int]
     catalog_path = workspace_root / CATALOG_FILENAME
     if not catalog_path.is_file():
         raise FileNotFoundError(f"No catalog at {workspace_root}")
-    conn = duckdb.connect(str(catalog_path))
-    try:
-        return apply_retention(conn, dry_run=not apply)
-    finally:
-        conn.close()
+    with SimulationCatalog(workspace_root) as catalog:
+        return apply_retention(catalog.connection, dry_run=not apply)
 
 
 def doctor() -> dict:
@@ -759,12 +755,30 @@ def doctor() -> dict:
         "solvers": {},
         "optional": {},
     }
-    for pkg in ("flopy", "gmsh", "duckdb", "zarr", "pyproj", "rasterio"):
+    for pkg in (
+        "numpy",
+        "pandas",
+        "scipy",
+        "duckdb",
+        "zarr",
+        "pyproj",
+        "rasterio",
+        "shapely",
+        "xarray",
+        "flopy",
+        "pydantic",
+        "pint",
+        "matplotlib",
+        "gmsh",
+        "whitebox_workflows",
+        "geopandas",
+        "pyvista",
+    ):
         try:
             mod = importlib.import_module(pkg)
             info["optional"][pkg] = getattr(mod, "__version__", "?")
         except Exception:
             info["optional"][pkg] = None
-    for exe in ("mf2005", "mfnwt", "mf6"):
+    for exe in ("mf2005", "mfnwt", "mf6", "mp6", "mp7", "mt3dusgs"):
         info["solvers"][exe] = shutil.which(exe)
     return info

@@ -229,20 +229,17 @@ def gc(workspace: Any = None, *, dry_run: bool = False) -> dict:
 
 def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
     """Emit one ``gc`` audit row per project catalog reflecting the sweep summary."""
-    import duckdb
-
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     for project_root in _gc_iter_project_roots(workspace):
-        catalog_path = project_root / CATALOG_FILENAME
         try:
-            conn = duckdb.connect(str(catalog_path))
-        except duckdb.Error:
+            catalog = SimulationCatalog(project_root)
+        except Exception:
             continue
         try:
             emit_audit_event(
-                conn,
+                catalog.connection,
                 event_type="gc",
                 actor_kind="cli",
                 project=project_root.name,
@@ -251,7 +248,7 @@ def _emit_gc_audit_events(workspace: Path, summary: dict[str, int]) -> None:
         except Exception:
             pass
         finally:
-            conn.close()
+            catalog.close()
 
 
 def vacuum(
@@ -421,8 +418,9 @@ def _gc_stale_running_simulations(project_root: Path) -> list[str]:
             SELECT s.sim_id
               FROM simulations s
               JOIN statuses st ON s.status_id = st.id
+         LEFT JOIN v_workflow_heartbeats wh ON wh.run_id = s.sim_id
              WHERE st.code = 'running'
-               AND (s.last_heartbeat IS NULL OR s.last_heartbeat < ?)
+               AND (wh.last_heartbeat IS NULL OR wh.last_heartbeat < ?)
             """,
             [cutoff],
         ).fetchall()
@@ -528,33 +526,29 @@ def _gc_project_root_by_name(workspace: Path, project_name: str) -> Path | None:
 
 
 def _gc_delete_calibration_session(workspace: Path, project_name: str, session_id: str) -> bool:
-    import duckdb
-
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
 
     project_root = _gc_project_root_by_name(workspace, project_name)
     if project_root is None:
         return False
-    conn = duckdb.connect(str(project_root / CATALOG_FILENAME))
-    try:
-        conn.execute("DELETE FROM calibration_iterations WHERE session_id = ?", [session_id])
-        conn.execute("DELETE FROM calibration_sessions WHERE session_id = ?", [session_id])
-    finally:
-        conn.close()
+    with SimulationCatalog(project_root) as catalog:
+        catalog.connection.execute(
+            "DELETE FROM calibration_iterations WHERE session_id = ?", [session_id]
+        )
+        catalog.connection.execute(
+            "DELETE FROM calibration_sessions WHERE session_id = ?", [session_id]
+        )
     return True
 
 
 def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) -> bool:
-    import duckdb
-
-    from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
 
     project_root = _gc_project_root_by_name(workspace, project_name)
     if project_root is None:
         return False
-    conn = duckdb.connect(str(project_root / CATALOG_FILENAME))
-    try:
-        conn.execute(
+    with SimulationCatalog(project_root) as catalog:
+        catalog.connection.execute(
             """
             UPDATE simulations
                SET status_id = (SELECT id FROM statuses WHERE code = 'failed'),
@@ -564,8 +558,6 @@ def _gc_mark_simulation_failed(workspace: Path, project_name: str, sim_id: str) 
             """,
             [sim_id],
         )
-    finally:
-        conn.close()
     return True
 
 
@@ -590,17 +582,17 @@ def _vacuum_iter_catalog_files(workspace: Path) -> list[Path]:
 def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
     import duckdb
 
+    from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     count = 0
     for catalog_path in _vacuum_iter_catalog_files(workspace):
         try:
-            conn = duckdb.connect(str(catalog_path))
-            try:
-                conn.execute("CHECKPOINT")
+            with SimulationCatalog(catalog_path.parent) as catalog:
+                catalog.connection.execute("CHECKPOINT")
                 try:
                     emit_audit_event(
-                        conn,
+                        catalog.connection,
                         event_type="vacuum",
                         actor_kind="cli",
                         project=catalog_path.parent.name,
@@ -608,8 +600,6 @@ def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
                     )
                 except Exception:
                     pass
-            finally:
-                conn.close()
             count += 1
         except duckdb.Error:
             continue
@@ -619,18 +609,19 @@ def _vacuum_checkpoint_catalogs(workspace: Path) -> int:
 def _vacuum_checkpoint_data_cache(workspace: Path) -> int:
     import duckdb
 
+    from hydromodpy.data.registry._backend import DuckDBCacheBackend
+
     cache_path = workspace / "data" / "cache.duckdb"
     if not cache_path.is_file():
         return 0
+    backend = DuckDBCacheBackend(cache_path)
     try:
-        conn = duckdb.connect(str(cache_path))
-        try:
-            conn.execute("CHECKPOINT")
-        finally:
-            conn.close()
+        backend.connection.execute("CHECKPOINT")
         return 1
     except duckdb.Error:
         return 0
+    finally:
+        backend.close()
 
 
 def _vacuum_consolidate_zarr_stores(workspace: Path) -> int:

@@ -350,10 +350,9 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
     Best-effort: looks for a catalog next to the config and, failing that,
     walks up to find a workspace. Any exception is swallowed.
     """
-    import duckdb
-
     from hydromodpy.cli.helpers import find_catalog_root
     from hydromodpy.core.state.paths import CATALOG_FILENAME
+    from hydromodpy.results.catalog import SimulationCatalog
     from hydromodpy.results.catalog.audit import emit_audit_event
 
     try:
@@ -364,20 +363,15 @@ def _emit_config_replay_audit(config_path: Path, *, resume: str) -> None:
     if not catalog_path.is_file():
         return
     try:
-        conn = duckdb.connect(str(catalog_path))
-    except duckdb.Error:
-        return
-    try:
-        emit_audit_event(
-            conn,
-            event_type="config.replay",
-            actor_kind="cli",
-            payload={"resume": resume, "config": str(config_path)},
-        )
+        with SimulationCatalog(workspace) as catalog:
+            emit_audit_event(
+                catalog.connection,
+                event_type="config.replay",
+                actor_kind="cli",
+                payload={"resume": resume, "config": str(config_path)},
+            )
     except Exception:
         pass
-    finally:
-        conn.close()
 
 
 def _post_run_lockfile_write(config_path: Path, raw_toml: dict[str, Any]) -> None:
