@@ -1,7 +1,7 @@
-# Nightly checks that run every day at 05:00 UTC on dev and master.
-# These tiers are too slow for every push but must stay green on a daily basis.
+# Nightly Linux checks for dev and master.
+# These tiers are too slow for every push but must stay green daily.
 
-name: CI Nightly
+name: Nightly / Linux Suites
 
 on:
   schedule:
@@ -18,16 +18,21 @@ permissions:
 env:
   MPLBACKEND: Agg
   PYTHON_VERSION: "3.12"
+  COVERAGE_OMIT: hydromodpy/**/cases/*,hydromodpy/**/examples/*,hydromodpy/validity_frame/*,hydromodpy/validity_frame/**/*,hydromodpy/physics/hydrology/pyhelp/*,hydromodpy/physics/hydrology/pyhelp/**/*
 
 jobs:
   regression-extensive:
-    name: Extensive regression
+    name: Nightly / extensive regression on ${{ matrix.target_branch }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        target_branch: [dev, master]
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ matrix.target_branch }}
 
       - uses: actions/setup-python@v5
         with:
@@ -73,13 +78,17 @@ jobs:
           fail_ci_if_error: false
 
   validation:
-    name: Validation tests
+    name: Nightly / validation no PETSc on ${{ matrix.target_branch }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        target_branch: [dev, master]
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ matrix.target_branch }}
 
       - uses: actions/setup-python@v5
         with:
@@ -108,7 +117,7 @@ jobs:
         run: |
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
+            --omit="$COVERAGE_OMIT" \
             -m pytest tests/validation/ -m "not petsc" -n auto --dist loadgroup -q
 
       - name: Report coverage
@@ -116,10 +125,10 @@ jobs:
         run: |
           coverage report --rcfile=/dev/null --show-missing \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+            --omit="$COVERAGE_OMIT"
           coverage xml --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+            --omit="$COVERAGE_OMIT"
 
       - name: Upload coverage to Codecov
         if: always()
@@ -131,13 +140,17 @@ jobs:
           fail_ci_if_error: false
 
   integration:
-    name: Integration tests
+    name: Nightly / integration coverage on ${{ matrix.target_branch }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        target_branch: [dev, master]
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ matrix.target_branch }}
 
       - uses: actions/setup-python@v5
         with:
@@ -165,7 +178,7 @@ jobs:
         run: |
           coverage run --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*" \
+            --omit="$COVERAGE_OMIT" \
             -m pytest tests/integration/ -n auto --dist loadgroup -q
 
       - name: Report coverage
@@ -173,10 +186,10 @@ jobs:
         run: |
           coverage report --rcfile=/dev/null --show-missing \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+            --omit="$COVERAGE_OMIT"
           coverage xml --rcfile=/dev/null \
             --include="hydromodpy/*" \
-            --omit="hydromodpy/**/cases/*,hydromodpy/**/examples/*"
+            --omit="$COVERAGE_OMIT"
 
       - name: Upload coverage to Codecov
         if: always()

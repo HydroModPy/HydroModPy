@@ -84,6 +84,14 @@ Foundations
       Recommended package-by-package reading paths through the
       source tree.
 
+   .. grid-item-card:: GitHub Actions
+      :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: ci-workflows
+      :link-type: doc
+
+      Pull-request gate, specialized checks, scheduled suites, and
+      how to triage each failing GitHub check.
+
 Per-package reference
 ---------------------
 
@@ -178,6 +186,7 @@ Subsystem deep dives
    package-layout
    layered-architecture
    storage-layout
+   ci-workflows
    artifact-policy
    release-contract-v1
    pipeline_resume

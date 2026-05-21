@@ -1,7 +1,7 @@
 # Checks that the committed documentation gallery artifacts match what
 # tools/doc_gallery would regenerate. Runs only when gallery inputs change.
 
-name: Docs Gallery Check
+name: Docs / Gallery Sync
 
 on:
   pull_request:
@@ -43,7 +43,7 @@ env:
 
 jobs:
   docs-gallery-check:
-    name: Gallery artifacts stay in sync
+    name: Docs / gallery artifacts in sync
     runs-on: ubuntu-latest
     timeout-minutes: 30
 

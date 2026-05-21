@@ -3,7 +3,7 @@
 # lives separately from the pip-based CI. It runs on paths that touch the
 # Boussinesq solver and once a week on Monday morning.
 
-name: PETSc Smoke
+name: Solver / PETSc Smoke
 
 on:
   pull_request:
@@ -49,7 +49,7 @@ env:
 
 jobs:
   petsc-smoke:
-    name: PETSc smoke (Linux)
+    name: Solver / PETSc smoke Linux
     runs-on: ubuntu-latest
     timeout-minutes: 60
 

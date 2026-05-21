@@ -259,11 +259,19 @@ Run the tests
 
 The fastest local check is ``hmp test unit``. Before merging
 workflow-facing changes, also run ``hmp test regression --fast``.
+On GitHub, the main CI gate runs quality checks, architecture
+contracts, fast tests on Python 3.11 to 3.13, unit tests, integration
+tests, fast regression tests, a wheel smoke test, and an advisory mypy
+baseline. Specialized workflows cover docs, gallery artifacts, Docker,
+PETSc, performance, workflow linting, and dependency audit only when
+their inputs change.
 
 For the full ladder (unit, integration, e2e, regression, validation,
 MMS, solver-sanity, calibration twins) with the role of each family
 and how to read a failure, use
 :doc:`architecture/overview/test-families-and-quality-roles`.
+For the GitHub Actions map and check-name conventions, use
+:doc:`architecture/ci-workflows`.
 
 A typical Linux/WSL non-interactive test session is:
 

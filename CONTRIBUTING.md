@@ -54,7 +54,11 @@ ruff format .
 ## Run tests
 
 Five tiers under `tests/`: `unit/`, `integration/`, `regression/`, `e2e/`,
-`validation/`. The CI runs the full suite. Locally, the fast loop is:
+`validation/`. The main CI gate runs quality checks, architecture
+contracts, fast tests on Python 3.11 to 3.13, unit tests, integration tests,
+fast regression, packaging smoke, and an advisory mypy baseline. Heavier
+validation, e2e, full regression, and cross-platform checks run on scheduled
+workflows. Locally, the fast loop is:
 
 ```bash
 python -m pytest -m fast -q -n auto      # fast unit tests, parallel
@@ -68,6 +72,8 @@ unit test, plus a validation case if the math is non-trivial.
 
 For the full ladder (when each family runs, what each protects against),
 see the [test families guide](https://hydromodpy-docs.readthedocs.io/en/dev/architecture/overview/test-families-and-quality-roles.html).
+For GitHub check names and CI triage, see the
+[GitHub Actions workflow guide](https://hydromodpy-docs.readthedocs.io/en/dev/architecture/ci-workflows.html).
 
 ## Code style
 
