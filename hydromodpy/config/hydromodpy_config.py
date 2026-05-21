@@ -104,30 +104,9 @@ def _derive_run_id_from_filename(toml_path: Path) -> str:
     return re.sub(r"^run_", "", stem)
 
 
-_KNOWN_TOP_LEVEL_KEYS = frozenset(
-    {
-        "workflow",
-        "workspace",
-        "geographic",
-        "domain",
-        "data",
-        "flow",
-        "transport",
-        "simulation",
-        "solver",
-        "modflownwt",
-        "modflow6",
-        "display",
-        "persistence",
-        "analysis",
-        "overview",
-        "mesh_catchment",
-        "mesh_input",
-        "testbed",
-        "regional_lab",
-        "calibration",
-    }
-)
+# Legacy aliases accepted at the top level for migration grace; the
+# real source of truth is :attr:`HydroModPyConfig.model_fields`.
+_LEGACY_TOP_LEVEL_ALIASES = frozenset({"regional_lab"})
 
 
 class HydroModPyConfig(HydroModelBase):
@@ -469,7 +448,8 @@ class HydroModPyConfig(HydroModelBase):
                 "Section [batch] is no longer supported. Use workflow='testbed' "
                 "with [testbed].profile = 'regional_lab' and [regional_lab] instead."
             )
-        unknown = sorted(set(raw) - _KNOWN_TOP_LEVEL_KEYS)
+        known = set(cls.model_fields) | _LEGACY_TOP_LEVEL_ALIASES
+        unknown = sorted(set(raw) - known)
         if unknown:
             raise ValueError(f"Unknown top-level TOML section(s): {', '.join(unknown)}")
 

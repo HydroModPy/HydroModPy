@@ -58,17 +58,18 @@ CLI reading path
 
 .. code-block:: bash
 
-   hmp list
-   hmp list --project my_basin
-   hmp show <sim_id>
-   hmp inspect <sim_id>
+   hmp catalog ls
+   hmp catalog ls --project my_basin
+   hmp catalog show <sim_id>
+   hmp catalog show <sim_id> --detail
    hmp best my_basin --metric nse
    hmp worst my_basin --metric nse
-   hmp compare <sim_a> <sim_b>
-   hmp display <sim_id>
+   hmp report compare <sim_a> <sim_b>
+   hmp viz show <sim_id> <figure>
 
-``sim_id`` accepts a unique prefix. Use ``hmp inspect`` when you need file and
-store details, and ``hmp show`` when you need metadata, metrics, or parameters.
+``sim_id`` accepts a unique prefix. Use ``hmp catalog show --detail`` when you
+need file and store details (mesh, Zarr layout), and the plain
+``hmp catalog show`` when you need metadata, metrics, or parameters.
 
 Python reading path
 -------------------

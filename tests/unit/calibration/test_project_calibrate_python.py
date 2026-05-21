@@ -27,9 +27,11 @@ from unittest.mock import patch
 import pytest
 
 from hydromodpy.calibration import CalibrationReport
-from hydromodpy.calibration import runner as runner_module
+from hydromodpy.calibration import cli_runner as cli_runner_module
+from hydromodpy.calibration import programmatic_runner as programmatic_runner_module
+from hydromodpy.calibration import promotion as promotion_module
 from hydromodpy.calibration.config import CalibrationConfig
-from hydromodpy.calibration.runner import run_calibration_programmatic
+from hydromodpy.calibration.programmatic_runner import run_calibration_programmatic
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -165,8 +167,8 @@ def fake_pipeline(monkeypatch, tmp_path):
         )
         return sim_id
 
-    monkeypatch.setattr(runner_module, "prepare_trials", _fake_prepare)
-    monkeypatch.setattr(runner_module, "promote_prepared_trial", _fake_promote)
+    monkeypatch.setattr(programmatic_runner_module, "prepare_trials", _fake_prepare)
+    monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fake_promote)
     return promoted
 
 
@@ -327,7 +329,7 @@ class TestRunCalibrationProgrammatic:
             del args, kwargs
             raise RuntimeError("promotion unavailable")
 
-        monkeypatch.setattr(runner_module, "promote_prepared_trial", _fail_promote)
+        monkeypatch.setattr(promotion_module, "promote_prepared_trial", _fail_promote)
         cfg = _baseline_cfg().model_copy(update={"save_runs": "all"})
 
         report = run_calibration_programmatic(
@@ -380,7 +382,7 @@ path = "flow.param.K.field.value"
 
         from hydromodpy.project import Project
 
-        with patch.object(runner_module, "run_calibration_cli") as mocked:
+        with patch.object(cli_runner_module, "run_calibration_cli") as mocked:
             mocked.return_value = {"session_id": "abc", "method": "grid"}
             Project.calibrate(proj, config_path=toml_calib)
             assert mocked.call_count == 1
@@ -406,7 +408,7 @@ class TestProjectCalibratePythonModeDispatch:
             promoted=0,
         )
         with patch(
-            "hydromodpy.calibration.runner.run_calibration_programmatic",
+            "hydromodpy.calibration.programmatic_runner.run_calibration_programmatic",
             return_value=sentinel,
         ) as mocked:
             result = Project.calibrate(
@@ -452,7 +454,7 @@ class TestProjectCalibratePythonModeDispatch:
             promoted=0,
         )
         with patch(
-            "hydromodpy.calibration.runner.run_calibration_programmatic",
+            "hydromodpy.calibration.programmatic_runner.run_calibration_programmatic",
             return_value=sentinel,
         ) as mocked:
             result = Project.calibrate(

@@ -23,6 +23,7 @@ from upath import UPath
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.data.registry import cache_lifecycle, cache_queries, cache_store
+from hydromodpy.data.registry._backend import CacheBackend, DuckDBCacheBackend
 from hydromodpy.data.registry.cache_queries import CatalogEntry as _CatalogEntry
 from hydromodpy.data.registry.constants import SENTINEL_CUSTOM, SENTINEL_EMPTY
 from hydromodpy.data.registry.migrations import ensure_schema as _ensure_cache_schema
@@ -50,13 +51,22 @@ class DataCatalogDuckDB:
             self._conn = duckdb.connect(str(db_path))
 
         _ensure_cache_schema(self._conn)
+        self._backend: CacheBackend = DuckDBCacheBackend.from_connection(
+            self._conn, path=self._db_path
+        )
 
     @property
     def connection(self):
         """Underlying DuckDB connection (advanced usage)."""
         return self._conn
 
+    @property
+    def backend(self) -> CacheBackend:
+        """SQL-level backend port driving cache reads and writes."""
+        return self._backend
+
     def close(self) -> None:
+        self._backend.close()
         self._conn.close()
 
     def __enter__(self) -> DataCatalogDuckDB:

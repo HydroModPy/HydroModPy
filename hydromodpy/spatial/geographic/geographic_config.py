@@ -9,26 +9,8 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.config_kit.visible_when import VisibleWhen
 from hydromodpy.core.tracking import InputFile
-from hydromodpy.core.units import parse_length_to_m
+from hydromodpy.core.units import UREG, LengthMeters
 from hydromodpy.spatial.geographic.synthetic.config import SyntheticGeographicConfig
-
-
-def _normalize_snap_dist(value):
-    if value is None:
-        return None
-    snap_m = float(parse_length_to_m(value, default_unit="m", label="geographic.snap_dist"))
-    if snap_m <= 0.0:
-        raise ValueError("geographic.snap_dist must be > 0.")
-    return snap_m
-
-
-def _normalize_cell_size(value):
-    if value is None:
-        return None
-    cell_size_m = float(parse_length_to_m(value, default_unit="m", label="geographic.cell_size"))
-    if cell_size_m <= 0.0:
-        raise ValueError("geographic.cell_size must be > 0.")
-    return cell_size_m
 
 
 def _normalize_buff_area(value):
@@ -43,7 +25,11 @@ def _normalize_buff_area(value):
             if pct <= 0.0:
                 raise ValueError("geographic.buff_area percent must be > 0.")
             return pct
-        dist_m = float(parse_length_to_m(token, default_unit="m", label="geographic.buff_area"))
+        quantity = UREG(token)
+        if not hasattr(quantity, "magnitude"):
+            dist_m = float(quantity)
+        else:
+            dist_m = float(quantity.to("m").magnitude)
         if dist_m <= 0.0:
             raise ValueError("geographic.buff_area distance must be > 0.")
         return f"{dist_m}"
@@ -87,15 +73,13 @@ class TxtCatchDef(_CatchDefBase):
         default="txt",
         description="Catchment defined from an XYZ text grid (cell_size required).",
     )
-    cell_size: Annotated[float, Profile.USER] = Field(
+    cell_size: Annotated[LengthMeters, Profile.USER] = Field(
         gt=0,
-        description="Grid cell size in metres used to rasterise the XYZ point cloud.",
+        description=(
+            "Grid cell size in metres used to rasterise the XYZ point cloud. "
+            "Accepts inline units (e.g. '25 m', '0.025 km')."
+        ),
     )
-
-    @field_validator("cell_size", mode="before")
-    @classmethod
-    def _normalize_cell_size_field(cls, value):
-        return _normalize_cell_size(value)
 
 
 class OutletCatchDef(_CatchDefBase):
@@ -111,10 +95,11 @@ class OutletCatchDef(_CatchDefBase):
     y_outlet: Annotated[float, Profile.USER] = Field(
         description="Y coordinate of the watershed outlet in the projected CRS.",
     )
-    snap_dist: Annotated[float | str, Profile.USER] = Field(
+    snap_dist: Annotated[LengthMeters, Profile.USER] = Field(
+        gt=0.0,
         description=(
-            "Maximum snapping distance to move the outlet to the nearest stream cell. "
-            "Accepts SI-friendly values (for example 50, '50 m', '0.05 km')."
+            "Maximum snapping distance (metres) to move the outlet to the nearest stream cell. "
+            "Accepts inline units (e.g. 50, '50 m', '0.05 km')."
         ),
     )
     buff_area: Annotated[str | float, Profile.USER] = Field(
@@ -124,11 +109,6 @@ class OutletCatchDef(_CatchDefBase):
             "distances (for example '500 m', '2 km')."
         ),
     )
-
-    @field_validator("snap_dist", mode="before")
-    @classmethod
-    def _normalize_snap_dist_field(cls, value):
-        return _normalize_snap_dist(value)
 
     @field_validator("buff_area", mode="before")
     @classmethod
@@ -231,11 +211,12 @@ class RiverNetworkConfig(HydroModelBase):
         default=False,
         description="If true, remove short stream segments after extraction.",
     )
-    min_stream_length_m: Annotated[float | str, Profile.USER] = Field(
+    min_stream_length_m: Annotated[LengthMeters, Profile.USER] = Field(
         default=0.0,
+        ge=0.0,
         description=(
-            "Minimum stream length used by short-segment pruning. "
-            "Accepts SI-friendly values (for example 0, 250, '250 m', '0.5 km')."
+            "Minimum stream length (metres) used by short-segment pruning. "
+            "Accepts inline units (e.g. 0, 250, '250 m', '0.5 km')."
         ),
     )
     compute_strahler_order: Annotated[bool, Profile.USER] = Field(
@@ -252,20 +233,6 @@ class RiverNetworkConfig(HydroModelBase):
             "Forwarded to Whitebox raster_streams_to_vector. False keeps a lighter vector geometry."
         ),
     )
-
-    @field_validator("min_stream_length_m", mode="before")
-    @classmethod
-    def _normalize_min_stream_length(cls, value):
-        length_m = float(
-            parse_length_to_m(
-                value,
-                default_unit="m",
-                label="geographic.river_network.min_stream_length_m",
-            )
-        )
-        if length_m < 0.0:
-            raise ValueError("geographic.river_network.min_stream_length_m must be >= 0.")
-        return length_m
 
     @model_validator(mode="after")
     def _validate_threshold_payload(self) -> RiverNetworkConfig:

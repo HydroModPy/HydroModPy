@@ -87,8 +87,9 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     """Drive ``hmp init`` + ``hmp data fetch`` + catalog access end-to-end."""
     workspace = tmp_path / "fresh_workspace"
 
-    # ----- Step 1: hmp init --------------------------------------------------
+    # ----- Step 1: hmp workspace init ----------------------------------------
     result = _run_hmp(
+        "workspace",
         "init",
         str(workspace),
         "--project-name",
@@ -99,7 +100,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
         "test@example.com",
     )
     assert result.returncode == 0, (
-        f"`hmp init` failed (rc={result.returncode}).\n"
+        f"`hmp workspace init` failed (rc={result.returncode}).\n"
         f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
     assert workspace.is_dir()
@@ -123,20 +124,20 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     for variable in ("dem", "piezometry", "hydrometry"):
         assert (workspace / f"{variable}_custom").is_dir(), f"{variable}_custom missing"
 
-    # ----- Step 4: hmp data fetch creates raw/ + sidecar without network ----
+    # ----- Step 4: hmp data get creates raw/ + sidecar without network ------
     fetch = _run_hmp(
         "data",
-        "fetch",
+        "get",
         "dem",
         "--bbox=-1.17,48.4,-1.0,48.5",
         "--workspace",
         str(workspace),
     )
     assert fetch.returncode == 0, (
-        f"`hmp data fetch dem` failed.\nstdout:\n{fetch.stdout}\nstderr:\n{fetch.stderr}"
+        f"`hmp data get dem` failed.\nstdout:\n{fetch.stdout}\nstderr:\n{fetch.stderr}"
     )
     raw_dir = workspace / "data" / "dem" / "raw"
-    assert raw_dir.is_dir(), "hmp data fetch must create data/<var>/raw"
+    assert raw_dir.is_dir(), "hmp data get must create data/<var>/raw"
     raw_files = list(raw_dir.glob("dem_*.tif"))
     assert raw_files, "no fetched DEM placeholder under data/dem/raw"
     sidecar = raw_files[0].with_suffix(raw_files[0].suffix + ".json")

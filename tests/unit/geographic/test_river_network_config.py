@@ -80,7 +80,7 @@ def test_river_network_config_rejects_non_positive_threshold():
 def test_river_network_config_rejects_negative_min_stream_length():
     with pytest.raises(
         ValueError,
-        match=r"min_stream_length_m must be >= 0",
+        match=r"min_stream_length_m",
     ):
         GeographicConfig.model_validate(
             {

@@ -112,11 +112,11 @@
 <polygon fill="none" stroke="black" points="749.25,-754 749.25,-776.5 834,-776.5 834,-754 749.25,-754"/>
 <text xml:space="preserve" text-anchor="start" x="766.12" y="-760.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">snap_dist</text>
 <polygon fill="none" stroke="black" points="834,-754 834,-776.5 991.5,-776.5 991.5,-754 834,-754"/>
-<text xml:space="preserve" text-anchor="start" x="888.38" y="-760.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | str</text>
+<text xml:space="preserve" text-anchor="start" x="900.38" y="-760.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float</text>
 <polygon fill="none" stroke="black" points="749.25,-731.5 749.25,-754 834,-754 834,-731.5 749.25,-731.5"/>
 <text xml:space="preserve" text-anchor="start" x="765.75" y="-737.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">buff_area</text>
 <polygon fill="none" stroke="black" points="834,-731.5 834,-754 991.5,-754 991.5,-731.5 834,-731.5"/>
-<text xml:space="preserve" text-anchor="start" x="888.38" y="-737.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | str</text>
+<text xml:space="preserve" text-anchor="start" x="888.38" y="-737.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | float</text>
 </a>
 </g>
 </g>
@@ -152,7 +152,7 @@
 <polygon fill="none" stroke="black" points="751.5,-583 751.5,-605.5 843.75,-605.5 843.75,-583 751.5,-583"/>
 <text xml:space="preserve" text-anchor="start" x="771.75" y="-589.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">buff_area</text>
 <polygon fill="none" stroke="black" points="843.75,-583 843.75,-605.5 989.25,-605.5 989.25,-583 843.75,-583"/>
-<text xml:space="preserve" text-anchor="start" x="892.12" y="-589.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | str</text>
+<text xml:space="preserve" text-anchor="start" x="892.12" y="-589.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">str | float</text>
 </a>
 </g>
 </g>
@@ -196,7 +196,7 @@
 <polygon fill="none" stroke="black" points="729.38,-137.25 729.38,-159.75 865.12,-159.75 865.12,-137.25 729.38,-137.25"/>
 <text xml:space="preserve" text-anchor="start" x="735.38" y="-143.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">min_stream_length_m</text>
 <polygon fill="none" stroke="black" points="865.12,-137.25 865.12,-159.75 1011.38,-159.75 1011.38,-137.25 865.12,-137.25"/>
-<text xml:space="preserve" text-anchor="start" x="913.88" y="-143.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | str</text>
+<text xml:space="preserve" text-anchor="start" x="925.88" y="-143.45" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float</text>
 <polygon fill="none" stroke="black" points="729.38,-114.75 729.38,-137.25 865.12,-137.25 865.12,-114.75 729.38,-114.75"/>
 <text xml:space="preserve" text-anchor="start" x="732.38" y="-120.95" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">compute_strahler_order</text>
 <polygon fill="none" stroke="black" points="865.12,-114.75 865.12,-137.25 1011.38,-137.25 1011.38,-114.75 865.12,-114.75"/>
@@ -368,7 +368,7 @@
 <polygon fill="none" stroke="black" points="1189.88,-86 1189.88,-108.5 1277.62,-108.5 1277.62,-86 1189.88,-86"/>
 <text xml:space="preserve" text-anchor="start" x="1197.75" y="-92.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">island_radius</text>
 <polygon fill="none" stroke="black" points="1277.62,-86 1277.62,-108.5 1402.88,-108.5 1402.88,-86 1277.62,-86"/>
-<text xml:space="preserve" text-anchor="start" x="1308" y="-92.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="1299.75" y="-92.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[float]</text>
 <polygon fill="none" stroke="black" points="1189.88,-63.5 1189.88,-86 1277.62,-86 1277.62,-63.5 1189.88,-63.5"/>
 <text xml:space="preserve" text-anchor="start" x="1192.88" y="-69.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">crest_elevation</text>
 <polygon fill="none" stroke="black" points="1277.62,-63.5 1277.62,-86 1402.88,-86 1402.88,-63.5 1277.62,-63.5"/>
@@ -376,11 +376,11 @@
 <polygon fill="none" stroke="black" points="1189.88,-41 1189.88,-63.5 1277.62,-63.5 1277.62,-41 1189.88,-41"/>
 <text xml:space="preserve" text-anchor="start" x="1210.5" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">center_x</text>
 <polygon fill="none" stroke="black" points="1277.62,-41 1277.62,-63.5 1402.88,-63.5 1402.88,-41 1277.62,-41"/>
-<text xml:space="preserve" text-anchor="start" x="1308" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="1299.75" y="-47.2" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[float]</text>
 <polygon fill="none" stroke="black" points="1189.88,-18.5 1189.88,-41 1277.62,-41 1277.62,-18.5 1189.88,-18.5"/>
 <text xml:space="preserve" text-anchor="start" x="1210.5" y="-24.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">center_y</text>
 <polygon fill="none" stroke="black" points="1277.62,-18.5 1277.62,-41 1402.88,-41 1402.88,-18.5 1277.62,-18.5"/>
-<text xml:space="preserve" text-anchor="start" x="1308" y="-24.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">float | None</text>
+<text xml:space="preserve" text-anchor="start" x="1299.75" y="-24.7" font-family="Times New Roman,Times,Liberation Serif,serif" font-size="14.00">Optional[float]</text>
 </a>
 </g>
 </g>

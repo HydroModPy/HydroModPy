@@ -68,7 +68,7 @@ Declare the flow process first, then the PRT process:
    [[simulation.process]]
    id = "prt_main"
    type = "transport"
-   solvers = ["modflow6prt"]
+   solvers = ["modflow6_prt"]
 
    [simulation.results]
    keep_solver_files = true

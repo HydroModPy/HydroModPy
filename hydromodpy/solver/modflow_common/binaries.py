@@ -49,7 +49,7 @@ MANIFEST_FILENAME = ".manifest.json"
 DEFAULT_RELEASE = "23.0"
 
 
-def _managed_bin_dir() -> Path:
+def managed_bin_dir() -> Path:
     """Return the managed flat ``<cache>/bin/`` directory, creating it on demand."""
     target = cache_dir() / "bin"
     target.mkdir(parents=True, exist_ok=True)
@@ -90,7 +90,7 @@ def exe_filename(solver: str) -> str:
 def is_managed_cache(bin_path: str | os.PathLike[str]) -> bool:
     """Return True when ``bin_path`` resolves to the HydroModPy cache."""
     try:
-        return Path(bin_path).expanduser().resolve() == _managed_bin_dir().resolve()
+        return Path(bin_path).expanduser().resolve() == managed_bin_dir().resolve()
     except OSError:
         return False
 
@@ -112,7 +112,7 @@ def _manifest_path(bindir: Path) -> Path:
 
 def read_manifest(bindir: str | os.PathLike[str] | None = None) -> dict | None:
     """Return the cache manifest dict, or ``None`` if missing/unreadable."""
-    target = Path(bindir).expanduser() if bindir else _managed_bin_dir()
+    target = Path(bindir).expanduser() if bindir else managed_bin_dir()
     path = _manifest_path(target)
     if not path.is_file():
         return None
@@ -154,7 +154,7 @@ def download_solver_binaries(
     the download archive is re-fetched even if previously cached by
     flopy. ``release`` pins the MODFLOW-ORG/executables tag.
     """
-    target = Path(bindir).expanduser() if bindir else _managed_bin_dir()
+    target = Path(bindir).expanduser() if bindir else managed_bin_dir()
     target.mkdir(parents=True, exist_ok=True)
 
     names = list(subset) if subset is not None else list(available_solvers())
@@ -198,7 +198,7 @@ def ensure_solver_binary(solver: str, bin_path: str | os.PathLike[str] | None = 
       instantiate solvers without running them (e.g. unit tests for
       config validation).
     """
-    target = Path(bin_path).expanduser() if bin_path else _managed_bin_dir()
+    target = Path(bin_path).expanduser() if bin_path else managed_bin_dir()
 
     located = locate_solver_binary(target, solver)
     if located is not None:

@@ -1,4 +1,4 @@
-"""Tests for ``hmp export-package``."""
+"""Tests for ``hmp data export-package``."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def _register_minimal_simulation(workspace: Path, project: str = "demo") -> str:
 
 
 def test_export_package_help_displays(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "export-package", "--help"])
+    code = _run(monkeypatch, ["hmp", "data", "export-package", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     assert "usage" in out.lower()
@@ -75,6 +75,7 @@ def test_export_package_missing_workspace_errors(monkeypatch, tmp_path, capsys) 
         monkeypatch,
         [
             "hmp",
+            "data",
             "export-package",
             "deadbeef-0000-0000-0000-000000000000",
             "-o",
@@ -97,6 +98,7 @@ def test_export_package_writes_archive_to_output(monkeypatch, tmp_path) -> None:
         monkeypatch,
         [
             "hmp",
+            "data",
             "export-package",
             sim_id,
             "-o",
@@ -117,6 +119,7 @@ def test_export_package_unknown_sim_returns_not_found(monkeypatch, tmp_path, cap
         monkeypatch,
         [
             "hmp",
+            "data",
             "export-package",
             "00000000-0000-0000-0000-000000000099",
             "-o",

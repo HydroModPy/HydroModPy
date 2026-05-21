@@ -34,7 +34,7 @@ def step_ingest_observations(ctx: WorkflowContext, sim_id: str) -> None:
     Observation ingestion is part of the scientific record. Failures abort
     the run instead of leaving the catalog half populated.
     """
-    from hydromodpy.simulation.extraction.extractors.observation_ingest import (
+    from hydromodpy.simulation.extraction.derivation.observation_ingest import (
         ingest_observations,
     )
 
@@ -104,6 +104,9 @@ class ExtractStep:
     tin: ClassVar[type] = SolverRanState
     tout: ClassVar[type] = ExtractedState
     config_sections: ClassVar[tuple[str, ...]] = ()
+
+    def depends_on(self) -> tuple[str, ...]:
+        return ("run_solver",)
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")

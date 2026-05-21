@@ -179,10 +179,10 @@ def test_walker_on_real_hydromodpy_config_annotations() -> None:
 
 
 def test_walker_on_real_dem_source_annotations() -> None:
-    """DEM source config has InputFile on path."""
-    from hydromodpy.data.variables.dem.config import DemSourceConfig
+    """DEM custom source config has InputFile on path."""
+    from hydromodpy.data.variables.dem.config import CustomDemSource
 
-    field_info = DemSourceConfig.model_fields["path"]
+    field_info = CustomDemSource.model_fields["path"]
     markers = [m for m in field_info.metadata if isinstance(m, InputFile)]
     assert len(markers) == 1
     assert markers[0].role == "dem"

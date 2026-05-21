@@ -670,10 +670,11 @@ class TestSimulationGroup:
 
         sids = [_register(catalog) for _ in range(2)]
 
-        def fake_run_sweep(project, *, parameters, strategy, name_template):
+        def fake_run_sweep(project, *, parameters, strategy, name_template, parallel=1):
             assert parameters == {"K": [1.0, 2.0]}
             assert strategy == "enumerate"
             assert name_template == "{param}_{value:.4g}"
+            assert parallel == 1
             return sids
 
         monkeypatch.setattr("hydromodpy.workflow.parallel.run_sweep", fake_run_sweep)
@@ -700,7 +701,7 @@ class TestSimulationGroup:
                 self.steps = steps
                 self.workspace = workspace
 
-            def run(self, state, *, resume_from=None):
+            def run(self, state, *, resume_from=None, parallel=False):
                 _Pipeline.counter += 1
                 ctx = state.get("ctx")
                 sim_id = str(uuid.uuid4())
@@ -803,7 +804,7 @@ class TestSimulationGroup:
                 self.steps = steps
                 self.workspace = workspace
 
-            def run(self, state, *, resume_from=None):
+            def run(self, state, *, resume_from=None, parallel=False):
                 ctx = state.get("ctx")
                 observed.append(ctx.parent_sim_id)
                 ctx.sim_id = None

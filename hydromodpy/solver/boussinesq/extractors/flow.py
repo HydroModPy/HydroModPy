@@ -319,7 +319,7 @@ class BoussinesqOutputAdapter:
         (:class:`DeriveStep`); this hook only handles fields that the
         registry does not own.
         """
-        from hydromodpy.simulation.extraction.extractors.derived import compute_derived
+        from hydromodpy.simulation.extraction.derivation.derived import compute_derived
 
         cfg = config or {}
         boussinesq_cfg = {

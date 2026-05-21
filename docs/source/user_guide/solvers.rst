@@ -191,7 +191,7 @@ resolution can bind the transport adapter to the correct flow model.
          [[simulation.process]]
          id = "prt_main"
          type = "transport"
-         solvers = ["modflow6prt"]
+         solvers = ["modflow6_prt"]
 
          [transport.modflow6prt.parameters]
          release_zone = "upstream_nonriver"

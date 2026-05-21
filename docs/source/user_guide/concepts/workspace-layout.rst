@@ -76,8 +76,8 @@ Scaffold a workspace and project with the CLI:
 
 .. code-block:: bash
 
-   hmp init ~/hmp_workspace
-   hmp new my_basin --workspace ~/hmp_workspace
+   hmp workspace init ~/hmp_workspace
+   hmp project new my_basin --workspace ~/hmp_workspace
 
 Resolution rules
 ----------------

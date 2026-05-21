@@ -22,108 +22,66 @@ Command inventory
    * - Command
      - Main role
      - Typical use
-   * - ``hmp init``
-     - Workspace setup
-     - Create the catalog, data cache, projects folder, and simulation folder.
-   * - ``hmp new``
-     - Project scaffolding
-     - Create a new project and starter TOML files inside a workspace.
-   * - ``hmp config``
-     - Configuration tooling
-     - Generate templates, validate TOML files, list modules, or open the
-       interactive configuration wizard.
-   * - ``hmp schema``
-     - Frontend integration
-     - Export JSON Schema and companion metadata for UI integrations.
+   * - ``hmp workspace``
+     - Workspace lifecycle and global-index registration
+     - ``init`` scaffolds a workspace, ``list`` enumerates registered
+       workspaces, ``register``/``forget``/``prune`` manage the global
+       index, ``search`` runs a full-text query across registered
+       workspaces, ``clean`` removes generated artefacts.
+   * - ``hmp project``
+     - Project lifecycle
+     - ``new``, ``list``, ``show``, ``delete`` (the last requires
+       ``--force`` outside a TTY).
+   * - ``hmp catalog``
+     - Catalog browsing and maintenance
+     - ``ls``, ``query "<SQL>"``, ``show <sim_id> [--detail]``,
+       ``gc``, ``vacuum``, ``delete``.
    * - ``hmp run``
      - Workflow execution
      - Execute ``simulation``, ``overview``, ``calibration``,
-       ``comparison``, or ``testbed`` TOML workflows, or run a
-       Python prototype script.
+       ``comparison``, or ``testbed`` TOML workflows.
+   * - ``hmp calibrate``
+     - Calibration shortcut
+     - Top-level wrapper around ``hmp.calibrate(<toml>)``.
    * - ``hmp dev``
-     - Developer diagnostics
-     - Inspect internal configuration and workflow surfaces used during
-       development.
-   * - ``hmp display``
-     - Figure rendering
-     - Render registered display figures for one persisted simulation.
+     - Developer diagnostics and tooling
+     - ``config`` generates templates or validates TOML files, ``schema``
+       exports JSON Schema and companion metadata for UI integrations,
+       ``doctor``, ``lock``, ``rank``, ``manage``, ``completion``, and
+       ``run-script`` cover the remaining developer surfaces.
+   * - ``hmp viz``
+     - Figure rendering and UI
+     - ``show <sim_ref> <figure>``, ``gallery <config.toml>``, and
+       ``serve`` (Streamlit configuration UI).
    * - ``hmp report``
      - Calibration reporting
      - Render the HTML report for a calibration session.
-   * - ``hmp list``
-     - Catalog browsing
-     - List projects or runs in a workspace.
-   * - ``hmp export``
-     - Export
-     - Export geographic data or simulation results to external formats.
-   * - ``hmp export-package``
-     - Export
-     - Bundle a simulation as a portable ``.hmp`` archive (tar.zst with
-       RO-Crate manifest).
+   * - ``hmp data``
+     - Workspace data cache and ``.hmp`` package exchange
+     - ``ls``, ``get``, ``check``, ``add``, ``remove``, ``prune``,
+       ``archive``, ``restore``, ``export``, ``export-package``,
+       ``import``.
    * - ``hmp test``
      - Test runner
      - Run unit, regression, validation, PETSc, or benchmark-oriented test
        subsets.
-   * - ``hmp data``
-     - Data-cache management
-     - Inspect, validate, or register custom data artifacts.
-   * - ``hmp lock``
-     - Reproducibility
-     - Update, verify, archive, or restore the data lockfile.
-   * - ``hmp show``
-     - Run summary
-     - Show metadata, metrics, and parameters for a simulation.
-   * - ``hmp compare``
-     - Pairwise comparison
-     - Compare two simulations by id, prefix, or name.
-   * - ``hmp add``
-     - Package import
-     - Import a portable ``.hmp`` archive and dematerialize bundled inputs.
-   * - ``hmp import``
-     - Package import
-     - Import a portable ``.hmp`` package into a workspace.
    * - ``hmp doctor``
      - Environment diagnosis
      - Check Python, dependencies, solver binaries, workspace, data cache, and
-       result-storage consistency.
-   * - ``hmp inspect``
-     - Run inspection
-     - Inspect metadata, mesh, status, files, and persisted artifacts.
-   * - ``hmp manage``
-     - Local catalog UI
-     - Open a local browser UI for DuckDB tables, result diagnostics, and
-       explicit cleanup or legacy-name normalization of selected result
-       artefacts.
+       result-storage consistency. Also exposed as ``hmp dev doctor``.
    * - ``hmp install-binaries``
      - Solver binaries
      - Download MODFLOW, MODPATH, and MT3D-USGS binaries into the managed
        HydroModPy cache. Use ``--mf6-prt`` when you only need the MODFLOW 6
        executable that contains the PRT model.
-   * - ``hmp rank``
-     - Ranking
-     - Rank simulations for a project by one metric.
-   * - ``hmp delete``
-     - Catalog cleanup
-     - Delete a simulation from DuckDB and remove its Zarr store.
-   * - ``hmp workspace``
-     - Workspace utilities
-     - Inspect or initialize workspace paths and storage conventions.
-   * - ``hmp completion``
-     - Shell integration
-     - Emit completion scripts for bash, zsh, or fish.
-   * - ``hmp gc``
-     - Maintenance
-     - Garbage-collect orphan calibration sessions, geographic_cache, tmp
-       parquet, and stale running simulations.
-   * - ``hmp vacuum``
-     - Maintenance
-     - CHECKPOINT DuckDB catalogs and consolidate Zarr metadata.
    * - ``hmp privacy``
      - Data governance
-     - Hard-delete a simulation and emit a JSON purge certificate.
-   * - ``hmp index``
-     - Cross-workspace discovery
-     - Search, forget, or prune entries of the machine-wide global index.
+     - ``purge`` deletes a simulation with a signed certificate.
+       ``verify`` validates an existing certificate.
+   * - ``hmp audit``
+     - Workspace audit log
+     - ``list`` prints recent events. ``verify`` replays the hash chain
+       (placeholder until the chain is wired).
 
 Workflow execution flags
 ------------------------
@@ -153,6 +111,11 @@ flags only apply to ``[workflow].mode = "simulation"``:
        already exist and match its recorded hash.
    * - ``--no-display``
      - Persist results without rendering configured display figures.
+   * - ``--no-parallel``
+     - Force sequential execution of cohort runs. Parallel cohort execution is
+       enabled by default when the workflow declares multiple independent runs.
+       Use this flag for debugging, deterministic step ordering, single-CPU
+       environments, or when parallel I/O contention is observed.
    * - ``--overlay <path.toml>``
      - Merge an extra TOML payload after the ``base_config`` chain. The flag
        can be repeated; later overlays win.
@@ -173,10 +136,11 @@ Some commands expose their own subcommands:
 
 .. code-block:: bash
 
-   hmp config template --help
-   hmp config check --help
+   hmp dev config template --help
+   hmp dev config check --help
+   hmp dev schema export --help
    hmp data list --help
-   hmp lock verify --help
+   hmp dev lock verify --help
    hmp test validation --help
 
 Use :doc:`../getting_started/cli-quickstart` for the first-run path and

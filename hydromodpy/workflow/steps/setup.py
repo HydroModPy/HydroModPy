@@ -479,12 +479,23 @@ def step_spatial_supports(
 
 
 class BuildGeographicStep:
-    """Build geographic runtime, domain, and setup-phase spatial supports."""
+    """Build geographic runtime, domain, and setup-phase spatial supports.
+
+    Composed of three substeps invoked through ``run``:
+    :func:`step_setup` (workspace + geographic + domain + flow + transport),
+    :func:`step_spatial_supports` for the setup phase, and the post-setup
+    validation in :func:`validate_domain_support_contract` indirectly
+    triggered by :func:`run_setup`. The free-standing helpers stay
+    reusable from notebooks and other launchers.
+    """
 
     name = "build_geographic"
     tin: ClassVar[type] = ResolvedState
     tout: ClassVar[type] = GeographicState
     config_sections: ClassVar[tuple[str, ...]] = ("geographic", "data.dem")
+
+    def depends_on(self) -> tuple[str, ...]:
+        return ("resolve",)
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
@@ -513,6 +524,16 @@ class BuildGeographicStep:
             ctx=ctx,
         )
 
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Re-run setup: idempotent given the cached DEM / watershed."""
+        return self.run(prior_state)
+
 
 class SetupProcessStep:
     """Instantiate flow / transport process objects bound to the domain."""
@@ -525,6 +546,9 @@ class SetupProcessStep:
         "flow.ic",
         "simulation",
     )
+
+    def depends_on(self) -> tuple[str, ...]:
+        return ("build_mesh",)
 
     def run(self, state: PipelineState) -> PipelineState:
         ctx = state.get("ctx")
@@ -544,3 +568,13 @@ class SetupProcessStep:
             step_name=self.name,
             ctx=ctx,
         )
+
+    def rebuild_state(
+        self,
+        *,
+        prior_state: PipelineState,
+        workspace: Path,
+        run_id: str,
+    ) -> PipelineState:
+        """Re-run setup_process: trivial wrapper, idempotent."""
+        return self.run(prior_state)

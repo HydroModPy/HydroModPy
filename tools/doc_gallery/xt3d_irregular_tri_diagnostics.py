@@ -90,8 +90,8 @@ def _patched_modflow6_xt3d_disabled(enabled: bool) -> Iterator[None]:
     original_builder_mode = solver_options.xt3d_activation_mode
     original_builder_resolve = solver_options.resolve_xt3d_npf_options
     original_module_enabled = modflow6_module.xt3d_is_enabled
-    original_module_mode = modflow6_module.xt3d_activation_mode
-    original_module_resolve = modflow6_module.resolve_xt3d_npf_options
+    original_module_mode = modflow6_module.xt3d_mode
+    original_module_resolve = modflow6_module.resolve_xt3d_options
 
     def _xt3d_disabled(self, solver_mesh=None) -> bool:
         return False
@@ -109,8 +109,8 @@ def _patched_modflow6_xt3d_disabled(enabled: bool) -> Iterator[None]:
     solver_options.xt3d_activation_mode = _xt3d_disabled_mode
     solver_options.resolve_xt3d_npf_options = _xt3d_disabled_options
     modflow6_module.xt3d_is_enabled = _xt3d_disabled
-    modflow6_module.xt3d_activation_mode = _xt3d_disabled_mode
-    modflow6_module.resolve_xt3d_npf_options = _xt3d_disabled_options
+    modflow6_module.xt3d_mode = _xt3d_disabled_mode
+    modflow6_module.resolve_xt3d_options = _xt3d_disabled_options
     try:
         yield
     finally:
@@ -130,8 +130,8 @@ def _patched_modflow6_xt3d_disabled(enabled: bool) -> Iterator[None]:
         solver_options.xt3d_activation_mode = original_builder_mode
         solver_options.resolve_xt3d_npf_options = original_builder_resolve
         modflow6_module.xt3d_is_enabled = original_module_enabled
-        modflow6_module.xt3d_activation_mode = original_module_mode
-        modflow6_module.resolve_xt3d_npf_options = original_module_resolve
+        modflow6_module.xt3d_mode = original_module_mode
+        modflow6_module.resolve_xt3d_options = original_module_resolve
 
 
 def collect_irregular_tri_metrics(

@@ -9,8 +9,8 @@ Two concerns live here, both purely data-side:
    one calibration session out of the workspace catalog and return a
    plain dataclass ready to be handed to the display layer for HTML
    rendering. The rendering itself lives in
-   :mod:`hydromodpy.display.calibration_report`; this module never
-   imports ``hydromodpy.display``.
+   :mod:`hydromodpy.reporting.calibration_report`; this module never
+   imports ``hydromodpy.display`` or ``hydromodpy.reporting``.
 """
 
 from __future__ import annotations
@@ -118,9 +118,9 @@ class CalibrationReport:
             raise ValueError("CalibrationReport has no workspace")
         if self.store_factory is not None:
             return self.store_factory(self.workspace)
-        from hydromodpy.calibration.runner import _default_store_factory
+        from hydromodpy.calibration.state import default_store_factory
 
-        return _default_store_factory(self.workspace, None)
+        return default_store_factory(self.workspace, None)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-friendly summary matching the legacy CLI output."""
@@ -151,7 +151,7 @@ class SessionReportData:
     """Plain data extracted from one calibration session.
 
     Carries everything
-    :func:`hydromodpy.display.calibration_report.render_session` needs to
+    :func:`hydromodpy.reporting.calibration_report.render_session` needs to
     produce the HTML report; no catalog handle, no live database
     connection. Constructed by :func:`load_session_report_data`.
 

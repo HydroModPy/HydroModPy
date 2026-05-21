@@ -97,7 +97,7 @@ Derived fields persisted in the simulation catalog
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The main ingredients are in
-``hydromodpy/simulation/extraction/extractors/derived.py``:
+``hydromodpy/simulation/extraction/derivation/derived.py``:
 
 - ``outflow_drain`` is positive drain outflow per cell, summed over model
   layers, stored under ``derived/outflow_drain``, and computed per timestep.
@@ -164,9 +164,6 @@ network:
 - ``run.cell_field_network_distance_metrics()``: planar bidirectional
   cell-centroid distances between active simulated cells and the selected
   vector role, usually ``reference``.
-
-``hydromodpy.analysis.stream_networks`` re-routes the same distance view under
-the analysis subpackage.
 
 Those views are already scientifically meaningful, but they remain scalar or
 raster-like summaries, not one canonical stored network object.

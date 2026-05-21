@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 import numpy as np
 
+from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_common.sgrid_to_flopy import translate as sgrid_spec_to_flopy
 from hydromodpy.solver.modflow_grid.grid_context import (
     SolverGridContext,
@@ -24,7 +25,7 @@ from hydromodpy.spatial.surface_sampling import PreparedSurfaceSampler
 
 def resolve_domain_surfaces(
     *,
-    domain: object,
+    domain: DomainLike,
 ) -> tuple[Surface, Surface]:
     """Validate and return top/substratum surfaces used by spatial gridding."""
     if domain is None:
@@ -205,7 +206,7 @@ def _build_extruded_solver_mesh_from_runtime_planar(
 
 def build_spatial_discretization(
     *,
-    domain: object,
+    domain: DomainLike,
     sgrid_config: SolverSGridConfig | None,
     runtime_planar_mesh: object | None = None,
     runtime_mesh_support: object | None = None,

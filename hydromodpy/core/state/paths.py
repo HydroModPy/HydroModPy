@@ -62,6 +62,14 @@ def state_dir() -> Path | UPath:
 # Workspace-relative path helpers ------------------------------------------
 
 
+def find_catalog_root(project_dir: Path) -> Path:
+    """Walk up from ``project_dir`` to find a project-local catalog."""
+    for parent in [project_dir] + list(project_dir.parents):
+        if (parent / CATALOG_FILENAME).exists():
+            return parent
+    return project_dir
+
+
 def to_workspace_relative(workspace: Path | UPath, target: Path | UPath) -> str:
     """Return ``target`` expressed as a POSIX path relative to ``workspace``.
 
@@ -184,6 +192,7 @@ __all__: Iterable[str] = (
     "cache_dir",
     "decode_workspace_path",
     "encode_workspace_path",
+    "find_catalog_root",
     "from_workspace_relative",
     "is_under_workspace",
     "resolve_workspace",

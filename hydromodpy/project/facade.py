@@ -17,12 +17,17 @@ The facade is composed of four cohesive helpers:
   prepared-run primitives (``prepare`` / ``execute`` / ``ingest`` /
   ``render`` / ``cleanup``).
 - :class:`hydromodpy.project.runner.ProjectRunner` (``project._runner``):
-  internal runner for ``run`` / ``calibrate`` / ``mesh`` / ``report``.
+  internal runner for ``run`` / ``calibrate``.
 - :class:`hydromodpy.project.catalog.ProjectCatalog` (``project._catalog``):
   catalog access (``store``, ``runs``, ``data``) and lifecycle (``close``).
 - :mod:`hydromodpy.project.phases`: model-phase verbs that mutate the
   project directly (``configure``, ``setup_workspace``, ``build_geographic``,
   ``load_data``, ``build_mesh``).
+
+Workflows that run from a TOML payload but do not benefit from setup-once
+state (``overview``, ``mesh``, ``compare``, ``report``) are not methods on
+``Project``. Use :mod:`hydromodpy._api` (``hmp.overview``, ``hmp.mesh``,
+``hmp.compare``, ``hmp.report``) instead.
 
 Example
 -------
@@ -50,12 +55,13 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, PipelineError
+from hydromodpy.core.exceptions import ConfigMissingError, PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.project.accessors import ProjectDataAccessor, ProjectRunsAccessor
 from hydromodpy.project.catalog import ProjectCatalog
 from hydromodpy.project.runner import ProjectRunner, _pin_parent_sim_id
 from hydromodpy.project.session import ProjectSession
+from hydromodpy.project.state import PROJECT_ATTR_TO_STATE_FIELD, ProjectState
 
 if TYPE_CHECKING:
     from hydromodpy.core.state.data import LoadedDataContext
@@ -79,6 +85,25 @@ class Project:
 
     Builds the geographic/domain/data context once, then allows running
     multiple simulations with parameter overrides.
+
+    Three concerns split the public surface:
+
+    1. **Factory and lifecycle** - constructors (``__init__``, ``lazy``,
+       ``from_toml`` / ``from_json`` / ``from_dict``, ``rerun``), context
+       manager (``__enter__`` / ``__exit__``), ``close``, ``__repr__`` and
+       the inspection / accessor properties (``data``, ``runs``, ``cfg``,
+       ``geographic``, ``domain``, ``store``, ``time_grid``,
+       ``loaded_data``, ``workflow_context``, ``has_mesh``, ``data_loaded``,
+       ``__getitem__``).
+    2. **Model phase** - ``setup_workspace``, ``build_geographic``,
+       ``rebuild_geographic``, ``load_data``, ``reload_data``,
+       ``build_mesh``.
+    3. **Run phase** - ``run``, ``calibrate`` and the prepared-run wrapper
+       ``session()`` returning a :class:`ProjectSession`.
+
+    TOML-only workflows that do not benefit from setup-once state
+    (``overview``, ``mesh``, ``compare``, ``report``) live on
+    :mod:`hydromodpy._api`.
 
     Parameters
     ----------
@@ -141,6 +166,7 @@ class Project:
         """
         from hydromodpy.project import phases as project_phases
 
+        object.__setattr__(self, "_state", ProjectState())
         project_phases.configure(
             self,
             config,
@@ -148,12 +174,35 @@ class Project:
             headless=headless,
             no_display=no_display,
         )
-        self._runner = ProjectRunner(self)
-        self._catalog = ProjectCatalog(self)
+        object.__setattr__(self, "_runner", ProjectRunner(self))
+        object.__setattr__(self, "_catalog", ProjectCatalog(self))
         if not _lazy:
             self.build_geographic()
             self.load_data()
             self.build_mesh()
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Proxy state-field assignments to :attr:`_state`.
+
+        Names declared in :data:`PROJECT_ATTR_TO_STATE_FIELD` are routed to the
+        :class:`ProjectState` container; everything else (``_runner``,
+        ``_catalog``, ``_state`` itself) lives directly on the Project instance.
+        """
+        target = PROJECT_ATTR_TO_STATE_FIELD.get(name)
+        state = self.__dict__.get("_state") if target is not None else None
+        if target is not None and state is not None:
+            object.__setattr__(state, target, value)
+            return
+        object.__setattr__(self, name, value)
+
+    def __getattr__(self, name: str) -> Any:
+        """Forward unknown attribute reads to :attr:`_state` when applicable."""
+        target = PROJECT_ATTR_TO_STATE_FIELD.get(name)
+        if target is not None:
+            state = self.__dict__.get("_state")
+            if state is not None:
+                return getattr(state, target)
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     @classmethod
     def lazy(
@@ -487,10 +536,9 @@ class Project:
         """Return the run-phase orchestration facade bound to this project.
 
         ``session`` exposes the prepared-run primitives (``prepare``,
-        ``execute``, ``ingest``, ``render``, ``cleanup``) plus
-        ``simulate`` and ``sweep``. The top-level verbs ``run``,
-        ``calibrate``, ``mesh``, ``report``, ``overview`` and
-        ``compare`` remain on :class:`Project` for the common case.
+        ``execute``, ``ingest``, ``render``, ``cleanup``) plus ``simulate``
+        and ``sweep``. The high-level verbs ``run`` and ``calibrate`` remain
+        on :class:`Project` for the common case.
         """
         return ProjectSession(self)
 
@@ -506,6 +554,7 @@ class Project:
         dry_run: bool = False,
         frozen: bool = False,
         no_display: bool = False,
+        parallel: bool = True,
         **overrides,
     ) -> Run | None:
         """Run the configured workflow and return its result.
@@ -567,62 +616,9 @@ class Project:
             dry_run=dry_run,
             frozen=frozen,
             no_display=no_display,
+            parallel=parallel,
             **overrides,
         )
-
-    def overview(self, *, config_path: str | Path | None = None):
-        """Generate the watershed identity card.
-
-        Parameters
-        ----------
-        config_path
-            Optional path to the overview TOML. Defaults to the project's
-            originating TOML when one is available.
-
-        Returns
-        -------
-        Any
-            Overview launcher result.
-
-        Raises
-        ------
-        ConfigError
-            If no TOML path is available for the overview workflow.
-        """
-        from hydromodpy.workflow.pipelines.overview import DataOverviewLauncher
-
-        path = config_path if config_path is not None else self._config_path
-        if path is None:
-            raise ConfigError("project.overview() requires a TOML path for now")
-        return DataOverviewLauncher(path).run()
-
-    def compare(self, *, config_path: str | Path | None = None):
-        """Run the comparison workflow declared in a TOML config.
-
-        Parameters
-        ----------
-        config_path
-            Optional path to the comparison TOML. Defaults to the project's
-            originating TOML when one is available.
-
-        Returns
-        -------
-        Any
-            Comparison launcher result.
-
-        Raises
-        ------
-        ConfigError
-            If no TOML path is available for the comparison workflow.
-        """
-        from hydromodpy.analysis.comparison.experiment_launcher import (
-            SimulationComparisonLauncher,
-        )
-
-        path = config_path if config_path is not None else self._config_path
-        if path is None:
-            raise ConfigError("project.compare() requires a TOML path for now")
-        return SimulationComparisonLauncher(path).run()
 
     def calibrate(
         self,
@@ -683,7 +679,7 @@ class Project:
         from hydromodpy.core.exceptions import ConfigMissingError
 
         if config_path is not None:
-            from hydromodpy.calibration.runner import run_calibration_cli
+            from hydromodpy.calibration.cli_runner import run_calibration_cli
 
             return run_calibration_cli(Path(config_path).expanduser().resolve(), **kwargs)
 
@@ -694,7 +690,7 @@ class Project:
             )
 
         from hydromodpy.calibration.config import CalibrationConfig
-        from hydromodpy.calibration.runner import run_calibration_programmatic
+        from hydromodpy.calibration.programmatic_runner import run_calibration_programmatic
 
         payload: dict[str, object] = {}
         if method is not None:
@@ -736,44 +732,6 @@ class Project:
             objective=kwargs.get("objective"),
             return_report=kwargs.get("return_report", True),
         )
-
-    def mesh(self) -> dict:
-        """Run the standalone mesh-only workflow defined by this project.
-
-        Returns
-        -------
-        dict
-            Mesh launcher summary payload.
-
-        Raises
-        ------
-        MeshGenerationError
-            If the mesh generator fails to produce a valid mesh.
-        """
-        return self._runner.mesh()
-
-    def report(self, session_id: str | None = None) -> Path:
-        """Render the HTML report for a calibration session.
-
-        Parameters
-        ----------
-        session_id
-            Calibration session UUID. ``None`` falls back to the latest
-            session in the workspace.
-
-        Returns
-        -------
-        pathlib.Path
-            Path to the rendered HTML report.
-
-        Raises
-        ------
-        RunNotFoundError
-            If ``session_id`` cannot be resolved in the catalog.
-        DisplayError
-            If the report template fails to render.
-        """
-        return self._runner.report(session_id)
 
     # -- Lifecycle --------------------------------------------------------
 

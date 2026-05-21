@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from hydromodpy.analysis.comparison.web.sections import (
+from hydromodpy.reporting.comparison.sections.io import (
     _boussinesq_method_text,
     _initial_condition_text,
 )

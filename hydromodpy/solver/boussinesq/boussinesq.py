@@ -29,12 +29,15 @@ from typing import Any
 
 import numpy as np
 
+from hydromodpy.core.time.steady_initialization import (
+    single_period_mean_forcing_time_grid,
+)
 from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_condition_bundle_from_flow,
     boundary_conditions_mapping_from_flow,
     is_boundary_condition_active,
 )
-from hydromodpy.solver.base.solver import Solver
+from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.boussinesq.assembly import (
     saturated_thickness_from_head,
 )
@@ -80,9 +83,6 @@ from hydromodpy.solver.steady_initial_conditions import (
     steady_state_initial_condition_strategy,
     steady_state_initialization_surface_interaction_model,
 )
-from hydromodpy.solver.utils.temporal.steady_initialization import (
-    single_period_mean_forcing_time_grid,
-)
 from hydromodpy.spatial.mesh.gmsh_grid.catchment_mesh_bundle_reader import (
     CatchmentMeshBundle,
 )
@@ -91,7 +91,7 @@ _SUPPORTED_SINK_SOURCE_IDS = frozenset({"recharge", "wells"})
 _DEFAULT_SATURATION_EXCESS_REGULARIZATION = 0.05
 
 
-class Boussinesq(Solver):
+class Boussinesq:
     """Boussinesq solver driver compatible with the HydroModPy solver contract.
 
     The class acts as a translator between high-level HydroModPy objects
@@ -105,7 +105,7 @@ class Boussinesq(Solver):
         mesh_bundle: CatchmentMeshBundle | None,
         mesh: BoussinesqMesh | None = None,
         flow: object,
-        domain: object,
+        domain: DomainLike,
         time_grid: object,
         model_folder: str | Path,
         model_name: str,

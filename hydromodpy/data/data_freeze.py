@@ -259,14 +259,10 @@ def _inputs_section(
     catalog: DataCatalogDuckDB,
 ) -> tuple[list[LockedArtifact], dict[str, dict[str, Any]]]:
     """Return (locked artefacts, inputs-by-path mapping)."""
-    rows = (
-        catalog.connection.execute(
-            "SELECT variable, source, station_id, file_path, file_mtime, sha256 "
-            "FROM entries ORDER BY variable, source, station_id, file_path"
-        )
-        .fetchdf()
-        .to_dict(orient="records")
-    )
+    rows = catalog.backend.query(
+        "SELECT variable, source, station_id, file_path, file_mtime, sha256 "
+        "FROM entries ORDER BY variable, source, station_id, file_path"
+    ).to_dict(orient="records")
     base_dir = _catalog_base_dir(catalog)
     locked: list[LockedArtifact] = []
     inputs: dict[str, dict[str, Any]] = {}
@@ -471,9 +467,7 @@ def verify_frozen(
     }
     mismatches: list[LockMismatch] = []
     base_dir = _catalog_base_dir(catalog)
-    rows = catalog.connection.execute(
-        "SELECT variable, source, station_id, file_path FROM entries"
-    ).fetchall()
+    rows = catalog.backend.fetch_all("SELECT variable, source, station_id, file_path FROM entries")
     seen = set()
     for variable, source, station_id, file_path in rows:
         key = (variable, source, station_id, file_path)
@@ -548,9 +542,7 @@ def verify_inputs_strict(
     if not expected:
         return verify_frozen(catalog, lockfile)
     base_dir = _catalog_base_dir(catalog)
-    rows = catalog.connection.execute(
-        "SELECT variable, source, station_id, file_path FROM entries"
-    ).fetchall()
+    rows = catalog.backend.fetch_all("SELECT variable, source, station_id, file_path FROM entries")
     mismatches: list[LockMismatch] = []
     for variable, source, station_id, file_path in rows:
         key = str(file_path)
@@ -638,9 +630,9 @@ def archive_lockfile(
         with tarfile.open(fileobj=stream, mode=mode) as tar:
             tar.add(lockfile_dest, arcname=LOCKFILE_NAME)
             base_dir = _catalog_base_dir(catalog)
-            for fp, variable in catalog.connection.execute(
+            for fp, variable in catalog.backend.fetch_all(
                 "SELECT file_path, variable FROM entries"
-            ).fetchall():
+            ):
                 p = _resolve_artifact_path(fp, base_dir, variable=variable)
                 if p.is_file():
                     tar.add(p, arcname=f"artefacts/{sha256_of(p)}/{p.name}")

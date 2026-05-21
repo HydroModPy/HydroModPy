@@ -7,7 +7,7 @@ from hydromodpy.core.time import (
     build_simulation_time_boundaries,
     validate_recharge_coverage,
 )
-from hydromodpy.solver.utils.temporal.steady_initialization import (
+from hydromodpy.core.time.steady_initialization import (
     single_period_mean_forcing_time_grid,
 )
 from hydromodpy.spatial.mesh.cartesian_grid._sgrid_field_grid_utils import (

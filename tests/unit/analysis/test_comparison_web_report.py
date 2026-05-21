@@ -6,7 +6,7 @@ import csv
 import json
 from pathlib import Path
 
-from hydromodpy.analysis.comparison.web_report import write_comparison_web_report
+from hydromodpy.reporting.comparison.render import write_comparison_web_report
 
 
 def test_write_comparison_web_report_links_key_outputs(tmp_path: Path) -> None:

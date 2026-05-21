@@ -52,6 +52,8 @@ submodule gets its own generated page.
    hydromodpy.results
    hydromodpy.display
    hydromodpy.calibration
+   hydromodpy.catalog
+   hydromodpy.project
 
 Internal subpackages
 --------------------
@@ -69,6 +71,7 @@ to a module to read its direct members.
    hydromodpy.core
    hydromodpy.data
    hydromodpy.physics
+   hydromodpy.reporting
    hydromodpy.schema
    hydromodpy.simulation
    hydromodpy.solver

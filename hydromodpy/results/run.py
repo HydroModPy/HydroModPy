@@ -118,7 +118,7 @@ class Run(
 
     def _load_row(self) -> dict:
         if self._row is None:
-            row = self._catalog.connection.execute(
+            df = self._catalog.backend.query(
                 """SELECT s.*,
                           sv.code AS solver,
                           sv.category AS solver_category,
@@ -132,18 +132,17 @@ class Run(
                      LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id
                     WHERE s.sim_id = ?""",
                 [self._sim_id],
-            ).fetchone()
-            if row is None:
+            )
+            if df.empty:
                 raise RunNotFoundError(
                     f"Simulation '{self._sim_id}' not found", sim_id=self._sim_id
                 )
-            cols = [d[0] for d in self._catalog.connection.description]
-            self._row = dict(zip(cols, row, strict=False))
+            self._row = df.iloc[0].to_dict()
             # Tags moved to a per-sim table in v2. Populate as a Python list.
-            tag_rows = self._catalog.connection.execute(
+            tag_rows = self._catalog.backend.fetch_all(
                 "SELECT tag FROM tags WHERE sim_id = ? ORDER BY tag",
                 [self._sim_id],
-            ).fetchall()
+            )
             self._row["tags"] = [r[0] for r in tag_rows] if tag_rows else None
         return self._row
 

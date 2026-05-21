@@ -20,7 +20,6 @@ from typing import Any
 
 _SUBMODULES = {
     "comparison": "hydromodpy.analysis.comparison",
-    "stream_networks": "hydromodpy.analysis.stream_networks",
     "testbed": "hydromodpy.analysis.testbed",
 }
 

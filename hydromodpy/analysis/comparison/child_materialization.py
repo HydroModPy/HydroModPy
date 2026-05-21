@@ -11,7 +11,7 @@ from hydromodpy.analysis.comparison.experiment_config import (
     ComparisonSimulationConfig,
     SimulationComparisonConfig,
 )
-from hydromodpy.analysis.comparison.runtime_config import (
+from hydromodpy.analysis.comparison.runtime.config import (
     _build_solver_process_overlay,
     _deepcopy_jsonlike,
     _overlay_defines_process,

@@ -33,6 +33,7 @@ from hydromodpy.physics.flow.boundary_condition_registry import (
     boundary_conditions_mapping_from_flow,
     is_boundary_condition_active,
 )
+from hydromodpy.solver.base.protocols import DomainLike
 from hydromodpy.solver.modflow_common.property_mapping import (
     resolve_flow_property_arrays,
     resolve_required_flow_properties,
@@ -106,7 +107,7 @@ class FlowToModflowAdapter:
         self,
         *,
         flow: object,
-        domain: object,
+        domain: DomainLike,
         solver_mesh: SolverMesh,
         nper: int,
         grid: GridReference | None = None,

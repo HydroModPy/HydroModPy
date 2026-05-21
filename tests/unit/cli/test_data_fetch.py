@@ -1,4 +1,4 @@
-"""Tests for ``hmp data fetch``."""
+"""Tests for ``hmp data get`` (formerly ``hmp data fetch``)."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def _make_workspace(tmp_path: Path) -> Path:
 
 
 def test_data_fetch_help_displays(monkeypatch, capsys) -> None:
-    code = _run(monkeypatch, ["hmp", "data", "fetch", "--help"])
+    code = _run(monkeypatch, ["hmp", "data", "get", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     assert "variable" in out
@@ -48,7 +48,7 @@ def test_data_fetch_dem_writes_sidecar(monkeypatch, tmp_path, capsys) -> None:
         [
             "hmp",
             "data",
-            "fetch",
+            "get",
             "dem",
             "--workspace",
             str(workspace),
@@ -78,9 +78,9 @@ def test_data_fetch_unknown_variable_fails(monkeypatch, tmp_path, capsys) -> Non
     workspace = _make_workspace(tmp_path)
     code = _run(
         monkeypatch,
-        ["hmp", "data", "fetch", "not_a_var", "--workspace", str(workspace)],
+        ["hmp", "data", "get", "not_a_var", "--workspace", str(workspace)],
     )
-    assert code == 1
+    assert code == 14
     err = capsys.readouterr().err
     assert "Unknown variable" in err
 
@@ -92,7 +92,7 @@ def test_data_fetch_invalid_bbox_fails(monkeypatch, tmp_path, capsys) -> None:
         [
             "hmp",
             "data",
-            "fetch",
+            "get",
             "dem",
             "--workspace",
             str(workspace),
@@ -111,7 +111,7 @@ def test_bbox_parses_negative_first_value(monkeypatch, tmp_path, capsys) -> None
         [
             "hmp",
             "data",
-            "fetch",
+            "get",
             "dem",
             "--workspace",
             str(workspace),
@@ -129,7 +129,7 @@ def test_bbox_parses_negative_first_value(monkeypatch, tmp_path, capsys) -> None
 
 def test_bbox_help_mentions_equals_workaround(monkeypatch, capsys) -> None:
     """The help text steers users to ``--bbox=`` for negative minx values."""
-    code = _run(monkeypatch, ["hmp", "data", "fetch", "--help"])
+    code = _run(monkeypatch, ["hmp", "data", "get", "--help"])
     assert code == 0
     out = capsys.readouterr().out
     # argparse may wrap the literal --bbox=- mid-line; normalize whitespace.
@@ -145,7 +145,7 @@ def test_bbox_three_values_fails(monkeypatch, tmp_path, capsys) -> None:
         [
             "hmp",
             "data",
-            "fetch",
+            "get",
             "dem",
             "--workspace",
             str(workspace),
@@ -158,7 +158,7 @@ def test_bbox_three_values_fails(monkeypatch, tmp_path, capsys) -> None:
 
 def test_parse_bbox_helper_returns_tuple_of_floats() -> None:
     """The argparse type returns a 4-tuple of floats."""
-    from hydromodpy.cli.commands.data import _parse_bbox
+    from hydromodpy.cli.commands.data.get import _parse_bbox
 
     parsed = _parse_bbox("-1.17,48.4,-1.0,48.5")
     assert parsed == (-1.17, 48.4, -1.0, 48.5)
@@ -169,7 +169,7 @@ def test_parse_bbox_helper_rejects_non_float() -> None:
     """The argparse type raises ``ArgumentTypeError`` on non-float."""
     import argparse as _argparse
 
-    from hydromodpy.cli.commands.data import _parse_bbox
+    from hydromodpy.cli.commands.data.get import _parse_bbox
 
     with pytest.raises(_argparse.ArgumentTypeError):
         _parse_bbox("a,b,c,d")

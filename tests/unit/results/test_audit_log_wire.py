@@ -221,3 +221,99 @@ def test_privacy_purge_sha256_matches_tombstone_and_certificate(tmp_path: Path) 
         cat.close()
     audit_sha = json.loads(audit_payload)["sha256_snapshot"]
     assert cert["sha256_snapshot"] == tomb_sha == audit_sha
+
+
+# ---------------------------------------------------------------------------
+# T6.B - rename / tag_remove / param.update / tracked_file.remove
+# ---------------------------------------------------------------------------
+
+
+def test_rename_simulation_emits_sim_rename(catalog: SimulationCatalog) -> None:
+    sid = _register(catalog)
+    catalog.rename_simulation(sid, "renamed")
+    rows = catalog.connection.execute(
+        "SELECT event_type, sim_id, payload FROM audit_log "
+        "WHERE sim_id = ? AND event_type = 'sim.rename'",
+        [sid],
+    ).fetchall()
+    assert len(rows) == 1
+    assert json.loads(rows[0][2]) == {"new_name": "renamed"}
+    name_row = catalog.connection.execute(
+        "SELECT name FROM simulations WHERE sim_id = ?", [sid]
+    ).fetchone()
+    assert name_row[0] == "renamed"
+
+
+def test_remove_tag_emits_sim_tag_remove(catalog: SimulationCatalog) -> None:
+    sid = str(uuid.uuid4())
+    catalog.register_simulation(
+        sid,
+        "lab",
+        "modflow6",
+        name=f"sim-{sid[:8]}",
+        n_cells=4,
+        n_layers=1,
+        tags=["alpha", "beta"],
+    )
+    removed = catalog.remove_tag(sid, "alpha")
+    assert removed is True
+    rows = catalog.connection.execute(
+        "SELECT payload FROM audit_log WHERE sim_id = ? AND event_type = 'sim.tag_remove'",
+        [sid],
+    ).fetchall()
+    assert len(rows) == 1
+    assert json.loads(rows[0][0]) == {"tag": "alpha"}
+    remaining = catalog.connection.execute(
+        "SELECT tag FROM tags WHERE sim_id = ? ORDER BY tag", [sid]
+    ).fetchall()
+    assert [r[0] for r in remaining] == ["beta"]
+
+
+def test_update_parameter_emits_param_update(catalog: SimulationCatalog) -> None:
+    sid = _register(catalog)
+    catalog.write_parameters(
+        sid,
+        [{"param_name": "K", "value": 1e-4, "unit": "m/s"}],
+    )
+    catalog.update_parameter(sid, "K", 2e-4, unit="m/s")
+    rows = catalog.connection.execute(
+        "SELECT payload FROM audit_log WHERE sim_id = ? AND event_type = 'param.update'",
+        [sid],
+    ).fetchall()
+    assert len(rows) == 1
+    body = json.loads(rows[0][0])
+    assert body["param_name"] == "K"
+    assert float(body["value"]) == pytest.approx(2e-4)
+    new_value = catalog.connection.execute(
+        "SELECT value FROM parameters WHERE sim_id = ? AND param_name = 'K'",
+        [sid],
+    ).fetchone()[0]
+    assert float(new_value) == pytest.approx(2e-4)
+
+
+def test_remove_tracked_file_emits_tracked_file_remove(catalog: SimulationCatalog) -> None:
+    sid = _register(catalog)
+    # Seed one row directly so we do not depend on the full tracked_file
+    # registration pipeline (filesystem walker, SHA-256, ...).
+    catalog.connection.execute(
+        """INSERT INTO tracked_files
+           (sim_id, role, category, original_path, canonical_path,
+            sha256, size_bytes, portable)
+           VALUES (?, 'input.dem', 'topography', 'dem.tif', 'dem.tif',
+                   'deadbeef', 1024, TRUE)""",
+        [sid],
+    )
+    removed = catalog.remove_tracked_file(sid, "input.dem", "dem.tif")
+    assert removed is True
+    rows = catalog.connection.execute(
+        "SELECT payload FROM audit_log WHERE sim_id = ? AND event_type = 'tracked_file.remove'",
+        [sid],
+    ).fetchall()
+    assert len(rows) == 1
+    body = json.loads(rows[0][0])
+    assert body["role"] == "input.dem"
+    assert body["canonical_path"] == "dem.tif"
+    remaining = catalog.connection.execute(
+        "SELECT COUNT(*) FROM tracked_files WHERE sim_id = ?", [sid]
+    ).fetchone()[0]
+    assert remaining == 0

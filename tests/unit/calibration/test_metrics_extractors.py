@@ -18,21 +18,34 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from hydromodpy.calibration import metrics as metrics_module
 from hydromodpy.calibration.config import (
     CalibObjectiveBlockDecl,
     validate_calib_output,
 )
 from hydromodpy.calibration.metrics import (
     ObservedSeries,
-    _coerce_length_to_m,
-    _extract_boundary,
-    _extract_cell,
-    _extract_point,
-    _resolve_station_cells,
-    _score,
-    _slice_time,
     build_metric_extractor,
+)
+from hydromodpy.calibration.metrics import solver_extract as _solver_extract_module
+from hydromodpy.calibration.metrics.composite import _build_composite_metric_extractor  # noqa: F401
+from hydromodpy.calibration.metrics.scalar import score as _score
+from hydromodpy.calibration.metrics.solver_extract import (
+    _coerce_length_to_m,
+)
+from hydromodpy.calibration.metrics.solver_extract import (
+    extract_boundary as _extract_boundary,
+)
+from hydromodpy.calibration.metrics.solver_extract import (
+    extract_cell as _extract_cell,
+)
+from hydromodpy.calibration.metrics.solver_extract import (
+    extract_point as _extract_point,
+)
+from hydromodpy.calibration.metrics.solver_extract import (
+    resolve_station_cells as _resolve_station_cells,
+)
+from hydromodpy.calibration.metrics.solver_extract import (
+    slice_time as _slice_time,
 )
 
 
@@ -173,8 +186,8 @@ class TestHelpers:
 
         run_ctx = SimpleNamespace(run=SimpleNamespace(solver="fake_solver"))
         monkeypatch.setattr(
-            metrics_module,
-            "_resolve_flow_adapter",
+            _solver_extract_module,
+            "resolve_flow_adapter",
             lambda ctx: (_Adapter(), run_ctx),
         )
         out = validate_calib_output(

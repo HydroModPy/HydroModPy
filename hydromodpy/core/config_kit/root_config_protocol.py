@@ -1,6 +1,6 @@
 """Protocol decoupling core helpers from the application root config.
 
-The 14x14 layer matrix forbids ``core -> config``. The config_kit
+The 15x15 layer matrix forbids ``core -> config``. The config_kit
 registry and JSON Schema exporter need the root Pydantic model to introspect
 its fields. They consume that information through this Protocol; the concrete
 provider is wired in at package bootstrap by :mod:`hydromodpy._bootstrap`.

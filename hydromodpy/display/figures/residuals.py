@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hydromodpy.core.units.labels import axis_label
-from hydromodpy.display._map_axes import style_date_axis
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
+from hydromodpy.display.map_axes import style_date_axis
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

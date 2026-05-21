@@ -84,18 +84,15 @@ def test_export_full_schema_idempotent(tmp_path: Path) -> None:
 
 
 def test_schema_cli_export_produces_files(tmp_path: Path) -> None:
-    """Sanity-check that the Python CLI dispatcher writes the three files.
+    """Sanity-check that the schema worker writes the three files.
 
-    Invoked through the public API, not subprocess: we only need to
-    verify the CLI wiring matches the library.
+    Invokes the worker directly (same callable that ``hmp dev schema
+    export`` dispatches to) to keep the test independent from argparse.
     """
-    import argparse
-
-    from hydromodpy.cli.commands.schema import _cmd_export
+    from hydromodpy.cli._workers.dev import export_schema
 
     out = tmp_path / "cli_out"
-    args = argparse.Namespace(output=str(out))
-    _cmd_export(args)
+    export_schema(out)
     assert (out / "config.json").is_file()
     assert (out / "config_meta.json").is_file()
     assert (out / "field_validators.json").is_file()

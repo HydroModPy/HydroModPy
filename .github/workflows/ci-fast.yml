@@ -44,7 +44,8 @@ jobs:
         run: ruff format --check .
 
       - name: Audit declared dependencies for known vulnerabilities
-        run: pip-audit --strict --vulnerability-service osv .
+        # PYSEC-2024-277: joblib transitive dep (via sklearn/pandas), no fix released yet.
+        run: pip-audit --strict --vulnerability-service osv --ignore-vuln PYSEC-2024-277 .
 
   gitleaks:
     name: Gitleaks secret scan
@@ -95,26 +96,54 @@ jobs:
 
       # Keep the unit tier serial on CI: xdist workers can terminate inside
       # native geospatial stacks and leave the job stuck near completion.
-      - name: Run unit tests (without whitebox backend)
+      # Whitebox-heavy tiers (backend + geographic + delineation) run in
+      # their own pytest invocations because the native binding accumulates
+      # state across DEM workflows and aborts after several runs in one process.
+      # Per-step --cov-fail-under=0 disables the threshold inside each
+      # pytest invocation; the combined report below enforces fail_under.
+      - name: Run unit tests (without whitebox-heavy tiers)
         run: |
           python -m pytest tests/unit/ \
             --ignore=tests/unit/backends/test_whitebox_workflows_backend.py \
+            --ignore=tests/unit/geographic \
+            --ignore=tests/unit/delineation \
             -q \
             --cov=hydromodpy \
-            --cov-report=
+            --cov-report= \
+            --cov-fail-under=0
 
       - name: Run whitebox backend tests (serial)
         run: |
           python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py -q \
             --cov=hydromodpy \
             --cov-append \
-            --cov-report=
+            --cov-report= \
+            --cov-fail-under=0
 
-      - name: Report coverage
-        if: always()
+      - name: Run delineation tests (fresh process per file)
         run: |
-          coverage report --show-missing || true
-          coverage xml || true
+          for f in tests/unit/delineation/test_*.py; do
+            python -m pytest "$f" -q \
+              --cov=hydromodpy \
+              --cov-append \
+              --cov-report= \
+              --cov-fail-under=0 || exit 1
+          done
+
+      - name: Run geographic tests (fresh process per file)
+        run: |
+          for f in tests/unit/geographic/test_*.py; do
+            python -m pytest "$f" -q \
+              --cov=hydromodpy \
+              --cov-append \
+              --cov-report= \
+              --cov-fail-under=0 || exit 1
+          done
+
+      - name: Report combined coverage
+        run: |
+          coverage report --show-missing
+          coverage xml
 
       - name: Upload coverage to Codecov
         if: always()

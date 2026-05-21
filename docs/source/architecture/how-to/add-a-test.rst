@@ -126,13 +126,12 @@ Integration pattern
    # tests/integration/test_overview_workflow.py
    import pytest
 
-   from hydromodpy.project import Project
+   import hydromodpy as hmp
 
 
    @pytest.mark.integration
-   def test_overview(tmp_workspace, minimal_config):
-       project = Project(minimal_config, workspace=tmp_workspace)
-       project.overview()
+   def test_overview(tmp_workspace, minimal_overview_toml):
+       hmp.overview(minimal_overview_toml)
        assert (tmp_workspace.root / "data").exists()
 
 Regression pattern

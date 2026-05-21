@@ -18,12 +18,12 @@ A standard first session looks like this:
 
 .. code-block:: bash
 
-   hmp init .                                            # scaffold this directory as a workspace
-   hmp new my_basin --workspace .                        # create projects/my_basin
+   hmp workspace init .                                  # scaffold this directory as a workspace
+   hmp project new my_basin --workspace .                # create projects/my_basin
    hmp config template projects/my_basin/hydromodpy.toml --profile user
    hmp run projects/my_basin/hydromodpy.toml             # execute the run
-   hmp list                          # browse results
-   hmp show <sim_id>                 # inspect one simulation
+   hmp catalog ls                    # browse simulation results
+   hmp catalog show <sim_id>         # inspect one simulation
 
 The rest of this page explains each step.
 
@@ -35,9 +35,9 @@ cache, and one or more projects.
 
 .. code-block:: bash
 
-   hmp init                          # default: ~/hydromodpy/
-   hmp init /mnt/shared/hmp          # custom path
-   hmp init --force                  # overwrite an existing workspace
+   hmp workspace init                          # default: ~/hydromodpy/
+   hmp workspace init /mnt/shared/hmp          # custom path
+   hmp workspace init --force                  # overwrite an existing workspace
 
 The command creates the canonical layout:
 
@@ -59,8 +59,8 @@ variants.
 
 .. code-block:: bash
 
-   hmp new my_basin                              # uses ~/hydromodpy/
-   hmp new my_basin --workspace /mnt/shared/hmp  # custom workspace
+   hmp project new my_basin                              # uses ~/hydromodpy/
+   hmp project new my_basin --workspace /mnt/shared/hmp  # custom workspace
 
 The command writes ``projects/my_basin/hydromodpy.toml`` (the project
 config validated by ``HydroModPyConfig``) and an empty
@@ -134,17 +134,18 @@ The simulation catalog is queryable from the same CLI:
 
 .. code-block:: bash
 
-   hmp list                                    # all runs in current project
-   hmp index search "my_basin"                 # cross-workspace search via global index
-   hmp show <sim_id>                           # metadata, metrics, params
-   hmp inspect <sim_id>                        # files, mesh, status
+   hmp catalog ls                              # all runs in the workspace
+   hmp catalog query "SELECT name, solver FROM simulations LIMIT 5"
+   hmp catalog show <sim_id>                   # metadata, metrics, params
+   hmp catalog show <sim_id> --detail          # files, mesh, status, Zarr groups
    hmp rank --metric nse --top 1               # top-ranked run in project
    hmp rank --metric nse --bottom 1            # bottom-ranked run in project
-   hmp compare <sim_a> <sim_b>                 # side-by-side comparison
-   hmp display <sim_id> <figure>               # render one figure
+   hmp report compare <sim_a> <sim_b>          # side-by-side comparison
+   hmp viz show <sim_id> <figure>              # render one figure
+   hmp viz gallery <config.toml>               # render the [display] gallery
 
-A ``sim_id`` accepts a unique prefix, so ``hmp show ab12`` matches the
-single run starting with ``ab12``.
+A ``sim_id`` accepts a unique prefix, so ``hmp catalog show ab12`` matches
+the single run starting with ``ab12``.
 
 7. Diagnose the environment
 ---------------------------
@@ -176,9 +177,10 @@ Package one run as a single archive that another workspace can import:
 The archive bundles the configuration, the inputs, and the results.
 ``hmp add`` re-materializes them inside the target workspace.
 
-For the full set of commands (``delete``, ``data``, ``lock``, ``manage``,
-``report``, ``schema``, ``completion``, plus every flag of the verbs
-shown above), see :doc:`../user_guide/cli-reference`.
+For the full set of commands (the ``project``, ``catalog``, ``workspace``,
+``viz``, ``audit``, and ``privacy`` families, plus ``data``, ``lock``,
+``manage``, ``report``, ``schema``, ``completion``, and every flag of the
+verbs shown above), see :doc:`../user_guide/cli-reference`.
 
 Where to look next
 ------------------

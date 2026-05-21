@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
+from hydromodpy.core.time.tmesh_generation import TmeshGenerator
 from hydromodpy.physics.flow import (
     FlowConfig,
     normalize_flow_regime,
@@ -18,7 +19,6 @@ from hydromodpy.solver.modflow_common.property_mapping import (
 from hydromodpy.solver.modflow_grid.discretization_temporal import (
     build_temporal_discretization_from_time_grid,
 )
-from hydromodpy.solver.utils.temporal.tmesh_generation import TmeshGenerator
 
 
 class _Window:
