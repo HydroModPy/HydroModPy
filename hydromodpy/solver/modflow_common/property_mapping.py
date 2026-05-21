@@ -23,6 +23,12 @@ import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.physics.flow.regime import normalize_flow_regime
+from hydromodpy.solver.field_property_mapping import (
+    coerce_spatial_support_field as _coerce_spatial_support_field,
+)
+from hydromodpy.solver.field_property_mapping import (
+    resolve_spatial_support_from_domain as _resolve_spatial_support_from_domain,
+)
 from hydromodpy.solver.modflow_common.runtime_arrays import (
     resolve_flow_property_runtime_overrides,
 )
@@ -58,53 +64,6 @@ class _PropertyMappingProxy:
 
     flow: object
     domain: object
-
-
-def _coerce_spatial_support_field(zone_obj, *, support_id: str | None = None):
-    """Validate one domain spatial support used for heterogeneous mapping."""
-    if zone_obj is None:
-        support_label = support_id if support_id is not None else "<unspecified>"
-        raise ValueError(
-            f"Missing spatial support '{support_label}' in domain for heterogeneous mapping"
-        )
-
-    if not hasattr(zone_obj, "on_mesh"):
-        raise TypeError(
-            "Domain spatial support must expose 'on_mesh(...)'. Expected a Field-compatible object."
-        )
-    if not hasattr(zone_obj, "identifier"):
-        raise TypeError(
-            "Domain spatial support must expose 'identifier'. Expected a Field-compatible object."
-        )
-    return zone_obj
-
-
-def _resolve_spatial_support_from_domain(*, domain: object, support_id: str) -> object:
-    """Resolve one spatial support from domain helpers or raw zone registry."""
-    normalized_support_id = str(support_id).strip()
-    if normalized_support_id == "":
-        raise ValueError("field_spatial_id cannot be empty for heterogeneous mapping")
-
-    resolver = getattr(domain, "resolve_spatial_support", None)
-    if callable(resolver):
-        return resolver(normalized_support_id)
-
-    zones = getattr(domain, "zones", {})
-    if not isinstance(zones, dict):
-        raise TypeError("domain.zones must be a dictionary")
-
-    by_zone_id = zones.get(normalized_support_id.lower())
-    if by_zone_id is not None:
-        return by_zone_id
-
-    matches = [
-        zone_obj
-        for zone_obj in zones.values()
-        if str(getattr(zone_obj, "identifier", "")).strip() == normalized_support_id
-    ]
-    if len(matches) > 1:
-        raise ValueError(f"Multiple domain zones match spatial support '{normalized_support_id}'.")
-    return matches[0] if matches else None
 
 
 def _build_property_from_flow_domain(

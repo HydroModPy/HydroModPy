@@ -14,10 +14,10 @@ rcParams in one call.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-from matplotlib.font_manager import FontProperties
+if TYPE_CHECKING:
+    from matplotlib.font_manager import FontProperties
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,6 +135,10 @@ def apply_theme(name: str) -> Theme:
 
 def plot_params(small: int, interm: int, medium: int, large: int) -> FontProperties:
     """Apply the classic matplotlib rcParams style and return a FontProperties."""
+    import matplotlib as mpl
+    import matplotlib.pyplot as plt
+    from matplotlib.font_manager import FontProperties
+
     mpl.style.use("classic")
     mpl.rcParams["figure.facecolor"] = "white"
     mpl.rcParams["grid.color"] = "darkgrey"

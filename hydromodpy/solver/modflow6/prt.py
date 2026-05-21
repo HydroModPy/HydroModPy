@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 import flopy
 import numpy as np
 
+from hydromodpy.core.units.time import SECONDS_PER_DAY
 from hydromodpy.solver.base.protocols import DomainLike, FlowModelLike, TransportLike
 from hydromodpy.solver.modflow6.transport import _mf6_safe_name
 
@@ -42,13 +43,12 @@ def _regular_track_times_days(
     return [float(value) for value in values]
 
 
-_SECONDS_PER_DAY = 86400.0
 _TIME_UNIT_SECONDS = {
     "UNKNOWN": 1.0,
     "SECONDS": 1.0,
     "MINUTES": 60.0,
     "HOURS": 3600.0,
-    "DAYS": _SECONDS_PER_DAY,
+    "DAYS": SECONDS_PER_DAY,
     "YEARS": 31557600.0,
 }
 
@@ -123,12 +123,12 @@ class Modflow6Prt:
             raw_units = str(units.get_data())
         elif units is not None:
             raw_units = str(units)
-        return _TIME_UNIT_SECONDS.get(raw_units.upper(), _SECONDS_PER_DAY)
+        return _TIME_UNIT_SECONDS.get(raw_units.upper(), SECONDS_PER_DAY)
 
     def _days_to_model_time(self, value: float | None) -> float | None:
         if value is None:
             return None
-        return float(value) * _SECONDS_PER_DAY / self._model_time_unit_seconds()
+        return float(value) * SECONDS_PER_DAY / self._model_time_unit_seconds()
 
     def _build_track_times_days(self) -> list[float] | None:
         if self.track_times_days is not None:

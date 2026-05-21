@@ -35,8 +35,6 @@ Public API
 ----------
 - ``Run``: instantiated by ``SimulationCatalog`` resolution methods. Also
   exposes ``run.array`` for xarray / UGRID readers.
-- :class:`hydromodpy.results.run_export.RunExportAdapter` writes per-run
-  archives (``to_csv``, ``export``).
 - :class:`hydromodpy.results.run_array.RunArrayProvider` exposes
   ``dataset`` and ``to_xarray_batch``.
 

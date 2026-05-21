@@ -14,6 +14,7 @@ from hydromodpy.core.field_routing import (
     find_drain_budget_key,
 )
 from hydromodpy.core.logging import get_logger
+from hydromodpy.core.nodata import RESULTS_NODATA
 
 logger = get_logger(__name__)
 
@@ -31,7 +32,7 @@ def _zarr_root(store: Any, sim_id: str):
 def _write_bare_tif(
     path: str,
     data: np.ndarray,
-    nodata: float = -99999.0,
+    nodata: float = RESULTS_NODATA,
     *,
     crs_epsg: int | None = None,
 ) -> None:

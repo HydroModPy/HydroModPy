@@ -24,9 +24,9 @@ from hydromodpy.analysis.comparison.visuals_style import (
     _safe_float,
     _solver_color,
 )
+from hydromodpy.core.units.time import SECONDS_PER_DAY
 
 from .aggregation import (
-    _SECONDS_PER_DAY,
     _budget_component_points,
     _budget_time_field,
 )
@@ -198,7 +198,7 @@ def _write_total_input_output_dashboard(
             continue
         x_value = _safe_float(row.get(x_field))
         if x_value is not None and use_elapsed_seconds:
-            x_value = x_value / _SECONDS_PER_DAY
+            x_value = x_value / SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if x_value is None or value is None:
             continue
@@ -320,7 +320,7 @@ def _write_budget_diagnostic_figure(
         component = str(row.get("component", "")).strip()
         x_value = _safe_float(row.get(x_field))
         if x_value is not None and use_elapsed_seconds:
-            x_value = x_value / _SECONDS_PER_DAY
+            x_value = x_value / SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if not component or x_value is None or value is None:
             continue
@@ -343,7 +343,7 @@ def _write_budget_diagnostic_figure(
             continue
         x_value = _safe_float(row.get(x_field))
         if x_value is not None and use_elapsed_seconds:
-            x_value = x_value / _SECONDS_PER_DAY
+            x_value = x_value / SECONDS_PER_DAY
         value = _safe_float(row.get("value"))
         if x_value is None or value is None:
             continue

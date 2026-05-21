@@ -1,13 +1,9 @@
-"""Matplotlib backend lifecycle and figure saving.
-
-The :class:`BackendManager` context manager switches matplotlib to a
-headless backend for non-interactive runs and tears down every open
-figure on exit. Use it around a batch of figure calls to keep CI
-deterministic.
-"""
+"""Matplotlib backend lifecycle and figure saving."""
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -15,36 +11,30 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure as MplFigure
 
 
-class BackendManager:
+@contextmanager
+def matplotlib_backend(*, interactive: bool = False, dpi: int = 150) -> Iterator[None]:
     """Scope matplotlib backend and cleanup to a ``with`` block."""
+    import matplotlib
 
-    def __init__(self, interactive: bool = False, dpi: int = 150) -> None:
-        self.interactive = interactive
-        self.dpi = dpi
-        self._previous_backend: str | None = None
-
-    def __enter__(self) -> BackendManager:
-        import matplotlib
-
-        self._previous_backend = matplotlib.get_backend()
-        target = self._previous_backend if self.interactive else "Agg"
-        if target.lower() != self._previous_backend.lower():
-            matplotlib.use(target, force=True)
-        matplotlib.rcParams["figure.dpi"] = self.dpi
-        return self
-
-    def __exit__(self, exc_type, exc, tb) -> None:
-        import matplotlib
+    previous_backend = matplotlib.get_backend()
+    target = previous_backend if interactive else "Agg"
+    if target.lower() != previous_backend.lower():
+        matplotlib.use(target, force=True)
+    rc_context = matplotlib.rc_context()
+    try:
+        with rc_context:
+            matplotlib.rcParams["figure.dpi"] = dpi
+            yield
+    finally:
         import matplotlib.pyplot as plt
 
         plt.close("all")
-        if self._previous_backend is not None:
-            current = matplotlib.get_backend()
-            if current.lower() != self._previous_backend.lower():
-                try:
-                    matplotlib.use(self._previous_backend, force=True)
-                except Exception:
-                    pass
+        current = matplotlib.get_backend()
+        if current.lower() != previous_backend.lower():
+            try:
+                matplotlib.use(previous_backend, force=True)
+            except Exception:
+                pass
 
 
 def save_figure(
@@ -65,4 +55,4 @@ def save_figure(
     return p
 
 
-__all__ = ["BackendManager", "save_figure"]
+__all__ = ["matplotlib_backend", "save_figure"]
