@@ -320,3 +320,4 @@ examples/projects/00_getting_started/execution_knowledge/example_run_00/raw/runt
 execution_knowledge/myrun1/raw/runtime_capture_success.json
 execution_knowledge/myrun1/raw/runtime_capture.jsonl
 tests/regression/fixtures/projects/launcher_simulation/execution_knowledge/myrun1/raw/runtime_capture_failure.json
+examples/projects/00_getting_started/catalog.duckdb.bak-20260522T115059Z
