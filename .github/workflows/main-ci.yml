@@ -144,25 +144,55 @@ jobs:
             --ignore=tests/unit/delineation \
             -n auto --dist loadgroup \
             --timeout=300 \
+            --cov=hydromodpy \
+            --cov-report= \
             -q
 
       - name: Run whitebox backend tests
         run: |
           python -m pytest tests/unit/backends/test_whitebox_workflows_backend.py \
             --timeout=300 \
+            --cov=hydromodpy \
+            --cov-append \
+            --cov-report= \
             -q
 
       - name: Run delineation tests in fresh processes
         run: |
           for f in tests/unit/delineation/test_*.py; do
-            python -m pytest "$f" --timeout=300 -q || exit 1
+            python -m pytest "$f" \
+              --timeout=300 \
+              --cov=hydromodpy \
+              --cov-append \
+              --cov-report= \
+              -q || exit 1
           done
 
       - name: Run geographic tests in fresh processes
         run: |
           for f in tests/unit/geographic/test_*.py; do
-            python -m pytest "$f" --timeout=300 -q || exit 1
+            python -m pytest "$f" \
+              --timeout=300 \
+              --cov=hydromodpy \
+              --cov-append \
+              --cov-report= \
+              -q || exit 1
           done
+
+      - name: Write unit coverage XML
+        if: always()
+        run: |
+          coverage combine || true
+          coverage xml || true
+
+      - name: Upload unit coverage to Codecov
+        if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: unit
+          fail_ci_if_error: false
 
   integration:
     name: Tests / integration py3.13
