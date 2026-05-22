@@ -3,15 +3,16 @@ Contribute
 
 .. warning::
 
-   This documentation describes the archived HydroModPy v1.0.0 release. The
-   ``archive-v1`` branch is no longer maintained day to day. Existing projects
+   This documentation describes the HydroModPy v1.0.0 release. The ``v1.0``
+   branch is no longer maintained day to day. Existing projects
    may stay pinned to the ``v1.0.0`` tag. New development should move to
    HydroModPy v2 on ``main``:
    https://hydromodpy-docs.readthedocs.io/en/main/
 
-HydroModPy v1 is archived. Active pull requests for bug fixes, new workflows,
-documentation, and example notebooks should target the v2 codebase on ``main``.
-This page records the historical v1 workflow for archive users.
+HydroModPy v1.0 is fixed for the published release. Active pull requests for
+bug fixes, new workflows, documentation, and example notebooks should target
+the v2 codebase on ``main``. This page records the historical v1.0 workflow for
+users of the published release.
 
 Set up the environment
 ----------------------
@@ -59,7 +60,7 @@ Submitting changes
 Versioning policy
 -----------------
 
-- ``archive-v1`` is the frozen v1.0.0 archive branch.
+- ``v1.0`` is the historical branch for the published v1.0.0 release.
 - ``maint/1.x`` is reserved for a future v1 maintenance branch, only if active
   v1 maintenance resumes.
 - Do not use ``v1`` or ``v2`` as long-lived branch names.

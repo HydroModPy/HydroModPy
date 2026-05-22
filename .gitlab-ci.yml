@@ -1,5 +1,5 @@
 # GitLab CI/CD Pipeline for HydroModPy
-# Manual archive build, docs, and publication jobs
+# Manual v1.0 build, docs, and publication jobs
 
 stages:
   - build
@@ -42,7 +42,7 @@ test:wheel:
     - python -c "import hydromodpy; print('hydromodpy version:', hydromodpy.__version__)"
   when: manual
 
-# Build archived HTML docs - MANUAL
+# Build v1.0 HTML docs - MANUAL
 docs:html:
   stage: docs
   script:
@@ -53,7 +53,7 @@ docs:html:
       - docs/build/html/
     expire_in: 2 hours
   rules:
-    - if: '$CI_COMMIT_BRANCH == "archive-v1"'
+    - if: '$CI_COMMIT_BRANCH == "v1.0"'
       when: manual
     - when: never
 

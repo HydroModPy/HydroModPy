@@ -93,8 +93,8 @@ ide = [
 ]
 
 [project.urls]
-Homepage = "https://hydromodpy-docs.readthedocs.io/en/archive-v1/"
-Documentation = "https://hydromodpy-docs.readthedocs.io/en/archive-v1/"
+Homepage = "https://hydromodpy-docs.readthedocs.io/en/v1.0/"
+Documentation = "https://hydromodpy-docs.readthedocs.io/en/v1.0/"
 Repository = "https://gitlab.com/Alex-Gauvain/HydroModPy"
 Issues = "https://gitlab.com/Alex-Gauvain/HydroModPy/-/issues"
 "Google Group" = "https://groups.google.com/g/hydromodpy"

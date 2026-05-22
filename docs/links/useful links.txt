@@ -1,8 +1,8 @@
 GitLab Workflow
 https://gitlab.com/Alex-Gauvain/HydroModPy/
 
-Read the Docs v1 archive
-https://hydromodpy-docs.readthedocs.io/en/archive-v1/
+Read the Docs v1.0
+https://hydromodpy-docs.readthedocs.io/en/v1.0/
 
 Read the Docs v2 current
 https://hydromodpy-docs.readthedocs.io/en/main/
