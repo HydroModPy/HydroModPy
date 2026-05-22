@@ -2054,7 +2054,7 @@ Fields
                     <code class="hmp-field-name">values</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L29>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = 0.0` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L30>`__
 
                   ETP payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series. Values must be non-negative; the EVT package treats them as outflow rates.
 
@@ -2068,7 +2068,7 @@ Fields
                     <code class="hmp-field-name">heterogeneous_source</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L37>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L38>`__
 
                   Optional raw data source for heterogeneous (2D per-cell) ETP. When set, the solver adapter discretizes FieldRecords onto the MODFLOW grid instead of using the scalar 'values' field. Expected: LoadResult with FieldRecords.
 
@@ -2082,7 +2082,7 @@ Fields
                     <code class="hmp-field-name">first_clim</code>
                   </div>
 
-               :bdg-primary:`str | float` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L46>`__
+               :bdg-primary:`str | float` :bdg-secondary:`default = "mean"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L47>`__
 
                   Period-0 policy when values is a sequence: 'mean' (series average), 'first' (first element), or a numeric scalar.
 
@@ -2096,7 +2096,7 @@ Fields
                     <code class="hmp-field-name">units</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "mm/day"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L53>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "mm/day"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L54>`__
 
                   Units of the ETP data source. Data-manager outputs use mm/day by convention; converted to m/s at runtime.
 
@@ -2110,7 +2110,7 @@ Fields
                     <code class="hmp-field-name">surface_offset</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = 2.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L60>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = 2.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L61>`__
 
                   Distance below the topographic surface (m) where the EVT extraction surface sits. MODFLOW EVT extracts water linearly between this surface and surface - extinction_depth. Legacy default was DEM - 2 m.
 
@@ -2124,7 +2124,7 @@ Fields
                     <code class="hmp-field-name">extinction_depth</code>
                   </div>
 
-               :bdg-primary:`Any` :bdg-secondary:`default = 1.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L70>`__
+               :bdg-primary:`Any` :bdg-secondary:`default = 1.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L71>`__
 
                   EVT extinction depth (m): below surface_offset + extinction_depth, evapotranspiration is zero. Legacy default was 1 m.
 
@@ -2138,7 +2138,7 @@ Fields
                     <code class="hmp-field-name">spatial_mode</code>
                   </div>
 
-               :bdg-primary:`Literal['auto', 'homogeneous', 'heterogeneous']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L78>`__
+               :bdg-primary:`Literal['auto', 'homogeneous', 'heterogeneous']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L79>`__
 
                   How to interpret spatial data: 'auto' (points->homogeneous, fields->heterogeneous), 'homogeneous', or 'heterogeneous'.
 
@@ -2152,7 +2152,7 @@ Fields
                     <code class="hmp-field-name">interpolation_method</code>
                   </div>
 
-               :bdg-primary:`Literal['nearest', 'linear', 'idw']` :bdg-secondary:`default = "nearest"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L85>`__
+               :bdg-primary:`Literal['nearest', 'linear', 'idw']` :bdg-secondary:`default = "nearest"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L86>`__
 
                   Spatial interpolation method for gridded/point data onto the MODFLOW grid. Options: 'nearest', 'linear', 'idw'.
 
