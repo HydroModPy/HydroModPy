@@ -26,15 +26,12 @@ from sphinx_polyversion.sphinx import SphinxBuilder
 
 ROOT = Path(__file__).parent
 
-# Branches whose `docs/source` is built into the merged site. master + dev
-# are the canonical stable / unstable trunks; dev-docs is the active doc
-# refactor branch and is included so contributors can preview the in-flight
-# rewrite alongside the published versions.
-BRANCH_REGEX = r"(master|dev|dev-docs)"
+# Branches whose `docs/source` is built into the merged site. main + dev
+# are the current trunks. archive-v1 is the frozen legacy documentation line.
+BRANCH_REGEX = r"(main|dev|archive-v1|maint/\d+\.x)"
 
-# Tags follow ``vMAJOR.MINOR.PATCH`` once releases resume; meanwhile the
-# regex still matches nothing, which is a no-op.
-TAG_REGEX = r"v\d+\.\d+\.\d+"
+# Tags follow ``vMAJOR.MINOR.PATCH`` plus optional PEP 440 pre-release suffix.
+TAG_REGEX = r"v\d+\.\d+\.\d+(?:a\d+|b\d+|rc\d+)?"
 
 # Only rebuild a revision when files inside the docs source tree changed.
 DOCS_SOURCE = "docs/source"

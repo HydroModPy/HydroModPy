@@ -9,7 +9,7 @@ TOML section: ``[testbed]``
 
 Pydantic model: ``TestbedConfig`` defined in ``hydromodpy.analysis.testbed.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L205>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L205>`__
 
 Validated configuration for one method testbed.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">config_path</code>
       </div>
 
-   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L208>`__
+   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L208>`__
 
       Resolved path of the TOML file that produced this config.
 
@@ -50,7 +50,7 @@ Fields
         <code class="hmp-field-name">base_dir</code>
       </div>
 
-   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L211>`__
+   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L211>`__
 
       Directory used to resolve relative paths.
 
@@ -64,7 +64,7 @@ Fields
         <code class="hmp-field-name">id</code>
       </div>
 
-   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L214>`__
+   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L214>`__
 
       Stable testbed identifier.
 
@@ -78,7 +78,7 @@ Fields
         <code class="hmp-field-name">profile</code>
       </div>
 
-   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L215>`__
+   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L215>`__
 
       Selected testbed profile.
 
@@ -92,7 +92,7 @@ Fields
         <code class="hmp-field-name">subject</code>
       </div>
 
-   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L216>`__
+   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L216>`__
 
       High-level subject covered by the testbed (flow, mesh, transport).
 
@@ -106,7 +106,7 @@ Fields
         <code class="hmp-field-name">purpose</code>
       </div>
 
-   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L219>`__
+   :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L219>`__
 
       Stated purpose of the testbed (robustness, sensitivity, ...).
 
@@ -120,7 +120,7 @@ Fields
         <code class="hmp-field-name">output_root</code>
       </div>
 
-   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L222>`__
+   :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L222>`__
 
       Directory where testbed artifacts are written.
 
@@ -134,7 +134,7 @@ Fields
         <code class="hmp-field-name">execute</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L225>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L225>`__
 
       When false, child configs are materialized but not executed.
 
@@ -148,7 +148,7 @@ Fields
         <code class="hmp-field-name">continue_on_error</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L229>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L229>`__
 
       When false, the first failure aborts the testbed.
 
@@ -162,7 +162,7 @@ Fields
         <code class="hmp-field-name">base_config_path</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L233>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L233>`__
 
       Optional child workflow TOML used as the variant base config.
 
@@ -178,7 +178,7 @@ Fields
         <code class="hmp-field-toml">[testbed.runner]</code>
       </div>
 
-   :bdg-primary:`TestbedRunnerConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L237>`__
+   :bdg-primary:`TestbedRunnerConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L237>`__
 
       Child-runner selection for every variant.
 
@@ -197,7 +197,7 @@ Fields
               <code class="hmp-field-name">type</code>
             </div>
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L55>`__
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L55>`__
 
             Runner identifier dispatched for every variant (comparison, simulation).
 
@@ -211,7 +211,7 @@ Fields
               <code class="hmp-field-name">no_display</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L58>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L58>`__
 
             Disable interactive display in child runners.
 
@@ -229,7 +229,7 @@ Fields
         <code class="hmp-field-toml">[testbed.variants]</code>
       </div>
 
-   :bdg-primary:`tuple[TestbedVariantConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L240>`__
+   :bdg-primary:`tuple[TestbedVariantConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L240>`__
 
       Explicit variants declared in the TOML.
 
@@ -248,7 +248,7 @@ Fields
               <code class="hmp-field-name">id</code>
             </div>
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L67>`__
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L67>`__
 
             Stable variant identifier.
 
@@ -262,7 +262,7 @@ Fields
               <code class="hmp-field-name">label</code>
             </div>
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L68>`__
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L68>`__
 
             Human-readable variant label.
 
@@ -276,7 +276,7 @@ Fields
               <code class="hmp-field-name">axis</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L69>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L69>`__
 
             Optional axis tag used to group variants in reports.
 
@@ -290,7 +290,7 @@ Fields
               <code class="hmp-field-name">enabled</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L73>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L73>`__
 
             Toggle to skip a variant without removing it from the config.
 
@@ -306,7 +306,7 @@ Fields
               <code class="hmp-field-toml">[testbed.variants.overlay.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L77>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L77>`__
 
             TOML overlay merged into the child-runner base config.
 
@@ -324,7 +324,7 @@ Fields
         <code class="hmp-field-toml">[testbed.catalog]</code>
       </div>
 
-   :bdg-primary:`TestbedCatalogConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L244>`__
+   :bdg-primary:`TestbedCatalogConfig | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L244>`__
 
       Optional catalog source used to expand variants from rows.
 
@@ -343,7 +343,7 @@ Fields
               <code class="hmp-field-name">path</code>
             </div>
 
-         :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L99>`__
+         :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L99>`__
 
             Resolved path to the variant catalog (CSV or JSONL).
 
@@ -357,7 +357,7 @@ Fields
               <code class="hmp-field-name">format</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "auto"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L102>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "auto"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L102>`__
 
             Catalog format. 'auto' infers from the file suffix.
 
@@ -371,7 +371,7 @@ Fields
               <code class="hmp-field-name">id_field</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = "variant_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L106>`__
+         :bdg-primary:`str` :bdg-secondary:`default = "variant_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L106>`__
 
             Column carrying the variant identifier.
 
@@ -385,7 +385,7 @@ Fields
               <code class="hmp-field-name">label_field</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = "variant_label"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L110>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = "variant_label"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L110>`__
 
             Column carrying a human-readable variant label.
 
@@ -399,7 +399,7 @@ Fields
               <code class="hmp-field-name">axis_field</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = "axis"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L114>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = "axis"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L114>`__
 
             Column carrying the optional axis tag.
 
@@ -413,7 +413,7 @@ Fields
               <code class="hmp-field-name">enabled_field</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = "enabled"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L118>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = "enabled"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L118>`__
 
             Column flagging whether a row is active.
 
@@ -427,7 +427,7 @@ Fields
               <code class="hmp-field-name">tags_field</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = "tags"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L122>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = "tags"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L122>`__
 
             Column carrying free-form tags joined by tag_separator.
 
@@ -441,7 +441,7 @@ Fields
               <code class="hmp-field-name">required_fields</code>
             </div>
 
-         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L126>`__
+         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L126>`__
 
             Columns that must be present and non-empty per row.
 
@@ -455,7 +455,7 @@ Fields
               <code class="hmp-field-name">path_fields</code>
             </div>
 
-         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L130>`__
+         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L130>`__
 
             Columns whose values are resolved as filesystem paths.
 
@@ -469,7 +469,7 @@ Fields
               <code class="hmp-field-name">tag_separator</code>
             </div>
 
-         :bdg-primary:`str` :bdg-secondary:`default = ";"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L134>`__
+         :bdg-primary:`str` :bdg-secondary:`default = ";"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L134>`__
 
             Separator splitting the tags column into individual tags.
 
@@ -483,7 +483,7 @@ Fields
               <code class="hmp-field-name">field_equals</code>
             </div>
 
-         :bdg-primary:`tuple[tuple[str, str], ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L138>`__
+         :bdg-primary:`tuple[tuple[str, str], ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L138>`__
 
             Per-field equality filters applied during catalog selection.
 
@@ -497,7 +497,7 @@ Fields
               <code class="hmp-field-name">tags</code>
             </div>
 
-         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L142>`__
+         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L142>`__
 
             Whitelist of tags. Empty disables the filter.
 
@@ -511,7 +511,7 @@ Fields
               <code class="hmp-field-name">exclude_tags</code>
             </div>
 
-         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L146>`__
+         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L146>`__
 
             Blacklist of tags applied after the whitelist.
 
@@ -525,7 +525,7 @@ Fields
               <code class="hmp-field-name">include_disabled</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L150>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L150>`__
 
             When true, rows flagged as disabled are kept.
 
@@ -539,7 +539,7 @@ Fields
               <code class="hmp-field-name">limit</code>
             </div>
 
-         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L154>`__
+         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L154>`__
 
             Optional cap on the number of selected rows.
 
@@ -557,7 +557,7 @@ Fields
         <code class="hmp-field-toml">[testbed.catalog_variants]</code>
       </div>
 
-   :bdg-primary:`tuple[TestbedCatalogVariantConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L248>`__
+   :bdg-primary:`tuple[TestbedCatalogVariantConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L248>`__
 
       Variant-generation rules applied to catalog rows.
 
@@ -576,7 +576,7 @@ Fields
               <code class="hmp-field-name">id_template</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L163>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L163>`__
 
             Format string evaluated against catalog row fields to derive the variant id.
 
@@ -590,7 +590,7 @@ Fields
               <code class="hmp-field-name">label_template</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L167>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L167>`__
 
             Format string used to derive the variant label.
 
@@ -604,7 +604,7 @@ Fields
               <code class="hmp-field-name">axis_template</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L171>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L171>`__
 
             Format string used to derive the optional axis tag.
 
@@ -618,7 +618,7 @@ Fields
               <code class="hmp-field-name">enabled</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L175>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L175>`__
 
             Toggle to skip the rule without removing it from the config.
 
@@ -634,7 +634,7 @@ Fields
               <code class="hmp-field-toml">[testbed.catalog_variants.overlay.&lt;id&gt;]</code>
             </div>
 
-         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L179>`__
+         :bdg-primary:`dict[str, Any]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L179>`__
 
             TOML overlay rendered against each catalog row.
 
@@ -648,7 +648,7 @@ Fields
               <code class="hmp-field-name">required_fields</code>
             </div>
 
-         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L183>`__
+         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L183>`__
 
             Catalog columns that must be present and non-empty per row.
 
@@ -662,7 +662,7 @@ Fields
               <code class="hmp-field-name">field_equals</code>
             </div>
 
-         :bdg-primary:`tuple[tuple[str, str], ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L187>`__
+         :bdg-primary:`tuple[tuple[str, str], ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L187>`__
 
             Per-field equality filters applied while expanding rows.
 
@@ -676,7 +676,7 @@ Fields
               <code class="hmp-field-name">tags</code>
             </div>
 
-         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L191>`__
+         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L191>`__
 
             Whitelist of tags applied during rule expansion.
 
@@ -690,7 +690,7 @@ Fields
               <code class="hmp-field-name">exclude_tags</code>
             </div>
 
-         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L195>`__
+         :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L195>`__
 
             Blacklist of tags applied during rule expansion.
 
@@ -704,7 +704,7 @@ Fields
               <code class="hmp-field-name">limit</code>
             </div>
 
-         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L199>`__
+         :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L199>`__
 
             Optional cap on the number of variants generated by the rule.
 
@@ -722,7 +722,7 @@ Fields
         <code class="hmp-field-toml">[testbed.metrics]</code>
       </div>
 
-   :bdg-primary:`tuple[TestbedMetricConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L252>`__
+   :bdg-primary:`tuple[TestbedMetricConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L252>`__
 
       Metrics extracted from each child-runner summary.
 
@@ -741,7 +741,7 @@ Fields
               <code class="hmp-field-name">name</code>
             </div>
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L86>`__
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L86>`__
 
             Metric column name.
 
@@ -755,7 +755,7 @@ Fields
               <code class="hmp-field-name">source</code>
             </div>
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L87>`__
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L87>`__
 
             Dotted path into the child-runner summary.
 
@@ -769,7 +769,7 @@ Fields
               <code class="hmp-field-name">required</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/analysis/testbed/config.py#L90>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/config.py#L90>`__
 
             When true, a missing metric fails the variant.
 

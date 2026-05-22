@@ -13,6 +13,10 @@ build:
     - graphviz
     - pandoc
     - plantuml
+  jobs:
+    build:
+      html:
+        - python -m sphinx -T -j auto -b html -d _build/doctrees -D language=en docs/source $READTHEDOCS_OUTPUT/html
 
 sphinx:
   configuration: docs/source/conf.py

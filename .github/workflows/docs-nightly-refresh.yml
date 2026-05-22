@@ -34,7 +34,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target_branch: [dev, master]
+        target_branch: [main, dev]
 
     steps:
       - name: Check out target branch

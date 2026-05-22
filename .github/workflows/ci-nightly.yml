@@ -1,4 +1,4 @@
-# Nightly Linux checks for dev and master.
+# Nightly Linux checks for main and dev.
 # These tiers are too slow for every push but must stay green daily.
 
 name: Nightly / Linux Suites
@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target_branch: [dev, master]
+        target_branch: [main, dev]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -84,7 +84,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target_branch: [dev, master]
+        target_branch: [main, dev]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -146,7 +146,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target_branch: [dev, master]
+        target_branch: [main, dev]
     steps:
       - uses: actions/checkout@v4
         with:

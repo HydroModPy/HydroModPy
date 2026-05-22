@@ -71,7 +71,7 @@ the recipe that matches your platform.
       Recommended on Windows or for the curated geospatial stack.
       Three env files live in the
       `install/ folder on GitHub
-      <https://github.com/HydroModPy/HydroModPy/tree/master/install>`_;
+      <https://github.com/HydroModPy/HydroModPy/tree/main/install>`_;
       pick the one you need.
 
       .. list-table::
@@ -352,20 +352,28 @@ heavy regeneration with:
 Submit a pull request
 ---------------------
 
-1. Branch from ``dev`` (not ``master``). Use a short descriptive name,
-   for example ``feature/add-bdtopage-loader`` or
-   ``fix/calib-cell-resolve``.
-2. Group related changes in one focused commit. Follow the repository
-   commit format ``[scope] - short summary in lowercase``. Examples:
-   ``[docs] - update install extras for v0.5``,
-   ``[calibration] - fix structured cell resolution``.
-3. Push the branch and open a pull request against ``dev``. Reference
+1. Branch from ``dev`` for normal work. Use a short descriptive name,
+   for example ``feat/bdtopage-loader``, ``fix/calib-cell-resolve``,
+   or ``docs/versioning-policy``.
+2. ``main`` is the current v2 line and future default branch.
+   ``archive-v1`` is the frozen v1.0.0 branch and should not receive
+   normal PRs. Use ``maint/1.x`` only if active maintenance of the
+   ``1.*`` line resumes. Use ``release/X.Y`` only for short stabilization
+   windows before a final ``vX.Y.0`` release.
+3. Group related changes in one focused commit. Follow Conventional
+   Commits: one line, no body. Examples:
+   ``feat(data): add bdtopage loader``,
+   ``fix(calibration): resolve structured cells``, or
+   ``docs(versioning): document maintenance branches``.
+4. Push the branch and open a pull request against ``dev``. Reference
    the related issue (``Closes #123``) when applicable.
-4. Mention reviewers if the change affects modelling outputs, the
+5. Mention reviewers if the change affects modelling outputs, the
    public API, or any user-visible workflow.
 
-Releases move from ``dev`` to ``master`` once the notebooks run
-without warnings, the changelog is updated, and a tag is pushed.
+Releases are identified by tags such as ``v1.1.0``, ``v2.0.0a1``,
+``v2.0.0b1``, or ``v2.0.0rc1``, not by branch names. The full branch,
+tag, pre-release, changelog, and GitHub Release policy is documented in
+:doc:`about/release_policy`.
 
 Where to look next
 ------------------
