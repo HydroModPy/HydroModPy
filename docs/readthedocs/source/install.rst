@@ -1,12 +1,22 @@
 Install
 =======
 
+.. warning::
+
+   This documentation describes the archived HydroModPy v1.0.0 release. The
+   ``archive-v1`` branch is no longer maintained day to day. Existing projects
+   may stay pinned to the ``v1.0.0`` tag. New development should move to
+   HydroModPy v2 on ``main``:
+   https://hydromodpy-docs.readthedocs.io/en/main/
+
 Requirements
 ------------
 
-- Python 3.11 or newer (HydroModPy v0.3.0 dropped support for older versions; see :doc:`news/v0_3_0`).
+- Python 3.11 or newer (HydroModPy v0.3.0 dropped support for older versions;
+  see :doc:`news/v0_3_0`).
 - Git (only needed if you install from the repository).
-- MODFLOW, MODPATH and MT3DMS binaries are included with every installation (PyPI and repository installs).
+- MODFLOW, MODPATH and MT3DMS binaries are included with every installation
+  (PyPI and repository installs).
 - The PyHELP binary downloads itself on the first call to the helper module.
 
 Install with pip
@@ -14,16 +24,16 @@ Install with pip
 
 .. tab-set::
 
-   .. tab-item:: PyPI (latest master)
+   .. tab-item:: PyPI (v1.0.0 archive)
 
       .. code-block:: bash
 
          python -m pip install --upgrade pip
-         pip install hydromodpy
+         pip install "hydromodpy==1.0.0"
 
       This installs the published release from PyPI and exposes the package as
       ``hydromodpy`` in any environment. Need an IDE bundle (Spyder + JupyterLab)?
-      install ``hydromodpy[ide]`` instead.
+      install ``hydromodpy[ide]==1.0.0`` instead.
 
    .. tab-item:: Editable clone
 
@@ -31,12 +41,14 @@ Install with pip
 
          git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
          cd HydroModPy
+         git checkout v1.0.0
          python -m pip install --upgrade pip
          pip install -e .
 
       Editable mode installs the package from the local repository while keeping
-      the source tree editable. Ideal for contributions or quick fixes. Install
-      the ``[docs]`` extras later only if you work on the documentation.
+      the source tree editable. Use the v2 documentation for active
+      contributions. Install the ``[docs]`` extras later only if you work on the
+      archive documentation.
 
 Full pip packaging is available from v0.3.0 onward. Users pinned to older
 releases should rely on the conda environment and the ``v0.2.0`` tag.
@@ -90,8 +102,8 @@ Command recipes
 ---------------
 
 Pick the setup that matches your workflow. Replace ``<env>`` with your
-environment name, set ``<py>`` to the desired Python version (3.11–3.13), and switch
-``hydromodpy`` to ``"hydromodpy[docs]"`` if you need the documentation extras.
+environment name and set ``<py>`` to the desired Python version (3.11–3.13).
+Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
 
 .. dropdown:: Conda + YAML
    :color: secondary
@@ -101,7 +113,7 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
    .. code-block:: bash
 
       # Clone + runtime stack (scripts, notebooks)
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
+      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && git checkout v1.0.0 && conda env create -n <env> -f install/env_hydromodpy.yml && conda activate <env>
 
    .. code-block:: bash
 
@@ -111,7 +123,7 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
    .. code-block:: bash
 
       # Clone + editable stack (adds pip install -e ..)
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
+      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && git checkout v1.0.0 && conda env create -n <env>-pkg -f install/env_hydromodpy_pkg.yml && conda activate <env>-pkg
 
    .. code-block:: bash
 
@@ -127,7 +139,7 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
    .. code-block:: bash
 
       # Without cloning
-      conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
+      conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
 
    .. code-block:: bash
 
@@ -137,14 +149,15 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
    .. code-block:: bash
 
       # Clone first (optional), then install from PyPI
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
+      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && git checkout v1.0.0 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
 
    .. code-block:: bash
 
       # Clone first, then install in editable mode (pip install -e .)
-      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
+      git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git && cd HydroModPy && git checkout v1.0.0 && conda create -y -n <env> python=<py> pip && conda activate <env> && python -m pip install --upgrade pip && pip install -e .
 
-   Add ``"hydromodpy[ide]"`` at the end if you want Spyder and JupyterLab bundled.
+   Add ``"hydromodpy[ide]==1.0.0"`` at the end if you want Spyder and
+   JupyterLab bundled.
 
 .. dropdown:: venv + PyPI
    :color: secondary
@@ -156,30 +169,32 @@ environment name, set ``<py>`` to the desired Python version (3.11–3.13), and 
 
    .. code-block:: bash
 
-      python<py> -m venv <env> && source <env>/bin/activate && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
+      python<py> -m venv <env> && source <env>/bin/activate && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
 
    .. rubric:: Windows (PowerShell)
 
    .. code-block:: powershell
 
-      py -<py> -m venv <env> ; .\<env>\Scripts\Activate.ps1 ; python -m pip install --upgrade pip ; pip install --upgrade hydromodpy
+      py -<py> -m venv <env> ; .\<env>\Scripts\Activate.ps1 ; python -m pip install --upgrade pip ; pip install "hydromodpy==1.0.0"
 
    .. rubric:: Windows (CMD)
 
    .. code-block:: batch
 
-      py -<py> -m venv <env> && call <env>\Scripts\activate.bat && python -m pip install --upgrade pip && pip install --upgrade hydromodpy
+      py -<py> -m venv <env> && call <env>\Scripts\activate.bat && python -m pip install --upgrade pip && pip install "hydromodpy==1.0.0"
 
-   Append ``"hydromodpy[ide]"`` to either command if you want the IDE extras.
+   Append ``"hydromodpy[ide]==1.0.0"`` to either command if you want the IDE
+   extras.
 
-Upgrade
--------
+Pin the v1 archive
+------------------
 
 .. code-block:: bash
 
-   pip install --upgrade hydromodpy
+   pip install "hydromodpy==1.0.0"
 
-Editable installs can be updated with ``git pull`` followed by the same command.
+Editable installs should stay on the ``v1.0.0`` tag unless a future
+``maint/1.x`` branch is announced.
 
 Check the installation
 ----------------------
@@ -205,7 +220,7 @@ Spyder note
 environment. Install the IDE itself via the Conda YAML files (Spyder is already
 included) or by adding the ``ide`` extra ::
 
-   pip install "hydromodpy[ide]"
+   pip install "hydromodpy[ide]==1.0.0"
 
 Manual install remains possible with ``conda install spyder``.
 
@@ -222,5 +237,5 @@ older interpreters.
    :icon: info
 
    Known ``pyproj`` / ``proj.db`` issues observed in earlier releases were fixed
-   from v0.3.0 onward. Upgrade to this version (or newer) to avoid the missing
-   database errors that appeared on some conda setups.
+   from v0.3.0 onward. Use v1.0.0 to avoid the missing database errors that
+   appeared on some conda setups.

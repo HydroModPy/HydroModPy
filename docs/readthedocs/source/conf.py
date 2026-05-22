@@ -58,9 +58,9 @@ copyright = '2021'
 author = 'A. Gauvain, R. Abhervé'
 
 # The short X.Y version
-version = '0.1'
+version = '1.0'
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+release = '1.0.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -132,6 +132,7 @@ pygments_style = 'sphinx'
 html_theme = 'pydata_sphinx_theme'
 html_favicon = 'images/logoHydroModPy.png'
 html_logo = 'images/logoHydroModPy_long.png'
+html_baseurl = "https://hydromodpy-docs.readthedocs.io/en/archive-v1/"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -142,7 +143,10 @@ html_theme_options = {
         "image_light": "images/logoHydroModPy_long.png",
         "image_dark": "images/logoHydroModPy_long.png",
     },
-    "announcement": "🚧 Development documentation",
+    "announcement": (
+        "Archived v1.0.0 documentation. New development lives on "
+        "<a href='https://hydromodpy-docs.readthedocs.io/en/main/'>main</a>."
+    ),
     "navbar_start": ["navbar-logo"],
     "navbar_center": ["navbar-nav"],
     "navbar_end": ["theme-switcher", "navbar-icon-links"],

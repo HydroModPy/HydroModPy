@@ -3,6 +3,14 @@
 Welcome to HydroModPy's !
 ======================================
 
+.. warning::
+
+   This documentation describes the archived HydroModPy v1.0.0 release. The
+   ``archive-v1`` branch is no longer maintained day to day. Existing projects
+   may stay pinned to the ``v1.0.0`` tag. New development should move to
+   HydroModPy v2 on ``main``:
+   https://hydromodpy-docs.readthedocs.io/en/main/
+
 HydroModPy was initiated in 2018 to streamline the deployment of hydrological
 models in catchments across the crystalline basement regions of Normandy and
 Brittany, France. The platform integrates a wide range of open-source packages
@@ -13,14 +21,15 @@ The development of HydroModPy was driven by two primary objectives:
 
 #. First, it automates the extraction and discretization of watersheds from
    Digital Elevation Models (DEMs), while adding essential data available
-   (e.g. piezometry, hydrography, geology) from local data to national and global
-   databases. This ensures a standardized process for setting up and running
-   simulation batches across different watersheds with uniform input data.
+   (e.g. piezometry, hydrography, geology) from local data to national and
+   global databases. This ensures a standardized process for setting up and
+   running simulation batches across different watersheds with uniform input
+   data.
 #. The second goal is to facilitate the visualization and comparison of results
    from the various modeling programs included within the platform. In addition
    to its scientific applications, HydroModPy also serves as a valuable
-   educational tool, enabling students and researchers to explore hydrogeological
-   modeling in a practical context.
+   educational tool, enabling students and researchers to explore
+   hydrogeological modeling in a practical context.
 
 .. dropdown:: Abstract for the congress IAH 2024
 
@@ -88,10 +97,11 @@ Install
 
 .. code-block:: bash
 
-   pip install hydromodpy
+   pip install "hydromodpy==1.0.0"
 
 For detailed instructions see the :doc:`installation guide <install>`.
-If you plan to add new features, check the :doc:`contributor setup <contribute>`.
+If you plan to add new features, check the
+:doc:`contributor setup <contribute>`.
 
 Research use and citation
 -------------------------
