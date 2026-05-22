@@ -71,7 +71,7 @@ the recipe that matches your platform.
       Recommended on Windows or for the curated geospatial stack.
       Three env files live in the
       `install/ folder on GitHub
-      <https://github.com/HydroModPy/HydroModPy/tree/master/install>`_;
+      <https://github.com/HydroModPy/HydroModPy/tree/main/install>`_;
       pick the one you need.
 
       .. list-table::
@@ -355,10 +355,11 @@ Submit a pull request
 1. Branch from ``dev`` for normal work. Use a short descriptive name,
    for example ``feat/bdtopage-loader``, ``fix/calib-cell-resolve``,
    or ``docs/versioning-policy``.
-2. Use ``maint/1.x`` only to maintain the ``1.*`` release line after
-   ``dev`` has moved to an incompatible ``2.*`` line. Use
-   ``release/X.Y`` only for short stabilization windows before a final
-   ``vX.Y.0`` release.
+2. ``main`` is the current v2 line and future default branch.
+   ``archive-v1`` is the frozen v1.0.0 branch and should not receive
+   normal PRs. Use ``maint/1.x`` only if active maintenance of the
+   ``1.*`` line resumes. Use ``release/X.Y`` only for short stabilization
+   windows before a final ``vX.Y.0`` release.
 3. Group related changes in one focused commit. Follow Conventional
    Commits: one line, no body. Examples:
    ``feat(data): add bdtopage loader``,

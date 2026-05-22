@@ -54,9 +54,10 @@ Users should identify exact released code through tags and GitHub Releases.
 Long-lived branches:
 
 ```text
-master       latest stable final release line
+main         current v2 line and future stable default branch
 dev          active integration for the next release
-maint/1.x    optional v1 maintenance line when dev has moved to v2
+archive-v1   frozen v1.0.0 documentation and source line, not maintained
+maint/1.x    optional maintained v1 line, only if maintenance resumes
 ```
 
 Short-lived branches:
@@ -69,8 +70,9 @@ release/2.0
 hotfix/1.0.1
 ```
 
-Do not use `v1` or `v2` as long-lived branch names. Use `maint/1.x` for a
-maintained major line and exact tags such as `v1.0.3` for releases.
+Do not use `v1` or `v2` as long-lived branch names. Use `archive-v1` for
+the frozen v1 branch, `maint/1.x` only for active maintenance, and exact
+tags such as `v1.0.0` or `v2.0.0a1` for releases.
 
 ## Release checklist
 
@@ -92,7 +94,7 @@ maintained major line and exact tags such as `v1.0.3` for releases.
 
 9. Let `.github/workflows/publish.yml` build, publish, and create the GitHub
    Release.
-10. Merge final release branches back into `master` and `dev`. Merge
+10. Merge final release branches back into `main` and `dev`. Merge
     maintenance fixes forward into `dev` when still applicable.
 
 Full policy: `docs/source/about/release_policy.rst`.

@@ -40,8 +40,10 @@ Each release section includes the following standard categories:
 
 ### Changed
 - Documented the release policy for SemVer/PEP 440 versions, alpha/beta/rc
-  pre-releases, `maint/1.x` maintenance branches, release branches, tags, and
-  GitHub Releases.
+  pre-releases, the new `main` default line, the frozen `archive-v1` branch,
+  release branches, tags, and GitHub Releases.
+- Prepared the v2 line as `2.0.0a1` and updated project metadata, docs links,
+  source links, and GitHub workflow branch filters from `master` to `main`.
 - Per-simulation `timeseries`, `budgets`, and `mass_balance` rows now live as
   Parquet files under `simulations/<uuid>.parquet/` instead of DuckDB tables
   inside `hydromodpy.duckdb`. DuckDB views with the original table names

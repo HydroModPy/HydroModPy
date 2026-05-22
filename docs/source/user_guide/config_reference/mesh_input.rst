@@ -9,7 +9,7 @@ TOML section: ``[mesh_input]``
 
 Pydantic model: ``MeshInputConfig`` defined in ``hydromodpy.core.config_kit.mesh_input``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/mesh_input.py#L22>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/mesh_input.py#L22>`__
 
 External pre-existing mesh declared in ``[mesh_input]``.
 
@@ -40,7 +40,7 @@ Fields
         <code class="hmp-field-name">mesh_path</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/mesh_input.py#L30>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/mesh_input.py#L30>`__
 
       Path to the external planar mesh file (typically a ``.msh``). Required when ``bundle_dir`` is not provided. Relative paths are resolved against the TOML directory.
 
@@ -54,7 +54,7 @@ Fields
         <code class="hmp-field-name">bundle_dir</code>
       </div>
 
-   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/core/config_kit/mesh_input.py#L38>`__
+   :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/core/config_kit/mesh_input.py#L38>`__
 
       Path to the solver-exchange mesh bundle directory associated with the external mesh. Required when ``mesh_path`` is not provided. Relative paths are resolved against the TOML directory.
 

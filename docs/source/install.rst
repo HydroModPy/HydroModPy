@@ -23,18 +23,19 @@ Quick install
 
 .. code-block:: bash
 
-   pip install hydromodpy
+   pip install --pre hydromodpy
 
-That single command installs the latest published release from PyPI
-inside the active Python environment (Python 3.11 or newer). The two
-CLI entry points become available straight away:
+This documentation targets the v2 alpha line. The ``--pre`` flag is needed
+while v2 is published as ``2.0.0aN``, ``2.0.0bN``, or ``2.0.0rcN``.
+Without ``--pre``, ``pip install hydromodpy`` installs the latest stable
+release from PyPI. The two CLI entry points become available straight away:
 
 .. code-block:: bash
 
    hmp --version
    hmp --help
 
-Need an IDE bundle (Spyder + JupyterLab)? Use ``pip install
+Need an IDE bundle (Spyder + JupyterLab)? Use ``pip install --pre
 "hydromodpy[ide]"`` instead. The full list of optional extras is
 :ref:`below <install-extras>`.
 The default install includes the ``optuna`` calibration sampler used by
@@ -56,7 +57,7 @@ Choose your installer
          python3.12 -m venv .venv
          source .venv/bin/activate
          python -m pip install --upgrade pip
-         pip install hydromodpy
+         pip install --pre hydromodpy
 
       On Windows PowerShell, replace the first two lines with
       ``py -3.12 -m venv .venv`` and ``.\.venv\Scripts\Activate.ps1``.
@@ -72,7 +73,7 @@ Choose your installer
 
          uv venv .venv --python 3.12
          source .venv/bin/activate
-         uv pip install hydromodpy
+         uv pip install --pre hydromodpy
 
       One-shot run without a long-lived venv:
 
@@ -91,12 +92,12 @@ Choose your installer
 
          conda create -n hmp python=3.12 pip
          conda activate hmp
-         pip install hydromodpy
+         pip install --pre hydromodpy
 
       For the curated environment YAMLs (runtime stack, with Spyder
       and the geospatial dependencies), download the file you need
       from the `install/ folder on GitHub
-      <https://github.com/HydroModPy/HydroModPy/tree/master/install>`_,
+      <https://github.com/HydroModPy/HydroModPy/tree/main/install>`_,
       then create the env from the downloaded copy:
 
       .. code-block:: bash
@@ -148,7 +149,7 @@ Choose your installer
          In the meantime, use the **conda** tab above with
          ``env_hydromodpy.yml`` from the
          `install/ folder on GitHub
-         <https://github.com/HydroModPy/HydroModPy/tree/master/install>`_,
+         <https://github.com/HydroModPy/HydroModPy/tree/main/install>`_,
          or fall back to ``pip`` inside a conda env.
 
 .. _install-extras:

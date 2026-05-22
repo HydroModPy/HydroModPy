@@ -137,11 +137,11 @@ entry points are:
 
    * - Where
      - What it gives you
-   * - `Codecov badge SVG <https://codecov.io/gh/HydroModPy/HydroModPy/branch/dev/graph/badge.svg>`__
+   * - `Codecov badge SVG <https://codecov.io/gh/HydroModPy/HydroModPy/branch/main/graph/badge.svg>`__
      - The compact live badge used by ``README.md``. It is useful for a
        quick project-level percentage, but it does not show file-level
        details.
-   * - `Codecov dashboard <https://codecov.io/gh/HydroModPy/HydroModPy/tree/dev>`__
+   * - `Codecov dashboard <https://codecov.io/gh/HydroModPy/HydroModPy/tree/main>`__
      - The detailed hosted view: project trend, file-level coverage,
        pull-request diff coverage, and per-flag breakdowns when uploads
        are available.

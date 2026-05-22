@@ -115,15 +115,17 @@ Long-lived branches:
 
    * - Branch
      - Role
-   * - ``master``
-     - Stable integration branch for the latest final release line. If the
-       repository is renamed later, ``main`` takes this role and ``master``
-       must be retired.
+   * - ``main``
+     - Current v2 line and future stable default branch. During the v2
+       transition it may carry ``2.0.0aN`` pre-releases.
    * - ``dev``
      - Active integration branch for the next release line.
+   * - ``archive-v1``
+     - Frozen v1.0.0 source and documentation line. It is kept for users who
+       still need v1, but it is not actively maintained.
    * - ``maint/1.x``
-     - Optional maintenance branch for the latest ``1.*`` releases when
-       ``dev`` has moved to an incompatible ``2.*`` line.
+     - Optional maintenance branch for ``1.*`` releases if active v1
+       maintenance resumes. Do not use this name for an archive-only branch.
 
 Short-lived branches:
 
@@ -145,32 +147,47 @@ Short-lived branches:
    * - ``hotfix/1.0.1``
      - Temporary branch for a single urgent patch release.
 
-Do not name long-lived branches ``v1`` or ``v2``. Use ``maint/1.x`` for a
-maintained major line and use tags such as ``v1.0.3`` for exact releases.
+Do not name long-lived branches ``v1`` or ``v2``. Use ``archive-v1`` for
+the frozen v1 branch, ``maint/1.x`` only for active maintenance, and tags
+such as ``v1.0.0`` or ``v2.0.0a1`` for exact releases.
 
-Example: maintaining v1 while preparing v2
-------------------------------------------
+Example: archiving v1 while preparing v2
+----------------------------------------
 
-When ``dev`` starts breaking changes for v2, keep the v1 stable line
-explicit:
-
-.. code-block:: text
-
-   master       latest final release
-   dev          active v2 development
-   maint/1.x    v1 bugfix maintenance only
-   release/2.0  temporary v2 stabilization branch
-
-Typical tags during that period:
+When ``main`` is created from the current v2 development line, keep the v1
+source explicit but frozen:
 
 .. code-block:: text
 
-   v1.0.0       stable v1 release
-   v1.0.1       v1 bugfix from maint/1.x
-   v2.0.0a1     first public v2 alpha from dev
+   main        current v2 line, first published as v2.0.0a1
+   dev         active integration for the next v2 pre-release
+   archive-v1  frozen v1.0.0 source and docs with an upgrade warning
+   release/2.0 temporary v2 stabilization branch
+
+Use ``maint/1.x`` only if the project decides to actively maintain v1
+again. A frozen branch is an archive branch, not a maintenance branch.
+
+Typical tags during the v2 transition:
+
+.. code-block:: text
+
+   v1.0.0       final v1 release kept on archive-v1
+   v2.0.0a1     first public v2 alpha from main
    v2.0.0b1     v2 beta
    v2.0.0rc1    v2 release candidate
-   v2.0.0       final v2 release merged to master
+   v2.0.0       final v2 release on main
+
+Archive branch warning
+----------------------
+
+The ``archive-v1`` documentation must show a visible warning on the home
+page, install page, and contributor page:
+
+- v1 is frozen and no longer updated.
+- Existing v1 users can keep using tagged releases such as ``v1.0.0``.
+- New work should move to ``main`` and the v2 documentation.
+- The warning should link to
+  ``https://hydromodpy-docs.readthedocs.io/en/main/``.
 
 Tagging discipline
 ------------------
@@ -211,7 +228,9 @@ Release flow
 2. Create the correct branch:
 
    - normal work from ``dev``
-   - v1 maintenance from ``maint/1.x``
+   - current v2 release work from ``main`` or ``release/2.0``
+   - frozen v1 documentation from ``archive-v1`` only for legacy warnings
+   - active v1 maintenance from ``maint/1.x`` only if maintenance resumes
    - stabilization from ``release/X.Y``
 
 3. Update the version in ``pyproject.toml`` and
@@ -249,7 +268,7 @@ Release flow
    Release. Tags containing ``aN``, ``bN``, or ``rcN`` must be marked as
    GitHub pre-releases.
 
-9. After a final release, merge the release branch back into ``master`` and
+9. After a final release, merge the release branch back into ``main`` and
    ``dev``. After a maintenance release, merge the maintenance fix forward
    into ``dev`` if the bug still exists there.
 
@@ -261,7 +280,8 @@ applying the minimal patch, and releasing ``vX.Y.(Z+1)``. Hotfixes do not
 carry new features.
 
 For a maintained older major line, branch from the relevant maintenance
-branch:
+branch. Do not use ``archive-v1`` for hotfix work unless it has first been
+promoted back to an active maintenance branch.
 
 .. code-block:: text
 

@@ -9,7 +9,7 @@ TOML section: ``[transport]``
 
 Pydantic model: ``TransportConfig`` defined in ``hydromodpy.physics.transport.transport_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L248>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248>`__
 
 Transport-process configuration.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">active_sinks_sources</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L248>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248>`__
 
       Ordered list of sink/source identifiers that are explicitly activated for this process. An empty list means no sink/source is active. Concrete process configs (e.g. FlowConfig) validate the allowed values.
 
@@ -50,7 +50,7 @@ Fields
         <code class="hmp-field-name">active_bc</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L248>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L248>`__
 
       Ordered list of boundary-condition identifiers that are explicitly activated for this process. An empty list means no boundary-condition package is assembled. Concrete process configs (e.g. FlowConfig) validate the allowed values.
 
@@ -66,7 +66,7 @@ Fields
         <code class="hmp-field-toml">[transport.modpath]</code>
       </div>
 
-   :bdg-primary:`TransportModpathConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L279>`__
+   :bdg-primary:`TransportModpathConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L279>`__
 
       Modpath solver configuration block.
 
@@ -87,7 +87,7 @@ Fields
               <code class="hmp-field-toml">[transport.modpath.parameters]</code>
             </div>
 
-         :bdg-primary:`ModpathParametersConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L55>`__
+         :bdg-primary:`ModpathParametersConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L55>`__
 
             Solver parameter block used by Modpath.
 
@@ -106,7 +106,7 @@ Fields
                     <code class="hmp-field-name">zone_partic</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "domain"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L17>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "domain"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L17>`__
 
                   Particle injection zone selector: 'domain', 'seepage_clip', or a raster path.
 
@@ -120,7 +120,7 @@ Fields
                     <code class="hmp-field-name">track_dir</code>
                   </div>
 
-               :bdg-primary:`Literal['forward', 'backward', 'custom']` :bdg-secondary:`default = "forward"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L23>`__
+               :bdg-primary:`Literal['forward', 'backward', 'custom']` :bdg-secondary:`default = "forward"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L23>`__
 
                   Particle tracking direction.
 
@@ -134,7 +134,7 @@ Fields
                     <code class="hmp-field-name">bore_depth</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L27>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L27>`__
 
                   Optional bore depth list used for vertical particle injection.
 
@@ -148,7 +148,7 @@ Fields
                     <code class="hmp-field-name">cell_div</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L31>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L31>`__
 
                   Number of particles per axis in each cell.
 
@@ -162,7 +162,7 @@ Fields
                     <code class="hmp-field-name">zloc_div</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L36>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L36>`__
 
                   If true, apply vertical subdivision for particle injection.
 
@@ -176,7 +176,7 @@ Fields
                     <code class="hmp-field-name">sel_random</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L40>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L40>`__
 
                   Optional random downsampling count of injected particles.
 
@@ -190,7 +190,7 @@ Fields
                     <code class="hmp-field-name">sel_slice</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L45>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L45>`__
 
                   Optional slicing step for injected particles.
 
@@ -210,7 +210,7 @@ Fields
         <code class="hmp-field-toml">[transport.mt3dms]</code>
       </div>
 
-   :bdg-primary:`TransportMt3dmsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L283>`__
+   :bdg-primary:`TransportMt3dmsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L283>`__
 
       MT3DMS solver configuration block.
 
@@ -231,7 +231,7 @@ Fields
               <code class="hmp-field-toml">[transport.mt3dms.parameters]</code>
             </div>
 
-         :bdg-primary:`ConcentrationTransportParametersConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L109>`__
+         :bdg-primary:`ConcentrationTransportParametersConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L109>`__
 
             Solver parameter block used by Mt3dms.
 
@@ -250,7 +250,7 @@ Fields
                     <code class="hmp-field-name">spc_name</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "NO3"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L64>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "NO3"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L64>`__
 
                   Name of transported species.
 
@@ -264,7 +264,7 @@ Fields
                     <code class="hmp-field-name">sconc_init</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L68>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L68>`__
 
                   Initial concentration value (can be overridden at runtime).
 
@@ -278,7 +278,7 @@ Fields
                     <code class="hmp-field-name">sconc_input</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L72>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L72>`__
 
                   Recharge concentration input value (can be overridden at runtime).
 
@@ -292,7 +292,7 @@ Fields
                     <code class="hmp-field-name">disp_long</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L76>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L76>`__
 
                   Longitudinal dispersivity [L].
 
@@ -306,7 +306,7 @@ Fields
                     <code class="hmp-field-name">disp_transh</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L80>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L80>`__
 
                   Horizontal transverse dispersivity ratio.
 
@@ -320,7 +320,7 @@ Fields
                     <code class="hmp-field-name">disp_transv</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L84>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L84>`__
 
                   Vertical transverse dispersivity ratio.
 
@@ -334,7 +334,7 @@ Fields
                     <code class="hmp-field-name">diffu_coeff</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L88>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L88>`__
 
                   Molecular diffusion coefficient [L2/T].
 
@@ -348,7 +348,7 @@ Fields
                     <code class="hmp-field-name">react_order</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L92>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L92>`__
 
                   Reaction order for MT3DMS: None, 0, or 1.
 
@@ -362,7 +362,7 @@ Fields
                     <code class="hmp-field-name">rate_decay</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L96>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
 
                   Decay rate value (can be overridden at runtime).
 
@@ -376,7 +376,7 @@ Fields
                     <code class="hmp-field-name">plot_conc</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L100>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L100>`__
 
                   Enable concentration plotting outputs.
 
@@ -396,7 +396,7 @@ Fields
         <code class="hmp-field-toml">[transport.modflow6gwt]</code>
       </div>
 
-   :bdg-primary:`TransportModflow6GwtConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L287>`__
+   :bdg-primary:`TransportModflow6GwtConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L287>`__
 
       MODFLOW 6 GWT solver configuration block.
 
@@ -417,7 +417,7 @@ Fields
               <code class="hmp-field-toml">[transport.modflow6gwt.parameters]</code>
             </div>
 
-         :bdg-primary:`ConcentrationTransportParametersConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L118>`__
+         :bdg-primary:`ConcentrationTransportParametersConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L118>`__
 
             Solver parameter block used by Modflow6Transport.
 
@@ -436,7 +436,7 @@ Fields
                     <code class="hmp-field-name">spc_name</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "NO3"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L64>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "NO3"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L64>`__
 
                   Name of transported species.
 
@@ -450,7 +450,7 @@ Fields
                     <code class="hmp-field-name">sconc_init</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L68>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L68>`__
 
                   Initial concentration value (can be overridden at runtime).
 
@@ -464,7 +464,7 @@ Fields
                     <code class="hmp-field-name">sconc_input</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L72>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L72>`__
 
                   Recharge concentration input value (can be overridden at runtime).
 
@@ -478,7 +478,7 @@ Fields
                     <code class="hmp-field-name">disp_long</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L76>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L76>`__
 
                   Longitudinal dispersivity [L].
 
@@ -492,7 +492,7 @@ Fields
                     <code class="hmp-field-name">disp_transh</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L80>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L80>`__
 
                   Horizontal transverse dispersivity ratio.
 
@@ -506,7 +506,7 @@ Fields
                     <code class="hmp-field-name">disp_transv</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L84>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L84>`__
 
                   Vertical transverse dispersivity ratio.
 
@@ -520,7 +520,7 @@ Fields
                     <code class="hmp-field-name">diffu_coeff</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L88>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L88>`__
 
                   Molecular diffusion coefficient [L2/T].
 
@@ -534,7 +534,7 @@ Fields
                     <code class="hmp-field-name">react_order</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L92>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L92>`__
 
                   Reaction order for MT3DMS: None, 0, or 1.
 
@@ -548,7 +548,7 @@ Fields
                     <code class="hmp-field-name">rate_decay</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L96>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.0` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L96>`__
 
                   Decay rate value (can be overridden at runtime).
 
@@ -562,7 +562,7 @@ Fields
                     <code class="hmp-field-name">plot_conc</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L100>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L100>`__
 
                   Enable concentration plotting outputs.
 
@@ -582,7 +582,7 @@ Fields
         <code class="hmp-field-toml">[transport.modflow6prt]</code>
       </div>
 
-   :bdg-primary:`TransportModflow6PrtConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L291>`__
+   :bdg-primary:`TransportModflow6PrtConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L291>`__
 
       MODFLOW 6 PRT particle-tracking solver configuration block.
 
@@ -603,7 +603,7 @@ Fields
               <code class="hmp-field-toml">[transport.modflow6prt.parameters]</code>
             </div>
 
-         :bdg-primary:`Modflow6PrtParametersConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L242>`__
+         :bdg-primary:`Modflow6PrtParametersConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L242>`__
 
             Solver parameter block used by Modflow6Prt.
 
@@ -622,7 +622,7 @@ Fields
                     <code class="hmp-field-name">release_zone</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "domain"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L127>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "domain"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L127>`__
 
                   Particle release selector: 'domain', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'.
 
@@ -636,7 +636,7 @@ Fields
                     <code class="hmp-field-name">upstream_top_quantile</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.9` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L134>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.9` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L134>`__
 
                   Top-elevation quantile used by upstream release zones. A value of 0.90 selects cells in the highest 10 percent of active cell-top elevations.
 
@@ -650,7 +650,7 @@ Fields
                     <code class="hmp-field-name">outlet_bottom_quantile</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L143>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.1` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L143>`__
 
                   Bottom-elevation quantile used by the 'outlet' release zone. A value of 0.10 selects cells in the lowest 10 percent of active cell-top elevations.
 
@@ -664,7 +664,7 @@ Fields
                     <code class="hmp-field-name">track_dir</code>
                   </div>
 
-               :bdg-primary:`Literal['forward']` :bdg-secondary:`default = "forward"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L152>`__
+               :bdg-primary:`Literal['forward']` :bdg-secondary:`default = "forward"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L152>`__
 
                   Particle tracking direction. MF6 PRT support is currently forward only.
 
@@ -678,7 +678,7 @@ Fields
                     <code class="hmp-field-name">porosity</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L156>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L156>`__
 
                   Optional uniform particle-tracking porosity. When omitted, the flow model specific yield is used where positive.
 
@@ -692,7 +692,7 @@ Fields
                     <code class="hmp-field-name">local_z</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 0.5` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L164>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 0.5` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L164>`__
 
                   Local vertical release coordinate within the cell.
 
@@ -706,7 +706,7 @@ Fields
                     <code class="hmp-field-name">particle_cell_ids</code>
                   </div>
 
-               :bdg-primary:`list[int] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L170>`__
+               :bdg-primary:`list[int] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L170>`__
 
                   Optional zero-based DISV cell2d ids for explicit particle release. Used when release_zone is 'custom'.
 
@@ -720,7 +720,7 @@ Fields
                     <code class="hmp-field-name">max_particles</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L177>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L177>`__
 
                   Optional maximum number of release cells after zone selection.
 
@@ -734,7 +734,7 @@ Fields
                     <code class="hmp-field-name">sel_slice</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L182>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L182>`__
 
                   Optional deterministic slicing step for selected release cells.
 
@@ -748,7 +748,7 @@ Fields
                     <code class="hmp-field-name">release_times_days</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L187>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L187>`__
 
                   Optional particle release times in model time units. Existing MODFLOW 6 models in HydroModPy use days.
 
@@ -762,7 +762,7 @@ Fields
                     <code class="hmp-field-name">track_times_days</code>
                   </div>
 
-               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L194>`__
+               :bdg-primary:`list[float] | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L194>`__
 
                   Optional user tracking output times in model time units.
 
@@ -776,7 +776,7 @@ Fields
                     <code class="hmp-field-name">track_time_step_days</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L198>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L198>`__
 
                   Optional regular spacing, in days, for generated PRT tracking output times. Used only when track_times_days is omitted.
 
@@ -790,7 +790,7 @@ Fields
                     <code class="hmp-field-name">stop_time_days</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L206>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L206>`__
 
                   Optional absolute particle stop time in model time units.
 
@@ -804,7 +804,7 @@ Fields
                     <code class="hmp-field-name">stop_travel_time_days</code>
                   </div>
 
-               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L211>`__
+               :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L211>`__
 
                   Optional maximum particle travel time in model time units.
 
@@ -818,7 +818,7 @@ Fields
                     <code class="hmp-field-name">extend_tracking</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L216>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L216>`__
 
                   Track particles beyond the final flow time step when MF6 permits it.
 
@@ -832,7 +832,7 @@ Fields
                     <code class="hmp-field-name">dry_tracking_method</code>
                   </div>
 
-               :bdg-primary:`Literal['drop', 'stop', 'stay']` :bdg-secondary:`default = "drop"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L220>`__
+               :bdg-primary:`Literal['drop', 'stop', 'stay']` :bdg-secondary:`default = "drop"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L220>`__
 
                   MF6 PRT behavior for dry-but-active cells.
 
@@ -846,7 +846,7 @@ Fields
                     <code class="hmp-field-name">exit_solve_tolerance</code>
                   </div>
 
-               :bdg-primary:`float` :bdg-secondary:`default = 1e-10` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L224>`__
+               :bdg-primary:`float` :bdg-secondary:`default = 1e-10` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L224>`__
 
                   PRT generalized Pollock exit solve tolerance.
 
@@ -860,7 +860,7 @@ Fields
                     <code class="hmp-field-name">write_track_csv</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L229>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L229>`__
 
                   Write the PRT track CSV file used by the HydroModPy extractor.
 
@@ -874,7 +874,7 @@ Fields
                     <code class="hmp-field-name">write_track_binary</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/transport/transport_config.py#L233>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L233>`__
 
                   Write the binary PRT track file.
 

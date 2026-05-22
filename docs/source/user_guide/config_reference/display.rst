@@ -9,7 +9,7 @@ TOML section: ``[display]``
 
 Pydantic model: ``DisplayConfig`` defined in ``hydromodpy.display.config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L109>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L109>`__
 
 Display behaviour resolved from the ``[display]`` TOML section.
 
@@ -36,7 +36,7 @@ Fields
         <code class="hmp-field-name">enabled</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L112>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L112>`__
 
       Master switch. When False, no figure is rendered or saved.
 
@@ -50,7 +50,7 @@ Fields
         <code class="hmp-field-name">backend</code>
       </div>
 
-   :bdg-primary:`Literal['agg', 'qt5agg', 'auto']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L116>`__
+   :bdg-primary:`Literal['agg', 'qt5agg', 'auto']` :bdg-secondary:`default = "auto"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L116>`__
 
       Matplotlib backend. 'auto' selects Agg in headless mode and a GUI backend when ``show`` is enabled.
 
@@ -64,7 +64,7 @@ Fields
         <code class="hmp-field-name">preset</code>
       </div>
 
-   :bdg-primary:`Literal['default', 'print', 'dark']` :bdg-secondary:`default = "default"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L123>`__
+   :bdg-primary:`Literal['default', 'print', 'dark']` :bdg-secondary:`default = "default"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L123>`__
 
       Named theme applied before rendering any figure.
 
@@ -78,7 +78,7 @@ Fields
         <code class="hmp-field-name">show</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L127>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L127>`__
 
       Open an interactive window via ``matplotlib.pyplot.show``.
 
@@ -92,7 +92,7 @@ Fields
         <code class="hmp-field-name">save</code>
       </div>
 
-   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L131>`__
+   :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L131>`__
 
       Write rendered figures to disk under ``output_dir``.
 
@@ -106,7 +106,7 @@ Fields
         <code class="hmp-field-name">output_dir</code>
       </div>
 
-   :bdg-primary:`Path` :bdg-secondary:`default = "figures"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L135>`__
+   :bdg-primary:`Path` :bdg-secondary:`default = "figures"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L135>`__
 
       Directory (relative to project root) for saved figures.
 
@@ -120,7 +120,7 @@ Fields
         <code class="hmp-field-name">dpi</code>
       </div>
 
-   :bdg-primary:`int` :bdg-secondary:`default = 150` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L139>`__
+   :bdg-primary:`int` :bdg-secondary:`default = 150` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L139>`__
 
       DPI used when saving raster figures.
 
@@ -134,7 +134,7 @@ Fields
         <code class="hmp-field-name">cmap</code>
       </div>
 
-   :bdg-primary:`str` :bdg-secondary:`default = "viridis"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L144>`__
+   :bdg-primary:`str` :bdg-secondary:`default = "viridis"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L144>`__
 
       Default sequential colormap for spatial figures.
 
@@ -148,7 +148,7 @@ Fields
         <code class="hmp-field-name">figures</code>
       </div>
 
-   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L148>`__
+   :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L148>`__
 
       Names of registered figures to auto-render at the end of `hmp run` (and consumed by `hmp display`). Empty list disables auto-rendering; figures can still be produced later with `hmp display <toml>`. Disable per-run via `hmp run --no-display` or for an entire Python Project via `Project(..., no_display=True)`.
 
@@ -164,7 +164,7 @@ Fields
         <code class="hmp-field-toml">[display.overrides.&lt;id&gt;]</code>
       </div>
 
-   :bdg-primary:`dict[str, dict]` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L158>`__
+   :bdg-primary:`dict[str, dict]` :bdg-info:`factory` :bdg-danger:`expert` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L158>`__
 
       Per-figure keyword overrides, keyed by figure name (e.g. ``{'piezometric_map': {'cmap': 'cividis', 'vmin': 0}}``).
 
@@ -180,7 +180,7 @@ Fields
         <code class="hmp-field-toml">[display.flow]</code>
       </div>
 
-   :bdg-primary:`DisplayFlowConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L165>`__
+   :bdg-primary:`DisplayFlowConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L165>`__
 
       Flow figure switches.
 
@@ -199,7 +199,7 @@ Fields
               <code class="hmp-field-name">enabled</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L21>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L21>`__
 
             Master switch for flow figures.
 
@@ -213,7 +213,7 @@ Fields
               <code class="hmp-field-name">cross_section</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L25>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L25>`__
 
             Render the flow cross-section plot.
 
@@ -227,7 +227,7 @@ Fields
               <code class="hmp-field-name">streamflow</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L29>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L29>`__
 
             Render the streamflow comparison plot.
 
@@ -241,7 +241,7 @@ Fields
               <code class="hmp-field-name">piezometry</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L33>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L33>`__
 
             Render the piezometry plot.
 
@@ -255,7 +255,7 @@ Fields
               <code class="hmp-field-name">watertable_map</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L37>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L37>`__
 
             Render water-table maps.
 
@@ -269,7 +269,7 @@ Fields
               <code class="hmp-field-name">dem_map</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L41>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L41>`__
 
             Render a DEM overview map.
 
@@ -283,7 +283,7 @@ Fields
               <code class="hmp-field-name">budget</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L45>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L45>`__
 
             Render groundwater budget figures.
 
@@ -297,7 +297,7 @@ Fields
               <code class="hmp-field-name">hydrography</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L49>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L49>`__
 
             Render hydrography maps.
 
@@ -311,7 +311,7 @@ Fields
               <code class="hmp-field-name">boussinesq_state</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L53>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L53>`__
 
             Render the Boussinesq state figure.
 
@@ -325,7 +325,7 @@ Fields
               <code class="hmp-field-name">boussinesq_diagnostics</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L57>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L57>`__
 
             Render Boussinesq diagnostics.
 
@@ -339,7 +339,7 @@ Fields
               <code class="hmp-field-name">boussinesq_mass_balance</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L61>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L61>`__
 
             Render Boussinesq mass-balance diagnostics.
 
@@ -353,7 +353,7 @@ Fields
               <code class="hmp-field-name">boussinesq_probes</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L65>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L65>`__
 
             Render Boussinesq probe time series.
 
@@ -367,7 +367,7 @@ Fields
               <code class="hmp-field-name">boussinesq_edge_flux</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L69>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L69>`__
 
             Render final Boussinesq edge fluxes.
 
@@ -385,7 +385,7 @@ Fields
         <code class="hmp-field-toml">[display.particles]</code>
       </div>
 
-   :bdg-primary:`DisplayParticlesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L169>`__
+   :bdg-primary:`DisplayParticlesConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L169>`__
 
       Particle figure switches.
 
@@ -404,7 +404,7 @@ Fields
               <code class="hmp-field-name">enabled</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L78>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L78>`__
 
             Master switch for particle figures.
 
@@ -418,7 +418,7 @@ Fields
               <code class="hmp-field-name">pathlines</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L82>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L82>`__
 
             Render particle pathlines.
 
@@ -436,7 +436,7 @@ Fields
         <code class="hmp-field-toml">[display.transport]</code>
       </div>
 
-   :bdg-primary:`DisplayTransportConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L173>`__
+   :bdg-primary:`DisplayTransportConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L173>`__
 
       Transport figure switches.
 
@@ -455,7 +455,7 @@ Fields
               <code class="hmp-field-name">enabled</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L91>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L91>`__
 
             Master switch for transport figures.
 
@@ -469,7 +469,7 @@ Fields
               <code class="hmp-field-name">concentration</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L95>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L95>`__
 
             Render concentration plots.
 
@@ -483,7 +483,7 @@ Fields
               <code class="hmp-field-name">gif</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L99>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L99>`__
 
             Export concentration GIF animation.
 
@@ -497,7 +497,7 @@ Fields
               <code class="hmp-field-name">web_animation</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/display/config.py#L103>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/config.py#L103>`__
 
             Export browser-friendly concentration animation.
 

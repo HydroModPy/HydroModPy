@@ -4,8 +4,8 @@ Thanks for considering a contribution. This file is the short version: how
 to report an issue, set up a dev environment, run tests, and open a pull
 request. The deep documentation (CLI, TOML, Pydantic config, data managers,
 architecture) lives in the
-[contributor guide](https://hydromodpy-docs.readthedocs.io/en/dev/contribute.html)
-and on the [Read the Docs site](https://hydromodpy-docs.readthedocs.io/en/dev/).
+[contributor guide](https://hydromodpy-docs.readthedocs.io/en/main/contribute.html)
+and on the [Read the Docs site](https://hydromodpy-docs.readthedocs.io/en/main/).
 Release naming, maintenance branches, tags, and GitHub Releases are covered
 in [VERSIONING.md](VERSIONING.md).
 
@@ -41,7 +41,7 @@ import. The `pre-commit install` step registers the Git hook that runs
 `ruff` before each commit.
 
 For conda env files, Windows + WSL setup, and the PETSc Boussinesq backend,
-see the [installation guide](https://hydromodpy-docs.readthedocs.io/en/dev/install.html).
+see the [installation guide](https://hydromodpy-docs.readthedocs.io/en/main/install.html).
 
 ## Lint and format
 
@@ -73,9 +73,9 @@ Do not hard-code tolerances elsewhere. New solver behavior needs at least a
 unit test, plus a validation case if the math is non-trivial.
 
 For the full ladder (when each family runs, what each protects against),
-see the [test families guide](https://hydromodpy-docs.readthedocs.io/en/dev/architecture/overview/test-families-and-quality-roles.html).
+see the [test families guide](https://hydromodpy-docs.readthedocs.io/en/main/architecture/overview/test-families-and-quality-roles.html).
 For GitHub check names and CI triage, see the
-[GitHub Actions workflow guide](https://hydromodpy-docs.readthedocs.io/en/dev/architecture/ci-workflows.html).
+[GitHub Actions workflow guide](https://hydromodpy-docs.readthedocs.io/en/main/architecture/ci-workflows.html).
 
 ## Code style
 
@@ -99,8 +99,9 @@ and is enforced by `tests/unit/architecture/test_layer_matrix.py`.
 - Branch from `dev` for normal work. Use a short descriptive name, for
   example `feat/bdtopage-loader`, `fix/calib-cell-resolve`, or
   `docs/versioning-policy`.
-- Use `maint/1.x` only for maintenance of the `1.*` release line after
-  `dev` has moved to an incompatible `2.*` line.
+- `main` is the current v2 line and future default branch.
+- `archive-v1` is the frozen v1.0.0 branch. Do not target normal PRs there.
+- Use `maint/1.x` only if active maintenance of the `1.*` line resumes.
 - Use `release/X.Y` only for short stabilization windows before a final
   `vX.Y.0` release.
 - Commit format: Conventional Commits, one line, no body. Examples:
@@ -119,13 +120,13 @@ Releases are identified by tags such as `v1.1.0`, `v2.0.0a1`,
 
 ## Where to look next
 
-- [Configuration reference](https://hydromodpy-docs.readthedocs.io/en/dev/user_guide/config_reference/index.html):
+- [Configuration reference](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/config_reference/index.html):
   every TOML section, fields, defaults, validators.
-- [Architecture](https://hydromodpy-docs.readthedocs.io/en/dev/architecture/index.html):
+- [Architecture](https://hydromodpy-docs.readthedocs.io/en/main/architecture/index.html):
   layer matrix, package maps, runtime handoff.
-- [User guide](https://hydromodpy-docs.readthedocs.io/en/dev/user_guide/index.html):
+- [User guide](https://hydromodpy-docs.readthedocs.io/en/main/user_guide/index.html):
   workflows, cookbook, theory, supported data variables.
-- [API reference](https://hydromodpy-docs.readthedocs.io/en/dev/api/index.html):
+- [API reference](https://hydromodpy-docs.readthedocs.io/en/main/api/index.html):
   auto-generated, complete.
 
 ## License
