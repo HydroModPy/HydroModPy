@@ -255,7 +255,6 @@ jobs:
     name: Typing / mypy baseline py3.12 (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -271,4 +270,11 @@ jobs:
           pip install "mypy>=1.13" "pydantic>=2.13" "types-requests"
 
       - name: Run mypy baseline
-        run: mypy hydromodpy
+        run: |
+          set +e
+          mypy hydromodpy
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::mypy advisory baseline failed with exit code $status"
+          fi
+          exit 0
