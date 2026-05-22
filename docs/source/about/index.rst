@@ -58,10 +58,10 @@ publications that rely on HydroModPy.
       :link: release_policy
       :link-type: doc
 
-      **Release policy**
+      **Release and versioning policy**
       ^^^
-      SemVer rules, deprecation cycle, tagging discipline, and the
-      PyPI publication flow.
+      SemVer and PEP 440 rules, alpha/beta/rc releases, maintenance
+      branches, tags, and the PyPI publication flow.
 
    .. grid-item-card::
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
@@ -82,5 +82,5 @@ publications that rely on HydroModPy.
    Applications <../applications>
    changelog
    roadmap
-   release_policy
+   Release and versioning policy <release_policy>
    documentation_refresh

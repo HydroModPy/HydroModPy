@@ -87,7 +87,8 @@ Full documentation lives at
 Bug reports, feature requests and pull requests are welcome. See
 [CONTRIBUTING.md](CONTRIBUTING.md) for the short version and the
 [contributor guide](https://hydromodpy-docs.readthedocs.io/en/dev/contribute.html)
-for the full reference.
+for the full reference. Version numbers, maintenance branches, tags and
+GitHub Releases are documented in [VERSIONING.md](VERSIONING.md).
 
 Security issues: please follow [SECURITY.md](SECURITY.md) and use a private
 advisory rather than a public issue.

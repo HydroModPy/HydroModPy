@@ -6,6 +6,8 @@ request. The deep documentation (CLI, TOML, Pydantic config, data managers,
 architecture) lives in the
 [contributor guide](https://hydromodpy-docs.readthedocs.io/en/dev/contribute.html)
 and on the [Read the Docs site](https://hydromodpy-docs.readthedocs.io/en/dev/).
+Release naming, maintenance branches, tags, and GitHub Releases are covered
+in [VERSIONING.md](VERSIONING.md).
 
 ## Open an issue
 
@@ -94,21 +96,26 @@ and is enforced by `tests/unit/architecture/test_layer_matrix.py`.
 
 ## Commits and pull requests
 
-- Branch from `dev` (not `master`). Use a short descriptive name, for
-  example `feature/add-bdtopage-loader` or `fix/calib-cell-resolve`.
-- Commit format: `[tag] - short imperative sentence`. One line. No body.
-  Known tags: `config`, `features`, `fix`, `refactor`, `cleanup`,
-  `pipeline`, `adapters`, `examples`, `docs`, `tests`, `validation`.
+- Branch from `dev` for normal work. Use a short descriptive name, for
+  example `feat/bdtopage-loader`, `fix/calib-cell-resolve`, or
+  `docs/versioning-policy`.
+- Use `maint/1.x` only for maintenance of the `1.*` release line after
+  `dev` has moved to an incompatible `2.*` line.
+- Use `release/X.Y` only for short stabilization windows before a final
+  `vX.Y.0` release.
+- Commit format: Conventional Commits, one line, no body. Examples:
+  `feat(data): add bdtopage loader`, `fix(calibration): resolve cells`,
+  `docs(versioning): document maintenance branches`.
 - Group related changes in one focused commit.
 - Open the PR against `dev`. Reference the issue (`Closes #123`) when
   applicable.
 - Mention reviewers if the change affects modeling outputs, the public API,
   or any user-visible workflow.
 
-Releases move from `dev` to `master` after the gallery rebuilds without
-warnings, the changelog is updated, and a tag is pushed. See
-[`docs/source/about/release_policy.rst`](docs/source/about/release_policy.rst)
-for the version policy.
+Releases are identified by tags such as `v1.1.0`, `v2.0.0a1`,
+`v2.0.0b1`, or `v2.0.0rc1`, not by branch names. See
+[`VERSIONING.md`](VERSIONING.md) and
+[`docs/source/about/release_policy.rst`](docs/source/about/release_policy.rst).
 
 ## Where to look next
 
