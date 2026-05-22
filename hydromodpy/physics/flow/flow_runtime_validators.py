@@ -48,7 +48,7 @@ def normalize_positive_int_or_none(value: object, *, field: str) -> int | None:
         return None
     if isinstance(value, bool):
         raise ValueError(f"flow.{field} must be a positive integer")
-    numeric = float(value)
+    numeric = float(str(value).strip())
     if not numeric.is_integer() or numeric <= 0:
         raise ValueError(f"flow.{field} must be a positive integer")
     return int(numeric)
@@ -60,7 +60,7 @@ def normalize_positive_int(value: object, *, field: str, default: int) -> int:
         return default
     if isinstance(value, bool):
         raise ValueError(f"flow.{field} must be a positive integer")
-    numeric = float(value)
+    numeric = float(str(value).strip())
     if not numeric.is_integer() or numeric <= 0:
         raise ValueError(f"flow.{field} must be a positive integer")
     return int(numeric)
@@ -86,7 +86,7 @@ def normalize_positive_float(value: object, *, field: str, default: float) -> fl
         return default
     if isinstance(value, bool):
         raise ValueError(f"flow.{field} must be a positive number")
-    numeric = float(value)
+    numeric = float(str(value).strip())
     if numeric <= 0.0:
         raise ValueError(f"flow.{field} must be a positive number")
     return numeric
@@ -98,7 +98,7 @@ def normalize_positive_float_or_none(value: object, *, field: str) -> float | No
         return None
     if isinstance(value, bool):
         raise ValueError(f"flow.{field} must be a positive number")
-    numeric = float(value)
+    numeric = float(str(value).strip())
     if numeric <= 0.0:
         raise ValueError(f"flow.{field} must be a positive number")
     return numeric

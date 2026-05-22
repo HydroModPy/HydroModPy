@@ -439,9 +439,9 @@ def check_schema_version(metadata: dict[bytes, bytes] | dict[str, str] | None) -
             f"{PARQUET_SCHEMA_VERSION!r}"
         )
     found: str | None = None
-    for key in (b"hmp.schema_version", "hmp.schema_version"):
-        if key in metadata:
-            raw = metadata[key]
+    for key, raw in metadata.items():
+        key_text = key.decode("utf-8") if isinstance(key, bytes) else key
+        if key_text == "hmp.schema_version":
             found = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
             break
     if found is None:

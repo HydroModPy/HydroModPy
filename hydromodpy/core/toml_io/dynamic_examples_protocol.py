@@ -16,7 +16,7 @@ from typing import Protocol
 class DynamicFlowExamplesProvider(Protocol):
     """Render commented TOML example blocks for the dynamic flow sections."""
 
-    def render(self, threshold: int, section_renderer: Callable) -> list[str]:
+    def render(self, threshold: int, section_renderer: Callable[..., list[str]]) -> list[str]:
         """Return the list of lines for the dynamic flow examples."""
 
 

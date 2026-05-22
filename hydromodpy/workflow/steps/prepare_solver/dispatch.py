@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.steps.prepare_solver.validate import _primary_solver_for_simulation
 
@@ -51,10 +52,12 @@ def _write_zarr_crs(ctx: WorkflowContext, sim_id: str) -> None:
         sim_id,
         crs_wkt=str(attrs.get("crs_wkt", str(crs))),
         grid_mapping_name=str(attrs.get("grid_mapping_name", "latitude_longitude")),
-        epsg_code=int(epsg_raw) if epsg_raw is not None else None,
-        semi_major_axis=float(semi_major_raw) if semi_major_raw is not None else None,
+        epsg_code=int(str(epsg_raw).strip()) if epsg_raw is not None else None,
+        semi_major_axis=float(str(semi_major_raw).strip()) if semi_major_raw is not None else None,
         inverse_flattening=(
-            float(inverse_flattening_raw) if inverse_flattening_raw is not None else None
+            float(str(inverse_flattening_raw).strip())
+            if inverse_flattening_raw is not None
+            else None
         ),
     )
 
@@ -175,6 +178,8 @@ def step_open_store(ctx: WorkflowContext) -> None:
     from hydromodpy.results.catalog import SimulationCatalog
 
     workspace = ctx.setup.workspace
+    if workspace is None:
+        raise PipelineError("Workspace is required before opening the simulation catalog.")
     ctx.store = SimulationCatalog.from_workspace(
         workspace,
         persistence=results_cfg.persistence,

@@ -3373,49 +3373,49 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `flow <flow.html#flow-sinks-sources-etp-values>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L29>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L30>`__
    * - ``flow.sinks_sources.etp.heterogeneous_source``
      - ``Any``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-etp-heterogeneous-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L37>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L38>`__
    * - ``flow.sinks_sources.etp.first_clim``
      - ``str | float``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-etp-first-clim>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L46>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L47>`__
    * - ``flow.sinks_sources.etp.units``
      - ``str``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-etp-units>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L53>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L54>`__
    * - ``flow.sinks_sources.etp.surface_offset``
      - ``Any``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-etp-surface-offset>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L60>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L61>`__
    * - ``flow.sinks_sources.etp.extinction_depth``
      - ``Any``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-etp-extinction-depth>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L70>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L71>`__
    * - ``flow.sinks_sources.etp.spatial_mode``
      - ``Literal['auto', 'homogeneous', 'heterogeneous']``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-etp-spatial-mode>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L78>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L79>`__
    * - ``flow.sinks_sources.etp.interpolation_method``
      - ``Literal['nearest', 'linear', 'idw']``
      - dev
      - -
      - `flow <flow.html#flow-sinks-sources-etp-interpolation-method>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L85>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L86>`__
    * - ``flow.active_sinks_sources``
      - ``list[str]``
      - user

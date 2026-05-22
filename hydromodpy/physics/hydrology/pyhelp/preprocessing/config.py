@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
+
+PathInput = str | Path
 
 
 class PyhelpGridParams:
@@ -58,16 +61,16 @@ class PyhelpPreprocessingConfig:
     def __init__(
         self,
         *,
-        workdir: Path,
-        pyhelp_out_nc: Path,
+        workdir: PathInput,
+        pyhelp_out_nc: PathInput,
         # Grid inputs
-        grid_ready: Path | None = None,
-        grid_base: Path | None = None,
-        dem: Path | None,
-        shapefile: Path | None = None,
+        grid_ready: PathInput | None = None,
+        grid_base: PathInput | None = None,
+        dem: PathInput | None,
+        shapefile: PathInput | None = None,
         # Climate inputs: either ready_csvs OR era5_folder
-        ready_climatic_csvs: tuple[Path, Path, Path] | None = None,
-        nc_folder: Path | None = None,
+        ready_climatic_csvs: Sequence[PathInput] | None = None,
+        nc_folder: Sequence[PathInput] | None = None,
         # Parameters
         grid_params: PyhelpGridParams | None = None,
         compress_level: int = 4,
@@ -77,7 +80,7 @@ class PyhelpPreprocessingConfig:
         self.pyhelp_out_nc = Path(pyhelp_out_nc)
 
         self.grid_ready = Path(grid_ready) if grid_ready is not None else None
-        self.grid_base = Path(grid_base)
+        self.grid_base = Path(grid_base) if grid_base is not None else None
         self.dem = Path(dem) if dem is not None else None
         self.shapefile = Path(shapefile) if shapefile is not None else None
 

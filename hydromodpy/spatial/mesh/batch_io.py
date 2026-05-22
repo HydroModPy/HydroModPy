@@ -214,8 +214,8 @@ def _build_outlet_record(
             raw_y = row.get("geometry_y")
         if raw_x is None or raw_y is None:
             raise KeyError
-        x_outlet = float(raw_x)
-        y_outlet = float(raw_y)
+        x_outlet = float(str(raw_x).strip())
+        y_outlet = float(str(raw_y).strip())
     except KeyError as exc:
         raise KeyError(
             f"Missing outlet coordinates columns '{x_column}'/'{y_column}' in {row_label}"

@@ -24,7 +24,7 @@ _FLOW_PARAM_EXAMPLES: tuple[tuple[str, str, str], ...] = (
 class DynamicFlowExamples:
     """Render dynamic flow example blocks for the TOML generator."""
 
-    def render(self, threshold: int, section_renderer: Callable) -> list[str]:
+    def render(self, threshold: int, section_renderer: Callable[..., list[str]]) -> list[str]:
         out: list[str] = []
         out.append("")
         out.append("# " + "-" * 70)

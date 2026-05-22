@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import threading
 from contextlib import AbstractContextManager
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from hydromodpy.core.logging import get_logger
 
@@ -70,7 +70,7 @@ class HeartbeatPulse(AbstractContextManager):
         self._thread = thread
         return self
 
-    def __exit__(self, *exc: object) -> bool:
+    def __exit__(self, *exc: object) -> Literal[False]:
         self._stop.set()
         thread = self._thread
         if thread is not None and thread.is_alive():

@@ -6808,7 +6808,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-values",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L29",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L30",
     "description": "ETP payload: scalar, list (one per stress period), mapping {kper: value}, or runtime series. Values must be non-negative; the EVT package treats them as outflow rates."
   },
   {
@@ -6820,7 +6820,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-heterogeneous-source",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L37",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L38",
     "description": "Optional raw data source for heterogeneous (2D per-cell) ETP. When set, the solver adapter discretizes FieldRecords onto the MODFLOW grid instead of using the scalar 'values' field. Expected: LoadResult with FieldRecords."
   },
   {
@@ -6832,7 +6832,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-first-clim",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L46",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L47",
     "description": "Period-0 policy when values is a sequence: 'mean' (series average), 'first' (first element), or a numeric scalar."
   },
   {
@@ -6844,7 +6844,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-units",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L53",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L54",
     "description": "Units of the ETP data source. Data-manager outputs use mm/day by convention; converted to m/s at runtime."
   },
   {
@@ -6856,7 +6856,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-surface-offset",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L60",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L61",
     "description": "Distance below the topographic surface (m) where the EVT extraction surface sits. MODFLOW EVT extracts water linearly between this surface and surface - extinction_depth. Legacy default was DEM - 2 m."
   },
   {
@@ -6868,7 +6868,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-extinction-depth",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L70",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L71",
     "description": "EVT extinction depth (m): below surface_offset + extinction_depth, evapotranspiration is zero. Legacy default was 1 m."
   },
   {
@@ -6880,7 +6880,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-spatial-mode",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L78",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L79",
     "description": "How to interpret spatial data: 'auto' (points->homogeneous, fields->heterogeneous), 'homogeneous', or 'heterogeneous'."
   },
   {
@@ -6892,7 +6892,7 @@
     "section": "flow",
     "anchor": "flow-sinks-sources-etp-interpolation-method",
     "page": "flow.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L85",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/physics/flow/sinks_sources/etp.py#L86",
     "description": "Spatial interpolation method for gridded/point data onto the MODFLOW grid. Options: 'nearest', 'linear', 'idw'."
   },
   {

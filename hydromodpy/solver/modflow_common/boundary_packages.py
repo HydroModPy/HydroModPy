@@ -50,7 +50,7 @@ class BoundaryCell:
     col: int
     attrs: tuple[float, ...] = field(default_factory=tuple)
 
-    def as_tuple(self) -> tuple[int, int, int, *tuple[float, ...]]:  # type: ignore[misc]
+    def as_tuple(self) -> tuple[int, int, int, *tuple[float, ...]]:
         return (int(self.layer), int(self.row), int(self.col), *self.attrs)
 
 
@@ -62,7 +62,7 @@ class DisvBoundaryCell:
     cell_id: int
     attrs: tuple[float, ...] = field(default_factory=tuple)
 
-    def as_tuple(self) -> tuple[tuple[int, int], *tuple[float, ...]]:  # type: ignore[misc]
+    def as_tuple(self) -> tuple[tuple[int, int], *tuple[float, ...]]:
         return ((int(self.layer), int(self.cell_id)), *self.attrs)
 
 

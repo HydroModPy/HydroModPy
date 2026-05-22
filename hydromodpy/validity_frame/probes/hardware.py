@@ -24,7 +24,7 @@ class HardwareProbe:
         try:
             import psutil
         except Exception:
-            psutil = None  # type: ignore (assignment)
+            psutil = None
 
         if psutil is not None:
             metrics.cpu_count = psutil.cpu_count(logical=False)
@@ -36,7 +36,7 @@ class HardwareProbe:
         try:
             import pynvml
         except Exception:
-            pynvml = None  # type: ignore (assignment)
+            pynvml = None
         if pynvml is not None:
             try:
                 pynvml.nvmlInit()

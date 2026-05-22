@@ -171,7 +171,9 @@ def _measure_linework_length_m(gdf) -> float:
 
 
 def _coerce_crs(crs_like) -> object | None:
-    if crs_like in (None, ""):
+    if crs_like is None:
+        return None
+    if isinstance(crs_like, str) and crs_like.strip() == "":
         return None
     try:
         from pyproj import CRS

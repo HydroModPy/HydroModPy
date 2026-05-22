@@ -18,7 +18,7 @@ from __future__ import annotations
 import html
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.display.catalog import get as _get_figure
@@ -31,6 +31,8 @@ from hydromodpy.results.time_alignment import (
 if TYPE_CHECKING:
     import pandas as pd
 
+    from hydromodpy.results.run import Run
+
 logger = get_logger(__name__)
 
 
@@ -42,13 +44,26 @@ class SessionReportPayload(Protocol):
     a static dependency on the calibration package.
     """
 
-    session_id: str
-    session: dict[str, Any]
-    iterations: list[dict[str, Any]]
-    workspace_root: Path
-    best_sim_id: str | None
-    sim_timeseries: pd.DataFrame | None
-    obs_timeseries: pd.DataFrame | None
+    @property
+    def session_id(self) -> str: ...
+
+    @property
+    def session(self) -> dict[str, Any]: ...
+
+    @property
+    def iterations(self) -> list[dict[str, Any]]: ...
+
+    @property
+    def workspace_root(self) -> Path: ...
+
+    @property
+    def best_sim_id(self) -> str | None: ...
+
+    @property
+    def sim_timeseries(self) -> pd.DataFrame | None: ...
+
+    @property
+    def obs_timeseries(self) -> pd.DataFrame | None: ...
 
 
 _DEFAULT_FIGURE_NAMES: tuple[str, ...] = (
@@ -188,7 +203,7 @@ def _render_figures(
         out_path = figures_dir / f"{figure_name}.png"
         try:
             fig_cls = _get_figure(figure_name)
-            fig_cls.plot(run_stub, save_path=out_path, session_id=session_id)
+            fig_cls.plot(cast("Run", run_stub), save_path=out_path, session_id=session_id)
         except Exception as exc:
             failures.append(f"{figure_name}: {exc}")
             plt.close("all")

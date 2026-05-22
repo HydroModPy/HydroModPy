@@ -87,9 +87,9 @@ class ParticleTracks(BaseFigure):
             ax.text(0.5, 0.5, "no pathlines", ha="center", va="center", transform=ax.transAxes)
             return ax
 
-        import matplotlib.cm as cm
+        import matplotlib.pyplot as plt
 
-        cmap = cm.get_cmap(color, max(len(tracks), 2))
+        cmap = plt.get_cmap(color, max(len(tracks), 2))
         for i, track in enumerate(tracks):
             ax.plot(track[:, 0], track[:, 1], lw=lw, color=cmap(i))
         ax.set_aspect("equal", adjustable="datalim")

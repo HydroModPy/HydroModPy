@@ -130,7 +130,13 @@ def build_refinement_grid(
 
     for candidate in candidates:
         curve_tag = int(candidate.curve_tag)
-        bounds = tuple(float(value) for value in candidate.geometry.bounds)
+        raw_bounds = candidate.geometry.bounds
+        bounds = (
+            float(raw_bounds[0]),
+            float(raw_bounds[1]),
+            float(raw_bounds[2]),
+            float(raw_bounds[3]),
+        )
         touched_cell_ids = _cell_ids_for_bounds(
             bounds=bounds,
             grid_bounds=(xmin, ymin, xmax, ymax),

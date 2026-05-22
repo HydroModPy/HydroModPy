@@ -73,8 +73,8 @@ def params_hash(
             "parameters": _round_float_mapping(values, precision=precision),
         }
         payload_text = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    payload = payload_text.encode("utf-8")
-    digest = hashlib.sha256(payload).hexdigest()
+    payload_bytes = payload_text.encode("utf-8")
+    digest = hashlib.sha256(payload_bytes).hexdigest()
     return digest if context is None else f"v2:{digest}"
 
 

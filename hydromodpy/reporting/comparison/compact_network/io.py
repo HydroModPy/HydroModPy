@@ -76,7 +76,7 @@ def _fmt_m(value: object) -> str:
     if value in ("", None):
         return ""
     try:
-        return f"{float(value):,.0f}".replace(",", " ")
+        return f"{float(str(value).strip()):,.0f}".replace(",", " ")
     except (TypeError, ValueError):
         return str(value)
 
@@ -85,7 +85,7 @@ def _fmt_ratio(value: object) -> str:
     if value in ("", None):
         return ""
     try:
-        return f"{float(value):.2f}"
+        return f"{float(str(value).strip()):.2f}"
     except (TypeError, ValueError):
         return str(value)
 
@@ -94,7 +94,7 @@ def _parse_float(value: object) -> float | None:
     if value in ("", None):
         return None
     try:
-        parsed = float(value)
+        parsed = float(str(value).strip())
     except (TypeError, ValueError):
         return None
     return parsed if parsed == parsed else None

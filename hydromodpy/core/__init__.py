@@ -9,6 +9,7 @@ symbols from sibling layers.
 from __future__ import annotations
 
 from importlib import import_module
+from typing import Any
 
 __all__ = [
     "Workspace",
@@ -41,7 +42,7 @@ _LAZY_IMPORTS = {
 }
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     try:
         target = _LAZY_IMPORTS[name]
     except KeyError as exc:

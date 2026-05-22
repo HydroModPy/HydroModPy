@@ -14,7 +14,7 @@ import argparse
 import os
 import sys
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -71,10 +71,10 @@ def register(subparsers) -> argparse.ArgumentParser:
     try:
         from argcomplete.completers import ChoicesCompleter, FilesCompleter
 
-        config_arg.completer = FilesCompleter(("toml",))  # type: ignore[attr-defined]
+        config_arg.completer = FilesCompleter(("toml",))
         step_completer = ChoicesCompleter(_step_choices())
-        from_arg.completer = step_completer  # type: ignore[attr-defined]
-        until_arg.completer = step_completer  # type: ignore[attr-defined]
+        from_arg.completer = step_completer
+        until_arg.completer = step_completer
     except ImportError:
         pass
     parser.add_argument(
@@ -281,7 +281,7 @@ def _run_toml(config_path: Path, *, args: argparse.Namespace) -> None:
     if summary is None:
         return
     if isinstance(summary, Mapping):
-        items = summary.items()
+        items: Iterable[tuple[str, Any]] = summary.items()
     else:
         items = ((k, getattr(summary, k, None)) for k in ("sim_id", "name"))
     for key, value in items:

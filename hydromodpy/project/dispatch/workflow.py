@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 
 def run_overview(config_path: str | Path) -> dict[str, Any]:
@@ -25,7 +25,7 @@ def run_calibration(config_path: str | Path) -> dict[str, Any]:
     """Run a parameter calibration campaign from a TOML file."""
     from hydromodpy.calibration.cli_runner import run_calibration_cli
 
-    return run_calibration_cli(config_path)
+    return cast(dict[str, Any], run_calibration_cli(config_path))
 
 
 def run_comparison(config_path: str | Path) -> dict[str, Any]:
@@ -63,7 +63,7 @@ def run_simulation(
         )
         if result is None:
             return {}
-        summary = {
+        summary: dict[str, Any] = {
             "name": result.name,
             "sim_id": result.sim_id,
         }

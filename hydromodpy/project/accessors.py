@@ -6,6 +6,7 @@ run/lifecycle API.
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -33,7 +34,7 @@ class ProjectDataAccessor:
             loaded = {v for v in loaded if v == variable}
         return pd.DataFrame({"variable": sorted(loaded)})
 
-    def missing(self) -> list[str]:
+    def missing(self) -> builtins.list[str]:
         plan_types = getattr(self._project._ctx.data_plan, "types", ()) or ()
         loaded = self._project.data_loaded
         return [t for t in plan_types if t not in loaded]
@@ -57,7 +58,7 @@ class ProjectRunsAccessor:
             return pd.DataFrame()
         return store.list_simulations(project=self._project._project_name)
 
-    def find(self, **filters: Any) -> list[Run]:
+    def find(self, **filters: Any) -> builtins.list[Run]:
         store = self._project._store
         if store is None:
             return []

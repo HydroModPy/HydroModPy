@@ -55,8 +55,8 @@ from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
 
 from hydromodpy.workflow.internals.state import PipelineState
 
-TIn = TypeVar("TIn", contravariant=True)
-TOut = TypeVar("TOut", covariant=True)
+TIn = TypeVar("TIn")
+TOut = TypeVar("TOut")
 
 
 @runtime_checkable
