@@ -104,3 +104,7 @@ test_*/
 *.tmp
 *.bak
 *.old
+
+# Instruction files
+AGENTS.md
+CLAUDE.md
