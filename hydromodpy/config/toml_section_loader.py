@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypeVar
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -20,9 +20,10 @@ from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
 
 ValidationContext = Literal["toml", "api"]
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-def _deep_merge(base: dict, overrides: dict) -> dict:
+def _deep_merge(base: dict[str, Any], overrides: Mapping[str, Any]) -> dict[str, Any]:
     """Recursively merge *overrides* into a copy of *base*."""
     result = dict(base)
     for key, val in overrides.items():
@@ -82,7 +83,7 @@ def _build_path_fallback_dirs(
 
 
 def _resolve_section_paths(
-    data: dict,
+    data: dict[str, Any],
     model_cls: type[BaseModel],
     base: Path,
     *,
@@ -114,11 +115,11 @@ def _resolve_section_paths(
 
 def load_standard_section(
     section_data: Any,
-    model_cls: type[BaseModel],
+    model_cls: type[ModelT],
     base: Path,
     *,
     workspace_data_dir: Path | None = None,
-) -> BaseModel:
+) -> ModelT:
     """Load one regular section by validating against a Pydantic model class."""
     if section_data is None:
         section_data = {}

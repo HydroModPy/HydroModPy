@@ -31,7 +31,8 @@ def _read_version() -> str:
             return _FALLBACK_VERSION
         try:
             with pyproject.open("rb") as fh:
-                return tomllib.load(fh)["project"]["version"]
+                version = tomllib.load(fh)["project"]["version"]
+                return str(version)
         except (KeyError, OSError):
             return _FALLBACK_VERSION
 

@@ -409,7 +409,7 @@ def _coerce_optional_int(raw_value: object) -> int | None:
     """Parse one optional integer from loose JSON metadata values."""
     if raw_value is None:
         return None
-    return int(raw_value)
+    return int(str(raw_value).strip())
 
 
 def _load_nodes(path: Path) -> tuple[CatchmentMeshBundleNode, ...]:

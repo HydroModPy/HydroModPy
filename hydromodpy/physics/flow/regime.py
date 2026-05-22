@@ -10,8 +10,10 @@ FlowRegime = Literal["steady", "transient"]
 def normalize_flow_regime(value: object) -> FlowRegime:
     """Return the canonical solver-facing flow regime."""
     text = str(value).strip().lower()
-    if text == "steady" or text == "transient":
-        return text
+    if text == "steady":
+        return "steady"
+    if text == "transient":
+        return "transient"
     raise ValueError("flow.flow_regime must be 'steady' or 'transient'.")
 
 

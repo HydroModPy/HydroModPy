@@ -8,6 +8,7 @@
 4) export rasterized NetCDF
 """
 
+from collections.abc import Sequence
 from pathlib import Path
 
 from .config import PyhelpGridParams, PyhelpPreprocessingConfig
@@ -73,8 +74,8 @@ def preprocessing_pyhelp(
     grid_ready: Path | None = None,
     grid_base: Path | None = None,
     dem: str | None = None,
-    ready_climatic_csvs: list[str] | None = None,
-    nc_folder: str | None = None,
+    ready_climatic_csvs: Sequence[str] | None = None,
+    nc_folder: Sequence[str] | None = None,
     shapefile: str | None = None,
     grid_params=None,
     growth_start: int = 140,

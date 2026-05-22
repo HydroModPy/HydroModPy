@@ -19,6 +19,7 @@ from hydromodpy.core.exceptions import ConfigError, ConfigMissingError
 from hydromodpy.core.logging import get_logger
 
 if TYPE_CHECKING:
+    from hydromodpy.config import HydroModPyConfig
     from hydromodpy.project.facade import Project
 
 logger = get_logger(__name__)
@@ -26,7 +27,7 @@ logger = get_logger(__name__)
 
 def configure(
     project: Project,
-    config: str | Path | object,
+    config: str | Path | HydroModPyConfig,
     *,
     solver: str | None,
     headless: bool,

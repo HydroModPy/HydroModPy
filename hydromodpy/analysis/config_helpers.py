@@ -102,7 +102,7 @@ def validate_optional_positive_int(value: object, *, label: str) -> int | None:
     """Validate one optional positive integer."""
     if value is None:
         return None
-    out = int(value)
+    out = int(str(value).strip())
     if out <= 0:
         raise ValueError(f"{label} must be >= 1")
     return out

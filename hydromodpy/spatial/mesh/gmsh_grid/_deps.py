@@ -16,7 +16,7 @@ def require_meshio():
     meshes together with their metadata.
     """
     try:
-        import meshio  # type: ignore
+        import meshio
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on environment
         raise ImportError(
             "meshio is required for Gmsh mesh read/write support. "
@@ -28,7 +28,7 @@ def require_meshio():
 def require_pyvista():
     """Import and return ``pyvista`` for optional interactive 3D viewing."""
     try:
-        import pyvista as pv  # type: ignore
+        import pyvista as pv
     except ModuleNotFoundError as exc:  # pragma: no cover - optional dependency
         raise ImportError(
             "PyVista is required for interactive 3D viewing. "
@@ -40,7 +40,7 @@ def require_pyvista():
 def require_gmsh():
     """Import and return ``gmsh`` for zone-conformal mesh generation."""
     try:
-        import gmsh  # type: ignore
+        import gmsh
     except ModuleNotFoundError as exc:  # pragma: no cover - depends on environment
         raise ImportError(
             "gmsh is required for zone-conformal mesh generation. "

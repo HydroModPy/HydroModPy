@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from hydromodpy.core.exceptions import ConfigError, ExportError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.internals.state import DerivedState, ExportedState, PipelineState
 
 if TYPE_CHECKING:
+    from hydromodpy.results.run import Run
     from hydromodpy.workflow.context import WorkflowContext
 
 logger = get_logger(__name__)
@@ -31,7 +32,10 @@ def step_save_run_artifacts(
         getattr(analysis_cfg, "capability_gallery", None) if analysis_cfg is not None else None
     )
     if gallery_cfg is not None and getattr(gallery_cfg, "enabled", False):
-        project_root = ctx.setup.workspace.project_root
+        workspace = ctx.setup.workspace
+        if workspace is None:
+            raise ExportError("Workspace is required to save run artifacts.")
+        project_root = workspace.project_root
         from hydromodpy.analysis.capability_gallery import (
             publish_run_to_capability_gallery,
         )
@@ -55,7 +59,7 @@ def step_save_run_artifacts(
                 run_wrapper = None
 
         def _render(figure_name: str, run: object, target_path: Path) -> None:
-            render_figure(figure_name, run, save=target_path)
+            render_figure(figure_name, cast("Run", run), save=target_path)
 
         publish_run_to_capability_gallery(
             run_id=str(ctx.setup.run_id),

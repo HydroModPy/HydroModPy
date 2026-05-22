@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
+from typing import Any
 
 from hydromodpy.core.logging import get_logger
 
@@ -42,7 +43,10 @@ class ProjectTrialPromotionProvider:
                         _set_by_path(project.cfg, dotted, pvalue)
                 run = project.run(name=name or "promoted")
             else:
-                run = project.run(name=name or "promoted", **dict(values))
+                run_kwargs: dict[str, Any] = dict(values)
+                run = project.run(name=name or "promoted", **run_kwargs)
+            if run is None:
+                raise RuntimeError("Promoted calibration trial did not produce a run.")
             sim_id = run.sim_id
 
             tag_list: list[str] = list(tags)

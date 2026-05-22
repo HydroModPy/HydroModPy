@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from hydromodpy.core.exceptions import ConfigError, ResumeError
 from hydromodpy.core.logging import get_logger
@@ -29,7 +29,7 @@ logger = get_logger(__name__)
 
 
 @contextmanager
-def _pin_parent_sim_id(ctx: object, parent_sim_id: str | None) -> Iterator[None]:
+def _pin_parent_sim_id(ctx: Any, parent_sim_id: str | None) -> Iterator[None]:
     """Temporarily set ``ctx.parent_sim_id`` for the duration of the block.
 
     Restores the previous value on exit, including when an exception
@@ -410,7 +410,10 @@ class ProjectRunner:
                     )
             project.cfg.simulation.process = resolved
 
-        return self.run(name=name, **overrides)
+        run = self.run(name=name, **overrides)
+        if run is None:
+            raise RuntimeError("Simulation did not produce a run.")
+        return run
 
     def sweep(
         self,
@@ -432,7 +435,7 @@ class ProjectRunner:
         from hydromodpy.workflow.parallel import run_sweep
 
         sim_ids = run_sweep(
-            self._project,
+            cast(Any, self._project),
             parameters=parameters,
             strategy=strategy,
             name_template=name_template,

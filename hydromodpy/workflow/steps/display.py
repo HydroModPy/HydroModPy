@@ -66,7 +66,10 @@ def step_render_figures(
         resolve_run_output_dir,
     )
 
-    project_root = ctx.setup.workspace.project_root
+    workspace = ctx.setup.workspace
+    if workspace is None:
+        raise ConfigError("Workspace is required to render display figures.")
+    project_root = workspace.project_root
     out_dir = resolve_run_output_dir(
         display_cfg,
         project_root=project_root,

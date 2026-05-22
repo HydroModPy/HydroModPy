@@ -26,7 +26,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, ClassVar, Protocol, TypeVar, runtime_checkable
 
-TIn = TypeVar("TIn", contravariant=True)
+TIn = TypeVar("TIn", covariant=True)
 TOut = TypeVar("TOut", covariant=True)
 
 
