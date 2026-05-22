@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hydromodpy.core.exceptions import PipelineError
 from hydromodpy.core.logging import get_logger
 from hydromodpy.workflow.steps.prepare_solver.validate import _primary_solver_for_simulation
 
@@ -178,7 +179,7 @@ def step_open_store(ctx: WorkflowContext) -> None:
 
     workspace = ctx.setup.workspace
     if workspace is None:
-        raise RuntimeError("Workspace is required before opening the simulation catalog.")
+        raise PipelineError("Workspace is required before opening the simulation catalog.")
     ctx.store = SimulationCatalog.from_workspace(
         workspace,
         persistence=results_cfg.persistence,
