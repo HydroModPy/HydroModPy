@@ -1,8 +1,15 @@
-![logo](https://gitlab.com/Alex-Gauvain/HydroModPy/-/raw/master/docs/readthedocs/source/images/logoHydroModPy_long.png)
+![logo](docs/readthedocs/source/images/logoHydroModPy_long.png)
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-[![Documentation Status](https://readthedocs.org/projects/hydromod/badge/?version=latest)](https://hydromod.readthedocs.io/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=archive-v1)](https://hydromodpy-docs.readthedocs.io/en/archive-v1/)
+
+> **Archived v1 documentation**
+>
+> This documentation describes the archived HydroModPy v1.0.0 release. The
+> `archive-v1` branch is no longer maintained day to day. Existing projects may
+> stay pinned to the `v1.0.0` tag. New development should move to HydroModPy v2
+> on `main`: https://hydromodpy-docs.readthedocs.io/en/main/
 
 ## Presentation
 
@@ -30,7 +37,8 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le
 ## Links
 
 - GitLab Project: https://gitlab.com/Alex-Gauvain/HydroModPy/
-- Read the Docs: https://hydromod.readthedocs.io/
+- Read the Docs v1 archive: https://hydromodpy-docs.readthedocs.io/en/archive-v1/
+- Read the Docs v2 current: https://hydromodpy-docs.readthedocs.io/en/main/
 - Google Drive: https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 - Forum Group: https://groups.google.com/g/hydromodpy
 
@@ -48,9 +56,9 @@ HydroModPy can be installed using pip or by setting up a conda environment.
 Install HydroModPy directly from PyPI:
 
 ```bash
-pip install hydromodpy
+pip install "hydromodpy==1.0.0"
 # or include Spyder + JupyterLab
-pip install "hydromodpy[ide]"
+pip install "hydromodpy[ide]==1.0.0"
 ```
 
 For development mode (editable installation):
@@ -97,6 +105,7 @@ To obtain the source code for development:
 ```bash
 git clone https://gitlab.com/Alex-Gauvain/HydroModPy.git
 cd HydroModPy
+git checkout v1.0.0
 ```
 
 ## Launch HydroModPy
