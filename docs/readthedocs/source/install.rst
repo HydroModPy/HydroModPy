@@ -3,8 +3,8 @@ Install
 
 .. warning::
 
-   This documentation describes the archived HydroModPy v1.0.0 release. The
-   ``archive-v1`` branch is no longer maintained day to day. Existing projects
+   This documentation describes the HydroModPy v1.0.0 release. The ``v1.0``
+   branch is no longer maintained day to day. Existing projects
    may stay pinned to the ``v1.0.0`` tag. New development should move to
    HydroModPy v2 on ``main``:
    https://hydromodpy-docs.readthedocs.io/en/main/
@@ -24,7 +24,7 @@ Install with pip
 
 .. tab-set::
 
-   .. tab-item:: PyPI (v1.0.0 archive)
+   .. tab-item:: PyPI (v1.0.0)
 
       .. code-block:: bash
 
@@ -48,7 +48,7 @@ Install with pip
       Editable mode installs the package from the local repository while keeping
       the source tree editable. Use the v2 documentation for active
       contributions. Install the ``[docs]`` extras later only if you work on the
-      archive documentation.
+      v1.0 documentation.
 
 Full pip packaging is available from v0.3.0 onward. Users pinned to older
 releases should rely on the conda environment and the ``v0.2.0`` tag.
@@ -186,8 +186,8 @@ Use ``"hydromodpy[docs]==1.0.0"`` if you need the documentation extras.
    Append ``"hydromodpy[ide]==1.0.0"`` to either command if you want the IDE
    extras.
 
-Pin the v1 archive
-------------------
+Pin v1.0
+--------
 
 .. code-block:: bash
 

@@ -132,7 +132,7 @@ pygments_style = 'sphinx'
 html_theme = 'pydata_sphinx_theme'
 html_favicon = 'images/logoHydroModPy.png'
 html_logo = 'images/logoHydroModPy_long.png'
-html_baseurl = "https://hydromodpy-docs.readthedocs.io/en/archive-v1/"
+html_baseurl = "https://hydromodpy-docs.readthedocs.io/en/v1.0/"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -144,7 +144,7 @@ html_theme_options = {
         "image_dark": "images/logoHydroModPy_long.png",
     },
     "announcement": (
-        "Archived v1.0.0 documentation. New development lives on "
+        "HydroModPy v1.0.0 documentation. New development lives on "
         "<a href='https://hydromodpy-docs.readthedocs.io/en/main/'>main</a>."
     ),
     "navbar_start": ["navbar-logo"],

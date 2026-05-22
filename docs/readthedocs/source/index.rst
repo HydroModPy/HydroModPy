@@ -5,8 +5,8 @@ Welcome to HydroModPy's !
 
 .. warning::
 
-   This documentation describes the archived HydroModPy v1.0.0 release. The
-   ``archive-v1`` branch is no longer maintained day to day. Existing projects
+   This documentation describes the HydroModPy v1.0.0 release. The ``v1.0``
+   branch is no longer maintained day to day. Existing projects
    may stay pinned to the ``v1.0.0`` tag. New development should move to
    HydroModPy v2 on ``main``:
    https://hydromodpy-docs.readthedocs.io/en/main/

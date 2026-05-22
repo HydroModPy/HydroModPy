@@ -2,12 +2,12 @@
 
 HydroModPy: A Python toolbox for deploying catchment-scale shallow groundwater models.
 
-[![Documentation Status](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=archive-v1)](https://hydromodpy-docs.readthedocs.io/en/archive-v1/)
+[![Documentation Status](https://readthedocs.org/projects/hydromodpy-docs/badge/?version=v1.0)](https://hydromodpy-docs.readthedocs.io/en/v1.0/)
 
-> **Archived v1 documentation**
+> **HydroModPy v1.0 documentation**
 >
-> This documentation describes the archived HydroModPy v1.0.0 release. The
-> `archive-v1` branch is no longer maintained day to day. Existing projects may
+> This documentation describes the HydroModPy v1.0.0 release. The
+> `v1.0` branch is no longer maintained day to day. Existing projects may
 > stay pinned to the `v1.0.0` tag. New development should move to HydroModPy v2
 > on `main`: https://hydromodpy-docs.readthedocs.io/en/main/
 
@@ -37,7 +37,7 @@ Alexandre Gauvain [1,2], Ronan Abhervé [1,3,9],  Alexandre Coche [1], Martin Le
 ## Links
 
 - GitLab Project: https://gitlab.com/Alex-Gauvain/HydroModPy/
-- Read the Docs v1 archive: https://hydromodpy-docs.readthedocs.io/en/archive-v1/
+- Read the Docs v1.0: https://hydromodpy-docs.readthedocs.io/en/v1.0/
 - Read the Docs v2 current: https://hydromodpy-docs.readthedocs.io/en/main/
 - Google Drive: https://docs.google.com/document/d/11BA4ufhYWbydBvfjQufohoPIc0SaF9pKcyj_KNJ2VQM/edit?usp=sharing
 - Forum Group: https://groups.google.com/g/hydromodpy
