@@ -343,7 +343,7 @@ favicons = [
 ]
 
 # sphinx-sitemap and sphinxext-opengraph: shared base URL for the public docs.
-html_baseurl = "https://hydromodpy.readthedocs.io/en/main/"
+html_baseurl = "https://hydromodpy-docs.readthedocs.io/en/main/"
 sitemap_url_scheme = "{link}"
 ogp_site_url = html_baseurl
 ogp_site_name = "HydroModPy"

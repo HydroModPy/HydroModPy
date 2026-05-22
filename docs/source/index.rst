@@ -28,8 +28,8 @@ HydroModPy
       :target: https://github.com/HydroModPy/HydroModPy/blob/main/LICENSE
       :alt: License EPL-2.0
 
-   .. image:: https://img.shields.io/readthedocs/hydromodpy/main?style=flat-square&logo=readthedocs&logoColor=white&label=docs
-      :target: https://hydromodpy.readthedocs.io/
+   .. image:: https://img.shields.io/readthedocs/hydromodpy-docs/main?style=flat-square&logo=readthedocs&logoColor=white&label=docs
+      :target: https://hydromodpy-docs.readthedocs.io/en/main/
       :alt: Documentation status
 
    .. image:: https://img.shields.io/badge/code%20style-ruff-D7FF64?style=flat-square&logo=ruff&logoColor=black
