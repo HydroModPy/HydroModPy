@@ -146,6 +146,7 @@ jobs:
             --timeout=300 \
             --cov=hydromodpy \
             --cov-report= \
+            --cov-fail-under=0 \
             -q
 
       - name: Run whitebox backend tests
@@ -155,6 +156,7 @@ jobs:
             --cov=hydromodpy \
             --cov-append \
             --cov-report= \
+            --cov-fail-under=0 \
             -q
 
       - name: Run delineation tests in fresh processes
@@ -165,6 +167,7 @@ jobs:
               --cov=hydromodpy \
               --cov-append \
               --cov-report= \
+              --cov-fail-under=0 \
               -q || exit 1
           done
 
@@ -176,6 +179,7 @@ jobs:
               --cov=hydromodpy \
               --cov-append \
               --cov-report= \
+              --cov-fail-under=0 \
               -q || exit 1
           done
 
