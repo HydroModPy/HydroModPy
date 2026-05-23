@@ -44,6 +44,12 @@ warnings.filterwarnings(
 
 package_path = Path(__file__).resolve().parents[2]
 os.environ["PYTHONPATH"] = ":".join((str(package_path), os.environ.get("PYTHONPATH", "")))
+
+
+def _is_readthedocs_build() -> bool:
+    return os.environ.get("READTHEDOCS") == "True"
+
+
 _DOC_REQUIRED_EXTENSIONS = [
     "nbsphinx",
     "myst_parser",
@@ -60,9 +66,10 @@ _DOC_REQUIRED_EXTENSIONS = [
     "sphinxext.rediraffe",
     "sphinx_favicon",
     "sphinx_sitemap",
-    "sphinx_last_updated_by_git",
     "sphinxext.opengraph",
 ]
+if not _is_readthedocs_build():
+    _DOC_REQUIRED_EXTENSIONS.append("sphinx_last_updated_by_git")
 
 
 def _ensure_required_doc_extensions() -> None:
@@ -288,10 +295,11 @@ extensions = [
     "sphinxext.rediraffe",
     "sphinx_favicon",
     "sphinx_sitemap",
-    "sphinx_last_updated_by_git",
     "sphinxext.opengraph",
     "hmp_directives",
 ]
+if not _is_readthedocs_build():
+    extensions.append("sphinx_last_updated_by_git")
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -350,7 +358,7 @@ ogp_site_name = "HydroModPy"
 ogp_image = html_baseurl + "_static/logoHydroModPy_long.png"
 ogp_use_first_image = True
 
-# sphinx-last-updated-by-git: show the last commit date per page in the footer.
+# sphinx-last-updated-by-git: keep local footer dates without slowing RTD builds.
 git_last_updated_timezone = "Europe/Paris"
 _PLANTUML_COMMAND = _resolve_plantuml_command()
 if _PLANTUML_COMMAND is not None:
