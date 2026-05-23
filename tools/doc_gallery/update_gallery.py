@@ -5471,7 +5471,7 @@ def _build_index_page(cases_by_category: dict[str, list[dict[str, Any]]]) -> str
     for category_slug in CATEGORY_SPECS:
         if cases_by_category.get(category_slug):
             lines.append(f"   {category_slug}")
-    lines.append("   Examples <../examples/index>")
+    lines.append("   Examples <../user_guide/cookbook/index>")
     return "\n".join(lines)
 
 

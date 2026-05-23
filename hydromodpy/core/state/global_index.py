@@ -95,6 +95,9 @@ class GlobalIndex:
         keep working without holding the write-lock. When the default
         write-lock acquisition is contended for more than a few seconds the
         constructor logs a warning and silently falls back to this mode.
+    refresh_federation
+        Attach registered workspace catalogs and rebuild ``all_simulations``
+        during construction. Disable this for metadata-only writes.
 
     Raises
     ------
@@ -110,7 +113,13 @@ class GlobalIndex:
     >>> idx.find(solver="modflow_nwt")
     """
 
-    def __init__(self, db_path: Path | None = None, *, read_only: bool = False) -> None:
+    def __init__(
+        self,
+        db_path: Path | None = None,
+        *,
+        read_only: bool = False,
+        refresh_federation: bool = True,
+    ) -> None:
         self._db_path: Path = (
             Path(db_path).expanduser().resolve() if db_path is not None else _default_index_path()
         )
@@ -124,7 +133,8 @@ class GlobalIndex:
         self._attached_aliases: set[str] = set()
         self._fts_loaded: bool = False
         self._ensure_fts_extension()
-        self.refresh_federation()
+        if refresh_federation:
+            self.refresh_federation()
 
     def _bootstrap_empty_db(self) -> None:
         """Create an empty DuckDB file with the index schema for read-only use."""
@@ -228,6 +238,12 @@ class GlobalIndex:
         RuntimeError
             If the index was opened in read-only mode.
         """
+        workspace_id = self._insert_workspace_record(uri, label)
+        self.refresh_federation()
+        return workspace_id
+
+    def _insert_workspace_record(self, uri: str, label: str | None = None) -> str:
+        """Insert one workspace row without rebuilding federation views."""
         self._check_writable("register_workspace")
         row = self._conn.execute(
             "INSERT INTO workspaces (workspace_uri, label) VALUES (?, ?) RETURNING workspace_id",
@@ -235,7 +251,6 @@ class GlobalIndex:
         ).fetchone()
         if row is None:
             raise RuntimeError(f"Failed to register workspace {uri!r}")
-        self.refresh_federation()
         return str(row[0])
 
     def unregister_workspace(self, workspace_id: str) -> None:
@@ -568,7 +583,7 @@ def auto_register_workspace(
     """
     uri = str(Path(workspace_root))
     try:
-        with GlobalIndex() as index:
+        with GlobalIndex(refresh_federation=False) as index:
             if index.read_only:
                 logger.debug(
                     "Global index opened read-only; skipping auto-registration of %s",
@@ -576,7 +591,7 @@ def auto_register_workspace(
                 )
                 return None
             try:
-                return index.register_workspace(uri, label=label)
+                return index._insert_workspace_record(uri, label=label)
             except duckdb.ConstraintException:
                 logger.debug("Workspace %s already registered in the global index", uri)
                 return None
