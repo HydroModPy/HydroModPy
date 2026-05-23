@@ -14,8 +14,11 @@ Workflow:
 from __future__ import annotations
 
 import hashlib
+import shutil
 import subprocess
+import tempfile
 import urllib.request
+from collections.abc import Sequence
 from pathlib import Path
 
 from hydromodpy.core.logging import get_logger
@@ -25,6 +28,7 @@ logger = get_logger(__name__)
 
 # Base URL for BD ALTI downloads on GéoPlateforme.
 _BASE_URL = "https://data.geopf.fr/telechargement/download/BDALTI"
+_USER_AGENT = "hydromodpy/1.0"
 
 # Mapping of department code (BRGM 3-char) → archive name (without .7z).
 # Mainland France uses LAMB93-IGN69, Corsica uses LAMB93-IGN78C,
@@ -140,8 +144,13 @@ _BDALTI_ARCHIVES: dict[str, str] = {
 }
 
 
-def _bbox_hash_str(bbox: tuple) -> str:
-    s = f"{bbox[0]:.2f}_{bbox[1]:.2f}_{bbox[2]:.2f}_{bbox[3]:.2f}"
+def _request_hash_str(
+    bbox: tuple,
+    *,
+    dept_codes: Sequence[str] | None = None,
+) -> str:
+    dept_part = "" if not dept_codes else "_" + "_".join(sorted(dept_codes))
+    s = f"{bbox[0]:.2f}_{bbox[1]:.2f}_{bbox[2]:.2f}_{bbox[3]:.2f}{dept_part}"
     return hashlib.md5(s.encode()).hexdigest()[:8]
 
 
@@ -165,6 +174,12 @@ def _extract_7z(archive_path: Path, output_dir: Path) -> None:
         import py7zr
 
         with py7zr.SevenZipFile(str(archive_path), mode="r") as z:
+            for item in z.files:
+                target = output_dir / Path(item.filename)
+                if item.is_directory:
+                    target.mkdir(parents=True, exist_ok=True)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
             z.extractall(path=str(output_dir))
         return
     except ImportError:
@@ -192,7 +207,7 @@ def _download_department(
 
     url = f"{_BASE_URL}/{archive_name}/{archive_name}.7z"
 
-    dept_dir = cache_dir / archive_name
+    dept_dir = cache_dir / f"D{dept_code}"
     marker = dept_dir / ".extracted"
 
     if marker.exists():
@@ -203,17 +218,32 @@ def _download_department(
     if not archive_path.exists():
         logger.info("Downloading BD ALTI 25 m for department %s...", dept_code)
         try:
-            urllib.request.urlretrieve(url, str(archive_path))
+            request = urllib.request.Request(
+                url,
+                headers={"User-Agent": _USER_AGENT},
+            )
+            with urllib.request.urlopen(request) as response:
+                with archive_path.open("wb") as handle:
+                    shutil.copyfileobj(response, handle)
         except Exception as exc:
             logger.warning("Failed to download department %s: %s", dept_code, exc)
             return None
 
     logger.info("Extracting %s...", archive_name)
     try:
-        _extract_7z(archive_path, dept_dir)
-        marker.touch()
+        with tempfile.TemporaryDirectory(prefix=f"bdalti_{dept_code}_") as tmp:
+            tmp_dir = Path(tmp)
+            _extract_7z(archive_path, tmp_dir)
+            extracted_root = tmp_dir / archive_name
+            if not extracted_root.exists():
+                extracted_root = tmp_dir
+            if dept_dir.exists():
+                shutil.rmtree(dept_dir)
+            shutil.move(str(extracted_root), str(dept_dir))
+            marker.touch()
     except Exception as exc:
         logger.warning("Failed to extract department %s: %s", dept_code, exc)
+        archive_path.unlink(missing_ok=True)
         return None
 
     return dept_dir
@@ -228,6 +258,7 @@ def fetch_bdalti(
     *,
     output_dir: Path,
     bbox: tuple[float, float, float, float],
+    department_codes: Sequence[str] | None = None,
 ) -> Path:
     """Download, merge, and crop BD ALTI 25 m for the given bbox.
 
@@ -241,20 +272,24 @@ def fetch_bdalti(
     Path to the merged and cropped GeoTIFF.
     """
     from hydromodpy.data.common.administrative.france import (
+        department_code_to_padded,
         find_departments_in_bbox,
     )
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    bbox_h = _bbox_hash_str(bbox)
+    if department_codes:
+        dept_codes = sorted({department_code_to_padded(code) for code in department_codes})
+    else:
+        dept_codes = find_departments_in_bbox(bbox)
+    bbox_h = _request_hash_str(bbox, dept_codes=dept_codes)
     merged_tif = output_dir / f"dem_bdalti_25m_{bbox_h}.tif"
 
     if merged_tif.exists():
         return merged_tif
 
-    # Step 1: find overlapping departments (returns BRGM 3-char codes).
-    dept_codes = find_departments_in_bbox(bbox)
+    # Step 1: validate requested departments or infer overlapping departments.
     if not dept_codes:
         raise ValueError(
             f"No department found overlapping bbox {bbox}. "

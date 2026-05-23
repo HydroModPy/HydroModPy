@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "name": "bretagne_hydro_002",
+  "crs": {"type": "name", "properties": {"name": "EPSG:2154"}},
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"site_id": "bretagne_hydro_002"},
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[272000, 6814500], [292000, 6816000], [297000, 6830000], [281000, 6836000], [268500, 6827000], [272000, 6814500]]]
+      }
+    }
+  ]
+}

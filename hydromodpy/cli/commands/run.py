@@ -2,7 +2,7 @@
 
 Single CLI entry point. The TOML must carry a top-level
 ``[workflow] mode = "..."`` field (one of ``simulation``, ``calibration``,
-``overview``, ``comparison``, ``testbed``). Absence
+``overview``, ``comparison``, ``testbed``, ``site_selection``). Absence
 raises ``WorkflowMissingError``.
 
 Overrides are merged as defaults < base_config < --overlay < --set < env.
@@ -590,6 +590,8 @@ def _infer_workflow_from_sections(raw_toml: dict) -> str:
         return "comparison"
     if "testbed" in raw_toml:
         return "testbed"
+    if "site_selection" in raw_toml:
+        return "site_selection"
     return "simulation"
 
 

@@ -17,6 +17,13 @@ if TYPE_CHECKING:
     from hydromodpy.display.overview.summary import OverviewSummary
 
 
+_FONT_SCALE = 1.25
+
+
+def _font(size: float) -> float:
+    return size * _FONT_SCALE
+
+
 # ---------------------------------------------------------------------------
 # Map panels
 # ---------------------------------------------------------------------------
@@ -29,9 +36,11 @@ def render_dem_map(
     watershed_shp: str | None = None,
     streams_gdf=None,
     station_points: list[dict] | None = None,
+    outlet_xy: tuple[float, float] | None = None,
+    relative_ticks: bool = False,
     title: str = "",
 ) -> Axes:
-    """Render a DEM raster with optional watershed outline and station markers."""
+    """Render a DEM raster with optional watershed outline, outlet and stations."""
     import rasterio
 
     with rasterio.open(dem_path) as src:
@@ -50,8 +59,8 @@ def render_dem_map(
         origin="upper",
     )
     cbar = ax.figure.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
-    cbar.set_label("Elevation (m)", fontsize=8)
-    cbar.ax.tick_params(labelsize=7)
+    cbar.set_label("Elevation (m)", fontsize=_font(10 if relative_ticks else 8))
+    cbar.ax.tick_params(labelsize=_font(9 if relative_ticks else 7))
 
     if watershed_shp:
         _plot_watershed_outline(ax, watershed_shp)
@@ -66,13 +75,117 @@ def render_dem_map(
         target_crs = _read_raster_crs(dem_path)
         _plot_station_points(ax, station_points, target_crs=target_crs)
 
+    if outlet_xy is not None:
+        ax.plot(
+            outlet_xy[0],
+            outlet_xy[1],
+            marker="*",
+            markersize=12,
+            color="crimson",
+            markeredgecolor="black",
+            zorder=10,
+            label="Exutoire",
+        )
+        ax.legend(loc="lower right", fontsize=_font(10 if relative_ticks else 7))
+
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title(title or "DEM", fontsize=10)
-    ax.set_xlabel("X (m)", fontsize=8)
-    ax.set_ylabel("Y (m)", fontsize=8)
-    ax.tick_params(labelsize=7)
+    ax.set_title(title or "DEM", fontsize=_font(13 if relative_ticks else 10))
+    if relative_ticks:
+        _apply_relative_ticks(ax, extent)
+    else:
+        ax.set_xlabel("X (m)", fontsize=_font(8))
+        ax.set_ylabel("Y (m)", fontsize=_font(8))
+        ax.tick_params(labelsize=_font(7))
+    return ax
+
+
+def render_regional_context_map(
+    ax: Axes,
+    *,
+    regional_dem_path: str,
+    watershed_shp: str | None = None,
+    streams_gdf=None,
+    outlet_xy: tuple[float, float] | None = None,
+    title: str = "",
+) -> Axes:
+    """Render a regional DEM context with the watershed footprint."""
+    import rasterio
+    from matplotlib.lines import Line2D
+    from rasterio.enums import Resampling
+    from rasterio.windows import from_bounds
+
+    watershed_gdf = _read_watershed_gdf(watershed_shp)
+    with rasterio.open(regional_dem_path) as src:
+        raster_crs = src.crs
+        if watershed_gdf is not None and raster_crs is not None:
+            watershed_gdf = _to_crs_safely(watershed_gdf, raster_crs)
+        context_bounds = (src.bounds.left, src.bounds.bottom, src.bounds.right, src.bounds.top)
+        window = from_bounds(*context_bounds, transform=src.transform)
+        height = max(1, int(round(window.height)))
+        width = max(1, int(round(window.width)))
+        scale = min(1.0, 1000.0 / max(height, width))
+        out_shape = (max(1, int(height * scale)), max(1, int(width * scale)))
+        data = src.read(
+            1,
+            window=window,
+            masked=True,
+            out_shape=out_shape,
+            resampling=Resampling.bilinear,
+        )
+
+    extent = (
+        context_bounds[0],
+        context_bounds[2],
+        context_bounds[1],
+        context_bounds[3],
+    )
+    im = ax.imshow(data, cmap="terrain", extent=extent, origin="upper")
+    cbar = ax.figure.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
+    cbar.set_label("Elevation (m)", fontsize=_font(10))
+    cbar.ax.tick_params(labelsize=_font(9))
+
+    handles = [
+        Line2D([0], [0], color="black", linewidth=1.6, label="Bassin versant"),
+    ]
+    if watershed_gdf is not None and not watershed_gdf.empty:
+        watershed_gdf.boundary.plot(ax=ax, color="black", linewidth=1.6, zorder=6)
+
+    if streams_gdf is not None and not streams_gdf.empty:
+        streams_gdf = _to_crs_safely(streams_gdf, raster_crs)
+        streams_gdf.plot(ax=ax, color="navy", linewidth=0.85, alpha=0.95, zorder=7)
+        handles.append(Line2D([0], [0], color="navy", linewidth=1.2, label="Reseau observe"))
+
+    if outlet_xy is not None:
+        ax.plot(
+            outlet_xy[0],
+            outlet_xy[1],
+            marker="*",
+            markersize=12,
+            color="crimson",
+            markeredgecolor="black",
+            zorder=10,
+        )
+        handles.append(
+            Line2D(
+                [0],
+                [0],
+                marker="*",
+                color="crimson",
+                markeredgecolor="black",
+                linewidth=0,
+                markersize=12,
+                label="Site",
+            )
+        )
+
+    ax.set_xlim(extent[0], extent[1])
+    ax.set_ylim(extent[2], extent[3])
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_title(title or "Situation regionale", fontsize=_font(13))
+    _apply_relative_ticks(ax, extent)
+    ax.legend(handles=handles, loc="lower right", fontsize=_font(10))
     return ax
 
 
@@ -83,6 +196,7 @@ def render_hydrography_map(
     watershed_shp: str | None = None,
     streams_gdf=None,
     outlet_xy: tuple[float, float] | None = None,
+    relative_ticks: bool = False,
     title: str = "",
 ) -> Axes:
     """Render a hydrography map - hillshade background, streams, outlet."""
@@ -140,17 +254,20 @@ def render_hydrography_map(
             color="crimson",
             markeredgecolor="black",
             zorder=10,
-            label="Outlet",
+            label="Exutoire",
         )
-        ax.legend(loc="lower right", fontsize=7)
+        ax.legend(loc="lower right", fontsize=_font(10 if relative_ticks else 7))
 
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title(title or "Hydrography", fontsize=10)
-    ax.set_xlabel("X (m)", fontsize=8)
-    ax.set_ylabel("Y (m)", fontsize=8)
-    ax.tick_params(labelsize=7)
+    ax.set_title(title or "Hydrographie", fontsize=_font(13 if relative_ticks else 10))
+    if relative_ticks:
+        _apply_relative_ticks(ax, extent)
+    else:
+        ax.set_xlabel("X (m)", fontsize=_font(8))
+        ax.set_ylabel("Y (m)", fontsize=_font(8))
+        ax.tick_params(labelsize=_font(7))
     return ax
 
 
@@ -198,9 +315,9 @@ def render_geology_map(
                 legend_kwds={
                     "loc": "center left",
                     "bbox_to_anchor": (1.02, 0.5),
-                    "fontsize": 6,
+                    "fontsize": _font(6),
                     "title": code_field,
-                    "title_fontsize": 7,
+                    "title_fontsize": _font(7),
                 },
             )
         else:
@@ -212,10 +329,10 @@ def render_geology_map(
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title(title or "Geology", fontsize=10)
-    ax.set_xlabel("X (m)", fontsize=8)
-    ax.set_ylabel("Y (m)", fontsize=8)
-    ax.tick_params(labelsize=7)
+    ax.set_title(title or "Geologie", fontsize=_font(10))
+    ax.set_xlabel("X (m)", fontsize=_font(8))
+    ax.set_ylabel("Y (m)", fontsize=_font(8))
+    ax.tick_params(labelsize=_font(7))
     return ax
 
 
@@ -256,10 +373,10 @@ def render_timeseries_multi(
             ha="center",
             va="center",
             transform=ax.transAxes,
-            fontsize=9,
+            fontsize=_font(9),
             color="grey",
         )
-        ax.set_title(title, fontsize=10)
+        ax.set_title(title, fontsize=_font(10))
         return ax
 
     plotted = 0
@@ -291,14 +408,14 @@ def render_timeseries_multi(
         hi = pd.to_datetime(date_end) if date_end is not None else None
         ax.set_xlim(lo, hi)
 
-    ax.set_title(title, fontsize=10)
-    ax.set_ylabel(f"{ylabel} ({unit})" if unit else ylabel, fontsize=8)
-    ax.set_xlabel("Date", fontsize=8)
+    ax.set_title(title, fontsize=_font(10))
+    ax.set_ylabel(f"{ylabel} ({unit})" if unit else ylabel, fontsize=_font(8))
+    ax.set_xlabel("Date", fontsize=_font(8))
     ax.grid(True, ls=":", lw=0.4, alpha=0.6)
-    ax.tick_params(labelsize=7)
+    ax.tick_params(labelsize=_font(7))
     legend_entries = plotted + (len(hlines) if hlines else 0)
     if 0 < legend_entries <= 12:
-        ax.legend(fontsize=6, loc="best", ncol=min(3, legend_entries))
+        ax.legend(fontsize=_font(6), loc="best", ncol=min(3, legend_entries))
     if plotted == 0:
         ax.text(
             0.5,
@@ -307,7 +424,7 @@ def render_timeseries_multi(
             ha="center",
             va="center",
             transform=ax.transAxes,
-            fontsize=9,
+            fontsize=_font(9),
             color="grey",
         )
     return ax
@@ -335,10 +452,10 @@ def render_intermittency(
             ha="center",
             va="center",
             transform=ax.transAxes,
-            fontsize=9,
+            fontsize=_font(9),
             color="grey",
         )
-        ax.set_title(title, fontsize=10)
+        ax.set_title(title, fontsize=_font(10))
         return ax
 
     plotted = 0
@@ -368,15 +485,15 @@ def render_intermittency(
     ax.set_yticks([1, 2, 3, 4, 5])
     ax.set_yticklabels(
         ["1: Dry", "2: Non-visible", "3: Weak", "4: Acceptable", "5: Visible"],
-        fontsize=7,
+        fontsize=_font(7),
     )
     ax.set_ylim(0.5, 5.5)
-    ax.set_title(title, fontsize=10)
-    ax.set_xlabel("Date", fontsize=8)
+    ax.set_title(title, fontsize=_font(10))
+    ax.set_xlabel("Date", fontsize=_font(8))
     ax.grid(True, ls=":", lw=0.4, alpha=0.6)
-    ax.tick_params(axis="x", labelsize=7)
+    ax.tick_params(axis="x", labelsize=_font(7))
     if 0 < plotted <= 10:
-        ax.legend(fontsize=6, loc="best", ncol=min(3, plotted))
+        ax.legend(fontsize=_font(6), loc="best", ncol=min(3, plotted))
     if plotted == 0:
         ax.text(
             0.5,
@@ -385,7 +502,7 @@ def render_intermittency(
             ha="center",
             va="center",
             transform=ax.transAxes,
-            fontsize=9,
+            fontsize=_font(9),
             color="grey",
         )
     return ax
@@ -416,10 +533,10 @@ def render_water_quality(
             ha="center",
             va="center",
             transform=ax.transAxes,
-            fontsize=9,
+            fontsize=_font(9),
             color="grey",
         )
-        ax.set_title(title, fontsize=10)
+        ax.set_title(title, fontsize=_font(10))
         return ax
 
     palette = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
@@ -446,13 +563,13 @@ def render_water_quality(
         hi = pd.to_datetime(date_end) if date_end is not None else None
         ax.set_xlim(lo, hi)
 
-    ax.set_title(title, fontsize=10)
-    ax.set_xlabel("Date", fontsize=8)
-    ax.set_ylabel("Concentration / value", fontsize=8)
+    ax.set_title(title, fontsize=_font(10))
+    ax.set_xlabel("Date", fontsize=_font(8))
+    ax.set_ylabel("Concentration / value", fontsize=_font(8))
     ax.grid(True, ls=":", lw=0.4, alpha=0.6)
-    ax.tick_params(labelsize=7)
+    ax.tick_params(labelsize=_font(7))
     if 0 < plotted <= 10:
-        ax.legend(fontsize=6, loc="best", ncol=min(2, plotted))
+        ax.legend(fontsize=_font(6), loc="best", ncol=min(2, plotted))
     if plotted == 0:
         ax.text(
             0.5,
@@ -461,7 +578,7 @@ def render_water_quality(
             ha="center",
             va="center",
             transform=ax.transAxes,
-            fontsize=9,
+            fontsize=_font(9),
             color="grey",
         )
     return ax
@@ -502,21 +619,21 @@ def render_climatic_summary(
 
     ax.set_xticks(months)
     ax.set_xticklabels(["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"])
-    ax.set_title(title, fontsize=10)
-    ax.set_ylabel("Mean (mm)", fontsize=8)
+    ax.set_title(title, fontsize=_font(10))
+    ax.set_ylabel("Moyenne (mm)", fontsize=_font(8))
     ax.grid(True, ls=":", lw=0.4, axis="y", alpha=0.6)
-    ax.tick_params(labelsize=7)
+    ax.tick_params(labelsize=_font(7))
     if plotted > 0:
-        ax.legend(fontsize=7, loc="best")
+        ax.legend(fontsize=_font(7), loc="best")
     else:
         ax.text(
             0.5,
             0.5,
-            "No climatic data",
+            "Aucune donnee climatique",
             ha="center",
             va="center",
             transform=ax.transAxes,
-            fontsize=9,
+            fontsize=_font(9),
             color="grey",
         )
     return ax
@@ -532,25 +649,19 @@ def render_stats_card(ax: Axes, *, summary: OverviewSummary) -> Axes:
     ax.set_axis_off()
 
     rows: list[tuple[str, str]] = [
-        ("Name", summary.watershed_name or "-"),
+        ("Nom", summary.watershed_name or "-"),
         (
-            "Area",
-            f"{summary.catchment_area_km2:.2f} km²"
+            "Surface",
+            f"{summary.catchment_area_km2:.2f} km2"
             if summary.catchment_area_km2 is not None
             else "-",
         ),
-        (
-            "Outlet",
-            f"({summary.outlet_xy[0]:.1f}, {summary.outlet_xy[1]:.1f})"
-            if summary.outlet_xy is not None
-            else "-",
-        ),
-        ("Period", f"{summary.date_start} → {summary.date_end}"),
-        ("Streams", str(summary.n_streams)),
-        ("Hydrometry stations", str(summary.n_hydrometry)),
-        ("Piezometry stations", str(summary.n_piezometry)),
-        ("Intermittency (ONDE)", str(summary.n_intermittency)),
-        ("Water-quality stations", str(summary.n_water_quality)),
+        ("Periode", f"{summary.date_start} -> {summary.date_end}"),
+        ("Troncons hydrographiques", str(summary.n_streams)),
+        ("Stations hydrometrie", str(summary.n_hydrometry)),
+        ("Stations piezometrie", str(summary.n_piezometry)),
+        ("Intermittence (ONDE)", str(summary.n_intermittency)),
+        ("Stations qualite eau", str(summary.n_water_quality)),
     ]
 
     table = ax.table(
@@ -560,13 +671,13 @@ def render_stats_card(ax: Axes, *, summary: OverviewSummary) -> Axes:
         cellLoc="left",
     )
     table.auto_set_font_size(False)
-    table.set_fontsize(9)
+    table.set_fontsize(_font(9))
     table.scale(1.0, 1.5)
     for i, _ in enumerate(rows):
         table[(i, 0)].set_text_props(fontweight="bold")
     ax.set_title(
-        f"Identity - {summary.watershed_name or 'Watershed'}",
-        fontsize=11,
+        f"Identite - {summary.watershed_name or 'Bassin'}",
+        fontsize=_font(11),
         fontweight="bold",
     )
     return ax
@@ -580,16 +691,16 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
         ax.text(
             0.5,
             0.5,
-            "No stations loaded",
+            "Aucune station chargee",
             ha="center",
             va="center",
             transform=ax.transAxes,
-            fontsize=9,
+            fontsize=_font(9),
             color="grey",
         )
         return ax
 
-    headers = ["Type", "ID", "X", "Y", "Start", "End"]
+    headers = ["Type", "ID", "X", "Y", "Debut", "Fin"]
     rows = [
         [
             str(s["type"]),
@@ -610,18 +721,30 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
         colWidths=[0.15, 0.28, 0.12, 0.12, 0.15, 0.15],
     )
     table.auto_set_font_size(False)
-    table.set_fontsize(7)
+    table.set_fontsize(_font(7))
     table.scale(1.0, 1.25)
     for j in range(len(headers)):
         table[(0, j)].set_text_props(fontweight="bold")
         table[(0, j)].set_facecolor("#e8e8e8")
-    ax.set_title(f"Station inventory - {len(inventory)} stations", fontsize=10)
+    ax.set_title(f"Station inventory - {len(inventory)} stations", fontsize=_font(10))
     return ax
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _apply_relative_ticks(ax, extent: tuple[float, float, float, float]) -> None:
+    """Display map coordinates relative to the lower-left extent corner."""
+    from matplotlib.ticker import FuncFormatter
+
+    xmin, _, ymin, _ = extent
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{(value - xmin) / 1000:.1f}"))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{(value - ymin) / 1000:.1f}"))
+    ax.set_xlabel("X relatif (km)", fontsize=_font(11))
+    ax.set_ylabel("Y relatif (km)", fontsize=_font(11))
+    ax.tick_params(labelsize=_font(10))
 
 
 def _plot_watershed_outline(ax, watershed_shp) -> None:
@@ -632,6 +755,31 @@ def _plot_watershed_outline(ax, watershed_shp) -> None:
         gdf.boundary.plot(ax=ax, color="black", linewidth=1.2)
     except Exception:
         pass
+
+
+def _read_watershed_gdf(watershed_shp):
+    if not watershed_shp:
+        return None
+    try:
+        import geopandas as gpd
+
+        gdf = gpd.read_file(watershed_shp)
+        if gdf.empty:
+            return None
+        return gdf
+    except Exception:
+        return None
+
+
+def _to_crs_safely(gdf, target_crs):
+    if gdf is None or target_crs is None:
+        return gdf
+    try:
+        if gdf.crs is not None and str(gdf.crs) != str(target_crs):
+            return gdf.to_crs(target_crs)
+    except Exception:
+        return gdf
+    return gdf
 
 
 def _plot_station_points(ax, points: list[dict], target_crs=None) -> None:
@@ -659,7 +807,7 @@ def _plot_station_points(ax, points: list[dict], target_crs=None) -> None:
             label=group,
         )
     if groups:
-        ax.legend(loc="upper right", fontsize=7, markerscale=0.8)
+        ax.legend(loc="upper right", fontsize=_font(7), markerscale=0.8)
 
 
 def _reproject_points_xy(items: list[dict], target_crs) -> tuple[list[float], list[float]]:

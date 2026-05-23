@@ -346,6 +346,32 @@ def test_hmp_run_dispatches_testbed_workflow(monkeypatch, tmp_path) -> None:
     assert captured["run_called"] is True
 
 
+def test_hmp_run_dispatches_site_selection_workflow(monkeypatch, tmp_path) -> None:
+    """``hmp run`` with workflow=site_selection dispatches to run_site_selection."""
+    config = _write_toml(
+        tmp_path / "site_selection.toml",
+        '[workflow]\nmode = "site_selection"\n'
+        "[site_selection]\n"
+        'selection_id = "demo"\n'
+        'output_root = "out"\n',
+    )
+
+    captured: dict = {}
+
+    def fake_run(config_path):
+        captured["config_path"] = Path(config_path)
+        captured["run_called"] = True
+        return {"mode": "site_selection"}
+
+    monkeypatch.setitem(workflow_dispatch.DISPATCH, "site_selection", fake_run)
+    monkeypatch.setattr("sys.argv", ["hmp", "run", str(config)])
+
+    main()
+
+    assert captured["config_path"] == config.resolve()
+    assert captured["run_called"] is True
+
+
 def test_hmp_run_crashes_on_unknown_workflow_value(monkeypatch, tmp_path) -> None:
     """``hmp run`` rejects a workflow value outside the known set."""
     config = _write_toml(

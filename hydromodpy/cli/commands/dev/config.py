@@ -216,6 +216,15 @@ def _cmd_config_check(args: argparse.Namespace) -> None:
                 TestbedConfig.from_toml(raw_toml, config_path=path)
             else:
                 raise ValueError(f"Unsupported testbed profile: {profile}")
+        elif mode == "site_selection":
+            from hydromodpy.workflow.site_selection import (
+                load_hydrometry_config_for_site_selection,
+                load_site_selection_config,
+            )
+
+            load_site_selection_config(path)
+            if "hydrometry" in raw_toml:
+                load_hydrometry_config_for_site_selection(path)
         else:
             HydroModPyConfig.from_toml(path)
     except tomllib.TOMLDecodeError as exc:

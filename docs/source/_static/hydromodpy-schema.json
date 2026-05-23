@@ -48,6 +48,167 @@
       "title": "AnalysisConfig",
       "type": "object"
     },
+    "AreaCriteriaConfig": {
+      "additionalProperties": false,
+      "description": "Area criterion configuration.",
+      "properties": {
+        "mode": {
+          "default": "report_only",
+          "description": "How basin area contributes to selection.",
+          "enum": [
+            "hard_reject",
+            "warning",
+            "score",
+            "stratify",
+            "report_only"
+          ],
+          "examples": [
+            "hard_reject"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "target_area_km2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Named target area used for reporting or strict area profiles.",
+          "title": "Target Area Km2",
+          "x-hmp-profile": "user"
+        },
+        "preferred_area_km2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Preferred area used by score-based campaigns.",
+          "title": "Preferred Area Km2",
+          "x-hmp-profile": "user"
+        },
+        "score_half_width_fraction": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Relative half-width of the area score around preferred_area_km2.",
+          "title": "Score Half Width Fraction",
+          "x-hmp-profile": "user"
+        },
+        "hard_min_area_km2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hard lower area bound when configured.",
+          "title": "Hard Min Area Km2",
+          "x-hmp-profile": "user"
+        },
+        "hard_max_area_km2": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Hard upper area bound when configured.",
+          "title": "Hard Max Area Km2",
+          "x-hmp-profile": "user"
+        },
+        "ranges": {
+          "description": "Explicit area ranges used for hard rejection, warnings or stratification. Prefer this over target/preferred area fields when the campaign is defined by minimum and maximum basin sizes.",
+          "items": {
+            "$ref": "#/$defs/AreaRangeConfig"
+          },
+          "title": "Ranges",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "AreaCriteriaConfig",
+      "type": "object"
+    },
+    "AreaRangeConfig": {
+      "additionalProperties": false,
+      "description": "Readable basin-area interval used by selection criteria.",
+      "properties": {
+        "range_id": {
+          "default": "",
+          "description": "Stable identifier for the area range.",
+          "examples": [
+            ""
+          ],
+          "title": "Range Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "label": {
+          "default": "",
+          "description": "Human-readable area range label.",
+          "examples": [
+            ""
+          ],
+          "title": "Label",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "min_area_km2": {
+          "description": "Minimum basin area for this range.",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0,
+          "title": "Min Area Km2",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "max_area_km2": {
+          "description": "Maximum basin area for this range.",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0,
+          "title": "Max Area Km2",
+          "type": "number",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "min_area_km2",
+        "max_area_km2"
+      ],
+      "title": "AreaRangeConfig",
+      "type": "object"
+    },
     "BasConfig": {
       "additionalProperties": false,
       "description": "BAS package settings.",
@@ -2157,6 +2318,71 @@
       "title": "ConstantThicknessDepthModel",
       "type": "object"
     },
+    "CriteriaConfig": {
+      "additionalProperties": false,
+      "description": "Versioned criteria set and criterion-mode lists.",
+      "properties": {
+        "ruleset": {
+          "default": "site_selection_v1",
+          "examples": [
+            "site_selection_v1"
+          ],
+          "title": "Ruleset",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "hard_reject": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hard Reject",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "warning": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warning",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "soft_score": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Soft Score",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "report_only": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Report Only",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "area": {
+          "$ref": "#/$defs/AreaCriteriaConfig",
+          "x-hmp-profile": "user"
+        },
+        "observations": {
+          "$ref": "#/$defs/ObservationsCriteriaConfig",
+          "x-hmp-profile": "user"
+        },
+        "influence": {
+          "$ref": "#/$defs/InfluenceCriteriaConfig",
+          "x-hmp-profile": "user"
+        },
+        "geology": {
+          "$ref": "#/$defs/GeologyCriteriaConfig",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "CriteriaConfig",
+      "type": "object"
+    },
     "CustomBackend": {
       "additionalProperties": false,
       "description": "Plugin-registered flow backend identified by a free-form name.\n\nThe discriminator value is the literal string ``\"custom\"``; the actual\nbackend name lives in ``name``. ``SolverConfig.validate_registry()``\nenforces that the name resolves to a registered flow adapter at\nlauncher time.",
@@ -2451,7 +2677,7 @@
         "dem": {
           "anyOf": [
             {
-              "$ref": "#/$defs/DemConfig"
+              "$ref": "#/$defs/hydromodpy__data__variables__dem__config__DemConfig"
             },
             {
               "type": "null"
@@ -2705,42 +2931,6 @@
         }
       },
       "title": "DemCatchDef",
-      "type": "object"
-    },
-    "DemConfig": {
-      "additionalProperties": false,
-      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_bdalti\"\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
-      "properties": {
-        "sources": {
-          "description": "At least one DEM data source.",
-          "items": {
-            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_bdalti' for the IGN BD ALTI 25 m MNT.",
-            "discriminator": {
-              "mapping": {
-                "custom": "#/$defs/CustomDemSource",
-                "ign_bdalti": "#/$defs/IgnBdaltiDemSource"
-              },
-              "propertyName": "source"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/$defs/CustomDemSource"
-              },
-              {
-                "$ref": "#/$defs/IgnBdaltiDemSource"
-              }
-            ]
-          },
-          "minItems": 1,
-          "title": "Sources",
-          "type": "array",
-          "x-hmp-profile": "user"
-        }
-      },
-      "required": [
-        "sources"
-      ],
-      "title": "DemConfig",
       "type": "object"
     },
     "DerivedConfig": {
@@ -5498,6 +5688,67 @@
       "title": "FlowSinksSourcesConfig",
       "type": "object"
     },
+    "FlowStationCriteriaConfig": {
+      "additionalProperties": false,
+      "description": "Criteria applied to flow stations in observation-led selections.",
+      "properties": {
+        "mode": {
+          "default": "report_only",
+          "enum": [
+            "hard_reject",
+            "warning",
+            "score",
+            "stratify",
+            "report_only"
+          ],
+          "examples": [
+            "hard_reject"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "min_record_years": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min Record Years",
+          "x-hmp-profile": "user"
+        },
+        "max_station_to_outlet_distance_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Station To Outlet Distance Km",
+          "x-hmp-profile": "user"
+        },
+        "require_station_inside_or_at_outlet": {
+          "default": false,
+          "examples": [
+            false
+          ],
+          "title": "Require Station Inside Or At Outlet",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "FlowStationCriteriaConfig",
+      "type": "object"
+    },
     "FlowWellConfig": {
       "additionalProperties": false,
       "description": "Typed payload for one pumping or injection well.\n\nA well is defined by its location (``location``) and its flux schedule\nover time (``flux``). ``location`` is a discriminated union with three\nvariants: ``cell`` for direct ``[lay, row, col]`` indexing, ``absolute_xy``\nfor projected coordinates, or ``relative_xy`` for normalized horizontal\ncoordinates. ``flux`` follows the MODFLOW sign convention: negative =\npumping, positive = injection. ``flux`` may be a scalar (constant rate)\nor a list with one value per stress period.",
@@ -6310,6 +6561,39 @@
       "title": "GeologyConfig",
       "type": "object"
     },
+    "GeologyCriteriaConfig": {
+      "additionalProperties": false,
+      "description": "Geology criterion configuration.",
+      "properties": {
+        "mode": {
+          "default": "report_only",
+          "enum": [
+            "hard_reject",
+            "warning",
+            "score",
+            "stratify",
+            "report_only"
+          ],
+          "examples": [
+            "hard_reject"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "prefer_diversity": {
+          "default": false,
+          "examples": [
+            false
+          ],
+          "title": "Prefer Diversity",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "GeologyCriteriaConfig",
+      "type": "object"
+    },
     "GeologySupportConfig": {
       "additionalProperties": false,
       "description": "Support backed by the geology data manager.",
@@ -6699,6 +6983,72 @@
       "title": "HydrographySourceConfig",
       "type": "object"
     },
+    "HydrologyConfig": {
+      "additionalProperties": false,
+      "description": "DEM-derived hydrologic products requested by the selection workflow.",
+      "properties": {
+        "method": {
+          "const": "dem_only",
+          "default": "dem_only",
+          "description": "Hydrologic product generation method.",
+          "examples": [
+            "dem_only"
+          ],
+          "title": "Method",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "flow_algorithm": {
+          "const": "d8",
+          "default": "d8",
+          "description": "Flow routing algorithm used by existing spatial products.",
+          "examples": [
+            "d8"
+          ],
+          "title": "Flow Algorithm",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "hydrologic_conditioning": {
+          "default": "existing_default",
+          "description": "DEM conditioning strategy forwarded to existing flow products.",
+          "enum": [
+            "existing_default",
+            "fill",
+            "breach"
+          ],
+          "examples": [
+            "existing_default"
+          ],
+          "title": "Hydrologic Conditioning",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "network_threshold_area_km2": {
+          "default": 1.0,
+          "description": "Contributing-area threshold used to extract the stream network.",
+          "examples": [
+            1.0
+          ],
+          "exclusiveMinimum": 0,
+          "title": "Network Threshold Area Km2",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "compute_strahler": {
+          "default": true,
+          "description": "Request Strahler diagnostics if existing spatial primitives support them.",
+          "examples": [
+            true
+          ],
+          "title": "Compute Strahler",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "HydrologyConfig",
+      "type": "object"
+    },
     "HydrometryConfig": {
       "additionalProperties": false,
       "description": "Top-level hydrometry configuration.\n\nThe section groups hydrometric sources and the optional simulation date\nwindow inherited from ``BaseVariableConfig``. Loaded data is stored as\nstation time series for calibration, boundary checks, or reporting.",
@@ -7033,9 +7383,102 @@
           "title": "Source",
           "type": "string",
           "x-hmp-profile": "user"
+        },
+        "departments": {
+          "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Departments",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "country": {
+          "default": "FR",
+          "description": "Country code used for administrative DEM selectors.",
+          "examples": [
+            "FR"
+          ],
+          "title": "Country",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "regions": {
+          "description": "Optional French administrative regions used to infer department downloads.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array",
+          "x-hmp-profile": "user"
         }
       },
       "title": "IgnBdaltiDemSource",
+      "type": "object"
+    },
+    "InfluenceCriteriaConfig": {
+      "additionalProperties": false,
+      "description": "Known-influence checks for observation-led campaigns.",
+      "properties": {
+        "mode": {
+          "default": "report_only",
+          "enum": [
+            "hard_reject",
+            "warning",
+            "score",
+            "stratify",
+            "report_only"
+          ],
+          "examples": [
+            "hard_reject"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "reject_major_dam_upstream": {
+          "default": false,
+          "examples": [
+            false
+          ],
+          "title": "Reject Major Dam Upstream",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "reject_major_withdrawal_upstream": {
+          "default": false,
+          "examples": [
+            false
+          ],
+          "title": "Reject Major Withdrawal Upstream",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "reject_major_regulated_reach": {
+          "default": false,
+          "examples": [
+            false
+          ],
+          "title": "Reject Major Regulated Reach",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "influence_search_radius_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Influence Search Radius Km",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "InfluenceCriteriaConfig",
       "type": "object"
     },
     "IntermittencyConfig": {
@@ -7393,6 +7836,85 @@
         }
       },
       "title": "LmtConfig",
+      "type": "object"
+    },
+    "MapContextConfig": {
+      "additionalProperties": false,
+      "description": "Optional static context layers for review figures.",
+      "properties": {
+        "layers": {
+          "description": "Context vector layers drawn behind selection artifacts.",
+          "items": {
+            "$ref": "#/$defs/MapContextLayerConfig"
+          },
+          "title": "Layers",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "MapContextConfig",
+      "type": "object"
+    },
+    "MapContextLayerConfig": {
+      "additionalProperties": false,
+      "description": "Optional layer shown only on site-selection review maps.",
+      "properties": {
+        "name": {
+          "description": "Human-readable layer name used in the map/report manifest.",
+          "examples": [
+            "example"
+          ],
+          "minLength": 1,
+          "title": "Name",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "description": "GeoJSON file used as static map context.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Path",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "role": {
+          "default": "other",
+          "description": "Visual role controlling the default map style.",
+          "enum": [
+            "territory",
+            "hydrography",
+            "geology",
+            "other"
+          ],
+          "examples": [
+            "territory"
+          ],
+          "title": "Role",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "label_field": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional feature-property field used for future labels.",
+          "title": "Label Field",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ],
+      "title": "MapContextLayerConfig",
       "type": "object"
     },
     "MeshCatchmentConfig": {
@@ -8478,7 +9000,7 @@
       "properties": {
         "release_zone": {
           "default": "domain",
-          "description": "Particle release selector: 'domain', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'.",
+          "description": "Particle release selector: 'domain', 'domain_nonriver', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'.",
           "examples": [
             "domain"
           ],
@@ -9281,6 +9803,78 @@
       "title": "NwtSolverConfig",
       "type": "object"
     },
+    "ObservationsCriteriaConfig": {
+      "additionalProperties": false,
+      "description": "Criteria applied to observation families.",
+      "properties": {
+        "flow_station_mode": {
+          "default": "report_only",
+          "enum": [
+            "hard_reject",
+            "warning",
+            "score",
+            "stratify",
+            "report_only"
+          ],
+          "examples": [
+            "hard_reject"
+          ],
+          "title": "Flow Station Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "flow_station_max_distance_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flow Station Max Distance Km",
+          "x-hmp-profile": "user"
+        },
+        "piezometer_mode": {
+          "default": "report_only",
+          "enum": [
+            "hard_reject",
+            "warning",
+            "score",
+            "stratify",
+            "report_only"
+          ],
+          "examples": [
+            "hard_reject"
+          ],
+          "title": "Piezometer Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "piezometer_max_distance_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Piezometer Max Distance Km",
+          "x-hmp-profile": "user"
+        },
+        "flow_station": {
+          "$ref": "#/$defs/FlowStationCriteriaConfig",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "ObservationsCriteriaConfig",
+      "type": "object"
+    },
     "OcConfig": {
       "additionalProperties": false,
       "description": "OC package settings.",
@@ -9668,6 +10262,164 @@
       "title": "OutletCatchDef",
       "type": "object"
     },
+    "OutletsConfig": {
+      "additionalProperties": false,
+      "description": "Candidate outlet generation settings.",
+      "properties": {
+        "candidate_mode": {
+          "default": "network_sampling",
+          "description": "How candidate outlets are generated.",
+          "enum": [
+            "network_sampling",
+            "station_outlets",
+            "imported_points"
+          ],
+          "examples": [
+            "network_sampling"
+          ],
+          "title": "Candidate Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "min_distance_between_outlets_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum distance between generated outlets.",
+          "title": "Min Distance Between Outlets Km",
+          "x-hmp-profile": "user"
+        },
+        "allow_nested_basins": {
+          "default": false,
+          "description": "Allow nested candidate basins before final selection.",
+          "examples": [
+            false
+          ],
+          "title": "Allow Nested Basins",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "snap_to_generated_stream": {
+          "default": true,
+          "description": "Snap outlets to the DEM-derived stream network when applicable.",
+          "examples": [
+            true
+          ],
+          "title": "Snap To Generated Stream",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "snap_dist_m": {
+          "default": 250,
+          "description": "Maximum snapping distance in metres for outlet-based delineation.",
+          "examples": [
+            250
+          ],
+          "exclusiveMinimum": 0,
+          "title": "Snap Dist M",
+          "type": "integer",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "OutletsConfig",
+      "type": "object"
+    },
+    "OutputConfig": {
+      "additionalProperties": false,
+      "description": "Output artifact switches.",
+      "properties": {
+        "write_candidates": {
+          "default": false,
+          "examples": [
+            false
+          ],
+          "title": "Write Candidates",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "write_rejected": {
+          "default": true,
+          "examples": [
+            true
+          ],
+          "title": "Write Rejected",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "write_selected": {
+          "default": true,
+          "examples": [
+            true
+          ],
+          "title": "Write Selected",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "write_geojson": {
+          "default": true,
+          "examples": [
+            true
+          ],
+          "title": "Write Geojson",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "write_geoparquet": {
+          "default": false,
+          "examples": [
+            false
+          ],
+          "title": "Write Geoparquet",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "write_csv": {
+          "default": true,
+          "examples": [
+            true
+          ],
+          "title": "Write Csv",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "write_regional_lab_csv": {
+          "default": true,
+          "examples": [
+            true
+          ],
+          "title": "Write Regional Lab Csv",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "write_report_md": {
+          "default": false,
+          "examples": [
+            false
+          ],
+          "title": "Write Report Md",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "write_report_html": {
+          "default": false,
+          "examples": [
+            false
+          ],
+          "title": "Write Report Html",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "OutputConfig",
+      "type": "object"
+    },
     "OverviewConfig": {
       "additionalProperties": false,
       "description": "Overview report settings (watershed identity card).",
@@ -9708,6 +10460,20 @@
           "default": null,
           "description": "Global end date (YYYY-MM-DD).",
           "title": "Date End",
+          "x-hmp-profile": "user"
+        },
+        "regional_context_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Label used for the regional location figure.",
+          "title": "Regional Context Label",
           "x-hmp-profile": "user"
         },
         "panels": {
@@ -12906,6 +13672,193 @@
       "title": "SimulationTimeConfig",
       "type": "object"
     },
+    "SiteSelectionConfig": {
+      "additionalProperties": false,
+      "description": "Top-level site-selection workflow configuration.",
+      "properties": {
+        "selection_id": {
+          "description": "Stable identifier for this selection campaign.",
+          "examples": [
+            "example"
+          ],
+          "minLength": 1,
+          "title": "Selection Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "output_root": {
+          "description": "Output directory for all site-selection artifacts.",
+          "examples": [
+            "data/input.csv"
+          ],
+          "format": "path",
+          "title": "Output Root",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "random_seed": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional seed used by stochastic candidate thinning.",
+          "title": "Random Seed",
+          "x-hmp-profile": "user"
+        },
+        "strategy": {
+          "$ref": "#/$defs/StrategyConfig",
+          "x-hmp-profile": "user"
+        },
+        "territory": {
+          "$ref": "#/$defs/TerritoryConfig",
+          "description": "Territory where candidate basins are searched.",
+          "x-hmp-profile": "user"
+        },
+        "dem": {
+          "$ref": "#/$defs/hydromodpy__spatial__site_selection__config__DemConfig",
+          "x-hmp-profile": "user"
+        },
+        "hydrology": {
+          "$ref": "#/$defs/HydrologyConfig",
+          "x-hmp-profile": "user"
+        },
+        "input": {
+          "$ref": "#/$defs/SiteSelectionInputConfig",
+          "x-hmp-profile": "user"
+        },
+        "outlets": {
+          "$ref": "#/$defs/OutletsConfig",
+          "x-hmp-profile": "user"
+        },
+        "spatial_selection": {
+          "$ref": "#/$defs/SpatialSelectionConfig",
+          "x-hmp-profile": "user"
+        },
+        "criteria": {
+          "$ref": "#/$defs/CriteriaConfig",
+          "x-hmp-profile": "user"
+        },
+        "output": {
+          "$ref": "#/$defs/OutputConfig",
+          "x-hmp-profile": "user"
+        },
+        "map_context": {
+          "$ref": "#/$defs/MapContextConfig",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "selection_id",
+        "output_root",
+        "territory"
+      ],
+      "title": "SiteSelectionConfig",
+      "type": "object"
+    },
+    "SiteSelectionInputConfig": {
+      "additionalProperties": false,
+      "description": "Execution input selector used by the ``site_selection`` workflow.",
+      "properties": {
+        "mode": {
+          "default": "auto",
+          "description": "Workflow input mode. auto uses catchments_csv when present, otherwise [hydrometry] when present, otherwise only writes a plan.",
+          "enum": [
+            "auto",
+            "plan_only",
+            "hydrometry",
+            "delineated_catchments"
+          ],
+          "examples": [
+            "auto"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "catchments_csv": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pre-delineated catchments CSV used when mode='delineated_catchments'.",
+          "title": "Catchments Csv",
+          "x-hmp-profile": "user"
+        },
+        "region_id": {
+          "default": "",
+          "description": "Optional region identifier written to regional-lab CSV outputs.",
+          "examples": [
+            ""
+          ],
+          "title": "Region Id",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "workspace_root": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional workspace root forwarded to data-manager based loading.",
+          "title": "Workspace Root",
+          "x-hmp-profile": "user"
+        },
+        "data_root": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional data root forwarded to data-manager based loading.",
+          "title": "Data Root",
+          "x-hmp-profile": "user"
+        },
+        "write_plan_manifest": {
+          "default": true,
+          "description": "Write site_selection_plan.json when the workflow is run in plan mode.",
+          "examples": [
+            true
+          ],
+          "title": "Write Plan Manifest",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "delineate_from_outlets": {
+          "default": false,
+          "description": "When using catchments_csv, compute watershed contours from outlet coordinates and DEM flow products instead of trusting watershed_shp.",
+          "examples": [
+            false
+          ],
+          "title": "Delineate From Outlets",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SiteSelectionInputConfig",
+      "type": "object"
+    },
     "SoilMoistureConfig": {
       "additionalProperties": false,
       "description": "Top-level soil-moisture configuration.\n\nThe section groups soil-moisture sources and an optional date window.\nLoaded data can support hydrological diagnostics and land-surface forcing\nanalyses.",
@@ -13196,6 +14149,238 @@
         }
       },
       "title": "SolverSGridConfig",
+      "type": "object"
+    },
+    "SpatialSelectionConfig": {
+      "additionalProperties": false,
+      "description": "Spatial thinning and overlap policy.",
+      "properties": {
+        "allow_nested_basins": {
+          "default": false,
+          "description": "Allow selected basins to be nested.",
+          "examples": [
+            false
+          ],
+          "title": "Allow Nested Basins",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "min_outlet_distance_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Minimum spacing between selected outlets.",
+          "title": "Min Outlet Distance Km",
+          "x-hmp-profile": "user"
+        },
+        "max_pairwise_basin_overlap_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum allowed overlap fraction between selected basins.",
+          "title": "Max Pairwise Basin Overlap Fraction",
+          "x-hmp-profile": "user"
+        },
+        "overlap_reference": {
+          "default": "smaller_basin",
+          "description": "Denominator used for overlap fraction.",
+          "enum": [
+            "smaller_basin",
+            "candidate",
+            "selected"
+          ],
+          "examples": [
+            "smaller_basin"
+          ],
+          "title": "Overlap Reference",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "overlap_mode": {
+          "default": "hard_reject",
+          "description": "How overlap violations affect selection.",
+          "enum": [
+            "hard_reject",
+            "warning",
+            "score",
+            "report_only"
+          ],
+          "examples": [
+            "hard_reject"
+          ],
+          "title": "Overlap Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "same_mainstem_policy": {
+          "anyOf": [
+            {
+              "enum": [
+                "allow_with_warning",
+                "reject_downstream",
+                "keep_best"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional policy for candidates on the same mainstem.",
+          "title": "Same Mainstem Policy",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "SpatialSelectionConfig",
+      "type": "object"
+    },
+    "StrategyConfig": {
+      "additionalProperties": false,
+      "description": "High-level strategy controlling candidate generation and criterion order.",
+      "properties": {
+        "principle": {
+          "default": "criteria_crossing",
+          "description": "Selection principle: observation-led or direct criteria crossing.",
+          "enum": [
+            "observation_led",
+            "criteria_crossing"
+          ],
+          "examples": [
+            "observation_led"
+          ],
+          "title": "Principle",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "profile": {
+          "anyOf": [
+            {
+              "enum": [
+                "dem_only",
+                "area_only",
+                "multicriteria"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional profile for criteria_crossing campaigns.",
+          "title": "Profile",
+          "x-hmp-profile": "user"
+        },
+        "primary_axes": {
+          "description": "Physical or spatial axes that drive a criteria_crossing selection.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Primary Axes",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "observation_role": {
+          "default": "report_only",
+          "description": "How observations influence a criteria_crossing campaign.",
+          "enum": [
+            "primary",
+            "bonus",
+            "score",
+            "stratify",
+            "report_only",
+            "ignore"
+          ],
+          "examples": [
+            "primary"
+          ],
+          "title": "Observation Role",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "geology_role": {
+          "default": "report_only",
+          "description": "How geology influences a criteria_crossing campaign.",
+          "enum": [
+            "primary",
+            "bonus",
+            "score",
+            "stratify",
+            "report_only",
+            "ignore"
+          ],
+          "examples": [
+            "primary"
+          ],
+          "title": "Geology Role",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "primary_observation_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Observation family required by an observation_led strategy.",
+          "title": "Primary Observation Type",
+          "x-hmp-profile": "user"
+        },
+        "observation_source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Provider or normalized source used for primary observations.",
+          "title": "Observation Source",
+          "x-hmp-profile": "user"
+        },
+        "candidate_mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "network_sampling",
+                "station_outlets",
+                "imported_points"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional strategy-level candidate generation mode.",
+          "title": "Candidate Mode",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "StrategyConfig",
       "type": "object"
     },
     "SyntheticGeographicConfig": {
@@ -13799,6 +14984,119 @@
         "source"
       ],
       "title": "TemperatureSourceConfig",
+      "type": "object"
+    },
+    "TerritoryConfig": {
+      "additionalProperties": false,
+      "description": "Spatial domain where candidate basins are searched.",
+      "properties": {
+        "mode": {
+          "default": "bbox",
+          "description": "Territory resolver mode.",
+          "enum": [
+            "admin_regions",
+            "admin_departments",
+            "polygon_file",
+            "bbox",
+            "site_catalog_extent",
+            "geoparquet_filter"
+          ],
+          "examples": [
+            "admin_regions"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "country": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Country code used by administrative territory modes.",
+          "title": "Country",
+          "x-hmp-profile": "user"
+        },
+        "regions": {
+          "description": "Administrative regions used when mode='admin_regions'.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "departments": {
+          "description": "Administrative departments used when mode='admin_departments'.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Departments",
+          "type": "array",
+          "x-hmp-profile": "user"
+        },
+        "polygon_file": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "User polygon file used when mode='polygon_file'.",
+          "title": "Polygon File",
+          "x-hmp-profile": "user"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Territory bounds as xmin, ymin, xmax, ymax.",
+          "title": "Bbox",
+          "x-hmp-profile": "user"
+        },
+        "clip_to_territory": {
+          "default": true,
+          "description": "Clip candidate basins or outlets to the requested territory.",
+          "examples": [
+            true
+          ],
+          "title": "Clip To Territory",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "TerritoryConfig",
       "type": "object"
     },
     "TestbedCatalogConfig": {
@@ -15343,7 +16641,8 @@
             "calibration",
             "overview",
             "comparison",
-            "testbed"
+            "testbed",
+            "site_selection"
           ],
           "examples": [
             "simulation"
@@ -16145,6 +17444,150 @@
       },
       "title": "ZoneMeshingSettings",
       "type": "object"
+    },
+    "hydromodpy__data__variables__dem__config__DemConfig": {
+      "additionalProperties": false,
+      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_bdalti\"\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
+      "properties": {
+        "sources": {
+          "description": "At least one DEM data source.",
+          "items": {
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_bdalti' for the IGN BD ALTI 25 m MNT.",
+            "discriminator": {
+              "mapping": {
+                "custom": "#/$defs/CustomDemSource",
+                "ign_bdalti": "#/$defs/IgnBdaltiDemSource"
+              },
+              "propertyName": "source"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/CustomDemSource"
+              },
+              {
+                "$ref": "#/$defs/IgnBdaltiDemSource"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "required": [
+        "sources"
+      ],
+      "title": "DemConfig",
+      "type": "object"
+    },
+    "hydromodpy__spatial__site_selection__config__DemConfig": {
+      "additionalProperties": false,
+      "description": "DEM source requested by site selection.",
+      "properties": {
+        "source": {
+          "default": "custom",
+          "description": "DEM source identifier, for example custom or ign_bdalti.",
+          "examples": [
+            "custom"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Local DEM path when source='custom'.",
+          "title": "Path",
+          "x-hmp-profile": "user"
+        },
+        "resolution_m": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "DEM resolution in metres.",
+          "title": "Resolution M",
+          "x-hmp-profile": "user"
+        },
+        "cache_policy": {
+          "default": "use_cache_else_download",
+          "description": "Data cache policy.",
+          "examples": [
+            "use_cache_else_download"
+          ],
+          "title": "Cache Policy",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "margin_km": {
+          "default": 0.0,
+          "description": "DEM request margin around the territory in kilometres.",
+          "examples": [
+            0.0
+          ],
+          "minimum": 0,
+          "title": "Margin Km",
+          "type": "number",
+          "x-hmp-profile": "user"
+        },
+        "request_extent": {
+          "default": "territory",
+          "description": "Spatial extent used when a DEM is loaded through [data.dem]. 'territory' requests the configured selection territory; 'outlets' requests the bounding box of imported outlets expanded by margin_km.",
+          "enum": [
+            "territory",
+            "outlets"
+          ],
+          "examples": [
+            "territory"
+          ],
+          "title": "Request Extent",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "map_background_extent": {
+          "default": "delineation",
+          "description": "DEM extent used only for review-map background. 'delineation' reuses the DEM used to calculate basin contours; 'territory' loads a regional DEM through [data.dem] without using it for delineation.",
+          "enum": [
+            "none",
+            "delineation",
+            "territory"
+          ],
+          "examples": [
+            "none"
+          ],
+          "title": "Map Background Extent",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "force_refresh": {
+          "default": false,
+          "description": "Ignore existing cached data when supported by the provider.",
+          "examples": [
+            false
+          ],
+          "title": "Force Refresh",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "DemConfig",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -16152,7 +17595,7 @@
   "properties": {
     "workflow": {
       "$ref": "#/$defs/WorkflowConfig",
-      "description": "Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'overview', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.",
+      "description": "Workflow configuration. `workflow.mode` must be one of 'simulation', 'calibration', 'overview', 'comparison', 'testbed', 'site_selection'. Drives dispatch in `hmp run <toml>` and in API-driven callers that instantiate `HydroModPyConfig` from a frontend form.",
       "examples": [
         {
           "mode": "simulation"
@@ -16301,6 +17744,32 @@
       ],
       "default": null,
       "description": "Optional method-testbed settings loaded from the [testbed] section. Drives the orchestration layer over child runners (comparison or simulation) and is dispatched when workflow.mode='testbed'.",
+      "x-hmp-profile": "user"
+    },
+    "site_selection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SiteSelectionConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional upstream basin site-selection workflow configuration.",
+      "x-hmp-profile": "user"
+    },
+    "hydrometry": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HydrometryConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional hydrometric observations used by data and site-selection workflows.",
       "x-hmp-profile": "user"
     }
   },

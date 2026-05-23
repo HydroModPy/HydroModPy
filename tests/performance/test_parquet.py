@@ -9,12 +9,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
 pytestmark = pytest.mark.performance
+pl = pytest.importorskip("polars")
 
 
 def _build_table(n_rows: int) -> pa.Table:

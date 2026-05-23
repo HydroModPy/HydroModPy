@@ -1,0 +1,107 @@
+[workflow]
+mode = "site_selection"
+
+[site_selection]
+selection_id = "bretagne_hydrometry_primary_v1"
+output_root = "../outputs/bretagne_hydrometry_primary_v1"
+
+[site_selection.input]
+# This executable fixture starts from pre-delineated station catchments. For a
+# real Hub'Eau run, switch mode to "hydrometry"; hydrometry loading will then
+# go through HydroModPy's existing data-manager stack.
+mode = "delineated_catchments"
+catchments_csv = "../fixtures/bretagne_hydro_predelineated_catchments.csv"
+region_id = "Bretagne"
+delineate_from_outlets = true
+
+[site_selection.strategy]
+principle = "observation_led"
+primary_observation_type = "flow_station"
+observation_source = "hubeau_hydrometrie"
+candidate_mode = "station_outlets"
+
+[site_selection.territory]
+mode = "admin_regions"
+country = "FR"
+regions = ["Bretagne"]
+
+[site_selection.dem]
+source = "data"
+resolution_m = 25.0
+cache_policy = "use_cache_else_download"
+margin_km = 20.0
+request_extent = "outlets"
+map_background_extent = "territory"
+
+[site_selection.hydrology]
+method = "dem_only"
+flow_algorithm = "d8"
+hydrologic_conditioning = "fill"
+network_threshold_area_km2 = 1.0
+
+[site_selection.outlets]
+candidate_mode = "station_outlets"
+snap_dist_m = 5000
+min_distance_between_outlets_km = 5.0
+
+[site_selection.spatial_selection]
+allow_nested_basins = true
+max_pairwise_basin_overlap_fraction = 0.20
+overlap_mode = "warning"
+
+[site_selection.criteria]
+ruleset = "france_hydrometry_primary_v1"
+hard_reject = ["delineation_failure", "station_influence"]
+warning = ["area_range", "basin_overlap", "geology"]
+soft_score = ["record_length", "station_to_outlet_distance"]
+report_only = ["piezometry", "land_cover"]
+
+[site_selection.criteria.observations]
+flow_station_mode = "hard_reject"
+flow_station_max_distance_km = 1.0
+piezometer_mode = "report_only"
+
+[site_selection.criteria.observations.flow_station]
+mode = "hard_reject"
+min_record_years = 5.0
+max_station_to_outlet_distance_km = 1.0
+require_station_inside_or_at_outlet = true
+
+[site_selection.criteria.influence]
+mode = "hard_reject"
+reject_major_dam_upstream = true
+reject_major_withdrawal_upstream = true
+reject_major_regulated_reach = true
+influence_search_radius_km = 30.0
+
+[site_selection.criteria.area]
+mode = "warning"
+
+[[site_selection.criteria.area.ranges]]
+range_id = "broad_screening"
+label = "Controle large"
+min_area_km2 = 10.0
+max_area_km2 = 1000.0
+
+[site_selection.criteria.geology]
+mode = "warning"
+prefer_diversity = true
+
+[site_selection.output]
+write_report_html = true
+
+[hydrometry]
+date_start = "2015-01-01"
+date_end = "2025-01-01"
+
+[[hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+require_observations = true
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "ign_bdalti"
+regions = ["Bretagne"]

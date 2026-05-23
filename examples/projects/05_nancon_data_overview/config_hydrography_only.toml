@@ -31,7 +31,8 @@ page_size = 1000
 rasterize_field = "FID"
 
 [overview]
-name = "Canut"
+name = "Nancon"
+regional_context_label = "Situation dans le Massif Armoricain"
 
 [overview.panels]
 map_dem = false

@@ -1,0 +1,88 @@
+{
+  "best_global": {
+    "C_debit_obs": 0.0,
+    "C_debit_phys": 0.0,
+    "C_reseau_naturel": 0.0,
+    "C_reseau_phys": 0.0,
+    "J": 0.0,
+    "Sy": 0.05,
+    "candidate_id": "truth_identity",
+    "mK": 0.65,
+    "network_map_source": "steady",
+    "status": "completed"
+  },
+  "best_non_target": {
+    "C_debit_obs": 0.0,
+    "C_debit_phys": 0.0,
+    "C_reseau_naturel": 2.4499999999999997,
+    "C_reseau_phys": 2.4499999999999997,
+    "J": 0.7349999999999999,
+    "Sy": 0.05,
+    "candidate_id": "shifted_network",
+    "mK": 0.95,
+    "network_map_source": "steady",
+    "status": "completed"
+  },
+  "contract": {
+    "discharge_observable": "observed_streamflow_nse_log",
+    "failure_policy": {
+      "future_optimizer": "return pruned/failed or a finite penalty outside the report ranking path",
+      "reporting": "failed candidates keep status and NaN objective; they are excluded from ranking"
+    },
+    "network_observable": "observed_hydrography_presence_and_distance_ratio",
+    "objective": "0.3*C_reseau_naturel + 0.7*C_debit_obs"
+  },
+  "contract_version": "natural_network_steady_discharge_transient.v1",
+  "contract_warnings": [],
+  "grid": {
+    "completed": 4,
+    "failed": 0,
+    "rows_total": 4,
+    "status_counts": {
+      "completed": 4
+    }
+  },
+  "hashes": {
+    "score_table": "9f9011f526d6390ca2930f1494c52e0508ea726413474063992be2df9fafb6af",
+    "truth.metadata_json": "edb0c7d4c4fc150f4c64e4b6efdf48a9532f85d1dff6a40fb5233f80053bf810",
+    "truth.normalization_json": "23b3bbb95b99df7b09a82b2fb991c9655bae356d81091cb7974d1528a1309a50",
+    "truth.steady_network_active_mask_npz": "9d4f4dd65a79f5f97a3d23594ee72f1975d2a40daa851bf9187e6b8e5084931e",
+    "truth.steady_network_drain_by_cell_npz": "33bb08ef3007c43d6f167e21fb104694da97593029ab7ced027bab0b0b6f8246",
+    "truth.transient_q_total_release_csv": "9a81388bea5af1851a3ee4da9eb648cc25a226dcc2a3b9dfabf954b54c82a49b"
+  },
+  "normalization": {
+    "L_ref": 4.0,
+    "Q_ref_steady": 4.0,
+    "Qbar_ref": 1.0,
+    "alpha_Q": 0.1,
+    "d_tol": 1.0,
+    "discharge_metric": "nse_log",
+    "eta_dist": 1.0,
+    "eta_flux": 1.0,
+    "eta_len": 0.1,
+    "network_distance_metric": "abs_sim_to_obs_over_obs_to_obs_distance_ratio_minus_one",
+    "nse_log_epsilon": null,
+    "tau_network": 0.0,
+    "w_debit": 0.7,
+    "w_reseau": 0.3
+  },
+  "paths": {
+    "html_report": "C:\\codes\\HydroModPy\\examples\\projects\\16_nancon_natural_calibration\\outputs\\synthetic_smoke\\web\\index.html",
+    "score_table": "C:\\codes\\HydroModPy\\examples\\projects\\16_nancon_natural_calibration\\outputs\\synthetic_smoke\\synthetic_natural_smoke_candidate_scores.csv",
+    "truth_dir": "C:\\codes\\HydroModPy\\examples\\projects\\16_nancon_natural_calibration\\outputs\\synthetic_smoke\\natural_observation_package"
+  },
+  "schema": "hydromodpy.calibration.b0_reference_manifest.v1",
+  "score_window": {
+    "score_start_index": 0,
+    "score_stop_index": 24,
+    "scored_periods": 24,
+    "warmup_periods": 0
+  },
+  "truth": {
+    "Sy_true": null,
+    "mK_true": null,
+    "n_cells": 10,
+    "n_timesteps": 24,
+    "site_id": "synthetic_natural_smoke"
+  }
+}
