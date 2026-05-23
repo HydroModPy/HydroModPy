@@ -70,6 +70,20 @@ Fields
 
 
 .. container:: hmp-field hmp-field-level-user
+   :name: overview-regional-context-label
+
+   .. raw:: html
+
+      <div class="hmp-field-header" data-toml-path="overview.regional_context_label">
+        <code class="hmp-field-name">regional_context_label</code>
+      </div>
+
+   :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L48>`__
+
+      Label used for the regional location figure.
+
+
+.. container:: hmp-field hmp-field-level-user
    :name: overview-panels
 
    .. raw:: html
@@ -80,7 +94,7 @@ Fields
         <code class="hmp-field-toml">[overview.panels]</code>
       </div>
 
-   :bdg-primary:`OverviewPanelsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L48>`__
+   :bdg-primary:`OverviewPanelsConfig` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/display/overview/config.py#L52>`__
 
       Panel toggles.
 
@@ -249,6 +263,7 @@ Starter TOML snippet
       # name = ""
       # date_start = ...  # default = None
       # date_end = ...  # default = None
+      # regional_context_label = ...  # default = None
 
       [overview.panels]
       # map_dem = true

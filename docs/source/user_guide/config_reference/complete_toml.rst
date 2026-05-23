@@ -396,6 +396,8 @@ Sub-models are linked back to their per-section page.
       # date_start = ...  # default = None
       # Global end date (YYYY-MM-DD).
       # date_end = ...  # default = None
+      # Label used for the regional location figure.
+      # regional_context_label = ...  # default = None
       # Panel toggles.
       # panels = ...  # uses factory default
 
@@ -546,3 +548,55 @@ Sub-models are linked back to their per-section page.
       catalog_variants = []
       # Metrics extracted from each child-runner summary.
       metrics = []
+
+.. dropdown:: ``[site_selection]`` (SiteSelectionConfig)
+   :icon: gear
+
+   See :doc:`site_selection` for the full description.
+
+   .. code-block:: toml
+
+      [site_selection]
+      # Stable identifier for this selection campaign.
+      # selection_id = ""  # REQUIRED
+      # Output directory for all site-selection artifacts.
+      # output_root = ""  # REQUIRED
+      # Optional seed used by stochastic candidate thinning.
+      # random_seed = ...  # default = None
+      # no description
+      # strategy = ...  # uses factory default
+      # Territory where candidate basins are searched.
+      # territory = ""  # REQUIRED
+      # no description
+      # dem = ...  # uses factory default
+      # no description
+      # hydrology = ...  # uses factory default
+      # no description
+      # input = ...  # uses factory default
+      # no description
+      # outlets = ...  # uses factory default
+      # no description
+      # spatial_selection = ...  # uses factory default
+      # no description
+      # criteria = ...  # uses factory default
+      # no description
+      # output = ...  # uses factory default
+      # no description
+      # map_context = ...  # uses factory default
+
+.. dropdown:: ``[hydrometry]`` (HydrometryConfig)
+   :icon: gear
+
+   See :doc:`hydrometry` for the full description.
+
+   .. code-block:: toml
+
+      [hydrometry]
+      # Project start date (ISO format, e.g. '2019-01-01').
+      # example: date_start = "2019-01-01"
+      # date_start = ...  # default = None
+      # Project end date (ISO format, e.g. '2025-12-31').
+      # example: date_end = "2025-12-31"
+      # date_end = ...  # default = None
+      # At least one data source.
+      # sources = []  # REQUIRED

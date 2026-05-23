@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watershed Data Overview</title>
+  <style>
+    :root {
+      --ink: #162033;
+      --muted: #64748b;
+      --line: #d7dee8;
+      --panel: #ffffff;
+      --soft: #f4f7fa;
+      --accent: #0f766e;
+      --warn: #9a3412;
+      --missing: #f8e5dc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f7f8fa;
+      color: var(--ink);
+      font-family: "Aptos", "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.45;
+    }
+    main { max-width: 1500px; margin: 0 auto; padding: 30px 20px 58px; }
+    header { padding-bottom: 18px; border-bottom: 1px solid var(--line); }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 8px; font-size: 2.1rem; letter-spacing: 0; }
+    h2 { margin-bottom: 0; font-size: 1.35rem; letter-spacing: 0; }
+    h3 { margin-bottom: 10px; font-size: 1rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .eyebrow, .block-id {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .subtitle, .muted { color: var(--muted); }
+    .report-block {
+      margin-top: 20px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .report-block.status-not-applicable { background: #fbfcfd; }
+    .block-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .level-pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+    .metric {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 11px 12px;
+      background: var(--soft);
+    }
+    .metric > span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .metric strong { display: block; overflow-wrap: anywhere; font-size: 1.02rem; }
+    .metric small { display: block; margin-top: 4px; color: var(--muted); }
+    .figure-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin: 14px 0;
+    }
+    figure {
+      margin: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fff;
+    }
+    figure img { display: block; width: 100%; border-radius: 6px; background: var(--soft); }
+    figcaption { margin-top: 9px; color: var(--muted); font-size: 0.94rem; }
+    .figure-placeholder {
+      display: grid;
+      min-height: 190px;
+      place-items: center;
+      border-radius: 6px;
+      background: var(--missing);
+      color: var(--warn);
+      font-weight: 700;
+    }
+    .table-block { margin-top: 14px; }
+    table { width: 100%; border-collapse: collapse; border: 1px solid var(--line); }
+    th, td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.94rem;
+    }
+    th {
+      background: #edf4f2;
+      color: #24433f;
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .warning-list {
+      margin: 14px 0 0;
+      padding-left: 22px;
+      color: var(--warn);
+      font-weight: 650;
+    }
+    @media (max-width: 880px) {
+      main { padding: 18px 12px 42px; }
+      .metric-grid, .figure-grid { grid-template-columns: 1fr; }
+      .block-title-row { display: block; }
+      .level-pill { display: inline-block; margin-top: 10px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">HydroModPy report</p>
+    <h1>Watershed Data Overview</h1>
+    <p class="subtitle">Contexte spatial, inventaire des donnees et entrees principales - niveau standard.</p>
+  </header>
+  <section id="workflow_header" class="report-block status-available">
+  <div class="block-title-row">
+    <div>
+      <p class="block-id">workflow_header</p>
+      <h2>Identite du workflow</h2>
+    </div>
+    <span class="level-pill">compact</span>
+  </div>
+  <p>Synthese minimale du rapport et du workspace.</p>
+  <div class="metric-grid"><div class="metric">
+  <span>Workflow</span>
+  <strong>overview</strong>
+  
+</div><div class="metric">
+  <span>Bassin</span>
+  <strong>Watershed Data Overview</strong>
+  
+</div><div class="metric">
+  <span>Periode</span>
+  <strong>2019-01-01 -&gt; 2025-12-31</strong>
+  
+</div><div class="metric">
+  <span>Workspace</span>
+  <strong>C:\codes\HydroModPy\examples\projects\04_data_overview</strong>
+  
+</div></div>
+  
+  
+  
+</section>
+<section id="spatial_context" class="report-block status-available">
+  <div class="block-title-row">
+    <div>
+      <p class="block-id">spatial_context</p>
+      <h2>Contexte spatial</h2>
+    </div>
+    <span class="level-pill">standard</span>
+  </div>
+  <p>Bassin, support DEM, hydrographie de reference et geologie de contexte.</p>
+  <div class="metric-grid"><div class="metric">
+  <span>Surface bassin</span>
+  <strong>11.87 <span>km2</span></strong>
+  
+</div><div class="metric">
+  <span>CRS</span>
+  <strong>EPSG:2154</strong>
+  
+</div><div class="metric">
+  <span>Exutoire</span>
+  <strong>127348.4, 6835802.6</strong>
+  
+</div><div class="metric">
+  <span>Definition</span>
+  <strong>from_outlet_coord</strong>
+  
+</div><div class="metric">
+  <span>Correction DEM</span>
+  <strong>breach</strong>
+  
+</div></div>
+  <div class="figure-grid"><figure>
+  <a href="../figures/overview/map_dem_context.png"><img src="../figures/overview/map_dem_context.png" alt="DEM, bassin versant et exutoire"></a>
+  <figcaption><strong>DEM, bassin versant et exutoire</strong><br><span>Contexte compact sans hydrographie ni stations.</span></figcaption>
+</figure><figure>
+  <a href="../figures/overview/map_hydrography_data.png"><img src="../figures/overview/map_hydrography_data.png" alt="Hydrographie chargee comme donnee"></a>
+  <figcaption><strong>Hydrographie chargee comme donnee</strong><br><span>Reseau issu de data.hydrography, pas du calcul geomorphologique DEM.</span></figcaption>
+</figure><figure>
+  <a href="../figures/overview/map_geology_context.png"><img src="../figures/overview/map_geology_context.png" alt="Geologie de contexte"></a>
+  <figcaption><strong>Geologie de contexte</strong><br><span>Couche geologique chargee, si disponible.</span></figcaption>
+</figure></div>
+  
+  
+</section>
+<section id="data_inventory" class="report-block status-available">
+  <div class="block-title-row">
+    <div>
+      <p class="block-id">data_inventory</p>
+      <h2>Inventaire des donnees</h2>
+    </div>
+    <span class="level-pill">standard</span>
+  </div>
+  <p>Familles de donnees demandees ou chargees par le workflow.</p>
+  <div class="metric-grid"><div class="metric">
+  <span>Familles suivies</span>
+  <strong>5</strong>
+  
+</div><div class="metric">
+  <span>Familles chargees</span>
+  <strong>4</strong>
+  
+</div></div>
+  
+  <div class="table-block">
+  <h3>Familles de donnees</h3>
+  <table><thead><tr><th>Famille</th><th>Statut</th><th>Sources</th><th>Objets</th><th>Periode</th></tr></thead><tbody><tr><td>geology</td><td>chargee</td><td>brgm_1m</td><td>1 objet</td><td>-</td></tr><tr><td>hydrography</td><td>chargee</td><td>custom</td><td>1 champ(s)</td><td>-</td></tr><tr><td>oceanic</td><td>chargee</td><td>shom</td><td>1 point(s)</td><td>2003-01-01 -&gt; 2003-01-30</td></tr><tr><td>intermittency</td><td>chargee</td><td>hubeau</td><td>1 point(s)</td><td>2019-01-01 -&gt; 2025-12-31</td></tr><tr><td>hydrometry</td><td>demandee</td><td>hubeau</td><td>0</td><td>2019-01-01 -&gt; 2025-12-31</td></tr></tbody></table>
+</div>
+  
+</section>
+<section id="observation_inventory" class="report-block status-available">
+  <div class="block-title-row">
+    <div>
+      <p class="block-id">observation_inventory</p>
+      <h2>Observations</h2>
+    </div>
+    <span class="level-pill">standard</span>
+  </div>
+  <p>Stations et chroniques observees disponibles avant toute simulation.</p>
+  <div class="metric-grid"><div class="metric">
+  <span>Hydrometrie</span>
+  <strong>0 <span>stations</span></strong>
+  
+</div><div class="metric">
+  <span>Piezometrie</span>
+  <strong>0 <span>stations</span></strong>
+  
+</div><div class="metric">
+  <span>Intermittence</span>
+  <strong>1 <span>stations</span></strong>
+  
+</div><div class="metric">
+  <span>Qualite eau</span>
+  <strong>0 <span>stations</span></strong>
+  
+</div></div>
+  <div class="figure-grid"><figure>
+  <a href="../figures/overview/station_inventory.png"><img src="../figures/overview/station_inventory.png" alt="Inventaire des stations"></a>
+  <figcaption><strong>Inventaire des stations</strong><br><span>Table image historique produite par le workflow overview.</span></figcaption>
+</figure><figure>
+  <a href="../figures/overview/timeseries_discharge.png"><img src="../figures/overview/timeseries_discharge.png" alt="Debits observes"></a>
+  <figcaption><strong>Debits observes</strong><br><span>Chroniques hydrometriques observees, sans comparaison simulation.</span></figcaption>
+</figure><figure class="missing optional">
+  <div class="figure-placeholder">Figure absente</div>
+  <figcaption><strong>Niveaux piezometriques observes</strong><br><span>Chroniques piezometriques observees, si chargees.</span></figcaption>
+</figure><figure>
+  <a href="../figures/overview/timeseries_intermittency.png"><img src="../figures/overview/timeseries_intermittency.png" alt="Intermittence observee"></a>
+  <figcaption><strong>Intermittence observee</strong><br><span>Chroniques ONDE ou intermittence, si chargees.</span></figcaption>
+</figure><figure class="missing optional">
+  <div class="figure-placeholder">Figure absente</div>
+  <figcaption><strong>Qualite d&#x27;eau observee</strong><br><span>Chroniques qualite d&#x27;eau, si chargees.</span></figcaption>
+</figure></div>
+  <div class="table-block">
+  <h3>Stations observees</h3>
+  <table><thead><tr><th>Type</th><th>ID</th><th>X</th><th>Y</th><th>Debut</th><th>Fin</th></tr></thead><tbody><tr><td>Intermittence</td><td>J3335411</td><td>-4.7</td><td>48.4</td><td>2019-01-01</td><td>2025-12-31</td></tr></tbody></table>
+</div>
+  
+</section>
+<section id="forcing_context" class="report-block status-available">
+  <div class="block-title-row">
+    <div>
+      <p class="block-id">forcing_context</p>
+      <h2>Recharge et pompages</h2>
+    </div>
+    <span class="level-pill">standard</span>
+  </div>
+  <p>Entrees hydrologiques principales, vues comme donnees d&#x27;entree.</p>
+  <div class="metric-grid"><div class="metric">
+  <span>Recharge moyenne</span>
+  <strong>-</strong>
+  
+</div><div class="metric">
+  <span>Pompages</span>
+  <strong>-</strong>
+  
+</div><div class="metric">
+  <span>Ouvrages</span>
+  <strong>0 <span>wells</span></strong>
+  
+</div></div>
+  
+  <div class="table-block">
+  <h3>Sources recharge</h3>
+  <p class="muted">Aucune source recharge declaree.</p>
+</div>
+<div class="table-block">
+  <h3>Pompages declares</h3>
+  <p class="muted">Aucun pompage declare.</p>
+</div>
+  <ul class="warning-list"><li>Recharge non chargee dans data.recharge.</li><li>Aucun pompage declare dans flow.sinks_sources.wells.</li></ul>
+</section>
+<section id="mesh_context" class="report-block status-not-applicable">
+  <div class="block-title-row">
+    <div>
+      <p class="block-id">mesh_context</p>
+      <h2>Maillage</h2>
+    </div>
+    <span class="level-pill">compact</span>
+  </div>
+  <p>Non applicable au workflow overview: aucun maillage n&#x27;est construit ici.</p>
+  
+  
+  
+  
+</section>
+<section id="solver_context" class="report-block status-not-applicable">
+  <div class="block-title-row">
+    <div>
+      <p class="block-id">solver_context</p>
+      <h2>Solveur</h2>
+    </div>
+    <span class="level-pill">compact</span>
+  </div>
+  <p>Non applicable au workflow overview: aucun solveur n&#x27;est execute ici.</p>
+  
+  
+  
+  
+</section>
+<section id="artifact_links" class="report-block status-available">
+  <div class="block-title-row">
+    <div>
+      <p class="block-id">artifact_links</p>
+      <h2>Artefacts</h2>
+    </div>
+    <span class="level-pill">standard</span>
+  </div>
+  <p>Fichiers produits ou references par le rapport.</p>
+  
+  
+  <div class="table-block">
+  <h3>Chemins</h3>
+  <table><thead><tr><th>Type</th><th>Chemin</th></tr></thead><tbody><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\map_dem.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\map_dem_context.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\map_geology.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\map_geology_context.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\map_hydrography.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\map_hydrography_data.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\timeseries_discharge.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\timeseries_intermittency.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\stats_card.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\figures\overview\station_inventory.png</td></tr><tr><td>config</td><td>C:\codes\HydroModPy\examples\projects\04_data_overview\project.toml</td></tr></tbody></table>
+</div>
+  
+</section>
+</main>
+</body>
+</html>

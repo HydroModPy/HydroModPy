@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "name": "bretagne_fixture_hydrography",
+  "hydromodpy_coordinate_crs": "EPSG:2154",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {"name": "Fixture coastal river"},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[258000, 6810000], [276000, 6822000], [294000, 6830000], [318000, 6841000]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {"name": "Fixture tributary"},
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[286000, 6852000], [294000, 6830000], [302000, 6823000]]
+      }
+    }
+  ]
+}

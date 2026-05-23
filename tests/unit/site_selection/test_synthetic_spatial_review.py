@@ -1,0 +1,188 @@
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from hydromodpy.spatial.site_selection.artifacts import write_manifest_and_optional_report
+from hydromodpy.spatial.site_selection.candidate_outlets import CandidateOutlet
+from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.delineation import DelineatedCatchment
+from hydromodpy.spatial.site_selection.exports import (
+    write_observation_points_geojson,
+    write_selection_result,
+)
+from hydromodpy.spatial.site_selection.selection import SelectionDecision, SelectionResult
+from hydromodpy.spatial.site_selection.types import ObservationEvidence
+
+
+@pytest.mark.fast
+def test_synthetic_spatial_review_contains_basins_observations_map_and_html(tmp_path):
+    pytest.importorskip("geopandas")
+
+    selected_basin = tmp_path / "selected_basin.geojson"
+    rejected_basin = tmp_path / "rejected_basin.geojson"
+    _write_polygon_geojson(
+        selected_basin,
+        coordinates=[
+            [0.0, 0.0],
+            [6.0, 0.0],
+            [6.0, 4.0],
+            [0.0, 4.0],
+            [0.0, 0.0],
+        ],
+    )
+    _write_polygon_geojson(
+        rejected_basin,
+        coordinates=[
+            [8.0, 0.0],
+            [13.0, 0.0],
+            [13.0, 4.0],
+            [8.0, 4.0],
+            [8.0, 0.0],
+        ],
+    )
+    selected = DelineatedCatchment(
+        site_id="site_selected",
+        outlet=CandidateOutlet("cand_selected", 3.0, 1.0, "EPSG:2154", "synthetic"),
+        watershed_shp=str(selected_basin),
+        area_km2=24.0,
+    )
+    rejected = DelineatedCatchment(
+        site_id="site_rejected",
+        outlet=CandidateOutlet("cand_rejected", 10.0, 1.0, "EPSG:2154", "synthetic"),
+        watershed_shp=str(rejected_basin),
+        area_km2=20.0,
+    )
+    selection = SelectionResult(
+        selected=[selected],
+        rejected=[rejected],
+        decisions=[
+            SelectionDecision(
+                site_id="site_selected",
+                selection_principle="criteria_crossing",
+                selected=True,
+                decision_stage="selection",
+                decision_reason="selected",
+            ),
+            SelectionDecision(
+                site_id="site_rejected",
+                selection_principle="criteria_crossing",
+                selected=False,
+                decision_stage="criteria",
+                decision_reason="synthetic rejection",
+                blocking_flags=["synthetic"],
+            ),
+        ],
+        criteria_components=[],
+    )
+    cfg = SiteSelectionConfig.model_validate(
+        {
+            "selection_id": "synthetic_spatial_review",
+            "output_root": tmp_path / "out",
+            "strategy": {
+                "principle": "criteria_crossing",
+                "profile": "area_only",
+                "primary_axes": ["area"],
+                "observation_role": "report_only",
+                "geology_role": "report_only",
+            },
+            "territory": {
+                "mode": "bbox",
+                "bbox": [0.0, 0.0, 13.0, 4.0],
+            },
+            "criteria": {
+                "area": {
+                    "mode": "hard_reject",
+                    "hard_min_area_km2": 10.0,
+                    "hard_max_area_km2": 30.0,
+                }
+            },
+            "output": {"write_report_html": True},
+        }
+    )
+
+    output_paths = write_selection_result(
+        cfg.output_root,
+        selection,
+        selection_id=cfg.selection_id,
+        region_id="synthetic",
+    )
+    output_paths["observation_points_geojson"] = write_observation_points_geojson(
+        cfg.output_root / "observation_points.geojson",
+        [
+            _evidence("site_selected", "flow_station", "J000000001", 2.5, 1.5),
+            _evidence("site_selected", "piezometer", "02478X0156", 4.5, 2.5),
+        ],
+    )
+    output_paths.update(
+        write_manifest_and_optional_report(
+            config=cfg,
+            selection=selection,
+            output_paths=output_paths,
+            action="synthetic_spatial_review",
+        )
+    )
+
+    selected_basins = json.loads(
+        output_paths["selected_basins_geojson"].read_text(encoding="utf-8")
+    )
+    observations = json.loads(
+        output_paths["observation_points_geojson"].read_text(encoding="utf-8")
+    )
+    html = output_paths["site_selection_report_html"].read_text(encoding="utf-8")
+
+    assert selected_basins["features"][0]["geometry"]["type"] == "Polygon"
+    assert selected_basins["hydromodpy_skipped_basins"] == []
+    assert {feature["properties"]["observation_type"] for feature in observations["features"]} == {
+        "flow_station",
+        "piezometer",
+    }
+    assert output_paths["site_selection_map_png"].stat().st_size > 20_000
+    assert "site_selection_map.png" in html
+    assert "Carte de controle" in html
+
+
+def _write_polygon_geojson(path, *, coordinates: list[list[float]]) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [coordinates],
+                        },
+                        "properties": {},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _evidence(
+    site_id: str,
+    observation_type: str,
+    feature_id: str,
+    x: float,
+    y: float,
+) -> ObservationEvidence:
+    return ObservationEvidence(
+        site_id=site_id,
+        observation_type=observation_type,
+        source_dataset="synthetic",
+        feature_id=feature_id,
+        feature_label=feature_id,
+        record_year_count=5.0,
+        evidence_json={
+            "provider_location": {
+                "x": x,
+                "y": y,
+                "crs": "EPSG:2154",
+            }
+        },
+    )

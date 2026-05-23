@@ -386,6 +386,32 @@ def test_hydromodpy_config_calibration_absent_yields_none(tmp_path: Path) -> Non
     assert cfg.calibration is None
 
 
+def test_hydromodpy_config_ignores_empty_site_selection_placeholder(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "empty_site_selection.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "simulation"',
+                "[workspace]",
+                f'root = "{tmp_path}"',
+                f'project_root = "{tmp_path}"',
+                "",
+                "[geographic]",
+                'source_mode = "synthetic"',
+                "",
+                "[site_selection]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = HydroModPyConfig.from_toml(config_path)
+
+    assert cfg.site_selection is None
+
+
 def test_hydromodpy_config_rejects_unknown_flow_keys(tmp_path: Path) -> None:
     config_path = tmp_path / "unknown_flow.toml"
     config_path.write_text(

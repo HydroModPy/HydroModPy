@@ -45,6 +45,10 @@ class OverviewConfig(HydroModelBase):
     date_end: Annotated[str | None, Profile.USER] = Field(
         None, description="Global end date (YYYY-MM-DD)."
     )
+    regional_context_label: Annotated[str | None, Profile.USER] = Field(
+        None,
+        description="Label used for the regional location figure.",
+    )
     panels: Annotated[OverviewPanelsConfig, Profile.USER] = Field(
         default_factory=OverviewPanelsConfig,
         description="Panel toggles.",

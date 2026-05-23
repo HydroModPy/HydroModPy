@@ -113,12 +113,20 @@ def run_testbed(config_path: str | Path) -> dict[str, Any]:
     return TestbedLauncher(config_path).run()
 
 
+def run_site_selection(config_path: str | Path) -> dict[str, Any]:
+    """Run a site-selection workflow from a TOML file."""
+    from hydromodpy.workflow.site_selection import run_site_selection_workflow
+
+    return run_site_selection_workflow(config_path)
+
+
 DISPATCH: dict[str, Callable[..., dict[str, Any]]] = {
     "simulation": run_simulation,
     "overview": run_overview,
     "calibration": run_calibration,
     "comparison": run_comparison,
     "testbed": run_testbed,
+    "site_selection": run_site_selection,
 }
 
 
@@ -136,5 +144,6 @@ __all__ = [
     "run_comparison",
     "run_overview",
     "run_simulation",
+    "run_site_selection",
     "run_testbed",
 ]

@@ -59,7 +59,7 @@ class DataOverviewLauncher:
 
     def run(self) -> dict[str, Any]:
         """Execute the full overview pipeline and return a result summary."""
-        state = DataOverviewState(cfg=self.cfg)
+        state = DataOverviewState(cfg=self.cfg, config_path=self.config_path)
 
         # Phase 1: Workspace
         self._setup_workspace(state)
@@ -73,7 +73,7 @@ class DataOverviewLauncher:
         # Phase 3: Data loading
         self._load_data(state)
 
-        # Phase 4: Report generation (PNGs)
+        # Phase 4: Report generation
         report_paths = self._generate_report(state)
 
         return {

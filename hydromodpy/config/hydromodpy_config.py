@@ -63,6 +63,7 @@ from hydromodpy.core.toml_io.error_locator import format_validation_error
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.core.workspace.config import WorkspaceConfig
 from hydromodpy.data.data_managers_config import DataManagersConfig
+from hydromodpy.data.variables.hydrometry.config import HydrometryConfig
 from hydromodpy.display.config import DisplayConfig
 from hydromodpy.display.overview.config import OverviewConfig
 from hydromodpy.physics.flow.flow_config import FlowConfig
@@ -74,6 +75,7 @@ from hydromodpy.solver.modflow_nwt.nwt import ModflowConfig
 from hydromodpy.spatial.domain.domain_config import DomainConfig
 from hydromodpy.spatial.geographic.geographic_config import GeographicConfig
 from hydromodpy.spatial.mesh.config import MeshCatchmentConfig
+from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
 
 WorkflowMode = Literal[
     "simulation",
@@ -81,6 +83,7 @@ WorkflowMode = Literal[
     "overview",
     "comparison",
     "testbed",
+    "site_selection",
 ]
 ValidationContext = Literal["toml", "api"]
 
@@ -119,7 +122,7 @@ class HydroModPyConfig(HydroModelBase):
         description=(
             "Workflow configuration. `workflow.mode` must be one of "
             "'simulation', 'calibration', 'overview', "
-            "'comparison', 'testbed'. "
+            "'comparison', 'testbed', 'site_selection'. "
             "Drives dispatch in `hmp run <toml>` and in API-driven callers "
             "that instantiate `HydroModPyConfig` from a frontend form."
         ),
@@ -257,6 +260,14 @@ class HydroModPyConfig(HydroModelBase):
             "(comparison or simulation) and is dispatched when "
             "workflow.mode='testbed'."
         ),
+    )
+    site_selection: Annotated[SiteSelectionConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Optional upstream basin site-selection workflow configuration.",
+    )
+    hydrometry: Annotated[HydrometryConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Optional hydrometric observations used by data and site-selection workflows.",
     )
 
     @model_validator(mode="before")
@@ -480,6 +491,11 @@ class HydroModPyConfig(HydroModelBase):
                 data, model_cls, b, workspace_data_dir=workspace_data_dir
             )
 
+        workflow_mode = None
+        workflow_section = raw.get("workflow")
+        if isinstance(workflow_section, Mapping):
+            workflow_mode = workflow_section.get("mode")
+
         geographic_section = raw.get("geographic", {})
         catchment_section = (
             geographic_section.get("catchment") if isinstance(geographic_section, Mapping) else None
@@ -525,6 +541,35 @@ class HydroModPyConfig(HydroModelBase):
             "mesh_input": (None, _load_optional_mesh_input_section),
             "calibration": (None, _load_optional_calibration_section),
             "testbed": (None, _load_optional_testbed_section),
+            "site_selection": (
+                None,
+                lambda data, b: None
+                if (
+                    data is None
+                    or (
+                        isinstance(data, Mapping)
+                        and not data
+                        and workflow_mode != "site_selection"
+                    )
+                )
+                else load_standard_section(
+                    data,
+                    SiteSelectionConfig,
+                    b,
+                    workspace_data_dir=workspace_data_dir,
+                ),
+            ),
+            "hydrometry": (
+                None,
+                lambda data, b: None
+                if data is None
+                else load_standard_section(
+                    data,
+                    HydrometryConfig,
+                    b,
+                    workspace_data_dir=workspace_data_dir,
+                ),
+            ),
         }
 
         parsed_sections: dict[str, Any] = {"workspace": parsed_workspace}

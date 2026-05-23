@@ -131,9 +131,11 @@ class DemManager:
                 "ign_bdalti source requires a bbox (set mask_path, extent, or geographic)"
             )
         force_refresh = getattr(source_cfg, "force_refresh", False)
+        department_codes = _department_codes_for_ign_bdalti(source_cfg)
+        explicit_departments = bool(department_codes)
 
         # Check cache
-        if not force_refresh and self.catalog is not None:
+        if not force_refresh and not explicit_departments and self.catalog is not None:
             cached = self.catalog.find_cached(
                 variable="dem",
                 source="ign_bdalti",
@@ -159,6 +161,7 @@ class DemManager:
         tif_path = fetch_bdalti(
             output_dir=output_dir,
             bbox=bbox,
+            department_codes=department_codes,
         )
 
         record = FieldRecord(
@@ -179,14 +182,15 @@ class DemManager:
                 bbox=bbox,
                 crs="EPSG:2154",
             )
-            self.catalog.subsume_entries(
-                variable="dem",
-                source="ign_bdalti",
-                bbox=bbox,
-                date_start=None,
-                date_end=None,
-                exclude_id=entry_id,
-            )
+            if not explicit_departments:
+                self.catalog.subsume_entries(
+                    variable="dem",
+                    source="ign_bdalti",
+                    bbox=bbox,
+                    date_start=None,
+                    date_end=None,
+                    exclude_id=entry_id,
+                )
 
         return [record]
 
@@ -220,3 +224,17 @@ class DemManager:
                     )
 
         return records
+
+
+def _department_codes_for_ign_bdalti(source_cfg: Any) -> list[str] | None:
+    departments = list(getattr(source_cfg, "departments", None) or [])
+    if departments:
+        return departments
+    if str(getattr(source_cfg, "country", "FR") or "").upper() != "FR":
+        return None
+    regions = list(getattr(source_cfg, "regions", None) or [])
+    if not regions:
+        return None
+    from hydromodpy.data.common.administrative.france import find_departments_in_regions
+
+    return find_departments_in_regions(regions)

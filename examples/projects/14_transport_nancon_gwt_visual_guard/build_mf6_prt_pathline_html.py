@@ -571,7 +571,7 @@ def plot_pathlines_over_topography(mesh, data: PrtPathlineData, path: Path) -> N
     ax.add_collection(collection)
     _add_rivers(ax, mesh)
     _add_watershed_boundary(ax, mesh)
-    track_collection = _pathline_segment_collection(data, mesh, linewidth=0.55, alpha=0.98)
+    track_collection = _pathline_segment_collection(data, mesh, linewidth=0.32, alpha=0.82)
     starts_km, ends_km, _, particle_ids = _start_end_displacements(data, mesh)
     if track_collection is not None:
         ax.add_collection(track_collection)
@@ -591,7 +591,7 @@ def plot_global_displacement_vectors(mesh, data: PrtPathlineData, path: Path) ->
     ax.add_collection(collection)
     _add_rivers(ax, mesh, linewidth=0.8)
     _add_watershed_boundary(ax, mesh)
-    track_collection = _pathline_segment_collection(data, mesh, linewidth=0.55, alpha=0.98)
+    track_collection = _pathline_segment_collection(data, mesh, linewidth=0.32, alpha=0.82)
     starts_km, ends_km, _, particle_ids = _start_end_displacements(data, mesh)
     if track_collection is not None:
         ax.add_collection(track_collection)
@@ -848,8 +848,9 @@ def write_html(
     <p><b>Pathline source:</b> <code>{html.escape(str(metrics["pathline_source"]))}</code></p>
     <p><b>Source kind:</b> <code>{html.escape(str(metrics["pathline_source_kind"]))}</code></p>
     <p>
-      Particle release uses the experimental <code>upstream_nonriver</code> zone:
-      cells in the upstream topographic quantile, excluding river-support cells.
+      Particle release uses the configured non-river zone: active cells are
+      selected away from river-support cells, then spatially thinned when a
+      maximum particle count is requested.
     </p>
     <p>
       PRT release and tracking times are reported in days after conversion from the

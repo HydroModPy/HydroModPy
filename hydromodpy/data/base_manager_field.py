@@ -153,10 +153,8 @@ class BaseFieldManager(BaseManagerCommon):
                     data=ds,
                     bbox=(entry.bbox_xmin, entry.bbox_ymin, entry.bbox_xmax, entry.bbox_ymax),
                     crs=entry.crs,
-                    date_start=datetime.fromisoformat(entry.date_start)
-                    if entry.date_start
-                    else None,
-                    date_end=datetime.fromisoformat(entry.date_end) if entry.date_end else None,
+                    date_start=_coerce_datetime(entry.date_start),
+                    date_end=_coerce_datetime(entry.date_end),
                     frequency=entry.frequency,
                     source_unit=self._extract_field_source_unit(ds, var_name) or entry.source_unit,
                 )
@@ -315,3 +313,13 @@ class BaseFieldManager(BaseManagerCommon):
         if date_end is not None:
             parts.append(date_end.strftime("%Y%m%d"))
         return "_".join(parts) + ".nc"
+
+
+def _coerce_datetime(value: Any) -> datetime | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    if hasattr(value, "to_pydatetime"):
+        return value.to_pydatetime()
+    return datetime.fromisoformat(str(value))

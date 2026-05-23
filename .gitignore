@@ -137,6 +137,18 @@ examples/*.duckdb
 examples/data/cache.duckdb
 hydromodpy_annex/preprocess/catchment_identification_scan/outputs/
 
+# Large local provider data generated while preparing examples.
+examples/data/dem/dem_bdalti_*.tif
+examples/data/dem/departments_bdalti/
+examples/data/geology/departments_50k/
+examples/data/geology/geology_brgm_50k_*.gpkg
+examples/data/hydrography/euhydro_*.gpkg
+examples/data/hydrography/osm_*.gpkg
+examples/data/hydrometry/hydrometry_hubeau_*.csv
+examples/data/piezometry/piezometry_hubeau_*.csv
+examples/data/precipitation/precipitation_*_sim2_*.nc
+examples/projects/17_site_selection_workflow/outputs/
+
 # Lockfiles emitted by validation and regression test runs (``hmp run`` writes
 # ``hydromodpy.lock`` next to the project config; tests should opt out via
 # ``--no-lock`` but this is a safety net).

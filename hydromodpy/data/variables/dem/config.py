@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
@@ -53,6 +53,33 @@ class IgnBdaltiDemSource(_DemSourceBase):
         default="ign_bdalti",
         description="Discriminator tag selecting the IGN BD ALTI 25 m DEM provider.",
     )
+    departments: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "Optional French department codes to fetch. When set, these codes "
+            "constrain archive downloads instead of inferring departments only "
+            "from the bbox."
+        ),
+    )
+    country: Annotated[str, Profile.USER] = Field(
+        default="FR",
+        description="Country code used for administrative DEM selectors.",
+    )
+    regions: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "Optional French administrative regions used to infer department "
+            "downloads."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check_french_regions(self) -> IgnBdaltiDemSource:
+        if str(self.country).upper() == "FR" and self.regions:
+            from hydromodpy.data.common.administrative.france import validate_french_regions
+
+            object.__setattr__(self, "regions", validate_french_regions(self.regions))
+        return self
 
 
 DemSourceConfig: TypeAlias = Annotated[
@@ -79,6 +106,7 @@ class DemConfig(HydroModelBase):
 
         [[data.dem.sources]]
         source = "ign_bdalti"
+        regions = ["Bretagne"]
 
         [[data.dem.sources]]
         source = "custom"

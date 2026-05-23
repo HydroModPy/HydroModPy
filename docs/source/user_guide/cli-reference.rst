@@ -39,7 +39,7 @@ Command inventory
    * - ``hmp run``
      - Workflow execution
      - Execute ``simulation``, ``overview``, ``calibration``,
-       ``comparison``, or ``testbed`` TOML workflows.
+       ``comparison``, ``testbed``, or ``site_selection`` TOML workflows.
    * - ``hmp calibrate``
      - Calibration shortcut
      - Top-level wrapper around ``hmp.calibrate(<toml>)``.
@@ -56,6 +56,9 @@ Command inventory
    * - ``hmp report``
      - Calibration reporting
      - Render the HTML report for a calibration session.
+   * - ``hmp site-selection``
+     - Site-selection workflows
+     - Validate, plan, and apply upstream basin site-selection configurations.
    * - ``hmp data``
      - Workspace data cache and ``.hmp`` package exchange
      - ``ls``, ``get``, ``check``, ``add``, ``remove``, ``prune``,
@@ -141,6 +144,7 @@ Some commands expose their own subcommands:
    hmp dev schema export --help
    hmp data list --help
    hmp dev lock verify --help
+   hmp site-selection plan --help
    hmp test validation --help
 
 Use :doc:`../getting_started/cli-quickstart` for the first-run path and

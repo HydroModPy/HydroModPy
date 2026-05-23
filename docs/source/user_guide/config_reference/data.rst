@@ -113,7 +113,7 @@ Fields
               <code class="hmp-field-toml">[[data.dem.sources]]</code>
             </div>
 
-         :bdg-primary:`source = "custom" | "ign_bdalti"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L88>`__
+         :bdg-primary:`source = "custom" | "ign_bdalti"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L116>`__
 
             At least one DEM data source.
 
@@ -230,6 +230,48 @@ Fields
                      :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L49>`__
 
                         Ignore cache and re-download from API.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-bdalti-departments
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_bdalti.departments">
+                          <code class="hmp-field-name">departments</code>
+                        </div>
+
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L56>`__
+
+                        Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-bdalti-country
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_bdalti.country">
+                          <code class="hmp-field-name">country</code>
+                        </div>
+
+                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L64>`__
+
+                        Country code used for administrative DEM selectors.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-bdalti-regions
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_bdalti.regions">
+                          <code class="hmp-field-name">regions</code>
+                        </div>
+
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L68>`__
+
+                        Optional French administrative regions used to infer department downloads.
 
 
 

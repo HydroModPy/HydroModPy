@@ -114,6 +114,10 @@ CATEGORY_GROUP_SPECS = (
 )
 
 
+def _is_windows() -> bool:
+    return os.name == "nt"
+
+
 def _gallery_temp_root() -> Path:
     """Return the temp root used by doc-gallery helpers and checks."""
 
@@ -151,7 +155,7 @@ def _windows_extended_length_path(path: Path) -> str:
 
 
 def _filesystem_path(path: Path) -> Path | str:
-    if os.name != "nt":
+    if not _is_windows():
         return path
     return _windows_extended_length_path(path)
 
@@ -162,7 +166,7 @@ def _copy_file(source_path: Path, destination_path: Path) -> None:
     try:
         shutil.copy2(source_path, destination_path)
     except OSError as exc:
-        if os.name == "nt" and getattr(exc, "winerror", None) in {3, 206}:
+        if _is_windows() and getattr(exc, "winerror", None) in _WINDOWS_EXTENDED_PATH_FALLBACK_WINERRORS:
             shutil.copy2(
                 _windows_extended_length_path(source_path),
                 _windows_extended_length_path(destination_path),

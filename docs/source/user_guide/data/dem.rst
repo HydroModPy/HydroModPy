@@ -35,6 +35,8 @@ Minimal example
    [[data.dem.sources]]
    source = "ign_bdalti"
    extent = "watershed"
+   # Optional for regional workflows:
+   # regions = ["Auvergne-Rhone-Alpes"]
 
 Loaded shape
 ------------
@@ -127,12 +129,77 @@ Operational checks
 
 - ``extent`` should match the support needed by the workflow:
   ``watershed`` for basin runs, ``study_area`` for broader preprocessing.
+- ``regions`` can be used for French regional workflows; HydroModPy resolves
+  the corresponding departments before downloading IGN archives.
 - API-backed files should be visible in the workspace data cache when a
   workspace is active.
 - Rebuild or refresh only when the configured extent or data policy changes.
+- ``ign_bdalti`` currently resolves BD ALTI 25 m archives by department,
+  extracts ASC tiles, and writes a merged GeoTIFF clipped to the requested
+  support.
 
 Expected figure
 """""""""""""""
 
 The expected visual result is the same DEM support panel used by custom DEMs:
 terrain, watershed boundary, and outlet context must be spatially coherent.
+
+
+French IGN archive helper
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``tools/download_dem_fr`` is a standalone helper for preparing or diagnosing
+French IGN DEM archives outside a full HydroModPy run. It is useful when a
+regional workflow needs many departments, for example before producing a
+regional review map.
+
+The helper is intentionally separate from ``site_selection``. Workflows should
+still request DEM data through ``[data.dem]``; the helper only manages raw
+archive discovery/download.
+
+By default, the helper writes raw IGN archives outside the source repository:
+``HYDROMODPY_WORKSPACE/data/dem/raw_ign`` when ``HYDROMODPY_WORKSPACE`` is
+defined, otherwise ``~/hydromodpy/data/dem/raw_ign``. Use ``--output-dir`` only
+when an explicit data cache location is needed.
+
+Examples
+""""""""
+
+Dry-run BD ALTI 25 m for one department:
+
+.. code-block:: bash
+
+   python tools/download_dem_fr/download_dem_fr.py \
+     --departements 29 \
+     --dataset bd-alti \
+     --resolution 25 \
+     --format ASC \
+     --dry-run
+
+Dry-run the Auvergne-Rhone-Alpes departments:
+
+.. code-block:: bash
+
+   python tools/download_dem_fr/download_dem_fr.py \
+     --departements 01 03 07 15 26 38 42 43 63 69 73 74 \
+     --dataset bd-alti \
+     --resolution 25 \
+     --format ASC \
+     --dry-run
+
+Cache layout
+""""""""""""
+
+The helper stores raw archives by dataset, resolution, and department:
+
+.. code-block:: text
+
+   ~/hydromodpy/data/dem/raw_ign/
+     bd-alti/
+       25m/
+         D029/
+           BDALTIV2_...D029....7z
+
+For regional ``site_selection`` review maps, BD ALTI 25 m is the recommended
+default. RGE ALTI 5 m or 1 m should be reserved for smaller local extents
+unless the storage and processing cost has been accepted explicitly.

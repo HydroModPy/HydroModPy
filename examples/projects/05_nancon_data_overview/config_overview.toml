@@ -907,7 +907,7 @@ extent = "watershed"
 # Watershed name displayed on report panels.
 # Defaults to workspace catch_name.
 # Type: string | Default: ""
-name = "Canut"
+name = "Nancon"
 
 # Global start date (YYYY-MM-DD).
 # Injected into data sections without explicit dates.
@@ -918,6 +918,9 @@ date_start = "2000-01-01"
 # Injected into data sections without explicit dates.
 # Type: string (optional) | Optional
 date_end = "2025-12-31"
+
+# Label used for the regional location figure.
+regional_context_label = "Situation dans le Massif Armoricain"
 
 
 # Toggle individual report panels.

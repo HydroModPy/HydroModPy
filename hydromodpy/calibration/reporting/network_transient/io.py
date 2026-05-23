@@ -23,6 +23,7 @@ class NetworkTransientHtmlArtifactReport:
     available: tuple[str, ...]
     required_missing: tuple[str, ...]
     optional_missing: tuple[str, ...]
+    contract_warnings: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -38,6 +39,7 @@ class NetworkTransientHtmlArtifactReport:
             "available": list(self.available),
             "required_missing": list(self.required_missing),
             "optional_missing": list(self.optional_missing),
+            "contract_warnings": list(self.contract_warnings),
         }
 
 
@@ -175,6 +177,7 @@ def inspect_network_transient_html_artifacts(
     available: list[str] = []
     required_missing: list[str] = []
     optional_missing: list[str] = []
+    contract_warnings: list[str] = []
 
     def check(name: str, path: Path | None, *, required: bool) -> None:
         if path is not None and path.exists():
@@ -208,6 +211,7 @@ def inspect_network_transient_html_artifacts(
             available.append("score_table.completed_rows")
         else:
             required_missing.append("score_table.completed_rows")
+        contract_warnings.extend(_score_contract_warnings(rows, truth_dir, score_table))
     check("source_transient_config", Path(source_transient_config).resolve(), required=False)
     check("reference_run_root", reference_root, required=False)
     check("steady_summary_csv", steady_csv, required=False)
@@ -219,4 +223,58 @@ def inspect_network_transient_html_artifacts(
         available=tuple(available),
         required_missing=tuple(required_missing),
         optional_missing=tuple(optional_missing),
+        contract_warnings=tuple(contract_warnings),
     )
+
+
+def _network_map_source(row: dict[str, str]) -> str:
+    return str(row.get("network_map_source", "steady") or "steady").strip().lower()
+
+
+def _score_contract_warnings(
+    rows: list[dict[str, str]], truth_dir: Path | None, score_table: Path
+) -> list[str]:
+    """Return non-fatal B0 contract warnings for a score table."""
+
+    completed = [row for row in rows if row.get("status") == "completed"]
+    warnings: list[str] = []
+    non_steady_sources = sorted(
+        {
+            source
+            for source in (_network_map_source(row) for row in completed)
+            if source not in {"", "steady", "nan"}
+        }
+    )
+    if non_steady_sources:
+        warnings.append(
+            "score_table.non_steady_network_map_source=" + ",".join(non_steady_sources)
+        )
+
+    missing_steady_artifact = [
+        row
+        for row in completed
+        if _network_map_source(row) in {"", "steady", "nan"}
+        and not str(row.get("steady_drain_npz", "") or "").strip()
+        and not str(row.get("steady_catalog", "") or "").strip()
+    ]
+    if missing_steady_artifact:
+        warnings.append("score_table.steady_network_without_artifact")
+
+    if truth_dir is not None:
+        metadata = read_json(truth_dir / "metadata.json")
+        site_id = str(metadata.get("site_id", "") or "").strip().lower()
+        if site_id and site_id not in score_table.name.lower():
+            warnings.append("score_table.name_does_not_contain_truth_site_id")
+        target = (
+            coerce_float(metadata.get("mK_true")),
+            coerce_float(metadata.get("Sy_true")),
+        )
+        if all(np.isfinite(value) for value in target):
+            has_target_row = any(
+                abs(coerce_float(row.get("mK")) - target[0]) <= 1.0e-10
+                and abs(coerce_float(row.get("Sy")) - target[1]) <= 1.0e-10
+                for row in completed
+            )
+            if not has_target_row:
+                warnings.append("score_table.missing_completed_target_row")
+    return warnings

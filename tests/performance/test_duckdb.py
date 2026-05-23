@@ -11,9 +11,9 @@ from pathlib import Path
 
 import duckdb
 import pytest
-import uuid_utils
 
 pytestmark = pytest.mark.performance
+uuid_utils = pytest.importorskip("uuid_utils")
 
 
 def _populate_simulations(path: Path, n_rows: int) -> None:

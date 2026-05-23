@@ -624,7 +624,7 @@ Fields
 
                :bdg-primary:`str` :bdg-secondary:`default = "domain"` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/physics/transport/transport_config.py#L127>`__
 
-                  Particle release selector: 'domain', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'.
+                  Particle release selector: 'domain', 'domain_nonriver', 'upstream', 'upstream_nonriver', 'river', 'outlet', or 'custom'.
 
 
             .. container:: hmp-field hmp-field-level-dev
