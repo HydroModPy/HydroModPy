@@ -300,6 +300,8 @@ extensions = [
 ]
 if not _is_readthedocs_build():
     extensions.append("sphinx_last_updated_by_git")
+else:
+    extensions.remove("sphinx_codeautolink")
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -311,7 +313,7 @@ intersphinx_mapping = {
     "flopy": ("https://flopy.readthedocs.io/en/stable/", None),
 }
 autoclass_content = "both"
-autosummary_generate = True
+autosummary_generate = not _is_readthedocs_build()
 nbsphinx_allow_errors = True
 nbsphinx_execute = "never"
 
@@ -444,7 +446,9 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path .
-exclude_patterns = ["user_guide/figures_inventory.partial.rst"]
+exclude_patterns = ["api/index.rtd.rst", "user_guide/figures_inventory.partial.rst"]
+if _is_readthedocs_build():
+    exclude_patterns.append("api/generated/*")
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = "sphinx"
@@ -458,6 +462,9 @@ pygments_style = "sphinx"
 html_theme = "pydata_sphinx_theme"
 html_favicon = "images/logoHydroModPy.png"
 html_logo = "images/logoHydroModPy_long.png"
+html_copy_source = not _is_readthedocs_build()
+html_use_index = not _is_readthedocs_build()
+html_domain_indices = not _is_readthedocs_build()
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -637,12 +644,20 @@ def _regenerate_figures_inventory(app) -> None:
         app.warn(f"Figures inventory regeneration failed: {exc}")
 
 
+def _replace_api_index_on_readthedocs(app, docname: str, source: list[str]) -> None:
+    """Use a compact API page for hosted Read the Docs builds."""
+    if docname != "api/index" or not _is_readthedocs_build():
+        return
+    source[0] = (Path(__file__).parent / "api" / "index.rtd.rst").read_text(encoding="utf-8")
+
+
 def setup(app):
     if _PLANTUML_COMMAND is None:
         app.add_directive("uml", _MissingPlantUMLDirective, override=True)
         app.add_directive("plantuml", _MissingPlantUMLDirective, override=True)
     app.connect("builder-inited", _regenerate_config_reference)
     app.connect("builder-inited", _regenerate_figures_inventory)
+    app.connect("source-read", _replace_api_index_on_readthedocs)
     return {
         "parallel_read_safe": True,
         "parallel_write_safe": True,
