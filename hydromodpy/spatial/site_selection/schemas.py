@@ -5,9 +5,13 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from hydromodpy.spatial.site_selection.delineation import DelineatedCatchment
+from hydromodpy.spatial.site_selection.delineation import (
+    DelineatedCatchment,
+    outlet_snap_distance_m,
+    snapped_outlet_xy,
+)
 
-SELECTED_SITES_FIELDS = [
+REGIONAL_LAB_SITES_FIELDS = [
     "site_id",
     "site_label",
     "region_id",
@@ -22,7 +26,12 @@ SELECTED_SITES_FIELDS = [
     "tags",
     "enabled",
 ]
-REGIONAL_LAB_SITES_FIELDS = SELECTED_SITES_FIELDS
+SELECTED_SITES_FIELDS = [
+    *REGIONAL_LAB_SITES_FIELDS,
+    "x_outlet_snapped",
+    "y_outlet_snapped",
+    "outlet_snap_distance_m",
+]
 SELECTED_SITES_SCHEMA = {
     "site_id": "Stable selected basin identifier.",
     "site_label": "Human-readable label; defaults to site_id.",
@@ -37,6 +46,9 @@ SELECTED_SITES_SCHEMA = {
     "area_km2": "Delineated catchment area in square kilometres when available.",
     "tags": "Semicolon-separated provenance tags.",
     "enabled": "Boolean flag used by downstream catalog loaders.",
+    "x_outlet_snapped": "Snapped outlet x coordinate used for DEM delineation when available.",
+    "y_outlet_snapped": "Snapped outlet y coordinate used for DEM delineation when available.",
+    "outlet_snap_distance_m": "Distance between original and snapped outlet, in projected metres.",
 }
 
 
@@ -52,6 +64,8 @@ def site_record_from_catchment(
     """Build a flat selected-sites row from one catchment."""
 
     tags = ["site_selection", selection_id, *list(extra_tags)]
+    snapped = snapped_outlet_xy(catchment)
+    snap_distance = outlet_snap_distance_m(catchment)
     return {
         "site_id": catchment.site_id,
         "site_label": catchment.site_id,
@@ -66,6 +80,9 @@ def site_record_from_catchment(
         "area_km2": "" if catchment.area_km2 is None else catchment.area_km2,
         "tags": ";".join(tags),
         "enabled": True,
+        "x_outlet_snapped": "" if snapped is None else snapped[0],
+        "y_outlet_snapped": "" if snapped is None else snapped[1],
+        "outlet_snap_distance_m": "" if snap_distance is None else snap_distance,
     }
 
 

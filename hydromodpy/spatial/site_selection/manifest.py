@@ -72,6 +72,8 @@ def build_selection_manifest(
             "mode": config.input.mode,
             "catchments_csv": _path_or_none(config.input.catchments_csv),
             "region_id": config.input.region_id,
+            "workspace_root": _path_or_none(config.input.workspace_root),
+            "data_root": _path_or_none(config.input.data_root),
             "delineate_from_outlets": config.input.delineate_from_outlets,
             "paths": {
                 key: _path_or_none(Path(value) if value is not None else None)
@@ -87,6 +89,20 @@ def build_selection_manifest(
             "request_extent": config.dem.request_extent,
             "map_background_extent": config.dem.map_background_extent,
             "force_refresh": config.dem.force_refresh,
+        },
+        "outlets": {
+            "candidate_mode": config.outlets.candidate_mode,
+            "snap_strategy": config.outlets.snap_strategy,
+            "snap_dist_m": config.outlets.snap_dist_m,
+            "max_generated_candidates": config.outlets.max_generated_candidates,
+            "max_rejected_candidate_audit_records": (
+                config.outlets.max_rejected_candidate_audit_records
+            ),
+            "max_generated_network_cells": config.outlets.max_generated_network_cells,
+            "reference_network_source": config.outlets.reference_network_source,
+            "reference_network_path": _path_or_none(config.outlets.reference_network_path),
+            "reference_network_max_distance_m": config.outlets.reference_network_max_distance_m,
+            "reference_network_fetch_margin_m": config.outlets.reference_network_fetch_margin_m,
         },
         "criteria": {
             "ruleset": config.criteria.ruleset,
@@ -279,6 +295,10 @@ def _resolve_manifest_output_path(value: str, *, output_root: Path) -> Path:
 def _validate_output_artifact(key: str, path: Path) -> list[str]:
     if key.endswith("_geojson"):
         return _validate_geojson_artifact(key, path)
+    if key.endswith("_geoparquet"):
+        return _validate_geoparquet_artifact(key, path)
+    if key.endswith("_gpkg"):
+        return _validate_gpkg_artifact(key, path)
     if key.endswith("_jsonl"):
         return _validate_jsonl_artifact(key, path)
     if key.endswith("_csv"):
@@ -404,6 +424,51 @@ def _validate_json_artifact(key: str, path: Path) -> list[str]:
     except (json.JSONDecodeError, OSError) as exc:
         return [f"invalid JSON for {key}: {exc}"]
     return []
+
+
+def _validate_geoparquet_artifact(key: str, path: Path) -> list[str]:
+    try:
+        from hydromodpy.core.io.geoparquet import read_geoparquet
+
+        frame = read_geoparquet(path)
+    except Exception as exc:  # noqa: BLE001 - manifest validation reports artifact errors.
+        return [f"invalid GeoParquet for {key}: {exc}"]
+    errors = _validate_geodataframe(key, frame)
+    if frame.crs is None:
+        errors.append(f"invalid GeoParquet for {key}: missing CRS")
+    return errors
+
+
+def _validate_gpkg_artifact(key: str, path: Path) -> list[str]:
+    try:
+        import geopandas as gpd
+    except ImportError as exc:
+        return [f"cannot validate GeoPackage for {key}: {exc}"]
+    try:
+        layers = gpd.list_layers(path) if hasattr(gpd, "list_layers") else None
+    except Exception:
+        layers = None
+    try:
+        if layers is not None and len(layers) > 0:
+            layer_name = str(layers.iloc[0]["name"] if hasattr(layers, "iloc") else layers[0])
+            frame = gpd.read_file(path, layer=layer_name)
+        else:
+            frame = gpd.read_file(path)
+    except Exception as exc:  # noqa: BLE001 - manifest validation reports artifact errors.
+        return [f"invalid GeoPackage for {key}: {exc}"]
+    return _validate_geodataframe(key, frame)
+
+
+def _validate_geodataframe(key: str, frame: object) -> list[str]:
+    errors: list[str] = []
+    if not hasattr(frame, "geometry"):
+        return [f"invalid vector artifact for {key}: missing geometry column"]
+    if frame.empty:
+        errors.append(f"invalid vector artifact for {key}: empty layer")
+        return errors
+    if frame.geometry.isna().all():
+        errors.append(f"invalid vector artifact for {key}: all geometries are null")
+    return errors
 
 
 __all__ = [

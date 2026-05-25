@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
 from hydromodpy.display.geo import GeoFigureMixin
-from hydromodpy.display.map_axes import overlay_watershed_contour, style_map_axes
+from hydromodpy.display.map_axes import overlay_watershed_contour, style_relative_km_axes
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -38,7 +38,8 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
             if str(watershed.crs) != str(gdf.crs):
                 watershed = watershed.to_crs(gdf.crs)
 
-        gdf.plot(ax=ax, color=self.color, linewidth=1.3, alpha=0.95, zorder=4)
+        _plot_topography_background(ax, sim)
+        gdf.plot(ax=ax, color=self.color, linewidth=1.5, alpha=0.98, zorder=4)
         if watershed is not None and not watershed.empty:
             watershed.boundary.plot(
                 ax=ax,
@@ -65,7 +66,7 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
             pad_y = max(dy * 0.04, 1.0)
             ax.set_xlim(xmin - pad_x, xmax + pad_x)
             ax.set_ylim(ymin - pad_y, ymax + pad_y)
-        style_map_axes(ax)
+        style_relative_km_axes(ax)
         self.add_scale_bar(ax)
         self.add_north_arrow(ax)
         ax.set_title(self.title)
@@ -92,14 +93,14 @@ class _HydrographicNetworkRoleFigure(GeoFigureMixin, BaseFigure):
 class HydrographicNetworkReferenceFigure(_HydrographicNetworkRoleFigure):
     spec = FigureSpec(
         name="hydrographic_network_reference",
-        title="Loaded hydrographic network",
+        title="BD Topage hydrographic network",
         kind="comparison",
         default_figsize=(7.8, 5.8),
     )
     role = "reference"
-    color = "#222222"
-    title = "Loaded reference"
-    subtitle = "data.hydrography"
+    color = "#123f6d"
+    title = "BD Topage"
+    subtitle = "data.hydrography: BD Topage"
 
 
 @register
@@ -111,7 +112,7 @@ class HydrographicNetworkGeneratedFigure(_HydrographicNetworkRoleFigure):
         default_figsize=(7.8, 5.8),
     )
     role = "generated"
-    color = "#2a6f97"
+    color = "#c2410c"
     title = "Generated from DEM"
     subtitle = "geographic.river_network"
 
@@ -135,6 +136,45 @@ def _read_watershed(sim: Run):
     if gdf is None or gdf.empty:
         return None
     return gdf
+
+
+def _plot_topography_background(ax, sim: Run, *, alpha: float = 0.82) -> None:
+    """Draw cell topography with the same terrain palette as context maps."""
+    import numpy as np
+
+    from matplotlib.collections import PolyCollection
+
+    try:
+        mesh = sim.mesh
+        z_interfaces = np.asarray(mesh.z_interfaces, dtype=float)
+        vertices = np.asarray(mesh.vertices)
+        face_node_connectivity = np.asarray(mesh.face_node_connectivity)
+    except Exception:
+        return
+    if z_interfaces.ndim == 1:
+        top = z_interfaces
+    elif z_interfaces.shape[0] <= z_interfaces.shape[-1]:
+        top = z_interfaces[0]
+    else:
+        top = z_interfaces[:, 0]
+
+    polygons = []
+    for row in face_node_connectivity:
+        nodes = row[row >= 0] if row.dtype.kind in "iu" else row[~np.isnan(row)]
+        polygons.append(vertices[nodes.astype(int)][:, :2])
+    flat = np.asarray(top).ravel()
+    if flat.size != len(polygons):
+        return
+    collection = PolyCollection(
+        polygons,
+        array=flat,
+        cmap="terrain",
+        edgecolors="none",
+        alpha=alpha,
+        zorder=0,
+    )
+    ax.add_collection(collection)
+    ax.autoscale_view()
 
 
 def _project_gdf_for_metric_operations(gdf, *, fallback_crs: str | object | None = None):

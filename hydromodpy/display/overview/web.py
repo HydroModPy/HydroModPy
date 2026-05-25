@@ -81,6 +81,7 @@ def build_overview_blocks(
     blocks = [
         _workflow_header_block(state),
         _spatial_context_block(state, figure_by_id, level=level),
+        _hydrographic_network_block(state, figure_by_id, level=level),
         _data_inventory_block(state, level=level),
         _observation_inventory_block(state, figure_by_id, level=level),
         _forcing_context_block(state, level=level),
@@ -152,21 +153,11 @@ def _spatial_context_block(
         figure_by_id.get("map_dem_context"),
         "",
     )
-    observed_network = ReportFigure(
-        "map_hydrography_data",
-        "Reseau hydrographique observe",
-        figure_by_id.get("map_hydrography_data"),
-        "",
-        required=False,
-    )
     figures: tuple[ReportFigure, ...]
     if level == "compact":
         figures = _available_figures((dem_context, regional_context))
     else:
-        if observed_network.available:
-            figures = _available_figures((observed_network, regional_context))
-        else:
-            figures = _available_figures((dem_context, regional_context))
+        figures = _available_figures((dem_context, regional_context))
     warnings: tuple[str, ...] = ()
     return ReportBlock(
         block_id="spatial_context",
@@ -174,7 +165,6 @@ def _spatial_context_block(
         level=level,
         lead=_spatial_context_lead(
             level=level,
-            has_observed_network=observed_network.available,
         ),
         metrics=tuple(metrics),
         figures=figures,
@@ -182,10 +172,69 @@ def _spatial_context_block(
     )
 
 
-def _spatial_context_lead(*, level: DetailLevel, has_observed_network: bool) -> str:
-    if level in ("standard", "audit") and has_observed_network:
-        return "Reseau hydrographique observe superpose au fond topographique."
+def _spatial_context_lead(*, level: DetailLevel) -> str:
     return "Situation regionale et emprise du bassin versant."
+
+
+def _hydrographic_network_block(
+    state: DataOverviewState,
+    figure_by_id: Mapping[str, Path],
+    *,
+    level: DetailLevel,
+) -> ReportBlock:
+    hydrography = getattr(state.loaded_data, "hydrography", None)
+    data_cfg = _data_config(state)
+    requested = _requested_data_types(state)
+    figure = ReportFigure(
+        "map_hydrography_data",
+        "Reseau hydrographique observe",
+        figure_by_id.get("map_hydrography_data"),
+        "Reseau observe disponible avant toute simulation.",
+        required=False,
+    )
+    has_data = bool(hydrography)
+    is_requested = "hydrography" in requested
+    if not has_data and not is_requested and not figure.available:
+        return ReportBlock(
+            block_id="hydrographic_network",
+            title="Reseau hydrographique",
+            level=level,
+            status="not_applicable",
+        )
+
+    section = getattr(data_cfg, "hydrography", None)
+    warnings = []
+    if is_requested and not has_data:
+        warnings.append("Hydrographie demandee mais non chargee.")
+    if has_data and not figure.available and level in ("standard", "audit"):
+        warnings.append("Carte du reseau hydrographique non produite.")
+    metrics = (
+        ReportMetric("Objets", _record_count_label(hydrography)),
+        ReportMetric("Sources", ", ".join(_source_names(section)) or "-"),
+        ReportMetric("Periode", _section_period(section) or _load_result_period(hydrography) or "-"),
+    )
+    tables: tuple[ReportTable, ...] = ()
+    if level == "audit":
+        tables = (
+            ReportTable(
+                "hydrography_sources",
+                "Sources hydrographie",
+                columns=(("source", "Source"), ("period", "Periode"), ("path", "Chemin")),
+                rows=tuple(_source_rows(section)),
+                empty_message="Aucune source hydrographie declaree.",
+            ),
+        )
+    return ReportBlock(
+        block_id="hydrographic_network",
+        title="Reseau hydrographique",
+        level=level,
+        status="partial" if warnings else "available",
+        lead="Reseau observe, sources hydrographiques et controle cartographique.",
+        metrics=metrics,
+        figures=_available_figures((figure,)),
+        tables=tables,
+        warnings=tuple(warnings),
+    )
 
 
 def _available_figures(figures: tuple[ReportFigure, ...]) -> tuple[ReportFigure, ...]:
@@ -361,11 +410,13 @@ def _observation_inventory_block(
 
 
 def _forcing_context_block(state: DataOverviewState, *, level: DetailLevel) -> ReportBlock:
-    recharge_mean = _recharge_mean_label(state.loaded_data.recharge)
+    recharge = getattr(state.loaded_data, "recharge", None)
+    recharge_mean = _recharge_mean_label(recharge)
     pumping = _pumping_summary(state)
-    requested = {str(item).strip().lower() for item in getattr(state.cfg.data, "types", ())}
+    data_cfg = _data_config(state)
+    requested = _requested_data_types(state)
     if (
-        state.loaded_data.recharge is None
+        recharge is None
         and "recharge" not in requested
         and pumping["well_count"] == 0
     ):
@@ -376,7 +427,7 @@ def _forcing_context_block(state: DataOverviewState, *, level: DetailLevel) -> R
             status="not_applicable",
         )
     warnings = []
-    if state.loaded_data.recharge is None:
+    if recharge is None:
         warnings.append("Recharge non chargee.")
     if pumping["well_count"] == 0:
         warnings.append("Aucun pompage declare.")
@@ -388,7 +439,7 @@ def _forcing_context_block(state: DataOverviewState, *, level: DetailLevel) -> R
                 "recharge_source_table",
                 "Sources recharge",
                 columns=(("source", "Source"), ("period", "Periode"), ("path", "Chemin")),
-                rows=tuple(_source_rows(getattr(state.cfg.data, "recharge", None))),
+                rows=tuple(_source_rows(getattr(data_cfg, "recharge", None))),
                 empty_message="Aucune source recharge declaree.",
             ),
             ReportTable(
@@ -458,15 +509,25 @@ def _should_render_block(block: ReportBlock) -> bool:
     return bool(block.metrics or block.figures or block.tables or block.lead or block.warnings)
 
 
+def _data_config(state: DataOverviewState) -> Any:
+    return getattr(getattr(state, "cfg", None), "data", None)
+
+
+def _requested_data_types(state: DataOverviewState) -> set[str]:
+    data_cfg = _data_config(state)
+    return {str(item).strip().lower() for item in getattr(data_cfg, "types", ())}
+
+
 def _data_family_rows(state: DataOverviewState) -> list[dict[str, Any]]:
-    requested = {str(item).strip().lower() for item in getattr(state.cfg.data, "types", ())}
+    data_cfg = _data_config(state)
+    requested = _requested_data_types(state)
     rows: list[dict[str, Any]] = []
     for family in _data_family_order(state):
         load_result = getattr(state.loaded_data, family, None)
         is_loaded = bool(load_result)
         if family not in requested and not is_loaded:
             continue
-        section = getattr(state.cfg.data, family, None)
+        section = getattr(data_cfg, family, None)
         rows.append(
             {
                 "family": family,
@@ -480,9 +541,10 @@ def _data_family_rows(state: DataOverviewState) -> list[dict[str, Any]]:
 
 
 def _data_family_order(state: DataOverviewState) -> tuple[str, ...]:
+    data_cfg = _data_config(state)
     ordered: list[str] = []
     seen: set[str] = set()
-    for family in getattr(state.cfg.data, "types", ()) or ():
+    for family in getattr(data_cfg, "types", ()) or ():
         name = str(family).strip().lower()
         if name and name not in seen:
             ordered.append(name)

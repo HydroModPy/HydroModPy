@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,7 +15,11 @@ from hydromodpy.spatial.site_selection.criteria import (
     evaluate_influence_criterion,
     evaluate_piezometer_criterion,
 )
-from hydromodpy.spatial.site_selection.delineation import DelineatedCatchment
+from hydromodpy.spatial.site_selection.delineation import (
+    DelineatedCatchment,
+    outlet_display_xy,
+    outlet_snap_distance_m,
+)
 from hydromodpy.spatial.site_selection.filters import basin_overlap_fraction, is_overlap_allowed
 
 
@@ -282,7 +287,113 @@ def _catchment_attributes(catchment: DelineatedCatchment) -> dict[str, Any]:
     attributes.setdefault("source_feature_id", catchment.outlet.source_feature_id)
     attributes.setdefault("source_label", catchment.outlet.source_label)
     attributes.setdefault("source", catchment.outlet.source)
+    snap_distance_m = outlet_snap_distance_m(catchment)
+    if snap_distance_m is not None:
+        attributes["outlet_snap_distance_m"] = snap_distance_m
+        attributes["outlet_snap_distance_km"] = snap_distance_m / 1000.0
+    station_distance_km = _station_to_final_outlet_distance_km(catchment, attributes)
+    if station_distance_km is not None:
+        attributes["station_to_outlet_distance_km"] = station_distance_km
+        attributes["flow_station_distance_km"] = station_distance_km
+        attributes["hydro_station_distance_km"] = station_distance_km
+        attributes["station_to_outlet_distance_source"] = "computed_from_final_outlet"
     return attributes
+
+
+def _station_to_final_outlet_distance_km(
+    catchment: DelineatedCatchment,
+    attributes: dict[str, Any],
+) -> float | None:
+    station = _flow_station_xy(attributes, target_crs=catchment.outlet.crs)
+    if station is None and _looks_station_led(catchment, attributes):
+        station = (float(catchment.outlet.x), float(catchment.outlet.y))
+    if station is None:
+        return None
+    outlet = outlet_display_xy(catchment)
+    return math.hypot(station[0] - outlet[0], station[1] - outlet[1]) / 1000.0
+
+
+def _flow_station_xy(
+    attributes: dict[str, Any],
+    *,
+    target_crs: str,
+) -> tuple[float, float] | None:
+    x = _first_float(attributes, "flow_station_x", "hydro_station_x", "station_x")
+    y = _first_float(attributes, "flow_station_y", "hydro_station_y", "station_y")
+    if x is None or y is None:
+        return None
+    source_crs = _first_text(
+        attributes,
+        "flow_station_crs",
+        "hydro_station_crs",
+        "station_crs",
+        "source_location_crs",
+    )
+    return _xy_in_target_crs(x, y, source_crs=source_crs, target_crs=target_crs)
+
+
+def _looks_station_led(catchment: DelineatedCatchment, attributes: dict[str, Any]) -> bool:
+    if catchment.outlet.source in {"station_outlets", "hubeau_hydrometrie"}:
+        return True
+    return any(
+        _first_text(attributes, key) is not None
+        for key in ("flow_station_id", "hydro_station_id", "station_id")
+    )
+
+
+def _xy_in_target_crs(
+    x: float,
+    y: float,
+    *,
+    source_crs: str | None,
+    target_crs: str,
+) -> tuple[float, float] | None:
+    if source_crs is None or _same_crs(source_crs, target_crs):
+        return x, y
+    try:
+        from pyproj import Transformer
+    except ImportError:
+        return None
+    try:
+        transformer = Transformer.from_crs(source_crs, target_crs, always_xy=True)
+        target_x, target_y = transformer.transform(x, y)
+    except Exception:
+        return None
+    return float(target_x), float(target_y)
+
+
+def _same_crs(left: str, right: str) -> bool:
+    if left.strip().upper() == right.strip().upper():
+        return True
+    try:
+        from pyproj import CRS
+
+        return CRS.from_user_input(left) == CRS.from_user_input(right)
+    except Exception:
+        return False
+
+
+def _first_float(attributes: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        value = attributes.get(key)
+        if value in (None, ""):
+            continue
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _first_text(attributes: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = attributes.get(key)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return None
 
 
 def _decision_from_components(

@@ -9,7 +9,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.core.exceptions import ConfigError, ConfigMissingError, DataContractViolation
+from hydromodpy.core.exceptions import (
+    ConfigError,
+    ConfigMissingError,
+    ConfigValidationError,
+    DataContractViolation,
+)
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 from hydromodpy.data.data_managers_config import DataManagersConfig
 from hydromodpy.data.variables.dem.config import DemConfig as DataDemConfig
@@ -21,26 +26,50 @@ from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow
 from hydromodpy.spatial.site_selection.artifacts import write_manifest_and_optional_report
 from hydromodpy.spatial.site_selection.build import (
     SiteSelectionBuildResult,
+    build_site_selection_from_dem_area_light,
+    build_site_selection_from_generated_network,
     build_site_selection_from_point_records,
 )
 from hydromodpy.spatial.site_selection.candidate_outlets import CandidateOutlet
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.context_evidence import (
+    annotate_catchments_with_geology_layers,
+    annotate_catchments_with_piezometer_layers,
+    write_geology_evidence_geojson,
+    write_geology_evidence_geopackage,
+    write_geology_evidence_geoparquet,
+)
 from hydromodpy.spatial.site_selection.delineation import (
     DelineatedCatchment,
     try_delineate_candidate_outlet,
 )
 from hydromodpy.spatial.site_selection.exports import write_selection_result
 from hydromodpy.spatial.site_selection.exports_geojson import write_observation_points_geojson
+from hydromodpy.spatial.site_selection.exports_geospatial import (
+    GPKG_NAME,
+    write_observation_points_geopackage,
+    write_observation_points_geoparquet,
+)
 from hydromodpy.spatial.site_selection.exports_tabular import write_jsonl
 from hydromodpy.spatial.site_selection.flow_products_adapter import (
     FlowProductsBuilder,
     build_site_selection_flow_products,
+)
+from hydromodpy.spatial.site_selection.influence import (
+    annotate_catchments_with_influence_layers,
+    write_influence_evidence_geojson,
+    write_influence_evidence_geopackage,
+    write_influence_evidence_geoparquet,
 )
 from hydromodpy.spatial.site_selection.observations import (
     build_observation_evidence_from_attributes,
 )
 from hydromodpy.spatial.site_selection.plan_report import (
     render_site_selection_plan_html_report,
+)
+from hydromodpy.spatial.site_selection.reference_network import (
+    ReferenceNetworkBundle,
+    load_reference_network_for_outlets,
 )
 from hydromodpy.spatial.site_selection.selection import (
     SelectionResult,
@@ -167,6 +196,20 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
             "network_threshold_area_km2": cfg.hydrology.network_threshold_area_km2,
             "compute_strahler": cfg.hydrology.compute_strahler,
         },
+        "outlets": {
+            "candidate_mode": cfg.outlets.candidate_mode,
+            "snap_strategy": cfg.outlets.snap_strategy,
+            "snap_dist_m": cfg.outlets.snap_dist_m,
+            "max_generated_candidates": cfg.outlets.max_generated_candidates,
+            "max_rejected_candidate_audit_records": (
+                cfg.outlets.max_rejected_candidate_audit_records
+            ),
+            "max_generated_network_cells": cfg.outlets.max_generated_network_cells,
+            "reference_network_source": cfg.outlets.reference_network_source,
+            "reference_network_path": _path_or_none(cfg.outlets.reference_network_path),
+            "reference_network_max_distance_m": cfg.outlets.reference_network_max_distance_m,
+            "reference_network_fetch_margin_m": cfg.outlets.reference_network_fetch_margin_m,
+        },
         "criteria": {
             "ruleset": cfg.criteria.ruleset,
             "hard_reject": list(cfg.criteria.hard_reject),
@@ -177,6 +220,16 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
             "geology_mode": cfg.criteria.geology.mode,
             "flow_station_mode": cfg.criteria.observations.flow_station_mode,
             "piezometer_mode": cfg.criteria.observations.piezometer_mode,
+            "influence_layers": [
+                layer.model_dump(mode="json") for layer in cfg.criteria.influence.layers
+            ],
+            "geology_layers": [
+                layer.model_dump(mode="json") for layer in cfg.criteria.geology.layers
+            ],
+            "piezometer_layers": [
+                layer.model_dump(mode="json")
+                for layer in cfg.criteria.observations.piezometer_layers
+            ],
             "area_ranges": [
                 area_range.model_dump(mode="json")
                 for area_range in cfg.criteria.area.ranges
@@ -257,7 +310,7 @@ def select_delineated_catchments_from_csv(
     cfg = load_site_selection_config(config_path)
     catchments = load_delineated_catchments_csv(catchments_csv)
     target_root = Path(output_root).expanduser().resolve() if output_root else cfg.output_root
-    cfg_for_outputs = cfg.model_copy(update={"output_root": target_root})
+    cfg_for_outputs = _with_default_data_root(cfg.model_copy(update={"output_root": target_root}))
     catchments, flow_manifest = _maybe_delineate_from_outlets(
         catchments=catchments,
         config=cfg_for_outputs,
@@ -275,6 +328,18 @@ def select_delineated_catchments_from_csv(
             config_path=Path(config_path).expanduser().resolve(),
             dem_loader=dem_loader,
         )
+    catchments, influence_evidence = annotate_catchments_with_influence_layers(
+        catchments,
+        config=cfg.criteria.influence,
+    )
+    catchments, geology_evidence = annotate_catchments_with_geology_layers(
+        catchments,
+        config=cfg.criteria.geology,
+    )
+    catchments, piezometer_evidence = annotate_catchments_with_piezometer_layers(
+        catchments,
+        config=cfg.criteria.observations,
+    )
     result = select_delineated_catchments(
         catchments,
         criteria=cfg.criteria,
@@ -290,6 +355,8 @@ def select_delineated_catchments_from_csv(
         write_rejected=cfg.output.write_csv and cfg.output.write_rejected,
         write_regional_lab_csv_output=cfg.output.write_regional_lab_csv,
         write_geojson=cfg.output.write_geojson,
+        write_geoparquet=cfg.output.write_geoparquet,
+        write_geopackage=cfg.output.write_geopackage,
     )
     observation_evidence = [
         evidence
@@ -299,6 +366,7 @@ def select_delineated_catchments_from_csv(
             attributes=catchment.outlet.attributes,
         )
     ]
+    observation_evidence.extend(piezometer_evidence)
     if observation_evidence:
         paths["observation_evidence_jsonl"] = write_jsonl(
             target_root / "observation_evidence.jsonl",
@@ -309,6 +377,77 @@ def select_delineated_catchments_from_csv(
                 target_root / "observation_points.geojson",
                 observation_evidence,
             )
+        if cfg.output.write_geopackage:
+            gpkg_path = write_observation_points_geopackage(
+                paths.get("site_selection_gpkg", target_root / GPKG_NAME),
+                observation_evidence,
+            )
+            if gpkg_path is not None:
+                paths["site_selection_gpkg"] = gpkg_path
+        if cfg.output.write_geoparquet:
+            geoparquet_path = write_observation_points_geoparquet(
+                target_root / "observation_points.parquet",
+                observation_evidence,
+            )
+            if geoparquet_path is not None:
+                paths["observation_points_geoparquet"] = geoparquet_path
+    if piezometer_evidence:
+        paths["piezometer_evidence_jsonl"] = write_jsonl(
+            target_root / "piezometer_evidence.jsonl",
+            [evidence.to_record() for evidence in piezometer_evidence],
+        )
+    if influence_evidence:
+        paths["influence_evidence_jsonl"] = write_jsonl(
+            target_root / "influence_evidence.jsonl",
+            [evidence.to_record() for evidence in influence_evidence],
+        )
+        if cfg.output.write_geojson:
+            geojson_path = write_influence_evidence_geojson(
+                target_root / "influence_features.geojson",
+                influence_evidence,
+            )
+            if geojson_path is not None:
+                paths["influence_features_geojson"] = geojson_path
+        if cfg.output.write_geopackage:
+            gpkg_path = write_influence_evidence_geopackage(
+                paths.get("site_selection_gpkg", target_root / GPKG_NAME),
+                influence_evidence,
+            )
+            if gpkg_path is not None:
+                paths["site_selection_gpkg"] = gpkg_path
+        if cfg.output.write_geoparquet:
+            geoparquet_path = write_influence_evidence_geoparquet(
+                target_root / "influence_features.parquet",
+                influence_evidence,
+            )
+            if geoparquet_path is not None:
+                paths["influence_features_geoparquet"] = geoparquet_path
+    if geology_evidence:
+        paths["geology_evidence_jsonl"] = write_jsonl(
+            target_root / "geology_evidence.jsonl",
+            [evidence.to_record() for evidence in geology_evidence],
+        )
+        if cfg.output.write_geojson:
+            geojson_path = write_geology_evidence_geojson(
+                target_root / "geology_basins.geojson",
+                geology_evidence,
+            )
+            if geojson_path is not None:
+                paths["geology_basins_geojson"] = geojson_path
+        if cfg.output.write_geopackage:
+            gpkg_path = write_geology_evidence_geopackage(
+                paths.get("site_selection_gpkg", target_root / GPKG_NAME),
+                geology_evidence,
+            )
+            if gpkg_path is not None:
+                paths["site_selection_gpkg"] = gpkg_path
+        if cfg.output.write_geoparquet:
+            geoparquet_path = write_geology_evidence_geoparquet(
+                target_root / "geology_basins.parquet",
+                geology_evidence,
+            )
+            if geoparquet_path is not None:
+                paths["geology_basins_geoparquet"] = geoparquet_path
     paths.update(
         write_manifest_and_optional_report(
             config=cfg_for_outputs,
@@ -349,6 +488,11 @@ def _maybe_delineate_from_outlets(
         backend=backend,
         builder=flow_products_builder or build_regional_flow_products,
     )
+    reference_network, reference_bundle = _maybe_load_reference_network(
+        config=config,
+        catchments=catchments,
+        target_crs=_first_outlet_crs(catchments),
+    )
     delineated = [
         try_delineate_candidate_outlet(
             outlet=catchment.outlet,
@@ -360,12 +504,19 @@ def _maybe_delineate_from_outlets(
             backend=backend,
             builder=delineation_builder or extract_catchment_from_point,
             area_reader=area_reader,
+            reference_network=reference_network,
+            reference_network_source=(
+                "" if reference_bundle is None else reference_bundle.source
+            ),
+            reference_network_max_distance_m=config.outlets.reference_network_max_distance_m,
         )
         for catchment in catchments
     ]
     flow_manifest = flow_products.to_manifest_record()
     flow_manifest["dem_path"] = str(dem_path)
     flow_manifest["dem_source"] = config.dem.source
+    if reference_bundle is not None:
+        flow_manifest["reference_network"] = reference_bundle.to_manifest_record()
     map_dem_path = _resolve_map_dem_path_for_review(
         config=config,
         catchments=catchments,
@@ -376,6 +527,29 @@ def _maybe_delineate_from_outlets(
     if map_dem_path is not None:
         flow_manifest["map_dem_path"] = str(map_dem_path)
     return delineated, flow_manifest
+
+
+def _maybe_load_reference_network(
+    *,
+    config: SiteSelectionConfig,
+    catchments: list[DelineatedCatchment],
+    target_crs: str | None,
+) -> tuple[object | None, ReferenceNetworkBundle | None]:
+    if config.outlets.snap_strategy != "bdtopage_then_dem":
+        return None, None
+    if not target_crs:
+        raise ConfigValidationError("bdtopage_then_dem requires a projected outlet CRS.")
+    network, bundle = load_reference_network_for_outlets(
+        source=config.outlets.reference_network_source,
+        path=config.outlets.reference_network_path,
+        outlets=[catchment.outlet for catchment in catchments],
+        target_crs=target_crs,
+        output_dir=config.output_root / "reference_network",
+        fetch_margin_m=config.outlets.reference_network_fetch_margin_m,
+        page_size=config.outlets.reference_network_page_size,
+        force_refresh=config.outlets.reference_network_force_refresh,
+    )
+    return network, bundle
 
 
 def _maybe_resolve_map_dem_for_review(
@@ -483,17 +657,62 @@ def _resolve_dem_path_for_observed_selection(
             "can be delineated from a DEM."
         )
 
-    return load_dem_path(
-        data_dem_config,
-        workspace_root=workspace_root,
-        data_root=data_root,
-        project_extent=_dem_request_bbox(
-            config=config,
-            catchments=[],
-            request_extent=config.dem.request_extent,
-        ),
-        loader=dem_loader,
-    )
+    try:
+        return load_dem_path(
+            data_dem_config,
+            workspace_root=workspace_root,
+            data_root=data_root,
+            project_extent=_dem_request_bbox(
+                config=config,
+                catchments=[],
+                request_extent=config.dem.request_extent,
+            ),
+            loader=dem_loader,
+        )
+    except Exception as exc:
+        raise ConfigError(_data_access_error("DEM", data_root=data_root, detail=exc)) from exc
+
+
+def _resolve_dem_path_for_generated_selection(
+    *,
+    config: SiteSelectionConfig,
+    config_path: str | Path | None,
+    workspace_root: str | Path | None,
+    data_root: str | Path | None,
+    dem_loader: DemLoader | None,
+) -> Path:
+    """Resolve the DEM used to generate network candidates."""
+
+    if config.dem.path is not None:
+        return Path(config.dem.path).expanduser().resolve()
+
+    data_dem_config: DataDemConfig | None = None
+    if config_path is not None:
+        data_dem_config = load_data_dem_config_for_site_selection(config_path)
+
+    if data_dem_config is None and config.dem.source == "ign_bdalti":
+        data_dem_config = DataDemConfig.ign_bdalti(force_refresh=config.dem.force_refresh)
+
+    if data_dem_config is None:
+        raise ConfigMissingError(
+            "site_selection.input.mode='generated_candidates' or 'dem_area_light' requires either "
+            "site_selection.dem.path or a [data.dem] source."
+        )
+
+    try:
+        return load_dem_path(
+            data_dem_config,
+            workspace_root=workspace_root,
+            data_root=data_root,
+            project_extent=_dem_request_bbox(
+                config=config,
+                catchments=[],
+                request_extent="territory",
+            ),
+            loader=dem_loader,
+        )
+    except Exception as exc:
+        raise ConfigError(_data_access_error("DEM", data_root=data_root, detail=exc)) from exc
 
 
 def _resolve_map_dem_path_for_review(
@@ -639,14 +858,19 @@ def build_site_selection_from_hydrometry_config(
 ) -> SiteSelectionBuildResult:
     """Load hydrometry through data managers, then run spatial site selection."""
 
-    records = load_hydrometry_records(
-        hydrometry_config,
-        workspace_root=workspace_root,
-        data_root=data_root,
-        project_extent=project_extent,
-        project_period=project_period,
-        loader=hydrometry_loader,
-    )
+    try:
+        records = load_hydrometry_records(
+            hydrometry_config,
+            workspace_root=workspace_root,
+            data_root=data_root,
+            project_extent=project_extent,
+            project_period=project_period,
+            loader=hydrometry_loader,
+        )
+    except Exception as exc:
+        raise ConfigError(
+            _data_access_error("hydrometry", data_root=data_root, detail=exc)
+        ) from exc
     return build_site_selection_from_point_records(
         config=config,
         point_records=records,
@@ -673,25 +897,111 @@ def build_observed_site_selection_from_toml(
 
     path = Path(config_path).expanduser().resolve()
     cfg = load_site_selection_config(path)
+    target_root = Path(output_root).expanduser().resolve() if output_root else cfg.output_root
+    cfg = _with_default_data_root(
+        cfg.model_copy(update={"output_root": target_root}),
+        data_root,
+    )
     hydrometry_cfg = load_hydrometry_config_for_site_selection(path)
     dem_path = _resolve_dem_path_for_observed_selection(
         config=cfg,
         config_path=path,
         workspace_root=workspace_root or cfg.input.workspace_root,
-        data_root=data_root or cfg.input.data_root,
+        data_root=cfg.input.data_root,
         dem_loader=dem_loader,
     )
     return build_site_selection_from_hydrometry_config(
         config=cfg,
         hydrometry_config=hydrometry_cfg,
         dem_init_path=dem_path,
-        output_root=output_root,
         workspace_root=workspace_root or cfg.input.workspace_root,
-        data_root=data_root or cfg.input.data_root,
+        data_root=cfg.input.data_root,
         project_extent=project_extent or _observation_request_bbox_wgs84(cfg),
         hydrometry_loader=hydrometry_loader,
         backend=backend,
         flow_products_builder=flow_products_builder,
+        delineation_builder=delineation_builder,
+        area_reader=area_reader,
+        write_outputs=write_outputs,
+    )
+
+
+def build_generated_site_selection_from_toml(
+    *,
+    config_path: str | Path,
+    output_root: str | Path | None = None,
+    workspace_root: str | Path | None = None,
+    data_root: str | Path | None = None,
+    dem_loader: DemLoader | None = None,
+    backend: object | None = None,
+    flow_products_builder: FlowProductsBuilder | None = None,
+    delineation_builder=None,
+    area_reader=None,
+    write_outputs: bool = True,
+) -> SiteSelectionBuildResult:
+    """Build a site selection from DEM/network-generated candidates."""
+
+    path = Path(config_path).expanduser().resolve()
+    cfg = load_site_selection_config(path)
+    target_root = Path(output_root).expanduser().resolve() if output_root else cfg.output_root
+    cfg = _with_default_data_root(
+        cfg.model_copy(update={"output_root": target_root}),
+        data_root,
+    )
+    dem_path = _resolve_dem_path_for_generated_selection(
+        config=cfg,
+        config_path=path,
+        workspace_root=workspace_root or cfg.input.workspace_root,
+        data_root=cfg.input.data_root,
+        dem_loader=dem_loader,
+    )
+    return build_site_selection_from_generated_network(
+        config=cfg,
+        dem_init_path=dem_path,
+        backend=backend,
+        flow_products_builder=flow_products_builder,
+        delineation_builder=delineation_builder,
+        area_reader=area_reader,
+        write_outputs=write_outputs,
+    )
+
+
+def build_dem_area_light_site_selection_from_toml(
+    *,
+    config_path: str | Path,
+    output_root: str | Path | None = None,
+    workspace_root: str | Path | None = None,
+    data_root: str | Path | None = None,
+    dem_loader: DemLoader | None = None,
+    backend: object | None = None,
+    flow_products_builder: FlowProductsBuilder | None = None,
+    raw_accumulation_builder=None,
+    delineation_builder=None,
+    area_reader=None,
+    write_outputs: bool = True,
+) -> SiteSelectionBuildResult:
+    """Build a DEM-only light area-based site selection."""
+
+    path = Path(config_path).expanduser().resolve()
+    cfg = load_site_selection_config(path)
+    target_root = Path(output_root).expanduser().resolve() if output_root else cfg.output_root
+    cfg = _with_default_data_root(
+        cfg.model_copy(update={"output_root": target_root}),
+        data_root,
+    )
+    dem_path = _resolve_dem_path_for_generated_selection(
+        config=cfg,
+        config_path=path,
+        workspace_root=workspace_root or cfg.input.workspace_root,
+        data_root=cfg.input.data_root,
+        dem_loader=dem_loader,
+    )
+    return build_site_selection_from_dem_area_light(
+        config=cfg,
+        dem_init_path=dem_path,
+        backend=backend,
+        flow_products_builder=flow_products_builder,
+        raw_accumulation_builder=raw_accumulation_builder,
         delineation_builder=delineation_builder,
         area_reader=area_reader,
         write_outputs=write_outputs,
@@ -749,6 +1059,93 @@ def run_site_selection_workflow(config_path: str | Path) -> dict[str, Any]:
             "site_selection_map_png": str(paths.get("site_selection_map_png", "")),
         }
 
+    if action == "generated_candidates":
+        if cfg.outlets.candidate_mode != "network_sampling":
+            raise ConfigError(
+                "site_selection.input.mode='generated_candidates' requires "
+                "site_selection.outlets.candidate_mode='network_sampling'."
+            )
+        result = build_generated_site_selection_from_toml(
+            config_path=path,
+            workspace_root=cfg.input.workspace_root,
+            data_root=cfg.input.data_root,
+        )
+        return {
+            "action": "generated_candidates",
+            "selection_id": cfg.selection_id,
+            "candidates": len(result.candidates),
+            "selected": len(result.selection.selected),
+            "rejected": len(result.selection.rejected),
+            "candidate_generation_jsonl": str(
+                result.output_paths.get("candidate_generation_jsonl", "")
+            ),
+            "candidate_outlets_geojson": str(
+                result.output_paths.get("candidate_outlets_geojson", "")
+            ),
+            "generated_network_geojson": str(
+                result.output_paths.get("generated_network_geojson", "")
+            ),
+            "selected_sites_csv": str(result.output_paths.get("selected_sites_csv", "")),
+            "regional_lab_sites_csv": str(
+                result.output_paths.get("regional_lab_sites_csv", "")
+            ),
+            "selected_outlets_geojson": str(
+                result.output_paths.get("selected_outlets_geojson", "")
+            ),
+            "selected_basins_geojson": str(
+                result.output_paths.get("selected_basins_geojson", "")
+            ),
+            "site_selection_manifest_json": str(
+                result.output_paths.get("site_selection_manifest_json", "")
+            ),
+            "site_selection_report_html": str(
+                result.output_paths.get("site_selection_report_html", "")
+            ),
+            "site_selection_map_png": str(
+                result.output_paths.get("site_selection_map_png", "")
+            ),
+        }
+
+    if action == "dem_area_light":
+        result = build_dem_area_light_site_selection_from_toml(
+            config_path=path,
+            workspace_root=cfg.input.workspace_root,
+            data_root=cfg.input.data_root,
+        )
+        return {
+            "action": "dem_area_light",
+            "selection_id": cfg.selection_id,
+            "candidates": len(result.candidates),
+            "selected": len(result.selection.selected),
+            "rejected": len(result.selection.rejected),
+            "candidate_generation_jsonl": str(
+                result.output_paths.get("candidate_generation_jsonl", "")
+            ),
+            "candidate_outlets_geojson": str(
+                result.output_paths.get("candidate_outlets_geojson", "")
+            ),
+            "diagnostics_csv": str(result.output_paths.get("diagnostics_csv", "")),
+            "selected_sites_csv": str(result.output_paths.get("selected_sites_csv", "")),
+            "regional_lab_sites_csv": str(
+                result.output_paths.get("regional_lab_sites_csv", "")
+            ),
+            "selected_outlets_geojson": str(
+                result.output_paths.get("selected_outlets_geojson", "")
+            ),
+            "selected_basins_geojson": str(
+                result.output_paths.get("selected_basins_geojson", "")
+            ),
+            "site_selection_manifest_json": str(
+                result.output_paths.get("site_selection_manifest_json", "")
+            ),
+            "site_selection_report_html": str(
+                result.output_paths.get("site_selection_report_html", "")
+            ),
+            "site_selection_map_png": str(
+                result.output_paths.get("site_selection_map_png", "")
+            ),
+        }
+
     if cfg.strategy.principle != "observation_led":
         raise ConfigError(
             "site_selection input mode 'hydrometry' currently requires "
@@ -796,6 +1193,11 @@ def _resolve_paths(cfg: SiteSelectionConfig, *, base_dir: Path) -> SiteSelection
     output_root = _resolve_optional_path(cfg.output_root, base_dir=base_dir)
     dem = cfg.dem
     dem_path = _resolve_optional_path(dem.path, base_dir=base_dir)
+    outlets = cfg.outlets
+    reference_network_path = _resolve_optional_path(
+        outlets.reference_network_path,
+        base_dir=base_dir,
+    )
     territory = cfg.territory
     polygon_file = _resolve_optional_path(territory.polygon_file, base_dir=base_dir)
     input_cfg = cfg.input
@@ -807,10 +1209,29 @@ def _resolve_paths(cfg: SiteSelectionConfig, *, base_dir: Path) -> SiteSelection
         layer.model_copy(update={"path": _resolve_optional_path(layer.path, base_dir=base_dir)})
         for layer in map_context.layers
     ]
+    criteria = cfg.criteria
+    influence = criteria.influence
+    influence_layers = [
+        layer.model_copy(update={"path": _resolve_optional_path(layer.path, base_dir=base_dir)})
+        for layer in influence.layers
+    ]
+    geology = criteria.geology
+    geology_layers = [
+        layer.model_copy(update={"path": _resolve_optional_path(layer.path, base_dir=base_dir)})
+        for layer in geology.layers
+    ]
+    observations = criteria.observations
+    piezometer_layers = [
+        layer.model_copy(update={"path": _resolve_optional_path(layer.path, base_dir=base_dir)})
+        for layer in observations.piezometer_layers
+    ]
     return cfg.model_copy(
         update={
             "output_root": output_root,
             "dem": dem.model_copy(update={"path": dem_path}),
+            "outlets": outlets.model_copy(
+                update={"reference_network_path": reference_network_path}
+            ),
             "territory": territory.model_copy(update={"polygon_file": polygon_file}),
             "input": input_cfg.model_copy(
                 update={
@@ -819,8 +1240,49 @@ def _resolve_paths(cfg: SiteSelectionConfig, *, base_dir: Path) -> SiteSelection
                     "data_root": data_root,
                 }
             ),
+            "criteria": criteria.model_copy(
+                update={
+                    "influence": influence.model_copy(update={"layers": influence_layers}),
+                    "geology": geology.model_copy(update={"layers": geology_layers}),
+                    "observations": observations.model_copy(
+                        update={"piezometer_layers": piezometer_layers}
+                    ),
+                }
+            ),
             "map_context": map_context.model_copy(update={"layers": context_layers}),
         },
+    )
+
+
+def _with_default_data_root(
+    cfg: SiteSelectionConfig,
+    data_root: str | Path | None = None,
+) -> SiteSelectionConfig:
+    """Return ``cfg`` with an isolated default data root for executable runs."""
+
+    resolved_data_root = (
+        Path(data_root).expanduser().resolve()
+        if data_root is not None
+        else cfg.input.data_root or cfg.output_root / "data"
+    )
+    return cfg.model_copy(
+        update={"input": cfg.input.model_copy(update={"data_root": resolved_data_root})}
+    )
+
+
+def _data_access_error(
+    family: str,
+    *,
+    data_root: str | Path | None,
+    detail: Exception,
+) -> str:
+    root = "<default>" if data_root is None else str(Path(data_root).expanduser())
+    section = "[hydrometry]" if family == "hydrometry" else "[data.dem]"
+    return (
+        f"site_selection failed while loading {family} data. "
+        f"data_root={root}. Check [site_selection.input].data_root, the matching "
+        f"{section} TOML section, and provider cache permissions. "
+        f"Original error: {type(detail).__name__}: {detail}"
     )
 
 
@@ -856,6 +1318,10 @@ def _resolve_workflow_action(cfg: SiteSelectionConfig, raw: dict[str, Any]) -> s
         return "plan"
     if mode == "delineated_catchments":
         return "delineated_catchments"
+    if mode == "generated_candidates":
+        return "generated_candidates"
+    if mode == "dem_area_light":
+        return "dem_area_light"
     if mode == "hydrometry":
         if not has_hydrometry:
             raise ConfigMissingError(
@@ -887,6 +1353,8 @@ def _planned_outputs(cfg: SiteSelectionConfig) -> list[str]:
         outputs.append("geojson")
     if cfg.output.write_geoparquet:
         outputs.append("geoparquet")
+    if cfg.output.write_geopackage:
+        outputs.append("geopackage")
     if cfg.output.write_csv:
         outputs.append("csv")
     if cfg.output.write_regional_lab_csv:
@@ -938,6 +1406,8 @@ def _optional_float(value: object) -> float | None:
 __all__ = [
     "PLAN_MANIFEST_NAME",
     "SiteSelectionPlan",
+    "build_dem_area_light_site_selection_from_toml",
+    "build_generated_site_selection_from_toml",
     "build_observed_site_selection_from_toml",
     "build_site_selection_from_hydrometry_config",
     "load_data_dem_config_for_site_selection",

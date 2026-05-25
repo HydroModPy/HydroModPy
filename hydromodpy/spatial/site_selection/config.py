@@ -20,10 +20,29 @@ SelectionPrinciple = Literal["observation_led", "criteria_crossing"]
 CriteriaCrossingProfile = Literal["dem_only", "area_only", "multicriteria"]
 CriterionMode = Literal["hard_reject", "warning", "score", "stratify", "report_only"]
 ObservationRole = Literal["primary", "bonus", "score", "stratify", "report_only", "ignore"]
-CandidateMode = Literal["network_sampling", "station_outlets", "imported_points"]
+CandidateMode = Literal[
+    "network_sampling",
+    "dem_area_light",
+    "station_outlets",
+    "imported_points",
+]
+OutletSnapStrategy = Literal["dem_accumulation", "bdtopage_then_dem"]
+ReferenceNetworkSource = Literal["bdtopage", "custom"]
 RouteOverlapMode = Literal["hard_reject", "warning", "score", "report_only"]
-WorkflowInputMode = Literal["auto", "plan_only", "hydrometry", "delineated_catchments"]
+WorkflowInputMode = Literal[
+    "auto",
+    "plan_only",
+    "hydrometry",
+    "delineated_catchments",
+    "generated_candidates",
+    "dem_area_light",
+]
 MapContextLayerRole = Literal["territory", "hydrography", "geology", "other"]
+InfluenceType = Literal[
+    "major_dam_upstream",
+    "major_withdrawal_upstream",
+    "major_regulated_reach",
+]
 
 
 def _normalize_report_mode(value: object) -> object:
@@ -234,6 +253,48 @@ class HydrologyConfig(HydroModelBase):
         return "fill"
 
 
+class DemAreaLightConfig(HydroModelBase):
+    """Minimal DEM-only basin selection settings."""
+
+    target_area_km2: Annotated[float, Profile.USER] = Field(
+        default=100.0,
+        gt=0,
+        description="Preferred upstream basin area for DEM-only candidate outlets.",
+    )
+    min_area_km2: Annotated[float, Profile.USER] = Field(
+        default=75.0,
+        gt=0,
+        description="Minimum accepted upstream basin area.",
+    )
+    max_area_km2: Annotated[float, Profile.USER] = Field(
+        default=125.0,
+        gt=0,
+        description="Maximum accepted upstream basin area.",
+    )
+    n_basins: Annotated[int, Profile.USER] = Field(
+        default=50,
+        gt=0,
+        description="Target number of basins selected by the greedy light workflow.",
+    )
+    max_candidates_before_delineation: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        gt=0,
+        description=(
+            "Optional cap on DEM-area outlet candidates delineated before final "
+            "selection. Lower values make examples faster but can leave fewer "
+            "accepted basins after spatial filtering."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _validate_area_window(self) -> DemAreaLightConfig:
+        if self.min_area_km2 > self.max_area_km2:
+            raise ValueError("min_area_km2 must be <= max_area_km2.")
+        if not (self.min_area_km2 <= self.target_area_km2 <= self.max_area_km2):
+            raise ValueError("target_area_km2 must be inside [min_area_km2, max_area_km2].")
+        return self
+
+
 class OutletsConfig(HydroModelBase):
     """Candidate outlet generation settings."""
 
@@ -250,15 +311,84 @@ class OutletsConfig(HydroModelBase):
         default=False,
         description="Allow nested candidate basins before final selection.",
     )
+    max_generated_candidates: Annotated[int | None, Profile.USER] = Field(
+        default=200,
+        gt=0,
+        description="Maximum number of DEM/network-generated candidates to delineate.",
+    )
+    max_rejected_candidate_audit_records: Annotated[int | None, Profile.USER] = Field(
+        default=5000,
+        gt=0,
+        description=(
+            "Maximum number of rejected DEM/network candidate cells written to the "
+            "candidate-generation audit JSONL."
+        ),
+    )
+    max_generated_network_cells: Annotated[int | None, Profile.USER] = Field(
+        default=50000,
+        gt=0,
+        description=(
+            "Maximum number of DEM-derived stream cells exported to the generated "
+            "network vector layer. Highest-accumulation cells are kept first."
+        ),
+    )
     snap_to_generated_stream: Annotated[bool, Profile.USER] = Field(
         default=True,
         description="Snap outlets to the DEM-derived stream network when applicable.",
     )
+    snap_strategy: Annotated[OutletSnapStrategy, Profile.USER] = Field(
+        default="dem_accumulation",
+        description=(
+            "Outlet snapping strategy. 'dem_accumulation' snaps directly on the "
+            "DEM-derived accumulation raster. 'bdtopage_then_dem' first projects "
+            "the station to BD Topage, then snaps locally on the DEM raster."
+        ),
+    )
     snap_dist_m: Annotated[int, Profile.USER] = Field(
-        default=250,
+        default=150,
         gt=0,
         description="Maximum snapping distance in metres for outlet-based delineation.",
     )
+    reference_network_source: Annotated[ReferenceNetworkSource, Profile.USER] = Field(
+        default="bdtopage",
+        description="Reference hydrographic network used by bdtopage_then_dem.",
+    )
+    reference_network_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description="Local vector network used when reference_network_source='custom'.",
+    )
+    reference_network_max_distance_m: Annotated[float, Profile.USER] = Field(
+        default=100.0,
+        gt=0,
+        description="Maximum accepted distance from candidate outlet to the reference network.",
+    )
+    reference_network_fetch_margin_m: Annotated[float, Profile.USER] = Field(
+        default=500.0,
+        ge=0,
+        description="Extra margin around outlets when downloading a BD Topage reference network.",
+    )
+    reference_network_page_size: Annotated[int, Profile.DEV] = Field(
+        default=2000,
+        gt=0,
+        description="BD Topage WFS page size used for the reference network download.",
+    )
+    reference_network_force_refresh: Annotated[bool, Profile.DEV] = Field(
+        default=False,
+        description="Redownload BD Topage even if the run output already contains a network file.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_reference_network(self) -> OutletsConfig:
+        if (
+            self.snap_strategy == "bdtopage_then_dem"
+            and self.reference_network_source == "custom"
+            and self.reference_network_path is None
+        ):
+            raise ValueError(
+                "snap_strategy='bdtopage_then_dem' with "
+                "reference_network_source='custom' requires reference_network_path."
+            )
+        return self
 
 
 class SpatialSelectionConfig(HydroModelBase):
@@ -459,6 +589,36 @@ class FlowStationCriteriaConfig(HydroModelBase):
         return _normalize_report_mode(value)
 
 
+class PiezometerLayerConfig(HydroModelBase):
+    """Vector layer used to compute piezometer evidence."""
+
+    name: Annotated[str, Profile.USER] = Field(
+        ...,
+        min_length=1,
+        description="Human-readable piezometer layer name.",
+    )
+    path: Annotated[Path, Profile.USER] = Field(
+        ...,
+        description="Vector file containing piezometer features.",
+    )
+    id_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional source-feature identifier field.",
+    )
+    label_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional source-feature label field.",
+    )
+    record_years_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional field containing available record length in years.",
+    )
+    quality_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional field containing a quality/status label.",
+    )
+
+
 class ObservationsCriteriaConfig(HydroModelBase):
     """Criteria applied to observation families."""
 
@@ -475,11 +635,52 @@ class ObservationsCriteriaConfig(HydroModelBase):
     flow_station: Annotated[FlowStationCriteriaConfig, Profile.USER] = Field(
         default_factory=FlowStationCriteriaConfig,
     )
+    piezometer_layers: Annotated[list[PiezometerLayerConfig], Profile.USER] = Field(
+        default_factory=list,
+        description="Optional vector layers used to compute piezometer evidence.",
+    )
 
     @field_validator("flow_station_mode", "piezometer_mode", mode="before")
     @classmethod
     def _normalize_modes(cls, value: object) -> object:
         return _normalize_report_mode(value)
+
+
+class InfluenceLayerConfig(HydroModelBase):
+    """Vector layer used to compute anthropic-influence evidence."""
+
+    name: Annotated[str, Profile.USER] = Field(
+        ...,
+        min_length=1,
+        description="Human-readable influence layer name.",
+    )
+    path: Annotated[Path, Profile.USER] = Field(
+        ...,
+        description="Vector file containing influence features.",
+    )
+    influence_type: Annotated[InfluenceType, Profile.USER] = Field(
+        ...,
+        description="Normalized influence flag filled when features match a basin.",
+    )
+    id_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional source-feature identifier field.",
+    )
+    label_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional source-feature label field.",
+    )
+    severity_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional field used to classify major features.",
+    )
+    major_values: Annotated[list[str], Profile.USER] = Field(
+        default_factory=list,
+        description=(
+            "Values considered major in severity_field. When empty, every "
+            "matched feature is considered major."
+        ),
+    )
 
 
 class InfluenceCriteriaConfig(HydroModelBase):
@@ -493,6 +694,10 @@ class InfluenceCriteriaConfig(HydroModelBase):
         default=None,
         gt=0,
     )
+    layers: Annotated[list[InfluenceLayerConfig], Profile.USER] = Field(
+        default_factory=list,
+        description="Optional vector layers used to compute influence flags automatically.",
+    )
 
     @field_validator("mode", mode="before")
     @classmethod
@@ -500,11 +705,42 @@ class InfluenceCriteriaConfig(HydroModelBase):
         return _normalize_report_mode(value)
 
 
+class GeologyLayerConfig(HydroModelBase):
+    """Polygon layer used to compute basin geology classes."""
+
+    name: Annotated[str, Profile.USER] = Field(
+        ...,
+        min_length=1,
+        description="Human-readable geology layer name.",
+    )
+    path: Annotated[Path, Profile.USER] = Field(
+        ...,
+        description="Vector polygon file containing geology units.",
+    )
+    class_field: Annotated[str, Profile.USER] = Field(
+        ...,
+        min_length=1,
+        description="Feature field containing the geology class.",
+    )
+    id_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional source-feature identifier field.",
+    )
+    label_field: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional source-feature label field.",
+    )
+
+
 class GeologyCriteriaConfig(HydroModelBase):
     """Geology criterion configuration."""
 
     mode: Annotated[CriterionMode, Profile.USER] = Field(default="report_only")
     prefer_diversity: Annotated[bool, Profile.USER] = Field(default=False)
+    layers: Annotated[list[GeologyLayerConfig], Profile.USER] = Field(
+        default_factory=list,
+        description="Optional polygon layers used to compute geology evidence.",
+    )
 
     @field_validator("mode", mode="before")
     @classmethod
@@ -559,6 +795,7 @@ class OutputConfig(HydroModelBase):
     write_selected: Annotated[bool, Profile.USER] = Field(default=True)
     write_geojson: Annotated[bool, Profile.USER] = Field(default=True)
     write_geoparquet: Annotated[bool, Profile.USER] = Field(default=False)
+    write_geopackage: Annotated[bool, Profile.USER] = Field(default=False)
     write_csv: Annotated[bool, Profile.USER] = Field(default=True)
     write_regional_lab_csv: Annotated[bool, Profile.USER] = Field(default=True)
     write_report_md: Annotated[bool, Profile.USER] = Field(default=False)
@@ -621,6 +858,10 @@ class SiteSelectionConfig(HydroModelBase):
     )
     dem: Annotated[DemConfig, Profile.USER] = Field(default_factory=DemConfig)
     hydrology: Annotated[HydrologyConfig, Profile.USER] = Field(default_factory=HydrologyConfig)
+    dem_area_light: Annotated[DemAreaLightConfig | None, Profile.USER] = Field(
+        default=None,
+        description="Compact settings for DEM-only automatic small-basin selection.",
+    )
     input: Annotated[SiteSelectionInputConfig, Profile.USER] = Field(
         default_factory=SiteSelectionInputConfig,
     )
@@ -644,6 +885,9 @@ class SiteSelectionConfig(HydroModelBase):
                     "in strategy or outlets."
                 )
 
+        if self.input.mode == "dem_area_light" and self.dem_area_light is None:
+            object.__setattr__(self, "dem_area_light", DemAreaLightConfig())
+
         if self.strategy.profile == "area_only":
             allowed_report_modes = {"report_only"}
             if self.criteria.observations.flow_station_mode not in allowed_report_modes:
@@ -662,16 +906,21 @@ __all__ = [
     "AreaCriteriaConfig",
     "AreaRangeConfig",
     "CriteriaConfig",
+    "DemAreaLightConfig",
     "DemConfig",
     "GeologyCriteriaConfig",
+    "GeologyLayerConfig",
     "HydrologyConfig",
     "InfluenceCriteriaConfig",
     "MapContextConfig",
     "MapContextLayerConfig",
     "MapContextLayerRole",
     "ObservationsCriteriaConfig",
+    "OutletSnapStrategy",
     "OutletsConfig",
     "OutputConfig",
+    "PiezometerLayerConfig",
+    "ReferenceNetworkSource",
     "SiteSelectionInputConfig",
     "SiteSelectionConfig",
     "SpatialSelectionConfig",

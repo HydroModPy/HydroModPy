@@ -1,10 +1,10 @@
 # Exemples `site_selection`
 
-Ce dossier donne quatre configurations courtes pour illustrer deux principes de
-selection differents. Certaines lignes CSV sont des fixtures synthetiques pour
-tester la mecanique; la variante `50_500_hubeau` materialise au
-contraire des sites issus du referentiel Hub'Eau afin de travailler sur un cas
-plus proche d'un inventaire reel.
+Ce dossier donne plusieurs configurations courtes pour illustrer deux principes
+de selection differents. Certaines lignes CSV sont des fixtures synthetiques
+pour tester la mecanique; les variantes hydrometriques materialisent au
+contraire des sites issus du referentiel Hub'Eau afin de travailler sur des cas
+plus proches d'un inventaire reel.
 
 ## 1. Bretagne, stations hydrometriques comme entree principale
 
@@ -33,6 +33,8 @@ Principe:
 - les contours de bassins sont recalcules depuis les exutoires avec le DEM
   charge par `[data.dem]`, puis exportes dans
   `outputs/bretagne_hydrometry_primary_v1/catchments/.../watershed.shp` ;
+- le snap d'exutoire reste en mode direct `dem_accumulation`, avec
+  `snap_dist_m = 150` pour limiter les deplacements aval ;
 - si l'on veut aller chercher de vraies stations Hub'Eau, il faut passer
   `site_selection.input.mode` a `hydrometry`; le chargement utilise alors les
   gestionnaires de donnees HydroModPy existants.
@@ -112,18 +114,38 @@ configs/bretagne_hydrometry_50_500_small.toml
 ```
 
 Elle utilise 7 stations situees dans une emprise compacte de Bretagne. Le DEM
-reste declare dans `[data.dem]` avec `source = "ign_bdalti"` et
-`regions = ["Bretagne"]`: le code garde donc la meme organisation que
-l'exemple complet, mais le nombre de delimitations est beaucoup plus faible.
+reste declare dans `[data.dem]` avec `source = "ign_geoplateforme_dem"`,
+`dataset = "bd-alti"` et `regions = ["Bretagne"]`: le code passe donc par le
+client Geoplateforme dynamique, mais le nombre de delimitations est beaucoup
+plus faible.
 Cette variante sert a verifier rapidement l'organisation du rapport HTML, la
 presence de la carte, les symboles des stations et les contours de bassins; elle
 ne remplace pas l'exemple complet pour l'analyse regionale.
+Elle utilise le snap direct `dem_accumulation` avec un rayon court de 150 m.
 
 Commande utile:
 
 ```bash
 hmp run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small.toml
 ```
+
+Une variante equivalente contraint d'abord les exutoires par BD Topage, puis
+lance le snap DEM local avec le meme rayon de 150 m:
+
+```text
+configs/bretagne_hydrometry_50_500_small_bdtopage.toml
+```
+
+Commande utile:
+
+```bash
+hmp run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
+```
+
+Elle produit en plus `outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/reference_network/bdtopage_reference_network.gpkg`.
+Ce GeoPackage est un artefact technique de snapping: il n'est pas ajoute comme
+couche de fond au rapport HTML, afin de ne pas confondre reseau de reference et
+bassins effectivement selectionnes.
 
 ## 3. Auvergne-Rhone-Alpes, stations hydrometriques autonomes
 
@@ -139,9 +161,9 @@ Principe:
   stations par les gestionnaires de donnees HydroModPy, sans CSV de candidats ;
 - `[[hydrometry.sources]]` utilise Hub'Eau avec `extent = "study_area"`; le
   workflow transforme l'emprise de la region en WGS84 pour interroger l'API ;
-- le DEM reste declare dans `[data.dem]`, avec `regions =
-  ["Auvergne-Rhone-Alpes"]`; les 12 departements IGN sont deduits par le
-  gestionnaire DEM ;
+- le DEM reste declare dans `[data.dem]`, avec `source =
+  "ign_geoplateforme_dem"` et `regions = ["Auvergne-Rhone-Alpes"]`; les 12
+  departements IGN sont deduits par le gestionnaire DEM ;
 - les stations Hub'Eau sont fournies en longitude/latitude, mais le workflow
   utilise les coordonnees Lambert-93 disponibles dans les metadonnees Hub'Eau
   pour construire les exutoires candidats avant la delimitation ;
@@ -158,7 +180,25 @@ hmp run examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpe
 ```
 
 Cette variante est le chemin cible pour remplacer progressivement les fixtures
-par une selection observee reelle.
+par une selection observee reelle. Elle interroge toute l'emprise AURA et peut
+donc etre longue.
+
+Une variante de controle plus courte est fournie:
+
+```text
+configs/auvergne_rhone_alpes_hydrometry_preview.toml
+```
+
+Elle utilise cinq stations Hub'Eau explicites, toujours avec le DEM regional
+Geoplateforme. Elle sert a verifier rapidement le chemin reel
+stations -> exutoires -> bassins -> rapport HTML, sans utiliser la grille de
+fixture `area_only`.
+
+Commande utile:
+
+```bash
+hmp run examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_hydrometry_preview.toml
+```
 
 ## 4. Auvergne-Rhone-Alpes, surface comme critere unique
 
@@ -179,10 +219,10 @@ Principe:
   retenir ou rejeter les sites ;
 - l'entree est un CSV de bassins deja delimites pour isoler la logique de
   selection ;
-- les contours de bassins et une hydrographie de contexte sont fournis comme
-  fixtures pour tester le rendu cartographique ;
-- le DEM est declare dans `[data.dem]` par region administrative
-  `Auvergne-Rhone-Alpes`, ce qui permet de charger un fond DEM regional sans
+- les contours de bassins sont fournis comme fixtures pour tester le rendu
+  cartographique sans ajouter de reseau hydrographique de fond ;
+- le DEM est declare dans `[data.dem]` par region administrative avec la source
+  `ign_geoplateforme_dem`, ce qui permet de charger un fond DEM regional sans
   coder manuellement les 12 departements ;
 - `build_aura_area_50_150_candidates.py` genere 20 bassins reproductibles,
   non superposes, avec des surfaces reparties entre 52 et 149 km2 ;
@@ -221,8 +261,149 @@ En mode selection executee, il produit alors aussi:
 - `review/index.html` ;
 - `review/site_selection_map.png`.
 
-Dans cette fixture, les contours de bassins sont volontairement synthetiques:
-ils testent la mecanique d'exports et de figures, pas une delimitation reelle.
+Les sorties GIS de production sont disponibles mais desactivees par defaut dans
+ces exemples courts. Pour les produire, ajouter dans `[site_selection.output]`:
+
+```toml
+write_geopackage = true
+write_geoparquet = true
+```
+
+Le run ecrit alors `site_selection.gpkg` et les couches GeoParquet separees
+pour les exutoires, bassins et points d'observation disponibles.
+
+Les couches d'influence peuvent etre ajoutees sous:
+
+```toml
+[[site_selection.criteria.influence.layers]]
+name = "Barrages de controle"
+path = "data/influence/barrages.gpkg"
+influence_type = "major_dam_upstream"
+id_field = "id"
+label_field = "name"
+severity_field = "severity"
+major_values = ["major"]
+```
+
+Le workflow intersecte ces couches avec les contours de bassins, renseigne les
+flags comme `major_dam_upstream`, puis ecrit `influence_evidence.jsonl` et les
+couches GIS d'influence si les sorties spatiales correspondantes sont actives.
+
+Les couches de geologie peuvent etre ajoutees sous:
+
+```toml
+[[site_selection.criteria.geology.layers]]
+name = "Geologie de controle"
+path = "data/geology/geology.gpkg"
+class_field = "lithology"
+id_field = "id"
+label_field = "label"
+```
+
+Le workflow calcule alors la geologie dominante par bassin, les fractions de
+surface par classe et ecrit `geology_evidence.jsonl`. Avec les sorties GIS
+actives, il ajoute aussi `geology_basins.geojson`, `geology_basins.parquet` ou
+la couche `geology_basins` dans `site_selection.gpkg`.
+
+Les couches de piezometres peuvent etre ajoutees sous:
+
+```toml
+[[site_selection.criteria.observations.piezometer_layers]]
+name = "Piezometres de controle"
+path = "data/piezometry/piezometers.gpkg"
+id_field = "bss_id"
+label_field = "name"
+record_years_field = "record_years"
+quality_field = "quality"
+```
+
+Les piezometres dans le bassin, ou proches de l'exutoire si
+`piezometer_max_distance_km` est configure, sont ajoutes a
+`piezometer_evidence.jsonl`, `observation_evidence.jsonl` et
+`observation_points.geojson`.
+
+Un mode autonome de generation de candidats existe pour les campagnes sans CSV
+de bassins et sans stations comme entrees:
+
+```toml
+[site_selection.input]
+mode = "generated_candidates"
+
+[site_selection.outlets]
+candidate_mode = "network_sampling"
+max_generated_candidates = 50
+min_distance_between_outlets_km = 2.0
+```
+
+Ce mode utilise le raster d'accumulation DEM pour proposer des exutoires,
+ecrit `candidate_generation.jsonl`, `candidate_outlets.geojson` et
+`generated_dem_network.geojson`, puis lance la meme delimitation/selection que
+les autres chemins. L'audit distingue les cellules candidates acceptees et
+rejetees, avec la raison du rejet. Si `bdtopage_then_dem` est actif et qu'un
+reseau BD Topage/custom est disponible, les candidats portent aussi une distance
+et un score au reseau de reference.
+
+La carte HTML de revue lit directement `generated_dem_network.geojson`, ce qui
+permet de verifier visuellement la relation entre reseau DEM, exutoires
+candidats et contours de bassins.
+Commande equivalente au `hmp run`:
+
+```bash
+hmp site-selection build-generated path/to/config.toml
+```
+
+Exemple local avec DEM Bretagne deja present dans `examples/data/dem`:
+
+```bash
+hmp run examples/projects/17_site_selection_workflow/configs/bretagne_generated_candidates_dem.toml
+```
+
+Il produit notamment
+`outputs/bretagne_generated_candidates_dem_v1/review/index.html`,
+`candidate_generation.jsonl` et `generated_dem_network.geojson`.
+
+Les tests unitaires associes utilisent parfois des contours synthetiques pour
+aller vite; l'exemple `bretagne_generated_candidates_dem.toml` lance lui une
+delimitation DEM reelle sur le DEM local configure.
+
+## 5. Calvados, DEM automatique rapide sur un departement
+
+Fichier:
+
+```text
+configs/calvados_dem_area_light_100km2_fast.toml
+```
+
+Principe:
+
+- le territoire est limite au departement du Calvados (`departments = ["014"]`)
+  au lieu d'une region complete;
+- le DEM est charge par Geoplateforme uniquement pour ce departement;
+- le mode `dem_area_light` cherche des exutoires dont la surface amont est
+  proche de 100 km2, dans la fenetre 75-125 km2;
+- `n_basins = 3` limite le nombre de bassins retenus;
+- `max_candidates_before_delineation = 30` limite le nombre de candidats DEM
+  a delimiter avant le tri final, ce qui rend l'exemple plus rapide;
+- le rapport HTML reste actif pour controler visuellement les exutoires, le
+  reseau DEM et les contours de bassins.
+
+Commande utile:
+
+```bash
+hmp run examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
+```
+
+La sortie principale a inspecter est:
+
+```text
+examples/projects/17_site_selection_workflow/outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html
+```
+
+Cet exemple sert a tester rapidement le chemin DEM automatique sur un domaine
+reel plus petit que la Normandie. Il ne garantit pas encore une selection
+hydrologiquement optimale: il sert surtout a verifier que la generation de
+candidats, la delimitation, les rejets et le rapport tournent sans lancer un
+cas regional lourd.
 
 ## Regions francaises dans les TOML
 

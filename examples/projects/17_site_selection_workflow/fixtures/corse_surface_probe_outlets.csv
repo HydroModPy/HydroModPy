@@ -1,0 +1,6 @@
+site_id,candidate_id,x,y,outlet_crs,area_km2,status,site_label,source,source_feature_id
+corse_surface_probe_01,corse_surface_probe_01,1192993.0,6154169.0,EPSG:2154,,delineated,Corse surface probe Golo Albertacce,manual_surface_probe,Y700000201
+corse_surface_probe_02,corse_surface_probe_02,1210233.0,6164534.0,EPSG:2154,,delineated,Corse surface probe Golo Omessa,manual_surface_probe,Y702000201
+corse_surface_probe_03,corse_surface_probe_03,1210432.0,6172904.0,EPSG:2154,,delineated,Corse surface probe Asco Ponte-Leccia,manual_surface_probe,Y711000201
+corse_surface_probe_04,corse_surface_probe_04,1223928.0,6177467.0,EPSG:2154,,delineated,Corse surface probe Golo Barchetta,manual_surface_probe,Y721000101
+corse_surface_probe_05,corse_surface_probe_05,1223690.0,6188224.0,EPSG:2154,,delineated,Corse surface probe Bevinco Lancone,manual_surface_probe,Y731000301

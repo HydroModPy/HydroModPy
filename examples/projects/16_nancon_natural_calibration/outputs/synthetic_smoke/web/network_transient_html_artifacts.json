@@ -8,12 +8,12 @@
     "truth.steady_network_active_mask_npz",
     "score_table",
     "score_table.completed_rows",
-    "source_transient_config",
-    "reference_run_root"
+    "source_transient_config"
   ],
   "contract_warnings": [],
   "ok": true,
   "optional_missing": [
+    "reference_run_root",
     "steady_summary_csv"
   ],
   "real_root": "C:\\codes\\HydroModPy\\examples\\projects\\16_nancon_natural_calibration\\outputs\\synthetic_smoke",

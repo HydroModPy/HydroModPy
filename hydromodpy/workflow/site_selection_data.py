@@ -58,15 +58,15 @@ def load_dem_path(
 ) -> Path:
     """Load a DEM through the existing data manager stack and return its file path."""
 
+    resolved_config = _with_project_extent(config, project_extent=project_extent)
     if loader is not None:
         fields = loader(
-            config=config,
+            config=resolved_config,
             workspace_root=workspace_root,
             data_root=data_root,
             project_extent=project_extent,
         )
     else:
-        resolved_config = _with_project_extent(config, project_extent=project_extent)
         store = DataStore(
             workspace_root=workspace_root,
             data_root=_default_data_root(workspace_root=workspace_root, data_root=data_root),
@@ -105,7 +105,7 @@ def _with_project_extent(
     changed = False
     for source in config.sources:
         if (
-            getattr(source, "source", None) == "ign_bdalti"
+            getattr(source, "source", None) in {"ign_bdalti", "ign_geoplateforme_dem"}
             and getattr(source, "mask_path", None) is None
             and getattr(source, "extent", None) is None
         ):

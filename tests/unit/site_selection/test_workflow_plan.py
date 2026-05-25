@@ -285,6 +285,98 @@ def test_select_delineated_catchments_from_csv_can_delineate_from_outlets(tmp_pa
 
 
 @pytest.mark.fast
+def test_select_delineated_catchments_from_csv_can_use_custom_reference_network(tmp_path):
+    import geopandas as gpd
+    from shapely.geometry import LineString
+
+    dem = tmp_path / "dem.tif"
+    dem.write_text("synthetic dem placeholder", encoding="utf-8")
+    reference_network = tmp_path / "reference_network.gpkg"
+    gpd.GeoDataFrame(
+        geometry=[LineString([(0.0, 0.0), (100.0, 0.0)])],
+        crs="EPSG:2154",
+    ).to_file(reference_network, driver="GPKG")
+    config_path = tmp_path / "selection.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "[site_selection]",
+                'selection_id = "from_outlet_reference_demo"',
+                'output_root = "out"',
+                "",
+                "[site_selection.input]",
+                "delineate_from_outlets = true",
+                "",
+                "[site_selection.dem]",
+                'path = "dem.tif"',
+                "",
+                "[site_selection.outlets]",
+                'snap_strategy = "bdtopage_then_dem"',
+                "snap_dist_m = 150",
+                'reference_network_source = "custom"',
+                'reference_network_path = "reference_network.gpkg"',
+                "reference_network_max_distance_m = 50.0",
+                "",
+                "[site_selection.strategy]",
+                'principle = "criteria_crossing"',
+                'profile = "area_only"',
+                'primary_axes = ["area"]',
+                'observation_role = "report_only"',
+                'geology_role = "report_only"',
+                "",
+                "[site_selection.territory]",
+                'mode = "bbox"',
+                "bbox = [0.0, 0.0, 100.0, 100.0]",
+                "",
+                "[site_selection.criteria.area]",
+                'mode = "hard_reject"',
+                "hard_min_area_km2 = 75.0",
+                "hard_max_area_km2 = 125.0",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    catchments_csv = tmp_path / "catchments.csv"
+    catchments_csv.write_text("site_id,x,y,area_km2\nsite_001,25,12,100\n", encoding="utf-8")
+    calls = {}
+
+    def fake_flow_builder(**kwargs):
+        output_dir = Path(kwargs["dem_out_dir_path"])
+        return FlowProducts(
+            correc=str(output_dir / "fill.tif"),
+            direc=str(output_dir / "direc.tif"),
+            acc=str(output_dir / "acc.tif"),
+        )
+
+    def fake_delineation_builder(**kwargs):
+        calls.update(kwargs)
+        output_dir = Path(kwargs["output_dir"])
+        watershed = output_dir / "watershed.geojson"
+        _write_square_geojson(watershed)
+        return CatchmentFromPointProducts(
+            outlet_shp=str(output_dir / "outlet.shp"),
+            outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
+            watershed_tif=str(output_dir / "watershed.tif"),
+            watershed_shp=str(watershed),
+        )
+
+    result, paths = select_delineated_catchments_from_csv(
+        config_path=config_path,
+        catchments_csv=catchments_csv,
+        flow_products_builder=fake_flow_builder,
+        delineation_builder=fake_delineation_builder,
+        area_reader=lambda _path: 100.0,
+    )
+
+    assert calls["x_outlet"] == pytest.approx(25.0)
+    assert calls["y_outlet"] == pytest.approx(0.0)
+    assert [catchment.site_id for catchment in result.selected] == ["site_001"]
+    manifest = json.loads(paths["site_selection_manifest_json"].read_text(encoding="utf-8"))
+    assert manifest["outlets"]["snap_strategy"] == "bdtopage_then_dem"
+    assert manifest["flow_products"]["reference_network"]["source"] == "custom"
+
+
+@pytest.mark.fast
 def test_select_delineated_catchments_from_csv_can_resolve_dem_from_data_section(tmp_path):
     dem = tmp_path / "data" / "dem" / "real_dem.tif"
     dem.parent.mkdir(parents=True)

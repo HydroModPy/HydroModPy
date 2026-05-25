@@ -65,6 +65,8 @@ class DemManager:
         """Dispatch to the right loader based on source type."""
         if source_cfg.source == "ign_bdalti":
             return self._fetch_ign_bdalti(source_cfg)
+        elif source_cfg.source == "ign_geoplateforme_dem":
+            return self._fetch_ign_geoplateforme_dem(source_cfg)
         elif source_cfg.source == "custom":
             return self._fetch_custom(source_cfg)
         else:
@@ -195,6 +197,68 @@ class DemManager:
         return [record]
 
     # ------------------------------------------------------------------
+    # IGN DEM through dynamic Geoplateforme discovery
+    # ------------------------------------------------------------------
+
+    def _fetch_ign_geoplateforme_dem(self, source_cfg) -> list[FieldRecord]:
+        """Fetch an IGN DEM product through the dynamic Geoplateforme client."""
+
+        bbox = self._resolve_bbox_2154(source_cfg)
+        if bbox is None:
+            raise ValueError(
+                "ign_geoplateforme_dem source requires a bbox "
+                "(set mask_path, extent, or geographic)"
+            )
+
+        from hydromodpy.data.variables.dem.apis.ign_dem_fr import fetch_ign_dem
+
+        output_dir = self.data_dir or (_hmp_cache_dir() / "dem")
+        dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
+        resolution_m = _resolution_for_ign_geoplateforme(source_cfg)
+        file_format = str(getattr(source_cfg, "file_format", "ASC") or "ASC").upper()
+        department_codes = _department_codes_for_french_dem_source(source_cfg)
+
+        tif_path = fetch_ign_dem(
+            output_dir=output_dir,
+            bbox=bbox,
+            departments=department_codes,
+            dataset=dataset,
+            resolution_m=resolution_m,
+            file_format=file_format,
+            crs=getattr(source_cfg, "crs", None),
+            force_refresh=bool(getattr(source_cfg, "force_refresh", False)),
+        )
+
+        record = FieldRecord(
+            variable="dem",
+            source="ign_geoplateforme_dem",
+            unit="m",
+            data=tif_path,
+            bbox=bbox,
+            crs="EPSG:2154",
+        )
+
+        if self.catalog is not None:
+            self.catalog.register(
+                variable="dem",
+                source="ign_geoplateforme_dem",
+                file_path=str(tif_path),
+                bbox=bbox,
+                crs="EPSG:2154",
+                source_unit=f"{dataset}:{resolution_m:g}m:{file_format}",
+                fetch_metadata={
+                    "provider": "ign_geoplateforme",
+                    "dataset": dataset,
+                    "resolution_m": resolution_m,
+                    "file_format": file_format,
+                    "departments": list(department_codes or []),
+                    "regions": list(getattr(source_cfg, "regions", None) or []),
+                },
+            )
+
+        return [record]
+
+    # ------------------------------------------------------------------
     # Custom
     # ------------------------------------------------------------------
 
@@ -227,6 +291,10 @@ class DemManager:
 
 
 def _department_codes_for_ign_bdalti(source_cfg: Any) -> list[str] | None:
+    return _department_codes_for_french_dem_source(source_cfg)
+
+
+def _department_codes_for_french_dem_source(source_cfg: Any) -> list[str] | None:
     departments = list(getattr(source_cfg, "departments", None) or [])
     if departments:
         return departments
@@ -238,3 +306,15 @@ def _department_codes_for_ign_bdalti(source_cfg: Any) -> list[str] | None:
     from hydromodpy.data.common.administrative.france import find_departments_in_regions
 
     return find_departments_in_regions(regions)
+
+
+def _resolution_for_ign_geoplateforme(source_cfg: Any) -> float:
+    resolution_m = getattr(source_cfg, "resolution_m", None)
+    if resolution_m is not None:
+        return float(resolution_m)
+    dataset = str(getattr(source_cfg, "dataset", "bd-alti") or "bd-alti")
+    if dataset == "bd-alti":
+        return 25.0
+    if dataset == "rge-alti":
+        return 5.0
+    raise ValueError(f"Unsupported IGN DEM dataset: {dataset!r}")

@@ -1,46 +1,247 @@
 # Rapport d'implementation actuel - `site_selection`
 
-Date: 2026-05-23
+Date: 2026-05-25
 
 Ce document decrit l'etat actuel du developpement `site_selection`. Il complete
 le plan long `site_selection_tool_implementation_plan.md`, qui reste un document
 de strategie et de jalons.
 
-## Synthese au 2026-05-23
+## Synthese au 2026-05-25
 
-Ce qui est developpe et cable:
+### En clair
 
-- workflow amont `site_selection` distinct de `regional_lab`, avec planification,
-  selection depuis CSV pre-delimite, selection depuis observations
-  hydrometriques et dispatch par `hmp run`;
-- primitives spatiales dediees pour candidats, delimitation par point,
-  criteres auditables, selection/rejet, exports tabulaires et GeoJSON;
-- manifest officiel `site_selection_manifest.json`, validation des artefacts,
-  rapport HTML derive du manifest et carte PNG statique de revue;
-- integration des gestionnaires de donnees existants pour l'hydrometrie et le
-  DEM, sans duplication des clients Hub'Eau ou IGN dans les primitives
-  spatiales;
-- exemples Bretagne et Auvergne-Rhone-Alpes avec fixtures legeres, sorties de
-  revue et configurations TOML maintenues;
-- support des regions administratives francaises pour resoudre les
-  departements IGN attendus quand `[data.dem]` declare une region.
+`site_selection` sert a preparer une campagne de modelisation: il propose des
+sites possibles, calcule le bassin versant associe a chaque site, applique des
+criteres simples, puis produit un dossier de controle avec cartes, tableaux et
+fichiers SIG.
 
-Ce qui reste a developper ou consolider:
+Le workflow est aujourd'hui utilisable pour les cas pilotes ou les exutoires
+sont deja connus, par exemple des stations hydrometriques Hub'Eau ou un CSV de
+sites. Dans ce cas, le code sait:
 
-- generation autonome de candidats depuis le DEM et les reseaux, sans CSV
-  pre-delimite ni stations comme seuls exutoires;
-- calcul automatique des flags d'influence depuis des couches regionales
-  chargees par le workflow;
-- croisement spatial geologique avec une source BRGM/regionalisee et une
-  typologie configurable;
-- croisement spatial automatique des piezometres depuis les donnees chargees par
-  les gestionnaires;
-- sortie polygonale robuste de production (`GeoParquet` ou `GeoPackage`) en
-  complement du GeoJSON de revue;
-- carte interactive, seulement apres stabilisation des sorties polygonales et
-  des couches d'observation;
-- remise au vert de la validation locale dans le workspace courant: voir la
-  section "Verification actuelle" pour les blocages observes.
+- lire les points de station ou les points d'exutoire fournis;
+- replacer ces points sur le reseau DEM, ou d'abord sur BD Topage puis sur le
+  DEM;
+- delimiter les bassins versants depuis ces exutoires;
+- garder ou rejeter les sites selon les criteres configures;
+- produire un rapport HTML et des fichiers GeoJSON/GPKG/GeoParquet de controle.
+
+Le workflow commence aussi a fonctionner sans station en entree. Dans ce mode,
+HydroModPy regarde directement le DEM et propose lui-meme des exutoires
+candidats. Cette partie existe, mais elle est encore exploratoire: elle sert
+d'abord a verifier les sorties et les audits, pas encore a produire une bonne
+selection regionale.
+
+### Ce qui marche bien aujourd'hui
+
+Le cas le plus fiable est le cas avec stations hydrometriques. Le rapport a
+regarder en priorite est:
+
+```text
+examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_rerun_v1/review/index.html
+```
+
+Dans ce rapport Bretagne compact:
+
+- 7 stations sont traitees;
+- les stations sont projetees sur BD Topage avec une distance tres courte
+  entre la station et le reseau, environ 1.5 a 9 m;
+- le snap final sur le DEM reste court, environ 64 a 105 m;
+- les 7 sites sont selectionnes;
+- le rapport permet de verifier visuellement la relation entre station,
+  exutoire retenu et contour de bassin.
+
+Ce cas montre le chemin attendu pour une selection pilotee par observations:
+
+```text
+station hydrometrique -> exutoire corrige -> bassin versant -> criteres -> rapport
+```
+
+### Ce que montre le dernier run DEM automatique
+
+Le rapport suivant est different:
+
+```text
+examples/projects/17_site_selection_workflow/outputs/bretagne_generated_candidates_dem_v1/review/index.html
+```
+
+Ici, il n'y a pas de stations hydrometriques en entree. Le code essaie de creer
+des exutoires tout seul a partir du DEM. Le rapport doit donc etre lu comme un
+test de mecanique, pas comme un resultat metier.
+
+Ce que ce rapport doit montrer:
+
+- un fond DEM;
+- un reseau calcule depuis le DEM;
+- des exutoires candidats choisis automatiquement;
+- les bassins delimites depuis ces exutoires;
+- un tableau d'audit expliquant quels candidats ont ete gardes ou ignores;
+- des liens vers les fichiers produits:
+  `candidate_generation.jsonl`, `candidate_outlets.geojson`,
+  `generated_dem_network.geojson`, les bassins GeoJSON et le manifest.
+
+Le graphe parait mauvais parce que la methode automatique actuelle choisit les
+cellules avec la plus forte accumulation d'eau. A l'echelle d'une region, ces
+cellules sont generalement sur les grands cours d'eau tres aval. Le resultat
+est donc logique pour l'algorithme, mais peu utile pour la selection souhaitee:
+les bassins deviennent beaucoup trop grands et proches les uns des autres.
+
+Dans le run Bretagne automatique actuel:
+
+- 12 candidats sont generes;
+- 12 bassins sont delimites;
+- les 12 bassins sont selectionnes techniquement;
+- mais ils font environ 3488 a 3779 km2, alors que la plage de controle etait
+  50-500 km2;
+- les 12 sites portent donc un avertissement de surface;
+- le reseau BD Topage reutilise ne couvre pas bien ces candidats: le premier
+  candidat est a environ 20 km du reseau de reference charge.
+
+Conclusion: ce rapport prouve que les fichiers sortent, que le HTML fonctionne
+et que l'audit existe. Il ne prouve pas encore que la generation automatique
+choisit de bons sites.
+
+Un exemple plus court a ete ajoute pour tester ce chemin sans lancer une region
+complete:
+
+```text
+examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
+```
+
+Il limite le domaine au Calvados, demande seulement 3 bassins autour de 100 km2
+et plafonne a 30 le nombre de candidats DEM a delimiter avant le tri final.
+La page HTML attendue est:
+
+```text
+examples/projects/17_site_selection_workflow/outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html
+```
+
+Ce cas doit tourner plus vite que `normandie_dem_area_light_100km2.toml`.
+Il sert a verifier la mecanique DEM automatique sur un departement; il ne doit
+pas encore etre lu comme une selection metier definitive.
+
+### Sorties disponibles
+
+Pour chaque run complet, le dossier de sortie contient les fichiers de base:
+
+- `site_selection_manifest.json`: resume officiel du run, des entrees et des
+  sorties;
+- `selected_sites.csv`: sites retenus;
+- `rejected_sites.csv`: sites rejetes;
+- `selection_decisions.jsonl`: raison de chaque decision;
+- `criteria_components.jsonl`: details des criteres appliques;
+- `review/index.html`: rapport de controle;
+- `review/site_selection_map.png`: carte PNG integree au rapport.
+
+Quand les sorties spatiales sont activees, on obtient aussi:
+
+- `selected_outlets.geojson` et `rejected_outlets.geojson`: points d'exutoire;
+- `selected_basins.geojson` et `rejected_basins.geojson`: contours de bassins;
+- `site_selection.gpkg`: couches SIG rassemblees dans un GeoPackage;
+- des fichiers GeoParquet separes pour les bassins, exutoires et observations.
+
+En mode DEM automatique, trois fichiers supplementaires aident a comprendre ce
+que le code a fait:
+
+- `candidate_generation.jsonl`: liste des candidats acceptes ou ignores, avec
+  la raison;
+- `candidate_outlets.geojson`: points candidats envoyes a la delimitation;
+- `generated_dem_network.geojson`: reseau extrait du DEM et affiche dans la
+  carte.
+
+### Ce qui a ete developpe
+
+Les briques principales sont en place:
+
+- orchestration `hmp run` pour lancer un workflow `site_selection`;
+- lecture de configurations TOML dediees;
+- chargement de donnees hydrometriques et DEM via les gestionnaires de donnees
+  existants;
+- creation d'exutoires candidats depuis stations, CSV ou DEM;
+- snap court sur accumulation DEM;
+- option BD Topage/custom pour rapprocher une station du reseau hydrographique
+  avant le snap DEM;
+- delimitation de bassin versant depuis un exutoire;
+- criteres de surface, distance station-exutoire, influence, geologie et
+  piezometrie;
+- rapports HTML communs avec carte statique;
+- exports CSV, JSONL, GeoJSON, GPKG et GeoParquet;
+- audit des candidats DEM ignores et scoring par distance a un reseau de
+  reference quand il est disponible.
+
+### Ce qui reste a ameliorer
+
+La priorite est de rendre la generation automatique de candidats plus
+hydrologique. Au lieu de prendre simplement les cellules avec la plus forte
+accumulation, il faut proposer des points qui correspondent mieux a une campagne
+de selection:
+
+- choisir des exutoires proches d'une surface cible, par exemple 50-500 km2;
+- eviter que tous les candidats soient sur le meme grand troncon aval;
+- generer des candidats par sous-bassins;
+- utiliser les confluences et l'ordre du reseau;
+- utiliser un reseau BD Topage complet comme aide a la localisation, pas
+  seulement comme score de distance;
+- mieux expliquer dans le rapport pourquoi un candidat est propose ou rejete.
+
+Details des travaux a mener:
+
+- Choisir des exutoires proches d'une surface cible, par exemple 50-500 km2.
+  Aujourd'hui, le mode automatique choisit surtout les plus fortes
+  accumulations. Cela donne des bassins tres grands, car les plus fortes
+  accumulations sont souvent tres aval. Le bon comportement serait de chercher
+  des cellules du reseau dont la surface amont calculee est proche de la plage
+  demandee. Pour une campagne 50-500 km2, un point donnant 120 km2 devrait etre
+  mieux classe qu'un point donnant 3700 km2, meme si ce dernier a une
+  accumulation plus forte.
+
+- Eviter que tous les candidats soient sur le meme grand troncon aval.
+  L'espacement actuel evite deux points trop proches, mais il ne comprend pas la
+  structure hydrographique. Deux points distants de plusieurs kilometres peuvent
+  rester sur le meme cours d'eau aval et produire des bassins tres emboites. Il
+  faut donc detecter quand plusieurs candidats appartiennent au meme axe
+  principal et limiter leur nombre, ou bien garder seulement le meilleur
+  candidat par troncon.
+
+- Generer des candidats par sous-bassins.
+  Une selection regionale doit couvrir plusieurs secteurs hydrologiques, pas
+  seulement la partie aval du plus grand bassin. L'idee est de decouper le
+  territoire en sous-domaines hydrologiques, puis de chercher des candidats dans
+  chacun d'eux. Cela permettrait d'obtenir une carte plus repartie: plusieurs
+  bassins de taille comparable, situes dans des secteurs differents.
+
+- Utiliser les confluences et l'ordre du reseau.
+  Les confluences sont des endroits ou deux branches du reseau se rejoignent.
+  Elles sont souvent de bons points candidats, car elles definissent des bassins
+  amont bien interpretable. L'ordre du reseau, par exemple Strahler, donne une
+  indication de taille et d'importance des cours d'eau. Utiliser ces deux
+  informations permettrait d'eviter les cellules isolees ou arbitraires et de
+  proposer des exutoires situes sur des points hydrologiquement significatifs.
+
+- Utiliser un reseau BD Topage complet comme aide a la localisation, pas
+  seulement comme score de distance.
+  Dans le dernier run, BD Topage est seulement utilise pour dire si un candidat
+  DEM est loin ou proche du reseau de reference. Ce n'est pas suffisant. Une
+  meilleure approche serait de chercher les candidats directement sur BD Topage,
+  puis de les projeter localement sur le DEM pour delimiter le bassin. BD Topage
+  servirait alors de squelette hydrographique officiel, et le DEM servirait a
+  calculer le bassin versant. Cela devrait reduire les candidats mal places et
+  rendre la logique carte/reseau/exutoire plus lisible.
+
+- Mieux expliquer dans le rapport pourquoi un candidat est propose ou rejete.
+  Le fichier `candidate_generation.jsonl` contient deja des raisons techniques,
+  mais le HTML doit les rendre comprehensibles. Pour chaque candidat important,
+  le rapport devrait dire par exemple: surface amont estimee, distance au
+  candidat retenu le plus proche, distance a BD Topage, raison du rejet ou du
+  classement, et eventuellement "meme troncon qu'un meilleur candidat". Le but
+  est de pouvoir lire la carte et comprendre la decision sans ouvrir les JSONL.
+
+Les autres points a consolider ensuite sont:
+
+- brancher des sources regionales reelles d'influences anthropiques;
+- brancher des sources BRGM/BSS ou regionales pour geologie et piezometrie;
+- stabiliser les schemas finaux des couches d'evidence;
+- faire une carte interactive une fois les sorties spatiales stabilisees.
 
 ## Positionnement
 
@@ -67,9 +268,13 @@ hydromodpy.cli.commands.site_selection = commandes utilisateur
   des cartes de revue.
 - `candidate_outlets.py`: representation, reprojection et espacement des
   exutoires candidats.
+- `candidate_generation.py`: generation deterministe de premiers candidats
+  depuis le raster d'accumulation DEM et exports d'audit associes.
 - `flow_products_adapter.py`: adaptation vers les produits hydrologiques DEM
   existants.
 - `delineation.py`: adaptation vers la delimitation existante par point.
+- `reference_network.py`: projection optionnelle des exutoires sur un reseau
+  hydrographique de reference avant le snap DEM local.
 - `criteria.py`: composants auditables de criteres pour surface, observation,
   influence anthropique et geologie.
 - `selection.py`: decisions retenu/rejete et traces de score/flags.
@@ -115,6 +320,7 @@ hmp site-selection plan CONFIG
 hmp site-selection plan CONFIG --write-manifest --write-report
 hmp site-selection select-catchments CONFIG CATCHMENTS_CSV
 hmp site-selection build-observed CONFIG
+hmp site-selection build-generated CONFIG
 hmp site-selection report SITE_SELECTION_MANIFEST
 hmp run CONFIG
 ```
@@ -173,12 +379,138 @@ Ce HTML est un rapport de plan. Il ne contient pas de sites retenus/rejetes et
 sert a relire la strategie, le territoire, les donnees necessaires et les
 sorties prevues avant de lancer une vraie selection.
 
-Les sorties GeoParquet, catalogue de candidats et rapport Markdown sont gardees
-desactivees par defaut tant que leurs writers ne sont pas implementes.
+En mode `generated_candidates`, le workflow peut maintenant produire des sites
+sans CSV de bassins et sans stations hydrometriques:
 
-Les GeoJSON d'exutoires sont des points. Les GeoJSON de bassins contiennent les
-contours quand `watershed_shp` existe et peut etre lu. Si un contour est absent,
-le fichier reste ecrit et le bassin est liste dans `hydromodpy_skipped_basins`.
+```toml
+[site_selection.input]
+mode = "generated_candidates"
+
+[site_selection.outlets]
+candidate_mode = "network_sampling"
+max_generated_candidates = 50
+min_distance_between_outlets_km = 2.0
+```
+
+Le workflow resout le DEM, construit les produits de flux, echantillonne les
+cellules de forte accumulation, espace les candidats, puis reutilise la meme
+chaine de delimitation et de selection que les autres modes. Les artefacts
+specifiques sont:
+
+- `candidate_generation.jsonl`: audit par cellule candidate, avec `status`,
+  `rejection_reason`, accumulation, rang, distance au candidat deja retenu le
+  plus proche et, quand un reseau de reference est charge, distance/score au
+  reseau;
+- `candidate_outlets.geojson`: exutoires candidats effectivement envoyes a la
+  delimitation;
+- `generated_dem_network.geojson`: reseau DEM vectorise a partir du raster
+  d'accumulation, limite par `max_generated_network_cells`.
+
+Quand `snap_strategy = "bdtopage_then_dem"` et qu'un reseau BD Topage/custom est
+disponible, les candidats generes sont aussi scores par distance a ce reseau
+avant la delimitation. Les attributs `reference_network_distance_m`,
+`reference_network_score` et `reference_network_status` sont recopies dans
+`candidate_generation.jsonl` et les GeoJSON d'exutoires.
+
+Un exemple Bretagne a ete ajoute:
+
+- config:
+  `examples/projects/17_site_selection_workflow/configs/bretagne_generated_candidates_dem.toml`;
+- sortie HTML inspectable:
+  `examples/projects/17_site_selection_workflow/outputs/bretagne_generated_candidates_dem_v1/review/index.html`;
+- sortie reseau DEM:
+  `examples/projects/17_site_selection_workflow/outputs/bretagne_generated_candidates_dem_v1/generated_dem_network.geojson`.
+
+Ce run utilise un DEM BD ALTI local, genere 12 candidats, les delimite et les
+selectionne. Le reseau BD Topage local disponible est utilise en scoring
+(`reference_network_distance_m`), mais pas en snap obligatoire, afin que le
+rapport reste inspectable meme quand le GPKG de reference ne couvre pas tous les
+candidats generes.
+
+Les sorties de production peuvent maintenant etre activees explicitement:
+
+- `site_selection.output.write_geopackage = true` ecrit
+  `site_selection.gpkg` avec les couches `selected_outlets`,
+  `rejected_outlets`, `selected_basins`, `rejected_basins` quand elles ne sont
+  pas vides;
+- `site_selection.output.write_geoparquet = true` ecrit les couches
+  GeoParquet separees `selected_outlets.parquet`, `rejected_outlets.parquet`,
+  `selected_basins.parquet`, `rejected_basins.parquet`, et
+  `observation_points.parquet` quand des points d'observation geolocalises
+  existent.
+
+Ces sorties restent desactivees par defaut dans les exemples courts pour ne pas
+alourdir les runs de revue. Le catalogue de candidats et le rapport Markdown
+restent des jalons futurs.
+
+Les evidences d'influence peuvent maintenant etre calculees depuis des couches
+vectorielles:
+
+```toml
+[[site_selection.criteria.influence.layers]]
+name = "Barrages"
+path = "data/influence/barrages.gpkg"
+influence_type = "major_dam_upstream"
+id_field = "id"
+label_field = "name"
+severity_field = "severity"
+major_values = ["major"]
+```
+
+Chaque couche est lue par le workflow, reprojetee dans le CRS des exutoires,
+puis intersectee avec le contour de bassin quand il existe. En absence de
+contour, `influence_search_radius_km` peut servir de rayon autour de l'exutoire.
+Les matches sont ecrits dans `influence_evidence.jsonl`,
+`influence_features.geojson`, `influence_features.parquet` et/ou la couche
+`influence_features` de `site_selection.gpkg` selon les sorties activees.
+
+Les evidences de geologie peuvent maintenant etre calculees depuis des couches
+polygonales:
+
+```toml
+[[site_selection.criteria.geology.layers]]
+name = "Geologie BRGM"
+path = "data/geology/geology.gpkg"
+class_field = "lithology"
+id_field = "id"
+label_field = "label"
+```
+
+Le workflow intersecte chaque contour de bassin avec la couche, calcule les
+fractions de surface par classe, renseigne `geology_class`,
+`dominant_geology`, `geology_area_fraction` et `geology_diversity_count`, puis
+ecrit `geology_evidence.jsonl`. Avec les sorties spatiales actives, il ecrit
+aussi `geology_basins.geojson`, `geology_basins.parquet` et/ou la couche
+`geology_basins` de `site_selection.gpkg`.
+
+Les evidences de piezometrie peuvent maintenant etre calculees depuis des
+couches de points:
+
+```toml
+[[site_selection.criteria.observations.piezometer_layers]]
+name = "Piezometres BSS"
+path = "data/piezometry/piezometers.gpkg"
+id_field = "bss_id"
+label_field = "name"
+record_years_field = "record_years"
+quality_field = "quality"
+```
+
+Les points situes dans le bassin, ou dans le rayon
+`piezometer_max_distance_km` autour de l'exutoire quand il est configure, sont
+convertis en evidences `ObservationEvidence`. Le workflow renseigne
+`piezometer_count`, `piezometers_in_basin`,
+`nearest_piezometer_distance_km` et ecrit `piezometer_evidence.jsonl` en plus
+de `observation_evidence.jsonl` et `observation_points.geojson`.
+
+Les GeoJSON d'exutoires sont des points. Quand `outlet_snap_shp` existe, la
+geometrie de `selected_outlets.geojson` est le point snappe; les proprietes
+gardent aussi `outlet_original_x`, `outlet_original_y`,
+`x_outlet_snapped`, `y_outlet_snapped` et `outlet_snap_distance_m`. Quand il
+n'y a pas de snap disponible, la geometrie reste le point candidat original.
+Les GeoJSON de bassins contiennent les contours quand `watershed_shp` existe et
+peut etre lu. Si un contour est absent, le fichier reste ecrit et le bassin est
+liste dans `hydromodpy_skipped_basins`.
 
 Quand `site_selection.input.delineate_from_outlets = true`, les contours peuvent
 etre recalcules depuis les exutoires. Le DEM n'est alors pas une responsabilite
@@ -186,6 +518,20 @@ de `site_selection`: il est soit fourni par `site_selection.dem.path` pour les
 cas simples, soit declare proprement sous `[data.dem]` et charge/cache par les
 gestionnaires de donnees. Le manifest conserve le chemin du DEM effectivement
 utilise dans `flow_products.dem_path`.
+
+Le snap d'exutoire est maintenant configurable:
+
+- `site_selection.outlets.snap_strategy = "dem_accumulation"` conserve le
+  comportement direct: Whitebox cherche localement le meilleur point sur le
+  raster d'accumulation DEM, dans le rayon `snap_dist_m`.
+- `site_selection.outlets.snap_strategy = "bdtopage_then_dem"` projette d'abord
+  la station sur BD Topage ou un reseau custom, avec une limite
+  `reference_network_max_distance_m`, puis lance le snap DEM avec un rayon court
+  autour de ce point de reference.
+
+La deuxieme option ne remplace pas le MNT pour delimiter le bassin. Elle sert a
+eviter qu'un rayon de snap trop large choisisse une cellule plus accumulatrice
+plusieurs kilometres en aval de la station.
 
 Quand `site_selection.input.mode = "hydrometry"`, le meme principe est
 applique sans CSV de candidats: le workflow charge les stations via les
@@ -222,10 +568,14 @@ role = "hydrography"
 ```
 
 Ces couches sont seulement un contexte visuel de revue. Les contours retenus
-sont maintenant colores par classes de surface, pour que la carte reste lisible
-quand plusieurs bassins sont compares sur la meme region. Les stations
-hydrometriques sont symbolisees par de petits triangles bleus; quand l'exutoire
-retenu est la station hydro, le point d'exutoire n'est pas redessine par-dessus.
+sont maintenant colores par classes de surface, avec un remplissage transparent
+et des traits plus fins, pour que la carte reste lisible quand plusieurs bassins
+sont compares sur la meme region. Les stations hydrometriques sont symbolisees
+par de petits triangles bleus. Les exutoires retenus sont affiches au point
+snappe quand il existe; un lien pointille station -> exutoire est trace quand le
+deplacement depasse 250 m. Le cadrage privilegie les artefacts de selection si
+le DEM regional est trop large ou ne recoupe pas les bassins, ce qui evite les
+cartes vides ou les bassins minuscules au milieu d'un fond regional.
 
 ## Contrats stabilises
 
@@ -240,18 +590,40 @@ Le manifest officiel est maintenant validable:
   d'observation. Les contours de bassins retenus portent une symbologie par
   classes de surface.
 
-`selected_sites.csv` et `regional_lab_sites.csv` partagent un schema documente:
+`regional_lab_sites.csv` garde le schema historique attendu par les chargeurs de
+catalogue:
 
 ```text
 site_id, site_label, region_id, source_selection_id, site_status, maturity,
 x, y, x_outlet, y_outlet, area_km2, tags, enabled
 ```
 
+`selected_sites.csv` ajoute les champs de revue hydrologique issus du snap:
+
+```text
+x_outlet_snapped, y_outlet_snapped, outlet_snap_distance_m
+```
+
+Les champs `x`, `y`, `x_outlet` et `y_outlet` restent les coordonnees candidates
+utilisees pour lancer la delimitation. Avec `bdtopage_then_dem`, ces
+coordonnees peuvent etre le point projete sur le reseau de reference; les
+proprietes GeoJSON conservent alors `reference_network_original_x/y` et
+`reference_network_x/y`. Les GeoJSON et la carte utilisent l'exutoire snappe
+quand il est disponible.
+
+Pour les workflows pilotes par station hydrometrique, le critere
+`flow_station.max_station_to_outlet_distance_km` est evalue sur la distance
+entre la station et l'exutoire final affiche, c'est-a-dire l'exutoire snappe
+quand la delimitation DEM en produit un. Les exemples station-led utilisent
+maintenant `snap_dist_m = 150`, afin d'eviter les sauts kilometriques vers
+l'aval. La contrainte de distance station -> exutoire reste auditee separement,
+typiquement a 1 km dans les exemples Bretagne.
+
 Les criteres auditables couvrent maintenant:
 
 - `area`: surface en mode rejet dur, score, stratification, warning ou report ;
-- `flow_station`: duree d'observation, distance station-exutoire, station dans
-  ou a l'exutoire ;
+- `flow_station`: duree d'observation, distance station-exutoire finale,
+  station dans ou a l'exutoire ;
 - `piezometer`: presence/distance de suivi piezometrique, avec modes report,
   score, warning, stratification ou rejet dur ;
 - `influence`: flags explicites de barrage, prelevement majeur ou troncon
@@ -284,7 +656,12 @@ Cas fournis:
 - `configs/bretagne_hydrometry_50_500_small.toml`: meme principe, mais avec 7
   stations dans une emprise compacte. Cette variante reduit le temps
   d'execution pour travailler la carte et le rapport HTML sans lancer les 54
-  delimitations de l'inventaire complet.
+  delimitations de l'inventaire complet. Elle garde le snap direct
+  `dem_accumulation` avec `snap_dist_m = 150`.
+- `configs/bretagne_hydrometry_50_500_small_bdtopage.toml`: meme sous-ensemble
+  de 7 stations, mais avec `snap_strategy = "bdtopage_then_dem"`. Le workflow
+  telecharge ou reutilise une couche BD Topage dans `outputs/.../reference_network`
+  puis reconcile localement chaque point avec le DEM.
 - `configs/auvergne_rhone_alpes_area_only.toml`: principe `criteria_crossing`
   avec profil `area_only`, surface comme seul critere actif. La fixture
   courante contient 20 bassins entre 50 et 150 km2.
@@ -314,19 +691,23 @@ fixtures/aura_area_50_150_catchments.csv
   fiable de qualite hydrologique: elles peuvent produire des contours
   artificiels. Les figures de travail doivent utiliser un DEM reel ou un
   contour de bassin deja valide.
-- Les controles d'influence sont auditables a partir de flags deja presents,
-  mais pas encore calcules automatiquement depuis des couches barrage ou
-  prelevement.
-- La geologie est auditable quand une classe geologique est fournie, mais le
-  croisement spatial avec une base BRGM/regionalisee reste a implementer.
-- La piezometrie est maintenant auditable comme critere simple, mais le
-  croisement spatial automatique avec les chroniques piezometriques reste a
-  implementer.
-- Le DEM-only complet pour generer des candidats sans CSV pre-delimite n'est pas
-  encore complet. Le chemin station-led sans CSV est maintenant cable, mais son
-  execution reelle peut etre lourde sur une grande region comme AURA car elle
-  depend du chargement Hub'Eau et du DEM regional.
-- Les sorties GeoParquet et Markdown restent des jalons futurs.
+- Les controles d'influence peuvent etre calcules depuis des couches vecteur,
+  mais les sources regionales reelles et leurs conventions de severite restent
+  a stabiliser par campagne.
+- La geologie peut etre croisee spatialement depuis une couche polygonale
+  configuree, mais le branchement a une base BRGM/regionalisee et une
+  typologie officielle de campagne restent a definir.
+- La piezometrie peut etre croisee spatialement depuis une couche de points
+  configuree, mais le chargement automatique des inventaires/chroniques via les
+  gestionnaires de donnees reste a brancher.
+- Le DEM-only sans CSV pre-delimite existe maintenant avec deux chemins:
+  `generated_candidates` pour l'echantillonnage du reseau DEM et
+  `dem_area_light` pour une selection rapide autour d'une surface cible.
+  `generated_candidates` produit maintenant le reseau DEM vectorise, l'audit des
+  candidats rejetes et le scoring BD Topage/custom quand disponible. Les
+  confluences, l'ordre de Strahler explicite et les sorties de sous-bassins
+  restent a enrichir.
+- Le catalogue de candidats et le rapport Markdown restent des jalons futurs.
 
 ## Verification actuelle
 
@@ -338,16 +719,20 @@ Les tests `tests/unit/site_selection` sont organises par niveau de contrat:
 | --- | --- | --- |
 | `test_config.py` | validation TOML/Pydantic, profils `area_only` et `observation_led`, regions FR | les configurations invalides sont rejetees tot avec des erreurs explicites |
 | `test_candidate_outlets.py` | construction et reprojection des exutoires candidats depuis stations/CSV, espacement minimal | les candidats gardent les metadonnees de station et les doublons proches sont filtres |
+| `test_candidate_generation.py` | generation de candidats depuis un raster d'accumulation, workflow `generated_candidates`, workflow `dem_area_light`, reseau DEM vectorise et scoring reseau de reference | un DEM peut produire des exutoires candidats reproductibles, audites avec raisons de rejet, visualisables en GeoJSON et enrichis par distance/score BD Topage/custom |
 | `test_criteria.py` | surface, station hydro, piezometrie, influence, geologie | chaque critere produit un composant auditable, avec score, flags et rejet dur si configure |
-| `test_selection.py` | decision finale, recouvrement entre bassins, echecs de delimitation | les bassins retenus/rejetes sont stables et explicables |
+| `test_selection.py` | decision finale, recouvrement entre bassins, echecs de delimitation, rejet des stations trop eloignees apres snap | les bassins retenus/rejetes sont stables et explicables |
 | `test_filters.py` | calcul du recouvrement spatial | le filtre de recouvrement utilise le denominateur attendu |
-| `test_exports.py` | CSV, JSONL, GeoJSON, schema `selected_sites.csv` | les artefacts d'audit et les exports GIS gardent leurs colonnes/cles stables |
-| `test_manifest_report.py` | manifest officiel, validation d'artefacts, HTML et PNG | le rapport reste derive du manifest et detecte les artefacts invalides |
+| `test_exports.py` | CSV, JSONL, GeoJSON, GeoPackage, GeoParquet, schema `selected_sites.csv`, geometrie d'exutoire snappe | les artefacts d'audit et les exports GIS gardent leurs colonnes/cles stables; l'exutoire cartographie est le point snappe quand disponible |
+| `test_reference_network.py` | projection d'un exutoire sur un reseau de reference et rejet si trop eloigne | l'option BD Topage/custom reste bornee et auditable |
+| `test_influence_layers.py` | croisement de couches vectorielles d'influence avec les bassins, injection de flags et export GeoJSON | les influences calculees automatiquement alimentent le critere `influence` et restent auditables |
+| `test_geology_piezometry_layers.py` | croisement geologique polygonal, association de piezometres, sorties workflow associees | les couches configurees alimentent les criteres `geology` et `piezometer`, puis produisent JSONL, GeoJSON, GPKG et points d'observation |
+| `test_manifest_report.py` | manifest officiel, validation d'artefacts, HTML, PNG, GPKG et GeoParquet | le rapport reste derive du manifest et detecte les artefacts invalides |
 | `test_synthetic_spatial_review.py` | scenario spatial synthetique complet | la chaine ecrit bassins, observations, carte PNG et HTML de revue |
 | `test_workflow_plan.py` | planification, CSV pre-delimites, plan-only, resolution DEM | les commandes workflow ecrivent les sorties attendues sans lancer de solveur |
 | `test_build.py` | build station-led depuis `PointRecord`, delimitation, exports | la chaine observations -> exutoires -> bassins -> selection fonctionne sur fixtures |
 | `test_data_layers.py` | adaptateur hydrometrie et racine de donnees par defaut | `site_selection` passe par les data managers et respecte `HYDROMODPY_WORKSPACE` |
-| `test_delineation.py` | delegation a la delimitation existante et gestion d'erreur | les echecs de delimitation deviennent des candidats rejetes auditables |
+| `test_delineation.py` | delegation a la delimitation existante, pre-snap reseau de reference et gestion d'erreur | les echecs de delimitation deviennent des candidats rejetes auditables |
 | `test_flow_products_adapter.py` | delegation aux produits hydrologiques DEM existants | `site_selection` ne reimplemente pas les produits de flux |
 | `test_observation_evidence.py` | normalisation des evidences d'observation | les sorties ne dependent pas directement des schemas bruts fournisseur |
 | `test_example_configs.py` | exemples Bretagne/AURA et runs fixtures | les TOML d'exemple restent chargeables et executables sur donnees legeres |
@@ -368,69 +753,102 @@ Tests connexes hors dossier `site_selection`:
 
 ### Comment les faire fonctionner
 
-Commande cible dans un environnement complet, avec `pytest-xdist` disponible
-car `pytest.ini` configure `--dist=loadgroup`:
+Commande cible dans un environnement complet. `pytest-xdist` doit etre installe
+car `pytest.ini` configure `--dist=loadgroup`; il est deja declare dans
+`pyproject.toml` sous l'extra `test`.
 
 ```bash
 python -m pytest -q tests/unit/site_selection
 ```
 
-Si `pytest-xdist` n'est pas installe, neutraliser les `addopts` du `pytest.ini`:
-
-```bash
-python -m pytest -q -o addopts= tests/unit/site_selection
-```
-
-Pour tester seulement le coeur fonctionnel dans le workspace courant, en
-contournant le test de dispatch qui pointe encore vers un ancien module:
-
-```bash
-python -m pytest -q -o addopts= tests/unit/site_selection --ignore=tests/unit/site_selection/test_workflow_dispatch.py
-```
-
 Resultat observe le 2026-05-23:
 
 ```text
-76 passed
+90 passed
+```
+
+Resultat relance le 2026-05-24 apres les changements BD Topage/doc:
+
+```text
+91 passed
+```
+
+Resultat relance le 2026-05-24 apres l'ajout des sorties GPKG/GeoParquet:
+
+```text
+93 passed
+```
+
+Resultat cible relance apres l'ajout des couches d'influence automatiques:
+
+```text
+35 passed
+```
+
+Resultat complet `tests/unit/site_selection` relance apres regeneration de la
+reference TOML:
+
+```text
+95 passed
+```
+
+Resultat complet `tests/unit/site_selection` relance le 2026-05-25 apres ajout
+du croisement geologie/piezometrie generique:
+
+```text
+98 passed
+```
+
+Resultat complet `tests/unit/site_selection` relance le 2026-05-25 apres ajout
+du mode `generated_candidates`:
+
+```text
+100 passed
+```
+
+Resultat complet `tests/unit/site_selection` relance le 2026-05-25 apres reseau
+DEM vectorise, audit des rejets, scoring reseau de reference et exemple
+Bretagne genere:
+
+```text
+108 passed
 ```
 
 Pour les tests de donnees associes au DEM et aux regions francaises:
 
 ```bash
-python -m pytest -q -o addopts= tests/unit/data_managers/test_dem_manager.py tests/unit/data_managers/test_geoplateforme_dem_downloader.py tests/unit/data_managers/test_france_administrative_regions.py
+python -m pytest -q tests/unit/data_managers/test_dem_manager.py tests/unit/data_managers/test_geoplateforme_dem_downloader.py tests/unit/data_managers/test_france_administrative_regions.py
 ```
 
-Resultat observe le 2026-05-23 dans ce workspace:
+Resultat observe le 2026-05-23:
 
 ```text
-12 passed, 2 failed
+14 passed
 ```
 
-Les 2 echecs viennent de `test_dem_manager.py`: les tests instancient encore
-`DemSourceConfig(...)`, qui est maintenant une union annotee/discriminee et non
-un modele instanciable directement. La correction attendue est de passer par la
-validation de `DemConfig` avec des dictionnaires de sources, ou d'instancier
-`IgnBdaltiDemSource` directement.
+Commande de verification ciblee complete:
 
-### Blocages de validation observes
+```bash
+python -m pytest -q tests/unit/site_selection tests/unit/data_managers/test_dem_manager.py tests/unit/data_managers/test_geoplateforme_dem_downloader.py tests/unit/data_managers/test_france_administrative_regions.py tests/unit/launchers/test_hmp_simulation_cli.py tests/integration/test_cli_subcommands.py
+```
 
-Etat local au 2026-05-23:
+Resultat observe le 2026-05-23:
 
-- `python -m pytest -q tests/unit/site_selection` echoue avant collecte si
-  `pytest-xdist` n'est pas installe, a cause de l'option
-  `--dist=loadgroup`;
-- `test_workflow_dispatch.py` importe `hydromodpy.workflow_dispatch`, module
-  qui n'existe plus dans le paquet actuel; le test doit etre aligne sur
-  `hydromodpy.workflow.dispatch` ou sur `hydromodpy.project.dispatch.workflow`;
-- plusieurs fichiers du workspace sont en conflit Git (`UU`). Ces conflits ne
-  doivent pas etre confondus avec une limite fonctionnelle de `site_selection`,
-  mais ils peuvent bloquer une verification complete du depot.
+```text
+158 passed
+```
 
-Commandes de verification a relancer apres correction de ces points:
+Commandes de lint et tests a relancer avant integration:
 
 ```bash
 python -m ruff check hydromodpy/spatial/site_selection hydromodpy/workflow/site_selection.py hydromodpy/workflow/site_selection_data.py hydromodpy/cli/commands/site_selection.py tests/unit/site_selection
 python -m pytest -q tests/unit/site_selection tests/unit/data_managers/test_dem_manager.py tests/unit/data_managers/test_geoplateforme_dem_downloader.py tests/unit/data_managers/test_france_administrative_regions.py tests/unit/launchers/test_hmp_simulation_cli.py tests/integration/test_cli_subcommands.py
+```
+
+Resultat lint cible relance le 2026-05-24:
+
+```text
+All checks passed!
 ```
 
 ## Consolidations realisees
@@ -448,20 +866,374 @@ python -m pytest -q tests/unit/site_selection tests/unit/data_managers/test_dem_
 
 ## Prochaines consolidations recommandees
 
-1. Remettre au vert la suite de validation locale: pre-requis `pytest-xdist`,
-   import de dispatch `site_selection`, tests DEM alignes sur l'union
-   discriminee des sources.
-2. Brancher le calcul automatique des flags d'influence depuis des couches
-   regionales clairement chargees par le workflow, pas par les primitives
-   spatiales.
-3. Ajouter le croisement geologique spatial avec une source explicite et une
-   strategie de typologie configurable.
-4. Brancher le croisement spatial automatique des piezometres depuis les couches
-   chargees par le workflow.
-5. Introduire une sortie polygonale plus robuste (`GeoParquet` ou `GeoPackage`)
-   en complement du GeoJSON de revue.
-6. Ajouter une carte interactive seulement apres stabilisation de la sortie
-   polygonale et des couches d'observation.
+### 1. Generation autonome de candidats DEM/reseau
+
+Objectif:
+
+- permettre un run `criteria_crossing` ou `dem_only` sans CSV de bassins
+  pre-delimites et sans stations hydrometriques imposees comme seuls exutoires;
+- produire automatiquement une grille ou un catalogue de candidats le long du
+  reseau hydrographique, puis reutiliser la chaine existante de delimitation et
+  de selection.
+
+Etat actuel:
+
+- `site_selection` sait charger des candidats depuis un CSV et sait construire
+  des exutoires depuis des stations deja chargees;
+- les produits DEM (`dem_fill`, direction, accumulation) sont deja construits
+  par les primitives existantes;
+- `candidate_mode = "network_sampling"` est maintenant executable avec
+  `site_selection.input.mode = "generated_candidates"`;
+- le code lit le raster d'accumulation, selectionne les cellules les plus
+  accumulatrices, applique `min_distance_between_outlets_km`, borne le nombre
+  de candidats avec `max_generated_candidates`, puis delimite chaque candidat.
+
+Travail technique:
+
+- Enrichir l'echantillonnage actuel.
+  Aujourd'hui, le code choisit surtout les cellules de plus forte accumulation.
+  Cela repere bien les grands axes aval, mais pas forcement les sites utiles
+  pour une campagne 50-500 km2. Il faut donc ajouter plusieurs manieres de
+  proposer des exutoires:
+
+  - sorties de bassin: points situes a l'aval de sous-bassins de taille
+    compatible avec la cible;
+  - confluences: points ou deux branches du reseau se rejoignent, souvent plus
+    faciles a interpreter hydrologiquement;
+  - points espaces regulierement: points repartis le long du reseau pour eviter
+    de tout concentrer sur la zone de plus forte accumulation;
+  - classes d'accumulation: points tires dans plusieurs classes, par exemple
+    petits, moyens et grands bassins, au lieu de garder seulement les plus
+    grandes accumulations.
+
+  Le resultat attendu est une liste de candidats plus variee: des bassins de
+  tailles differentes, mieux repartis dans la region, et moins concentres sur un
+  seul grand cours d'eau aval.
+
+- Contraindre optionnellement les candidats par BD Topage ou par un reseau
+  custom.
+  Le DEM calcule son propre reseau a partir de la topographie. Ce reseau peut
+  etre decale par rapport au reseau hydrographique officiel, surtout avec un
+  MNT grossier, des ouvrages, des zones planes ou des corrections hydrauliques
+  imparfaites. L'idee est donc de ne garder, ou de mieux classer, que les
+  candidats proches d'un reseau de reference comme BD Topage ou un reseau fourni
+  par l'utilisateur.
+
+  Deux usages sont possibles:
+
+  - contrainte douce: le candidat reste possible, mais il recoit un mauvais
+    score s'il est loin du reseau de reference;
+  - contrainte dure: le candidat est rejete s'il est trop loin du reseau de
+    reference.
+
+  Cela reprend l'esprit de `bdtopage_then_dem`, mais pour les candidats generes
+  automatiquement, pas seulement pour les stations hydrometriques.
+
+- Ajouter une relation plus riche avec le reseau de reference.
+  La distance au reseau est une premiere information, mais elle ne suffit pas.
+  Il faut aussi savoir sur quel type de troncon le candidat tombe. Par exemple,
+  un candidat proche d'un petit fossé et un candidat proche d'un cours d'eau
+  principal ne doivent pas forcement etre classes de la meme maniere.
+
+  Les informations utiles a calculer sont:
+
+  - distance du candidat au reseau de reference;
+  - identifiant du troncon BD Topage ou custom le plus proche;
+  - ordre ou importance du cours d'eau, si cette information est disponible;
+  - statut du candidat: proche du reseau, trop eloigne, ambigu, hors emprise;
+  - score de confiance combinant distance, importance du troncon et coherence
+    avec la surface amont DEM.
+
+  Le but est que le rapport puisse dire: ce candidat est bon parce qu'il est sur
+  un troncon coherent du reseau de reference, ou au contraire ce candidat est
+  douteux parce qu'il est loin du reseau officiel.
+
+- Exporter les candidats ignores avant delimitation.
+  La delimitation des bassins est couteuse. On ne veut donc pas delimiter toutes
+  les cellules possibles du reseau. Le code filtre d'abord beaucoup de points:
+  certains sont trop proches d'un meilleur candidat, d'autres sont sous le seuil
+  d'accumulation, d'autres depassent la limite du nombre de candidats.
+
+  Pour auditer correctement une campagne, il peut etre utile de conserver la
+  trace de ces candidats ignores. L'export doit indiquer:
+
+  - coordonnees du point ignore;
+  - accumulation ou surface amont estimee;
+  - raison du rejet avant delimitation;
+  - candidat retenu le plus proche, quand le rejet vient de l'espacement;
+  - distance au reseau de reference, si elle a ete calculee.
+
+  Cela permet de justifier pourquoi certains secteurs du reseau n'apparaissent
+  pas dans les bassins finalement delimites.
+
+Sorties attendues:
+
+- `candidate_outlets.geojson`, disponible pour les candidats generes;
+- `candidate_generation.jsonl` avec source du candidat, accumulation, seuil
+  utilise, rang et coordonnees raster;
+- runs `hmp run` possibles avec `mode = "site_selection"` et sans
+  `catchments_csv`, via `site_selection.input.mode = "generated_candidates"`.
+
+Critere de validation:
+
+- un test synthetique prouve qu'un raster d'accumulation simple produit des
+  candidats reproductibles;
+- un test workflow prouve que ces candidats sont delimites et que les exports
+  `candidate_generation.jsonl` et `candidate_outlets.geojson` sont ecrits;
+- un exemple regional court reste a ajouter pour produire des bassins sans CSV
+  d'entree sur donnees reelles;
+- le manifest doit distinguer clairement candidats generes, candidats delimites,
+  sites selectionnes et sites rejetes.
+
+Etat de test:
+
+- `tests/unit/site_selection/test_candidate_generation.py` verifie la selection
+  deterministe de cellules de forte accumulation et l'ecriture des artefacts
+  candidats;
+- le meme fichier verifie un workflow `generated_candidates` complet avec
+  delimitation simulee et manifest d'action `generated_candidates`.
+
+### 2. Influence automatique
+
+Objectif:
+
+- ne plus dependre uniquement de flags deja presents dans les CSV
+  (`major_dam_upstream`, `major_withdrawal_upstream`, etc.);
+- calculer ces flags depuis des couches regionales chargees par le workflow.
+
+Etat actuel:
+
+- les criteres d'influence existent et sont auditables;
+- une influence inconnue ne rejette pas un bassin;
+- le code sait consommer des flags explicites;
+- le workflow peut maintenant lire des couches vectorielles declarees dans
+  `site_selection.criteria.influence.layers`, les intersecter avec les bassins
+  et remplir automatiquement les flags consommes par `criteria.influence`;
+- les evidences sont exportables en JSONL, GeoJSON, GeoParquet et couche GPKG.
+
+Travail technique:
+
+- brancher des sources de donnees regionales reelles et stabiliser leurs
+  champs de correspondance (`id_field`, `label_field`, `severity_field`);
+- ajouter au besoin des modes de relation plus hydrologiques: influence sur le
+  reseau amont, influence dans un buffer du reseau, influence a distance de
+  l'exutoire;
+- enrichir la carte HTML avec une legende et des popups specifiques aux
+  influences;
+- documenter une convention de severite commune pour les campagnes France.
+
+Sources possibles a brancher, sans les coder en dur dans les primitives:
+
+- obstacles, barrages, seuils et plans d'eau;
+- prelevements et rejets significatifs;
+- troncons explicitement regules ou fortement artificialises;
+- couches locales propres a une campagne.
+
+Sorties attendues:
+
+- `influence_evidence.jsonl`, disponible quand au moins une influence est
+  detectee;
+- `influence_features.geojson`, `influence_features.parquet` et couche
+  `influence_features` dans `site_selection.gpkg` selon les switches de sortie;
+- champs de synthese dans les attributs de bassin et, a terme, dans
+  `selected_sites.csv` et `rejected_sites.csv`.
+
+Critere de validation:
+
+- un bassin avec une influence explicite en amont doit etre rejete si la regle
+  est en `hard_reject`;
+- un bassin sans couche disponible doit rester en statut "inconnu" et non
+  rejete par defaut;
+- la carte et le HTML doivent permettre de voir quelle influence explique le
+  rejet.
+
+Etat de test:
+
+- `tests/unit/site_selection/test_influence_layers.py` verifie qu'une couche
+  vectorielle intersectant un bassin renseigne `major_dam_upstream` et provoque
+  un rejet en mode `hard_reject`;
+- le meme fichier verifie l'export GeoJSON des evidences d'influence.
+
+### 3. Croisement geologie et piezometrie
+
+Objectif geologie:
+
+- passer d'une classe geologique deja fournie dans un CSV a un vrai croisement
+  spatial entre bassins et couche geologique;
+- permettre une typologie configurable par campagne.
+
+Etat actuel geologie:
+
+- le critere `geology` existe comme evidence, score simple ou stratification;
+- le workflow sait lire des couches polygonales declarees dans
+  `site_selection.criteria.geology.layers`;
+- le croisement calcule les fractions de surface par classe, la classe
+  dominante et un compteur de diversite simple;
+- ces attributs alimentent le critere `geology` et les exports d'evidence.
+
+Travail technique geologie:
+
+- brancher une source BRGM ou regionalisee concrete dans les gestionnaires de
+  donnees, sans coder le fournisseur dans les primitives spatiales;
+- ajouter une table de regroupement optionnelle si les classes fournisseur sont
+  trop fines pour une campagne;
+- documenter le schema de sortie final quand la typologie sera stabilisee.
+
+Objectif piezometrie:
+
+- calculer automatiquement la presence et la distance de piezometres utiles au
+  lieu de ne consommer que des colonnes CSV pre-normalisees.
+
+Etat actuel piezometrie:
+
+- le critere `piezometer` existe et peut etre en `report_only`, `warning`,
+  `score`, `stratify` ou `hard_reject`;
+- les points d'observation normalises peuvent deja etre exportes et symbolises;
+- le workflow sait lire des couches de points declarees dans
+  `site_selection.criteria.observations.piezometer_layers`;
+- il associe les piezometres situes dans le bassin ou proches de l'exutoire,
+  puis renseigne les distances et le nombre de points disponibles;
+- le chargement d'un inventaire piezometrique fournisseur par data manager reste
+  a brancher.
+
+Travail technique piezometrie:
+
+- charger l'inventaire piezometrique via les gestionnaires de donnees, pas dans
+  les primitives `spatial.site_selection`;
+- ajouter au besoin des relations supplementaires: distance au reseau ou
+  distance a la station hydrometrique;
+- stabiliser les conventions de champs pour periode disponible et statut de
+  qualite selon la source reelle.
+
+Sorties attendues:
+
+- `geology_evidence.jsonl`, disponible quand une couche geologique matche un
+  bassin;
+- `geology_basins.geojson`, `geology_basins.parquet` et couche
+  `geology_basins` dans `site_selection.gpkg` selon les switches de sortie;
+- `piezometer_evidence.jsonl`, disponible quand au moins un piezometre est
+  associe a un bassin;
+- `observation_points.geojson`, `observation_points.parquet` et couche
+  `observation_points` enrichies avec les piezometres geolocalises.
+
+Critere de validation:
+
+- un bassin recoupant plusieurs classes geologiques doit avoir des fractions
+  auditees et une classe dominante reproductible;
+- un piezometre dans le bassin ou proche de l'exutoire doit produire une
+  evidence lisible dans le HTML et dans le GeoJSON.
+
+Etat de test:
+
+- `tests/unit/site_selection/test_geology_piezometry_layers.py` verifie la
+  geologie dominante et les fractions issues d'une couche polygonale;
+- le meme fichier verifie qu'un piezometre dans le bassin renseigne les
+  attributs consommes par le critere `piezometer`;
+- le test workflow verifie l'ecriture de `geology_evidence.jsonl`,
+  `geology_basins.geojson`, `piezometer_evidence.jsonl`,
+  `observation_points.geojson` et des couches GPKG correspondantes.
+
+### 4. Sortie polygonale robuste GeoParquet/GPKG
+
+Objectif:
+
+- conserver le GeoJSON comme format de revue leger, mais ajouter un format de
+  production plus robuste pour les bassins, exutoires et couches d'evidence;
+- eviter les limites du GeoJSON pour les geometries lourdes, les CRS, les
+  schemas de colonnes et les usages GIS.
+
+Etat actuel:
+
+- `selected_basins.geojson`, `rejected_basins.geojson`,
+  `selected_outlets.geojson`, `rejected_outlets.geojson` et
+  `observation_points.geojson` sont produits quand les geometries existent;
+- `write_geopackage = true` produit maintenant `site_selection.gpkg` avec les
+  couches non vides `selected_outlets`, `rejected_outlets`,
+  `selected_basins`, `rejected_basins`, puis `observation_points` quand les
+  evidences d'observation portent une localisation. Les couches
+  `influence_features` et `geology_basins` sont ajoutees quand les evidences
+  correspondantes existent;
+- `write_geoparquet = true` produit maintenant des fichiers GeoParquet separes
+  par couche spatiale disponible, incluant les evidences d'influence, de
+  geologie et les points d'observation/piezometrie quand presents;
+- le manifest reference ces sorties et valide maintenant les artefacts GPKG et
+  GeoParquet, en plus des GeoJSON, CSV, JSONL et PNG.
+
+Travail technique:
+
+- stabiliser le schema de production au-dela des champs deja exportes:
+  decision, surface, CRS, snap, distances, criteres principaux et chemins
+  d'artefacts sources sont presents; il reste a figer le schema final des
+  evidences fournisseur reelles;
+- ajouter une etape de validation/reparation geometrique plus explicite quand
+  les contours proviennent de shapefiles temporaires;
+- documenter si les piezometres restent dans `observation_points` ou si une
+  couche specialisee `piezometer_points` devient necessaire;
+- documenter le schema final une fois ces couches branchees.
+
+Sorties attendues:
+
+- option GeoPackage deja disponible: `site_selection.gpkg` avec couches
+  `selected_basins`, `rejected_basins`, `selected_outlets`,
+  `rejected_outlets`, `observation_points`, `influence_features` et
+  `geology_basins` quand les evidences existent;
+- option GeoParquet deja disponible: fichiers separes par couche, adaptes aux
+  traitements analytiques;
+- les piezometres sont pour l'instant exportes comme points d'observation
+  normalises dans `observation_points`.
+
+Critere de validation:
+
+- GeoPandas relit les couches avec le bon CRS et les bons champs; cette
+  validation est couverte par `tests/unit/site_selection/test_exports.py`;
+- `validate_selection_manifest()` accepte les artefacts GPKG et GeoParquet
+  lisibles; cette validation est couverte par
+  `tests/unit/site_selection/test_manifest_report.py`;
+- la carte statique et la future carte interactive doivent pouvoir etre
+  reconstruites depuis ces sorties sans relire les shapefiles temporaires de
+  delimitation.
+
+### 5. Carte interactive
+
+Objectif:
+
+- remplacer le PNG statique par une vue de revue plus riche, sans faire du HTML
+  une deuxieme source de verite;
+- permettre d'inspecter facilement pourquoi un site est retenu ou rejete.
+
+Etat actuel:
+
+- le rapport HTML derive du manifest et embarque une carte PNG lisible;
+- les rapports HTML commencent a converger vers des blocs communs documentes
+  dans `docs/_dev_notes/html_block_reports_audit.md`;
+- la carte statique sait afficher bassins, exutoires, stations, liens
+  station-exutoire et couches de contexte.
+
+Travail technique:
+
+- construire la carte interactive a partir du manifest et des artefacts GIS
+  stabilises, pas depuis des fichiers temporaires;
+- ajouter des couches activables: bassins retenus/rejetes, exutoires snappes,
+  stations, piezometres, influences, BD Topage, geologie, fond DEM simplifie;
+- ajouter des popups par site avec decision, score, surface, snap, distance
+  station-exutoire, criteres en warning et raisons de rejet;
+- ajouter des filtres simples par statut, classe de surface, source
+  d'observation et presence d'influence;
+- reutiliser le gabarit de blocs HTML commun pour eviter un rapport specifique
+  non maintenable.
+
+Ordre recommande:
+
+1. stabiliser d'abord les sorties polygonales GeoParquet/GPKG;
+2. brancher geologie, piezometrie et influence comme couches/evidences;
+3. seulement ensuite produire la carte interactive, qui consommera ces sorties.
+
+Critere de validation:
+
+- ouvrir `review/index.html` hors serveur doit rester possible;
+- la carte doit fonctionner quand certains artefacts optionnels sont absents;
+- un test HTML doit verifier la presence des couches attendues et des liens
+  vers les artefacts sources.
 
 ## Note DEM Geoplateforme
 

@@ -571,6 +571,8 @@ Sub-models are linked back to their per-section page.
       # dem = ...  # uses factory default
       # no description
       # hydrology = ...  # uses factory default
+      # Compact settings for DEM-only automatic small-basin selection.
+      # dem_area_light = ...  # default = None
       # no description
       # input = ...  # uses factory default
       # no description

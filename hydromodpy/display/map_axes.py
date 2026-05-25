@@ -18,6 +18,13 @@ if TYPE_CHECKING:
     from hydromodpy.results.run import Run
 
 
+RELATIVE_MAP_LABEL_SIZE = 13.75
+RELATIVE_MAP_TICK_SIZE = 12.5
+RELATIVE_MAP_LEGEND_SIZE = 12.5
+RELATIVE_MAP_COLORBAR_LABEL_SIZE = 12.5
+RELATIVE_MAP_COLORBAR_TICK_SIZE = 11.25
+
+
 def style_map_axes(
     ax: Axes,
     *,
@@ -50,6 +57,29 @@ def style_map_axes(
     ax.xaxis.set_major_formatter(fmt)
     ax.yaxis.set_major_formatter(fmt)
     ax.tick_params(axis="both", which="major", labelsize=9)
+
+
+def style_relative_km_axes(
+    ax: Axes,
+    *,
+    xlabel: str = "X relatif (km)",
+    ylabel: str = "Y relatif (km)",
+    max_ticks: int = 4,
+) -> None:
+    """Style map axes as relative kilometres from the current lower-left corner."""
+    from matplotlib.ticker import FuncFormatter, MaxNLocator
+
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+    ax.set_xlabel(xlabel, fontsize=RELATIVE_MAP_LABEL_SIZE)
+    ax.set_ylabel(ylabel, fontsize=RELATIVE_MAP_LABEL_SIZE)
+    ax.set_aspect("equal", adjustable="datalim")
+    locator_kw = {"nbins": max_ticks, "integer": False, "prune": "both", "steps": [1, 2, 5, 10]}
+    ax.xaxis.set_major_locator(MaxNLocator(**locator_kw))
+    ax.yaxis.set_major_locator(MaxNLocator(**locator_kw))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{(value - xmin) / 1000:.1f}"))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{(value - ymin) / 1000:.1f}"))
+    ax.tick_params(axis="both", which="major", labelsize=RELATIVE_MAP_TICK_SIZE)
 
 
 def overlay_watershed_contour(
@@ -95,4 +125,14 @@ def style_date_axis(ax: Axes, *, rotation: int = 0) -> None:
             label.set_ha("right")
 
 
-__all__ = ["overlay_watershed_contour", "style_date_axis", "style_map_axes"]
+__all__ = [
+    "overlay_watershed_contour",
+    "RELATIVE_MAP_COLORBAR_LABEL_SIZE",
+    "RELATIVE_MAP_COLORBAR_TICK_SIZE",
+    "RELATIVE_MAP_LABEL_SIZE",
+    "RELATIVE_MAP_LEGEND_SIZE",
+    "RELATIVE_MAP_TICK_SIZE",
+    "style_date_axis",
+    "style_map_axes",
+    "style_relative_km_axes",
+]

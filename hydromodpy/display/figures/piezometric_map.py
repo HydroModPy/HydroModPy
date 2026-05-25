@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from hydromodpy.display.catalog import register
 from hydromodpy.display.figure import BaseFigure, FigureSpec
-from hydromodpy.display.map_axes import overlay_watershed_contour, style_map_axes
+from hydromodpy.display.map_axes import overlay_watershed_contour, style_relative_km_axes
 from hydromodpy.display.ugrid import last_timestep, render_face_field
 
 if TYPE_CHECKING:
@@ -50,6 +50,6 @@ class PiezometricMap(BaseFigure):
             cbar_label=self.axis_label_for("watertable_elevation"),
         )
         overlay_watershed_contour(ax, sim)
-        style_map_axes(ax)
+        style_relative_km_axes(ax)
         ax.set_title(f"Water table - {sim.name or sim.sim_id}")
         return ax

@@ -4,6 +4,8 @@ import pytest
 
 from hydromodpy.spatial.site_selection.config import (
     AreaCriteriaConfig,
+    DemAreaLightConfig,
+    OutletsConfig,
     SiteSelectionConfig,
     StrategyConfig,
 )
@@ -136,12 +138,68 @@ def test_observation_led_accepts_station_outlets(tmp_path):
 
 
 @pytest.mark.fast
+def test_outlet_snap_strategy_accepts_bdtopage_then_dem():
+    cfg = OutletsConfig(
+        candidate_mode="station_outlets",
+        snap_strategy="bdtopage_then_dem",
+        snap_dist_m=150,
+        reference_network_max_distance_m=75.0,
+    )
+
+    assert cfg.snap_strategy == "bdtopage_then_dem"
+    assert cfg.snap_dist_m == 150
+    assert cfg.reference_network_source == "bdtopage"
+
+
+@pytest.mark.fast
+def test_custom_reference_network_requires_path():
+    with pytest.raises(ValueError, match="requires reference_network_path"):
+        OutletsConfig(
+            snap_strategy="bdtopage_then_dem",
+            reference_network_source="custom",
+        )
+
+
+@pytest.mark.fast
 def test_area_hard_bounds_must_be_ordered():
     with pytest.raises(ValueError, match="hard_min_area_km2"):
         AreaCriteriaConfig(
             mode="hard_reject",
             hard_min_area_km2=200.0,
             hard_max_area_km2=100.0,
+        )
+
+
+@pytest.mark.fast
+def test_dem_area_light_config_defaults_to_100_km2_window(tmp_path):
+    cfg = SiteSelectionConfig.model_validate(
+        {
+            "selection_id": "dem_area_light",
+            "output_root": tmp_path / "out",
+            "input": {"mode": "dem_area_light"},
+            "territory": {
+                "mode": "admin_regions",
+                "country": "FR",
+                "regions": ["Normandie"],
+            },
+        }
+    )
+
+    assert cfg.dem_area_light is not None
+    assert cfg.dem_area_light.target_area_km2 == pytest.approx(100.0)
+    assert cfg.dem_area_light.min_area_km2 == pytest.approx(75.0)
+    assert cfg.dem_area_light.max_area_km2 == pytest.approx(125.0)
+    assert cfg.dem_area_light.n_basins == 50
+    assert cfg.dem_area_light.max_candidates_before_delineation is None
+
+
+@pytest.mark.fast
+def test_dem_area_light_target_must_be_inside_window():
+    with pytest.raises(ValueError, match="target_area_km2"):
+        DemAreaLightConfig(
+            target_area_km2=50.0,
+            min_area_km2=75.0,
+            max_area_km2=125.0,
         )
 
 

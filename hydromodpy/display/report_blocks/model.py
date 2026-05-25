@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -30,6 +30,7 @@ class ReportFigure:
     path: Path | None
     caption: str = ""
     required: bool = True
+    embed: bool = False
 
     @property
     def available(self) -> bool:
@@ -49,6 +50,16 @@ class ReportTable:
 
 
 @dataclass(frozen=True)
+class ReportLink:
+    """One local or external artifact link displayed in a report block."""
+
+    label: str
+    path: Path | str
+    kind: str = ""
+    note: str = ""
+
+
+@dataclass(frozen=True)
 class ReportBlock:
     """Reusable report block with metrics, figures and tables."""
 
@@ -60,9 +71,29 @@ class ReportBlock:
     metrics: tuple[ReportMetric, ...] = field(default_factory=tuple)
     figures: tuple[ReportFigure, ...] = field(default_factory=tuple)
     tables: tuple[ReportTable, ...] = field(default_factory=tuple)
+    links: tuple[ReportLink, ...] = field(default_factory=tuple)
     warnings: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def is_applicable(self) -> bool:
         """Return whether the block applies to the current workflow."""
         return self.status != "not_applicable"
+
+
+def key_value_table(
+    table_id: str,
+    title: str,
+    items: Iterable[tuple[str, Any]],
+    *,
+    empty_message: str = "No rows.",
+) -> ReportTable:
+    """Build a standard two-column key/value table."""
+
+    rows = tuple({"label": label, "value": value} for label, value in items)
+    return ReportTable(
+        table_id=table_id,
+        title=title,
+        columns=(("label", "Element"), ("value", "Valeur")),
+        rows=rows,
+        empty_message=empty_message,
+    )

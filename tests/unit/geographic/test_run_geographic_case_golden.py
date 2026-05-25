@@ -19,7 +19,8 @@ CASE_IDS = ["nancon"]
 # ~10 px at 75 m DEM; whitebox D8/breach tie envelope drifts between mamba and pip stacks.
 ABS_TOL_AREA_KM2 = 6e-2
 ABS_TOL_ELEV_M = 1e-2
-ABS_TOL_SUM_ELEV_M = 1_000.0
+# Match the 10-cell pixel-count envelope at the local DEM elevation scale.
+ABS_TOL_SUM_ELEV_M = 2_500.0
 ABS_TOL_PIXEL_COUNT = 10
 
 ELEV_METRIC_KEYS = [

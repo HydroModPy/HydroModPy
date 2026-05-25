@@ -11,7 +11,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -79,6 +78,11 @@ def _plot_datetime_vector(
         return None, datetime_vector
 
     elapsed = _extract_elapsed_vector(tmesh, n=len(datetimes))
+    if not show_plot:
+        import matplotlib
+
+        matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
 
     fig, ax = plt.subplots(1, 1, figsize=(8.2, 3.6), dpi=120)
     ax.plot(datetimes, elapsed, marker="o", markersize=3.5, linewidth=1.2, color="#1f77b4")

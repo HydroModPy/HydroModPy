@@ -18,6 +18,7 @@ from hydromodpy.data.variables.dem.config import (
     CustomDemSource,
     DemConfig,
     IgnBdaltiDemSource,
+    IgnGeoplateformeDemSource,
 )
 from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
 
@@ -103,6 +104,12 @@ class TestDemConfig:
     def test_valid_ign_source(self):
         cfg = IgnBdaltiDemSource()
         assert cfg.source == "ign_bdalti"
+
+    def test_valid_ign_geoplateforme_source(self):
+        cfg = IgnGeoplateformeDemSource(dataset="bd-alti", resolution_m=25.0)
+        assert cfg.source == "ign_geoplateforme_dem"
+        assert cfg.dataset == "bd-alti"
+        assert cfg.resolution_m == pytest.approx(25.0)
 
     def test_custom_requires_path(self):
         with pytest.raises(ValueError, match="path"):

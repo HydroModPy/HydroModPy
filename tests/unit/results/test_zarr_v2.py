@@ -7,6 +7,8 @@ mapping, schema version checks, and the topography/particles renames.
 
 from __future__ import annotations
 
+import os
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -161,6 +163,58 @@ def test_consolidate_metadata_written_on_finalize(tmp_path: Path) -> None:
         assert "head" in sz2.root
     finally:
         sz2.close()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows long-path regression")
+def test_pack_to_zip_preserves_long_named_arrays_under_long_paths(tmp_path: Path) -> None:
+    long_dir = tmp_path
+    idx = 0
+    while (
+        len(
+            str(
+                (
+                    long_dir
+                    / "sim.zarr"
+                    / "derived"
+                    / "watertable_elevation"
+                    / "c"
+                    / "0"
+                    / "0"
+                ).resolve()
+            )
+        )
+        < 280
+    ):
+        long_dir = long_dir / f"nested_{idx}_{'x' * 36}"
+        idx += 1
+
+    values = np.array([220.0, 221.0, 222.0, 223.0], dtype="float64")
+    sz = SimulationZarr.create(long_dir / "sim.zarr", n_cells=4, n_layers=1)
+    try:
+        sz.write_field(
+            "watertable_elevation",
+            0,
+            values,
+            n_timesteps=1,
+            subgroup="derived",
+        )
+        zip_path = sz.pack_to_zip()
+    finally:
+        sz.close()
+
+    with zipfile.ZipFile(str(zip_path), "r") as zf:
+        names = set(zf.namelist())
+    assert "derived/watertable_elevation/zarr.json" in names
+    assert any(name.startswith("derived/watertable_elevation/c/") for name in names)
+
+    reopened = SimulationZarr(zip_path)
+    try:
+        np.testing.assert_allclose(
+            reopened.root["derived"]["watertable_elevation"][0],
+            values,
+        )
+    finally:
+        reopened.close()
 
 
 def test_standard_name_mapping(fresh_store: SimulationZarr) -> None:

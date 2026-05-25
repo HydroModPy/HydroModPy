@@ -20,7 +20,6 @@ import pandas as pd
 
 from hydromodpy.calibration.metrics.network import (
     equivalent_network_length,
-    network_length_error,
     positive_outflow,
 )
 from hydromodpy.calibration.network_transient_truth import (
@@ -59,9 +58,6 @@ def natural_network_cost(
     d_tol: float,
     threshold: float = 0.0,
     eta_dist: float = 1.0,
-    eta_len: float = 0.10,
-    weight_dist: float = 0.7,
-    weight_len: float = 0.3,
     empty_distance_penalty: float | None = None,
 ) -> NaturalNetworkCost:
     """Score simulated permanent drainage against observed hydrography.
@@ -69,8 +65,8 @@ def natural_network_cost(
     The distance term is ``abs(D_sim / D_obs - 1)``. ``D_sim`` is the
     area-weighted mean distance from simulated active drainage cells to the
     observed hydrographic network, and ``D_obs`` is the same distance statistic
-    for observed-network cells. The reference flux mismatch term is
-    deliberately omitted.
+    for observed-network cells. Flux mismatch and length penalties are
+    deliberately omitted for natural hydrography observations.
     """
 
     sim = positive_outflow(candidate_steady_drain_by_cell)
@@ -104,13 +100,9 @@ def natural_network_cost(
     width = float(d_tol)
     if not np.isfinite(width) or width <= 0.0:
         raise ValueError("d_tol must be finite and > 0.")
-    tolerances = np.asarray([eta_dist, eta_len], dtype=float)
-    if np.any(~np.isfinite(tolerances)) or np.any(tolerances <= 0.0):
-        raise ValueError("eta_dist and eta_len must be finite and > 0.")
-    weights = np.asarray([weight_dist, weight_len], dtype=float)
-    if np.any(~np.isfinite(weights)) or np.any(weights < 0.0) or float(weights.sum()) <= 0.0:
-        raise ValueError("At least one finite non-negative network weight is required.")
-    weights = weights / float(weights.sum())
+    eta_dist_value = float(eta_dist)
+    if not np.isfinite(eta_dist_value) or eta_dist_value <= 0.0:
+        raise ValueError("eta_dist must be finite and > 0.")
 
     sim_mask = sim > float(threshold)
     obs_distance_mean = _area_weighted_mean(distance, obs_mask, valid_area)
@@ -129,10 +121,8 @@ def natural_network_cost(
             d_tol=width,
             undefined_penalty=empty_distance_penalty,
         )
-    len_error = network_length_error(sim_mask, obs_mask, valid_area, d_tol=width)
-    dist_cost = dist_error / float(eta_dist)
-    len_cost = len_error / float(eta_len)
-    total = float(np.dot(weights, np.asarray([dist_cost, len_cost], dtype=float)))
+    dist_cost = dist_error / eta_dist_value
+    total = float(dist_cost)
 
     obs_length = equivalent_network_length(obs_mask, valid_area, d_tol=width)
     sim_length = equivalent_network_length(sim_mask, valid_area, d_tol=width)
@@ -141,11 +131,7 @@ def natural_network_cost(
         components={
             "E_dist": float(dist_error),
             "E_dist_ratio_abs_minus_one": float(dist_error),
-            "E_len": float(len_error),
             "C_dist": float(dist_cost),
-            "C_len": float(len_cost),
-            "weight_dist": float(weights[0]),
-            "weight_len": float(weights[1]),
             "D_sim_to_obs": float(sim_distance_mean),
             "D_obs_to_obs": float(obs_distance_mean),
             "distance_ratio": float(distance_ratio),
@@ -200,9 +186,6 @@ def write_natural_observation_package(
     tau_network: float = 0.0,
     d_tol: float | None = None,
     eta_dist: float = 1.0,
-    eta_len: float = 0.10,
-    weight_dist: float = 0.7,
-    weight_len: float = 0.3,
     alpha_q: float = 0.10,
     nse_log_epsilon: float | None = None,
     w_network: float = 0.3,
@@ -267,12 +250,7 @@ def write_natural_observation_package(
         "Qbar_ref": qbar_obs,
         "L_ref": float(l_obs),
         "d_tol": float(d_tol_value),
-        "eta_flux": 1.0,
         "eta_dist": float(eta_dist),
-        "eta_len": float(eta_len),
-        "a_flux": 0.0,
-        "a_dist": float(weight_dist),
-        "a_len": float(weight_len),
         "network_distance_metric": "abs_sim_to_obs_over_obs_to_obs_distance_ratio_minus_one",
         "discharge_metric": "nse_log",
         "alpha_Q": float(alpha_q),
@@ -352,9 +330,6 @@ def score_natural_network_transient_candidate(
         d_tol=float(normalization["d_tol"]),
         threshold=float(normalization["tau_network"]),
         eta_dist=float(normalization["eta_dist"]),
-        eta_len=float(normalization["eta_len"]),
-        weight_dist=float(normalization["a_dist"]),
-        weight_len=float(normalization["a_len"]),
     )
 
     start = int(normalization["score_start_index"])

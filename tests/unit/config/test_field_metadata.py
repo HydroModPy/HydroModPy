@@ -35,20 +35,11 @@ def test_field_metadata_helper_rejects_typos() -> None:
         field_metadata(widgettype="input")
 
 
-_SKIP_MODULES = frozenset(
-    {
-        "hydromodpy.reporting.streamlit_config",
-    }
-)
-
-
 def _iter_basemodel_classes():
     importlib.import_module("hydromodpy._bootstrap").bootstrap()
     package = importlib.import_module("hydromodpy")
     seen: set[type[BaseModel]] = set()
     for module_info in pkgutil.walk_packages(package.__path__, prefix="hydromodpy."):
-        if module_info.name in _SKIP_MODULES:
-            continue
         try:
             module = importlib.import_module(module_info.name)
         except BaseException:

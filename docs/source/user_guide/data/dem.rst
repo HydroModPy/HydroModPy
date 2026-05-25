@@ -23,6 +23,10 @@ Accepted sources
      - The project should retrieve IGN BD ALTI coverage from the configured
        spatial window.
      - ``ign-bdalti``
+   * - ``ign_geoplateforme_dem``
+     - A regional French workflow should discover, download, assemble, and
+       cache public IGN DEM archives through Geoplateforme.
+     - ``ign-geoplateforme-dem``
 
 Minimal example
 ---------------
@@ -37,6 +41,20 @@ Minimal example
    extent = "watershed"
    # Optional for regional workflows:
    # regions = ["Auvergne-Rhone-Alpes"]
+
+For new French regional workflows, prefer the dynamic Geoplateforme source:
+
+.. code-block:: toml
+
+   [data]
+   types = ["dem"]
+
+   [[data.dem.sources]]
+   source = "ign_geoplateforme_dem"
+   dataset = "bd-alti"
+   resolution_m = 25.0
+   file_format = "ASC"
+   regions = ["Bretagne"]
 
 Loaded shape
 ------------
@@ -143,6 +161,72 @@ Expected figure
 
 The expected visual result is the same DEM support panel used by custom DEMs:
 terrain, watershed boundary, and outlet context must be spatially coherent.
+
+
+DEM Source: ign_geoplateforme_dem
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use ``source = "ign_geoplateforme_dem"`` when a workflow should resolve French
+administrative regions or departments, discover matching IGN archives through
+Geoplateforme, assemble the DEM, and cache the processed GeoTIFF.
+
+This source lives in the data layer. Workflows such as ``site_selection`` only
+declare their DEM need through ``[data.dem]``; they do not call IGN services
+directly.
+
+Minimal example
+"""""""""""""""
+
+.. code-block:: toml
+
+   [data]
+   types = ["dem"]
+
+   [[data.dem.sources]]
+   source = "ign_geoplateforme_dem"
+   dataset = "bd-alti"
+   resolution_m = 25.0
+   file_format = "ASC"
+   regions = ["Auvergne-Rhone-Alpes"]
+
+Operational checks
+""""""""""""""""""
+
+- ``regions`` are canonical French region names such as ``Bretagne``,
+  ``Corse`` or ``Auvergne-Rhone-Alpes``. HydroModPy resolves the corresponding
+  departments before download.
+- ``departments`` can be used instead when the required support is known
+  explicitly.
+- The assembled product is currently BD ALTI 25 m ASC written as a clipped
+  GeoTIFF in ``data/dem/processed``.
+- The processed cache is keyed by bbox and departments and accompanied by a
+  JSON metadata sidecar. Compatible processed rasters are reused without
+  re-downloading raw archives.
+- RGE ALTI discovery/download is available for inspection through the helper,
+  but assembled RGE ALTI rasters are intentionally not enabled yet. Large 1 m
+  or 5 m regional requests need explicit storage and processing guardrails.
+
+Cache layout
+""""""""""""
+
+The dynamic source separates raw archives, extracted archive contents, and
+processed GeoTIFFs:
+
+.. code-block:: text
+
+   <workspace>/data/dem/
+     raw_ign/
+       bd-alti/25m/D029/*.7z
+     extracted_ign/
+       D029_<hash>/
+     processed/
+       dem_ign_geoplateforme_bdalti_25m_<hash>.tif
+       dem_ign_geoplateforme_bdalti_25m_<hash>.json
+
+For ``site_selection`` review maps, use BD ALTI 25 m as the default regional
+background. Reference hydrography such as BD Topage may be used to constrain
+outlet snapping, but it should not be displayed as a cartographic proof of the
+selected basin network unless that is the explicit review objective.
 
 
 French IGN archive helper

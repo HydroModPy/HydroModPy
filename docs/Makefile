@@ -86,7 +86,7 @@ lint:
 	@python -m doc8 --max-line-length 100 $(SOURCEDIR) || true
 
 livehtml:
-	sphinx-autobuild -b html --open-browser $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
+	sphinx-autobuild -b html --open-browser --watch ../hydromodpy --watch ../examples --watch ../tools $(ALLSPHINXOPTS) $(BUILDDIR)/html $(SPHINX_FILTER)
 
 polyversion:
 	cd .. && python -m sphinx_polyversion poly.py

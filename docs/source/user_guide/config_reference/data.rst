@@ -113,7 +113,7 @@ Fields
               <code class="hmp-field-toml">[[data.dem.sources]]</code>
             </div>
 
-         :bdg-primary:`source = "custom" | "ign_bdalti"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L116>`__
+         :bdg-primary:`source = "custom" | "ign_bdalti" | "ign_geoplateforme_dem"` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L157>`__
 
             At least one DEM data source.
 
@@ -199,7 +199,7 @@ Fields
                           <code class="hmp-field-name">mask_path</code>
                         </div>
 
-                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L49>`__
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
 
@@ -213,7 +213,7 @@ Fields
                           <code class="hmp-field-name">extent</code>
                         </div>
 
-                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L49>`__
+                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Use project extent for bbox-based data retrieval.
 
@@ -227,7 +227,7 @@ Fields
                           <code class="hmp-field-name">force_refresh</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L49>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Ignore cache and re-download from API.
 
@@ -241,7 +241,7 @@ Fields
                           <code class="hmp-field-name">departments</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L56>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.
 
@@ -255,7 +255,7 @@ Fields
                           <code class="hmp-field-name">country</code>
                         </div>
 
-                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L64>`__
+                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Country code used for administrative DEM selectors.
 
@@ -269,9 +269,156 @@ Fields
                           <code class="hmp-field-name">regions</code>
                         </div>
 
-                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L68>`__
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L81>`__
 
                         Optional French administrative regions used to infer department downloads.
+
+
+
+            .. tab-item:: ign_geoplateforme_dem
+
+               TOML: ``[data.dem.sources.ign_geoplateforme_dem]`` -- model ``IgnGeoplateformeDemSource`` (set ``source = "ign_geoplateforme_dem"``).
+
+               .. rst-class:: hmp-config-fields hmp-config-fields-nested
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-geoplateforme-dem-mask-path
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.mask_path">
+                          <code class="hmp-field-name">mask_path</code>
+                        </div>
+
+                     :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+
+                        SHP/GPKG/GeoJSON mask for spatial filtering/clipping.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-geoplateforme-dem-extent
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.extent">
+                          <code class="hmp-field-name">extent</code>
+                        </div>
+
+                     :bdg-primary:`Optional[Literal['watershed', 'study_area']]` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+
+                        Use project extent for bbox-based data retrieval.
+
+
+                  .. container:: hmp-field hmp-field-level-dev
+                     :name: data-dem-sources-ign-geoplateforme-dem-force-refresh
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.force_refresh">
+                          <code class="hmp-field-name">force_refresh</code>
+                        </div>
+
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+
+                        Ignore cache and re-download from API.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-geoplateforme-dem-departments
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.departments">
+                          <code class="hmp-field-name">departments</code>
+                        </div>
+
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+
+                        Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-geoplateforme-dem-country
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.country">
+                          <code class="hmp-field-name">country</code>
+                        </div>
+
+                     :bdg-primary:`str` :bdg-secondary:`default = "FR"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+
+                        Country code used for administrative DEM selectors.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-geoplateforme-dem-regions
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.regions">
+                          <code class="hmp-field-name">regions</code>
+                        </div>
+
+                     :bdg-primary:`list[str]` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+
+                        Optional French administrative regions used to infer department downloads.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-geoplateforme-dem-dataset
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.dataset">
+                          <code class="hmp-field-name">dataset</code>
+                        </div>
+
+                     :bdg-primary:`Literal['bd-alti', 'rge-alti']` :bdg-secondary:`default = "bd-alti"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L97>`__
+
+                        IGN DEM product to request from Geoplateforme.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-geoplateforme-dem-resolution-m
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.resolution_m">
+                          <code class="hmp-field-name">resolution_m</code>
+                        </div>
+
+                     :bdg-primary:`float | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L101>`__
+
+                        Requested DEM resolution in metres. Defaults are resolved by the manager from the selected dataset.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-geoplateforme-dem-file-format
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.file_format">
+                          <code class="hmp-field-name">file_format</code>
+                        </div>
+
+                     :bdg-primary:`str` :bdg-secondary:`default = "ASC"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L108>`__
+
+                        Requested archive payload format when exposed by Geoplateforme.
+
+
+                  .. container:: hmp-field hmp-field-level-user
+                     :name: data-dem-sources-ign-geoplateforme-dem-crs
+
+                     .. raw:: html
+
+                        <div class="hmp-field-header" data-toml-path="data.dem.sources.ign_geoplateforme_dem.crs">
+                          <code class="hmp-field-name">crs</code>
+                        </div>
+
+                     :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L112>`__
+
+                        Optional CRS filter forwarded to Geoplateforme discovery.
 
 
 

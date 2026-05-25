@@ -3098,6 +3098,73 @@
         "title": "DataManagersConfig",
         "type": "object"
       },
+      "DemAreaLightConfig": {
+        "additionalProperties": false,
+        "description": "Minimal DEM-only basin selection settings.",
+        "properties": {
+          "target_area_km2": {
+            "default": 100.0,
+            "description": "Preferred upstream basin area for DEM-only candidate outlets.",
+            "examples": [
+              100.0
+            ],
+            "exclusiveMinimum": 0,
+            "title": "Target Area Km2",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "min_area_km2": {
+            "default": 75.0,
+            "description": "Minimum accepted upstream basin area.",
+            "examples": [
+              75.0
+            ],
+            "exclusiveMinimum": 0,
+            "title": "Min Area Km2",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "max_area_km2": {
+            "default": 125.0,
+            "description": "Maximum accepted upstream basin area.",
+            "examples": [
+              125.0
+            ],
+            "exclusiveMinimum": 0,
+            "title": "Max Area Km2",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "n_basins": {
+            "default": 50,
+            "description": "Target number of basins selected by the greedy light workflow.",
+            "examples": [
+              50
+            ],
+            "exclusiveMinimum": 0,
+            "title": "N Basins",
+            "type": "integer",
+            "x-hmp-profile": "user"
+          },
+          "max_candidates_before_delineation": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional cap on DEM-area outlet candidates delineated before final selection. Lower values make examples faster but can leave fewer accepted basins after spatial filtering.",
+            "title": "Max Candidates Before Delineation",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "DemAreaLightConfig",
+        "type": "object"
+      },
       "DemCatchDef": {
         "additionalProperties": false,
         "description": "Model domain defined directly from a DEM raster.",
@@ -6788,9 +6855,89 @@
             "title": "Prefer Diversity",
             "type": "boolean",
             "x-hmp-profile": "user"
+          },
+          "layers": {
+            "description": "Optional polygon layers used to compute geology evidence.",
+            "items": {
+              "$ref": "#/components/schemas/GeologyLayerConfig"
+            },
+            "title": "Layers",
+            "type": "array",
+            "x-hmp-profile": "user"
           }
         },
         "title": "GeologyCriteriaConfig",
+        "type": "object"
+      },
+      "GeologyLayerConfig": {
+        "additionalProperties": false,
+        "description": "Polygon layer used to compute basin geology classes.",
+        "properties": {
+          "name": {
+            "description": "Human-readable geology layer name.",
+            "examples": [
+              "example"
+            ],
+            "minLength": 1,
+            "title": "Name",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "path": {
+            "description": "Vector polygon file containing geology units.",
+            "examples": [
+              "data/input.csv"
+            ],
+            "format": "path",
+            "title": "Path",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "class_field": {
+            "description": "Feature field containing the geology class.",
+            "examples": [
+              "example"
+            ],
+            "minLength": 1,
+            "title": "Class Field",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "id_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional source-feature identifier field.",
+            "title": "Id Field",
+            "x-hmp-profile": "user"
+          },
+          "label_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional source-feature label field.",
+            "title": "Label Field",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "class_field"
+        ],
+        "title": "GeologyLayerConfig",
         "type": "object"
       },
       "GeologySupportConfig": {
@@ -7572,6 +7719,34 @@
             "type": "boolean",
             "x-hmp-profile": "dev"
           },
+          "departments": {
+            "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Departments",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "country": {
+            "default": "FR",
+            "description": "Country code used for administrative DEM selectors.",
+            "examples": [
+              "FR"
+            ],
+            "title": "Country",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "regions": {
+            "description": "Optional French administrative regions used to infer department downloads.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Regions",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
           "source": {
             "const": "ign_bdalti",
             "default": "ign_bdalti",
@@ -7582,6 +7757,57 @@
             "title": "Source",
             "type": "string",
             "x-hmp-profile": "user"
+          }
+        },
+        "title": "IgnBdaltiDemSource",
+        "type": "object"
+      },
+      "IgnGeoplateformeDemSource": {
+        "additionalProperties": false,
+        "description": "IGN DEM source discovered dynamically through Geoplateforme.",
+        "properties": {
+          "mask_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
+            "title": "Mask Path",
+            "x-hmp-profile": "user"
+          },
+          "extent": {
+            "anyOf": [
+              {
+                "enum": [
+                  "watershed",
+                  "study_area"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Use project extent for bbox-based data retrieval.",
+            "title": "Extent",
+            "x-hmp-profile": "user"
+          },
+          "force_refresh": {
+            "default": false,
+            "description": "Ignore cache and re-download from API.",
+            "examples": [
+              false
+            ],
+            "title": "Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
           },
           "departments": {
             "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.",
@@ -7610,9 +7836,72 @@
             "title": "Regions",
             "type": "array",
             "x-hmp-profile": "user"
+          },
+          "source": {
+            "const": "ign_geoplateforme_dem",
+            "default": "ign_geoplateforme_dem",
+            "description": "Discriminator tag selecting the dynamic IGN Geoplateforme DEM provider.",
+            "examples": [
+              "ign_geoplateforme_dem"
+            ],
+            "title": "Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "dataset": {
+            "default": "bd-alti",
+            "description": "IGN DEM product to request from Geoplateforme.",
+            "enum": [
+              "bd-alti",
+              "rge-alti"
+            ],
+            "examples": [
+              "bd-alti"
+            ],
+            "title": "Dataset",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "resolution_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Requested DEM resolution in metres. Defaults are resolved by the manager from the selected dataset.",
+            "title": "Resolution M",
+            "x-hmp-profile": "user"
+          },
+          "file_format": {
+            "default": "ASC",
+            "description": "Requested archive payload format when exposed by Geoplateforme.",
+            "examples": [
+              "ASC"
+            ],
+            "title": "File Format",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "crs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional CRS filter forwarded to Geoplateforme discovery.",
+            "title": "Crs",
+            "x-hmp-profile": "user"
           }
         },
-        "title": "IgnBdaltiDemSource",
+        "title": "IgnGeoplateformeDemSource",
         "type": "object"
       },
       "InfluenceCriteriaConfig": {
@@ -7675,9 +7964,116 @@
             "default": null,
             "title": "Influence Search Radius Km",
             "x-hmp-profile": "user"
+          },
+          "layers": {
+            "description": "Optional vector layers used to compute influence flags automatically.",
+            "items": {
+              "$ref": "#/components/schemas/InfluenceLayerConfig"
+            },
+            "title": "Layers",
+            "type": "array",
+            "x-hmp-profile": "user"
           }
         },
         "title": "InfluenceCriteriaConfig",
+        "type": "object"
+      },
+      "InfluenceLayerConfig": {
+        "additionalProperties": false,
+        "description": "Vector layer used to compute anthropic-influence evidence.",
+        "properties": {
+          "name": {
+            "description": "Human-readable influence layer name.",
+            "examples": [
+              "example"
+            ],
+            "minLength": 1,
+            "title": "Name",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "path": {
+            "description": "Vector file containing influence features.",
+            "examples": [
+              "data/input.csv"
+            ],
+            "format": "path",
+            "title": "Path",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "influence_type": {
+            "description": "Normalized influence flag filled when features match a basin.",
+            "enum": [
+              "major_dam_upstream",
+              "major_withdrawal_upstream",
+              "major_regulated_reach"
+            ],
+            "examples": [
+              "major_dam_upstream"
+            ],
+            "title": "Influence Type",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "id_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional source-feature identifier field.",
+            "title": "Id Field",
+            "x-hmp-profile": "user"
+          },
+          "label_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional source-feature label field.",
+            "title": "Label Field",
+            "x-hmp-profile": "user"
+          },
+          "severity_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional field used to classify major features.",
+            "title": "Severity Field",
+            "x-hmp-profile": "user"
+          },
+          "major_values": {
+            "description": "Values considered major in severity_field. When empty, every matched feature is considered major.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Major Values",
+            "type": "array",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "name",
+          "path",
+          "influence_type"
+        ],
+        "title": "InfluenceLayerConfig",
         "type": "object"
       },
       "IntermittencyConfig": {
@@ -10069,6 +10465,15 @@
           "flow_station": {
             "$ref": "#/components/schemas/FlowStationCriteriaConfig",
             "x-hmp-profile": "user"
+          },
+          "piezometer_layers": {
+            "description": "Optional vector layers used to compute piezometer evidence.",
+            "items": {
+              "$ref": "#/components/schemas/PiezometerLayerConfig"
+            },
+            "title": "Piezometer Layers",
+            "type": "array",
+            "x-hmp-profile": "user"
           }
         },
         "title": "ObservationsCriteriaConfig",
@@ -10470,6 +10875,7 @@
             "description": "How candidate outlets are generated.",
             "enum": [
               "network_sampling",
+              "dem_area_light",
               "station_outlets",
               "imported_points"
             ],
@@ -10505,6 +10911,60 @@
             "type": "boolean",
             "x-hmp-profile": "user"
           },
+          "max_generated_candidates": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 200,
+            "description": "Maximum number of DEM/network-generated candidates to delineate.",
+            "examples": [
+              200
+            ],
+            "title": "Max Generated Candidates",
+            "x-hmp-profile": "user"
+          },
+          "max_rejected_candidate_audit_records": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 5000,
+            "description": "Maximum number of rejected DEM/network candidate cells written to the candidate-generation audit JSONL.",
+            "examples": [
+              5000
+            ],
+            "title": "Max Rejected Candidate Audit Records",
+            "x-hmp-profile": "user"
+          },
+          "max_generated_network_cells": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": 50000,
+            "description": "Maximum number of DEM-derived stream cells exported to the generated network vector layer. Highest-accumulation cells are kept first.",
+            "examples": [
+              50000
+            ],
+            "title": "Max Generated Network Cells",
+            "x-hmp-profile": "user"
+          },
           "snap_to_generated_stream": {
             "default": true,
             "description": "Snap outlets to the DEM-derived stream network when applicable.",
@@ -10515,16 +10975,102 @@
             "type": "boolean",
             "x-hmp-profile": "user"
           },
+          "snap_strategy": {
+            "default": "dem_accumulation",
+            "description": "Outlet snapping strategy. 'dem_accumulation' snaps directly on the DEM-derived accumulation raster. 'bdtopage_then_dem' first projects the station to BD Topage, then snaps locally on the DEM raster.",
+            "enum": [
+              "dem_accumulation",
+              "bdtopage_then_dem"
+            ],
+            "examples": [
+              "dem_accumulation"
+            ],
+            "title": "Snap Strategy",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
           "snap_dist_m": {
-            "default": 250,
+            "default": 150,
             "description": "Maximum snapping distance in metres for outlet-based delineation.",
             "examples": [
-              250
+              150
             ],
             "exclusiveMinimum": 0,
             "title": "Snap Dist M",
             "type": "integer",
             "x-hmp-profile": "user"
+          },
+          "reference_network_source": {
+            "default": "bdtopage",
+            "description": "Reference hydrographic network used by bdtopage_then_dem.",
+            "enum": [
+              "bdtopage",
+              "custom"
+            ],
+            "examples": [
+              "bdtopage"
+            ],
+            "title": "Reference Network Source",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "reference_network_path": {
+            "anyOf": [
+              {
+                "format": "path",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Local vector network used when reference_network_source='custom'.",
+            "title": "Reference Network Path",
+            "x-hmp-profile": "user"
+          },
+          "reference_network_max_distance_m": {
+            "default": 100.0,
+            "description": "Maximum accepted distance from candidate outlet to the reference network.",
+            "examples": [
+              100.0
+            ],
+            "exclusiveMinimum": 0,
+            "title": "Reference Network Max Distance M",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "reference_network_fetch_margin_m": {
+            "default": 500.0,
+            "description": "Extra margin around outlets when downloading a BD Topage reference network.",
+            "examples": [
+              500.0
+            ],
+            "minimum": 0,
+            "title": "Reference Network Fetch Margin M",
+            "type": "number",
+            "x-hmp-profile": "user"
+          },
+          "reference_network_page_size": {
+            "default": 2000,
+            "description": "BD Topage WFS page size used for the reference network download.",
+            "examples": [
+              2000
+            ],
+            "exclusiveMinimum": 0,
+            "title": "Reference Network Page Size",
+            "type": "integer",
+            "x-hmp-profile": "dev"
+          },
+          "reference_network_force_refresh": {
+            "default": false,
+            "description": "Redownload BD Topage even if the run output already contains a network file.",
+            "examples": [
+              false
+            ],
+            "title": "Reference Network Force Refresh",
+            "type": "boolean",
+            "x-hmp-profile": "dev"
           }
         },
         "title": "OutletsConfig",
@@ -10576,6 +11122,15 @@
               false
             ],
             "title": "Write Geoparquet",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "write_geopackage": {
+            "default": false,
+            "examples": [
+              false
+            ],
+            "title": "Write Geopackage",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
@@ -10867,6 +11422,94 @@
           }
         },
         "title": "PersistenceConfig",
+        "type": "object"
+      },
+      "PiezometerLayerConfig": {
+        "additionalProperties": false,
+        "description": "Vector layer used to compute piezometer evidence.",
+        "properties": {
+          "name": {
+            "description": "Human-readable piezometer layer name.",
+            "examples": [
+              "example"
+            ],
+            "minLength": 1,
+            "title": "Name",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "path": {
+            "description": "Vector file containing piezometer features.",
+            "examples": [
+              "data/input.csv"
+            ],
+            "format": "path",
+            "title": "Path",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "id_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional source-feature identifier field.",
+            "title": "Id Field",
+            "x-hmp-profile": "user"
+          },
+          "label_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional source-feature label field.",
+            "title": "Label Field",
+            "x-hmp-profile": "user"
+          },
+          "record_years_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional field containing available record length in years.",
+            "title": "Record Years Field",
+            "x-hmp-profile": "user"
+          },
+          "quality_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional field containing a quality/status label.",
+            "title": "Quality Field",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "name",
+          "path"
+        ],
+        "title": "PiezometerLayerConfig",
         "type": "object"
       },
       "PiezometryConfig": {
@@ -13926,6 +14569,19 @@
             "$ref": "#/components/schemas/HydrologyConfig",
             "x-hmp-profile": "user"
           },
+          "dem_area_light": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DemAreaLightConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Compact settings for DEM-only automatic small-basin selection.",
+            "x-hmp-profile": "user"
+          },
           "input": {
             "$ref": "#/components/schemas/SiteSelectionInputConfig",
             "x-hmp-profile": "user"
@@ -13970,7 +14626,9 @@
               "auto",
               "plan_only",
               "hydrometry",
-              "delineated_catchments"
+              "delineated_catchments",
+              "generated_candidates",
+              "dem_area_light"
             ],
             "examples": [
               "auto"
@@ -14564,6 +15222,7 @@
               {
                 "enum": [
                   "network_sampling",
+                  "dem_area_light",
                   "station_outlets",
                   "imported_points"
                 ],
@@ -17646,16 +18305,17 @@
       },
       "hydromodpy__data__variables__dem__config__DemConfig": {
         "additionalProperties": false,
-        "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_bdalti\"\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
+        "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_bdalti\"\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"bd-alti\"\n    resolution_m = 25.0\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
         "properties": {
           "sources": {
             "description": "At least one DEM data source.",
             "items": {
-              "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_bdalti' for the IGN BD ALTI 25 m MNT.",
+              "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC), 'ign_bdalti' for the legacy IGN BD ALTI 25 m MNT path, and 'ign_geoplateforme_dem' for dynamic IGN DEM discovery.",
               "discriminator": {
                 "mapping": {
                   "custom": "#/$defs/CustomDemSource",
-                  "ign_bdalti": "#/$defs/IgnBdaltiDemSource"
+                  "ign_bdalti": "#/$defs/IgnBdaltiDemSource",
+                  "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource"
                 },
                 "propertyName": "source"
               },
@@ -17665,6 +18325,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/IgnBdaltiDemSource"
+                },
+                {
+                  "$ref": "#/components/schemas/IgnGeoplateformeDemSource"
                 }
               ]
             },

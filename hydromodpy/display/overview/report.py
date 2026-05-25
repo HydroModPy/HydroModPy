@@ -80,7 +80,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp),
                 streams_gdf=None,
                 outlet_xy=_outlet_xy(dg),
-                title=f"{title} - {regional_title}",
+                title=regional_title,
             )
         )
 
@@ -112,7 +112,7 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 station_points=None,
                 outlet_xy=_outlet_xy(dg),
                 relative_ticks=True,
-                title=title,
+                title="DEM, bassin versant et exutoire",
             )
         )
 
@@ -126,7 +126,8 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 dem_path=str(dem_path),
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 geology_gdf=geology_gdf,
-                title=f"{title} - Geologie",
+                relative_ticks=True,
+                title="Geologie du bassin",
             )
         )
 
@@ -140,7 +141,8 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 dem_path=str(dem_path),
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 geology_gdf=geology_gdf,
-                title=f"{title} - contexte geologique",
+                relative_ticks=True,
+                title="Contexte geologique du bassin",
             )
         )
 
@@ -157,7 +159,9 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 watershed_shp=str(watershed_shp) if watershed_shp else None,
                 streams_gdf=streams_gdf,
                 outlet_xy=outlet_xy,
-                title=f"{title} - hydrographie",
+                relative_ticks=True,
+                stream_label="BD Topage",
+                title="Reseau hydrographique BD Topage",
             )
         )
 
@@ -173,7 +177,8 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
                 station_points=None,
                 outlet_xy=_outlet_xy(dg),
                 relative_ticks=True,
-                title=f"{title} - reseau hydrographique observe",
+                stream_label="BD Topage",
+                title="Reseau hydrographique BD Topage",
             )
         )
 
@@ -279,12 +284,11 @@ def generate_overview_report(state: DataOverviewState) -> list[Path]:
             )
         )
 
-    html_path = write_overview_web_report(state, figure_paths=paths)
-    paths.append(html_path)
+    write_overview_web_report(state, figure_paths=paths)
     if _write_review_pages_enabled():
-        paths.extend(write_overview_review_web_reports(state, figure_paths=paths))
+        write_overview_review_web_reports(state, figure_paths=paths)
 
-    logger.info("[overview] Generated %d report artifact(s) in %s", len(paths), output_dir)
+    logger.info("[overview] Generated %d panel artifact(s) in %s", len(paths), output_dir)
     return paths
 
 

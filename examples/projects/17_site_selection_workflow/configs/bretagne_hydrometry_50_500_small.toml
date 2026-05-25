@@ -38,7 +38,8 @@ network_threshold_area_km2 = 1.0
 
 [site_selection.outlets]
 candidate_mode = "station_outlets"
-snap_dist_m = 5000
+snap_strategy = "dem_accumulation"
+snap_dist_m = 150
 min_distance_between_outlets_km = 5.0
 
 [site_selection.spatial_selection]
@@ -91,5 +92,8 @@ write_report_html = true
 types = ["dem"]
 
 [[data.dem.sources]]
-source = "ign_bdalti"
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0
+file_format = "ASC"
 regions = ["Bretagne"]

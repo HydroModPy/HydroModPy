@@ -25,4 +25,5 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         return
     skip = pytest.mark.skip(reason="pytest-benchmark is not installed")
     for item in items:
-        item.add_marker(skip)
+        if "performance" in item.keywords:
+            item.add_marker(skip)

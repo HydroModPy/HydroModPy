@@ -44,6 +44,20 @@ DEM file path before calling flow-product and catchment-from-point utilities.
 This keeps provider access, cache layout and regional data extents outside the
 selection primitives.
 
+Outlet snapping has two explicit strategies:
+
+- `site_selection.outlets.snap_strategy = "dem_accumulation"` keeps the direct
+  path: the candidate point is snapped to the DEM-derived accumulation raster
+  with the short radius `snap_dist_m`.
+- `site_selection.outlets.snap_strategy = "bdtopage_then_dem"` first projects
+  the candidate point onto BD Topage or a custom reference network, rejects the
+  site if that network is farther than `reference_network_max_distance_m`, then
+  runs the DEM snap locally with `snap_dist_m`.
+
+The reference-network strategy constrains the outlet to stay near the observed
+station and river line. It does not replace the DEM: watershed delineation still
+uses DEM flow direction and accumulation rasters.
+
 In `site_selection.input.mode = "hydrometry"`, the same rule applies: the
 workflow loads hydrometry through the existing data managers, resolves the DEM
 through `[data.dem]`, builds flow products, and only then delegates to the
@@ -60,8 +74,14 @@ fixtures, catalogs and frozen data extracts, not for direct provider access.
 
 - `config.py`: Pydantic configuration and validation.
 - `candidate_outlets.py`: candidate outlet records and spacing helpers.
+- `candidate_generation.py`: DEM-accumulation candidate sampling for
+  `generated_candidates` runs.
 - `flow_products_adapter.py`: thin adapter to existing regional DEM flow products.
 - `delineation.py`: thin adapter to existing catchment-from-point utilities.
+- `reference_network.py`: optional projection of station outlets to a reference
+  hydrographic network before local DEM snapping.
+- `context_evidence.py`: optional geology and piezometer evidence computed from
+  configured vector layers.
 - `criteria.py`: auditable criterion components for area, observation evidence,
   anthropic influence and geology evidence.
 - `selection.py`: selected/rejected catchment decisions.
@@ -97,6 +117,41 @@ With the default tabular switches they also write:
 - `rejected_sites.csv`
 - `regional_lab_sites.csv`
 
+With production vector switches they can also write:
+
+- `site_selection.gpkg` when `site_selection.output.write_geopackage = true`;
+- `selected_outlets.parquet`, `rejected_outlets.parquet`,
+  `selected_basins.parquet`, `rejected_basins.parquet` when
+  `site_selection.output.write_geoparquet = true`.
+
+When influence layers are configured under
+`site_selection.criteria.influence.layers`, completed runs also write:
+
+- `influence_evidence.jsonl`
+- `influence_features.geojson` when `write_geojson = true`
+- `influence_features.parquet` when `write_geoparquet = true`
+- an `influence_features` layer in `site_selection.gpkg` when
+  `write_geopackage = true`
+
+When geology layers are configured under
+`site_selection.criteria.geology.layers`, completed runs also write:
+
+- `geology_evidence.jsonl`
+- `geology_basins.geojson` when `write_geojson = true`
+- `geology_basins.parquet` when `write_geoparquet = true`
+- a `geology_basins` layer in `site_selection.gpkg` when
+  `write_geopackage = true`
+
+When piezometer layers are configured under
+`site_selection.criteria.observations.piezometer_layers`, completed runs also
+write:
+
+- `piezometer_evidence.jsonl`
+- piezometer rows in `observation_evidence.jsonl`
+- piezometer point geometries in `observation_points.geojson`,
+  `observation_points.parquet` and the `observation_points` GeoPackage layer
+  when their corresponding output switches are active.
+
 If `site_selection.output.write_report_html = true`, they also write:
 
 - `review/index.html`
@@ -112,35 +167,83 @@ The plan-only HTML explicitly states that no site has been selected or rejected.
 It is intended for reviewing strategy, territory, required data and planned
 outputs before running hydrometry loading or DEM-based delineation.
 
-The outlet GeoJSON files are point geometries. The basin GeoJSON files contain
-the corresponding watershed contours when the delineation stage produced a
-readable vector file. If a contour is missing, the file is still written and the
-missing basin is listed in `hydromodpy_skipped_basins`.
+DEM/network-generated runs use `site_selection.input.mode =
+"generated_candidates"` with `site_selection.outlets.candidate_mode =
+"network_sampling"`. They write the normal selection outputs plus:
+
+- `candidate_generation.jsonl`
+- `candidate_outlets.geojson` when `write_geojson = true`
+- `generated_dem_network.geojson` when `write_geojson = true`
+
+These candidates come from high-accumulation DEM cells, constrained by
+`min_distance_between_outlets_km` and `max_generated_candidates`, then pass
+through the same delineation and selection stages as imported or station-led
+candidates. The generation audit includes accepted and rejected candidate cells,
+with rejection reasons such as spacing or candidate-count caps. When a BD
+Topage/custom reference network is loaded, candidates also carry
+`reference_network_distance_m`, `reference_network_score` and
+`reference_network_status`.
+
+The outlet GeoJSON files are point geometries. When a delineation produced an
+`outlet_snap_shp`, selected outlet geometries use the snapped outlet point and
+preserve the original candidate coordinates in properties. If no snapped point
+is available, the outlet geometry remains the original candidate point. The
+basin GeoJSON files contain the corresponding watershed contours when the
+delineation stage produced a readable vector file. If a contour is missing, the
+file is still written and the missing basin is listed in
+`hydromodpy_skipped_basins`.
+
+When `bdtopage_then_dem` is active, outlet GeoJSON properties also carry
+`reference_network_source`, `reference_network_snap_distance_m`,
+`reference_network_original_x/y` and `reference_network_x/y` so reviewers can
+separate the station-to-reference-network adjustment from the later DEM snap.
 
 Observation-led builds also write:
 
 - `observation_evidence.jsonl`
 - `observation_points.geojson`
 
+When production vector switches are active, observation points are appended to
+the `observation_points` layer in `site_selection.gpkg` and written as
+`observation_points.parquet` when they have usable coordinates.
+
 Observation points are derived from normalized evidence, not from provider-
 specific raw schemas. This allows the same review map to symbolize flow stations,
 piezometers or future observation types once their coordinates are available.
 
 The HTML map is a figure of control. It is generated from the manifest-declared
-GeoJSON artifacts, colors selected basin contours by area class, and uses
-separate symbols for selected outlets, rejected outlets when present, flow
-stations, piezometers and future observation point types.
+GeoJSON artifacts, colors selected basin contours by area class with light
+fills and thin edges, and uses separate symbols for selected outlets, rejected
+outlets when present, flow stations, piezometers and future observation point
+types. For generated-candidate runs, it also draws the vectorized DEM network
+from `generated_dem_network.geojson`. When outlets were snapped, the map draws
+the snapped outlet and a dashed station-to-outlet link for visible
+displacements.
 Optional `site_selection.map_context.layers` can add static context layers such
 as a territory outline, simplified hydrography or geology. These layers are for
 visual review only; they do not replace criterion evidence.
 
-GeoParquet, candidate catalog export and Markdown reports are deliberately not
-enabled by default until their writers are implemented.
+Automatic influence layers are stricter than map context layers. They are
+declared under `site_selection.criteria.influence.layers`, intersected with
+delineated basin contours when available, and converted into normalized flags
+such as `major_dam_upstream`, `major_withdrawal_upstream` and
+`major_regulated_reach`. These flags are then consumed by the existing
+influence criterion and exported as auditable evidence.
+Geology and piezometer evidence layers follow the same rule: they are criterion
+evidence, not visual context. Geology layers are polygonal and fill dominant
+geology attributes plus surface fractions per class. Piezometer layers are
+point layers and fill the normalized observation evidence consumed by the
+`piezometer` criterion.
+Do not add the BD Topage snapping network as a default review-map layer: it is
+a reference used to constrain outlet placement, not evidence that the selected
+basins contain that exact hydrographic network.
+
+Candidate catalog export and Markdown reports are deliberately not enabled by
+default until their writers are implemented.
 
 ## Selection Outputs
 
-`selected_sites.csv` and `regional_lab_sites.csv` currently share the same
-stable column contract:
+`regional_lab_sites.csv` keeps the stable downstream catalog contract:
 
 - `site_id`: stable selected basin identifier.
 - `site_label`: human-readable label, defaulting to `site_id`.
@@ -153,6 +256,24 @@ stable column contract:
 - `area_km2`: delineated catchment area when available.
 - `tags`: semicolon-separated provenance tags.
 - `enabled`: boolean flag used by downstream catalog loaders.
+
+`selected_sites.csv` contains the same core fields plus review fields for the
+snapped outlet when available:
+
+- `x_outlet_snapped`: snapped outlet x coordinate.
+- `y_outlet_snapped`: snapped outlet y coordinate.
+- `outlet_snap_distance_m`: distance between the original candidate outlet and
+  the snapped outlet, in projected metres.
+
+With `bdtopage_then_dem`, the catalog outlet coordinates are the reference-
+network point used for delineation. The outlet GeoJSON keeps the pre-reference
+station coordinates in `reference_network_original_x/y` and the projected
+reference point in `reference_network_x/y`.
+
+For station-led workflows, flow-station distance criteria are evaluated against
+the final displayed outlet. If a DEM delineation snapped the outlet, this means
+the station-to-outlet distance is recomputed from the station location to the
+snapped outlet rather than trusting an imported pre-snap distance.
 
 `selection_decisions.jsonl` contains one final decision per candidate basin.
 `criteria_components.jsonl` contains the detailed criterion evidence behind

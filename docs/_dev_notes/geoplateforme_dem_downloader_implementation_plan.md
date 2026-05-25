@@ -22,7 +22,7 @@ telechargement, le cache et l'assemblage raster appartiennent a la couche
 
 ## Etat d'implementation
 
-Etat au 2026-05-23.
+Etat au 2026-05-24.
 
 ### Developpe
 
@@ -35,8 +35,8 @@ Etat au 2026-05-23.
   - Alias explicites ajoutes pour `La Reunion` et `Reunion`.
 - Validation des regions francaises branchee dans:
   - `hydromodpy/spatial/site_selection/config.py`;
-  - `hydromodpy/data/variables/dem/config.py` pour la source
-    `ign_bdalti`.
+  - `hydromodpy/data/variables/dem/config.py` pour les sources
+    `ign_bdalti` et `ign_geoplateforme_dem`.
 - Resolution administrative locale disponible dans
   `hydromodpy/data/common/administrative/france.py`:
   - `find_departments_in_regions(...)`;
@@ -66,6 +66,9 @@ Etat au 2026-05-23.
     decouverte Geoplateforme echoue;
   - `download_ign_dem_departments(...)` avec `dry_run`, `max_files`,
     `overwrite`, `timeout`, `rate_limit` et arborescence de cache brut.
+  - `fetch_ign_dem(...)` pour telecharger, extraire, fusionner et recadrer
+    BD ALTI 25 m ASC en GeoTIFF via le nouveau cache
+    `raw_ign/`, `extracted_ign/`, `processed/`.
 - CLI autonome dans `tools/download_dem_fr/`:
   - `download_dem_fr.py`;
   - `README.md`;
@@ -82,34 +85,56 @@ Etat au 2026-05-23.
   - les regions francaises sont canonicalisees;
   - les departements peuvent etre deduits depuis `regions`;
   - `fetch_bdalti(...)` recoit les departements explicites ou deduits.
-- Exemples `site_selection` branches sur `[data.dem]` avec `ign_bdalti`:
-  - Bretagne;
-  - Auvergne-Rhone-Alpes;
-  - tests de workflow avec DEM de fixture et fetch BD ALTI monkeypatche.
-
-### Reste a developper
-
-- Ajouter une vraie source configurable `ign_geoplateforme_dem` dans
-  `DemConfig`/`DemManager`, avec au minimum:
+- Nouvelle source configurable `ign_geoplateforme_dem` ajoutee dans
+  `hydromodpy/data/variables/dem/config.py`:
   - `dataset = "bd-alti" | "rge-alti"`;
   - `resolution_m`;
   - `file_format`;
   - `crs`;
   - `departments`/`regions`.
-- Brancher `DemManager` sur `ign_dem_fr.download_ign_dem_departments(...)`
-  pour le cache brut, puis sur un flux d'extraction/fusion/recadrage pour
-  produire un GeoTIFF catalogue.
+- `DemManager` branche sur `ign_geoplateforme_dem`:
+  - resolution de bbox via le meme chemin que `ign_bdalti`;
+  - resolution des departements par region;
+  - appel a `ign_dem_fr.fetch_ign_dem(...)`;
+  - enregistrement du GeoTIFF produit dans le catalogue avec metadata
+    `dataset`, `resolution_m`, `file_format`, `departments` et `regions`.
+- `hydromodpy/data/variables/dem/resolver.py` reconnait aussi
+  `ign_geoplateforme_dem` pour le bootstrap `geographic.dem_init_path`.
+- Cache produit `processed/`:
+  - hash stable par bbox/departements;
+  - metadata sidecar JSON;
+  - reuse du GeoTIFF si le raster couvre la requete et si la metadata est
+    compatible;
+  - adoption d'un ancien GeoTIFF compatible sans metadata.
+- Adoption des anciens `cache.duckdb` de donnees:
+  - les caches V1 qui possedent deja les tables `entries`, `artifacts`, etc.
+    mais pas `schema_migrations` sont marques comme migration initiale deja
+    appliquee;
+  - cela evite que `hmp run` rejoue `0001_initial.sql` et echoue sur
+    `entries already exists`.
+- Exemples `site_selection` branches sur `[data.dem]` avec
+  `ign_geoplateforme_dem` ou `ign_bdalti`:
+  - Bretagne;
+  - Auvergne-Rhone-Alpes;
+  - Corse;
+  - variantes avec stations hydrometriques reelles, fixtures de surface et
+    BD Topage comme reference de snapping.
+- Documentation RTD proposee:
+  - page DEM `docs/source/user_guide/data/dem.rst` avec
+    `ign_geoplateforme_dem`;
+  - page workflow `docs/source/user_guide/workflows/site_selection.rst`;
+  - entree `site_selection` dans l'index des workflows.
+
+### Reste a developper
+
 - Conserver `ign_bdalti` comme source historique ou alias compatible, mais
   clarifier quand elle utilise la table statique et quand elle utilise la
   decouverte Geoplateforme.
-- Porter l'extraction/fusion existante de `ign_bdalti.py` vers le nouveau
-  chemin dynamique:
-  - extraire les archives telechargees;
-  - trouver les `.asc`/`.tif`;
-  - fusionner;
-  - recadrer a la bbox;
-  - ecrire dans `data/dem/processed`;
-  - enregistrer dans le catalogue.
+- Finaliser la documentation publique:
+  - relire la nouvelle page RTD `site_selection`;
+  - verifier que les captures/rapports HTML a montrer sont les bons;
+  - decider si les sorties d'exemples doivent etre publiees comme artefacts
+    RTD ou seulement decrites comme commandes reproductibles.
 - Gerer RGE ALTI au-dela du telechargement:
   - archives fragmentees `.7z.001`, `.7z.002`, etc.;
   - choix prudent de resolution;
@@ -124,13 +149,16 @@ Etat au 2026-05-23.
 - Ajouter des tests reseau optionnels marques `network`:
   - dry-run sur un petit departement;
   - telechargement limite `--max-files 1`;
-  - verification bout en bout du nouveau manager quand la source
-    `ign_geoplateforme_dem` existera.
-- Corriger les deux tests `tests/unit/data_managers/test_dem_manager.py`
-  actuellement en echec local: ils instancient `DemSourceConfig(...)`, qui est
-  un alias `Annotated[Union[...]]` non instanciable directement sous Python
-  3.12. Les tests doivent passer par `IgnBdaltiDemSource(...)` ou
-  `DemConfig.model_validate(...)`.
+  - verification bout en bout du manager `ign_geoplateforme_dem` sur BD ALTI
+    25 m ASC.
+- Decider du futur de `ign_bdalti`:
+  - le garder comme chemin historique compatible;
+  - ou le transformer progressivement en alias documente vers
+    `ign_geoplateforme_dem` pour BD ALTI 25 m.
+- Ne pas afficher BD Topage dans les cartes `site_selection` par defaut:
+  - BD Topage reste utile comme reference technique pour `bdtopage_then_dem`;
+  - son affichage sur fond DEM regional induit en erreur car il peut etre
+    confondu avec le reseau valide des bassins selectionnes.
 
 ## Tests developpes et execution
 
@@ -139,53 +167,81 @@ simulent l'API ou monkeypatchent les telechargements.
 
 ### Commande recommandee
 
-Si `pytest-xdist` est installe:
-
-```bash
-python -m pytest \
-  tests/unit/data_managers/test_geoplateforme_dem_downloader.py \
-  tests/unit/data_managers/test_france_administrative_regions.py \
-  tests/unit/data_managers/test_dem_manager.py \
-  tests/unit/site_selection/test_config.py \
-  tests/unit/site_selection/test_example_configs.py \
-  -m fast
-```
-
-Dans l'environnement local verifie le 2026-05-23, `pytest-xdist` n'est pas
-installe alors que `pytest.ini` contient `--dist=loadgroup`. Pour lancer quand
-meme les tests cibles:
-
 ```bash
 python -m pytest -o addopts="" \
   tests/unit/data_managers/test_geoplateforme_dem_downloader.py \
   tests/unit/data_managers/test_france_administrative_regions.py \
   tests/unit/data_managers/test_dem_manager.py \
+  tests/unit/config/test_discriminated_unions.py \
   tests/unit/site_selection/test_config.py \
   tests/unit/site_selection/test_example_configs.py \
   -m fast
 ```
+
+`-o addopts=""` neutralise les options globales de `pytest.ini`, utile quand
+les plugins facultatifs de l'environnement local ne sont pas tous installes.
+
+Un test smoke plus large existe aussi:
+
+```bash
+python -m pytest -o addopts="" \
+  tests/unit/data_managers/test_variable_managers_smoke.py \
+  -m fast
+```
+
+Il requiert `pandera` dans l'environnement de test. Cette dependance est
+declaree dans `pyproject.toml` et dans les YAML d'installation Conda.
 
 ### Resultat local observe
 
 Commande lancee le 2026-05-23 avec `-o addopts=""`:
 
 ```text
-27 tests collectes
-25 passed
-2 failed
+48 tests collectes
+48 passed
 ```
 
-Les deux echecs sont:
+Apres installation locale de `pandera>=0.31.1,<1`, le test smoke passe aussi:
 
 ```text
-tests/unit/data_managers/test_dem_manager.py::test_ign_bdalti_explicit_departments_keep_nested_cache_entries
-tests/unit/data_managers/test_dem_manager.py::test_ign_bdalti_regions_resolve_departments
+tests/unit/data_managers/test_variable_managers_smoke.py
+93 tests collectes
+93 passed
 ```
 
-Cause observee: les tests instancient `DemSourceConfig(...)`, alors que ce nom
-est un alias de type Pydantic/typing et pas une classe concrete. Le comportement
-a tester reste pertinent; le test doit etre corrige pour construire la source
-via `IgnBdaltiDemSource(...)` ou via `DemConfig.model_validate(...)`.
+Tests ajoutes ou relances le 2026-05-24:
+
+```text
+tests/unit/data_managers/test_catalog_extended.py::test_legacy_data_cache_schema_is_adopted
+1 passed
+
+tests/unit/data_managers/test_catalog_extended.py::test_schema_version_table_records_data_cache_version
+1 passed
+
+tests/unit/data_managers/test_geoplateforme_dem_downloader.py::test_fetch_ign_dem_assembles_small_asc_fixture
+1 passed
+
+tests/unit/data_managers/test_dem_manager.py::test_ign_geoplateforme_dem_regions_dispatch_to_dynamic_client
+1 passed
+```
+
+Verification CLI locale le 2026-05-24:
+
+```powershell
+python -m hydromodpy.cli.main run `
+  examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
+```
+
+Resultat observe:
+
+```text
+Workflow 'site_selection' complete
+selected: 7
+rejected: 0
+site_selection_report_html:
+  examples/projects/17_site_selection_workflow/outputs/
+  bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html
+```
 
 ### Couverture par fichier
 
@@ -198,7 +254,10 @@ via `IgnBdaltiDemSource(...)` ou via `DemConfig.model_validate(...)`.
   - ecriture `.part` puis renommage final;
   - fallback statique BD ALTI quand la decouverte Geoplateforme echoue;
   - dry-run et layout du cache brut.
-  - Attendu: 8 tests passent sans reseau.
+  - assemblage d'une petite fixture `.asc` en GeoTIFF;
+  - reuse du cache `processed/` et metadata sidecar.
+  - rejet explicite de l'assemblage RGE ALTI tant qu'il n'est pas supporte.
+  - Attendu: tests sans reseau.
 - `tests/unit/data_managers/test_france_administrative_regions.py`
   - presence des regions metropolitaines et DROM;
   - alias `La Reunion`/`Reunion`;
@@ -209,8 +268,13 @@ via `IgnBdaltiDemSource(...)` ou via `DemConfig.model_validate(...)`.
 - `tests/unit/data_managers/test_dem_manager.py`
   - departements explicites transmis a `fetch_bdalti`;
   - regions AURA resolues en 12 departements.
-  - Attendu apres correction du mode d'instanciation: 2 tests passent sans
-    reseau.
+  - dispatch de `ign_geoplateforme_dem` vers `fetch_ign_dem(...)`.
+  - metadata catalogue `dataset`/`resolution_m`/`file_format`/departements.
+  - Attendu: tests sans reseau.
+- `tests/unit/config/test_discriminated_unions.py`
+  - dispatch Pydantic de `source = "ign_geoplateforme_dem"` vers
+    `IgnGeoplateformeDemSource`.
+  - Attendu: 19 tests passent sans reseau pour ce fichier.
 - `tests/unit/site_selection/test_config.py`
   - validation/canonicalisation des regions dans `SiteSelectionConfig`;
   - rejet d'une region inconnue;
@@ -238,11 +302,13 @@ Le depot contient deja:
   - mais avec une table statique de noms d'archives `_BDALTI_ARCHIVES`.
 - `hydromodpy/data/variables/dem/manager.py`
   - orchestration cache/catalogue;
-  - appel actuel a `fetch_bdalti(...)`.
+  - appel historique a `fetch_bdalti(...)`;
+  - appel dynamique a `fetch_ign_dem(...)` pour
+    `source = "ign_geoplateforme_dem"`.
 
-La limite principale est la table statique des archives. Elle marche pour BD
-ALTI, mais elle n'est pas extensible a RGE ALTI et devra etre maintenue a la
-main si les millesimes changent.
+La limite principale restante est le perimetre d'assemblage raster: le nouveau
+chemin dynamique produit un GeoTIFF pour BD ALTI 25 m ASC, mais RGE ALTI reste
+au stade decouverte/telechargement brut.
 
 ## Sources API a supporter
 
@@ -902,11 +968,12 @@ la section "Tests developpes et execution". Les manques de couverture sont:
 - filtrage dataset/format/zone sur une fixture plus proche des flux
   Geoplateforme reels;
 - CLI `main(...)` teste directement, pas seulement les fonctions importees;
+- assemblage raster BD ALTI 25 m ASC teste avec petites fixtures locales;
+- cache produit `processed/` teste sans reseau;
 - tests reseau optionnels marques `network`:
   - dry-run sur un petit departement;
   - telechargement limite avec `--max-files 1`;
-  - verification que le futur manager `ign_geoplateforme_dem` appelle le
-    nouveau client avec des departements explicites.
+  - verification bout en bout du manager `ign_geoplateforme_dem`.
 
 ## Documentation a livrer
 
@@ -931,8 +998,8 @@ lxml
 - Ajouter dans la documentation HydroModPy utilisateur que le CLI est un outil
   de preparation/cache, tandis que le workflow normal doit passer par
   `[data.dem]`.
-- Documenter la future source `ign_geoplateforme_dem` quand elle sera
-  disponible.
+- Documenter la source `ign_geoplateforme_dem` dans la documentation utilisateur
+  HydroModPy.
 - Documenter les regions francaises acceptees dans la reference de configuration
   si ce n'est pas encore synchronise avec les pages generees.
 
@@ -962,7 +1029,7 @@ Livrable atteint: outil executable hors workflow.
 Reste a durcir: couverture de retry, cas d'encodage d'URL, fixtures Atom plus
 representatives, tests directs du CLI.
 
-### Phase 3 - Integration DEM manager: partiel
+### Phase 3 - Integration DEM manager: partiel avance
 
 Fait:
 
@@ -970,25 +1037,23 @@ Fait:
 - AURA est resolue en 12 departements;
 - les departements sont transmis a `fetch_bdalti(...)`;
 - le comportement historique `ign_bdalti` est conserve.
+- `ign_geoplateforme_dem` est ajoute dans `DemConfig`;
+- `DemManager` appelle `fetch_ign_dem(...)`;
+- le bootstrap `resolver.py` reconnait `ign_geoplateforme_dem`;
+- BD ALTI 25 m ASC dispose d'un flux telechargement/extraction/fusion/crop
+  vers GeoTIFF.
 
 Reste:
 
-```toml
-[[data.dem.sources]]
-source = "ign_geoplateforme_dem"
-dataset = "bd-alti"
-regions = ["Auvergne-Rhone-Alpes"]
-format = "ASC"
-resolution_m = 25.0
-```
+- renforcer les tests d'assemblage raster avec des fixtures locales plus proches
+  des archives IGN reelles;
+- propager les metadonnees dataset/resolution dans le catalogue HydroModPy, en
+  plus du sidecar `processed/*.json` deja ecrit a cote du GeoTIFF assemble;
+- etendre le flux a RGE ALTI ou le garder comme telechargement brut uniquement.
 
-- ajouter cette source config;
-- brancher `DemManager` sur le nouveau client;
-- reutiliser ou generaliser l'extraction/fusion/crop existants;
-- enregistrer le produit final dans le catalogue.
-
-Livrable non atteint: `hmp run` ne charge pas encore un DEM via la nouvelle
-source dynamique.
+Livrable atteint pour BD ALTI 25 m ASC. RGE ALTI est maintenant refuse
+explicitement dans `fetch_ign_dem(...)` avec un message indiquant d'utiliser le
+telechargement brut tant que l'assemblage raster n'est pas implemente.
 
 ### Phase 4 - Application AURA/site_selection: partiel
 
@@ -997,30 +1062,98 @@ Fait:
 - `[data.dem]` est present dans les exemples AURA;
 - `regions = ["Auvergne-Rhone-Alpes"]` est valide et canonicalise;
 - les 12 departements AURA sont resolus dans les tests;
-- les workflows de fixture produisent les artefacts site_selection.
+- les workflows de fixture produisent les artefacts site_selection;
+- les exemples courts Bretagne et AURA utilisent maintenant
+  `source = "ign_geoplateforme_dem"` pour passer par le client dynamique;
+- le rapport HTML signale explicitement les entrees `fixture` ou `synthetic`;
+- un exemple AURA hydrometrique reel borne a cinq stations Hub'Eau est ajoute
+  dans `configs/auvergne_rhone_alpes_hydrometry_preview.toml`;
+- AURA `area_only` produit un rapport avec fond DEM regional reel issu du cache
+  Geoplateforme, mais ses bassins restent volontairement synthetiques;
+- AURA `hydrometry_preview` produit un rapport a partir de stations Hub'Eau
+  reelles et du DEM regional Geoplateforme.
 
 Reste:
 
-- telecharger/cache un DEM reel via la nouvelle source dynamique;
-- afficher le DEM regional reel en fond de carte;
-- remplacer les limites de fixture par un chemin reproductible avec cache
-  HydroModPy.
+- transformer l'exemple AURA hydrometrique complet en run borne ou pagine pour
+  eviter de delimiter plusieurs centaines d'exutoires dans un exemple courant;
+- traiter les 24 stations Hub'Eau renvoyees hors emprise AURA lors du run
+  complet comme un diagnostic explicite dans le rapport ou dans le filtrage;
+- remplacer progressivement les limites de fixture par une selection observee
+  reproductible et suffisamment courte pour CI/verification locale.
 
-Livrable non atteint: rapport AURA avec fond DEM reel issu de Geoplateforme.
+Livrable atteint pour les rapports de controle Bretagne et AURA avec fond DEM
+reel issu de Geoplateforme. Le run AURA hydrometrique complet reste trop lourd
+pour etre l'exemple par defaut.
 
 ### Phase 5 - Remplacement progressif de la table statique: partiel
 
 Fait:
 
 - decouverte Geoplateforme dynamique disponible pour BD ALTI et RGE ALTI;
+- source `ign_geoplateforme_dem` disponible dans la configuration et le
+  manager pour BD ALTI 25 m ASC;
 - `_BDALTI_ARCHIVES` conserve comme fallback documente pour BD ALTI 25 m ASC.
 
 Reste:
 
-- basculer le chemin de production BD ALTI vers la decouverte Geoplateforme;
-- garder `_BDALTI_ARCHIVES` seulement comme fallback;
+- basculer ou aliaser progressivement `ign_bdalti` vers le nouveau chemin si
+  l'on veut remplacer le comportement historique;
+- garder `_BDALTI_ARCHIVES` seulement comme fallback de secours;
 - supprimer ou reduire le fallback quand la fiabilite API aura ete confirmee;
 - verifier le comportement sur RGE ALTI et archives fragmentees.
+
+## Validation complementaire du 2026-05-23
+
+Changements ajoutes:
+
+- cache `processed/` durci par sidecar JSON: dataset, resolution, format, CRS,
+  bbox et departements sont verifies avant reutilisation;
+- adoption automatique des anciens GeoTIFFs valides sans sidecar;
+- test unitaire du cache traite dans
+  `tests/unit/data_managers/test_geoplateforme_dem_downloader.py`;
+- tests reseau optionnels dans
+  `tests/integration/test_geoplateforme_dem_network.py`, actives par
+  `HMP_RUN_IGN_NETWORK_TESTS=1`; le telechargement reel d'une archive demande
+  en plus `HMP_RUN_IGN_DOWNLOAD_TESTS=1`;
+- la decouverte dynamique Geoplateforme peut ne pas exposer de fichier BD ALTI
+  pour un departement au moment du test; dans ce cas le test reseau se marque
+  `skip` et le chemin de production continue d'utiliser le fallback BD ALTI.
+
+Commandes validees:
+
+```powershell
+python -m pytest -o addopts="" `
+  tests/unit/data_managers/test_geoplateforme_dem_downloader.py `
+  tests/unit/data_managers/test_dem_manager.py `
+  tests/unit/site_selection/test_data_layers.py `
+  tests/unit/site_selection/test_synthetic_spatial_review.py `
+  tests/unit/site_selection/test_example_configs.py `
+  -m fast
+```
+
+Resultat observe:
+
+```text
+28 passed
+```
+
+Test reseau dry-run:
+
+```powershell
+$env:HMP_RUN_IGN_NETWORK_TESTS = "1"
+python -m pytest -o addopts="" tests/integration/test_geoplateforme_dem_network.py -m network -q
+```
+
+Resultat observe dans l'environnement courant:
+
+```text
+2 skipped
+```
+
+Les deux skips sont attendus ici: la decouverte dynamique n'a pas retourne de
+fichier BD ALTI pour `D029`, et le test de telechargement reel est protege par
+`HMP_RUN_IGN_DOWNLOAD_TESTS=1`.
 
 ## Decisions recommandees
 
