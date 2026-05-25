@@ -125,6 +125,8 @@ out/
 **/.solver_scratch/
 examples/results/
 catalog.db
+examples/projects/**/catalog.duckdb
+examples/projects/**/catalog.duckdb.bak-*
 hydromodpy.duckdb
 hydromodpy_debug.log
 hydromodpy/data/variables/*/cases/outputs/**
@@ -145,8 +147,17 @@ examples/data/geology/geology_brgm_50k_*.gpkg
 examples/data/hydrography/euhydro_*.gpkg
 examples/data/hydrography/osm_*.gpkg
 examples/data/hydrometry/hydrometry_hubeau_*.csv
+examples/data/intermittency/intermittency_hubeau_*.csv
 examples/data/piezometry/piezometry_hubeau_*.csv
+examples/data/water_quality/waterquality_hubeau_*.csv
+examples/data/**/*.csv.json
+examples/data/**/*.gpkg.json
+examples/data/**/*.tif.json
 examples/data/precipitation/precipitation_*_sim2_*.nc
+examples/projects/16_nancon_natural_calibration/outputs/html_blocks_smoke/
+examples/projects/16_nancon_natural_calibration/outputs/html_blocks_simulation_smoke/
+examples/projects/16_nancon_natural_calibration/outputs/nancon_real_figures/
+examples/projects/16_nancon_natural_calibration/outputs/selune_portability_probe/
 examples/projects/17_site_selection_workflow/outputs/
 
 # Lockfiles emitted by validation and regression test runs (``hmp run`` writes
