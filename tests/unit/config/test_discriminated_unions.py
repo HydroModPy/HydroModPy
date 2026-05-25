@@ -9,6 +9,7 @@ from hydromodpy.data.variables.dem.config import (
     CustomDemSource,
     DemSourceConfig,
     IgnBdaltiDemSource,
+    IgnGeoplateformeDemSource,
 )
 from hydromodpy.data.variables.geology.config import (
     BrgmGeology1mSource,
@@ -50,6 +51,19 @@ class TestDataSourceUnion:
         instance = ta.validate_python({"source": "ign_bdalti"})
         assert isinstance(instance, IgnBdaltiDemSource)
         assert instance.source == "ign_bdalti"
+
+    def test_dem_ign_geoplateforme_variant_dispatch(self) -> None:
+        ta = TypeAdapter(DemSourceConfig)
+        instance = ta.validate_python(
+            {
+                "source": "ign_geoplateforme_dem",
+                "dataset": "bd-alti",
+                "resolution_m": 25.0,
+            }
+        )
+        assert isinstance(instance, IgnGeoplateformeDemSource)
+        assert instance.source == "ign_geoplateforme_dem"
+        assert instance.dataset == "bd-alti"
 
     def test_geology_brgm_variant_dispatch(self) -> None:
         ta = TypeAdapter(GeologySourceConfig)

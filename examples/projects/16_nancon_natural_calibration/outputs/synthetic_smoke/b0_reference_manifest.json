@@ -14,9 +14,9 @@
   "best_non_target": {
     "C_debit_obs": 0.0,
     "C_debit_phys": 0.0,
-    "C_reseau_naturel": 2.4499999999999997,
-    "C_reseau_phys": 2.4499999999999997,
-    "J": 0.7349999999999999,
+    "C_reseau_naturel": 3.5,
+    "C_reseau_phys": 3.5,
+    "J": 1.05,
     "Sy": 0.05,
     "candidate_id": "shifted_network",
     "mK": 0.95,
@@ -43,9 +43,9 @@
     }
   },
   "hashes": {
-    "score_table": "9f9011f526d6390ca2930f1494c52e0508ea726413474063992be2df9fafb6af",
-    "truth.metadata_json": "edb0c7d4c4fc150f4c64e4b6efdf48a9532f85d1dff6a40fb5233f80053bf810",
-    "truth.normalization_json": "23b3bbb95b99df7b09a82b2fb991c9655bae356d81091cb7974d1528a1309a50",
+    "score_table": "f5a5f6236738e82db061eaf3bb1c71c578bf1f0386d91251f3284253ee68e39b",
+    "truth.metadata_json": "94bb950dc8daa19eac5115be3bcd3b92ca2b52e9072fc08dd51292ad308d0ed8",
+    "truth.normalization_json": "ac95b1e94bd52549d22b37f2fcf2b904dc55134a40b91abead3d1e59a10bb552",
     "truth.steady_network_active_mask_npz": "9d4f4dd65a79f5f97a3d23594ee72f1975d2a40daa851bf9187e6b8e5084931e",
     "truth.steady_network_drain_by_cell_npz": "33bb08ef3007c43d6f167e21fb104694da97593029ab7ced027bab0b0b6f8246",
     "truth.transient_q_total_release_csv": "9a81388bea5af1851a3ee4da9eb648cc25a226dcc2a3b9dfabf954b54c82a49b"
@@ -58,8 +58,6 @@
     "d_tol": 1.0,
     "discharge_metric": "nse_log",
     "eta_dist": 1.0,
-    "eta_flux": 1.0,
-    "eta_len": 0.1,
     "network_distance_metric": "abs_sim_to_obs_over_obs_to_obs_distance_ratio_minus_one",
     "nse_log_epsilon": null,
     "tau_network": 0.0,

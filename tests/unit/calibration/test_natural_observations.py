@@ -44,7 +44,7 @@ def test_natural_network_cost_is_zero_for_same_support() -> None:
     assert score.total == pytest.approx(0.0)
     assert score.components["E_dist"] == pytest.approx(0.0)
     assert score.components["distance_ratio"] == pytest.approx(1.0)
-    assert score.components["E_len"] == pytest.approx(0.0)
+    assert "C_len" not in score.components
 
 
 def test_natural_network_cost_penalizes_shifted_support() -> None:

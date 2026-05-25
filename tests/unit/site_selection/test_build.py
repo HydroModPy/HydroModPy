@@ -273,6 +273,7 @@ def test_build_observed_site_selection_from_toml_resolves_dem_and_observation_ex
 
     def fake_dem_loader(**kwargs):
         calls["dem_extent"] = kwargs["project_extent"]
+        calls["dem_data_root"] = kwargs["data_root"]
         return [
             FieldRecord(
                 variable="dem",
@@ -286,6 +287,7 @@ def test_build_observed_site_selection_from_toml_resolves_dem_and_observation_ex
 
     def fake_hydrometry_loader(**kwargs):
         calls["hydrometry_extent"] = kwargs["project_extent"]
+        calls["hydrometry_data_root"] = kwargs["data_root"]
         return [_wgs84_hubeau_record("J123456701")]
 
     def fake_flow_builder(**kwargs):
@@ -312,6 +314,8 @@ def test_build_observed_site_selection_from_toml_resolves_dem_and_observation_ex
     )
 
     assert calls["dem_extent"] == (300000.0, 6800000.0, 310000.0, 6810000.0)
+    assert calls["dem_data_root"] == tmp_path / "out" / "data"
+    assert calls["hydrometry_data_root"] == tmp_path / "out" / "data"
     assert calls["flow_dem"] == dem
     lon_min, lat_min, lon_max, lat_max = calls["hydrometry_extent"]
     assert -3.5 < lon_min < lon_max < -2.0

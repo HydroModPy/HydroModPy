@@ -127,6 +127,8 @@ Highlights
 
    .. grid-item-card:: Multi-solver core
       :class-card: sd-shadow-sm sd-rounded-3 sd-p-4
+      :link: user_guide/solvers
+      :link-type: doc
 
       MODFLOW 6, MODFLOW-NWT, Boussinesq, and GR4J behind a single
       adapter layer. Optional MODPATH and MT3DMS for particle tracking

@@ -88,7 +88,7 @@ def _latest_network_figure_dir(project_dir: Path) -> Path | None:
         "hydrographic_network_comparison.png",
     }
     candidates: list[Path] = []
-    for folder in figures_root.glob("run_*"):
+    for folder in figures_root.iterdir():
         if folder.is_dir() and required.issubset({item.name for item in folder.iterdir()}):
             candidates.append(folder)
     if not candidates:
@@ -249,7 +249,7 @@ def _plot_full_observed(observed: pd.DataFrame, output_path: Path) -> None:
     ax.set_title("Debit observe Nancon, chronique complete")
     ax.set_ylabel("Q (m3/s)")
     ax.grid(True, color="#d1d5db", linewidth=0.6, alpha=0.8)
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper right", fontsize=13, framealpha=0.94)
     fig.tight_layout()
     fig.savefig(output_path, dpi=160)
     plt.close(fig)
@@ -291,7 +291,7 @@ def _plot_window_forcing(
     axes[1].set_ylabel("mm/day")
     axes[1].set_title("Recharge et runoff disponibles")
     axes[1].grid(True, color="#d1d5db", linewidth=0.6, alpha=0.8)
-    axes[1].legend(ncols=2, loc="upper right")
+    axes[1].legend(ncols=2, loc="upper right", fontsize=11, framealpha=0.92)
     fig.tight_layout()
     fig.savefig(output_path, dpi=160)
     plt.close(fig)
@@ -333,7 +333,7 @@ def _plot_baseline_comparison(
     ax.set_title("Debit observe et debit simule non calibre")
     ax.set_ylabel("Q (m3/s)")
     ax.grid(True, color="#d1d5db", linewidth=0.6, alpha=0.8)
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper right", fontsize=11, framealpha=0.92)
     fig.tight_layout()
     fig.savefig(output_path, dpi=160)
     plt.close(fig)

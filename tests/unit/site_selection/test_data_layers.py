@@ -6,10 +6,13 @@ import pandas as pd
 import pytest
 
 from hydromodpy.data.contracts.location import StationLocation
+from hydromodpy.data.contracts.spatial_field import FieldRecord
 from hydromodpy.data.contracts.timeseries import PointRecord
+from hydromodpy.data.variables.dem.config import DemConfig, IgnGeoplateformeDemSource
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 from hydromodpy.workflow.site_selection_data import (
     default_site_selection_data_root,
+    load_dem_path,
     load_hydrometry_records,
 )
 
@@ -75,3 +78,30 @@ def test_default_site_selection_data_root_uses_workspace_env(monkeypatch, tmp_pa
     monkeypatch.setenv("HYDROMODPY_WORKSPACE", str(workspace))
 
     assert default_site_selection_data_root() == (workspace / "data").resolve()
+
+
+@pytest.mark.fast
+def test_load_dem_path_sets_extent_for_geoplateforme_api_source(tmp_path):
+    dem_path = tmp_path / "dem.tif"
+    dem_path.touch()
+    calls = {}
+
+    def fake_loader(**kwargs):
+        calls.update(kwargs)
+        return [
+            FieldRecord(
+                variable="dem",
+                source="ign_geoplateforme_dem",
+                unit="m",
+                data=dem_path,
+                bbox=kwargs["project_extent"],
+                crs="EPSG:2154",
+            )
+        ]
+
+    cfg = DemConfig(sources=[IgnGeoplateformeDemSource(regions=["Bretagne"])])
+    project_extent = (100_000.0, 6_700_000.0, 120_000.0, 6_720_000.0)
+
+    assert load_dem_path(cfg, project_extent=project_extent, loader=fake_loader) == dem_path
+    assert calls["config"].sources[0].extent == "study_area"
+    assert calls["project_extent"] == project_extent

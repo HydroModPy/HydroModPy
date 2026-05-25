@@ -17,10 +17,10 @@ The counts below were collected from the repository root with:
      --ignore=tests/integration/test_run_dataset_xugrid.py \
      --ignore=tests/unit/test_data_schemas.py
 
-The two ignored files require optional dependencies that were missing in
-the local Python environment used for this snapshot: ``xugrid`` and
-``pandera``. A fully provisioned development environment may therefore
-collect a few more tests.
+The two ignored files required optional dependencies that were missing in
+the local Python environment used for this snapshot. The current install
+manifests include the runtime schema dependency ``pandera``; a fully
+provisioned development environment may therefore collect a few more tests.
 
 Collected test count: **3368**.
 

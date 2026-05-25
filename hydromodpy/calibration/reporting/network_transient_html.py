@@ -14,8 +14,8 @@ from hydromodpy.calibration.network_transient_truth import (
     q_total_release_from_drain_by_cell,
 )
 from hydromodpy.calibration.reporting.network_transient import args as _nt_args
+from hydromodpy.calibration.reporting.network_transient import blocks as _blocks
 from hydromodpy.calibration.reporting.network_transient import io as _nt_io
-from hydromodpy.calibration.reporting.network_transient import sections as _sections
 from hydromodpy.calibration.reporting.network_transient import state as _state
 from hydromodpy.results.catalog import SimulationCatalog
 from hydromodpy.results.run import Run
@@ -293,25 +293,7 @@ def _reference_manifest_payload(
             "score_stop_index": normalization.get("score_stop_index"),
             "scored_periods": normalization.get("scored_periods"),
         },
-        "normalization": {
-            key: normalization.get(key)
-            for key in (
-                "Q_ref_steady",
-                "Qbar_ref",
-                "L_ref",
-                "d_tol",
-                "tau_network",
-                "eta_flux",
-                "eta_dist",
-                "eta_len",
-                "network_distance_metric",
-                "discharge_metric",
-                "alpha_Q",
-                "nse_log_epsilon",
-                "w_reseau",
-                "w_debit",
-            )
-        },
+        "normalization": _manifest_normalization(contract_version, normalization),
         "grid": {
             "rows_total": len(score_rows),
             "completed": len(completed),
@@ -361,6 +343,45 @@ def _manifest_score_row(row: dict[str, str] | None) -> dict[str, Any] | None:
         elif value not in (None, ""):
             out[key] = value
     return out
+
+
+def _manifest_normalization(
+    contract_version: str,
+    normalization: dict[str, Any],
+) -> dict[str, Any]:
+    if contract_version.startswith("natural_"):
+        keys = (
+            "Q_ref_steady",
+            "Qbar_ref",
+            "L_ref",
+            "d_tol",
+            "tau_network",
+            "eta_dist",
+            "network_distance_metric",
+            "discharge_metric",
+            "alpha_Q",
+            "nse_log_epsilon",
+            "w_reseau",
+            "w_debit",
+        )
+    else:
+        keys = (
+            "Q_ref_steady",
+            "Qbar_ref",
+            "L_ref",
+            "d_tol",
+            "tau_network",
+            "eta_flux",
+            "eta_dist",
+            "eta_len",
+            "network_distance_metric",
+            "discharge_metric",
+            "alpha_Q",
+            "nse_log_epsilon",
+            "w_reseau",
+            "w_debit",
+        )
+    return {key: normalization.get(key) for key in keys}
 
 
 def _manifest_contract(
@@ -1789,7 +1810,7 @@ def _score_file_path(raw: Any) -> Path | None:
 
 
 def _page(**kwargs: Any) -> str:
-    return _sections.build_page(
+    return _blocks.build_page(
         **kwargs,
         page_title=PAGE_TITLE,
         web_root=WEB_ROOT,

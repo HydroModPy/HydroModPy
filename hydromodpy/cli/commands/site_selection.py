@@ -85,6 +85,35 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     build_observed.set_defaults(_handler=run_build_observed)
 
+    build_generated = sub.add_parser(
+        "build-generated",
+        help="Build site selection from DEM/network-generated candidates",
+    )
+    build_generated.add_argument(
+        "config",
+        type=Path,
+        help="Path to a TOML config with [site_selection].",
+    )
+    build_generated.add_argument(
+        "--output-root",
+        type=Path,
+        default=None,
+        help="Override [site_selection].output_root for this build.",
+    )
+    build_generated.add_argument(
+        "--workspace-root",
+        type=Path,
+        default=None,
+        help="Optional HydroModPy workspace root used for data caching.",
+    )
+    build_generated.add_argument(
+        "--data-root",
+        type=Path,
+        default=None,
+        help="Optional data root used for data caching.",
+    )
+    build_generated.set_defaults(_handler=run_build_generated)
+
     report = sub.add_parser(
         "report",
         help="Render the static HTML report from a site_selection_manifest.json",
@@ -191,6 +220,32 @@ def run_build_observed(args: argparse.Namespace) -> None:
     sys.exit(EXIT_OK)
 
 
+def run_build_generated(args: argparse.Namespace) -> None:
+    from hydromodpy.workflow.site_selection import build_generated_site_selection_from_toml
+
+    config_path = Path(args.config).expanduser()
+    if not config_path.is_file():
+        print(f"File not found: {config_path}", file=sys.stderr)
+        sys.exit(EXIT_NOT_FOUND)
+
+    try:
+        result = build_generated_site_selection_from_toml(
+            config_path=config_path,
+            output_root=args.output_root,
+            workspace_root=args.workspace_root,
+            data_root=args.data_root,
+        )
+    except (ValueError, ValidationError) as exc:
+        print(f"Invalid site-selection input: {exc}", file=sys.stderr)
+        sys.exit(EXIT_CONFIG)
+
+    for label, path in result.output_paths.items():
+        print(f"[written] {label}: {path}")
+    print(f"candidates={len(result.candidates)}")
+    print(f"selected={len(result.selection.selected)} rejected={len(result.selection.rejected)}")
+    sys.exit(EXIT_OK)
+
+
 def run_report(args: argparse.Namespace) -> None:
     from hydromodpy.spatial.site_selection.html_report import (
         render_site_selection_html_report,
@@ -216,6 +271,7 @@ def run_report(args: argparse.Namespace) -> None:
 
 __all__ = [
     "register",
+    "run_build_generated",
     "run_build_observed",
     "run_plan",
     "run_report",

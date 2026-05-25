@@ -11,6 +11,7 @@ from urllib.request import url2pathname
 
 CORE_MODULES = (
     "duckdb",
+    "pandera",
     "zarr",
     "sqlalchemy",
     "xugrid",

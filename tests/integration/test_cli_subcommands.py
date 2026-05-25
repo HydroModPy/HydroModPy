@@ -130,7 +130,7 @@ def test_config_check_accepts_site_selection_without_geographic(monkeypatch, cap
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(sys, "argv", ["hmp", "config", "check", str(config)])
+    monkeypatch.setattr(sys, "argv", ["hmp", "dev", "config", "check", str(config)])
 
     main()
     out = capsys.readouterr().out

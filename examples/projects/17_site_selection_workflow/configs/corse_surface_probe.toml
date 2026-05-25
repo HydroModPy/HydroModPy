@@ -2,13 +2,14 @@
 mode = "site_selection"
 
 [site_selection]
-selection_id = "aura_area_only_v1"
-output_root = "../outputs/aura_area_only_v1"
+selection_id = "corse_surface_probe_v1"
+output_root = "../outputs/corse_surface_probe_v1"
 
 [site_selection.input]
 mode = "delineated_catchments"
-catchments_csv = "../fixtures/aura_area_50_150_catchments.csv"
-region_id = "Auvergne-Rhone-Alpes"
+catchments_csv = "../fixtures/corse_surface_probe_outlets.csv"
+region_id = "Corse"
+delineate_from_outlets = true
 
 [site_selection.strategy]
 principle = "criteria_crossing"
@@ -20,23 +21,35 @@ geology_role = "report_only"
 [site_selection.territory]
 mode = "admin_regions"
 country = "FR"
-regions = ["Auvergne-Rhone-Alpes"]
+regions = ["Corse"]
 
 [site_selection.dem]
 source = "data"
 resolution_m = 25.0
 cache_policy = "use_cache_else_download"
-margin_km = 20.0
-request_extent = "territory"
+margin_km = 10.0
+request_extent = "outlets"
 map_background_extent = "territory"
 
+[site_selection.hydrology]
+method = "dem_only"
+flow_algorithm = "d8"
+hydrologic_conditioning = "breach"
+network_threshold_area_km2 = 1.0
+
+[site_selection.outlets]
+candidate_mode = "station_outlets"
+snap_strategy = "dem_accumulation"
+snap_dist_m = 1000
+min_distance_between_outlets_km = 5.0
+
 [site_selection.spatial_selection]
-allow_nested_basins = false
-max_pairwise_basin_overlap_fraction = 0.10
+allow_nested_basins = true
+max_pairwise_basin_overlap_fraction = 0.20
 overlap_mode = "warning"
 
 [site_selection.criteria]
-ruleset = "france_area_only_v1"
+ruleset = "corse_surface_probe_v1"
 hard_reject = ["area_range", "delineation_failure"]
 warning = ["basin_overlap"]
 report_only = ["hydrometry", "piezometry", "geology", "land_cover"]
@@ -45,10 +58,10 @@ report_only = ["hydrometry", "piezometry", "geology", "land_cover"]
 mode = "hard_reject"
 
 [[site_selection.criteria.area.ranges]]
-range_id = "aura_50_150"
-label = "Bassins moyens AURA"
-min_area_km2 = 50.0
-max_area_km2 = 150.0
+range_id = "corse_30_500"
+label = "Bassins corses 30-500 km2"
+min_area_km2 = 30.0
+max_area_km2 = 500.0
 
 [site_selection.criteria.observations]
 flow_station_mode = "report_only"
@@ -56,18 +69,6 @@ piezometer_mode = "report_only"
 
 [site_selection.criteria.geology]
 mode = "report_only"
-
-[site_selection.map_context]
-
-[[site_selection.map_context.layers]]
-name = "AURA fixture outline"
-path = "../fixtures/context/aura_region_outline.geojson"
-role = "territory"
-
-[[site_selection.map_context.layers]]
-name = "AURA fixture hydrography"
-path = "../fixtures/context/aura_reference_hydrography.geojson"
-role = "hydrography"
 
 [site_selection.output]
 write_report_html = true
@@ -80,4 +81,4 @@ source = "ign_geoplateforme_dem"
 dataset = "bd-alti"
 resolution_m = 25.0
 file_format = "ASC"
-regions = ["Auvergne-Rhone-Alpes"]
+regions = ["Corse"]

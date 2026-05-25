@@ -16,12 +16,15 @@
       --missing: #f8e5dc;
     }
     * { box-sizing: border-box; }
+    html {
+      font-size: 125%;
+    }
     body {
       margin: 0;
       background: #f7f8fa;
       color: var(--ink);
       font-family: "Aptos", "Segoe UI", sans-serif;
-      font-size: 16px;
+      font-size: 1rem;
       line-height: 1.45;
     }
     main { max-width: 1500px; margin: 0 auto; padding: 30px 20px 58px; }
@@ -41,6 +44,119 @@
       margin-bottom: 6px;
     }
     .subtitle, .muted { color: var(--muted); }
+    .level-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .level-nav span {
+      color: var(--muted);
+      font-size: 0.86rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .level-buttons {
+      display: inline-flex;
+      gap: 4px;
+    }
+    .level-button {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 10px;
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .level-button:hover {
+      text-decoration: none;
+      border-color: var(--accent);
+    }
+    .level-button.is-active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .block-variant-group {
+      margin-top: 20px;
+    }
+    .block-level-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .block-level-switch span {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .block-level-buttons {
+      display: inline-flex;
+      gap: 4px;
+    }
+    .block-level-button {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 10px;
+      background: #fff;
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .block-level-button:hover {
+      border-color: var(--accent);
+    }
+    .block-level-button.is-active {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .block-variant .report-block {
+      margin-top: 0;
+    }
+    .block-toc {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 10px 0 0;
+    }
+    .block-toc span {
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .block-toc div {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .block-toc a {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 9px;
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 0.88rem;
+      font-weight: 650;
+    }
+    .block-toc a:hover {
+      border-color: var(--accent);
+      text-decoration: none;
+    }
     .report-block {
       margin-top: 20px;
       padding: 18px;
@@ -56,11 +172,28 @@
       gap: 16px;
       margin-bottom: 12px;
     }
+    .block-pills {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
     .level-pill {
       border: 1px solid var(--line);
       border-radius: 999px;
       padding: 5px 10px;
       color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-pill {
+      border: 1px solid var(--warn);
+      border-radius: 999px;
+      padding: 5px 10px;
+      color: var(--warn);
+      background: #fff7ed;
       font-size: 0.82rem;
       font-weight: 700;
       text-transform: uppercase;
@@ -134,10 +267,33 @@
       color: var(--warn);
       font-weight: 650;
     }
+    .artifact-links {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0 0;
+      padding-left: 20px;
+    }
+    .artifact-links li {
+      padding-left: 2px;
+    }
+    .artifact-links span {
+      display: inline-block;
+      min-width: 92px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .artifact-links small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+    }
     @media (max-width: 880px) {
       main { padding: 18px 12px 42px; }
       .metric-grid, .figure-grid { grid-template-columns: 1fr; }
       .block-title-row { display: block; }
+      .block-level-switch { display: grid; }
       .level-pill { display: inline-block; margin-top: 10px; }
     }
   </style>
@@ -145,133 +301,162 @@
 <body>
 <main>
   <header>
-    <p class="eyebrow">HydroModPy report</p>
+    <p class="eyebrow">Fichier HTML de simulation</p>
     <h1>Nancon</h1>
-    <p class="subtitle">Contexte spatial, inventaire des donnees et entrees principales - niveau standard.</p>
+    <p class="subtitle">Vue donnees du bassin - niveau standard.</p>
+
+    <nav class="block-toc" aria-label="Sommaire du rapport">
+  <span>Sommaire</span>
+  <div><a href="#workflow-header">Identite du workflow</a><a href="#spatial-context">Localisation</a><a href="#hydrographic-network">Reseau hydrographique</a><a href="#data-inventory">Inventaire des donnees</a><a href="#observation-inventory">Observations</a><a href="#forcing-context">Recharge et pompages</a></div>
+</nav>
   </header>
-  <section id="workflow_header" class="report-block status-available">
+  <section class="report-block status-available" id="workflow-header">
   <div class="block-title-row">
     <div>
-      <p class="block-id">workflow_header</p>
       <h2>Identite du workflow</h2>
     </div>
-    <span class="level-pill">compact</span>
+    <div class="block-pills">
+
+      <span class="level-pill">compact</span>
+    </div>
   </div>
-  <p>Synthese minimale du rapport et du workspace.</p>
+  <p>Synthese minimale du rapport et de l&#x27;espace de travail.</p>
   <div class="metric-grid"><div class="metric">
   <span>Workflow</span>
   <strong>overview</strong>
-  
+
 </div><div class="metric">
   <span>Bassin</span>
   <strong>Nancon</strong>
-  
+
 </div><div class="metric">
   <span>Periode</span>
   <strong>2018-01-01 -&gt; 2020-12-31</strong>
-  
+
 </div><div class="metric">
-  <span>Workspace</span>
+  <span>Espace de travail</span>
   <strong>C:\codes\HydroModPy\examples\projects\02_nancon_watershed</strong>
-  
+
 </div></div>
-  
-  
-  
+
+
+
+
 </section>
-<section id="spatial_context" class="report-block status-available">
+<section class="report-block status-available" id="spatial-context">
   <div class="block-title-row">
     <div>
-      <p class="block-id">spatial_context</p>
-      <h2>Contexte spatial</h2>
+      <h2>Localisation</h2>
     </div>
-    <span class="level-pill">standard</span>
+    <div class="block-pills">
+
+      <span class="level-pill">standard</span>
+    </div>
   </div>
-  <p>Bassin, support DEM, hydrographie de reference et geologie de contexte.</p>
+  <p>Situation regionale et emprise du bassin versant.</p>
   <div class="metric-grid"><div class="metric">
   <span>Surface bassin</span>
-  <strong>64.64 <span>km2</span></strong>
-  
+  <strong>64.65 <span>km2</span></strong>
+
 </div><div class="metric">
   <span>CRS</span>
   <strong>EPSG:2154</strong>
-  
+
 </div><div class="metric">
-  <span>Exutoire</span>
-  <strong>389285.9, 6816518.7</strong>
-  
-</div><div class="metric">
-  <span>Definition</span>
-  <strong>from_outlet_coord</strong>
-  
-</div><div class="metric">
-  <span>Correction DEM</span>
-  <strong>breach</strong>
-  
+  <span>Definition du bassin</span>
+  <strong>Exutoire fourni</strong>
+
 </div></div>
   <div class="figure-grid"><figure>
-  <a href="../figures/overview/map_dem_context.png"><img src="../figures/overview/map_dem_context.png" alt="DEM, bassin versant et exutoire"></a>
-  <figcaption><strong>DEM, bassin versant et exutoire</strong><br><span>Contexte compact sans hydrographie ni stations.</span></figcaption>
+  <a href="../figures/overview/map_dem_context.png"><img src="../figures/overview/map_dem_context.png" alt="Domaine simule"></a>
+  <figcaption><strong>Domaine simule</strong></figcaption>
 </figure><figure>
-  <a href="../figures/overview/map_hydrography_data.png"><img src="../figures/overview/map_hydrography_data.png" alt="Hydrographie chargee comme donnee"></a>
-  <figcaption><strong>Hydrographie chargee comme donnee</strong><br><span>Reseau issu de data.hydrography, pas du calcul geomorphologique DEM.</span></figcaption>
-</figure><figure>
-  <a href="../figures/overview/map_geology_context.png"><img src="../figures/overview/map_geology_context.png" alt="Geologie de contexte"></a>
-  <figcaption><strong>Geologie de contexte</strong><br><span>Couche geologique chargee, si disponible.</span></figcaption>
+  <a href="../figures/overview/map_regional_context.png"><img src="../figures/overview/map_regional_context.png" alt="Situation dans le Massif Armoricain"></a>
+  <figcaption><strong>Situation dans le Massif Armoricain</strong></figcaption>
 </figure></div>
-  
-  
+
+
+
 </section>
-<section id="data_inventory" class="report-block status-available">
+<section class="report-block status-available" id="hydrographic-network">
   <div class="block-title-row">
     <div>
-      <p class="block-id">data_inventory</p>
+      <h2>Reseau hydrographique</h2>
+    </div>
+    <div class="block-pills">
+
+      <span class="level-pill">standard</span>
+    </div>
+  </div>
+  <p>Reseau observe, sources hydrographiques et controle cartographique.</p>
+  <div class="metric-grid"><div class="metric">
+  <span>Objets</span>
+  <strong>1 champ(s)</strong>
+
+</div><div class="metric">
+  <span>Sources</span>
+  <strong>bdtopage, euhydro, osm</strong>
+
+</div><div class="metric">
+  <span>Periode</span>
+  <strong>-</strong>
+
+</div></div>
+  <div class="figure-grid"><figure>
+  <a href="../figures/overview/map_hydrography_data.png"><img src="../figures/overview/map_hydrography_data.png" alt="Reseau hydrographique observe"></a>
+  <figcaption><strong>Reseau hydrographique observe</strong><br><span>Reseau observe disponible avant toute simulation.</span></figcaption>
+</figure></div>
+
+
+
+</section>
+<section class="report-block status-available" id="data-inventory">
+  <div class="block-title-row">
+    <div>
       <h2>Inventaire des donnees</h2>
     </div>
-    <span class="level-pill">standard</span>
+    <div class="block-pills">
+
+      <span class="level-pill">standard</span>
+    </div>
   </div>
   <p>Familles de donnees demandees ou chargees par le workflow.</p>
-  <div class="metric-grid"><div class="metric">
-  <span>Familles suivies</span>
-  <strong>10</strong>
-  
-</div><div class="metric">
-  <span>Familles chargees</span>
-  <strong>10</strong>
-  
-</div></div>
-  
+
+
   <div class="table-block">
   <h3>Familles de donnees</h3>
-  <table><thead><tr><th>Famille</th><th>Statut</th><th>Sources</th><th>Objets</th><th>Periode</th></tr></thead><tbody><tr><td>dem</td><td>chargee</td><td>custom</td><td>1 champ(s)</td><td>-</td></tr><tr><td>geology</td><td>chargee</td><td>brgm_50k</td><td>1 objet</td><td>-</td></tr><tr><td>hydrography</td><td>chargee</td><td>bdtopage, euhydro, osm</td><td>1 champ(s)</td><td>-</td></tr><tr><td>intermittency</td><td>chargee</td><td>hubeau</td><td>1 point(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>hydrometry</td><td>chargee</td><td>hubeau</td><td>1 point(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>piezometry</td><td>chargee</td><td>hubeau</td><td>1 point(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>water_quality</td><td>chargee</td><td>hubeau</td><td>1 point(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>recharge</td><td>chargee</td><td>sim2</td><td>1 champ(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>precipitation</td><td>chargee</td><td>sim2</td><td>3 champ(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>etp</td><td>chargee</td><td>sim2</td><td>1 champ(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr></tbody></table>
+  <table><thead><tr><th>Famille</th><th>Statut</th><th>Sources</th><th>Objets</th><th>Periode</th></tr></thead><tbody><tr><td>dem</td><td>chargee</td><td>custom</td><td>1 champ(s)</td><td>-</td></tr><tr><td>geology</td><td>chargee</td><td>brgm_50k</td><td>1 objet</td><td>-</td></tr><tr><td>hydrography</td><td>chargee</td><td>bdtopage, euhydro, osm</td><td>1 champ(s)</td><td>-</td></tr><tr><td>hydrometry</td><td>chargee</td><td>hubeau</td><td>1 point(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>piezometry</td><td>chargee</td><td>hubeau</td><td>1 point(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>intermittency</td><td>chargee</td><td>hubeau</td><td>1 point(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>water_quality</td><td>chargee</td><td>hubeau</td><td>1 point(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>precipitation</td><td>chargee</td><td>sim2</td><td>3 champ(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>etp</td><td>chargee</td><td>sim2</td><td>1 champ(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr><tr><td>recharge</td><td>chargee</td><td>sim2</td><td>1 champ(s)</td><td>2018-01-01 -&gt; 2020-12-31</td></tr></tbody></table>
 </div>
-  
+
+
 </section>
-<section id="observation_inventory" class="report-block status-available">
+<section class="report-block status-available" id="observation-inventory">
   <div class="block-title-row">
     <div>
-      <p class="block-id">observation_inventory</p>
       <h2>Observations</h2>
     </div>
-    <span class="level-pill">standard</span>
+    <div class="block-pills">
+
+      <span class="level-pill">standard</span>
+    </div>
   </div>
   <p>Stations et chroniques observees disponibles avant toute simulation.</p>
   <div class="metric-grid"><div class="metric">
   <span>Hydrometrie</span>
   <strong>1 <span>stations</span></strong>
-  
+
 </div><div class="metric">
   <span>Piezometrie</span>
   <strong>1 <span>stations</span></strong>
-  
+
 </div><div class="metric">
   <span>Intermittence</span>
   <strong>1 <span>stations</span></strong>
-  
+
 </div><div class="metric">
   <span>Qualite eau</span>
   <strong>1 <span>stations</span></strong>
-  
+
 </div></div>
   <div class="figure-grid"><figure>
   <a href="../figures/overview/station_inventory.png"><img src="../figures/overview/station_inventory.png" alt="Inventaire des stations"></a>
@@ -287,37 +472,40 @@
   <figcaption><strong>Intermittence observee</strong><br><span>Chroniques ONDE ou intermittence, si chargees.</span></figcaption>
 </figure><figure>
   <a href="../figures/overview/timeseries_water_quality.png"><img src="../figures/overview/timeseries_water_quality.png" alt="Qualite d&#x27;eau observee"></a>
-  <figcaption><strong>Qualite d&#x27;eau observee</strong><br><span>Chroniques qualite d&#x27;eau, si chargees.</span></figcaption>
+  <figcaption><strong>Qualite d'eau observee</strong><br><span>Chroniques qualite d'eau, si chargees.</span></figcaption>
 </figure></div>
   <div class="table-block">
   <h3>Stations observees</h3>
   <table><thead><tr><th>Type</th><th>ID</th><th>X</th><th>Y</th><th>Debut</th><th>Fin</th></tr></thead><tbody><tr><td>Hydrometrie</td><td>J001401001</td><td>-1.2</td><td>48.4</td><td>2018-01-01</td><td>2020-12-31</td></tr><tr><td>Piezometrie</td><td>02478X0156/PZ</td><td>-1.2</td><td>48.5</td><td>2018-01-01</td><td>2020-12-31</td></tr><tr><td>Intermittence</td><td>J0014011</td><td>-1.2</td><td>48.4</td><td>2018-01-01</td><td>2020-12-31</td></tr><tr><td>Qualite eau</td><td>04161595</td><td>-1.2</td><td>48.4</td><td>2018-01-08</td><td>2020-12-01</td></tr></tbody></table>
 </div>
-  
+
+
 </section>
-<section id="forcing_context" class="report-block status-available">
+<section class="report-block status-available" id="forcing-context">
   <div class="block-title-row">
     <div>
-      <p class="block-id">forcing_context</p>
       <h2>Recharge et pompages</h2>
     </div>
-    <span class="level-pill">standard</span>
+    <div class="block-pills">
+
+      <span class="level-pill">standard</span>
+    </div>
   </div>
   <p>Entrees hydrologiques principales, vues comme donnees d&#x27;entree.</p>
   <div class="metric-grid"><div class="metric">
   <span>Recharge moyenne</span>
-  <strong>326.03 mm/year</strong>
-  
+  <strong>255.06 mm/year</strong>
+
 </div><div class="metric">
   <span>Pompages</span>
   <strong>-</strong>
-  
+
 </div><div class="metric">
   <span>Ouvrages</span>
-  <strong>0 <span>wells</span></strong>
-  
+  <strong>0 <span>ouvrages</span></strong>
+
 </div></div>
-  
+
   <div class="table-block">
   <h3>Sources recharge</h3>
   <table><thead><tr><th>Source</th><th>Periode</th><th>Chemin</th></tr></thead><tbody><tr><td>sim2</td><td>2018-01-01 -&gt; 2020-12-31</td><td>-</td></tr></tbody></table>
@@ -326,52 +514,8 @@
   <h3>Pompages declares</h3>
   <p class="muted">Aucun pompage declare.</p>
 </div>
-  <ul class="warning-list"><li>Aucun pompage declare dans flow.sinks_sources.wells.</li></ul>
-</section>
-<section id="mesh_context" class="report-block status-not-applicable">
-  <div class="block-title-row">
-    <div>
-      <p class="block-id">mesh_context</p>
-      <h2>Maillage</h2>
-    </div>
-    <span class="level-pill">compact</span>
-  </div>
-  <p>Non applicable au workflow overview: aucun maillage n&#x27;est construit ici.</p>
-  
-  
-  
-  
-</section>
-<section id="solver_context" class="report-block status-not-applicable">
-  <div class="block-title-row">
-    <div>
-      <p class="block-id">solver_context</p>
-      <h2>Solveur</h2>
-    </div>
-    <span class="level-pill">compact</span>
-  </div>
-  <p>Non applicable au workflow overview: aucun solveur n&#x27;est execute ici.</p>
-  
-  
-  
-  
-</section>
-<section id="artifact_links" class="report-block status-available">
-  <div class="block-title-row">
-    <div>
-      <p class="block-id">artifact_links</p>
-      <h2>Artefacts</h2>
-    </div>
-    <span class="level-pill">standard</span>
-  </div>
-  <p>Fichiers produits ou references par le rapport.</p>
-  
-  
-  <div class="table-block">
-  <h3>Chemins</h3>
-  <table><thead><tr><th>Type</th><th>Chemin</th></tr></thead><tbody><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\map_dem.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\map_dem_context.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\map_geology.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\map_geology_context.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\map_hydrography.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\map_hydrography_data.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\timeseries_discharge.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\timeseries_piezometry.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\timeseries_intermittency.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\timeseries_water_quality.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\climatic_summary.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\stats_card.png</td></tr><tr><td>figure</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\figures\overview\station_inventory.png</td></tr><tr><td>config</td><td>C:\codes\HydroModPy\examples\projects\02_nancon_watershed\run_overview_all_apis.toml</td></tr></tbody></table>
-</div>
-  
+
+  <ul class="warning-list"><li>Aucun pompage declare.</li></ul>
 </section>
 </main>
 </body>

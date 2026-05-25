@@ -8,6 +8,7 @@ from hydromodpy.solver.modflow_common.flow_adapter_helpers import (
     resolve_base_model_name,
     resolve_run_model_name,
 )
+from hydromodpy.solver.modflow6.build import mf6_output_name, mf6_safe_name
 
 
 def test_resolve_base_model_name_prefers_run_id() -> None:
@@ -72,3 +73,34 @@ def test_resolve_run_model_name_prefers_runtime_override() -> None:
     )
 
     assert resolve_run_model_name(ctx) == "stable_runtime_model"
+
+
+def test_mf6_output_name_shortens_long_windows_paths(monkeypatch) -> None:
+    import hydromodpy.solver.modflow6.build as build_module
+
+    long_name = "natural_mesh_10km2_transient_pulse_mf6_vs_bouss__mf6_ref"
+    safe_name = mf6_safe_name(long_name)
+    long_root = "C:\\" + "\\".join(["hydromodpy_regression_outputs"] * 8)
+    model = SimpleNamespace(
+        full_path=long_root,
+        model_name=long_name,
+        model_name_mf6=safe_name,
+    )
+
+    monkeypatch.setattr(build_module.os, "name", "nt")
+
+    assert mf6_output_name(model) == safe_name
+
+
+def test_mf6_output_name_preserves_short_windows_paths(monkeypatch) -> None:
+    import hydromodpy.solver.modflow6.build as build_module
+
+    model = SimpleNamespace(
+        full_path="C:\\hmp\\scratch",
+        model_name="demo",
+        model_name_mf6="demo",
+    )
+
+    monkeypatch.setattr(build_module.os, "name", "nt")
+
+    assert mf6_output_name(model) == "demo"

@@ -46,13 +46,9 @@ class CustomDemSource(_DemSourceBase):
     )
 
 
-class IgnBdaltiDemSource(_DemSourceBase):
-    """IGN BD ALTI 25 m national DEM downloaded per-department."""
+class _FrenchAdministrativeDemSource(_DemSourceBase):
+    """Shared French administrative selectors for IGN DEM sources."""
 
-    source: Annotated[Literal["ign_bdalti"], Profile.USER] = Field(
-        default="ign_bdalti",
-        description="Discriminator tag selecting the IGN BD ALTI 25 m DEM provider.",
-    )
     departments: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
         description=(
@@ -74,7 +70,7 @@ class IgnBdaltiDemSource(_DemSourceBase):
     )
 
     @model_validator(mode="after")
-    def _check_french_regions(self) -> IgnBdaltiDemSource:
+    def _check_french_regions(self) -> _FrenchAdministrativeDemSource:
         if str(self.country).upper() == "FR" and self.regions:
             from hydromodpy.data.common.administrative.france import validate_french_regions
 
@@ -82,13 +78,52 @@ class IgnBdaltiDemSource(_DemSourceBase):
         return self
 
 
+class IgnBdaltiDemSource(_FrenchAdministrativeDemSource):
+    """IGN BD ALTI 25 m national DEM downloaded per-department."""
+
+    source: Annotated[Literal["ign_bdalti"], Profile.USER] = Field(
+        default="ign_bdalti",
+        description="Discriminator tag selecting the IGN BD ALTI 25 m DEM provider.",
+    )
+
+
+class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
+    """IGN DEM source discovered dynamically through Geoplateforme."""
+
+    source: Annotated[Literal["ign_geoplateforme_dem"], Profile.USER] = Field(
+        default="ign_geoplateforme_dem",
+        description="Discriminator tag selecting the dynamic IGN Geoplateforme DEM provider.",
+    )
+    dataset: Annotated[Literal["bd-alti", "rge-alti"], Profile.USER] = Field(
+        default="bd-alti",
+        description="IGN DEM product to request from Geoplateforme.",
+    )
+    resolution_m: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        description=(
+            "Requested DEM resolution in metres. Defaults are resolved by the manager "
+            "from the selected dataset."
+        ),
+    )
+    file_format: Annotated[str, Profile.USER] = Field(
+        default="ASC",
+        description="Requested archive payload format when exposed by Geoplateforme.",
+    )
+    crs: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional CRS filter forwarded to Geoplateforme discovery.",
+    )
+
+
 DemSourceConfig: TypeAlias = Annotated[
-    CustomDemSource | IgnBdaltiDemSource,
+    CustomDemSource | IgnBdaltiDemSource | IgnGeoplateformeDemSource,
     Field(
         discriminator="source",
         description=(
             "Discriminated union of DEM data sources tagged by the 'source' provider key. "
-            "Use 'custom' for a user file (TIF/ASC/NC) and 'ign_bdalti' for the IGN BD ALTI 25 m MNT."
+            "Use 'custom' for a user file (TIF/ASC/NC), 'ign_bdalti' for the "
+            "legacy IGN BD ALTI 25 m MNT path, and 'ign_geoplateforme_dem' for "
+            "dynamic IGN DEM discovery."
         ),
     ),
 ]
@@ -106,6 +141,12 @@ class DemConfig(HydroModelBase):
 
         [[data.dem.sources]]
         source = "ign_bdalti"
+        regions = ["Bretagne"]
+
+        [[data.dem.sources]]
+        source = "ign_geoplateforme_dem"
+        dataset = "bd-alti"
+        resolution_m = 25.0
         regions = ["Bretagne"]
 
         [[data.dem.sources]]
@@ -128,3 +169,8 @@ class DemConfig(HydroModelBase):
     def ign_bdalti(cls, **overrides) -> DemConfig:
         """DemConfig pulling from the IGN BD ALTI 25 m national DEM."""
         return cls(sources=[IgnBdaltiDemSource(**overrides)])
+
+    @classmethod
+    def ign_geoplateforme_dem(cls, **overrides) -> DemConfig:
+        """DemConfig pulling an IGN DEM through dynamic Geoplateforme discovery."""
+        return cls(sources=[IgnGeoplateformeDemSource(**overrides)])

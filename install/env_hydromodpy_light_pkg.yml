@@ -6,17 +6,20 @@ dependencies:
   - contextily
   - flopy
   - geopandas
+  - graphviz
   - h5py
   - imageio
   - matplotlib
   - netcdf4
   - numpy>=2.0
   - pandas
+  - pandera>=0.31.1,<1
   - pint
   - pydantic
   - pydantic-pint
   - pytest
   - pytest-xdist
+  - pygraphviz
   - sphinx
   - pyproj
   - pyshp

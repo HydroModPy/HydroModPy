@@ -7,7 +7,12 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.site_selection.delineation import DelineatedCatchment
+from hydromodpy.spatial.site_selection.delineation import (
+    DelineatedCatchment,
+    outlet_display_xy,
+    outlet_snap_distance_m,
+    snapped_outlet_xy,
+)
 from hydromodpy.spatial.site_selection.schemas import site_record_from_catchment
 
 
@@ -25,6 +30,9 @@ def write_outlets_geojson(
     crs_values = sorted({catchment.outlet.crs for catchment in materialized})
     features = []
     for catchment in materialized:
+        display_x, display_y = outlet_display_xy(catchment)
+        snapped = snapped_outlet_xy(catchment)
+        snap_distance = outlet_snap_distance_m(catchment)
         properties = {
             **site_record_from_catchment(
                 catchment,
@@ -37,10 +45,29 @@ def write_outlets_geojson(
             "source_feature_id": catchment.outlet.source_feature_id,
             "source_label": catchment.outlet.source_label,
             "outlet_crs": catchment.outlet.crs,
+            "outlet_geometry_source": "snapped" if snapped is not None else "original",
+            "outlet_original_x": catchment.outlet.x,
+            "outlet_original_y": catchment.outlet.y,
+            "outlet_snap_shp": catchment.outlet_snap_shp or "",
+            "x_outlet_snapped": "" if snapped is None else snapped[0],
+            "y_outlet_snapped": "" if snapped is None else snapped[1],
+            "outlet_snap_distance_m": "" if snap_distance is None else snap_distance,
             "catchment_status": catchment.status,
             "failure_reason": catchment.failure_reason,
             "watershed_shp": catchment.watershed_shp or "",
         }
+        for key in (
+            "reference_network_source",
+            "reference_network_snap_status",
+            "reference_network_snap_distance_m",
+            "reference_network_original_x",
+            "reference_network_original_y",
+            "reference_network_x",
+            "reference_network_y",
+        ):
+            value = catchment.outlet.attributes.get(key)
+            if value is not None:
+                properties[key] = value
         properties["enabled"] = site_status == "selected"
         features.append(
             {
@@ -48,7 +75,7 @@ def write_outlets_geojson(
                 "id": catchment.site_id,
                 "geometry": {
                     "type": "Point",
-                    "coordinates": [catchment.outlet.x, catchment.outlet.y],
+                    "coordinates": [display_x, display_y],
                 },
                 "properties": properties,
             }

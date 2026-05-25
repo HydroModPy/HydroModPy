@@ -24,6 +24,14 @@ def _font(size: float) -> float:
     return size * _FONT_SCALE
 
 
+_MAP_LABEL_SIZE = _font(11)
+_MAP_TICK_SIZE = _font(10)
+_MAP_TITLE_SIZE = _font(13)
+_MAP_LEGEND_SIZE = _font(10)
+_MAP_COLORBAR_LABEL_SIZE = _font(10)
+_MAP_COLORBAR_TICK_SIZE = _font(9)
+
+
 # ---------------------------------------------------------------------------
 # Map panels
 # ---------------------------------------------------------------------------
@@ -38,10 +46,12 @@ def render_dem_map(
     station_points: list[dict] | None = None,
     outlet_xy: tuple[float, float] | None = None,
     relative_ticks: bool = False,
+    stream_label: str = "Reseau",
     title: str = "",
 ) -> Axes:
     """Render a DEM raster with optional watershed outline, outlet and stations."""
     import rasterio
+    from matplotlib.lines import Line2D
 
     with rasterio.open(dem_path) as src:
         data = src.read(1, masked=True)
@@ -59,17 +69,21 @@ def render_dem_map(
         origin="upper",
     )
     cbar = ax.figure.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
-    cbar.set_label("Elevation (m)", fontsize=_font(10 if relative_ticks else 8))
-    cbar.ax.tick_params(labelsize=_font(9 if relative_ticks else 7))
+    cbar.set_label("Elevation (m)", fontsize=_MAP_COLORBAR_LABEL_SIZE if relative_ticks else _font(8))
+    cbar.ax.tick_params(labelsize=_MAP_COLORBAR_TICK_SIZE if relative_ticks else _font(7))
 
+    handles = []
     if watershed_shp:
         _plot_watershed_outline(ax, watershed_shp)
+        handles.append(Line2D([0], [0], color="black", linewidth=1.2, label="Bassin versant"))
 
     if streams_gdf is not None and not streams_gdf.empty:
         # The 'terrain' colormap renders valley bottoms in blue, which would
         # camouflage a steelblue stream layer; use a high-contrast colour
         # that stands out against the entire elevation palette.
         streams_gdf.plot(ax=ax, color="navy", linewidth=0.8, alpha=0.95)
+        if stream_label:
+            handles.append(Line2D([0], [0], color="navy", linewidth=1.2, label=stream_label))
 
     if station_points:
         target_crs = _read_raster_crs(dem_path)
@@ -84,20 +98,37 @@ def render_dem_map(
             color="crimson",
             markeredgecolor="black",
             zorder=10,
-            label="Exutoire",
         )
-        ax.legend(loc="lower right", fontsize=_font(10 if relative_ticks else 7))
+        handles.append(
+            Line2D(
+                [0],
+                [0],
+                marker="*",
+                color="crimson",
+                markeredgecolor="black",
+                linewidth=0,
+                markersize=12,
+                label="Exutoire",
+            )
+        )
 
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title(title or "DEM", fontsize=_font(13 if relative_ticks else 10))
+    ax.set_title(title or "DEM", fontsize=_MAP_TITLE_SIZE if relative_ticks else _font(10))
     if relative_ticks:
         _apply_relative_ticks(ax, extent)
     else:
         ax.set_xlabel("X (m)", fontsize=_font(8))
         ax.set_ylabel("Y (m)", fontsize=_font(8))
         ax.tick_params(labelsize=_font(7))
+    if handles and not station_points:
+        ax.legend(
+            handles=handles,
+            loc="lower right",
+            fontsize=_MAP_LEGEND_SIZE if relative_ticks else _font(7),
+            framealpha=0.92,
+        )
     return ax
 
 
@@ -143,8 +174,8 @@ def render_regional_context_map(
     )
     im = ax.imshow(data, cmap="terrain", extent=extent, origin="upper")
     cbar = ax.figure.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
-    cbar.set_label("Elevation (m)", fontsize=_font(10))
-    cbar.ax.tick_params(labelsize=_font(9))
+    cbar.set_label("Elevation (m)", fontsize=_MAP_COLORBAR_LABEL_SIZE)
+    cbar.ax.tick_params(labelsize=_MAP_COLORBAR_TICK_SIZE)
 
     handles = [
         Line2D([0], [0], color="black", linewidth=1.6, label="Bassin versant"),
@@ -183,9 +214,9 @@ def render_regional_context_map(
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title(title or "Situation regionale", fontsize=_font(13))
+    ax.set_title(title or "Situation regionale", fontsize=_MAP_TITLE_SIZE)
     _apply_relative_ticks(ax, extent)
-    ax.legend(handles=handles, loc="lower right", fontsize=_font(10))
+    ax.legend(handles=handles, loc="lower right", fontsize=_MAP_LEGEND_SIZE, framealpha=0.92)
     return ax
 
 
@@ -197,78 +228,21 @@ def render_hydrography_map(
     streams_gdf=None,
     outlet_xy: tuple[float, float] | None = None,
     relative_ticks: bool = False,
+    stream_label: str = "Reseau hydrographique",
     title: str = "",
 ) -> Axes:
     """Render a hydrography map - hillshade background, streams, outlet."""
-    import rasterio
-
-    with rasterio.open(dem_path) as src:
-        data = src.read(1, masked=True)
-        extent = (
-            src.bounds.left,
-            src.bounds.right,
-            src.bounds.bottom,
-            src.bounds.top,
-        )
-
-    ax.imshow(
-        data,
-        cmap="Greys_r",
-        extent=extent,
-        origin="upper",
-        alpha=0.55,
+    return render_dem_map(
+        ax,
+        dem_path=dem_path,
+        watershed_shp=watershed_shp,
+        streams_gdf=streams_gdf,
+        station_points=None,
+        outlet_xy=outlet_xy,
+        relative_ticks=relative_ticks,
+        stream_label=stream_label,
+        title=title or "Hydrographie",
     )
-
-    if watershed_shp:
-        _plot_watershed_outline(ax, watershed_shp)
-
-    if streams_gdf is not None and not streams_gdf.empty:
-        lw_field = _pick_field(
-            streams_gdf,
-            ("STRAHLER", "strahler", "strahler_order", "order"),
-        )
-        # Sources like BD TOPAGE leave Strahler order empty for many tributaries
-        # and reserve it for EU-Hydro-tagged reaches. Falling back to per-row
-        # `linewidth=NaN` made those reaches invisible. Compute a clean width
-        # column with a visible default (Strahler 1) when the order is missing.
-        if lw_field is not None:
-            import pandas as pd
-
-            order = pd.to_numeric(streams_gdf[lw_field], errors="coerce").fillna(1.0)
-            widths = 0.4 + 0.4 * order.clip(lower=1.0)
-            for (_, row), width in zip(streams_gdf.iterrows(), widths, strict=False):
-                streams_gdf.iloc[[row.name]].plot(
-                    ax=ax,
-                    color="steelblue",
-                    linewidth=float(width),
-                )
-        else:
-            streams_gdf.plot(ax=ax, color="steelblue", linewidth=0.8)
-
-    if outlet_xy is not None:
-        ax.plot(
-            outlet_xy[0],
-            outlet_xy[1],
-            marker="*",
-            markersize=12,
-            color="crimson",
-            markeredgecolor="black",
-            zorder=10,
-            label="Exutoire",
-        )
-        ax.legend(loc="lower right", fontsize=_font(10 if relative_ticks else 7))
-
-    ax.set_xlim(extent[0], extent[1])
-    ax.set_ylim(extent[2], extent[3])
-    ax.set_aspect("equal", adjustable="box")
-    ax.set_title(title or "Hydrographie", fontsize=_font(13 if relative_ticks else 10))
-    if relative_ticks:
-        _apply_relative_ticks(ax, extent)
-    else:
-        ax.set_xlabel("X (m)", fontsize=_font(8))
-        ax.set_ylabel("Y (m)", fontsize=_font(8))
-        ax.tick_params(labelsize=_font(7))
-    return ax
 
 
 def render_geology_map(
@@ -277,6 +251,7 @@ def render_geology_map(
     dem_path: str,
     watershed_shp: str | None = None,
     geology_gdf=None,
+    relative_ticks: bool = False,
     title: str = "",
 ) -> Axes:
     """Render a lithology map from a geology GeoDataFrame clipped to the bbox."""
@@ -291,13 +266,15 @@ def render_geology_map(
             src.bounds.top,
         )
 
-    ax.imshow(
+    im = ax.imshow(
         data,
-        cmap="Greys_r",
+        cmap="terrain",
         extent=extent,
         origin="upper",
-        alpha=0.45,
     )
+    cbar = ax.figure.colorbar(im, ax=ax, fraction=0.035, pad=0.02)
+    cbar.set_label("Elevation (m)", fontsize=_MAP_COLORBAR_LABEL_SIZE if relative_ticks else _font(8))
+    cbar.ax.tick_params(labelsize=_MAP_COLORBAR_TICK_SIZE if relative_ticks else _font(7))
 
     if geology_gdf is not None and not geology_gdf.empty:
         code_field = _pick_field(
@@ -315,9 +292,9 @@ def render_geology_map(
                 legend_kwds={
                     "loc": "center left",
                     "bbox_to_anchor": (1.02, 0.5),
-                    "fontsize": _font(6),
+                    "fontsize": _MAP_LEGEND_SIZE if relative_ticks else _font(7),
                     "title": code_field,
-                    "title_fontsize": _font(7),
+                    "title_fontsize": _MAP_LABEL_SIZE if relative_ticks else _font(8),
                 },
             )
         else:
@@ -329,10 +306,13 @@ def render_geology_map(
     ax.set_xlim(extent[0], extent[1])
     ax.set_ylim(extent[2], extent[3])
     ax.set_aspect("equal", adjustable="box")
-    ax.set_title(title or "Geologie", fontsize=_font(10))
-    ax.set_xlabel("X (m)", fontsize=_font(8))
-    ax.set_ylabel("Y (m)", fontsize=_font(8))
-    ax.tick_params(labelsize=_font(7))
+    ax.set_title(title or "Geologie", fontsize=_MAP_TITLE_SIZE if relative_ticks else _font(10))
+    if relative_ticks:
+        _apply_relative_ticks(ax, extent)
+    else:
+        ax.set_xlabel("X (m)", fontsize=_font(8))
+        ax.set_ylabel("Y (m)", fontsize=_font(8))
+        ax.tick_params(labelsize=_font(7))
     return ax
 
 
@@ -652,7 +632,7 @@ def render_stats_card(ax: Axes, *, summary: OverviewSummary) -> Axes:
         ("Nom", summary.watershed_name or "-"),
         (
             "Surface",
-            f"{summary.catchment_area_km2:.2f} km2"
+            f"{summary.catchment_area_km2:.2f} km²"
             if summary.catchment_area_km2 is not None
             else "-",
         ),
@@ -691,7 +671,7 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
         ax.text(
             0.5,
             0.5,
-            "Aucune station chargee",
+            "No stations loaded",
             ha="center",
             va="center",
             transform=ax.transAxes,
@@ -737,14 +717,17 @@ def render_station_inventory(ax: Axes, *, inventory: list[dict]) -> Axes:
 
 def _apply_relative_ticks(ax, extent: tuple[float, float, float, float]) -> None:
     """Display map coordinates relative to the lower-left extent corner."""
-    from matplotlib.ticker import FuncFormatter
+    from matplotlib.ticker import FuncFormatter, MaxNLocator
 
     xmin, _, ymin, _ = extent
+    locator_kw = {"nbins": 4, "integer": False, "prune": "both", "steps": [1, 2, 5, 10]}
+    ax.xaxis.set_major_locator(MaxNLocator(**locator_kw))
+    ax.yaxis.set_major_locator(MaxNLocator(**locator_kw))
     ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{(value - xmin) / 1000:.1f}"))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{(value - ymin) / 1000:.1f}"))
-    ax.set_xlabel("X relatif (km)", fontsize=_font(11))
-    ax.set_ylabel("Y relatif (km)", fontsize=_font(11))
-    ax.tick_params(labelsize=_font(10))
+    ax.set_xlabel("X relatif (km)", fontsize=_MAP_LABEL_SIZE)
+    ax.set_ylabel("Y relatif (km)", fontsize=_MAP_LABEL_SIZE)
+    ax.tick_params(labelsize=_MAP_TICK_SIZE)
 
 
 def _plot_watershed_outline(ax, watershed_shp) -> None:
@@ -807,7 +790,7 @@ def _plot_station_points(ax, points: list[dict], target_crs=None) -> None:
             label=group,
         )
     if groups:
-        ax.legend(loc="upper right", fontsize=_font(7), markerscale=0.8)
+        ax.legend(loc="upper right", fontsize=_MAP_LEGEND_SIZE, markerscale=0.8, framealpha=0.92)
 
 
 def _reproject_points_xy(items: list[dict], target_crs) -> tuple[list[float], list[float]]:

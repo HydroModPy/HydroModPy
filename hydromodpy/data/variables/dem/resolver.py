@@ -13,6 +13,8 @@ Resolution order for a single source:
 - ``source = "ign_bdalti"`` → download the bbox via ``fetch_bdalti``,
   using outlet coordinates + a generous buffer (same logic the overview
   pipeline already used).
+- ``source = "ign_geoplateforme_dem"`` uses the dynamic IGN Geoplateforme DEM
+  client with the same outlet-buffer bootstrap.
 
 The first source that yields a usable path wins.
 """
@@ -24,7 +26,7 @@ from typing import Any
 
 from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 
-_API_SOURCES = {"ign_bdalti"}
+_API_SOURCES = {"ign_bdalti", "ign_geoplateforme_dem"}
 _BOOTSTRAP_BUFFER_M = 30_000
 
 
@@ -112,8 +114,23 @@ def _bootstrap_api_source(
         y_out + _BOOTSTRAP_BUFFER_M,
     )
 
-    from hydromodpy.data.variables.dem.apis.ign_bdalti import fetch_bdalti
-
     output_dir = cache_dir or (_hmp_cache_dir() / "dem")
     output_dir.mkdir(parents=True, exist_ok=True)
+    source_kind = str(getattr(source_cfg, "source", "")).strip()
+    if source_kind == "ign_geoplateforme_dem":
+        from hydromodpy.data.variables.dem.apis.ign_dem_fr import fetch_ign_dem
+
+        return fetch_ign_dem(
+            output_dir=output_dir,
+            bbox=bbox,
+            departments=getattr(source_cfg, "departments", None) or None,
+            dataset=getattr(source_cfg, "dataset", "bd-alti"),
+            resolution_m=getattr(source_cfg, "resolution_m", None),
+            file_format=getattr(source_cfg, "file_format", "ASC"),
+            crs=getattr(source_cfg, "crs", None),
+            force_refresh=bool(getattr(source_cfg, "force_refresh", False)),
+        )
+
+    from hydromodpy.data.variables.dem.apis.ign_bdalti import fetch_bdalti
+
     return fetch_bdalti(output_dir=output_dir, bbox=bbox)

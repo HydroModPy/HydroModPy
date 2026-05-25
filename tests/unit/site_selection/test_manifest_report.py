@@ -86,6 +86,13 @@ def test_selection_outputs_manifest_and_html_report(tmp_path):
     assert "Carte de controle" in html
     assert 'src="data:image/png;base64,' in html
     assert "Sites rejetes" in html
+    assert 'data-block-group="selection-map"' in html
+    assert 'data-target-level="compact"' in html
+    assert 'data-target-level="standard"' in html
+    assert 'data-target-level="audit"' in html
+    assert (paths["site_selection_report_html"].parent / "compact" / "index.html").is_file()
+    assert (paths["site_selection_report_html"].parent / "standard" / "index.html").is_file()
+    assert (paths["site_selection_report_html"].parent / "audit" / "index.html").is_file()
 
 
 @pytest.mark.fast
@@ -265,3 +272,49 @@ def test_validate_selection_manifest_rejects_invalid_png_artifact(tmp_path):
     errors = validate_selection_manifest(manifest_path)
 
     assert any("invalid PNG" in error for error in errors)
+
+
+@pytest.mark.fast
+def test_validate_selection_manifest_accepts_production_vector_artifacts(tmp_path):
+    gpd = pytest.importorskip("geopandas")
+    pytest.importorskip("pyarrow")
+    from shapely.geometry import Point
+
+    from hydromodpy.results.geoparquet_io import write_geoparquet_atomic
+
+    root = tmp_path / "out"
+    root.mkdir()
+    (root / "selection_decisions.jsonl").write_text("", encoding="utf-8")
+    (root / "criteria_components.jsonl").write_text("", encoding="utf-8")
+    frame = gpd.GeoDataFrame(
+        {"site_id": ["site_001"]},
+        geometry=[Point(350000.0, 6810000.0)],
+        crs="EPSG:2154",
+    )
+    frame.to_file(root / "site_selection.gpkg", layer="selected_outlets", driver="GPKG")
+    write_geoparquet_atomic(frame, root / "selected_outlets.parquet")
+    manifest_path = root / SITE_SELECTION_MANIFEST_NAME
+    write_selection_manifest(
+        manifest_path,
+        {
+            "schema_version": MANIFEST_SCHEMA_VERSION,
+            "created_at_utc": "2026-01-01T00:00:00+00:00",
+            "selection_id": "vector_demo",
+            "action": "delineated_catchments",
+            "output_root": str(root),
+            "strategy": {},
+            "territory": {},
+            "input": {},
+            "criteria": {},
+            "counts": {},
+            "outputs": {
+                "selection_decisions_jsonl": "selection_decisions.jsonl",
+                "criteria_components_jsonl": "criteria_components.jsonl",
+                "site_selection_manifest_json": SITE_SELECTION_MANIFEST_NAME,
+                "site_selection_gpkg": "site_selection.gpkg",
+                "selected_outlets_geoparquet": "selected_outlets.parquet",
+            },
+        },
+    )
+
+    assert validate_selection_manifest(manifest_path) == []

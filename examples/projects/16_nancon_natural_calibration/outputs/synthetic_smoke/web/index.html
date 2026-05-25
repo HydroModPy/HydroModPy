@@ -129,9 +129,9 @@
       <h2>Probleme de calibration</h2>
       <p>On cherche deux parametres globaux: le multiplicateur de conductivite hydraulique <code>mK</code> et le stockage specifique libre <code>Sy</code>. Le permanent sert a definir le reseau de drainage/affleurement cible, puis le transitoire mensuel compare la chronique de flux total <code>Q_total_release</code>.</p>
       <div class="equation">J(mK, Sy) = 0.5 C_reseau_phys(mK) + 0.5 C_debit_phys(mK, Sy)</div>
-      <div class="metric-row"><div class="metric"><span>points termines</span><strong>4 / 4</strong></div><div class="metric"><span>points en echec</span><strong>0</strong></div><div class="metric"><span>optimum global</span><strong>truth_identity</strong></div><div class="metric"><span>J global</span><strong>0.00000</strong></div><div class="metric"><span>meilleur hors cible</span><strong>shifted_network</strong></div><div class="metric"><span>mK hors cible</span><strong>0.95</strong></div><div class="metric"><span>Sy hors cible</span><strong>0.050</strong></div><div class="metric"><span>J hors cible</span><strong>0.73500</strong></div></div>
+      <div class="metric-row"><div class="metric"><span>points termines</span><strong>4 / 4</strong></div><div class="metric"><span>points en echec</span><strong>0</strong></div><div class="metric"><span>meilleur candidat non cible</span><strong>shifted_network</strong></div><div class="metric"><span>mK trouve</span><strong>0.95</strong></div><div class="metric"><span>Sy trouve</span><strong>0.050</strong></div><div class="metric"><span>J minimum</span><strong>1.05000</strong></div></div>
       <p class="note">Normalisation et reference: <code>C:\codes\HydroModPy\examples\projects\16_nancon_natural_calibration\outputs\synthetic_smoke\natural_observation_package</code>. Table de scores: <code>../synthetic_natural_smoke_candidate_scores.csv</code>.</p>
-      <div class="metric-row"><div class="metric"><span>contrat artefacts</span><strong>complet</strong></div><div class="metric"><span>manquants requis</span><strong>0</strong></div><div class="metric"><span>manquants optionnels</span><strong>1</strong></div><div class="metric"><span>alertes contrat</span><strong>0</strong></div></div><p class="note">Artefacts absents ou non exploitables: <code>steady_summary_csv</code></p>
+      <div class="metric-row"><div class="metric"><span>contrat artefacts</span><strong>complet</strong></div><div class="metric"><span>manquants requis</span><strong>0</strong></div><div class="metric"><span>manquants optionnels</span><strong>2</strong></div><div class="metric"><span>alertes contrat</span><strong>0</strong></div></div><p class="note">Artefacts absents ou non exploitables: <code>reference_run_root, steady_summary_csv</code></p>
     </section>
 
     <section class="wide-grid">
@@ -150,7 +150,7 @@
       <h2>Contexte bassin et permanent cible</h2>
       <p>Le budget steady brut est peu explicite seul. La figure didactique rappelle que le bilan total ferme surtout le volume, tandis que le signal de calibration reseau vient de la repartition spatiale des cellules drainantes.</p>
       <div class="figure-grid">
-        <div class="figure-card"><h3>Bassin, maillage et exutoire</h3><p class="muted">Figure non disponible pour cette relance.</p></div>
+        <figure class="figure-card"><h3>Bassin, maillage et exutoire</h3><a href="figures/watershed_id_card.png"><img src="figures/watershed_id_card.png" alt="Bassin, maillage et exutoire"></a><figcaption class="caption">Carte d'identite reutilisee depuis les modules de diagnostic existants.</figcaption></figure>
         <figure class="figure-card"><h3>Contexte topographique / DEM</h3><a href="figures/dem_context_map.png"><img src="figures/dem_context_map.png" alt="Contexte topographique / DEM"></a><figcaption class="caption">Le raster DEM est utilise quand il est present dans le catalogue. Sinon la figure indique et utilise le repli <code>z_top_mean</code> porte par le maillage.</figcaption></figure>
         <figure class="figure-card"><h3>Lecture didactique du permanent</h3><a href="figures/steady_balance_didactic.png"><img src="figures/steady_balance_didactic.png" alt="Lecture didactique du permanent"></a><figcaption class="caption">Bilan total du permanent cible et effet de mK sur Q_total_release et l'extension du drainage actif.</figcaption></figure>
       </div>
@@ -167,13 +167,13 @@
 
     <section class="panel">
       <h2>Cartes de drainage vis-a-vis de la cible</h2>
-      <p>La carte de gauche est la cible synthetique. La carte de droite est le meilleur candidat hors cible. Les valeurs actives de <code>outflow_drain</code> sont affichees sur une echelle logarithmique, au-dessus de la topographie, du contour de bassin et du reseau hydrographique en filigrane. L'affichage est limite aux bornes du bassin versant.</p>
-      <figure class="figure-card"><h3>Cible et meilleur hors cible sur fond topographique</h3><a href="figures/outflow_drain_maps.png"><img src="figures/outflow_drain_maps.png" alt="Cible et meilleur hors cible sur fond topographique"></a><figcaption class="caption">Drainage actif en couleur, cellules inactives en gris transparent, axes en kilometres relatifs a l'exutoire.</figcaption></figure>
+      <p>La carte de gauche est la cible synthetique. La carte de droite est le meilleur candidat non cible. Les valeurs actives de <code>outflow_drain</code> sont affichees sur une echelle logarithmique, au-dessus de la topographie, du contour de bassin et du reseau hydrographique en filigrane. L'affichage est limite aux bornes du bassin versant.</p>
+      <figure class="figure-card"><h3>Cible et meilleur candidat sur fond topographique</h3><a href="figures/outflow_drain_maps.png"><img src="figures/outflow_drain_maps.png" alt="Cible et meilleur candidat sur fond topographique"></a><figcaption class="caption">Drainage actif en couleur, cellules inactives en gris transparent, axes en kilometres relatifs a l'exutoire.</figcaption></figure>
     </section>
 
     <section class="panel">
       <h2>Chroniques de flux</h2>
-      <p>La courbe noire est la cible synthetique. Le meilleur candidat hors cible est en rouge. Toutes les autres chroniques candidates disponibles sont superposees en gris pour montrer l'amplitude de variabilite des flux.</p>
+      <p>La courbe noire est la cible synthetique. L'optimum calcule est en rouge. Toutes les autres chroniques candidates disponibles sont superposees en gris pour montrer l'amplitude de variabilite des flux.</p>
       <figure class="figure-card"><h3>Q_total_release mensuel</h3><a href="figures/q_total_release_timeseries.png"><img src="figures/q_total_release_timeseries.png" alt="Q_total_release mensuel"></a><figcaption class="caption">Somme de tous les flux <code>outflow_drain</code> sortant du domaine a chaque periode.</figcaption></figure>
     </section>
   </main>

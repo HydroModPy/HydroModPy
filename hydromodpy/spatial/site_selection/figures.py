@@ -25,6 +25,8 @@ AREA_COLOR_CLASSES: tuple[tuple[float, str, str], ...] = (
     (float("inf"), "> 500 km2", "#7b3294"),
 )
 UNKNOWN_AREA_COLOR = "#0f766e"
+SNAP_LINK_MIN_DISTANCE_M = 250.0
+SNAP_LINK_WARN_DISTANCE_M = 1000.0
 
 
 def render_site_selection_map(
@@ -60,19 +62,25 @@ def render_site_selection_map(
     observation_points = _read_geojson(
         manifest_output_path(manifest, "observation_points_geojson", manifest_path=manifest_file)
     )
+    generated_network = _read_geojson(
+        manifest_output_path(manifest, "generated_network_geojson", manifest_path=manifest_file)
+    )
     context_layers = _read_context_layers(manifest, manifest_file=manifest_file)
     dem_path = _dem_path_from_manifest(manifest)
+    prefer_dem_extent = _prefer_dem_extent_from_manifest(manifest)
 
     _write_map_png(
         destination,
         selection_id=str(manifest.get("selection_id") or "site_selection"),
         dem_path=dem_path,
+        prefer_dem_extent=prefer_dem_extent,
         context_layers=context_layers,
         selected_basins=_features(selected_basins),
         rejected_basins=_features(rejected_basins),
         selected_outlets=_features(selected_outlets),
         rejected_outlets=_features(rejected_outlets),
         observation_points=_features(observation_points),
+        generated_network=_features(generated_network),
     )
     return destination
 
@@ -101,12 +109,14 @@ def _write_map_png(
     *,
     selection_id: str,
     dem_path: Path | None,
+    prefer_dem_extent: bool = False,
     context_layers: list[dict[str, Any]],
     selected_basins: list[dict[str, Any]],
     rejected_basins: list[dict[str, Any]],
     selected_outlets: list[dict[str, Any]],
     rejected_outlets: list[dict[str, Any]],
     observation_points: list[dict[str, Any]],
+    generated_network: list[dict[str, Any]],
 ) -> None:
     import matplotlib
 
@@ -122,17 +132,30 @@ def _write_map_png(
 
     dem_extent = _plot_dem_background(ax, dem_path)
     _plot_context_layers(ax, context_layers)
+    _plot_generated_network(ax, generated_network)
     selected_outlet_symbols = _outlets_without_flow_station_marker(
         selected_outlets,
         observation_points,
     )
+    _plot_polygons(
+        ax,
+        rejected_basins,
+        facecolor="#fee2e2",
+        edgecolor="#b91c1c",
+        linewidth=0.4,
+        alpha=0.14,
+        hatch="",
+        zorder=2,
+    )
     _plot_area_colored_polygons(
         ax,
         selected_basins,
-        linewidth=1.2,
-        alpha=0.95,
-        zorder=2,
+        linewidth=1.15,
+        face_alpha=0.18,
+        edge_alpha=0.98,
+        zorder=3,
     )
+    _plot_snap_links(ax, [*selected_outlet_symbols, *rejected_outlets], observation_points)
     _plot_observation_points(ax, observation_points)
     _plot_points(
         ax,
@@ -140,7 +163,7 @@ def _write_map_png(
         marker="x",
         color="#b91c1c",
         edgecolor="#b91c1c",
-        size=52,
+        size=26,
         zorder=5,
     )
     _plot_points(
@@ -149,17 +172,23 @@ def _write_map_png(
         marker="o",
         color="#ffffff",
         edgecolor="#0f766e",
-        size=64,
+        size=32,
         zorder=6,
     )
 
-    bounds = dem_extent or _combined_bounds(
+    artifact_bounds = _combined_bounds(
         [
+            *generated_network,
             *selected_basins,
             *rejected_basins,
             *selected_outlets,
             *rejected_outlets,
         ]
+    )
+    bounds = _choose_display_bounds(
+        dem_extent,
+        artifact_bounds,
+        prefer_dem_extent=prefer_dem_extent,
     )
     if bounds is None:
         ax.text(
@@ -176,15 +205,6 @@ def _write_map_png(
         ax.set_ylim(0.0, 1.0)
     else:
         xmin, ymin, xmax, ymax = bounds
-        if dem_extent is None:
-            width = max(xmax - xmin, 1.0)
-            height = max(ymax - ymin, 1.0)
-            pad_x = width * 0.08
-            pad_y = height * 0.08
-            xmin -= pad_x
-            xmax += pad_x
-            ymin -= pad_y
-            ymax += pad_y
         ax.set_xlim(xmin, xmax)
         ax.set_ylim(ymin, ymax)
         ax.set_aspect("equal", adjustable="box")
@@ -194,7 +214,7 @@ def _write_map_png(
     ax.set_ylabel("Y Lambert-93 (km)")
     ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value / 1000:.0f}"))
     ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value / 1000:.0f}"))
-    ax.grid(color="#cbd5e1", linewidth=0.6, alpha=0.55)
+    ax.grid(color="#cbd5e1", linewidth=0.45, alpha=0.38)
     ax.tick_params(labelsize=9)
     for spine in ("top", "right"):
         ax.spines[spine].set_visible(False)
@@ -204,9 +224,11 @@ def _write_map_png(
         Patch=Patch,
         Line2D=Line2D,
         selected_basins=selected_basins,
+        rejected_basins=rejected_basins,
         rejected_outlets=rejected_outlets,
         selected_outlet_symbols=selected_outlet_symbols,
         observation_points=observation_points,
+        generated_network=generated_network,
     )
     if legend_handles:
         ax.legend(
@@ -215,7 +237,7 @@ def _write_map_png(
             bbox_to_anchor=(1.01, 1.0),
             frameon=True,
             framealpha=0.95,
-            fontsize=9,
+            fontsize=8,
         )
     fig.savefig(destination, dpi=180, bbox_inches="tight")
     plt.close(fig)
@@ -294,8 +316,8 @@ def _plot_context_layers(ax: Any, layers: list[dict[str, Any]]) -> None:
                 features,
                 facecolor="none",
                 edgecolor="#475569",
-                linewidth=1.0,
-                alpha=0.95,
+                linewidth=0.75,
+                alpha=0.75,
                 hatch="",
                 zorder=0,
             )
@@ -303,8 +325,8 @@ def _plot_context_layers(ax: Any, layers: list[dict[str, Any]]) -> None:
                 ax,
                 features,
                 color="#475569",
-                linewidth=1.0,
-                alpha=0.9,
+                linewidth=0.75,
+                alpha=0.7,
                 linestyle="--",
                 zorder=0,
             )
@@ -313,10 +335,10 @@ def _plot_context_layers(ax: Any, layers: list[dict[str, Any]]) -> None:
                 ax,
                 features,
                 color="#0284c7",
-                linewidth=1.15,
-                alpha=0.8,
+                linewidth=0.55,
+                alpha=0.62,
                 linestyle="-",
-                zorder=3,
+                zorder=1,
             )
         elif role == "geology":
             _plot_polygons(
@@ -324,8 +346,8 @@ def _plot_context_layers(ax: Any, layers: list[dict[str, Any]]) -> None:
                 features,
                 facecolor="#fde68a",
                 edgecolor="#92400e",
-                linewidth=0.65,
-                alpha=0.22,
+                linewidth=0.45,
+                alpha=0.18,
                 hatch="",
                 zorder=0,
             )
@@ -335,8 +357,8 @@ def _plot_context_layers(ax: Any, layers: list[dict[str, Any]]) -> None:
                 features,
                 facecolor="#e2e8f0",
                 edgecolor="#64748b",
-                linewidth=0.7,
-                alpha=0.18,
+                linewidth=0.45,
+                alpha=0.14,
                 hatch="",
                 zorder=0,
             )
@@ -344,11 +366,39 @@ def _plot_context_layers(ax: Any, layers: list[dict[str, Any]]) -> None:
                 ax,
                 features,
                 color="#64748b",
-                linewidth=0.8,
-                alpha=0.55,
+                linewidth=0.45,
+                alpha=0.45,
                 linestyle="-",
                 zorder=0,
             )
+
+
+def _plot_generated_network(ax: Any, features: list[dict[str, Any]]) -> None:
+    if not features:
+        return
+    _plot_lines(
+        ax,
+        features,
+        color="#0284c7",
+        linewidth=0.38,
+        alpha=0.46,
+        linestyle="-",
+        zorder=1,
+    )
+    point_features = [
+        feature
+        for feature in features
+        if _mapping(feature.get("geometry")).get("type") == "Point"
+    ]
+    _plot_points(
+        ax,
+        point_features,
+        marker=".",
+        color="#0284c7",
+        edgecolor="#0284c7",
+        size=7,
+        zorder=1,
+    )
 
 
 def _plot_polygons(
@@ -385,21 +435,26 @@ def _plot_area_colored_polygons(
     features: Iterable[Mapping[str, Any]],
     *,
     linewidth: float,
-    alpha: float,
+    face_alpha: float,
+    edge_alpha: float,
     zorder: int,
 ) -> None:
+    from matplotlib.colors import to_rgba
+    from matplotlib.patches import Polygon as PolygonPatch
+
     for feature in features:
         _, color = _area_class_for_feature(feature)
-        _plot_polygons(
-            ax,
-            [feature],
-            facecolor="none",
-            edgecolor=color,
-            linewidth=linewidth,
-            alpha=alpha,
-            hatch="",
-            zorder=zorder,
-        )
+        for ring in _polygon_outer_rings(feature.get("geometry")):
+            ax.add_patch(
+                PolygonPatch(
+                    ring,
+                    closed=True,
+                    facecolor=to_rgba(color, face_alpha),
+                    edgecolor=to_rgba(color, edge_alpha),
+                    linewidth=linewidth,
+                    zorder=zorder,
+                )
+            )
 
 
 def _plot_lines(
@@ -449,7 +504,7 @@ def _plot_points(
         "marker": marker,
         "s": size,
         "c": color,
-        "linewidths": 1.2,
+        "linewidths": 0.85,
         "zorder": zorder,
     }
     if marker != "x":
@@ -463,9 +518,9 @@ def _plot_observation_points(ax: Any, features: list[dict[str, Any]]) -> None:
         props = _mapping(feature.get("properties"))
         by_type[str(props.get("observation_type") or "other")].append(feature)
     styles = {
-        "flow_station": ("^", "#2563eb", "#1e3a8a", 54),
-        "piezometer": ("s", "#7c3aed", "#4c1d95", 48),
-        "other": ("D", "#64748b", "#334155", 48),
+        "flow_station": ("^", "#2563eb", "#1e3a8a", 24),
+        "piezometer": ("s", "#7c3aed", "#4c1d95", 22),
+        "other": ("D", "#64748b", "#334155", 22),
     }
     for observation_type, typed_features in sorted(by_type.items()):
         marker, color, edgecolor, size = styles.get(observation_type, styles["other"])
@@ -477,6 +532,45 @@ def _plot_observation_points(ax: Any, features: list[dict[str, Any]]) -> None:
             edgecolor=edgecolor,
             size=size,
             zorder=4,
+        )
+
+
+def _plot_snap_links(
+    ax: Any,
+    outlet_features: list[dict[str, Any]],
+    observation_points: list[dict[str, Any]],
+) -> None:
+    flow_stations_by_site: dict[str, tuple[float, float]] = {}
+    for feature in observation_points:
+        props = _mapping(feature.get("properties"))
+        if str(props.get("observation_type") or "") != "flow_station":
+            continue
+        site_id = str(props.get("site_id") or "").strip()
+        point = _point_xy(feature.get("geometry"))
+        if site_id and point is not None:
+            flow_stations_by_site[site_id] = point
+
+    for outlet in outlet_features:
+        props = _mapping(outlet.get("properties"))
+        if str(props.get("outlet_geometry_source") or "") != "snapped":
+            continue
+        site_id = str(props.get("site_id") or outlet.get("id") or "").strip()
+        station = flow_stations_by_site.get(site_id)
+        outlet_point = _point_xy(outlet.get("geometry"))
+        if station is None or outlet_point is None:
+            continue
+        distance_m = _float_or_none(props.get("outlet_snap_distance_m"))
+        if distance_m is not None and distance_m < SNAP_LINK_MIN_DISTANCE_M:
+            continue
+        color = "#b45309" if (distance_m or 0.0) >= SNAP_LINK_WARN_DISTANCE_M else "#64748b"
+        ax.plot(
+            [station[0], outlet_point[0]],
+            [station[1], outlet_point[1]],
+            color=color,
+            linewidth=0.55,
+            alpha=0.62,
+            linestyle=(0, (2.5, 2.5)),
+            zorder=3,
         )
 
 
@@ -511,12 +605,13 @@ def _outlets_without_flow_station_marker(
             props.get("source_feature_id") or props.get("candidate_id") or ""
         ).strip()
         point = _point_xy(outlet.get("geometry"))
-        if site_id and site_id in flow_site_ids:
-            continue
-        if source_feature_id and source_feature_id in flow_feature_ids:
-            continue
         if point is not None and _rounded_xy(point) in flow_xy:
             continue
+        if str(props.get("outlet_geometry_source") or "") != "snapped":
+            if site_id and site_id in flow_site_ids:
+                continue
+            if source_feature_id and source_feature_id in flow_feature_ids:
+                continue
         filtered.append(outlet)
     return filtered
 
@@ -557,13 +652,35 @@ def _legend_handles(
     Patch: Any,
     Line2D: Any,
     selected_basins: list[dict[str, Any]],
+    rejected_basins: list[dict[str, Any]],
     rejected_outlets: list[dict[str, Any]],
     selected_outlet_symbols: list[dict[str, Any]],
     observation_points: list[dict[str, Any]],
+    generated_network: list[dict[str, Any]],
 ) -> list[Any]:
     handles: list[Any] = []
     observation_types = _observation_types(observation_points)
+    if generated_network:
+        handles.append(
+            Line2D(
+                [0],
+                [0],
+                color="#0284c7",
+                linewidth=0.8,
+                alpha=0.7,
+                label="Reseau DEM genere",
+            )
+        )
     handles.extend(_area_legend_handles(Patch=Patch, selected_basins=selected_basins))
+    if rejected_basins:
+        handles.append(
+            Patch(
+                facecolor="#fee2e2",
+                edgecolor="#b91c1c",
+                alpha=0.14,
+                label="Bassin rejete",
+            )
+        )
     if "flow_station" in observation_types:
         handles.append(
             Line2D(
@@ -573,7 +690,7 @@ def _legend_handles(
                 color="none",
                 markerfacecolor="#2563eb",
                 markeredgecolor="#1e3a8a",
-                markersize=7,
+                markersize=5.5,
                 label="Station hydro",
             )
         )
@@ -586,7 +703,7 @@ def _legend_handles(
                 color="none",
                 markerfacecolor="#7c3aed",
                 markeredgecolor="#4c1d95",
-                markersize=7,
+                markersize=5.5,
                 label="Station piezo",
             )
         )
@@ -599,8 +716,19 @@ def _legend_handles(
                 color="none",
                 markerfacecolor="white",
                 markeredgecolor="#0f766e",
-                markersize=7,
+                markersize=5.5,
                 label="Exutoire retenu",
+            )
+        )
+    if _has_visible_snap_links([*selected_outlet_symbols, *rejected_outlets], observation_points):
+        handles.append(
+            Line2D(
+                [0],
+                [0],
+                color="#b45309",
+                linestyle=(0, (2.5, 2.5)),
+                linewidth=0.8,
+                label="Deplacement station -> exutoire",
             )
         )
     if rejected_outlets:
@@ -611,11 +739,31 @@ def _legend_handles(
                 marker="x",
                 color="#b91c1c",
                 linestyle="none",
-                markersize=7,
+                markersize=5.5,
                 label="Exutoire rejete",
             )
         )
     return handles
+
+
+def _has_visible_snap_links(
+    outlet_features: list[dict[str, Any]],
+    observation_points: list[dict[str, Any]],
+) -> bool:
+    flow_site_ids = {
+        str(_mapping(feature.get("properties")).get("site_id") or "").strip()
+        for feature in observation_points
+        if str(_mapping(feature.get("properties")).get("observation_type") or "") == "flow_station"
+    }
+    for outlet in outlet_features:
+        props = _mapping(outlet.get("properties"))
+        if str(props.get("outlet_geometry_source") or "") != "snapped":
+            continue
+        site_id = str(props.get("site_id") or outlet.get("id") or "").strip()
+        distance_m = _float_or_none(props.get("outlet_snap_distance_m"))
+        if site_id in flow_site_ids and (distance_m is None or distance_m >= SNAP_LINK_MIN_DISTANCE_M):
+            return True
+    return False
 
 
 def _area_legend_handles(*, Patch: Any, selected_basins: list[dict[str, Any]]) -> list[Any]:
@@ -626,12 +774,15 @@ def _area_legend_handles(*, Patch: Any, selected_basins: list[dict[str, Any]]) -
     handles: list[Any] = []
     for _, label, color in AREA_COLOR_CLASSES:
         if label in classes_present:
-            handles.append(Patch(facecolor="none", edgecolor=color, label=f"Bassin {label}"))
+            handles.append(
+                Patch(facecolor=color, edgecolor=color, alpha=0.32, label=f"Bassin {label}")
+            )
     if "surface non renseignee" in classes_present:
         handles.append(
             Patch(
-                facecolor="none",
+                facecolor=classes_present["surface non renseignee"],
                 edgecolor=classes_present["surface non renseignee"],
+                alpha=0.32,
                 label="Bassin surface non renseignee",
             )
         )
@@ -770,6 +921,17 @@ def _dem_path_from_manifest(manifest: Mapping[str, Any]) -> Path | None:
     return path.resolve()
 
 
+def _prefer_dem_extent_from_manifest(manifest: Mapping[str, Any]) -> bool:
+    dem = _mapping(manifest.get("dem"))
+    flow_products = _mapping(manifest.get("flow_products"))
+    has_dem_background = bool(
+        flow_products.get("map_dem_path")
+        or flow_products.get("dem_path")
+        or flow_products.get("dem_corrected_path")
+    )
+    return has_dem_background and str(dem.get("map_background_extent") or "") == "territory"
+
+
 def _features(collection: Mapping[str, Any]) -> list[dict[str, Any]]:
     values = collection.get("features")
     if not isinstance(values, list):
@@ -821,6 +983,78 @@ def _point_xy(geometry: object) -> tuple[float, float] | None:
     if not isinstance(coordinates, (list, tuple)) or len(coordinates) < 2:
         return None
     return float(coordinates[0]), float(coordinates[1])
+
+
+def _float_or_none(value: object) -> float | None:
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _choose_display_bounds(
+    dem_extent: tuple[float, float, float, float] | None,
+    artifact_bounds: tuple[float, float, float, float] | None,
+    *,
+    prefer_dem_extent: bool = False,
+) -> tuple[float, float, float, float] | None:
+    if artifact_bounds is None:
+        return dem_extent
+    padded_artifacts = _pad_bounds(artifact_bounds, fraction=0.08)
+    if dem_extent is None:
+        return padded_artifacts
+    if not _bounds_intersect(dem_extent, artifact_bounds):
+        return padded_artifacts
+    dem_area = _bounds_area(dem_extent)
+    artifact_area = max(_bounds_area(artifact_bounds), 1.0)
+    if prefer_dem_extent:
+        return dem_extent
+    if dem_area > artifact_area * 10.0:
+        return padded_artifacts
+    return _union_bounds(dem_extent, artifact_bounds)
+
+
+def _pad_bounds(
+    bounds: tuple[float, float, float, float],
+    *,
+    fraction: float,
+) -> tuple[float, float, float, float]:
+    xmin, ymin, xmax, ymax = bounds
+    width = max(xmax - xmin, 1.0)
+    height = max(ymax - ymin, 1.0)
+    pad_x = width * fraction
+    pad_y = height * fraction
+    return xmin - pad_x, ymin - pad_y, xmax + pad_x, ymax + pad_y
+
+
+def _bounds_intersect(
+    left: tuple[float, float, float, float],
+    right: tuple[float, float, float, float],
+) -> bool:
+    return not (
+        left[2] < right[0]
+        or right[2] < left[0]
+        or left[3] < right[1]
+        or right[3] < left[1]
+    )
+
+
+def _bounds_area(bounds: tuple[float, float, float, float]) -> float:
+    return max(bounds[2] - bounds[0], 0.0) * max(bounds[3] - bounds[1], 0.0)
+
+
+def _union_bounds(
+    left: tuple[float, float, float, float],
+    right: tuple[float, float, float, float],
+) -> tuple[float, float, float, float]:
+    return (
+        min(left[0], right[0]),
+        min(left[1], right[1]),
+        max(left[2], right[2]),
+        max(left[3], right[3]),
+    )
 
 
 def _combined_bounds(features: list[dict[str, Any]]) -> tuple[float, float, float, float] | None:

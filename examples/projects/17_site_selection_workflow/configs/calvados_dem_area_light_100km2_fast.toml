@@ -31,7 +31,7 @@ network_threshold_area_km2 = 1.0
 target_area_km2 = 100.0
 min_area_km2 = 75.0
 max_area_km2 = 125.0
-n_basins = 3
+n_basins = 10
 max_candidates_before_delineation = 30
 
 [site_selection.output]

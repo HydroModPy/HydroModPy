@@ -45,7 +45,28 @@ def test_overview_blocks_skip_absent_sections(tmp_path: Path) -> None:
     assert "mesh_context" not in by_id
     assert "solver_context" not in by_id
     assert "observation_inventory" not in by_id
+    assert "hydrographic_network" not in by_id
     assert by_id["forcing_context"].level == "standard"
+
+
+def test_overview_has_explicit_hydrographic_network_block(tmp_path: Path) -> None:
+    figure = tmp_path / "figures" / "overview" / "map_hydrography_data.png"
+    figure.parent.mkdir(parents=True)
+    figure.write_bytes(b"fake-png")
+    state = _overview_state(tmp_path)
+    state.loaded_data.hydrography = LoadResult(fields=[SimpleNamespace(metadata={})])
+    state.cfg.data.types = ["hydrography", "recharge"]
+    state.cfg.data.hydrography = SimpleNamespace(
+        date_start="",
+        date_end="",
+        sources=[SimpleNamespace(source="bdtopage", path="hydro.gpkg")],
+    )
+
+    blocks = build_overview_blocks(state, figure_paths=[figure])
+    by_id = {block.block_id: block for block in blocks}
+
+    assert by_id["hydrographic_network"].title == "Reseau hydrographique"
+    assert by_id["hydrographic_network"].figures[0].figure_id == "map_hydrography_data"
 
 
 def test_overview_review_pages_write_three_levels(tmp_path: Path) -> None:

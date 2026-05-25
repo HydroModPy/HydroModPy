@@ -14,7 +14,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import platformdirs
 from upath import UPath
@@ -172,12 +173,18 @@ def resolve_workspace(uri: str | Path | UPath) -> Path:
       offending URI.
     """
     text = str(uri)
+    candidate = Path(text).expanduser()
+    if os.name == "nt" and candidate.drive:
+        return candidate
     parsed = urlparse(text)
     scheme = parsed.scheme.lower()
     if not scheme:
-        return Path(text).expanduser()
+        return candidate
     if scheme in _LOCAL_SCHEMES:
-        return Path(unquote(parsed.path)).expanduser()
+        path_text = parsed.path
+        if parsed.netloc and parsed.netloc.lower() != "localhost":
+            path_text = f"//{parsed.netloc}{path_text}"
+        return Path(url2pathname(path_text)).expanduser()
     raise NotImplementedError(
         f"workspace_uri {text!r} uses scheme {scheme!r} which is not supported "
         "in this release. Use a local path or a file:// URI."

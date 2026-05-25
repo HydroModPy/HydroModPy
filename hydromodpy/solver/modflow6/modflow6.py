@@ -97,6 +97,7 @@ class Modflow6:
 
         self.model_name = model_name
         self.model_name_mf6 = mf6_safe_name(model_name)
+        self.model_output_name = model_name
         self.geographic = geographic
         self.flow = None
         self.domain = None

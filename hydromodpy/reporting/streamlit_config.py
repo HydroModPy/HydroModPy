@@ -24,7 +24,6 @@ Features:
 from __future__ import annotations
 
 import json
-import sys
 import types as _stdlib_types
 import typing
 from pathlib import Path
@@ -32,8 +31,11 @@ from typing import Any, get_args, get_origin
 
 try:
     import streamlit as st
-except ImportError:
-    sys.exit("streamlit is required for the config UI.\nInstall it with:  pip install streamlit")
+except ImportError as exc:
+    st = None
+    _STREAMLIT_IMPORT_ERROR = exc
+else:
+    _STREAMLIT_IMPORT_ERROR = None
 
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import FieldInfo
@@ -48,6 +50,14 @@ from hydromodpy.core.toml_io.generator import (
 )
 
 # ── Type introspection helpers ───────────────────────────────────────────
+
+
+def _require_streamlit() -> None:
+    """Fail only when the interactive UI is executed, not when docs import it."""
+    if _STREAMLIT_IMPORT_ERROR is not None:
+        raise SystemExit(
+            "streamlit is required for the config UI.\nInstall it with:  pip install streamlit"
+        ) from _STREAMLIT_IMPORT_ERROR
 
 
 def _is_union_origin(origin: Any) -> bool:
@@ -396,6 +406,9 @@ def _load_existing_toml(path: Path) -> dict[str, dict[str, Any]]:
 
 
 def main() -> None:
+    _require_streamlit()
+    assert st is not None
+
     st.set_page_config(page_title="HydroModPy Config", layout="wide")
     st.title("HydroModPy - Configuration interactive")
     st.caption(

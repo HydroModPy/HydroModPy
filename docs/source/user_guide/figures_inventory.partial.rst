@@ -152,7 +152,7 @@ Multi-panel views combining one or several runs, observed data, or calibration t
      - Generated extra-only view
      - (no fixed input)
    * - ``hydrographic_network_reference``
-     - Loaded hydrographic network
+     - BD Topage hydrographic network
      - (no fixed input)
    * - ``hydrographic_network_reference_missing_only``
      - Reference missing-only view

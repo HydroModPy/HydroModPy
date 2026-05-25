@@ -29,7 +29,8 @@ suivantes:
 - `score_natural_network_transient_candidate(...)` combine le cout reseau et le
   cout debit dans un score scalaire.
 
-Le package naturel contient notamment:
+Le "package naturel" est le paquet d'observations figees qui sert de frontiere
+entre les donnees observees, le scorer et le rapport. Il contient notamment:
 
 ```text
 observed_network_active_mask.npz
@@ -49,6 +50,26 @@ B0. Dans ce cas naturel, `steady_network_drain_by_cell.npz` est un pseudo-champ
 de reference issu du masque hydrographique observe; il ne doit pas etre
 interprete comme un flux observe par cellule.
 
+Cette ecriture ne duplique pas la logique B0. Elle fait seulement l'adaptation
+de contrat:
+
+- les observations naturelles sont stockees une fois dans un format explicite;
+- les noms de fichiers attendus par le rapport B0 sont fournis comme aliases;
+- le renderer HTML, les figures de comparaison, le manifeste et la lecture des
+  tables de score sont reutilises sans fork naturel;
+- le score naturel reste dans `natural_observations.py`, donc la difference
+  scientifique est isolee au niveau metrique, pas dupliquee dans le reporting.
+
+L'ecriture disque est donc optionnelle pour le calcul pur: les fonctions
+`natural_network_cost(...)` et `discharge_log_nse_cost(...)` peuvent etre
+appelees directement avec des arrays en memoire. Elle est en revanche le chemin
+necessaire pour le workflow actuel `score_natural_network_transient_candidate`
+et pour le rapport HTML, parce que ces deux briques relisent un package
+persistant qui fige les observations, les normalisations et les chemins
+d'artefacts. Pour une future boucle d'optimisation, on pourra scorer en memoire
+pendant les iterations, puis ecrire le package et les tables seulement pour
+l'audit/reproductibilite.
+
 ### Score reseau
 
 Le score reseau naturel ne compare pas un faux flux observe a un flux simule.
@@ -56,22 +77,24 @@ Il compare:
 
 - les cellules ou le drainage permanent candidat est actif;
 - le masque d'hydrographie observee projetee sur le maillage;
-- la distance de chaque cellule au reseau observe;
-- la longueur equivalente du support actif.
+- la distance de chaque cellule au reseau observe.
 
 La forme actuelle est:
 
 ```text
-C_reseau_naturel =
-  0.7 * C_dist + 0.3 * C_len
-
+C_reseau_naturel = C_dist
 C_dist = abs(D_sim_to_obs / D_obs_to_obs - 1)
-C_len  = abs(L_sim - L_obs) / L_obs
 ```
 
 Si le reseau observe tombe exactement sur les cellules observees,
 `D_obs_to_obs` peut etre nul. Le code gere ce cas avec une penalite basee sur
 `d_tol` lorsque le ratio n'est pas defini.
+
+La longueur equivalente `L_obs` / `L_sim` peut rester affichee comme diagnostic
+descriptif, mais elle ne participe plus au cout. Le choix est volontaire:
+ajouter une penalisation d'extension du reseau melangeait ce diagnostic avec la
+question principale de localisation vis-a-vis de l'hydrographie observee, et
+risquait de compter deux fois une meme erreur de support.
 
 ### Score debit
 
@@ -84,16 +107,29 @@ C_debit_obs = 1 - NSElog(Q_sim, Q_obs)
 Ce choix rend les erreurs relatives sur basses et moyennes eaux plus visibles
 qu'un RMSE lineaire domine par les pics.
 
-### Objectif composite
+### Composition de l'objectif
 
-Les poids par defaut du package naturel sont:
+Le code courant garde encore des poids de package par defaut pour que le smoke
+test soit executable:
 
 ```text
 J = 0.3 * C_reseau_naturel + 0.7 * C_debit_obs
 ```
 
-Ces poids sont provisoires. Ils servent a classer les candidats dans le smoke
-test, pas encore de recommandation calibree pour le Nancon naturel.
+Ces coefficients ne doivent pas devenir une regle fixe pour le Nancon naturel.
+Le bon choix d'implementation est de garder les composantes explicites
+(`C_reseau_naturel`, `C_debit_obs`, diagnostics de distance, `NSElog`) et de
+rendre la scalarisation configurable/adaptative. La suite devrait permettre au
+minimum:
+
+- une composition declaree en configuration plutot que codee dans le package;
+- une normalisation robuste estimee sur un plan d'experience initial;
+- une lecture Pareto reseau/debit avant de figer une somme ponderee;
+- eventuellement un mode contrainte, par exemple minimiser le debit avec une
+  erreur reseau maximale acceptable, ou l'inverse.
+
+Dans l'etat actuel, `J` est donc seulement un score de classement pour le smoke
+test et pour les premiers diagnostics, pas une fonction objectif definitive.
 
 ### Smoke test synthetique
 
@@ -163,10 +199,10 @@ arguments CLI.
    ne declare pas encore proprement une observable `support = "network"` ou
    une calibration multi-scenario `steady + transient` pour un meme candidat.
 
-4. Stabiliser la normalisation et les poids. La strategie recommandee est de
-   lancer un plan d'experience, regarder les echelles empiriques de
-   `C_dist`, `C_len` et `C_debit_obs`, inspecter le front de Pareto, puis
-   figer `w_reseau` et `w_debit`.
+4. Remplacer les poids fixes par une composition d'objectif adaptable. La
+   strategie recommandee est de lancer un plan d'experience, regarder les
+   echelles empiriques de `C_dist` et `C_debit_obs`, inspecter le front de
+   Pareto, puis choisir une scalarisation configuree ou un mode contrainte.
 
 5. Nettoyer les libelles du rapport HTML. Le rapport B0 est reutilise tel quel
    et certains libelles restent orientes "cible", `outflow_drain` ou B0. Le

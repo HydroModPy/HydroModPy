@@ -27,6 +27,8 @@ from typing import Final
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from hydromodpy.core.io.filesystem import native_io_path as _native_io_path
+
 PARQUET_WRITE_DEFAULTS: Final[dict[str, object]] = {
     "compression": "zstd",
     "compression_level": 5,
@@ -105,8 +107,10 @@ def write_table_atomic(
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_name(f"{target.name}.tmp-{uuid.uuid4().hex}")
-    if tmp.exists():
-        tmp.unlink()
+    tmp_io = _native_io_path(tmp)
+    target_io = _native_io_path(target)
+    if os.path.exists(tmp_io):
+        os.unlink(tmp_io)
 
     merged_metadata = _encode_metadata(table.schema.metadata, kv_metadata)
     out_table = table.replace_schema_metadata(merged_metadata)
@@ -120,11 +124,14 @@ def write_table_atomic(
             options.setdefault("bloom_filter_columns", bloom_cols)
 
     try:
-        pq.write_table(out_table, tmp, **options)
+        pq.write_table(out_table, tmp_io, **options)
     except Exception:
-        tmp.unlink(missing_ok=True)
+        try:
+            os.unlink(tmp_io)
+        except FileNotFoundError:
+            pass
         raise
-    os.replace(tmp, target)
+    os.replace(tmp_io, target_io)
     return target
 
 

@@ -12,6 +12,10 @@ from hydromodpy.spatial.site_selection.exports import (
     write_observation_points_geojson,
     write_selection_result,
 )
+from hydromodpy.spatial.site_selection.figures import (
+    _choose_display_bounds,
+    _prefer_dem_extent_from_manifest,
+)
 from hydromodpy.spatial.site_selection.selection import SelectionDecision, SelectionResult
 from hydromodpy.spatial.site_selection.types import ObservationEvidence
 
@@ -141,6 +145,29 @@ def test_synthetic_spatial_review_contains_basins_observations_map_and_html(tmp_
     assert output_paths["site_selection_map_png"].stat().st_size > 20_000
     assert "site_selection_map.png" in html
     assert "Carte de controle" in html
+    assert "fixture ou synthetiques" in html
+
+
+@pytest.mark.fast
+def test_display_bounds_can_honor_requested_regional_dem_extent():
+    dem_extent = (0.0, 0.0, 100.0, 100.0)
+    artifact_bounds = (45.0, 45.0, 55.0, 55.0)
+
+    assert _choose_display_bounds(dem_extent, artifact_bounds) != dem_extent
+    assert (
+        _choose_display_bounds(dem_extent, artifact_bounds, prefer_dem_extent=True)
+        == dem_extent
+    )
+
+
+@pytest.mark.fast
+def test_manifest_prefers_dem_extent_for_territory_background():
+    manifest = {
+        "dem": {"request_extent": "territory", "map_background_extent": "territory"},
+        "flow_products": {"dem_path": "regional_dem.tif"},
+    }
+
+    assert _prefer_dem_extent_from_manifest(manifest) is True
 
 
 def _write_polygon_geojson(path, *, coordinates: list[list[float]]) -> None:

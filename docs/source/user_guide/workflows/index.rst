@@ -50,6 +50,11 @@ The mandatory ``[workflow].mode`` field selects the user-facing operation.
        child-runner sections such as ``[simulation]`` or ``[comparison]``.
        Set ``[testbed].profile = "regional_lab"`` for site-catalog campaigns.
      - :doc:`testbed`, :doc:`regional_lab`
+   * - ``site_selection``
+     - Build and review a selected catchment catalog before regional-lab or
+       simulation runs.
+     - ``[site_selection]``, optional ``[hydrometry]``, ``[data]``
+     - :doc:`site_selection`
    * - ``calibration``
      - Estimate parameters by running repeated candidate simulations.
      - ``[calibration]``, ``[calibration.parameters.*]``, simulation
@@ -84,6 +89,8 @@ Click any entry to jump to its detailed page.
      - :doc:`calibration`
    * - ``comparison``
      - :doc:`comparison`
+   * - ``site_selection``
+     - :doc:`site_selection`
 
 Dispatch model
 --------------
@@ -126,6 +133,11 @@ or future transport method axes. Mesh testbeds use ``subject = "mesh"`` with
 TOMLs that declare ``[[simulation.process]]`` with ``type = "mesh"``. For
 site-catalog campaigns over many basins or clusters, use ``testbed`` with
 ``[testbed].profile = "regional_lab"``. See :doc:`regional_lab`.
+
+Use ``site_selection`` when the question is upstream of model generation: which
+gauged or candidate basins should enter a campaign, which outlets delineate
+plausible watersheds, and which sites should be exported as a reviewed
+``regional_lab_sites.csv`` catalog.
 
 Use ``calibration`` when parameters are uncertain and the goal is to optimize
 or sample them against observations or synthetic targets.
@@ -343,5 +355,6 @@ Read more
    simulation
    testbed
    regional_lab
+   site_selection
    calibration
    comparison
