@@ -1,0 +1,49 @@
+[workflow]
+mode = "site_selection"
+
+[site_selection]
+selection_id = "calvados_dem_area_light_100km2_fast_v1"
+output_root = "../outputs/calvados_dem_area_light_100km2_fast_v1"
+
+[site_selection.input]
+mode = "dem_area_light"
+region_id = "Calvados"
+
+[site_selection.territory]
+mode = "admin_departments"
+country = "FR"
+departments = ["014"]
+
+[site_selection.dem]
+source = "data"
+resolution_m = 25.0
+cache_policy = "use_cache_else_download"
+request_extent = "territory"
+map_background_extent = "territory"
+
+[site_selection.hydrology]
+method = "dem_only"
+flow_algorithm = "d8"
+hydrologic_conditioning = "fill"
+network_threshold_area_km2 = 1.0
+
+[site_selection.dem_area_light]
+target_area_km2 = 100.0
+min_area_km2 = 75.0
+max_area_km2 = 125.0
+n_basins = 3
+max_candidates_before_delineation = 30
+
+[site_selection.output]
+write_report_html = true
+write_geopackage = false
+
+[data]
+types = ["dem"]
+
+[[data.dem.sources]]
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0
+file_format = "ASC"
+departments = ["014"]
