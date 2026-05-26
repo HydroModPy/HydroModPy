@@ -411,6 +411,28 @@ hydrologiquement optimale: il sert surtout a verifier que la generation de
 candidats, la delimitation, les rejets et le rapport tournent sans lancer un
 cas regional lourd.
 
+## Validation de cloture du chantier `site_selection`
+
+Les deux exemples courts a rejouer avant cloture sont:
+
+```bash
+hmp run examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
+hmp run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
+```
+
+Le 2026-05-26, ils produisent les resultats attendus suivants:
+
+| Exemple | Profil effectif | Resultat attendu | HTML a inspecter |
+| --- | --- | --- | --- |
+| `calvados_dem_area_light_100km2_fast.toml` | `area_only` | 26 candidats, 10 selectionnes, 16 rejetes | `outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html` |
+| `bretagne_hydrometry_50_500_small_bdtopage.toml` | `gauged_downstream_station` | 6 candidats, 6 selectionnes, 0 rejete | `outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html` |
+
+Dans les deux cas, verifier aussi `review/site_selection_map.png` et
+`site_selection_manifest.json`. La variante BD Topage ecrit en plus
+`reference_network/bdtopage_reference_network.gpkg`; ce fichier reste un
+artefact technique de snapping et ne doit pas etre interprete comme couche de
+preuve du bassin.
+
 ## Regions francaises dans les TOML
 
 Quand `country = "FR"` et `territory.mode = "admin_regions"`, les noms de
