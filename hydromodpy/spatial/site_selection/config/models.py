@@ -34,6 +34,7 @@ CandidateMode = Literal[
 OutletSnapStrategy = Literal["dem_accumulation", "bdtopage_then_dem"]
 ReferenceNetworkSource = Literal["bdtopage", "custom"]
 RouteOverlapMode = Literal["hard_reject", "warning", "score", "report_only"]
+SpatialQuotaMode = Literal["none", "grid"]
 WorkflowInputMode = Literal[
     "auto",
     "plan_only",
@@ -422,6 +423,11 @@ class OutletsConfig(HydroModelBase):
 class SpatialSelectionConfig(HydroModelBase):
     """Spatial thinning and overlap policy."""
 
+    max_selected_sites: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        ge=1,
+        description="Maximum number of catchments kept after ranking and spatial thinning.",
+    )
     allow_nested_basins: Annotated[bool, Profile.USER] = Field(
         default=False,
         description="Allow selected basins to be nested.",
@@ -451,6 +457,28 @@ class SpatialSelectionConfig(HydroModelBase):
         default=None,
         description="Optional policy for candidates on the same mainstem.",
     )
+    spatial_quota_mode: Annotated[SpatialQuotaMode, Profile.USER] = Field(
+        default="none",
+        description="Optional coarse spatial quota applied after ranking.",
+    )
+    spatial_quota_cell_size_km: Annotated[float | None, Profile.USER] = Field(
+        default=None,
+        gt=0,
+        description="Grid cell size used when spatial_quota_mode='grid'.",
+    )
+    spatial_quota_max_sites_per_cell: Annotated[int, Profile.USER] = Field(
+        default=1,
+        ge=1,
+        description="Maximum selected sites allowed in one spatial quota cell.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_spatial_quota(self) -> SpatialSelectionConfig:
+        if self.spatial_quota_mode == "grid" and self.spatial_quota_cell_size_km is None:
+            raise ValueError(
+                "spatial_quota_mode='grid' requires spatial_quota_cell_size_km."
+            )
+        return self
 
 
 class SiteSelectionInputConfig(HydroModelBase):
@@ -624,7 +652,13 @@ class StationInfluenceCriteriaConfig(HydroModelBase):
     source: Annotated[str, Profile.USER] = Field(default="hubeau_station_metadata")
     warn_if_general_influence: Annotated[bool, Profile.USER] = Field(default=True)
     warn_if_local_influence: Annotated[bool, Profile.USER] = Field(default=True)
-    warn_if_comment_keyword: Annotated[bool, Profile.USER] = Field(default=True)
+    warn_if_comment_keyword: Annotated[bool, Profile.USER] = Field(
+        default=True,
+        description=(
+            "Report comment keyword matches as warnings. Comment keywords are "
+            "not treated as hard-reject evidence."
+        ),
+    )
     unknown_policy: Annotated[StationInfluenceUnknownPolicy, Profile.USER] = Field(
         default="neutral",
     )
@@ -999,26 +1033,38 @@ class SiteSelectionConfig(HydroModelBase):
 __all__ = [
     "AreaCriteriaConfig",
     "AreaRangeConfig",
+    "CandidateMode",
     "CriteriaConfig",
+    "CriterionMode",
     "DemAreaLightConfig",
     "DemConfig",
+    "FlowStationCriteriaConfig",
     "GeologyCriteriaConfig",
     "GeologyLayerConfig",
     "HydrologyConfig",
     "InfluenceCriteriaConfig",
+    "InfluenceLayerConfig",
+    "InfluenceType",
     "MapContextConfig",
     "MapContextLayerConfig",
     "MapContextLayerRole",
+    "ObservationRole",
     "ObservationsCriteriaConfig",
     "OutletSnapStrategy",
     "OutletsConfig",
     "OutputConfig",
     "PiezometerLayerConfig",
     "ReferenceNetworkSource",
+    "RouteOverlapMode",
+    "SelectionPrinciple",
     "SiteSelectionInputConfig",
     "SiteSelectionConfig",
     "SpatialSelectionConfig",
+    "SpatialQuotaMode",
+    "StationInfluenceCriteriaConfig",
+    "StationInfluenceUnknownPolicy",
     "StrategyConfig",
     "StrategyProfile",
     "TerritoryConfig",
+    "WorkflowInputMode",
 ]

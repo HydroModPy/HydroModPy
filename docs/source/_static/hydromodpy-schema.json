@@ -14445,7 +14445,7 @@
           "x-hmp-profile": "user"
         },
         "dem": {
-          "$ref": "#/$defs/hydromodpy__spatial__site_selection__config__DemConfig",
+          "$ref": "#/$defs/hydromodpy__spatial__site_selection__config__models__DemConfig",
           "x-hmp-profile": "user"
         },
         "hydrology": {
@@ -14895,6 +14895,21 @@
       "additionalProperties": false,
       "description": "Spatial thinning and overlap policy.",
       "properties": {
+        "max_selected_sites": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Maximum number of catchments kept after ranking and spatial thinning.",
+          "title": "Max Selected Sites",
+          "x-hmp-profile": "user"
+        },
         "allow_nested_basins": {
           "default": false,
           "description": "Allow selected basins to be nested.",
@@ -14985,6 +15000,46 @@
           "description": "Optional policy for candidates on the same mainstem.",
           "title": "Same Mainstem Policy",
           "x-hmp-profile": "user"
+        },
+        "spatial_quota_mode": {
+          "default": "none",
+          "description": "Optional coarse spatial quota applied after ranking.",
+          "enum": [
+            "none",
+            "grid"
+          ],
+          "examples": [
+            "none"
+          ],
+          "title": "Spatial Quota Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "spatial_quota_cell_size_km": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Grid cell size used when spatial_quota_mode='grid'.",
+          "title": "Spatial Quota Cell Size Km",
+          "x-hmp-profile": "user"
+        },
+        "spatial_quota_max_sites_per_cell": {
+          "default": 1,
+          "description": "Maximum selected sites allowed in one spatial quota cell.",
+          "examples": [
+            1
+          ],
+          "minimum": 1,
+          "title": "Spatial Quota Max Sites Per Cell",
+          "type": "integer",
+          "x-hmp-profile": "user"
         }
       },
       "title": "SpatialSelectionConfig",
@@ -15039,6 +15094,7 @@
         },
         "warn_if_comment_keyword": {
           "default": true,
+          "description": "Report comment keyword matches as warnings. Comment keywords are not treated as hard-reject evidence.",
           "examples": [
             true
           ],
@@ -18338,7 +18394,7 @@
       "title": "DemConfig",
       "type": "object"
     },
-    "hydromodpy__spatial__site_selection__config__DemConfig": {
+    "hydromodpy__spatial__site_selection__config__models__DemConfig": {
       "additionalProperties": false,
       "description": "DEM source requested by site selection.",
       "properties": {

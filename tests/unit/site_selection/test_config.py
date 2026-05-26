@@ -8,6 +8,7 @@ from hydromodpy.spatial.site_selection.config import (
     ObservationsCriteriaConfig,
     OutletsConfig,
     SiteSelectionConfig,
+    SpatialSelectionConfig,
     StrategyConfig,
 )
 
@@ -227,6 +228,12 @@ def test_custom_reference_network_requires_path():
             snap_strategy="bdtopage_then_dem",
             reference_network_source="custom",
         )
+
+
+@pytest.mark.fast
+def test_grid_spatial_quota_requires_cell_size():
+    with pytest.raises(ValueError, match="spatial_quota_cell_size_km"):
+        SpatialSelectionConfig(spatial_quota_mode="grid")
 
 
 @pytest.mark.fast

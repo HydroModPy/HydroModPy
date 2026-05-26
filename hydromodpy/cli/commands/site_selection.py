@@ -157,7 +157,7 @@ def run_plan(args: argparse.Namespace) -> None:
         print(f"[written] {manifest_path}")
 
     if args.write_report:
-        from hydromodpy.spatial.site_selection.plan_report import (
+        from hydromodpy.spatial.site_selection.reports.plan import (
             render_site_selection_plan_html_report,
         )
 
@@ -253,7 +253,7 @@ def run_build_generated(args: argparse.Namespace) -> None:
 
 
 def run_report(args: argparse.Namespace) -> None:
-    from hydromodpy.spatial.site_selection.html_report import (
+    from hydromodpy.spatial.site_selection.reports.html import (
         render_site_selection_html_report,
     )
 

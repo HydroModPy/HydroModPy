@@ -9,6 +9,8 @@ refactorisation.
 
 Documents associes:
 
+- doctrine metier finale:
+  `docs/_dev_notes/site_selection_final_business_doctrine.md`;
 - contrat court terme:
   `docs/_dev_notes/site_selection_short_term_contract.md`;
 - limites et contrat de sortie du package:
@@ -134,6 +136,8 @@ Les familles de criteres disponibles sont:
 - influence anthropique depuis couches vectorielles normalisees;
 - geologie depuis couches polygonales;
 - recouvrement ou emboitement entre bassins candidats;
+- selection spatiale finale: limite globale, distance minimale entre exutoires
+  et quota grille optionnel;
 - echecs structurels de delimitation.
 
 Les criteres produisent des composants auditables. Les preuves station,
@@ -145,6 +149,22 @@ convertis en `DecisionRecord` avec des statuts lisibles: `ACCEPT`, `WARNING`,
 L'absence d'une couche d'influence ne rejette pas un site par defaut. Un rejet
 pour influence vient seulement d'une preuve explicite et d'une configuration qui
 la rend bloquante.
+
+Doctrine metier court terme:
+
+- le profil `area_only` rejette sur surface, echec de delimitation et regles
+  spatiales explicitement configurees;
+- le profil `gauged_downstream_station` peut rejeter une station uniquement si
+  une preuve d'influence explicite existe dans les champs metier ou dans une
+  couche d'influence croisee avec le bassin;
+- pour Hub'Eau hydrometrie, les champs explicites sont
+  `influence_generale_site` et `influence_locale_station`;
+- les metadonnees absentes ou inconnues restent neutres avec
+  `unknown_policy = "neutral"`;
+- les mots-cles trouves dans les commentaires de station sont des alertes de
+  revue, pas des preuves suffisantes pour un rejet dur;
+- en l'absence de provider ROE/BNPE branche, `station_influence` reste un
+  filtre qualite de station et ne prouve pas l'absence d'ouvrage en amont.
 
 ### Rapports et cartes
 
@@ -206,6 +226,16 @@ resolues par les couches existantes:
 Par defaut, les donnees lourdes restent dans le workspace utilisateur ou dans le
 cache de donnees, pas dans les exemples versionnes.
 
+Politique de versionnement des donnees d'exemple:
+
+- les fixtures legeres, stables et explicites peuvent rester versionnees;
+- les donnees fournisseur rechargees depuis un service externe doivent rester
+  dans le cache/workspace, sauf besoin de fixture clairement documente;
+- les sorties de run, rasters assembles, NetCDF, GeoPackage fournisseur et
+  lockfiles `hydromodpy.lock` restent hors Git;
+- toute donnee fournisseur versionnee doit porter une provenance lisible:
+  source, date ou commande de regeneration.
+
 ### Candidats
 
 Les candidats peuvent venir de trois sources:
@@ -239,7 +269,9 @@ Ces annotations alimentent les criteres, les exports d'evidence et le rapport.
 La selection applique les criteres configures et separe les bassins retenus des
 bassins rejetes. Les rejets peuvent venir d'un critere metier, d'une surface
 hors plage, d'un recouvrement non autorise, d'un quota atteint ou d'un echec de
-delimitation.
+delimitation. La phase finale peut aussi plafonner le nombre de sites retenus,
+imposer une distance minimale entre exutoires et limiter le nombre de sites par
+cellule de grille.
 
 La decision finale reste distincte des composants de criteres: les outils aval
 peuvent lire directement la decision, tandis qu'un reviewer peut inspecter les
@@ -336,6 +368,9 @@ Validation effectuee le 2026-05-26:
   `gauged_downstream_station`, 7 stations chargees, 6 candidats apres
   espacement, 6 sites selectionnes, 0 rejete, preuves normalisees ecrites,
   manifest valide.
+- sonde Hub'Eau autour de Lecousse/Nancon: l'emprise retourne la station
+  `J001401001`, avec `influence_locale_station = 1`; le critere
+  `station_influence` en `hard_reject` produit bien un rejet bloquant.
 
 Ces validations bornent l'etat stable court terme. Les autres modes peuvent
 etre utiles, mais ne doivent pas etre traites comme le contrat principal sans

@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 NANCON_EXAMPLE_DIR = REPO_ROOT / "examples" / "projects" / "16_nancon_natural_calibration"
 NANCON_REPORT_CONFIG = NANCON_EXAMPLE_DIR / "catchment_report.toml"
 NANCON_REPORT_INPUTS = CatchmentReportInputs.from_toml(NANCON_REPORT_CONFIG)
+GITIGNORE = REPO_ROOT / ".gitignore"
 
 
 def _fingerprints(root: Path) -> dict[str, tuple[int, str]]:
@@ -120,6 +121,20 @@ def test_generic_block_specs_do_not_carry_nancon_wording() -> None:
     assert "massif armoricain" not in generic_text
     assert "smoke" not in generic_text
     assert "future calibration" not in generic_text
+
+
+def test_generated_report_artifacts_are_ignored_by_git() -> None:
+    gitignore = GITIGNORE.read_text(encoding="utf-8")
+
+    for pattern in (
+        "examples/projects/06_vire_selune/outputs/",
+        "examples/projects/16_nancon_natural_calibration/outputs/nancon_context/",
+        "examples/projects/16_nancon_natural_calibration/outputs/nancon_real_figures/",
+        "examples/data/etp/etp_sim2_*.nc",
+        "examples/data/recharge/recharge_sim2_*.nc",
+        "examples/projects/**/hydromodpy.lock",
+    ):
+        assert pattern in gitignore
 
 
 def test_nancon_inputs_can_be_derived_from_project_layout() -> None:

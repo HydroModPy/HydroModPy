@@ -6,6 +6,9 @@ Ce document fixe le contrat court terme de `site_selection`. Il ne remplace pas
 le plan long `site_selection_tool_implementation_plan.md`: il borne ce qui doit
 etre considere comme utilisable et maintenu maintenant.
 
+La doctrine metier finale associee est documentee dans
+`docs/_dev_notes/site_selection_final_business_doctrine.md`.
+
 ## Objectif
 
 `site_selection` doit fournir une plateforme claire pour preparer une campagne
@@ -188,6 +191,22 @@ major_values = ["major"]
 
 L'absence de couche d'influence ne doit pas rejeter un site par defaut. Le rejet
 ne vient que d'une preuve explicite croisee avec le bassin.
+
+### Doctrine `station_influence`
+
+`station_influence` est le controle disponible a court terme pour exploiter les
+metadonnees Hub'Eau hydrometriques. Sa doctrine est volontairement stricte:
+
+- rejet dur seulement si `influence_generale_site` ou
+  `influence_locale_station` indique explicitement une influence et si le mode
+  du critere est `hard_reject`;
+- absence de champ, champ vide ou statut inconnu: pas de rejet avec
+  `unknown_policy = "neutral"`;
+- commentaire contenant un mot-cle comme `barrage`, `retenue` ou `canal`:
+  avertissement de revue seulement, jamais rejet dur;
+- le controle ne remplace pas un inventaire spatial d'ouvrages. Quand un
+  provider ROE ou une couche locale sera branche, ce sera un critere
+  `influence` distinct.
 
 ### Exemples maintenus
 

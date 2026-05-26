@@ -25,45 +25,45 @@ from hydromodpy.spatial.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
 )
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
-from hydromodpy.spatial.site_selection.annotation_pipeline import (
+from hydromodpy.spatial.site_selection.candidates.outlets import (
+    CandidateOutlet,
+    candidate_outlets_from_point_records,
+)
+from hydromodpy.spatial.site_selection.candidates.reference_network import (
+    ReferenceNetworkBundle,
+    load_reference_network_for_outlets,
+)
+from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.evaluation.selection import (
+    SelectionResult,
+    select_delineated_catchments,
+)
+from hydromodpy.spatial.site_selection.evidence.annotations import (
     annotate_site_selection_catchments,
 )
-from hydromodpy.spatial.site_selection.artifacts import write_manifest_and_optional_report
-from hydromodpy.spatial.site_selection.build import (
+from hydromodpy.spatial.site_selection.evidence.observations import (
+    build_observation_evidence_from_attributes,
+)
+from hydromodpy.spatial.site_selection.hydrology.delineation import (
+    DelineatedCatchment,
+    try_delineate_candidate_outlet,
+)
+from hydromodpy.spatial.site_selection.hydrology.flow_products import (
+    FlowProductsBuilder,
+    build_site_selection_flow_products,
+)
+from hydromodpy.spatial.site_selection.outputs.artifacts import write_manifest_and_optional_report
+from hydromodpy.spatial.site_selection.outputs.pipeline import (
+    write_core_site_selection_outputs,
+)
+from hydromodpy.spatial.site_selection.pipelines.build import (
     SiteSelectionBuildResult,
     build_site_selection_from_dem_area_light,
     build_site_selection_from_generated_network,
     build_site_selection_from_point_records,
 )
-from hydromodpy.spatial.site_selection.candidate_outlets import (
-    CandidateOutlet,
-    candidate_outlets_from_point_records,
-)
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
-from hydromodpy.spatial.site_selection.delineation import (
-    DelineatedCatchment,
-    try_delineate_candidate_outlet,
-)
-from hydromodpy.spatial.site_selection.flow_products_adapter import (
-    FlowProductsBuilder,
-    build_site_selection_flow_products,
-)
-from hydromodpy.spatial.site_selection.observations import (
-    build_observation_evidence_from_attributes,
-)
-from hydromodpy.spatial.site_selection.output_pipeline import (
-    write_core_site_selection_outputs,
-)
-from hydromodpy.spatial.site_selection.plan_report import (
+from hydromodpy.spatial.site_selection.reports.plan import (
     render_site_selection_plan_html_report,
-)
-from hydromodpy.spatial.site_selection.reference_network import (
-    ReferenceNetworkBundle,
-    load_reference_network_for_outlets,
-)
-from hydromodpy.spatial.site_selection.selection import (
-    SelectionResult,
-    select_delineated_catchments,
 )
 from hydromodpy.workflow.site_selection_data import (
     DemLoader,

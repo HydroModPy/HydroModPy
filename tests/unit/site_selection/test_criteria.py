@@ -217,6 +217,29 @@ def test_evaluate_station_influence_hard_reject_can_block_general_influence():
 
 
 @pytest.mark.fast
+def test_evaluate_station_influence_hard_reject_keeps_missing_metadata():
+    cfg = ObservationsCriteriaConfig.model_validate(
+        {
+            "station_influence": {
+                "mode": "hard_reject",
+                "unknown_policy": "neutral",
+            }
+        }
+    )
+
+    component = evaluate_station_influence_criterion(
+        site_id="site_001",
+        attributes={"flow_station_id": "J123456701"},
+        config=cfg,
+        selection_principle="observation_led",
+        evaluation_order=2,
+    )
+
+    assert component.criterion_status == "missing"
+    assert component.blocking is False
+
+
+@pytest.mark.fast
 def test_evaluate_station_influence_passes_explicit_no_known_influence():
     cfg = ObservationsCriteriaConfig.model_validate(
         {
@@ -286,8 +309,35 @@ def test_evaluate_station_influence_comment_keyword_warns():
     )
 
     assert component.criterion_status == "warning"
-    assert component.raw_value == "local_influence"
+    assert component.blocking is False
+    assert component.raw_value == "unknown"
     assert "retenue" in component.evidence_json["matched_keywords"]
+
+
+@pytest.mark.fast
+def test_evaluate_station_influence_hard_reject_does_not_block_comment_keyword():
+    cfg = ObservationsCriteriaConfig.model_validate(
+        {
+            "station_influence": {
+                "mode": "hard_reject",
+            }
+        }
+    )
+
+    component = evaluate_station_influence_criterion(
+        site_id="site_001",
+        attributes={
+            "flow_station_id": "J123456701",
+            "commentaire_station": "Station proche d'une retenue.",
+        },
+        config=cfg,
+        selection_principle="observation_led",
+        evaluation_order=2,
+    )
+
+    assert component.criterion_status == "warning"
+    assert component.blocking is False
+    assert "possible hydraulic influence" in component.reason
 
 
 @pytest.mark.fast

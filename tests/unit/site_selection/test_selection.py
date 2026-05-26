@@ -15,10 +15,17 @@ from hydromodpy.spatial.site_selection.delineation import DelineatedCatchment
 from hydromodpy.spatial.site_selection.selection import select_delineated_catchments
 
 
-def _catchment(site_id: str, area_km2: float, priority: float = 0.0) -> DelineatedCatchment:
+def _catchment(
+    site_id: str,
+    area_km2: float,
+    priority: float = 0.0,
+    *,
+    x: float = 0.0,
+    y: float = 0.0,
+) -> DelineatedCatchment:
     return DelineatedCatchment(
         site_id=site_id,
-        outlet=CandidateOutlet(site_id, 0.0, 0.0, "EPSG:2154", "test", priority=priority),
+        outlet=CandidateOutlet(site_id, x, y, "EPSG:2154", "test", priority=priority),
         area_km2=area_km2,
         watershed_shp=f"{site_id}.shp",
     )
@@ -298,3 +305,72 @@ def test_select_delineated_catchments_carries_delineation_failures():
     assert result.selected == []
     assert result.rejected == [failed]
     assert result.decisions[0].decision_stage == "delineation"
+
+
+@pytest.mark.fast
+def test_select_delineated_catchments_respects_max_selected_sites():
+    result = select_delineated_catchments(
+        [
+            _catchment("best", 100.0, priority=10.0),
+            _catchment("next", 100.0, priority=5.0),
+            _catchment("third", 100.0, priority=1.0),
+        ],
+        criteria=CriteriaConfig(area=AreaCriteriaConfig(mode="report_only")),
+        spatial_selection=SpatialSelectionConfig(max_selected_sites=2),
+        selection_principle="criteria_crossing",
+    )
+
+    assert [catchment.site_id for catchment in result.selected] == ["best", "next"]
+    assert [catchment.site_id for catchment in result.rejected] == ["third"]
+    target_decision = next(decision for decision in result.decisions if decision.site_id == "third")
+    assert target_decision.blocking_flags == ["target_count"]
+    assert target_decision.decision_reason == "target count 2 reached"
+
+
+@pytest.mark.fast
+def test_select_delineated_catchments_rejects_outlets_too_close_after_ranking():
+    result = select_delineated_catchments(
+        [
+            _catchment("a", 100.0, priority=10.0, x=0.0),
+            _catchment("b", 100.0, priority=5.0, x=500.0),
+            _catchment("c", 100.0, priority=1.0, x=2000.0),
+        ],
+        criteria=CriteriaConfig(area=AreaCriteriaConfig(mode="report_only")),
+        spatial_selection=SpatialSelectionConfig(min_outlet_distance_km=1.0),
+        selection_principle="criteria_crossing",
+    )
+
+    assert [catchment.site_id for catchment in result.selected] == ["a", "c"]
+    assert [catchment.site_id for catchment in result.rejected] == ["b"]
+    spacing_decision = next(decision for decision in result.decisions if decision.site_id == "b")
+    assert spacing_decision.blocking_flags == ["outlet_spacing"]
+    assert "below 1.000 km" in spacing_decision.decision_reason
+
+
+@pytest.mark.fast
+def test_select_delineated_catchments_applies_grid_spatial_quota():
+    result = select_delineated_catchments(
+        [
+            _catchment("a", 100.0, priority=10.0, x=100.0, y=100.0),
+            _catchment("b", 100.0, priority=9.0, x=500.0, y=500.0),
+            _catchment("c", 100.0, priority=8.0, x=1500.0, y=100.0),
+        ],
+        criteria=CriteriaConfig(area=AreaCriteriaConfig(mode="report_only")),
+        spatial_selection=SpatialSelectionConfig(
+            spatial_quota_mode="grid",
+            spatial_quota_cell_size_km=1.0,
+            spatial_quota_max_sites_per_cell=1,
+        ),
+        selection_principle="criteria_crossing",
+    )
+
+    assert [catchment.site_id for catchment in result.selected] == ["a", "c"]
+    assert [catchment.site_id for catchment in result.rejected] == ["b"]
+    quota_decision = next(decision for decision in result.decisions if decision.site_id == "b")
+    assert quota_decision.blocking_flags == ["spatial_quota"]
+    quota_component = next(
+        component
+        for component in result.criteria_components
+        if component.site_id == "b" and component.criterion_id == "spatial_quota"
+    )
+    assert quota_component.evidence_json["cell_key"] == "grid:0:0"
