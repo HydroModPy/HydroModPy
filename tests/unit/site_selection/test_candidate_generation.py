@@ -150,6 +150,40 @@ def test_generate_dem_area_light_candidate_outlets_filters_area_and_spacing(tmp_
 
 
 @pytest.mark.fast
+def test_generate_dem_area_light_candidate_outlets_honors_search_geometry(tmp_path):
+    box = pytest.importorskip("shapely.geometry").box
+    acc = np.ones((3, 3), dtype="float64")
+    acc[0, 0] = 100.0
+    acc[2, 2] = 99.0
+    acc_path = _write_accumulation_raster(tmp_path / "acc_cells.tif", acc, cell_size=1000.0)
+    flow_products = SiteSelectionFlowProducts(
+        products=FlowProducts(correc="fill.tif", direc="direc.tif", acc=str(acc_path)),
+        method="dem_only",
+        flow_algorithm="d8",
+        dem_correction_type="fill",
+        network_threshold_area_km2=1.0,
+        compute_strahler=True,
+    )
+
+    candidates, evidence = generate_dem_area_light_candidate_outlets(
+        flow_products=flow_products,
+        dem_area_light=DemAreaLightConfig(
+            target_area_km2=100.0,
+            min_area_km2=75.0,
+            max_area_km2=125.0,
+            n_basins=1,
+        ),
+        hydrology=HydrologyConfig(network_threshold_area_km2=1.0),
+        search_geometry=box(2000.0, 0.0, 3000.0, 1000.0),
+    )
+
+    assert [candidate.candidate_id for candidate in candidates] == ["dem_area_00001"]
+    assert candidates[0].x == pytest.approx(2500.0)
+    assert candidates[0].y == pytest.approx(500.0)
+    assert evidence[0].evidence_json["raw_candidate_cells"] == 1
+
+
+@pytest.mark.fast
 def test_generated_candidates_workflow_writes_candidate_audit_outputs(tmp_path):
     acc_path = _write_accumulation_raster(
         tmp_path / "acc.tif",
@@ -364,6 +398,46 @@ def test_generated_network_geojson_exports_dem_stream_segments(tmp_path):
 
 
 @pytest.mark.fast
+def test_generated_network_geojson_honors_search_geometry(tmp_path):
+    box = pytest.importorskip("shapely.geometry").box
+    acc_path = _write_accumulation_raster(
+        tmp_path / "acc.tif",
+        np.array(
+            [
+                [90.0, 1.0, 1.0],
+                [90.0, 1.0, 80.0],
+                [90.0, 1.0, 80.0],
+            ],
+            dtype="float64",
+        ),
+    )
+    flow_products = SiteSelectionFlowProducts(
+        products=FlowProducts(correc="fill.tif", direc="direc.tif", acc=str(acc_path)),
+        method="dem_only",
+        flow_algorithm="d8",
+        dem_correction_type="fill",
+        network_threshold_area_km2=0.0001,
+        compute_strahler=True,
+    )
+
+    path = write_generated_network_geojson(
+        tmp_path / "generated_dem_network.geojson",
+        flow_products=flow_products,
+        hydrology=HydrologyConfig(network_threshold_area_km2=0.0001),
+        search_geometry=box(20.0, 0.0, 30.0, 20.0),
+    )
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    coordinates = [
+        point
+        for feature in payload["features"]
+        for point in _feature_points(feature["geometry"])
+    ]
+    assert coordinates
+    assert all(x >= 20.0 for x, _y in coordinates)
+
+
+@pytest.mark.fast
 def test_reference_network_scores_generated_candidates_and_updates_audit(tmp_path):
     gpd = pytest.importorskip("geopandas")
     LineString = pytest.importorskip("shapely.geometry").LineString
@@ -457,3 +531,11 @@ def _write_square_geojson(path: Path) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def _feature_points(geometry: dict) -> list[list[float]]:
+    if geometry["type"] == "Point":
+        return [geometry["coordinates"]]
+    if geometry["type"] == "LineString":
+        return list(geometry["coordinates"])
+    return []

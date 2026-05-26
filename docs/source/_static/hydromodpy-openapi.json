@@ -4127,6 +4127,40 @@
             "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
             "title": "Path",
             "x-hmp-profile": "user"
+          },
+          "crs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional CRS fallback for custom gridded NetCDF inputs that do not declare CRS metadata.",
+            "title": "Crs",
+            "x-hmp-profile": "user"
+          },
+          "nodata": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional nodata fallback for custom gridded NetCDF inputs that do not declare nodata metadata.",
+            "title": "Nodata",
+            "x-hmp-profile": "user"
           }
         },
         "required": [
@@ -7664,6 +7698,21 @@
             "title": "Require Observations",
             "type": "boolean",
             "x-hmp-profile": "dev"
+          },
+          "max_stations": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory.",
+            "title": "Max Stations",
+            "x-hmp-profile": "user"
           }
         },
         "required": [

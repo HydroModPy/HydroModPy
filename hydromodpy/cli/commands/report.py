@@ -1,4 +1,4 @@
-"""``hmp report`` - render calibration HTML reports and pairwise comparisons.
+"""``hmp report`` - render HTML reports and pairwise comparisons.
 
 Sub-actions:
 
@@ -6,6 +6,8 @@ Sub-actions:
   a calibration session (UUID full or unambiguous prefix).
 - ``hmp report compare <ref_a> <ref_b>``: side-by-side metric comparison of
   two simulations.
+- ``hmp report catchment <report_config>``: build a catchment HTML report from
+  one catchment report TOML configuration.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from hydromodpy.cli.helpers import (
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "report"
-HELP: str = "Render calibration HTML reports and pairwise comparisons"
+HELP: str = "Render HTML reports and pairwise comparisons"
 
 
 def register(subparsers) -> argparse.ArgumentParser:
@@ -68,6 +70,42 @@ def register(subparsers) -> argparse.ArgumentParser:
         help="Comma-separated list of variable names to restrict the comparison",
     )
 
+    catchment_p = sub.add_parser(
+        "catchment",
+        help="Build a catchment HTML report from one TOML configuration",
+    )
+    catchment_p.add_argument(
+        "report_config",
+        type=Path,
+        metavar="REPORT_CONFIG",
+        help="Catchment report TOML configuration.",
+    )
+    catchment_p.add_argument(
+        "--run-overview",
+        action="store_true",
+        help="Run the configured overview before building report artifacts.",
+    )
+    catchment_p.add_argument(
+        "--run-simulation",
+        action="store_true",
+        help="Run the configured simulation before building report artifacts.",
+    )
+    catchment_p.add_argument(
+        "--context-only",
+        action="store_true",
+        help="Build only the context artifacts, not the final HTML report.",
+    )
+    catchment_p.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Build only the final HTML report from existing context artifacts.",
+    )
+    catchment_p.add_argument(
+        "--with-lock",
+        action="store_true",
+        help="Do not pass --no-lock to the optional hydromodpy run steps.",
+    )
+
     parser.set_defaults(_handler=run)
     return parser
 
@@ -80,8 +118,11 @@ def run(args: argparse.Namespace) -> None:
     if action == "compare":
         _cmd_compare(args)
         return
+    if action == "catchment":
+        _cmd_catchment(args)
+        return
     print(
-        "Usage: hmp report {render|compare} [options]. See 'hmp report --help'.",
+        "Usage: hmp report {render|compare|catchment} [options]. See 'hmp report --help'.",
         file=sys.stderr,
     )
     sys.exit(EXIT_CONFIG)
@@ -138,3 +179,33 @@ def _cmd_compare(args: argparse.Namespace) -> None:
         print("(no metrics recorded for either simulation)")
         return
     print(df.to_string())
+
+
+def _cmd_catchment(args: argparse.Namespace) -> None:
+    from hydromodpy.display.catchment_report.pipeline import (
+        run_catchment_report_pipeline,
+    )
+
+    if args.context_only and args.report_only:
+        print(
+            "--context-only and --report-only are mutually exclusive.",
+            file=sys.stderr,
+        )
+        sys.exit(EXIT_CONFIG)
+
+    result = run_catchment_report_pipeline(
+        args.report_config,
+        run_overview=args.run_overview,
+        run_simulation=args.run_simulation,
+        build_context_artifacts=not args.report_only,
+        build_report_html=not args.context_only,
+        no_lock=not args.with_lock,
+    )
+    if result.overview_config is not None:
+        print(f"overview_config={result.overview_config}")
+    if result.simulation_config is not None:
+        print(f"simulation_config={result.simulation_config}")
+    if result.context_summary is not None:
+        print(f"context_summary={result.context_summary}")
+    if result.html_report is not None:
+        print(f"html_report={result.html_report}")

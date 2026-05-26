@@ -184,6 +184,12 @@ Topage/custom reference network is loaded, candidates also carry
 `reference_network_distance_m`, `reference_network_score` and
 `reference_network_status`.
 
+Generated DEM candidates and their exported DEM network are clipped to the
+configured territory by default (`territory.clip_to_territory = true`). For
+French administrative territories, this uses the union of department or region
+geometries rather than only the rectangular DEM extent, which avoids sampling
+coastal sea cells.
+
 The outlet GeoJSON files are point geometries. When a delineation produced an
 `outlet_snap_shp`, selected outlet geometries use the snapped outlet point and
 preserve the original candidate coordinates in properties. If no snapped point

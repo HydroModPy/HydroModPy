@@ -943,7 +943,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L97>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -959,7 +959,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L98>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -977,7 +977,7 @@ Fields
               <code class="hmp-field-toml">[[data.hydrometry.sources]]</code>
             </div>
 
-         :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L74>`__
+         :bdg-primary:`list[HydrometrySourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82>`__
 
             At least one data source.
 
@@ -1223,6 +1223,20 @@ Fields
                :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-warning:`dev` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47>`__
 
                   Only keep stations that have observations in the period.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-hydrometry-sources-max-stations
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.hydrometry.sources.max_stations">
+                    <code class="hmp-field-name">max_stations</code>
+                  </div>
+
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50>`__
+
+                  Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory.
 
 
 
@@ -3513,7 +3527,7 @@ Fields
               <code class="hmp-field-name">date_start</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L52>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
 
             Project start date (ISO format, e.g. '2019-01-01').
 
@@ -3529,7 +3543,7 @@ Fields
               <code class="hmp-field-name">date_end</code>
             </div>
 
-         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L52>`__
+         :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
 
             Project end date (ISO format, e.g. '2025-12-31').
 
@@ -3547,7 +3561,7 @@ Fields
               <code class="hmp-field-toml">[[data.etp.sources]]</code>
             </div>
 
-         :bdg-primary:`list[EtpSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L62>`__
+         :bdg-primary:`list[EtpSourceConfig]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L70>`__
 
             At least one data source.
 
@@ -3751,6 +3765,34 @@ Fields
                :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L33>`__
 
                   Directory containing location file and chronicle CSVs, or a single .nc/.tif file.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-etp-sources-crs
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.etp.sources.crs">
+                    <code class="hmp-field-name">crs</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L41>`__
+
+                  Optional CRS fallback for custom gridded NetCDF inputs that do not declare CRS metadata.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: data-etp-sources-nodata
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="data.etp.sources.nodata">
+                    <code class="hmp-field-name">nodata</code>
+                  </div>
+
+               :bdg-primary:`float | int | str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L45>`__
+
+                  Optional nodata fallback for custom gridded NetCDF inputs that do not declare nodata metadata.
 
 
 

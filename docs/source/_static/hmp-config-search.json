@@ -1817,7 +1817,7 @@
     "section": "data",
     "anchor": "data-hydrometry-date-start",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105",
     "description": "Project start date (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
@@ -1832,7 +1832,7 @@
     "section": "data",
     "anchor": "data-hydrometry-date-end",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L98",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106",
     "description": "Project end date (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
@@ -1847,7 +1847,7 @@
     "section": "data",
     "anchor": "data-hydrometry-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82",
     "description": "At least one data source."
   },
   {
@@ -2053,6 +2053,18 @@
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47",
     "description": "Only keep stations that have observations in the period."
+  },
+  {
+    "path": "data.hydrometry.sources.max_stations",
+    "name": "max_stations",
+    "type": "int | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-hydrometry-sources-max-stations",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50",
+    "description": "Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory."
   },
   {
     "path": "data.intermittency",
@@ -3917,7 +3929,7 @@
     "section": "data",
     "anchor": "data-etp-date-start",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60",
     "description": "Project start date (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
@@ -3932,7 +3944,7 @@
     "section": "data",
     "anchor": "data-etp-date-end",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L52",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60",
     "description": "Project end date (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
@@ -3947,7 +3959,7 @@
     "section": "data",
     "anchor": "data-etp-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L62",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L70",
     "description": "At least one data source."
   },
   {
@@ -4117,6 +4129,30 @@
     "page": "data.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L33",
     "description": "Directory containing location file and chronicle CSVs, or a single .nc/.tif file."
+  },
+  {
+    "path": "data.etp.sources.crs",
+    "name": "crs",
+    "type": "str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-etp-sources-crs",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L41",
+    "description": "Optional CRS fallback for custom gridded NetCDF inputs that do not declare CRS metadata."
+  },
+  {
+    "path": "data.etp.sources.nodata",
+    "name": "nodata",
+    "type": "float | int | str | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "data",
+    "anchor": "data-etp-sources-nodata",
+    "page": "data.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L45",
+    "description": "Optional nodata fallback for custom gridded NetCDF inputs that do not declare nodata metadata."
   },
   {
     "path": "data.temperature",
@@ -16686,7 +16722,7 @@
     "section": "hydrometry",
     "anchor": "hydrometry-date-start",
     "page": "hydrometry.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105",
     "description": "Project start date (ISO format, e.g. '2019-01-01').",
     "examples": [
       "\"2019-01-01\""
@@ -16701,7 +16737,7 @@
     "section": "hydrometry",
     "anchor": "hydrometry-date-end",
     "page": "hydrometry.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L98",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106",
     "description": "Project end date (ISO format, e.g. '2025-12-31').",
     "examples": [
       "\"2025-12-31\""
@@ -16716,7 +16752,7 @@
     "section": "hydrometry",
     "anchor": "hydrometry-sources",
     "page": "hydrometry.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L74",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82",
     "description": "At least one data source."
   },
   {
@@ -16922,5 +16958,17 @@
     "page": "hydrometry.html",
     "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47",
     "description": "Only keep stations that have observations in the period."
+  },
+  {
+    "path": "hydrometry.sources.max_stations",
+    "name": "max_stations",
+    "type": "int | None",
+    "profile": "user",
+    "stability": "stable",
+    "section": "hydrometry",
+    "anchor": "hydrometry-sources-max-stations",
+    "page": "hydrometry.html",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50",
+    "description": "Maximum number of Hub'Eau stations to download after discovery. Useful for fast preview runs over a larger territory."
   }
 ]

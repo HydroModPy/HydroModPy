@@ -184,6 +184,8 @@ def load_custom_multiformat(
     record_variable: str | None = None,
     expand_constants: bool = True,
     source_unit: str | None = None,
+    grid_crs: str | None = None,
+    grid_nodata: float | int | str | None = None,
 ) -> list:
     """Load custom data: CSV directory, NetCDF, or GeoTIFF.
 
@@ -216,6 +218,8 @@ def load_custom_multiformat(
             variable=variable_name,
             unit=internal_unit,
             source_unit=source_unit,
+            crs=grid_crs,
+            nodata=grid_nodata,
             project_period=project_period,
         )
     elif path.suffix in (".tif", ".tiff"):

@@ -67,6 +67,7 @@ def fetch(
     date_end: datetime,
     require_observations: bool = True,
     fallback_search_radius_km: float | None = None,
+    max_stations: int | None = None,
 ) -> list[PointRecord]:
     """Fetch hydrometry data from Hub'Eau and return ``PointRecord`` list.
 
@@ -79,6 +80,7 @@ def fetch(
     # Resolve station list
     if station_ids:
         ids = [_normalize_station_id(s) for s in station_ids]
+        ids = _limit_station_ids(ids, max_stations=max_stations)
     elif bbox is not None:
         ids = _discover_stations_in_bbox(
             bbox,
@@ -86,6 +88,7 @@ def fetch(
             date_end=date_end,
             require_observations=require_observations,
         )
+        ids = _limit_station_ids(ids, max_stations=max_stations)
         if not ids and fallback_search_radius_km:
             from hydromodpy.data.common.geo_helpers import expand_bbox
 
@@ -99,6 +102,7 @@ def fetch(
                 date_end=date_end,
                 require_observations=require_observations,
             )
+            ids = _limit_station_ids(ids, max_stations=max_stations)
     else:
         raise ValueError("Either bbox or station_ids must be provided.")
 
@@ -135,6 +139,12 @@ def fetch(
 
     log_step(f"Hub'Eau: {len(records)} station records loaded")
     return records
+
+
+def _limit_station_ids(ids: list[str], *, max_stations: int | None) -> list[str]:
+    if max_stations is None:
+        return ids
+    return ids[:max_stations]
 
 
 # ---------------------------------------------------------------------------

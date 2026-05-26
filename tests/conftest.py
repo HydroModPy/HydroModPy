@@ -194,16 +194,25 @@ _XDIST_WORKER = os.environ.get(_XDIST_WORKER_ENV, "")
 _WORKER_SUFFIX = _XDIST_WORKER if _XDIST_WORKER and _XDIST_WORKER != "master" else ""
 _TEST_TMP_ROOT = _TEST_SESSION_ROOT / "tmp"
 _TEST_PYTEST_ROOT = _TEST_SESSION_ROOT / "pytest"
+_TEST_STATE_ROOT = _TEST_SESSION_ROOT / "state"
 if _WORKER_SUFFIX:
     _TEST_TMP_ROOT = _TEST_TMP_ROOT / _WORKER_SUFFIX
     _TEST_PYTEST_ROOT = _TEST_PYTEST_ROOT / _WORKER_SUFFIX
-for _path in (_TEST_SCRATCH_ROOT, _TEST_SESSION_ROOT, _TEST_TMP_ROOT, _TEST_PYTEST_ROOT):
+    _TEST_STATE_ROOT = _TEST_STATE_ROOT / _WORKER_SUFFIX
+for _path in (
+    _TEST_SCRATCH_ROOT,
+    _TEST_SESSION_ROOT,
+    _TEST_TMP_ROOT,
+    _TEST_PYTEST_ROOT,
+    _TEST_STATE_ROOT,
+):
     _path.mkdir(parents=True, exist_ok=True)
 
 # Configure scratch locations at import time so pytest internals and spawned
 # subprocesses inherit one repository-external root by default.
 os.environ.setdefault(_SCRATCH_ROOT_ENV, str(_TEST_SCRATCH_ROOT))
 os.environ.setdefault(_SCRATCH_SESSION_ENV, str(_TEST_SESSION_ROOT))
+os.environ.setdefault("HMP_STATE_HOME", str(_TEST_STATE_ROOT))
 if _OWNS_TEST_SCRATCH:
     os.environ[_SCRATCH_OWNER_ENV] = _SCRATCH_OWNER_TOKEN
 # Workers must override TMPDIR (the master already set it to the shared root).
@@ -221,7 +230,13 @@ else:
 
 def _ensure_test_scratch_dirs() -> None:
     """Recreate shared scratch folders if a test removed them mid-session."""
-    for path in (_TEST_SCRATCH_ROOT, _TEST_SESSION_ROOT, _TEST_TMP_ROOT, _TEST_PYTEST_ROOT):
+    for path in (
+        _TEST_SCRATCH_ROOT,
+        _TEST_SESSION_ROOT,
+        _TEST_TMP_ROOT,
+        _TEST_PYTEST_ROOT,
+        _TEST_STATE_ROOT,
+    ):
         path.mkdir(parents=True, exist_ok=True)
 
 

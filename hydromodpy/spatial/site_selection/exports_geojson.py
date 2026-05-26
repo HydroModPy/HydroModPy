@@ -251,6 +251,7 @@ def _features_from_watershed_vector(
     properties["enabled"] = site_status == "selected"
     features = []
     for index, geometry in enumerate(frame.geometry):
+        geometry = _repair_geometry_for_export(geometry)
         if geometry is None or geometry.is_empty:
             continue
         features.append(
@@ -262,6 +263,32 @@ def _features_from_watershed_vector(
             }
         )
     return features, _crs_label(frame.crs)
+
+
+def _repair_geometry_for_export(geometry):
+    if geometry is None or geometry.is_empty:
+        return None
+    if bool(getattr(geometry, "is_valid", True)):
+        return geometry
+    try:
+        from shapely import make_valid
+    except ImportError:  # pragma: no cover - depends on Shapely version.
+        try:
+            from shapely.validation import make_valid
+        except ImportError:
+            make_valid = None
+    if make_valid is not None:
+        try:
+            repaired = make_valid(geometry)
+            if repaired is not None and not repaired.is_empty:
+                return repaired
+        except Exception:
+            pass
+    try:
+        repaired = geometry.buffer(0)
+    except Exception:
+        return geometry
+    return None if repaired is None or repaired.is_empty else repaired
 
 
 def _observation_location(row: Mapping[str, Any]) -> tuple[float, float, str] | None:

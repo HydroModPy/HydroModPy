@@ -925,19 +925,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-hydrometry-date-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105>`__
    * - ``data.hydrometry.date_end``
      - ``str | None``
      - user
      - -
      - `data <data.html#data-hydrometry-date-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L98>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106>`__
    * - ``data.hydrometry.sources``
      - ``list[HydrometrySourceConfig]``
      - user
      - -
      - `data <data.html#data-hydrometry-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82>`__
    * - ``data.hydrometry.sources.fallback_search_radius_km``
      - ``float | None``
      - dev
@@ -1040,6 +1040,12 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `data <data.html#data-hydrometry-sources-require-observations>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47>`__
+   * - ``data.hydrometry.sources.max_stations``
+     - ``int | None``
+     - user
+     - -
+     - `data <data.html#data-hydrometry-sources-max-stations>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50>`__
    * - ``data.intermittency``
      - ``IntermittencyConfig | None``
      - user
@@ -1951,19 +1957,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-etp-date-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L52>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
    * - ``data.etp.date_end``
      - ``str | None``
      - user
      - -
      - `data <data.html#data-etp-date-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L52>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L60>`__
    * - ``data.etp.sources``
      - ``list[EtpSourceConfig]``
      - user
      - -
      - `data <data.html#data-etp-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L62>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L70>`__
    * - ``data.etp.sources.station_ids``
      - ``list[str] | None``
      - user
@@ -2048,6 +2054,18 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `data <data.html#data-etp-sources-path>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L33>`__
+   * - ``data.etp.sources.crs``
+     - ``str | None``
+     - user
+     - -
+     - `data <data.html#data-etp-sources-crs>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L41>`__
+   * - ``data.etp.sources.nodata``
+     - ``float | int | str | None``
+     - user
+     - -
+     - `data <data.html#data-etp-sources-nodata>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/etp/config.py#L45>`__
    * - ``data.temperature``
      - ``TemperatureConfig | None``
      - user
@@ -8299,19 +8317,19 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `hydrometry <hydrometry.html#hydrometry-date-start>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L105>`__
    * - ``hydrometry.date_end``
      - ``str | None``
      - user
      - -
      - `hydrometry <hydrometry.html#hydrometry-date-end>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L98>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L106>`__
    * - ``hydrometry.sources``
      - ``list[HydrometrySourceConfig]``
      - user
      - -
      - `hydrometry <hydrometry.html#hydrometry-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L74>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L82>`__
    * - ``hydrometry.sources.fallback_search_radius_km``
      - ``float | None``
      - dev
@@ -8414,3 +8432,9 @@ per-section page (anchor) and to the source declaration on GitHub.
      - -
      - `hydrometry <hydrometry.html#hydrometry-sources-require-observations>`__
      - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L47>`__
+   * - ``hydrometry.sources.max_stations``
+     - ``int | None``
+     - user
+     - -
+     - `hydrometry <hydrometry.html#hydrometry-sources-max-stations>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/hydrometry/config.py#L50>`__

@@ -148,9 +148,14 @@ def load_case_tolerances(case_dir: Path, solver: str | None = None) -> dict:
     if solver is not None:
         solver_name = str(solver).strip().lower()
         if solver_name:
-            solver_specific = case_dir / f"tolerances_{solver_name}.toml"
-            if solver_specific.exists():
-                return _load_toml(solver_specific)
+            candidate_names = [solver_name]
+            compact_solver_name = solver_name.replace("_", "")
+            if compact_solver_name != solver_name:
+                candidate_names.append(compact_solver_name)
+            for candidate_name in candidate_names:
+                solver_specific = case_dir / f"tolerances_{candidate_name}.toml"
+                if solver_specific.exists():
+                    return _load_toml(solver_specific)
     return _load_toml(case_dir / "tolerances.toml")
 
 

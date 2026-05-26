@@ -300,6 +300,56 @@ def test_write_selection_result_exports_production_vector_layers(tmp_path):
 
 
 @pytest.mark.fast
+def test_write_selection_result_repairs_invalid_basin_geometries(tmp_path):
+    import geopandas as gpd
+    from shapely.geometry import Polygon
+
+    invalid_basin = Polygon(
+        [
+            (0.0, 0.0),
+            (10.0, 10.0),
+            (0.0, 10.0),
+            (10.0, 0.0),
+            (0.0, 0.0),
+        ]
+    )
+    assert not invalid_basin.is_valid
+    basin_path = tmp_path / "invalid_basin.gpkg"
+    gpd.GeoDataFrame(
+        {"name": ["invalid"]},
+        geometry=[invalid_basin],
+        crs="EPSG:2154",
+    ).to_file(basin_path, layer="basin", driver="GPKG")
+    catchment = DelineatedCatchment(
+        site_id="site_001",
+        outlet=CandidateOutlet("cand_001", 5.0, 4.0, "EPSG:2154", "test"),
+        watershed_shp=str(basin_path),
+        area_km2=0.00008,
+    )
+    result = SelectionResult(
+        selected=[catchment],
+        rejected=[],
+        decisions=[],
+        criteria_components=[],
+    )
+
+    paths = write_selection_result(
+        tmp_path / "out",
+        result,
+        selection_id="selection_v1",
+        write_geopackage=True,
+        write_geoparquet=True,
+    )
+
+    basin_geojson = json.loads(paths["selected_basins_geojson"].read_text(encoding="utf-8"))
+    assert basin_geojson["features"]
+    selected_basins = gpd.read_file(paths["site_selection_gpkg"], layer="selected_basins")
+    parquet_basins = gpd.read_parquet(paths["selected_basins_geoparquet"])
+    assert selected_basins.geometry.iloc[0].is_valid
+    assert parquet_basins.geometry.iloc[0].is_valid
+
+
+@pytest.mark.fast
 def test_write_observation_points_geojson_uses_provider_locations(tmp_path):
     evidence = ObservationEvidence(
         site_id="site_001",

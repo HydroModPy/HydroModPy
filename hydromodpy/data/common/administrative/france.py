@@ -107,6 +107,36 @@ def bbox_for_regions(
     return bbox_for_departments(departments, margin_m=margin_m)
 
 
+def geometry_for_departments(
+    departments: Sequence[str],
+    *,
+    target_crs: str | None = "EPSG:2154",
+) -> object:
+    """Return the union geometry covering the requested departments."""
+
+    requested = {department_code_to_padded(dept) for dept in departments}
+    depts = _read_departments_2154()
+    code_col = _find_code_column(depts)
+    codes = depts[code_col].astype(str).map(department_code_to_padded)
+    selected = depts.loc[codes.isin(requested)]
+    if selected.empty:
+        raise ValueError(f"No French department found for codes: {list(departments)}")
+    if target_crs and selected.crs is not None and str(selected.crs) != str(target_crs):
+        selected = selected.to_crs(target_crs)
+    return _union_geometry(selected)
+
+
+def geometry_for_regions(
+    regions: Sequence[str],
+    *,
+    target_crs: str | None = "EPSG:2154",
+) -> object:
+    """Return the union geometry covering the requested French regions."""
+
+    departments = find_departments_in_regions(regions)
+    return geometry_for_departments(departments, target_crs=target_crs)
+
+
 def department_code_to_padded(dept_code: str) -> str:
     """Normalize a department code to 3-character zero-padded format.
 
@@ -159,6 +189,13 @@ def _to_padded_codes(raw_codes: Sequence[str] | set[str]) -> set[str]:
     return {department_code_to_padded(c) for c in raw_codes}
 
 
+def _union_geometry(gdf: gpd.GeoDataFrame) -> object:
+    geometries = gdf.geometry[gdf.geometry.notna() & (~gdf.geometry.is_empty)]
+    if hasattr(geometries, "union_all"):
+        return geometries.union_all()
+    return geometries.unary_union
+
+
 __all__ = [
     "bbox_for_departments",
     "bbox_for_regions",
@@ -166,6 +203,8 @@ __all__ = [
     "find_departments_in_bbox",
     "find_departments_in_regions",
     "french_region_code",
+    "geometry_for_departments",
+    "geometry_for_regions",
     "known_french_region_names",
     "normalize_french_region_key",
     "validate_french_regions",

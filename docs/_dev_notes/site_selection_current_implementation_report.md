@@ -108,8 +108,12 @@ complete:
 examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
 ```
 
-Il limite le domaine au Calvados, demande seulement 3 bassins autour de 100 km2
+Il limite le domaine au Calvados, demande seulement 10 bassins autour de 100 km2
 et plafonne a 30 le nombre de candidats DEM a delimiter avant le tri final.
+Pour les territoires administratifs francais, la generation de candidats DEM et
+l'export du reseau DEM sont maintenant limites a la geometrie terrestre
+effective du territoire, afin d'eviter les artefacts sur les cellules marines
+presentes dans l'emprise raster.
 La page HTML attendue est:
 
 ```text
@@ -296,7 +300,8 @@ hydromodpy.cli.commands.site_selection = commandes utilisateur
 ### `hydromodpy/workflow`
 
 - `site_selection.py`: planification, selection depuis CSV de bassins,
-  selection depuis hydrometrie, resolution du DEM regional et dispatch interne.
+  selection depuis hydrometrie, resolution du DEM via `[data.dem]` avec emprise
+  par exutoires quand `request_extent = "outlets"`, et dispatch interne.
 - `site_selection_data.py`: chargement hydrometrique via le data manager
   existant et resolution du DEM via `[data.dem]`. Le code ne duplique pas
   Hub'Eau ni les clients DEM.
@@ -535,12 +540,15 @@ plusieurs kilometres en aval de la station.
 
 Quand `site_selection.input.mode = "hydrometry"`, le meme principe est
 applique sans CSV de candidats: le workflow charge les stations via les
-gestionnaires de donnees, resout le DEM via `[data.dem]`, construit les produits
-hydrologiques, puis delimite les bassins depuis les stations. Pour la France,
-l'emprise administrative est transformee en WGS84 pour les requetes Hub'Eau, et
-les stations Hub'Eau sont converties en Lambert-93 avant delimitation. Quand
-Hub'Eau fournit `x_l93` et `y_l93`, ces coordonnees officielles sont utilisees
-directement.
+gestionnaires de donnees avant de resoudre le DEM. Si
+`site_selection.dem.request_extent = "outlets"`, l'emprise DEM est construite
+depuis les stations reprojetees, avec la marge `site_selection.dem.margin_km`;
+sinon elle reste derivee du territoire. Le workflow construit ensuite les
+produits hydrologiques, puis delimite les bassins depuis les stations. Pour la
+France, l'emprise administrative est transformee en WGS84 pour les requetes
+Hub'Eau, et les stations Hub'Eau sont converties en Lambert-93 avant
+delimitation. Quand Hub'Eau fournit `x_l93` et `y_l93`, ces coordonnees
+officielles sont utilisees directement.
 
 Les builds pilotes par observation ecrivent aussi:
 
@@ -650,18 +658,21 @@ Cas fournis:
   declare dans `[data.dem]` avec la source IGN `ign_bdalti`; l'exemple produit
   des contours recalcules depuis les exutoires.
 - `configs/bretagne_hydrometry_50_500_hubeau_preview.toml`: principe
-  `observation_led` applique a un inventaire Hub'Eau Bretagne 50-500 km2. Le
-  script `build_bretagne_hubeau_50_500_candidates.py` ecrit 54 candidats et le
-  workflow regenere 54 contours depuis les exutoires sur DEM IGN BD ALTI.
-- `configs/bretagne_hydrometry_50_500_small.toml`: meme principe, mais avec 7
-  stations dans une emprise compacte. Cette variante reduit le temps
-  d'execution pour travailler la carte et le rapport HTML sans lancer les 54
-  delimitations de l'inventaire complet. Elle garde le snap direct
+  `observation_led` applique a des stations Hub'Eau chargees directement par
+  les gestionnaires de donnees HydroModPy. La plage 50-500 km2 est controlee
+  apres recalcul DEM et reportee dans l'audit, sans script regional ni CSV
+  intermediaire obligatoire.
+- `configs/bretagne_hydrometry_50_500_small.toml`: meme principe, mais la
+  source Hub'Eau est limitee a 7 stations explicites avec `station_ids` et
+  `max_stations = 7`. Cette variante reduit le temps d'execution pour
+  travailler la carte et le rapport HTML sans passer par une fixture CSV. Elle
+  garde le snap direct
   `dem_accumulation` avec `snap_dist_m = 150`.
-- `configs/bretagne_hydrometry_50_500_small_bdtopage.toml`: meme sous-ensemble
-  de 7 stations, mais avec `snap_strategy = "bdtopage_then_dem"`. Le workflow
-  telecharge ou reutilise une couche BD Topage dans `outputs/.../reference_network`
-  puis reconcile localement chaque point avec le DEM.
+- `configs/bretagne_hydrometry_50_500_small_bdtopage.toml`: meme preview
+  generique limitee a 7 stations, mais avec `snap_strategy =
+  "bdtopage_then_dem"`. Le workflow telecharge ou reutilise une couche BD
+  Topage dans `outputs/.../reference_network` puis reconcile localement chaque
+  point avec le DEM.
 - `configs/auvergne_rhone_alpes_area_only.toml`: principe `criteria_crossing`
   avec profil `area_only`, surface comme seul critere actif. La fixture
   courante contient 20 bassins entre 50 et 150 km2.
@@ -677,6 +688,21 @@ fixtures/aura_area_50_150_catchments.csv
 ```
 
 ## Ce qui est volontairement limite
+
+- Corrections courtes verrouillees:
+
+  - les workflows lourds `hydrometry`, `generated_candidates` et
+    `dem_area_light` emettent maintenant des messages de progression quand ils
+    sont lances via `hmp run` ou via les sous-commandes `site-selection`. On
+    voit explicitement le chargement des observations, la resolution du DEM, la
+    construction des produits hydrologiques, puis le bilan candidats/retenus/
+    rejetes;
+  - en mode `hydrometry`, le message indique l'emprise DEM calculee depuis les
+    stations quand `site_selection.dem.request_extent = "outlets"`;
+  - les exports de bassins GeoJSON, GeoPackage et GeoParquet tentent maintenant
+    de reparer les geometries invalides avant ecriture. Si Shapely ne peut pas
+    reparer proprement, l'export reste robuste et ignore seulement les
+    geometries vides.
 
 - Le HTML v0 contient maintenant une carte statique de controle. Ce n'est pas
   encore une carte interactive riche.
@@ -865,6 +891,32 @@ All checks passed!
    lisible.
 
 ## Prochaines consolidations recommandees
+
+### Lecture pedagogique des priorites
+
+Les evolutions ci-dessous ne sont pas equivalentes. Elles repondent a quatre
+questions differentes:
+
+1. Ou proposer des sites quand on n'a pas deja une station ou un CSV?
+   C'est le role de la generation autonome de candidats DEM/reseau.
+2. Pourquoi rejeter ou degrader un site?
+   C'est le role des influences, de la geologie et de la piezometrie.
+3. Comment livrer les resultats a un SIG ou a une analyse de production?
+   C'est le role des exports GeoPackage/GeoParquet stabilises.
+4. Comment verifier rapidement une campagne?
+   C'est le role de la carte interactive, qui doit rester une vue derivee des
+   artefacts, pas une deuxieme source de verite.
+
+L'ordre recommande est donc:
+
+1. ameliorer les candidats DEM-only;
+2. brancher les couches metier reelles;
+3. figer les schemas d'export;
+4. construire ensuite la carte interactive.
+
+Cet ordre evite de faire une belle interface sur des candidats encore trop
+pauvres, ou de figer un schema avant de connaitre les evidences metier
+reellement disponibles.
 
 ### 1. Generation autonome de candidats DEM/reseau
 

@@ -90,6 +90,7 @@ def generate_network_candidate_outlets(
     flow_products: SiteSelectionFlowProducts,
     outlets: OutletsConfig,
     hydrology: HydrologyConfig,
+    search_geometry: object | None = None,
     candidate_prefix: str = "network",
 ) -> tuple[list[CandidateOutlet], list[CandidateGenerationEvidence]]:
     """Generate candidate outlets from the DEM accumulation raster.
@@ -101,13 +102,15 @@ def generate_network_candidate_outlets(
     """
 
     raster = _read_accumulation_raster(flow_products.products.acc)
+    search_mask = _search_geometry_mask(raster, search_geometry)
+    valid_search_mask = raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
     threshold = _resolve_accumulation_threshold(
         raster,
         network_threshold_area_km2=hydrology.network_threshold_area_km2,
     )
-    rows, cols = np.where(raster.valid_mask & (raster.array >= threshold))
+    rows, cols = np.where(valid_search_mask & (raster.array >= threshold))
     if rows.size == 0:
-        rows, cols = np.where(raster.valid_mask)
+        rows, cols = np.where(valid_search_mask)
     scored_cells = sorted(
         (
             (
@@ -232,6 +235,7 @@ def generate_dem_area_light_candidate_outlets(
     dem_area_light: DemAreaLightConfig,
     hydrology: HydrologyConfig,
     accumulation_cells_path: str | Path | None = None,
+    search_geometry: object | None = None,
     candidate_prefix: str = "dem_area",
     max_candidates_before_delineation: int | None = None,
 ) -> tuple[list[CandidateOutlet], list[CandidateGenerationEvidence]]:
@@ -249,8 +253,10 @@ def generate_dem_area_light_candidate_outlets(
         raster.array,
         cell_area_m2=raster.cell_area_m2,
     )
+    search_mask = _search_geometry_mask(raster, search_geometry)
+    valid_search_mask = raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
     candidate_mask = (
-        raster.valid_mask
+        valid_search_mask
         & (upstream_area >= float(dem_area_light.min_area_km2))
         & (upstream_area <= float(dem_area_light.max_area_km2))
         & (upstream_area >= float(hydrology.network_threshold_area_km2))
@@ -513,16 +519,20 @@ def write_generated_network_geojson(
     flow_products: SiteSelectionFlowProducts,
     hydrology: HydrologyConfig,
     max_cells: int | None = 50000,
+    search_geometry: object | None = None,
 ) -> Path:
     """Write the DEM-derived stream network as a lightweight vector layer."""
 
     raster = _read_accumulation_raster(flow_products.products.acc)
+    search_mask = _search_geometry_mask(raster, search_geometry)
+    valid_search_mask = raster.valid_mask if search_mask is None else raster.valid_mask & search_mask
     threshold = _resolve_accumulation_threshold(
         raster,
         network_threshold_area_km2=hydrology.network_threshold_area_km2,
     )
     cells, source_cell_count = _network_cells_for_export(
         raster,
+        valid_mask=valid_search_mask,
         threshold=threshold,
         max_cells=max_cells,
     )
@@ -640,6 +650,31 @@ def _read_accumulation_raster(path: str | Path) -> _AccumulationRaster:
         pixel_width_m=abs(float(transform.a)),
         pixel_height_m=abs(float(transform.e)),
         looks_log_scaled=looks_log_scaled,
+    )
+
+
+def _search_geometry_mask(
+    raster: _AccumulationRaster,
+    search_geometry: object | None,
+) -> np.ndarray | None:
+    if search_geometry is None:
+        return None
+    if bool(getattr(search_geometry, "is_empty", False)):
+        return np.zeros(raster.array.shape, dtype=bool)
+    try:
+        from shapely.geometry import mapping
+    except ImportError as exc:  # pragma: no cover - shapely is a geospatial dependency.
+        raise ImportError("shapely is required to rasterize site-selection territory masks.") from exc
+    try:
+        import rasterio.features
+    except ImportError as exc:  # pragma: no cover - rasterio is already required for rasters.
+        raise ImportError("rasterio is required to rasterize site-selection territory masks.") from exc
+
+    return rasterio.features.geometry_mask(
+        [mapping(search_geometry)],
+        out_shape=raster.array.shape,
+        transform=raster.transform,
+        invert=True,
     )
 
 
@@ -803,12 +838,14 @@ def _can_audit_rejected(count: int, limit: int | None) -> bool:
 def _network_cells_for_export(
     raster: _AccumulationRaster,
     *,
+    valid_mask: np.ndarray | None = None,
     threshold: float,
     max_cells: int | None,
 ) -> tuple[dict[tuple[int, int], float], int]:
-    rows, cols = np.where(raster.valid_mask & (raster.array >= threshold))
+    base_mask = raster.valid_mask if valid_mask is None else valid_mask
+    rows, cols = np.where(base_mask & (raster.array >= threshold))
     if rows.size == 0:
-        rows, cols = np.where(raster.valid_mask)
+        rows, cols = np.where(base_mask)
     scored = sorted(
         (
             (float(raster.array[int(row), int(col)]), int(row), int(col))
