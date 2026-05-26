@@ -25,6 +25,9 @@ from hydromodpy.spatial.geographic.core.catchment_from_point import (
     extract_catchment_from_point,
 )
 from hydromodpy.spatial.geographic.core.flow_products import build_regional_flow_products
+from hydromodpy.spatial.site_selection.annotation_pipeline import (
+    annotate_site_selection_catchments,
+)
 from hydromodpy.spatial.site_selection.artifacts import write_manifest_and_optional_report
 from hydromodpy.spatial.site_selection.build import (
     SiteSelectionBuildResult,
@@ -37,41 +40,19 @@ from hydromodpy.spatial.site_selection.candidate_outlets import (
     candidate_outlets_from_point_records,
 )
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
-from hydromodpy.spatial.site_selection.context_evidence import (
-    annotate_catchments_with_geology_layers,
-    annotate_catchments_with_piezometer_layers,
-    write_geology_evidence_geojson,
-    write_geology_evidence_geopackage,
-    write_geology_evidence_geoparquet,
-)
-from hydromodpy.spatial.site_selection.decisions import (
-    evidence_records_from_site_selection_evidence,
-    write_evidence_records_jsonl,
-)
 from hydromodpy.spatial.site_selection.delineation import (
     DelineatedCatchment,
     try_delineate_candidate_outlet,
 )
-from hydromodpy.spatial.site_selection.exports import write_selection_result
-from hydromodpy.spatial.site_selection.exports_geojson import write_observation_points_geojson
-from hydromodpy.spatial.site_selection.exports_geospatial import (
-    GPKG_NAME,
-    write_observation_points_geopackage,
-    write_observation_points_geoparquet,
-)
-from hydromodpy.spatial.site_selection.exports_tabular import write_jsonl
 from hydromodpy.spatial.site_selection.flow_products_adapter import (
     FlowProductsBuilder,
     build_site_selection_flow_products,
 )
-from hydromodpy.spatial.site_selection.influence import (
-    annotate_catchments_with_influence_layers,
-    write_influence_evidence_geojson,
-    write_influence_evidence_geopackage,
-    write_influence_evidence_geoparquet,
-)
 from hydromodpy.spatial.site_selection.observations import (
     build_observation_evidence_from_attributes,
+)
+from hydromodpy.spatial.site_selection.output_pipeline import (
+    write_core_site_selection_outputs,
 )
 from hydromodpy.spatial.site_selection.plan_report import (
     render_site_selection_plan_html_report,
@@ -168,6 +149,7 @@ def plan_site_selection(path: str | Path) -> SiteSelectionPlan:
         "strategy": {
             "principle": cfg.strategy.principle,
             "profile": cfg.strategy.profile,
+            "effective_profile": cfg.effective_profile,
             "primary_axes": list(cfg.strategy.primary_axes),
             "primary_observation_type": cfg.strategy.primary_observation_type,
             "candidate_mode": cfg.strategy.candidate_mode or cfg.outlets.candidate_mode,
@@ -338,35 +320,16 @@ def select_delineated_catchments_from_csv(
             config_path=Path(config_path).expanduser().resolve(),
             dem_loader=dem_loader,
         )
-    catchments, influence_evidence = annotate_catchments_with_influence_layers(
+    annotations = annotate_site_selection_catchments(
         catchments,
-        config=cfg.criteria.influence,
+        criteria=cfg.criteria,
     )
-    catchments, geology_evidence = annotate_catchments_with_geology_layers(
-        catchments,
-        config=cfg.criteria.geology,
-    )
-    catchments, piezometer_evidence = annotate_catchments_with_piezometer_layers(
-        catchments,
-        config=cfg.criteria.observations,
-    )
+    catchments = annotations.catchments
     result = select_delineated_catchments(
         catchments,
         criteria=cfg.criteria,
         spatial_selection=cfg.spatial_selection,
         selection_principle=cfg.strategy.principle,
-    )
-    paths = write_selection_result(
-        target_root,
-        result,
-        selection_id=cfg.selection_id,
-        region_id=region_id,
-        write_selected=cfg.output.write_csv and cfg.output.write_selected,
-        write_rejected=cfg.output.write_csv and cfg.output.write_rejected,
-        write_regional_lab_csv_output=cfg.output.write_regional_lab_csv,
-        write_geojson=cfg.output.write_geojson,
-        write_geoparquet=cfg.output.write_geoparquet,
-        write_geopackage=cfg.output.write_geopackage,
     )
     observation_evidence = [
         evidence
@@ -376,99 +339,17 @@ def select_delineated_catchments_from_csv(
             attributes=catchment.outlet.attributes,
         )
     ]
-    observation_evidence.extend(piezometer_evidence)
-    if observation_evidence:
-        paths["observation_evidence_jsonl"] = write_jsonl(
-            target_root / "observation_evidence.jsonl",
-            [evidence.to_record() for evidence in observation_evidence],
-        )
-        if cfg.output.write_geojson:
-            paths["observation_points_geojson"] = write_observation_points_geojson(
-                target_root / "observation_points.geojson",
-                observation_evidence,
-            )
-        if cfg.output.write_geopackage:
-            gpkg_path = write_observation_points_geopackage(
-                paths.get("site_selection_gpkg", target_root / GPKG_NAME),
-                observation_evidence,
-            )
-            if gpkg_path is not None:
-                paths["site_selection_gpkg"] = gpkg_path
-        if cfg.output.write_geoparquet:
-            geoparquet_path = write_observation_points_geoparquet(
-                target_root / "observation_points.parquet",
-                observation_evidence,
-            )
-            if geoparquet_path is not None:
-                paths["observation_points_geoparquet"] = geoparquet_path
-    if piezometer_evidence:
-        paths["piezometer_evidence_jsonl"] = write_jsonl(
-            target_root / "piezometer_evidence.jsonl",
-            [evidence.to_record() for evidence in piezometer_evidence],
-        )
-    if influence_evidence:
-        paths["influence_evidence_jsonl"] = write_jsonl(
-            target_root / "influence_evidence.jsonl",
-            [evidence.to_record() for evidence in influence_evidence],
-        )
-        if cfg.output.write_geojson:
-            geojson_path = write_influence_evidence_geojson(
-                target_root / "influence_features.geojson",
-                influence_evidence,
-            )
-            if geojson_path is not None:
-                paths["influence_features_geojson"] = geojson_path
-        if cfg.output.write_geopackage:
-            gpkg_path = write_influence_evidence_geopackage(
-                paths.get("site_selection_gpkg", target_root / GPKG_NAME),
-                influence_evidence,
-            )
-            if gpkg_path is not None:
-                paths["site_selection_gpkg"] = gpkg_path
-        if cfg.output.write_geoparquet:
-            geoparquet_path = write_influence_evidence_geoparquet(
-                target_root / "influence_features.parquet",
-                influence_evidence,
-            )
-            if geoparquet_path is not None:
-                paths["influence_features_geoparquet"] = geoparquet_path
-    if geology_evidence:
-        paths["geology_evidence_jsonl"] = write_jsonl(
-            target_root / "geology_evidence.jsonl",
-            [evidence.to_record() for evidence in geology_evidence],
-        )
-        if cfg.output.write_geojson:
-            geojson_path = write_geology_evidence_geojson(
-                target_root / "geology_basins.geojson",
-                geology_evidence,
-            )
-            if geojson_path is not None:
-                paths["geology_basins_geojson"] = geojson_path
-        if cfg.output.write_geopackage:
-            gpkg_path = write_geology_evidence_geopackage(
-                paths.get("site_selection_gpkg", target_root / GPKG_NAME),
-                geology_evidence,
-            )
-            if gpkg_path is not None:
-                paths["site_selection_gpkg"] = gpkg_path
-        if cfg.output.write_geoparquet:
-            geoparquet_path = write_geology_evidence_geoparquet(
-                target_root / "geology_basins.parquet",
-                geology_evidence,
-            )
-            if geoparquet_path is not None:
-                paths["geology_basins_geoparquet"] = geoparquet_path
-    normalized_evidence = evidence_records_from_site_selection_evidence(
-        run_id=cfg.selection_id,
+    observation_evidence.extend(annotations.piezometer_evidence)
+    paths = write_core_site_selection_outputs(
+        target_root,
+        config=cfg,
+        selection=result,
+        region_id=region_id,
         observation_evidence=observation_evidence,
-        influence_evidence=influence_evidence,
-        geology_evidence=geology_evidence,
+        piezometer_evidence=annotations.piezometer_evidence,
+        influence_evidence=annotations.influence_evidence,
+        geology_evidence=annotations.geology_evidence,
     )
-    if normalized_evidence:
-        paths["site_selection_evidence_jsonl"] = write_evidence_records_jsonl(
-            target_root / "site_selection_evidence.jsonl",
-            normalized_evidence,
-        )
     paths.update(
         write_manifest_and_optional_report(
             config=cfg_for_outputs,

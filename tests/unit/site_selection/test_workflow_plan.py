@@ -61,6 +61,7 @@ def test_plan_site_selection_loads_toml_and_resolves_paths(tmp_path):
     assert plan.config.output_root == tmp_path / "outputs/site_selection/area_only_demo"
     assert plan.manifest["selection_id"] == "area_only_demo"
     assert plan.manifest["strategy"]["profile"] == "area_only"
+    assert plan.manifest["strategy"]["effective_profile"] == "area_only"
     assert plan.manifest["criteria"]["area_mode"] == "hard_reject"
     assert "selected" in plan.manifest["planned_outputs"]
     assert "regional_lab_csv" in plan.manifest["planned_outputs"]
@@ -99,6 +100,7 @@ def test_site_selection_plan_can_write_manifest(tmp_path):
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert payload["selection_id"] == "observed_demo"
     assert payload["strategy"]["candidate_mode"] == "station_outlets"
+    assert payload["strategy"]["effective_profile"] == "gauged_downstream_station"
 
 
 @pytest.mark.fast

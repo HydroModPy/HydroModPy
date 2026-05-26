@@ -135,6 +135,59 @@ def test_observation_led_accepts_station_outlets(tmp_path):
     )
 
     assert cfg.strategy.principle == "observation_led"
+    assert cfg.effective_profile == "gauged_downstream_station"
+
+
+@pytest.mark.fast
+def test_gauged_downstream_station_profile_is_explicit(tmp_path):
+    cfg = SiteSelectionConfig.model_validate(
+        {
+            "selection_id": "gauged",
+            "output_root": tmp_path / "out",
+            "strategy": {
+                "principle": "observation_led",
+                "profile": "gauged_downstream_station",
+                "primary_observation_type": "flow_station",
+                "candidate_mode": "station_outlets",
+            },
+            "territory": {
+                "mode": "admin_regions",
+                "country": "FR",
+                "regions": ["Bretagne"],
+            },
+            "outlets": {
+                "candidate_mode": "station_outlets",
+            },
+        }
+    )
+
+    assert cfg.strategy.profile == "gauged_downstream_station"
+    assert cfg.effective_profile == "gauged_downstream_station"
+
+
+@pytest.mark.fast
+def test_gauged_downstream_station_profile_requires_flow_station(tmp_path):
+    with pytest.raises(ValueError, match="primary_observation_type='flow_station'"):
+        SiteSelectionConfig.model_validate(
+            {
+                "selection_id": "gauged",
+                "output_root": tmp_path / "out",
+                "strategy": {
+                    "principle": "observation_led",
+                    "profile": "gauged_downstream_station",
+                    "primary_observation_type": "piezometer",
+                    "candidate_mode": "station_outlets",
+                },
+                "territory": {
+                    "mode": "admin_regions",
+                    "country": "FR",
+                    "regions": ["Bretagne"],
+                },
+                "outlets": {
+                    "candidate_mode": "station_outlets",
+                },
+            }
+        )
 
 
 @pytest.mark.fast

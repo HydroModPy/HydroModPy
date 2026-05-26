@@ -17,7 +17,12 @@ from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 
 SelectionPrinciple = Literal["observation_led", "criteria_crossing"]
-CriteriaCrossingProfile = Literal["dem_only", "area_only", "multicriteria"]
+StrategyProfile = Literal[
+    "dem_only",
+    "area_only",
+    "multicriteria",
+    "gauged_downstream_station",
+]
 CriterionMode = Literal["hard_reject", "warning", "score", "stratify", "report_only"]
 ObservationRole = Literal["primary", "bonus", "score", "stratify", "report_only", "ignore"]
 CandidateMode = Literal[
@@ -58,9 +63,12 @@ class StrategyConfig(HydroModelBase):
         default="criteria_crossing",
         description="Selection principle: observation-led or direct criteria crossing.",
     )
-    profile: Annotated[CriteriaCrossingProfile | None, Profile.USER] = Field(
+    profile: Annotated[StrategyProfile | None, Profile.USER] = Field(
         default=None,
-        description="Optional profile for criteria_crossing campaigns.",
+        description=(
+            "Optional selection profile. Short-term supported profiles are "
+            "'area_only' and 'gauged_downstream_station'."
+        ),
     )
     primary_axes: Annotated[list[str], Profile.USER] = Field(
         default_factory=list,
@@ -95,8 +103,27 @@ class StrategyConfig(HydroModelBase):
                     "observation_led requires primary_observation_type "
                     "(for example 'flow_station')."
                 )
-            if self.profile is not None:
-                raise ValueError("profile is only valid with criteria_crossing.")
+            if self.profile not in {None, "gauged_downstream_station"}:
+                raise ValueError(
+                    "observation_led accepts only profile='gauged_downstream_station'."
+                )
+
+        if self.profile == "gauged_downstream_station":
+            if self.principle != "observation_led":
+                raise ValueError(
+                    "profile='gauged_downstream_station' requires "
+                    "principle='observation_led'."
+                )
+            if self.primary_observation_type != "flow_station":
+                raise ValueError(
+                    "profile='gauged_downstream_station' requires "
+                    "primary_observation_type='flow_station'."
+                )
+            if self.candidate_mode not in {None, "station_outlets"}:
+                raise ValueError(
+                    "profile='gauged_downstream_station' requires "
+                    "candidate_mode='station_outlets'."
+                )
 
         if self.profile == "area_only":
             if self.principle != "criteria_crossing":
@@ -899,7 +926,37 @@ class SiteSelectionConfig(HydroModelBase):
             if self.criteria.area.mode not in {"hard_reject", "score", "stratify"}:
                 raise ValueError("area_only requires area to be an active criterion.")
 
+        if self.strategy.profile == "gauged_downstream_station":
+            mode = self.strategy.candidate_mode or self.outlets.candidate_mode
+            if mode != "station_outlets":
+                raise ValueError(
+                    "profile='gauged_downstream_station' requires "
+                    "candidate_mode='station_outlets' in strategy or outlets."
+                )
+            if self.strategy.primary_observation_type != "flow_station":
+                raise ValueError(
+                    "profile='gauged_downstream_station' requires "
+                    "primary_observation_type='flow_station'."
+                )
+
         return self
+
+    @property
+    def effective_profile(self) -> str:
+        """Return the explicit profile or the short-term profile inferred from the config."""
+
+        if self.strategy.profile:
+            return self.strategy.profile
+        mode = self.strategy.candidate_mode or self.outlets.candidate_mode
+        if (
+            self.strategy.principle == "observation_led"
+            and self.strategy.primary_observation_type == "flow_station"
+            and mode == "station_outlets"
+        ):
+            return "gauged_downstream_station"
+        if self.input.mode == "dem_area_light":
+            return "area_only"
+        return "custom"
 
 
 __all__ = [
@@ -925,5 +982,6 @@ __all__ = [
     "SiteSelectionConfig",
     "SpatialSelectionConfig",
     "StrategyConfig",
+    "StrategyProfile",
     "TerritoryConfig",
 ]
