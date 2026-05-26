@@ -253,11 +253,12 @@ first.
 Examples
 --------
 
-The example project contains short cases for Bretagne, Auvergne-Rhone-Alpes,
-and Corse:
+The example project contains short cases for the two supported short-term
+profiles, plus broader regional previews:
 
 .. code-block:: bash
 
+   hmp run examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
    hmp run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small.toml
    hmp run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
    hmp run examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_hydrometry_preview.toml
@@ -266,6 +267,29 @@ and Corse:
 Use the direct DEM snap example to check the normal map layout. Use the BD
 Topage variant only to inspect outlet-location sensitivity; the reference
 network remains an internal snapping support.
+
+The two closure examples for the stabilized contract are:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 20 18 34
+
+   * - Config
+     - Effective profile
+     - Expected result
+     - Review HTML
+   * - ``calvados_dem_area_light_100km2_fast.toml``
+     - ``area_only``
+     - 26 candidates, 10 selected, 16 rejected
+     - ``outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html``
+   * - ``bretagne_hydrometry_50_500_small_bdtopage.toml``
+     - ``gauged_downstream_station``
+     - 6 candidates, 6 selected, 0 rejected
+     - ``outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html``
+
+Both paths above are relative to
+``examples/projects/17_site_selection_workflow/``. The associated map file is
+``review/site_selection_map.png`` in each output directory.
 
 Troubleshooting
 ---------------
