@@ -282,7 +282,7 @@ def _cmd_config_schema(args: argparse.Namespace) -> None:
 
 def _cmd_config_wizard(args: argparse.Namespace) -> None:
     """Minimal stdin-based wizard to scaffold a TOML config."""
-    from hydromodpy.cli.helpers import EXIT_USER_ABORT
+    from hydromodpy.cli.helpers import EXIT_SIGINT
     from hydromodpy.core.toml_io.generator import generate_toml
 
     def _ask(label: str, default: str | None = None) -> str:
@@ -293,7 +293,7 @@ def _cmd_config_wizard(args: argparse.Namespace) -> None:
             ans = input(f"{label}{hint}: ").strip()
         except (EOFError, KeyboardInterrupt):
             print("\nAborted.", file=sys.stderr)
-            sys.exit(EXIT_USER_ABORT)
+            sys.exit(EXIT_SIGINT)
         return ans or (default or "")
 
     print("HydroModPy configuration wizard (non-interactive-safe)", file=sys.stderr)

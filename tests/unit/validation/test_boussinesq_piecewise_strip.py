@@ -1,69 +1,69 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
-import numpy as np
-
-from validation_cases.shared.boussinesq_piecewise_strip import (
-    aggregate_piecewise_strip_postprocess_fields,
-)
+import validation_cases.shared.boussinesq_piecewise_strip as piecewise
+import validation_cases.shared.runtime as runtime
 
 
-def _write_minimal_bundle(bundle_dir: Path) -> None:
-    bundle_dir.mkdir(parents=True, exist_ok=True)
-    (bundle_dir / "nodes.csv").write_text(
-        "\n".join(
-            [
-                "node_id,x,y,z_top,z_bottom",
-                "0,0.0,0.0,10.0,0.0",
-                "1,2.0,0.0,10.0,0.0",
-                "2,0.0,1.0,10.0,0.0",
-                "3,2.0,1.0,10.0,0.0",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-    (bundle_dir / "cells.csv").write_text(
-        "\n".join(
-            [
-                "cell_id,centroid_x,centroid_y,z_top_centroid,area_m2,storage_coefficient",
-                "0,0.25,0.5,10.0,1.0,0.1",
-                "1,0.75,0.5,10.0,1.0,0.1",
-                "2,1.25,0.5,12.0,1.0,0.1",
-                "3,1.75,0.5,12.0,1.0,0.1",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-
-def test_piecewise_postprocess_fields_return_structured_payload_without_rewrite(
+def test_piecewise_launcher_case_uses_catalog_result_without_postprocess_field_bridge(
+    monkeypatch,
     tmp_path: Path,
 ) -> None:
-    postprocess_dir = tmp_path / "_postprocess"
-    postprocess_dir.mkdir()
-    bundle_dir = tmp_path / "mesh_bundle"
-    _write_minimal_bundle(bundle_dir)
-    np.save(
-        postprocess_dir / "watertable_elevation.npy",
-        {0: np.asarray([2.0, 4.0, 6.0, 8.0], dtype=float)},
+    out_path = tmp_path / "run"
+    store = object()
+
+    def fake_results_dir(*, test_file: str | Path, run_name: str) -> Path:
+        assert Path(test_file).name == "case.py"
+        assert run_name == "case_boussinesq"
+        out_path.mkdir(parents=True, exist_ok=True)
+        return out_path
+
+    def fake_run(command, **kwargs) -> subprocess.CompletedProcess[str]:
+        assert command[:3] == [piecewise.sys.executable, "-m", "hydromodpy"]
+        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
+
+    def fake_discover_result_store(project_path: Path):
+        assert project_path == out_path
+        return store, "sim-123"
+
+    model_ws = out_path / "results_simulations" / "flow_validation__boussinesq"
+    postprocess_dir = model_ws / "_postprocess"
+    particles_dir = postprocess_dir / "_particles"
+
+    def fake_resolve_model_workspace(
+        project_path: Path,
+        *,
+        results_folder_name: str,
+        model_name: str,
+    ):
+        assert project_path == out_path
+        assert results_folder_name == "results_simulations"
+        assert model_name == "flow_validation__boussinesq"
+        return model_ws, postprocess_dir, particles_dir
+
+    monkeypatch.setattr(piecewise, "resolve_validation_results_dir", fake_results_dir)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(runtime, "_discover_result_store", fake_discover_result_store)
+    monkeypatch.setattr(piecewise, "resolve_model_workspace", fake_resolve_model_workspace)
+
+    result = piecewise.run_piecewise_strip_boussinesq_launcher_case(
+        case_dir=tmp_path,
+        case_id="case",
+        caller_file=tmp_path / "case.py",
+        timeout=30,
+        process_id="flow_validation",
+        simulation_name="case",
+        simulation_description="case",
+        initial_head_m=6.0,
+        west_head_m=5.0,
+        east_head_m=5.0,
+        recharge_rate_m_s=1.0e-8,
     )
 
-    fields = aggregate_piecewise_strip_postprocess_fields(
-        postprocess_dir,
-        bundle_dir=bundle_dir,
-        nx=2,
-        ny=1,
-    )
-
-    assert not (postprocess_dir / "watertable_depth.npy").exists()
-    np.testing.assert_allclose(
-        fields["watertable_elevation"][0],
-        np.asarray([[3.0, 7.0]], dtype=float),
-    )
-    np.testing.assert_allclose(
-        fields["watertable_depth"][0],
-        np.asarray([[7.0, 5.0]], dtype=float),
-    )
+    assert result.store is store
+    assert result.sim_id == "sim-123"
+    assert result.model_ws == model_ws
+    assert result.postprocess_dir == postprocess_dir
+    assert not list(out_path.rglob("*.npy"))

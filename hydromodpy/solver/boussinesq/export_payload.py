@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 
 from hydromodpy.physics.flow.history_contract import (
     build_transient_time_axes,
-    write_time_series_npy,
 )
 from hydromodpy.solver.boussinesq.core.state import BoussinesqState
-from hydromodpy.solver.boussinesq.mesh import BoussinesqMesh
 
 
 def as_export_array(values: np.ndarray | None) -> np.ndarray:
@@ -72,52 +68,7 @@ def build_state_history_export_payload(
     }
 
 
-def write_standard_postprocess_outputs(
-    *,
-    full_path: Path,
-    mesh: BoussinesqMesh,
-    state: BoussinesqState,
-) -> None:
-    """Export the canonical `_postprocess` arrays expected by validation helpers."""
-    postprocess_dir = full_path / "_postprocess"
-    postprocess_dir.mkdir(parents=True, exist_ok=True)
-
-    raw_head_history = state.head_history_m
-    if raw_head_history is None:
-        head_history = np.asarray(state.head_m, dtype=float).reshape(1, -1)
-    else:
-        head_history = np.asarray(raw_head_history, dtype=float)
-        if head_history.ndim == 1:
-            head_history = head_history.reshape(1, -1)
-        if head_history.size == 0:
-            head_history = np.asarray(state.head_m, dtype=float).reshape(1, -1)
-    time_axes = build_transient_time_axes(state.period_lengths_seconds)
-    if time_axes.n_snapshots != head_history.shape[0]:
-        raise ValueError(
-            "Boussinesq postprocess export expects one explicit snapshot elapsed-time "
-            f"entry per head-history row ({time_axes.n_snapshots} vs {head_history.shape[0]})."
-        )
-
-    z_top = np.asarray(mesh.z_top_m, dtype=float).reshape(1, -1)
-    time_keys = np.arange(head_history.shape[0], dtype=int)
-    watertable_depth = np.maximum(z_top - head_history, 0.0)
-
-    write_time_series_npy(
-        postprocess_dir / "watertable_elevation.npy",
-        head_history,
-        time_keys=time_keys,
-        elapsed_seconds=time_axes.snapshot_elapsed_seconds,
-    )
-    write_time_series_npy(
-        postprocess_dir / "watertable_depth.npy",
-        watertable_depth,
-        time_keys=time_keys,
-        elapsed_seconds=time_axes.snapshot_elapsed_seconds,
-    )
-
-
 __all__ = [
     "as_export_array",
     "build_state_history_export_payload",
-    "write_standard_postprocess_outputs",
 ]

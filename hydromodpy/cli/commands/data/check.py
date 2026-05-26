@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_DATA_ERROR
+from hydromodpy.cli.helpers import EXIT_VALIDATION
 
 NAME: str = "check"
 HELP: str = "Validate the drag-and-drop <variable>_custom/ folders without ingesting"
@@ -38,4 +38,4 @@ def run(args: argparse.Namespace) -> None:
     print(f"  {len(issues)} issue(s) found:")
     for path, msg in issues:
         print(f"    {path}: {msg}")
-    sys.exit(EXIT_DATA_ERROR)
+    sys.exit(EXIT_VALIDATION)

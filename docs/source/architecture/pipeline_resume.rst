@@ -36,8 +36,8 @@ Two-phase execution
   (``prepare_solver``, ``run_solver``, ``extract``, ``export``). The
   journal is not written during this phase.
 * **Execute phase** ``[restart_index, end)``: each step runs fully; the
-  journal records inputs/outputs hashes and the heartbeat refreshes the
-  ``simulations.last_heartbeat`` column.
+  journal records inputs/outputs hashes and the heartbeat appends rows to
+  ``workflow_events``.
 
 Resume integrity
 ----------------

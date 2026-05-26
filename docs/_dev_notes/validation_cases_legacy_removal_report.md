@@ -17,8 +17,9 @@ from the scoped source tree:
 - public `load_npy*` validation helpers and the
   `HMP_ALLOW_LEGACY_NPY_VALIDATION` flag are gone;
 - validation field readers now require `store` + `sim_id`;
-- Boussinesq validation producers write in-memory fields directly to
-  `SimulationCatalog` instead of rewriting structured `_postprocess/*.npy`
+- Boussinesq validation producers either write in-memory fields directly to
+  `SimulationCatalog` or consume the production catalog emitted by
+  `hydromodpy run`; they no longer rewrite structured `_postprocess/*.npy`
   files;
 - `launcher = "launcher_simulation"` metadata has been removed from
   validation cases and unit fixtures;
@@ -242,11 +243,65 @@ Validation:
 rg -n "launcher_simulation" validation_cases tests/unit/validation tests/validation/README.md -S
 ```
 
-Expected result: no matches after the generated directory removal.
+Result: no matches after the generated directory removal.
+
+2026-05-27 Brutsaert diagnostic cleanup:
+
+- Updated the two direct Brutsaert diagnostic scripts so outlet discharge is
+  read from the post-processing dictionary already attached to the solver
+  model instead of reloading `_postprocess/*.npy`.
+- Kept solver state sidecars (`_boussinesq_state_history.npz`,
+  `_boussinesq_summary.json`) because they are current diagnostic artifacts,
+  not validation field-reader fallbacks.
+
+Tested with:
+
+```powershell
+python -m ruff check validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/diagnose_modflownwt_single_boundary.py validation_cases/analytical/transient/brutsaert_recession_linearized_deep_1d/diagnose_single_boundary_solver_comparison.py
+python -m pytest -q tests/unit/validation -o addopts=""
+rg -n "np\.load|np\.save|\.npy" validation_cases -S --glob '!**/comparison/**'
+```
+
+Result: Ruff passed; `70 passed`. Remaining `.npy` matches were limited to
+`aggregate_piecewise_strip_postprocess_fields(...)`, which was removed in the
+next tranche, and a current `.npz` state-history diagnostic.
+
+2026-05-27 final Boussinesq `.npy` bridge removal:
+
+- Removed `aggregate_piecewise_strip_postprocess_fields(...)` and the related
+  bundle-geometry reader from `validation_cases/shared/boussinesq_piecewise_strip.py`.
+- Switched `run_piecewise_strip_boussinesq_launcher_case(...)` to require the
+  `SimulationCatalog` produced by `hydromodpy run` instead of re-reading
+  launcher `_postprocess/watertable_elevation.npy`.
+- Removed the unused Boussinesq `write_standard_postprocess_outputs(...)`
+  exporter and the orphaned `write_time_series_npy(...)` / `__time_axis.npy`
+  helper API.
+- Updated Boussinesq docs and the generated API stub so the documented
+  transient export contract is `_boussinesq_state_history.npz` plus catalog
+  fields, not `_postprocess/*.npy` sidecars.
+
+Tested with:
+
+```powershell
+python -m ruff check hydromodpy\physics\flow\history_contract.py hydromodpy\solver\boussinesq\export_payload.py validation_cases\shared\boussinesq_piecewise_strip.py tests\unit\validation\test_boussinesq_piecewise_strip.py tests\unit\physics\test_flow_contract_helpers.py
+python -m pytest tests\unit\validation\test_boussinesq_piecewise_strip.py tests\unit\physics\test_flow_contract_helpers.py
+python -m pytest tests\unit\validation
+python -m pytest tests\unit\solver\test_boussinesq_export_payload.py tests\unit\solver\test_boussinesq_extract_series.py tests\unit\solver\test_boussinesq_numerical_contracts.py tests\unit\simulation\test_boussinesq_flow_adapter.py
+rg -n "time_axis_sidecar_path|write_time_series_npy|__time_axis|_postprocess/\*\.npy|watertable_elevation\.npy|watertable_depth\.npy|aggregate_piecewise_strip_postprocess_fields|write_standard_postprocess_outputs" hydromodpy validation_cases tests docs -S --glob "!docs/source/_static/capability_gallery/**" --glob "!docs/_internal/legacy_notebooks/**"
+```
+
+Result: Ruff passed; targeted tests `12 passed`; validation unit suite
+`70 passed`; Boussinesq solver/adapter tests `28 passed`. Remaining grep
+matches are MODFLOW regression/golden `.npy` helpers, generated gallery
+CSV/build artifacts, or this report.
 
 ## Proposed Next Change
 
-Close the remaining non-code debt in this order:
+Close the remaining repository-wide non-code debt in this order:
 
-1. Audit remaining `_postprocess` sidecar producers and decide which files are
-   still current artifacts versus removable historical outputs.
+1. Treat the broader `launcher_simulation` fixture/gallery naming as a
+   separate repository-wide migration, because it touches regression fixtures,
+   docs, generated gallery manifests, and e2e tests.
+2. Decide separately whether MODFLOW `_postprocess/*.npy` golden helpers are
+   still part of the supported regression surface or should move to catalog
+   snapshots.

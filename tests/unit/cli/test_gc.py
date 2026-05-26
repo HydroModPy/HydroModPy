@@ -103,7 +103,7 @@ def test_gc_marks_stale_running_simulation(monkeypatch, tmp_path) -> None:
     workspace = _make_minimal_workspace(tmp_path)
     project = _make_project_with_catalog(workspace, "demo")
 
-    # Force a running sim with an old heartbeat
+    # Force a running sim with an old event-stream heartbeat.
     cat_path = project / "catalog.duckdb"
     conn = duckdb.connect(str(cat_path))
     try:
@@ -111,11 +111,11 @@ def test_gc_marks_stale_running_simulation(monkeypatch, tmp_path) -> None:
             """
             INSERT INTO simulations
                 (sim_id, name, project, solver_id, status_id, zarr_path,
-                 storage_basename, last_heartbeat, mesh_topology_id)
+                 storage_basename, mesh_topology_id)
             VALUES (?, ?, ?,
                     (SELECT id FROM solvers WHERE code = 'modflow6'),
                     (SELECT id FROM statuses WHERE code = 'running'),
-                    ?, ?, TIMESTAMP '2000-01-01 00:00:00+00',
+                    ?, ?,
                     (SELECT id FROM mesh_topologies WHERE code = 'structured_3d'))
             """,
             [
@@ -125,6 +125,13 @@ def test_gc_marks_stale_running_simulation(monkeypatch, tmp_path) -> None:
                 "simulations/stale.zarr",
                 "stale",
             ],
+        )
+        conn.execute(
+            """
+            INSERT INTO workflow_events (run_id, step_name, event_type, ts)
+            VALUES (?, 'pipeline', 'heartbeat', TIMESTAMP '2000-01-01 00:00:00+00')
+            """,
+            ["00000000-0000-0000-0000-000000000001"],
         )
     finally:
         conn.close()

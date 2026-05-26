@@ -177,14 +177,10 @@ def _register_analysis_contracts() -> None:
     ``TestbedRunnerProvider`` so the analysis package never imports the
     workflow package.
     """
+    from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
     from hydromodpy.project.dispatch.workflow import ProjectTestbedRunnerProvider
-    from hydromodpy.workflow.testbed import (
-        register_default_testbed_runner_provider,
-        set_default_testbed_runner_provider_factory,
-    )
 
-    set_default_testbed_runner_provider_factory(ProjectTestbedRunnerProvider)
-    register_default_testbed_runner_provider()
+    register_testbed_runner_provider(ProjectTestbedRunnerProvider())
 
 
 def _register_root_config_contracts() -> None:

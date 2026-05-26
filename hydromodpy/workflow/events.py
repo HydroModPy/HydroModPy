@@ -1,10 +1,8 @@
 """Event-stream writer over ``workflow_events``.
 
-Append-only emission of step lifecycle and heartbeat events. The table
-serves as the canonical source of truth for liveness diagnostics; the
-legacy ``simulations.last_heartbeat`` column is kept as a backwards
-compatibility cache but the view ``v_workflow_heartbeats`` provides the
-same answer derived from the event stream.
+Append-only emission of step lifecycle and heartbeat events. The table serves
+as the canonical source of truth for liveness diagnostics; the view
+``v_workflow_heartbeats`` derives the current heartbeat from the event stream.
 
 All writes go through the :class:`CatalogBackend` port; the workflow
 layer never calls ``connection.execute`` directly so the T3 port-driven

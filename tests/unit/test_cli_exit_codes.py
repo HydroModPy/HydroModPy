@@ -60,11 +60,11 @@ def test_exit_code_constants_exposed() -> None:
     assert helpers.EXIT_SIGINT == 130
 
 
-def test_legacy_aliases_point_to_typed_codes() -> None:
+def test_legacy_exit_code_aliases_removed() -> None:
     helpers = _load_helpers()
-    assert helpers.EXIT_RUN_FAILED == helpers.EXIT_GENERIC
-    assert helpers.EXIT_USER_ABORT == helpers.EXIT_SIGINT
-    assert helpers.EXIT_DATA_ERROR == helpers.EXIT_VALIDATION
+    assert not hasattr(helpers, "EXIT_RUN_FAILED")
+    assert not hasattr(helpers, "EXIT_USER_ABORT")
+    assert not hasattr(helpers, "EXIT_DATA_ERROR")
 
 
 def test_exit_code_for_keyboard_interrupt() -> None:

@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_OK, EXIT_RUN_FAILED
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND, EXIT_OK
 from hydromodpy.core.state.paths import CATALOG_FILENAME
 
 NAME: str = "export-package"
@@ -67,7 +67,7 @@ def run(args: argparse.Namespace) -> None:
             produced = catalog.export_package(sim_id, output_path)
         except Exception as exc:
             print(f"Export failed: {exc}", file=sys.stderr)
-            sys.exit(EXIT_RUN_FAILED)
+            sys.exit(EXIT_GENERIC)
 
     print(str(produced))
     sys.exit(EXIT_OK)
