@@ -14,11 +14,13 @@ to audit the experiment.
 | --- | --- |
 | `config.py` | Validates the `[testbed]` TOML contract and resolves paths. |
 | `catalog_variants.py` | Expands optional catalog rows into concrete testbed variants. |
+| `contracts.py` | Registers workflow adapters and delegates child execution. |
 | `profiles.py` | Resolves `[testbed].profile` and routes specialized profiles. |
 | `regional_lab_adapter.py` | Projects regional site x recipe cases onto testbed cases. |
 | `regional_lab.py` | Runs the regional catalog profile backed by `[regional_lab]`. |
 | `regional_lab_*.py` | Regional profile config, catalog, planning, reporting, and bootstrap helpers. |
 | `runtime.py` | Materializes child configs, runs child workflows, extracts metrics, and writes evidence files. |
+| `site_selection_catalog.py` | Resolves `site_selection_manifest.json` outputs as catalog sources. |
 | `__init__.py` | Public imports for `TestbedConfig` and `TestbedLauncher`. |
 
 The CLI entry point lives outside this package:
@@ -35,11 +37,13 @@ The workflow is intentionally small and explicit.
    `<output_root>/_generated_configs/`.
 3. Variants may be explicit `[[testbed.variant]]` blocks or generated from a
    CSV/JSONL `[testbed.catalog]` plus `[[testbed.variant_from_catalog]]`
-   overlay templates.
+   overlay templates. A catalog may be addressed directly with `path` or
+   through `from_site_selection_manifest`.
 4. Generated children are ordinary workflow files:
    `[workflow].mode = "simulation"` for mesh, flow, and transport children, or
-   `[workflow].mode = "comparison"` for comparison children. Mesh-only children
-   use `[[simulation.process]]` with `type = "mesh"` and `backend = "catchment"`.
+   `[workflow].mode = "comparison"` / `"calibration"` for comparison and
+   calibration children. Mesh-only children use `[[simulation.process]]` with
+   `type = "mesh"` and `backend = "catchment"`.
 5. Generated children never contain `[testbed]`.
 6. Evidence files are always written, including dry plans with
    `execute = false`.
@@ -48,8 +52,9 @@ The workflow is intentionally small and explicit.
 New regional campaigns can enter through `[workflow].mode = "testbed"` with
 `[testbed].profile = "regional_lab"`. The profile keeps regional concepts such
 as site selection, cluster rules, status/maturity fields, coverage gaps, and
-recipes, but shares the common catalog loader in `hydromodpy.analysis.catalog`
-and the child-runner contract used by generic testbeds.
+recipes, but shares the common catalog loader in `hydromodpy.analysis.catalog`,
+the site-selection manifest catalog resolver, and the child-runner contract
+used by generic testbeds.
 
 Supported pairs are currently:
 
@@ -58,6 +63,7 @@ Supported pairs are currently:
 | `mesh` | `simulation` | `simulation` |
 | `flow` | `simulation` | `simulation` |
 | `flow` | `comparison` | `comparison` |
+| `flow` | `calibration` | `calibration` |
 | `transport` | `simulation` | `simulation` |
 | `transport` | `comparison` | `comparison` |
 
@@ -93,8 +99,9 @@ required = true
 ```
 
 For `subject = "flow"`, `testbed.base_config` is mandatory when the runner is
-`simulation` or `comparison`. Keep `[testbed]` outside the base child TOML so
-the base remains reusable by normal simulation or comparison runs.
+`simulation`, `comparison` or `calibration`. Keep `[testbed]` outside the base
+child TOML so the base remains reusable by normal simulation, comparison or
+calibration runs.
 
 With `runner.type = "comparison"`, the base config is a normal
 `[workflow].mode = "comparison"` TOML. A catalog-backed variant typically renders
@@ -109,8 +116,50 @@ comparison id, audit status, row counts, and numerical-closure diagnostics when
 the comparison produced them. Use explicit `[[testbed.metric]]` blocks only when
 a campaign needs a non-default metric set.
 
+With `runner.type = "calibration"`, the base config is a normal
+`[workflow].mode = "calibration"` TOML. The testbed materializes one
+calibration child per variant and delegates execution through the registered
+workflow adapter. Declare explicit `[[testbed.metric]]` blocks for the
+calibration summary fields that should be promoted to `testbed_metrics.csv`.
+
 For `subject = "mesh"`, `base_config` is optional. Without it, the testbed TOML
 itself is used as the base payload after removing `[testbed]`.
+
+## Site-Selection Catalogs
+
+Generic testbeds and regional-lab profiles can consume the stable
+`site_selection_manifest.json` hand-off. The catalog resolver reads the
+manifest `outputs` map and turns the selected output into the actual CSV path.
+The default output key is `regional_lab_sites_csv`; `output`,
+`site_selection_output` and `site_selection_output_key` are accepted aliases.
+
+Generic testbed catalog:
+
+```toml
+[testbed.catalog]
+from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_area_only_v1/site_selection_manifest.json"
+output = "regional_lab_sites_csv"
+id_field = "site_id"
+label_field = "site_label"
+axis_field = "region_id"
+tags_field = "tags"
+```
+
+Regional-lab catalog:
+
+```toml
+[regional_lab.catalog]
+from_site_selection_manifest = "../17_site_selection_workflow/outputs/aura_area_only_v1/site_selection_manifest.json"
+output = "regional_lab_sites_csv"
+site_id_field = "site_id"
+site_label_field = "site_label"
+region_field = "region_id"
+tags_field = "tags"
+```
+
+The resolved catalog path and source manifest provenance are written into
+`testbed_manifest.json`, `regional_lab_plan.json` and
+`regional_lab_report.json`.
 
 ## Runtime Sequence
 
@@ -122,8 +171,8 @@ itself is used as the base payload after removing `[testbed]`.
 6. Write one generated child TOML per enabled variant.
 7. Persist `testbed_plan.json`, `testbed_cases.csv`, `testbed_metrics.csv`,
    `testbed_manifest.json`, and `testbed_report.md`.
-8. If `execute = true`, run children sequentially and rewrite evidence after
-   each child completes or fails.
+8. If `execute = true`, run children sequentially through the registered
+   workflow adapter and rewrite evidence after each child completes or fails.
 
 ## Flow Catalog Metrics
 
@@ -165,17 +214,25 @@ starter case.
 Read outputs in this order: generated configs, cases CSV, metrics CSV,
 manifest, report.
 
-## Adding A New Subject
+## Adding A New Runner Or Subject
 
-To add a future subject such as `transport`:
+To add a future subject:
 
 1. Add the subject to `SUPPORTED_SUBJECTS`.
 2. Add the subject-runner pair to `SUPPORTED_SUBJECT_RUNNERS`.
-3. Add the runner-to-workflow mapping to `RUNNER_WORKFLOWS`.
-4. Add a branch in `TestbedLauncher._run_case`.
-5. Add catalog extraction only if the child runner can persist structured
-   results that should become testbed metrics.
-6. Add a dry-plan test, an execution test with a fake runner, and at least one
+3. Add a dry-plan test, an execution test with a fake runner, and at least one
+   documentation example.
+
+To add a future runner:
+
+1. Add a `TestbedWorkflowAdapter` implementation in `contracts.py`, or register
+   one with `register_testbed_workflow_adapter()`.
+2. Expose the corresponding provider method on `TestbedRunnerProvider` and
+   `ProjectTestbedRunnerProvider`.
+3. Add the subject-runner pair to `SUPPORTED_SUBJECT_RUNNERS`.
+4. Add default metrics or child-artifact extraction only if the child runner can
+   persist structured results that should become testbed metrics.
+5. Add a dry-plan test, an execution test with a fake runner, and at least one
    documentation example.
 
 Do not make the testbed package depend on solver internals. Prefer reopening
@@ -196,6 +253,8 @@ Example dry plans:
 ```powershell
 hmp run examples/projects/10_testbed_workflow/mesh_resolution_testbed.toml
 hmp run examples/projects/10_testbed_workflow/flow_k_sensitivity_testbed.toml
+hmp run examples/projects/18_site_selection_to_testbed/site_selection_catalog_testbed.toml
+hmp run examples/projects/18_site_selection_to_testbed/site_selection_regional_lab.toml
 ```
 
 Both starter files default to `execute = false`; switch to `true` only after

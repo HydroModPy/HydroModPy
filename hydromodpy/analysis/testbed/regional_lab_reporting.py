@@ -84,6 +84,38 @@ def _collect_fieldnames(rows: Sequence[Mapping[str, Any]]) -> list[str]:
     return out
 
 
+def _catalog_payload(cfg: RegionalLabConfig) -> dict[str, Any]:
+    """Return a JSON-ready description of the regional-lab catalog source."""
+    return {
+        "path": str(cfg.catalog.path),
+        "format": cfg.catalog.format,
+        "site_id_field": cfg.catalog.site_id_field,
+        "site_label_field": cfg.catalog.site_label_field,
+        "cluster_id_field": cfg.catalog.cluster_id_field,
+        "cluster_label_field": cfg.catalog.cluster_label_field,
+        "cluster_family_field": cfg.catalog.cluster_family_field,
+        "cluster_scale_field": cfg.catalog.cluster_scale_field,
+        "region_field": cfg.catalog.region_field,
+        "source_selection_field": cfg.catalog.source_selection_field,
+        "status_field": cfg.catalog.status_field,
+        "maturity_field": cfg.catalog.maturity_field,
+        "x_field": cfg.catalog.x_field,
+        "y_field": cfg.catalog.y_field,
+        "area_km2_field": cfg.catalog.area_km2_field,
+        "tags_field": cfg.catalog.tags_field,
+        "enabled_field": cfg.catalog.enabled_field,
+        "required_fields": list(cfg.catalog.required_fields),
+        "path_fields": list(cfg.catalog.path_fields),
+        "tag_separator": cfg.catalog.tag_separator,
+        "source_manifest_path": (
+            None
+            if cfg.catalog.source_manifest_path is None
+            else str(cfg.catalog.source_manifest_path)
+        ),
+        "source_manifest_output_key": cfg.catalog.source_manifest_output_key,
+    }
+
+
 def build_plan_payload(
     *,
     cfg: RegionalLabConfig,
@@ -98,6 +130,7 @@ def build_plan_payload(
         "lab_id": cfg.lab_id,
         "config_path": str(cfg.config_path),
         "site_catalog_path": str(cfg.catalog.path),
+        "catalog": _catalog_payload(cfg),
         "output_root": str(cfg.output_root),
         "selected_site_count": len(selected_sites),
         "planned_case_count": len(planned_cases),
@@ -452,6 +485,14 @@ def _render_summary_markdown(
         "| Recipe | Candidate sites | Planned | Skipped | Executed | Reused | Failed | Pending |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
+    if cfg.catalog.source_manifest_path is not None:
+        lines.insert(
+            5,
+            (
+                f"- Site-selection manifest: `{cfg.catalog.source_manifest_path}` "
+                f"({cfg.catalog.source_manifest_output_key})"
+            ),
+        )
     for row in recipe_summary_rows:
         lines.append(
             "| {recipe_id} | {candidate_site_count} | {planned_case_count} | "
@@ -698,6 +739,7 @@ def build_report_payload(
         "lab_id": cfg.lab_id,
         "config_path": str(cfg.config_path),
         "site_catalog_path": str(cfg.catalog.path),
+        "catalog": _catalog_payload(cfg),
         "output_root": str(cfg.output_root),
         "execute": bool(cfg.execute),
         "continue_on_error": bool(cfg.continue_on_error),

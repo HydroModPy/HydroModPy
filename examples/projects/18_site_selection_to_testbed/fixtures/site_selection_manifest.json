@@ -1,0 +1,28 @@
+{
+  "action": "fixture",
+  "counts": {
+    "criteria_components": 0,
+    "decisions": 2,
+    "rejected": 0,
+    "selected": 2
+  },
+  "created_at_utc": "2026-05-26T00:00:00+00:00",
+  "criteria": {},
+  "input": {
+    "mode": "fixture"
+  },
+  "output_root": ".",
+  "outputs": {
+    "regional_lab_sites_csv": "regional_lab_sites.csv",
+    "site_selection_manifest_json": "site_selection_manifest.json"
+  },
+  "schema_version": "site_selection_manifest_v1",
+  "selection_id": "fixture_selection",
+  "strategy": {
+    "principle": "criteria_crossing",
+    "profile": "area_only"
+  },
+  "territory": {
+    "mode": "fixture"
+  }
+}

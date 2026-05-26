@@ -104,6 +104,23 @@ def _write_comparison_base(path: Path) -> None:
     )
 
 
+def _write_calibration_base(path: Path) -> None:
+    path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "calibration"',
+                "",
+                "[calibration]",
+                'campaign_id = "calibration_base"',
+                'output_root = "calibration_outputs/base"',
+                'objective = "nse"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def test_testbed_config_parses_mesh_variants(tmp_path: Path) -> None:
     base_config = tmp_path / "mesh_base.toml"
     _write_mesh_base(base_config)
@@ -470,6 +487,140 @@ def test_testbed_launcher_expands_catalog_variants_without_execution(
     assert rows[0]["axis"] == "resolution"
 
 
+def test_testbed_catalog_can_resolve_site_selection_manifest(tmp_path: Path) -> None:
+    base_config = tmp_path / "mesh_base.toml"
+    _write_mesh_base(base_config)
+    selection_root = tmp_path / "site_selection_outputs"
+    selection_root.mkdir()
+    catalog_path = selection_root / "regional_lab_sites.csv"
+    catalog_path.write_text(
+        "\n".join(
+            [
+                "site_id,site_label,region_id,x_outlet,y_outlet,area_km2,tags,enabled",
+                "site_01,Site 01,aura,131189.1,6833784.4,45.5,selected;comparison,true",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = selection_root / "site_selection_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "site_selection_manifest_v1",
+                "selection_id": "aura_area_only_v1",
+                "output_root": str(selection_root),
+                "outputs": {
+                    "regional_lab_sites_csv": "regional_lab_sites.csv",
+                    "selected_sites_csv": "selected_sites.csv",
+                },
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "catalog_from_selection_testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "site_selection_catalog"',
+                'subject = "mesh"',
+                'base_config = "mesh_base.toml"',
+                'output_root = "outputs/testbed"',
+                "execute = false",
+                "",
+                "[testbed.catalog]",
+                'from_site_selection_manifest = "site_selection_outputs/site_selection_manifest.json"',
+                'output = "regional_lab_sites_csv"',
+                'id_field = "site_id"',
+                'label_field = "site_label"',
+                'axis_field = "region_id"',
+                'tags_field = "tags"',
+                'tags = ["comparison"]',
+                "",
+                "[[testbed.variant_from_catalog]]",
+                'required_fields = ["x_outlet", "y_outlet", "area_km2"]',
+                'id_template = "{site_id}"',
+                'label_template = "{site_label}"',
+                'axis_template = "{region_id}"',
+                "",
+                "[testbed.variant_from_catalog.overlay.workspace]",
+                'project_root = "workspaces/{site_id}"',
+                "",
+                "[testbed.variant_from_catalog.overlay.mesh_catchment.zone_meshing]",
+                'global_size = "{area_km2}"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    cfg = MethodTestbedConfig.from_file(config_path)
+    assert cfg.catalog is not None
+    assert cfg.catalog.path == catalog_path.resolve()
+    assert cfg.catalog.source_manifest_path == manifest_path.resolve()
+    assert cfg.catalog.source_manifest_output_key == "regional_lab_sites_csv"
+
+    summary = MethodTestbedLauncher(config_path).run()
+
+    assert summary["variant_count"] == 1
+    generated = Path(summary["generated_configs_dir"]) / "site_01.toml"
+    child_payload = load_toml_with_base_config(generated)
+    assert child_payload["workspace"]["project_root"].endswith("workspaces/site_01")
+    assert child_payload["mesh_catchment"]["zone_meshing"]["global_size"] == 45.5
+    manifest = json.loads(Path(summary["manifest_json"]).read_text(encoding="utf-8"))
+    assert manifest["site_catalog_path"] == str(catalog_path.resolve())
+    assert manifest["catalog"]["path"] == str(catalog_path.resolve())
+    assert manifest["catalog"]["source_manifest_path"] == str(manifest_path.resolve())
+    assert manifest["catalog"]["source_manifest_output_key"] == "regional_lab_sites_csv"
+
+
+def test_testbed_catalog_manifest_source_requires_requested_output(tmp_path: Path) -> None:
+    selection_root = tmp_path / "site_selection_outputs"
+    selection_root.mkdir()
+    manifest_path = selection_root / "site_selection_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "site_selection_manifest_v1",
+                "selection_id": "aura_area_only_v1",
+                "output_root": str(selection_root),
+                "outputs": {"selected_sites_csv": "selected_sites.csv"},
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "catalog_from_selection_testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "site_selection_catalog"',
+                "execute = false",
+                "",
+                "[testbed.catalog]",
+                'from_site_selection_manifest = "site_selection_outputs/site_selection_manifest.json"',
+                "",
+                "[[testbed.variant_from_catalog]]",
+                'id_template = "{site_id}"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="does not contain output 'regional_lab_sites_csv'"):
+        MethodTestbedConfig.from_file(config_path)
+
+
 def test_testbed_launcher_materializes_comparison_child_configs_without_executing(
     tmp_path: Path,
 ) -> None:
@@ -576,6 +727,79 @@ def test_testbed_launcher_runs_comparison_variants_and_collects_metrics(
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
     assert "variant_id,variant_label,axis,status,comparison_id,n_metric_rows" in metrics_text
     assert "candidate,candidate,method_pair,ok,candidate_comparison,3" in metrics_text
+
+
+def test_testbed_launcher_runs_calibration_variants_and_collects_metrics(
+    tmp_path: Path,
+) -> None:
+    base_config = tmp_path / "calibration_base.toml"
+    _write_calibration_base(base_config)
+    config_path = tmp_path / "calibration_testbed.toml"
+    config_path.write_text(
+        "\n".join(
+            [
+                '[workflow]\nmode = "testbed"',
+                "",
+                "[testbed]",
+                'id = "calibration_campaign"',
+                'subject = "flow"',
+                'base_config = "calibration_base.toml"',
+                'output_root = "outputs/testbed"',
+                "",
+                "[testbed.runner]",
+                'type = "calibration"',
+                "",
+                "[[testbed.variant]]",
+                'id = "site_01"',
+                'axis = "site"',
+                "",
+                "[testbed.variant.overlay.calibration]",
+                'campaign_id = "site_01_calibration"',
+                'output_root = "calibration_outputs/site_01"',
+                "",
+                "[[testbed.metric]]",
+                'name = "calibration_id"',
+                "",
+                "[[testbed.metric]]",
+                'name = "best_score"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    calls: list[Path] = []
+
+    class _FakeProvider:
+        def run_simulation(self, child_config: Path, *, no_display: bool) -> dict[str, object]:
+            raise AssertionError("simulation runner should not be used")
+
+        def run_comparison(self, child_config: Path) -> dict[str, object]:
+            raise AssertionError("comparison runner should not be used")
+
+        def run_calibration(self, child_config: Path) -> dict[str, object]:
+            calls.append(child_config)
+            payload = load_toml_with_base_config(child_config)
+            assert payload["workflow"] == "calibration"
+            return {
+                "calibration_id": payload["calibration"]["campaign_id"],
+                "best_score": 0.92,
+                "manifest_path": str(child_config.with_suffix(".json")),
+            }
+
+    register_testbed_runner_provider(_FakeProvider())
+
+    summary = MethodTestbedLauncher(config_path).run()
+
+    assert len(calls) == 1
+    assert summary["successful_count"] == 1
+    generated = Path(summary["generated_configs_dir"]) / "site_01.toml"
+    child_payload = load_toml_with_base_config(generated)
+    assert child_payload["workflow"] == "calibration"
+    assert child_payload["calibration"]["campaign_id"] == "site_01_calibration"
+    assert child_payload["calibration"]["output_root"].endswith("calibration_outputs/site_01")
+    metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
+    assert "variant_id,variant_label,axis,status,calibration_id,best_score" in metrics_text
+    assert "site_01,site_01,site,ok,site_01_calibration,0.92" in metrics_text
 
 
 def test_testbed_launcher_runs_catalog_backed_comparison_variants(

@@ -22,21 +22,22 @@ from hydromodpy.analysis.config_helpers import (
     require_mapping,
     require_text,
     resolve_optional_path,
-    resolve_required_path,
     validate_optional_positive_int,
 )
+from hydromodpy.analysis.testbed.contracts import available_testbed_runner_types
 from hydromodpy.analysis.testbed.profiles import (
     GENERIC_TESTBED_PROFILE,
     resolve_testbed_profile,
 )
+from hydromodpy.analysis.testbed.site_selection_catalog import resolve_catalog_source
 from hydromodpy.core.config_kit.base import HydroModelBase
 from hydromodpy.core.config_kit.profile import Profile
 from hydromodpy.core.toml_io import load_toml_with_base_config
 
-SUPPORTED_RUNNERS = {"comparison", "simulation"}
+SUPPORTED_RUNNERS = {"calibration", "comparison", "simulation"}
 SUPPORTED_SUBJECTS = {"flow", "mesh", "transport"}
 SUPPORTED_SUBJECT_RUNNERS = {
-    "flow": {"comparison", "simulation"},
+    "flow": {"calibration", "comparison", "simulation"},
     "mesh": {"simulation"},
     "transport": {"comparison", "simulation"},
 }
@@ -154,6 +155,14 @@ class TestbedCatalogConfig(HydroModelBase):
     limit: Annotated[int | None, Profile.USER] = Field(
         default=None,
         description="Optional cap on the number of selected rows.",
+    )
+    source_manifest_path: Annotated[Path | None, Profile.USER] = Field(
+        default=None,
+        description="Optional site-selection manifest used to resolve the catalog path.",
+    )
+    source_manifest_output_key: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Output key read from the site-selection manifest.",
     )
 
 
@@ -288,10 +297,11 @@ class TestbedConfig(HydroModelBase):
 
         runner_section = normalize_mapping(section.get("runner"), label="testbed.runner")
         requested_runner_type = (optional_text(runner_section.get("type")) or "simulation").lower()
-        if requested_runner_type not in SUPPORTED_RUNNERS:
+        available_runner_types = set(available_testbed_runner_types())
+        if requested_runner_type not in available_runner_types:
             raise ValueError(
                 f"Unsupported testbed.runner.type '{requested_runner_type}'. "
-                f"Supported values: {', '.join(sorted(SUPPORTED_RUNNERS))}."
+                f"Supported values: {', '.join(sorted(available_runner_types))}."
             )
         runner_type = requested_runner_type
         supported_subject_runners = SUPPORTED_SUBJECT_RUNNERS[subject]
@@ -303,10 +313,8 @@ class TestbedConfig(HydroModelBase):
         if subject in {"flow", "transport"} and optional_text(section.get("base_config")) is None:
             raise ValueError(
                 f"testbed.runner.type='{runner_type}' requires testbed.base_config to "
-                "point to the delegated child workflow TOML. Use a simulation TOML for "
-                "runner.type='simulation' or a comparison TOML for "
-                "runner.type='comparison'. Keep the testbed declaration outside the "
-                "child config."
+                "point to the delegated child workflow TOML. Keep the testbed "
+                "declaration outside the child config."
             )
 
         raw_catalog = section.get("catalog")
@@ -319,12 +327,13 @@ class TestbedConfig(HydroModelBase):
             tag_separator = optional_text(catalog_mapping.get("tag_separator")) or ";"
             if tag_separator == "":
                 raise ValueError("testbed.catalog.tag_separator cannot be empty")
+            catalog_source = resolve_catalog_source(
+                base_dir=base_dir,
+                mapping=catalog_mapping,
+                catalog_label="testbed.catalog",
+            )
             catalog = TestbedCatalogConfig(
-                path=resolve_required_path(
-                    base_dir,
-                    catalog_mapping.get("path"),
-                    label="testbed.catalog.path",
-                ),
+                path=catalog_source.path,
                 format=catalog_format,
                 id_field=require_text(
                     catalog_mapping.get("id_field", "variant_id"),
@@ -360,6 +369,8 @@ class TestbedConfig(HydroModelBase):
                     catalog_mapping.get("limit"),
                     label="testbed.catalog.limit",
                 ),
+                source_manifest_path=catalog_source.source_manifest_path,
+                source_manifest_output_key=catalog_source.source_manifest_output_key,
             )
 
         raw_variants = section.get("variant", section.get("variants", []))

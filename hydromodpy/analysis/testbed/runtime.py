@@ -12,7 +12,10 @@ from hydromodpy.analysis.testbed.config import (
     TestbedConfig,
     TestbedVariantConfig,
 )
-from hydromodpy.analysis.testbed.contracts import run_testbed_child_workflow
+from hydromodpy.analysis.testbed.contracts import (
+    run_testbed_child_workflow,
+    testbed_runner_workflow,
+)
 from hydromodpy.analysis.testbed.io import (
     _absolutize_relative_path_values,
     _write_csv_rows,
@@ -58,7 +61,7 @@ class TestbedLauncher:
         return self.cfg.base_config_path or self.cfg.config_path
 
     def _child_workflow(self) -> str:
-        return RUNNER_WORKFLOWS[self.cfg.runner.type]
+        return testbed_runner_workflow(self.cfg.runner.type)
 
     def _base_child_payload(self) -> dict[str, Any]:
         base_config_path = self._base_config_path()
