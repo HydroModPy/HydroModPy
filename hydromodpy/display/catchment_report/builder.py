@@ -29,6 +29,7 @@ from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.presets import (
     GENERIC_REPORT_PRESET,
     CatchmentReportPreset,
+    preset_from_name,
 )
 from hydromodpy.display.report_blocks import (
     write_report_page,
@@ -63,17 +64,24 @@ class CatchmentReportConfig:
         cls,
         inputs: CatchmentReportInputs,
         *,
-        preset: CatchmentReportPreset = GENERIC_REPORT_PRESET,
+        preset: CatchmentReportPreset | None = None,
         allow_gallery_fallbacks: bool | None = None,
         artifact_specs: tuple[ReportArtifactSpec, ...] | None = None,
         block_specs: tuple[ReportBlockSpec, ...] | None = None,
     ) -> CatchmentReportConfig:
+        effective_preset = (
+            preset
+            if preset is not None
+            else preset_from_name(inputs.preset_name)
+            if inputs.preset_name
+            else GENERIC_REPORT_PRESET
+        )
         effective_allow_gallery_fallbacks = allow_gallery_fallbacks
         if effective_allow_gallery_fallbacks is None:
             effective_allow_gallery_fallbacks = (
                 inputs.allow_gallery_fallbacks
                 if inputs.allow_gallery_fallbacks is not None
-                else preset.allow_gallery_fallbacks
+                else effective_preset.allow_gallery_fallbacks
             )
         return cls(
             output_dir=inputs.output_dir,
@@ -92,7 +100,7 @@ class CatchmentReportConfig:
             transient_config=inputs.transient_config,
             overview_config=inputs.overview_config,
             allow_gallery_fallbacks=effective_allow_gallery_fallbacks,
-            preset=preset,
+            preset=effective_preset,
             artifact_specs=artifact_specs,
             block_specs=block_specs,
         )
@@ -148,9 +156,7 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         overview_config=config.overview_config,
     )
     geology_rows = geology_legend_rows(config.geographic_scratch)
-    level_links = {
-        level: output_dir / "web_review" / level / "index.html" for level in PAGE_MODES
-    }
+    level_links = {level: output_dir / "web_review" / level / "index.html" for level in PAGE_MODES}
     blocks_by_level = {
         level: build_blocks(
             summary=summary,

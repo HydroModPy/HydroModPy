@@ -57,8 +57,10 @@ Command inventory
      - ``show <sim_ref> <figure>``, ``gallery <config.toml>``, and
        ``serve`` (Streamlit configuration UI).
    * - ``hmp report``
-     - Calibration reporting
-     - Render the HTML report for a calibration session.
+     - Reporting
+     - ``render`` builds a calibration-session HTML report, ``compare``
+       prints a pairwise metric comparison, and ``catchment`` builds a
+       watershed HTML report from ``catchment_report.toml``.
    * - ``hmp site-selection``
      - Site-selection workflows
      - Validate, plan, and apply upstream basin site-selection configurations.
@@ -146,9 +148,11 @@ Some commands expose their own subcommands:
    hmp dev config check --help
    hmp dev schema export --help
    hmp data list --help
+   hmp report catchment --help
    hmp dev lock verify --help
    hmp site-selection plan --help
    hmp test validation --help
 
 Use :doc:`../getting_started/cli-quickstart` for the first-run path and
 :doc:`results-and-exports` for catalog, inspection, and export workflows.
+Use :doc:`catchment-report` for the ``catchment_report.toml`` contract.

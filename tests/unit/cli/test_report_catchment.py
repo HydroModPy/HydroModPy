@@ -9,6 +9,7 @@ import pytest
 
 from hydromodpy.cli.helpers import EXIT_CONFIG
 from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
+from hydromodpy.display.catchment_report.presets import CatchmentReportPreset
 
 
 def _load_main():
@@ -22,6 +23,7 @@ def test_report_catchment_dispatches_to_pipeline(monkeypatch, capsys, tmp_path) 
     def fake_pipeline(
         report_config: Path,
         *,
+        preset: CatchmentReportPreset | None,
         run_overview: bool,
         run_simulation: bool,
         build_context_artifacts: bool,
@@ -30,6 +32,7 @@ def test_report_catchment_dispatches_to_pipeline(monkeypatch, capsys, tmp_path) 
     ) -> CatchmentReportPipelineResult:
         captured.update(
             report_config=report_config,
+            preset=preset,
             run_overview=run_overview,
             run_simulation=run_simulation,
             build_context_artifacts=build_context_artifacts,
@@ -52,6 +55,7 @@ def test_report_catchment_dispatches_to_pipeline(monkeypatch, capsys, tmp_path) 
 
     assert captured == {
         "report_config": config_path,
+        "preset": None,
         "run_overview": False,
         "run_simulation": False,
         "build_context_artifacts": True,
@@ -70,6 +74,7 @@ def test_report_catchment_flags_control_pipeline(monkeypatch, capsys, tmp_path) 
     def fake_pipeline(
         report_config: Path,
         *,
+        preset: CatchmentReportPreset | None,
         run_overview: bool,
         run_simulation: bool,
         build_context_artifacts: bool,
@@ -78,6 +83,7 @@ def test_report_catchment_flags_control_pipeline(monkeypatch, capsys, tmp_path) 
     ) -> CatchmentReportPipelineResult:
         captured.update(
             report_config=report_config,
+            preset=preset,
             run_overview=run_overview,
             run_simulation=run_simulation,
             build_context_artifacts=build_context_artifacts,
@@ -110,6 +116,7 @@ def test_report_catchment_flags_control_pipeline(monkeypatch, capsys, tmp_path) 
 
     assert captured == {
         "report_config": config_path,
+        "preset": None,
         "run_overview": True,
         "run_simulation": True,
         "build_context_artifacts": True,

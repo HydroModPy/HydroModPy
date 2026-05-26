@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
-from hydromodpy.display.catchment_report.paths import REPO_ROOT
+from hydromodpy.display.catchment_report.resources import REPO_ROOT
 
 
 @dataclass(frozen=True)
@@ -115,9 +115,7 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
             "observed_discharge": _rel(context_dir / "observed_discharge.csv")
             if observed is not None
             else None,
-            "baseline_simulated_discharge": _rel(
-                context_dir / "baseline_simulated_discharge.csv"
-            ),
+            "baseline_simulated_discharge": _rel(context_dir / "baseline_simulated_discharge.csv"),
         },
         "network_assets": network_assets,
     }

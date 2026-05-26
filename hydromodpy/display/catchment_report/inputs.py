@@ -35,6 +35,7 @@ class CatchmentReportInputs:
     allow_gallery_fallbacks: bool | None = None
     observed_discharge_path: Path | None = None
     observed_discharge_station_id: str | None = None
+    preset_name: str | None = None
 
     @classmethod
     def from_toml(cls, path: Path) -> CatchmentReportInputs:
@@ -64,6 +65,7 @@ class CatchmentReportInputs:
             station_label=str(_required(report, "station_label")),
             title=str(report.get("title", "")),
             allow_gallery_fallbacks=_optional_bool(report, "allow_gallery_fallbacks"),
+            preset_name=_optional_string(report, "preset"),
             watershed_project_dir=watershed_project_dir,
             context_outputs_dir=_path(base_dir, _required(layout, "context_outputs_dir")),
             data_overview_project_dir=data_overview_project_dir,
@@ -95,6 +97,7 @@ class CatchmentReportInputs:
         overview_config_name: str = "config_overview.toml",
         observed_discharge_path: Path | None = None,
         observed_discharge_station_id: str | None = None,
+        preset_name: str | None = None,
     ) -> CatchmentReportInputs:
         data_overview_project_dir = data_overview_project_dir or watershed_project_dir
         simulation_workspace_dir = simulation_workspace_dir or watershed_project_dir
@@ -132,6 +135,7 @@ class CatchmentReportInputs:
             allow_gallery_fallbacks=allow_gallery_fallbacks,
             observed_discharge_path=observed_discharge_path,
             observed_discharge_station_id=observed_discharge_station_id,
+            preset_name=preset_name,
         )
 
 

@@ -105,6 +105,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         help="Do not pass --no-lock to the optional hydromodpy run steps.",
     )
+    catchment_p.add_argument(
+        "--preset",
+        choices=("generic", "generic_catchment_report", "nancon", "nancon_reference"),
+        default=None,
+        help="Override the catchment report preset declared in the TOML.",
+    )
 
     parser.set_defaults(_handler=run)
     return parser
@@ -185,6 +191,7 @@ def _cmd_catchment(args: argparse.Namespace) -> None:
     from hydromodpy.display.catchment_report.pipeline import (
         run_catchment_report_pipeline,
     )
+    from hydromodpy.display.catchment_report.presets import preset_from_name
 
     if args.context_only and args.report_only:
         print(
@@ -195,6 +202,7 @@ def _cmd_catchment(args: argparse.Namespace) -> None:
 
     result = run_catchment_report_pipeline(
         args.report_config,
+        preset=preset_from_name(args.preset) if args.preset else None,
         run_overview=args.run_overview,
         run_simulation=args.run_simulation,
         build_context_artifacts=not args.report_only,

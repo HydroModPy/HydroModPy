@@ -41,9 +41,26 @@ GENERIC_REPORT_PRESET = CatchmentReportPreset(
     description="Generic catchment report preset using local artifacts only.",
 )
 
+PRESETS_BY_NAME = {
+    NANCON_REPORT_PRESET.name: NANCON_REPORT_PRESET,
+    GENERIC_REPORT_PRESET.name: GENERIC_REPORT_PRESET,
+    "nancon": NANCON_REPORT_PRESET,
+    "generic": GENERIC_REPORT_PRESET,
+}
+
+
+def preset_from_name(name: str) -> CatchmentReportPreset:
+    try:
+        return PRESETS_BY_NAME[name]
+    except KeyError as exc:
+        choices = ", ".join(sorted(PRESETS_BY_NAME))
+        raise ValueError(f"Unknown catchment report preset {name!r}. Choices: {choices}.") from exc
+
 
 __all__ = [
     "CatchmentReportPreset",
     "GENERIC_REPORT_PRESET",
     "NANCON_REPORT_PRESET",
+    "PRESETS_BY_NAME",
+    "preset_from_name",
 ]
