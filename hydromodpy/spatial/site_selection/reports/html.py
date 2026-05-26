@@ -54,7 +54,7 @@ def render_site_selection_html_report(
     selected = _read_csv(manifest_output_path(manifest, "selected_sites_csv", manifest_path=manifest_file))
     rejected = _read_csv(manifest_output_path(manifest, "rejected_sites_csv", manifest_path=manifest_file))
     decisions = _read_jsonl(
-        manifest_output_path(manifest, "selection_decisions_jsonl", manifest_path=manifest_file)
+        manifest_output_path(manifest, "site_selection_decisions_jsonl", manifest_path=manifest_file)
     )
     components = _read_jsonl(
         manifest_output_path(manifest, "criteria_components_jsonl", manifest_path=manifest_file)

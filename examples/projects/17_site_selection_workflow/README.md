@@ -246,7 +246,6 @@ La sortie ecrit notamment:
 - `selected_basins.geojson` ;
 - `rejected_basins.geojson` ;
 - `criteria_components.jsonl` ;
-- `selection_decisions.jsonl` ;
 - `site_selection_decisions.csv` ;
 - `site_selection_decisions.jsonl` ;
 - `site_selection_evidence.jsonl` si des preuves normalisees existent ;

@@ -69,7 +69,7 @@ class DeriveStep:
                 except Exception:
                     derived_names = []
                 finally:
-                    sim_zarr.close()
+                    _close_owned_zarr_handle(sim_zarr)
         return prior_state.advance(
             step_index=prior_state.step_index + 1,
             step_name=self.name,
@@ -139,7 +139,7 @@ class DeriveStep:
                 else:
                     logger.debug("DeriveStep: skipped '%s' (%s)", result.name, result.reason)
         finally:
-            sim_zarr.close()
+            _close_owned_zarr_handle(sim_zarr)
 
         return state.advance(
             step_index=state.step_index + 1,
@@ -147,3 +147,10 @@ class DeriveStep:
             ctx=ctx,
             derived_names=derived_names,
         )
+
+
+def _close_owned_zarr_handle(sim_zarr) -> None:
+    """Close catalog-owned Zarr handles, but leave borrowed handles open."""
+
+    if getattr(sim_zarr, "_on_close", None) is not None:
+        sim_zarr.close()

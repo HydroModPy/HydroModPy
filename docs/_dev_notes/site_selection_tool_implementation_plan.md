@@ -2757,7 +2757,7 @@ Regles de contenu v0:
 - raisons de rejet et flags bloquants ;
 - synthese des criteres traces ;
 - liens vers `selected_sites.csv`, `rejected_sites.csv`,
-  `regional_lab_sites.csv`, `selection_decisions.jsonl`,
+  `regional_lab_sites.csv`, `site_selection_decisions.jsonl`,
   `criteria_components.jsonl` et le manifest.
 
 Regles de contenu cartographique a ajouter ensuite:
@@ -2916,7 +2916,7 @@ Taches:
 - lire un catalogue existant de type `natural_regional_lab_sites.csv` ;
 - lire les candidats/imports issus de `examples/projects/07_mesh_gallery` ;
 - reutiliser `hydromodpy.analysis.catalog` pour les lectures generiques ;
-- reutiliser `hydromodpy.spatial.site_selection.reports.legacy_review` pour la page HTML ;
+- produire la page HTML via le rapport manifest courant ;
 - ecrire un `site_selection_manifest.json` minimal ;
 - ecrire `selected_sites.csv` et `regional_lab_sites.csv` ;
 - ecrire `criteria_components.parquet` minimal avec au moins provenance,

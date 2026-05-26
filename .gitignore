@@ -160,6 +160,10 @@ examples/data/**/*.tif.json
 examples/data/etp/etp_sim2_*.nc
 examples/data/precipitation/precipitation_*_sim2_*.nc
 examples/data/recharge/recharge_sim2_*.nc
+
+# Generated HTML reports from example workflows.
+examples/projects/**/web/
+examples/projects/**/web_review/
 examples/projects/06_vire_selune/outputs/
 examples/projects/16_nancon_natural_calibration/outputs/html_blocks_smoke/
 examples/projects/16_nancon_natural_calibration/outputs/html_blocks_simulation_smoke/

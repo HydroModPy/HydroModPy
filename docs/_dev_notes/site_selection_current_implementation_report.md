@@ -290,7 +290,6 @@ preuves et les avertissements.
 Un run complet ecrit le coeur d'audit:
 
 - `site_selection_manifest.json`;
-- `selection_decisions.jsonl`;
 - `criteria_components.jsonl`;
 - `site_selection_decisions.csv`;
 - `site_selection_decisions.jsonl`;
@@ -385,7 +384,7 @@ Validation effectuee le 2026-05-26:
 
 Validation technique associee au meme etat:
 
-- `python -m ruff check hydromodpy/spatial/site_selection hydromodpy/workflow/site_selection.py hydromodpy/cli/commands/site_selection.py tests/unit/site_selection examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/build_bouss_stationary_site_maps.py`;
+- `python -m ruff check hydromodpy/spatial/site_selection hydromodpy/workflow/site_selection.py hydromodpy/cli/commands/site_selection.py tests/unit/site_selection`;
 - `python -m pytest tests/unit/site_selection -q`;
 - `python -m pytest tests/unit/launchers/test_site_selection_bridge_examples.py -q`.
 

@@ -1,0 +1,40 @@
+base_config = "run_vire_nwt.toml"
+
+[simulation]
+name = "vire_nwt_report"
+
+[data]
+types = ["geology", "hydrography", "recharge"]
+
+[[data.hydrography.sources]]
+source = "bdtopage"
+
+[geographic.river_network]
+enabled = true
+threshold_mode = "area_km2"
+threshold_area_km2 = 2.0
+prune_short_streams = false
+min_stream_length_m = 0.0
+compute_strahler_order = true
+compute_stream_links = true
+
+[display]
+show = false
+save = true
+figures = [
+  "watershed_id_card",
+  "piezometric_map",
+  "water_budget",
+  "hydrograph",
+  "recharge_map",
+  "seepage_map",
+  "hydrographic_network_reference",
+  "hydrographic_network_generated",
+  "hydrographic_network_comparison",
+  "hydrographic_network_reference_missing_only",
+  "hydrographic_network_generated_extra_only",
+  "simulated_active_network_reference_overlay",
+]
+
+[display.flow]
+budget = true

@@ -195,7 +195,7 @@ def build_site_selection_result_blocks(
         outputs=outputs,
     )
 
-    decision_by_site = {str(row.get("site_id", "")): row for row in decisions}
+    decision_by_site = _final_decision_by_site(decisions)
     component_counts, family_counts = _component_counts(components)
     candidate_generation_rows = candidate_generation or []
 
@@ -410,9 +410,9 @@ def _selected_row(row: Mapping[str, str], decision: Mapping[str, Any] | None) ->
         "site_id": row.get("site_id"),
         "region_id": row.get("region_id"),
         "area_km2": row.get("area_km2"),
-        "rank_score": _format_score(decision.get("rank_score")),
-        "decision_reason": decision.get("decision_reason") or "selected",
-        "warning_flags": _join_flags(decision.get("warning_flags")),
+        "rank_score": _format_score(_decision_value(decision, "rank_score")),
+        "decision_reason": _decision_message(decision) or "selected",
+        "warning_flags": _join_flags(_decision_value(decision, "warning_flags")),
     }
 
 
@@ -422,10 +422,34 @@ def _rejected_row(row: Mapping[str, str], decision: Mapping[str, Any] | None) ->
         "site_id": row.get("site_id"),
         "area_km2": row.get("area_km2"),
         "status": row.get("status"),
-        "decision_stage": decision.get("decision_stage"),
-        "decision_reason": decision.get("decision_reason") or row.get("failure_reason"),
-        "blocking_flags": _join_flags(decision.get("blocking_flags")),
+        "decision_stage": _decision_value(decision, "decision_stage"),
+        "decision_reason": _decision_message(decision) or row.get("failure_reason"),
+        "blocking_flags": _join_flags(_decision_value(decision, "blocking_flags")),
     }
+
+
+def _final_decision_by_site(decisions: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    records: dict[str, dict[str, Any]] = {}
+    for decision in decisions:
+        if str(decision.get("criterion_id") or "") != "final_selection":
+            continue
+        catchment_id = str(decision.get("catchment_id") or "").strip()
+        if catchment_id:
+            records[catchment_id] = decision
+    return records
+
+
+def _decision_value(decision: Mapping[str, Any], key: str) -> Any:
+    if key in decision:
+        return decision.get(key)
+    properties = decision.get("properties")
+    if isinstance(properties, Mapping):
+        return properties.get(key)
+    return None
+
+
+def _decision_message(decision: Mapping[str, Any]) -> Any:
+    return _decision_value(decision, "decision_reason") or decision.get("message")
 
 
 def _candidate_generation_block(rows: list[dict[str, Any]]) -> ReportBlock:

@@ -93,8 +93,7 @@ facade when a symbol is part of the public package API.
 - `evaluation/spatial_filters.py`: geometry overlap helpers used by selection.
 - `outputs/`: stable output schemas, CSV/JSONL/GeoJSON/geospatial writers,
   manifest IO, core output orchestration and final artifact assembly.
-- `reports/`: static map, HTML report, plan report, report blocks and legacy
-  review renderer.
+- `reports/`: static map, HTML report, plan report and report blocks.
 - `decisions/`: normalized `DecisionRecord`, `EvidenceRecord` and
   per-catchment summary helpers built from criteria and final selections.
 - `pipelines/build.py`: orchestration of the end-to-end spatial build phases.
@@ -107,7 +106,6 @@ and `reporting.py` have been removed after the package split.
 
 Completed selection runs always write the audit core:
 
-- `selection_decisions.jsonl`
 - `criteria_components.jsonl`
 - `site_selection_decisions.csv`
 - `site_selection_decisions.jsonl`
@@ -313,15 +311,10 @@ the final displayed outlet. If a DEM delineation snapped the outlet, this means
 the station-to-outlet distance is recomputed from the station location to the
 snapped outlet rather than trusting an imported pre-snap distance.
 
-`selection_decisions.jsonl` contains one final decision per candidate basin.
 `criteria_components.jsonl` contains the detailed criterion evidence behind
-those decisions. This separation is intentional: downstream tools can use the
-final decision file directly, while review tools can inspect the criterion
-components without re-running selection.
-
-`site_selection_decisions.jsonl` is the normalized decision layer for future
-extensions. It converts each criterion component and each final site decision
-into a stable `DecisionRecord` with `ACCEPT`, `WARNING`, `REJECT` or `NEUTRAL`.
+the selection. `site_selection_decisions.jsonl` is the normalized decision
+layer: it converts each criterion component and each final site decision into a
+stable `DecisionRecord` with `ACCEPT`, `WARNING`, `REJECT` or `NEUTRAL`.
 `site_selection_decisions.csv` aggregates those records into one readable row
 per catchment, with the global decision and rejection or warning reasons.
 

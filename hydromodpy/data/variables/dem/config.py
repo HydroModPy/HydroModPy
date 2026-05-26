@@ -79,16 +79,19 @@ class _FrenchAdministrativeDemSource(_DemSourceBase):
 
 
 class IgnBdaltiDemSource(_FrenchAdministrativeDemSource):
-    """IGN BD ALTI 25 m national DEM downloaded per-department."""
+    """Historical compatibility source for IGN BD ALTI 25 m."""
 
     source: Annotated[Literal["ign_bdalti"], Profile.USER] = Field(
         default="ign_bdalti",
-        description="Discriminator tag selecting the IGN BD ALTI 25 m DEM provider.",
+        description=(
+            "Discriminator tag selecting the historical IGN BD ALTI 25 m DEM path. "
+            "Use 'ign_geoplateforme_dem' for new dynamic Geoplateforme workflows."
+        ),
     )
 
 
 class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
-    """IGN DEM source discovered dynamically through Geoplateforme."""
+    """Recommended dynamic IGN DEM source discovered through Geoplateforme."""
 
     source: Annotated[Literal["ign_geoplateforme_dem"], Profile.USER] = Field(
         default="ign_geoplateforme_dem",

@@ -24,7 +24,7 @@ REQUIRED_MANIFEST_KEYS = (
 )
 REQUIRED_OUTPUT_KEYS = (
     "criteria_components_jsonl",
-    "selection_decisions_jsonl",
+    "site_selection_decisions_jsonl",
     "site_selection_manifest_json",
 )
 

@@ -1,7 +1,7 @@
 # download_dem_fr
 
 CLI autonome pour explorer et telecharger des archives DEM/MNT IGN par
-departement depuis Geoplateforme.
+departement ou region administrative depuis Geoplateforme.
 
 Le workflow HydroModPy normal doit continuer a passer par `[data.dem]`. Cet
 outil sert a preparer, tester ou diagnostiquer le cache brut des archives
@@ -36,6 +36,19 @@ python tools/download_dem_fr/download_dem_fr.py \
   --resolution 5 \
   --format ASC \
   --dry-run
+```
+
+Lister une region complete en BD ALTI 25 m, avec les checksums quand ils sont
+exposes par Geoplateforme:
+
+```bash
+python tools/download_dem_fr/download_dem_fr.py \
+  --regions Bretagne \
+  --dataset bd-alti \
+  --resolution 25 \
+  --format ASC \
+  --dry-run \
+  --include-md5
 ```
 
 Telecharger BD ALTI 25 m pour Paris:
@@ -86,8 +99,17 @@ Les fichiers sont ranges par dataset, resolution et departement:
 Un fichier local non vide est reutilise par defaut. Utiliser `--overwrite` pour
 forcer un nouveau telechargement.
 
+`--regions` et `--departements` sont exclusifs. Les regions sont resolues via
+le registre administratif HydroModPy, puis converties en departements avant la
+decouverte Geoplateforme.
+
 ## Limites
 
 Le client tente d'abord la decouverte Geoplateforme. Si l'API est
 temporairement indisponible, le cas `bd-alti --resolution 25 --format ASC`
 dispose d'un fallback sur la table historique HydroModPy des archives BD ALTI.
+
+RGE ALTI est pris en charge ici comme telechargement brut. L'assemblage raster
+automatique dans `DemManager` reste volontairement limite a BD ALTI 25 m ASC
+tant que les archives fragmentees et les volumes RGE ALTI 1 m/5 m ne sont pas
+bornes par des garde-fous de stockage et de traitement.

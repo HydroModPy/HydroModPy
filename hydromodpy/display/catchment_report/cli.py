@@ -32,7 +32,6 @@ def add_catchment_report_arguments(
     parser: argparse.ArgumentParser,
     *,
     report_config_option: bool,
-    include_legacy_skip_aliases: bool = False,
 ) -> None:
     """Add the shared catchment report CLI arguments to a parser."""
     if report_config_option:
@@ -66,19 +65,6 @@ def add_catchment_report_arguments(
         action="store_true",
         help="Build only the final HTML report from existing context artifacts.",
     )
-    if include_legacy_skip_aliases:
-        parser.add_argument(
-            "--no-context",
-            action="store_true",
-            dest="report_only",
-            help=argparse.SUPPRESS,
-        )
-        parser.add_argument(
-            "--no-report",
-            action="store_true",
-            dest="context_only",
-            help=argparse.SUPPRESS,
-        )
     parser.add_argument(
         "--with-lock",
         action="store_true",

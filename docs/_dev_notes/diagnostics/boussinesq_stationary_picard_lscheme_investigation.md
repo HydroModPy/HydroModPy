@@ -40,8 +40,8 @@ Status on 2026-05-23:
   also injects scalar Sy from the TOML when the bundle does not carry storage coefficients.
 - The Boussinesq stationary site-inventory tooling has been added separately:
   `build_bouss_stationary_site_inventories.py` builds auditable CSV/JSON/Markdown
-  preflight inventories, and `build_bouss_stationary_site_maps.py` delegates map/HTML
-  rendering to the shared site-selection reporting implementation.
+  preflight inventories. Current site-selection map/HTML reviews are generated
+  from manifest-based reports.
 
 What is not implemented as production behavior:
 
@@ -210,8 +210,7 @@ Compilation smoke check for the developed scripts:
 python -m py_compile hydromodpy/solver/boussinesq/runtimes/stationary_picard_lscheme.py \
   tests/unit/solver/test_boussinesq_stationary_picard_lscheme.py \
   examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/run_bouss_stationary_picard_matrix.py \
-  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/build_bouss_stationary_site_inventories.py \
-  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/build_bouss_stationary_site_maps.py
+  examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/build_bouss_stationary_site_inventories.py
 ```
 
 Expected result: no output and exit code 0.

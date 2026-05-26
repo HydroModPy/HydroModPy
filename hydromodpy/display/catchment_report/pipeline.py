@@ -249,7 +249,6 @@ def main(argv: list[str] | None = None) -> int:
     add_catchment_report_arguments(
         parser,
         report_config_option=True,
-        include_legacy_skip_aliases=True,
     )
     args = parser.parse_args(argv)
     try:

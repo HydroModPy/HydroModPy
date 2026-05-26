@@ -21,7 +21,7 @@ Accepted sources
      - ``custom``
    * - ``ign_bdalti``
      - The project should retrieve IGN BD ALTI coverage from the configured
-       spatial window.
+       spatial window through the historical compatibility path.
      - ``ign-bdalti``
    * - ``ign_geoplateforme_dem``
      - A regional French workflow should discover, download, assemble, and
@@ -131,7 +131,10 @@ DEM Source: ign_bdalti
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Use ``source = "ign_bdalti"`` when the project should retrieve public IGN BD
-ALTI elevation data from the configured spatial support.
+ALTI elevation data from the configured spatial support through the historical
+HydroModPy source key. New regional French workflows should prefer
+``source = "ign_geoplateforme_dem"`` because it carries the explicit
+Geoplateforme dataset, resolution and format fields.
 
 Minimal example
 """""""""""""""
@@ -155,6 +158,8 @@ Operational checks
 - ``ign_bdalti`` currently resolves BD ALTI 25 m archives by department,
   extracts ASC tiles, and writes a merged GeoTIFF clipped to the requested
   support.
+- Keep ``ign_bdalti`` for existing TOML files and compatibility tests. Treat
+  ``ign_geoplateforme_dem`` as the recommended source for new work.
 
 Expected figure
 """""""""""""""
@@ -265,11 +270,23 @@ Dry-run the Auvergne-Rhone-Alpes departments:
 .. code-block:: bash
 
    python tools/download_dem_fr/download_dem_fr.py \
-     --departements 01 03 07 15 26 38 42 43 63 69 73 74 \
+     --regions Auvergne-Rhone-Alpes \
      --dataset bd-alti \
      --resolution 25 \
      --format ASC \
      --dry-run
+
+Show provider checksums in a dry-run when Geoplateforme exposes them:
+
+.. code-block:: bash
+
+   python tools/download_dem_fr/download_dem_fr.py \
+     --departements 29 \
+     --dataset bd-alti \
+     --resolution 25 \
+     --format ASC \
+     --dry-run \
+     --include-md5
 
 Cache layout
 """"""""""""

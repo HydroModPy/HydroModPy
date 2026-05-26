@@ -1,4 +1,4 @@
-"""Adapters from the legacy selection audit model to decision records."""
+"""Build normalized decision records from selection results."""
 
 from __future__ import annotations
 

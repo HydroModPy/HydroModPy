@@ -9,6 +9,7 @@ import pytest
 from hydromodpy.data.variables.dem.apis.geoplateforme_download import (
     DownloadFile,
     GeoPlateformeDownloadError,
+    build_download_url,
     download_file,
     fetch_atom_entries,
     list_files,
@@ -19,6 +20,7 @@ from hydromodpy.data.variables.dem.apis.ign_dem_fr import (
     _archive_extract_dir,
     _install_extracted_archive,
     _normalize_dem_nodata,
+    _processed_cache_is_usable,
     _processed_cache_request,
     _processed_metadata_path,
     _write_processed_cache_metadata,
@@ -59,6 +61,17 @@ ATOM_FILES = """<?xml version="1.0" encoding="UTF-8"?>
     <gpf_dl:size>123</gpf_dl:size>
     <gpf_dl:md5>abc</gpf_dl:md5>
     <link href="https://data.geopf.fr/telechargement/download/BDALTI/sub/file.7z" />
+  </entry>
+</feed>
+"""
+
+ATOM_SINGLE = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:gpf_dl="http://data.geopf.fr">
+  <gpf_dl:totalentries>1</gpf_dl:totalentries>
+  <entry>
+    <title>BDALTI resource</title>
+    <id>BDALTI</id>
+    <link href="https://data.geopf.fr/telechargement/resource/BDALTI" />
   </entry>
 </feed>
 """
@@ -123,6 +136,65 @@ def test_fetch_atom_entries_follows_pagination():
 
 
 @pytest.mark.fast
+def test_fetch_atom_entries_retries_transient_status(monkeypatch):
+    session = FakeSession([FakeResponse(status_code=429), FakeResponse(ATOM_SINGLE)])
+    sleeps: list[float] = []
+    monkeypatch.setattr(
+        "hydromodpy.data.variables.dem.apis.geoplateforme_download.time.sleep",
+        lambda seconds: sleeps.append(seconds),
+    )
+
+    entries = fetch_atom_entries(
+        "https://example.test/feed",
+        {"limit": 1},
+        session=session,  # type: ignore[arg-type]
+    )
+
+    assert [entry.identifier for entry in entries] == ["BDALTI"]
+    assert len(session.calls) == 2
+    assert sleeps == [2.0]
+
+
+@pytest.mark.fast
+def test_fetch_atom_entries_raises_after_transient_retries(monkeypatch):
+    session = FakeSession(
+        [
+            FakeResponse(status_code=503),
+            FakeResponse(status_code=503),
+            FakeResponse(status_code=503),
+        ]
+    )
+    monkeypatch.setattr(
+        "hydromodpy.data.variables.dem.apis.geoplateforme_download.time.sleep",
+        lambda seconds: None,
+    )
+
+    with pytest.raises(GeoPlateformeDownloadError, match="503"):
+        fetch_atom_entries(
+            "https://example.test/feed",
+            {"limit": 1},
+            session=session,  # type: ignore[arg-type]
+        )
+
+    assert len(session.calls) == 3
+
+
+@pytest.mark.fast
+def test_build_download_url_quotes_each_path_component():
+    url = build_download_url(
+        "BD ALTI",
+        "Sous ressource/D029",
+        "archive accentué + test.7z",
+    )
+
+    assert url == (
+        "https://data.geopf.fr/telechargement/download/"
+        "BD%20ALTI/Sous%20ressource%2FD029/"
+        "archive%20accentu%C3%A9%20%2B%20test.7z"
+    )
+
+
+@pytest.mark.fast
 def test_list_files_converts_atom_entries_to_download_files():
     session = FakeSession([FakeResponse(ATOM_FILES)])
 
@@ -177,6 +249,38 @@ def test_download_file_writes_part_then_final(tmp_path):
 
 
 @pytest.mark.fast
+def test_download_file_resumes_existing_partial_file(tmp_path):
+    partial = tmp_path / "archive.7z.part"
+    partial.write_bytes(b"abc")
+    session = FakeSession([FakeResponse(content=b"def", status_code=206)])
+
+    path = download_file(
+        DownloadFile("BDALTI", "sub", "archive.7z", "https://example.test/archive.7z"),
+        tmp_path,
+        session=session,  # type: ignore[arg-type]
+    )
+
+    assert path.read_bytes() == b"abcdef"
+    assert session.calls[0]["headers"] == {"Range": "bytes=3-"}
+
+
+@pytest.mark.fast
+def test_download_file_restarts_partial_when_server_ignores_range(tmp_path):
+    partial = tmp_path / "archive.7z.part"
+    partial.write_bytes(b"stale")
+    session = FakeSession([FakeResponse(content=b"fresh", status_code=200)])
+
+    path = download_file(
+        DownloadFile("BDALTI", "sub", "archive.7z", "https://example.test/archive.7z"),
+        tmp_path,
+        session=session,  # type: ignore[arg-type]
+    )
+
+    assert path.read_bytes() == b"fresh"
+    assert session.calls[0]["headers"] == {"Range": "bytes=5-"}
+
+
+@pytest.mark.fast
 def test_bd_alti_static_fallback_when_discovery_is_unavailable(monkeypatch):
     def fail_discovery(*args, **kwargs):
         raise GeoPlateformeDownloadError("offline")
@@ -222,6 +326,44 @@ def test_download_ign_dem_departments_dry_run_uses_cache_layout(monkeypatch, tmp
 
 
 @pytest.mark.fast
+def test_rge_alti_raw_discovery_download_layout_is_available(monkeypatch, tmp_path):
+    def fake_subresources(*args, **kwargs):
+        from hydromodpy.data.variables.dem.apis.geoplateforme_download import AtomEntry
+
+        return [AtomEntry(title="RGEALTI_D029", identifier="RGEALTI_D029")]
+
+    def fake_files(*args, **kwargs):
+        return [
+            DownloadFile(
+                "RGEALTI",
+                "RGEALTI_D029",
+                "RGEALTI_1M_ASC_LAMB93_D029.7z.001",
+                "https://example.test/RGEALTI_1M_ASC_LAMB93_D029.7z.001",
+            )
+        ]
+
+    monkeypatch.setattr(
+        "hydromodpy.data.variables.dem.apis.ign_dem_fr.list_subresources",
+        fake_subresources,
+    )
+    monkeypatch.setattr(
+        "hydromodpy.data.variables.dem.apis.ign_dem_fr.list_files",
+        fake_files,
+    )
+
+    paths = download_ign_dem_departments(
+        output_dir=tmp_path,
+        departments=["29"],
+        dataset="rge-alti",
+        resolution_m=1,
+        file_format="ASC",
+        dry_run=True,
+    )
+
+    assert paths == [tmp_path / "rge-alti" / "1m" / "D029" / "RGEALTI_1M_ASC_LAMB93_D029.7z.001"]
+
+
+@pytest.mark.fast
 def test_archive_extract_dir_uses_short_stable_department_path(tmp_path):
     archive = (
         tmp_path
@@ -256,7 +398,7 @@ def test_install_extracted_archive_creates_parent_directory(tmp_path):
         archive_extract_dir=extract_dir,
     )
 
-    assert (extract_dir / "BDALTIV2" / "1_DONNEES" / "tile.asc").is_file()
+    assert (extract_dir / "tile.asc").is_file()
 
 
 @pytest.mark.fast
@@ -402,4 +544,51 @@ def test_fetch_ign_dem_reuses_valid_processed_cache(tmp_path, monkeypatch):
             resolution_m=25.0,
         )
         == raster_path
+    )
+
+
+@pytest.mark.fast
+def test_processed_cache_rejects_mismatched_metadata(tmp_path):
+    rasterio = pytest.importorskip("rasterio")
+    from rasterio.transform import from_origin
+
+    raster_path = tmp_path / "processed.tif"
+    with rasterio.open(
+        raster_path,
+        "w",
+        driver="GTiff",
+        height=2,
+        width=2,
+        count=1,
+        dtype="float32",
+        crs="EPSG:2154",
+        transform=from_origin(100.0, 150.0, 25.0, 25.0),
+        nodata=-9999,
+    ) as dataset:
+        dataset.write(np.array([[[1.0, 2.0], [3.0, 4.0]]], dtype="float32"))
+
+    metadata_path = _processed_metadata_path(raster_path)
+    original_request = _processed_cache_request(
+        bbox=(100.0, 100.0, 150.0, 150.0),
+        departments=["029"],
+        dataset="bd-alti",
+        resolution_m=25.0,
+        file_format="ASC",
+        crs=None,
+    )
+    _write_processed_cache_metadata(
+        metadata_path,
+        request=original_request,
+        raster_path=raster_path,
+        archive_paths=[],
+    )
+    incompatible_request = {
+        **original_request,
+        "departments": ["035"],
+    }
+
+    assert not _processed_cache_is_usable(
+        raster_path,
+        metadata_path=metadata_path,
+        request=incompatible_request,
     )

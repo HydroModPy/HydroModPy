@@ -7524,7 +7524,7 @@
     },
     "IgnBdaltiDemSource": {
       "additionalProperties": false,
-      "description": "IGN BD ALTI 25 m national DEM downloaded per-department.",
+      "description": "Historical compatibility source for IGN BD ALTI 25 m.",
       "properties": {
         "mask_path": {
           "anyOf": [
@@ -7600,7 +7600,7 @@
         "source": {
           "const": "ign_bdalti",
           "default": "ign_bdalti",
-          "description": "Discriminator tag selecting the IGN BD ALTI 25 m DEM provider.",
+          "description": "Discriminator tag selecting the historical IGN BD ALTI 25 m DEM path. Use 'ign_geoplateforme_dem' for new dynamic Geoplateforme workflows.",
           "examples": [
             "ign_bdalti"
           ],
@@ -7614,7 +7614,7 @@
     },
     "IgnGeoplateformeDemSource": {
       "additionalProperties": false,
-      "description": "IGN DEM source discovered dynamically through Geoplateforme.",
+      "description": "Recommended dynamic IGN DEM source discovered through Geoplateforme.",
       "properties": {
         "mask_path": {
           "anyOf": [
