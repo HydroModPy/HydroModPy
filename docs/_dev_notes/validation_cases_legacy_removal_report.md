@@ -28,9 +28,10 @@ from the scoped source tree:
 
 Remaining non-code or intentionally current items:
 
-- generated comparison snapshots under `validation_cases/**/comparison/**`
-  still contain historical `launcher_simulation` strings and old config
-  snapshots; those should be regenerated or removed as generated artifacts;
+- the known generated comparison snapshot under
+  `validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison/lu_boundary_step_same_support/`
+  was removed from Git tracking and ignored; rerun `run_comparison.py` to
+  regenerate it locally when needed;
 - `_postprocess` remains as a run-artifact/sidecar directory for current
   workflows, not as the validation field-reader contract;
 - broader project compatibility outside validation is intentionally out of
@@ -46,7 +47,7 @@ Remaining non-code or intentionally current items:
 | Launcher metadata | `validation_cases/**/metadata.toml`, `tests/unit/validation/test_validation_runtime.py` | Obsolete `launcher = "launcher_simulation"` entries were removed. Runtime still materializes temporary configs with a workflow block for CLI execution. | Remaining optional cleanup: make all source config overlays workflow-complete, then tighten the temp-config builder. |
 | Historical output cleanup | `validation_cases/shared/runtime.py`, `tests/unit/validation/test_validation_runtime.py` | `resolve_validation_results_dir()` removes stale hash-suffixed directories such as `<run>_deadbeef`. | Keep as stale-output cleanup unless old generated outputs are no longer a concern. |
 | Calibration extraction fallback | `validation_cases/calibration/shared/runtime.py`, `tests/unit/validation/test_calibration_runtime_extraction.py` | The fallback is now named `_resolve_cell_index_from_mesh_planar(...)`; JSONL iteration history is current reporting output. | Done for legacy naming. `_DeclShim` can be audited separately if the calibration schema is frozen. |
-| Generated comparison artifacts | `validation_cases/**/comparison/**` | Historical comparison snapshots still include old config strings such as `launcher_simulation`. | Regenerate or delete generated artifacts instead of hand-editing snapshots. |
+| Generated comparison artifacts | `validation_cases/**/comparison/**` | The tracked historical `lu_boundary_step_same_support` snapshot was removed and ignored. | Done for the known validation comparison snapshot. Regenerate locally through `run_comparison.py` when needed. |
 | Docs and tests | `tests/validation/README.md`, `tests/unit/validation/*`, shared `__init__.py` exports | Docs and tests describe the current catalog-first behavior; no scoped source/test legacy grep matches remain outside generated comparison artifacts. | Done for scoped source/docs/tests. |
 
 ## Removal Sequence Applied
@@ -79,9 +80,7 @@ Legacy search:
 rg -n "legacy|Legacy|deprecated|compatibilit|compatibility|HMP_ALLOW_LEGACY_NPY_VALIDATION|load_npy|load_last_npy|launcher_simulation" validation_cases tests/unit/validation tests/validation/README.md -S --glob '!**/comparison/**'
 ```
 
-The scoped source/test/docs grep now returns no matches. A plain
-`launcher_simulation` search still matches generated comparison snapshots under
-`validation_cases/**/comparison/**`.
+The scoped source/test/docs grep now returns no matches.
 
 ## Progress
 
@@ -229,13 +228,25 @@ rg -n "_DeclShim|_nearest_cell_index_legacy|legacy-shaped|launcher_simulation|^l
 
 Result: Ruff passed; `70 passed`; scoped grep returned no matches.
 
+2026-05-27 generated comparison artifact cleanup:
+
+- Removed the tracked generated comparison directory
+  `validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison/lu_boundary_step_same_support/`.
+- Added a targeted `.gitignore` rule so rerunning
+  `validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/run_comparison.py`
+  does not reintroduce generated CSV/JSON/PNG/HTML artifacts.
+
+Validation:
+
+```powershell
+rg -n "launcher_simulation" validation_cases tests/unit/validation tests/validation/README.md -S
+```
+
+Expected result: no matches after the generated directory removal.
+
 ## Proposed Next Change
 
 Close the remaining non-code debt in this order:
 
-1. Regenerate or remove generated comparison artifacts under
-   `validation_cases/**/comparison/**` so historical config snapshots no
-   longer contain `launcher_simulation`, `runtime_backend = "local"`, or
-   `surface_interaction_model = "auto"`.
-2. Audit remaining `_postprocess` sidecar producers and decide which files are
+1. Audit remaining `_postprocess` sidecar producers and decide which files are
    still current artifacts versus removable historical outputs.

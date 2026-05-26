@@ -1,6 +1,6 @@
 """Workspace scaffolding.
 
-Called by ``hmp init`` to create the HydroModPy workspace:
+Called by ``hmp workspace init`` to create the HydroModPy workspace:
 drag-and-drop custom data folders, cache, and a projects/ directory.
 
 Called by ``hmp new <project>`` to create a project inside the workspace.
@@ -22,7 +22,7 @@ DEFAULT_ROOT = Path.home() / "hydromodpy"
 
 @dataclass(frozen=True, slots=True)
 class VariableSpec:
-    """One drag-and-drop variable exposed at ``hmp init``."""
+    """One drag-and-drop variable exposed at workspace initialization."""
 
     name: str
     kind: str  # "timeseries" | "raster" | "vector"
