@@ -13,6 +13,8 @@ Documents associes:
   `docs/_dev_notes/site_selection_short_term_contract.md`;
 - limites et contrat de sortie du package:
   `hydromodpy/spatial/site_selection/README.md`;
+- prochaine etape proposee:
+  `docs/_dev_notes/site_selection_next_step_candidate_selection.md`;
 - plan long historique:
   `docs/_dev_notes/site_selection_tool_implementation_plan.md`.
 
@@ -118,30 +120,6 @@ Exemple de configuration maintenue:
 
 ```text
 examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
-```
-
-### Candidats generes depuis le DEM
-
-Le mode `generated_candidates` existe pour tester une generation automatique
-d'exutoires depuis le reseau derive du DEM. Il produit les memes sorties de
-selection que les autres chemins, plus un audit des candidats proposes ou
-ignores.
-
-Ce mode est utile pour verifier la mecanique complete:
-
-```text
-DEM -> reseau -> exutoires candidats -> bassins -> decisions -> rapport
-```
-
-Il reste moins mature que les deux profils courts termes. La generation actuelle
-est surtout une base de controle et d'audit; elle ne remplace pas encore une
-strategie hydrologique avancee par sous-bassins, confluences ou ordre de
-Strahler.
-
-Commande disponible:
-
-```bash
-hmp site-selection build-generated CONFIG
 ```
 
 ### Criteres et preuves
@@ -322,6 +300,11 @@ hmp site-selection report SITE_SELECTION_MANIFEST
 hmp run CONFIG
 ```
 
+La commande `build-generated` expose le chemin autonome
+`generated_candidates`. Elle est conservee comme capacite de controle et comme
+base d'evolution, mais elle ne fait pas partie des deux profils stabilises du
+contrat court terme.
+
 `hmp run` utilise le dispatch standard avec:
 
 ```toml
@@ -343,11 +326,6 @@ Profil `gauged_downstream_station`:
 - `examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small.toml`;
 - `examples/projects/17_site_selection_workflow/configs/auvergne_rhone_alpes_hydrometry_preview.toml`.
 
-Mode DEM automatique exploratoire:
-
-- `examples/projects/17_site_selection_workflow/configs/bretagne_generated_candidates_dem.toml`;
-- `examples/projects/17_site_selection_workflow/configs/normandie_dem_area_light_100km2.toml` pour un cas plus lourd.
-
 ## Validation actuelle
 
 Validation effectuee le 2026-05-26:
@@ -368,6 +346,8 @@ validation dediee.
 Les points suivants ne font pas partie de l'implementation stabilisee:
 
 - carte interactive;
+- selection autonome generique par `generated_candidates` comme capacite metier
+  stabilisee;
 - selection automatique avancee par sous-bassins, confluences ou ordre de
   Strahler;
 - provider ROE pour les obstacles;

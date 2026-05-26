@@ -10316,6 +10316,10 @@
           "$ref": "#/$defs/FlowStationCriteriaConfig",
           "x-hmp-profile": "user"
         },
+        "station_influence": {
+          "$ref": "#/$defs/StationInfluenceCriteriaConfig",
+          "x-hmp-profile": "user"
+        },
         "piezometer_layers": {
           "description": "Optional vector layers used to compute piezometer evidence.",
           "items": {
@@ -13047,6 +13051,35 @@
           "title": "Tag Separator",
           "type": "string",
           "x-hmp-profile": "user"
+        },
+        "source_manifest_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional site-selection manifest used to resolve the site catalog.",
+          "title": "Source Manifest Path",
+          "x-hmp-profile": "user"
+        },
+        "source_manifest_output_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output key read from the site-selection manifest.",
+          "title": "Source Manifest Output Key",
+          "x-hmp-profile": "user"
         }
       },
       "required": [
@@ -14957,6 +14990,88 @@
       "title": "SpatialSelectionConfig",
       "type": "object"
     },
+    "StationInfluenceCriteriaConfig": {
+      "additionalProperties": false,
+      "description": "Criteria applied to station influence metadata.",
+      "properties": {
+        "mode": {
+          "default": "report_only",
+          "enum": [
+            "hard_reject",
+            "warning",
+            "score",
+            "stratify",
+            "report_only"
+          ],
+          "examples": [
+            "hard_reject"
+          ],
+          "title": "Mode",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "source": {
+          "default": "hubeau_station_metadata",
+          "examples": [
+            "hubeau_station_metadata"
+          ],
+          "title": "Source",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "warn_if_general_influence": {
+          "default": true,
+          "examples": [
+            true
+          ],
+          "title": "Warn If General Influence",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "warn_if_local_influence": {
+          "default": true,
+          "examples": [
+            true
+          ],
+          "title": "Warn If Local Influence",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "warn_if_comment_keyword": {
+          "default": true,
+          "examples": [
+            true
+          ],
+          "title": "Warn If Comment Keyword",
+          "type": "boolean",
+          "x-hmp-profile": "user"
+        },
+        "unknown_policy": {
+          "default": "neutral",
+          "enum": [
+            "neutral",
+            "warning"
+          ],
+          "examples": [
+            "neutral"
+          ],
+          "title": "Unknown Policy",
+          "type": "string",
+          "x-hmp-profile": "user"
+        },
+        "comment_keywords": {
+          "description": "Keywords searched in station influence comments.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Comment Keywords",
+          "type": "array",
+          "x-hmp-profile": "user"
+        }
+      },
+      "title": "StationInfluenceCriteriaConfig",
+      "type": "object"
+    },
     "StrategyConfig": {
       "additionalProperties": false,
       "description": "High-level strategy controlling candidate generation and criterion order.",
@@ -14981,7 +15096,8 @@
               "enum": [
                 "dem_only",
                 "area_only",
-                "multicriteria"
+                "multicriteria",
+                "gauged_downstream_station"
               ],
               "type": "string"
             },
@@ -14990,7 +15106,7 @@
             }
           ],
           "default": null,
-          "description": "Optional profile for criteria_crossing campaigns.",
+          "description": "Optional selection profile. Short-term supported profiles are 'area_only' and 'gauged_downstream_station'.",
           "title": "Profile",
           "x-hmp-profile": "user"
         },
@@ -16001,6 +16117,35 @@
           "default": null,
           "description": "Optional cap on the number of selected rows.",
           "title": "Limit",
+          "x-hmp-profile": "user"
+        },
+        "source_manifest_path": {
+          "anyOf": [
+            {
+              "format": "path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional site-selection manifest used to resolve the catalog path.",
+          "title": "Source Manifest Path",
+          "x-hmp-profile": "user"
+        },
+        "source_manifest_output_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Output key read from the site-selection manifest.",
+          "title": "Source Manifest Output Key",
           "x-hmp-profile": "user"
         }
       },

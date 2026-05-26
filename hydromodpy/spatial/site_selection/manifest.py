@@ -16,9 +16,13 @@ from hydromodpy.schema.site_selection_manifest import (
     SITE_SELECTION_MANIFEST_NAME,
     load_selection_manifest,
     manifest_output_path,
-    manifest_output_root as _manifest_output_root,
-    resolve_manifest_output_path as _resolve_manifest_output_path,
     write_selection_manifest,
+)
+from hydromodpy.schema.site_selection_manifest import (
+    manifest_output_root as _manifest_output_root,
+)
+from hydromodpy.schema.site_selection_manifest import (
+    resolve_manifest_output_path as _resolve_manifest_output_path,
 )
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
 from hydromodpy.spatial.site_selection.selection import SelectionResult
