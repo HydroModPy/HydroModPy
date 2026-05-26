@@ -25,7 +25,7 @@ class ReportBlockSpec:
     figures: tuple[FigureSpec, ...] = field(default_factory=tuple)
 
 
-DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
+NANCON_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
     ReportBlockSpec(
         block_id="site_context",
         title="Site",
@@ -136,21 +136,84 @@ DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = (
     ),
 )
 
-NANCON_BLOCK_SPECS = DEFAULT_BLOCK_SPECS
 
-GENERIC_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = tuple(
-    replace(
+def _with_figure_titles(
+    spec: ReportBlockSpec,
+    titles_by_id: dict[str, str],
+) -> ReportBlockSpec:
+    return replace(
         spec,
-        lead=(
-            "Bloc central pour la lecture hydrographique: hydrographie de reference, "
-            "reseau genere depuis le DEM et differences locales. Le seuil d'aire "
-            "contributive est celui de la simulation source."
+        figures=tuple(
+            replace(figure, title=titles_by_id.get(figure.figure_id, figure.title))
+            for figure in spec.figures
         ),
     )
-    if spec.block_id == "hydrographic_network"
-    else spec
-    for spec in DEFAULT_BLOCK_SPECS
+
+
+def _generic_block_spec(spec: ReportBlockSpec) -> ReportBlockSpec:
+    if spec.block_id == "site_context":
+        return replace(
+            spec,
+            lead=(
+                "Bloc d'identification du bassin versant et des donnees disponibles "
+                "pour le rapport."
+            ),
+        )
+    if spec.block_id == "spatial_context":
+        return _with_figure_titles(
+            spec,
+            {"regional_context": "Contexte regional"},
+        )
+    if spec.block_id == "hydrographic_network":
+        return replace(
+            _with_figure_titles(
+                spec,
+                {
+                    "hydrography_map": "Reseau hydrographique de reference",
+                    "network_comparison": "Comparaison reference / reseau derive DEM",
+                },
+            ),
+            lead=(
+                "Bloc central pour la lecture hydrographique: hydrographie de "
+                "reference, reseau genere depuis le DEM et differences locales. "
+                "Le seuil d'aire contributive est celui de la simulation source."
+            ),
+        )
+    if spec.block_id == "simulation_network_outputs":
+        return replace(
+            _with_figure_titles(
+                spec,
+                {"active_network_overlay": "Reseau actif simule vs reference"},
+            ),
+            lead=(
+                "Bloc dependant des resultats de simulation: cellules actives, "
+                "comparaison au reseau de reference et zones de seepage quand la "
+                "figure est disponible."
+            ),
+        )
+    if spec.block_id == "forcing_flux_context":
+        return _with_figure_titles(
+            spec,
+            {"forcing_window": "Fenetre de simulation: debit et forcages"},
+        )
+    if spec.block_id == "artifacts":
+        return replace(
+            spec,
+            lead=(
+                "Bloc audit: chemins sources et limites de cette page. Le rapport "
+                "prouve que la superstructure par blocs peut porter des figures "
+                "{site_label} reelles; il ne constitue pas un audit exhaustif du "
+                "modele."
+            ),
+        )
+    return spec
+
+
+DEFAULT_BLOCK_SPECS: tuple[ReportBlockSpec, ...] = tuple(
+    _generic_block_spec(spec) for spec in NANCON_BLOCK_SPECS
 )
+
+GENERIC_BLOCK_SPECS = DEFAULT_BLOCK_SPECS
 
 
 __all__ = [

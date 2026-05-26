@@ -1,8 +1,4 @@
-"""Build the Nancon reference catchment report.
-
-The implementation lives in ``hydromodpy.display.catchment_report`` so the
-example remains a thin, stable command-line entry point.
-"""
+"""Build the Nancon reference catchment report through ``hmp report catchment``."""
 
 # ruff: noqa: E402, I001
 
@@ -15,8 +11,17 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.display.catchment_report.nancon_compat import main  # noqa: E402
+from hydromodpy.cli.main import main as hmp_main  # noqa: E402
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    default_config = Path(__file__).with_name("catchment_report.toml")
+    hmp_main(
+        [
+            "report",
+            "catchment",
+            str(default_config),
+            "--report-only",
+            *sys.argv[1:],
+        ]
+    )

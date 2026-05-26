@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.display.catchment_report.paths import (
+from hydromodpy.display.catchment_report.resources import (
     GALLERY_GEO,
     GALLERY_SIM,
     GEOLOGY_DATA_ROOT,
@@ -77,23 +77,10 @@ def artifact_spec(
 
 
 DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
-    artifact_spec(
-        "identity_stats",
-        artifact_candidate("overview_figures", "stats_card.png"),
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_stats_card.png",
-            gallery_fallback=True,
-        ),
-    ),
+    artifact_spec("identity_stats", artifact_candidate("overview_figures", "stats_card.png")),
     artifact_spec(
         "station_inventory",
         artifact_candidate("overview_figures", "station_inventory.png"),
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_station_inventory.png",
-            gallery_fallback=True,
-        ),
     ),
     artifact_spec(
         "regional_context",
@@ -101,51 +88,20 @@ DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
         artifact_candidate("data_overview_figures", "map_regional_context.png"),
     ),
     artifact_spec("dem_context", artifact_candidate("overview_figures", "map_dem_context.png")),
-    artifact_spec(
-        "dem_map",
-        artifact_candidate("overview_figures", "map_dem.png"),
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_map_dem.png",
-            gallery_fallback=True,
-        ),
-    ),
-    artifact_spec(
-        "geology_map",
-        artifact_candidate("overview_figures", "map_geology.png"),
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_map_geology.png",
-            gallery_fallback=True,
-        ),
-    ),
+    artifact_spec("dem_map", artifact_candidate("overview_figures", "map_dem.png")),
+    artifact_spec("geology_map", artifact_candidate("overview_figures", "map_geology.png")),
     artifact_spec(
         "hydrography_map",
         artifact_candidate("overview_figures", "map_hydrography_data.png"),
         artifact_candidate("overview_figures", "map_hydrography.png"),
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_map_hydrography.png",
-            gallery_fallback=True,
-        ),
     ),
     artifact_spec(
         "climate_summary",
         artifact_candidate("overview_figures", "climatic_summary.png"),
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_climatic_summary.png",
-            gallery_fallback=True,
-        ),
     ),
     artifact_spec(
         "observed_discharge_gallery",
         artifact_candidate("overview_figures", "timeseries_discharge.png"),
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_timeseries_discharge.png",
-            gallery_fallback=True,
-        ),
     ),
     artifact_spec(
         "observed_discharge_full",
@@ -159,11 +115,6 @@ DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
     artifact_spec(
         "network_comparison",
         artifact_candidate("context_assets", "hydrographic_network_comparison.png"),
-        artifact_candidate(
-            "gallery_sim",
-            "nancon_transient_nwt_hydrographic_network_comparison.png",
-            gallery_fallback=True,
-        ),
     ),
     artifact_spec(
         "network_reference",
@@ -187,43 +138,113 @@ DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
             "simulation_figures",
             "simulated_active_network_reference_overlay.png",
         ),
+    ),
+    artifact_spec(
+        "piezometric_map", artifact_candidate("simulation_figures", "piezometric_map.png")
+    ),
+    artifact_spec("seepage_map", artifact_candidate("simulation_figures", "seepage_map.png")),
+    artifact_spec(
+        "simulated_hydrograph",
+        artifact_candidate("simulation_figures", "hydrograph.png"),
+    ),
+    artifact_spec("water_budget", artifact_candidate("simulation_figures", "water_budget.png")),
+)
+
+NANCON_GALLERY_FALLBACKS: dict[str, tuple[ArtifactCandidate, ...]] = {
+    "identity_stats": (
+        artifact_candidate(
+            "gallery_geo",
+            "geographic_nancon_identity_card_stats_card.png",
+            gallery_fallback=True,
+        ),
+    ),
+    "station_inventory": (
+        artifact_candidate(
+            "gallery_geo",
+            "geographic_nancon_identity_card_station_inventory.png",
+            gallery_fallback=True,
+        ),
+    ),
+    "dem_map": (
+        artifact_candidate(
+            "gallery_geo",
+            "geographic_nancon_identity_card_map_dem.png",
+            gallery_fallback=True,
+        ),
+    ),
+    "geology_map": (
+        artifact_candidate(
+            "gallery_geo",
+            "geographic_nancon_identity_card_map_geology.png",
+            gallery_fallback=True,
+        ),
+    ),
+    "hydrography_map": (
+        artifact_candidate(
+            "gallery_geo",
+            "geographic_nancon_identity_card_map_hydrography.png",
+            gallery_fallback=True,
+        ),
+    ),
+    "climate_summary": (
+        artifact_candidate(
+            "gallery_geo",
+            "geographic_nancon_identity_card_climatic_summary.png",
+            gallery_fallback=True,
+        ),
+    ),
+    "observed_discharge_gallery": (
+        artifact_candidate(
+            "gallery_geo",
+            "geographic_nancon_timeseries_discharge.png",
+            gallery_fallback=True,
+        ),
+    ),
+    "network_comparison": (
+        artifact_candidate(
+            "gallery_sim",
+            "nancon_transient_nwt_hydrographic_network_comparison.png",
+            gallery_fallback=True,
+        ),
+    ),
+    "active_network_overlay": (
         artifact_candidate(
             "gallery_sim",
             "nancon_transient_nwt_simulated_active_network_reference_overlay.png",
             gallery_fallback=True,
         ),
     ),
-    artifact_spec(
-        "piezometric_map",
-        artifact_candidate("simulation_figures", "piezometric_map.png"),
+    "piezometric_map": (
         artifact_candidate(
             "gallery_sim",
             "nancon_transient_nwt_piezometric_map.png",
             gallery_fallback=True,
         ),
     ),
-    artifact_spec("seepage_map", artifact_candidate("simulation_figures", "seepage_map.png")),
-    artifact_spec(
-        "simulated_hydrograph",
-        artifact_candidate("simulation_figures", "hydrograph.png"),
+    "simulated_hydrograph": (
         artifact_candidate(
             "gallery_sim",
             "nancon_transient_nwt_hydrograph.png",
             gallery_fallback=True,
         ),
     ),
-    artifact_spec(
-        "water_budget",
-        artifact_candidate("simulation_figures", "water_budget.png"),
+    "water_budget": (
         artifact_candidate(
             "gallery_sim",
             "nancon_transient_nwt_water_budget.png",
             gallery_fallback=True,
         ),
     ),
-)
+}
 
-NANCON_ARTIFACT_SPECS = DEFAULT_ARTIFACT_SPECS
+NANCON_ARTIFACT_SPECS = tuple(
+    artifact_spec(
+        spec.figure_id,
+        *spec.candidates,
+        *NANCON_GALLERY_FALLBACKS.get(spec.figure_id, ()),
+    )
+    for spec in DEFAULT_ARTIFACT_SPECS
+)
 
 
 def copy_real_figures(
@@ -307,7 +328,9 @@ def generate_generated_network_context_figure(
 def latest_generated_network_parquet(generated_network_root: Path) -> Path | None:
     candidates = [
         path
-        for path in generated_network_root.glob("*/geographic_hydrographic_network_generated.parquet")
+        for path in generated_network_root.glob(
+            "*/geographic_hydrographic_network_generated.parquet"
+        )
         if path.is_file()
     ]
     if not candidates:
@@ -395,9 +418,7 @@ def geology_legend_rows(geographic_scratch: Path) -> tuple[Mapping[str, Any], ..
 
 def latest_geology_gpkg() -> Path | None:
     candidates = [
-        path
-        for path in GEOLOGY_DATA_ROOT.glob("geology_brgm_50k_*.gpkg")
-        if path.is_file()
+        path for path in GEOLOGY_DATA_ROOT.glob("geology_brgm_50k_*.gpkg") if path.is_file()
     ]
     if not candidates:
         candidates = [
@@ -443,8 +464,8 @@ def write_manifest(
     payload = {
         "report_type": "real_figures_block_report",
         "source_note": (
-            f"This report uses real {site_label} figures generated by the data-overview, "
-            "gauged-context and transient NWT examples. It is not the synthetic smoke case."
+            f"This report uses real {site_label} figures generated by the configured "
+            "overview, context and simulation artifact producers."
         ),
         "figure_ids": sorted(copied),
         "sources": {

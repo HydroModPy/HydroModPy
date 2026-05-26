@@ -3,9 +3,14 @@ site_label = "Nancon"
 station_label = "Nancon a Lecousse"
 output_dir = "outputs/nancon_real_figures"
 allow_gallery_fallbacks = false
+preset = "nancon_reference"
 
 [layout]
 watershed_project_dir = "../02_nancon_watershed"
 context_outputs_dir = "../15_nancon_gauged_context/outputs"
+data_overview_project_dir = "../02_nancon_watershed"
+simulation_workspace_dir = "../02_nancon_watershed"
 simulation_name = "transient_nwt"
 context_summary_name = "nancon_gauged_context_summary.json"
+transient_config_name = "run_transient_nwt.toml"
+overview_config_name = "config_overview.toml"

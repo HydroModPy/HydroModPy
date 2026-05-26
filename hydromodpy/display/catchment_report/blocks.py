@@ -236,7 +236,10 @@ def _hydrographic_network_content(context: BlockBuildContext) -> BlockContent:
                         "km2",
                     ),
                 ),
-                ("audit", ReportMetric("Dossier figures source", network.get("figure_dir", "unknown"))),
+                (
+                    "audit",
+                    ReportMetric("Dossier figures source", network.get("figure_dir", "unknown")),
+                ),
             ),
         ),
     )
@@ -283,7 +286,10 @@ def _forcing_flux_content(context: BlockBuildContext) -> BlockContent:
             context.detail_level,
             (
                 ("compact", ReportMetric("Origine forcages", _forcing_origin_label(config))),
-                ("compact", ReportMetric("Debit observe moyen", _fmt(observed.get("mean")), "m3/s")),
+                (
+                    "compact",
+                    ReportMetric("Debit observe moyen", _fmt(observed.get("mean")), "m3/s"),
+                ),
                 (
                     "audit",
                     ReportMetric(
@@ -306,7 +312,10 @@ def _simulation_outputs_content(context: BlockBuildContext) -> BlockContent:
             (
                 ("audit", ReportMetric("Solveur", "MODFLOW-NWT")),
                 ("audit", ReportMetric("Pas temporels", baseline.get("n_timesteps", "unknown"))),
-                ("audit", ReportMetric("Temps solveur", _fmt(baseline.get("runtime_seconds")), "s")),
+                (
+                    "audit",
+                    ReportMetric("Temps solveur", _fmt(baseline.get("runtime_seconds")), "s"),
+                ),
                 (
                     "audit",
                     ReportMetric(
@@ -496,8 +505,12 @@ def _unit_value(value: Any, unit: str) -> str:
 
 
 def _forcing_origin_label(config: dict[str, Any]) -> str:
-    recharge_ids = ", ".join(str(item) for item in config.get("configured_recharge_station_ids", []) or [])
-    runoff_ids = ", ".join(str(item) for item in config.get("configured_runoff_station_ids", []) or [])
+    recharge_ids = ", ".join(
+        str(item) for item in config.get("configured_recharge_station_ids", []) or []
+    )
+    runoff_ids = ", ".join(
+        str(item) for item in config.get("configured_runoff_station_ids", []) or []
+    )
     parts = []
     if recharge_ids:
         parts.append(f"recharge custom ({recharge_ids})")

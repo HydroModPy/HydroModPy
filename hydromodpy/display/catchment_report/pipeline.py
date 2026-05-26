@@ -15,8 +15,8 @@ from hydromodpy.display.catchment_report.builder import (
 from hydromodpy.display.catchment_report.context import build_context
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.presets import (
-    GENERIC_REPORT_PRESET,
     CatchmentReportPreset,
+    preset_from_name,
 )
 
 
@@ -31,7 +31,7 @@ class CatchmentReportPipelineResult:
 def run_catchment_report_pipeline(
     report_config: Path,
     *,
-    preset: CatchmentReportPreset = GENERIC_REPORT_PRESET,
+    preset: CatchmentReportPreset | None = None,
     run_overview: bool = False,
     run_simulation: bool = False,
     build_context_artifacts: bool = True,
@@ -75,6 +75,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--report-config", type=Path, required=True)
     parser.add_argument(
+        "--preset",
+        choices=sorted({"generic_catchment_report", "nancon_reference", "generic", "nancon"}),
+        default=None,
+        help="Override the catchment report preset declared in the TOML.",
+    )
+    parser.add_argument(
         "--run-overview",
         action="store_true",
         help="Run the configured overview before building context/report artifacts.",
@@ -102,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     result = run_catchment_report_pipeline(
         args.report_config,
+        preset=preset_from_name(args.preset) if args.preset else None,
         run_overview=args.run_overview,
         run_simulation=args.run_simulation,
         build_context_artifacts=not args.no_context,
