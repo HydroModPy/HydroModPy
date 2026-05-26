@@ -51,7 +51,6 @@ class ReportSettings:
     site_label: str
     station_label: str
     title: str = ""
-    allow_gallery_fallbacks: bool | None = None
     preset_name: str | None = None
 
     @classmethod
@@ -66,7 +65,6 @@ class ReportSettings:
             site_label=str(_required(payload, "site_label")),
             station_label=str(_required(payload, "station_label")),
             title=str(payload.get("title", "")),
-            allow_gallery_fallbacks=_optional_bool(payload, "allow_gallery_fallbacks"),
             preset_name=_optional_string(payload, "preset"),
         )
 
@@ -147,7 +145,6 @@ class PipelineSettings:
     no_lock: bool = True
     stream_run_logs: bool = False
     strict_figure_postflight: bool = False
-    context_builder_command: tuple[str, ...] | None = None
 
     @classmethod
     def from_mapping(cls, payload: Any) -> PipelineSettings:
@@ -170,10 +167,6 @@ class PipelineSettings:
                 payload,
                 "strict_figure_postflight",
                 False,
-            ),
-            context_builder_command=_optional_string_tuple(
-                payload,
-                "context_builder_command",
             ),
         )
 
@@ -199,15 +192,6 @@ def _optional_string(payload: Mapping[str, Any], key: str) -> str | None:
     return str(value)
 
 
-def _optional_bool(payload: Mapping[str, Any], key: str) -> bool | None:
-    value = payload.get(key)
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return value
-    raise ValueError(f"Catchment report config key {key!r} must be a boolean.")
-
-
 def _optional_bool_with_default(payload: Any, key: str, default: bool) -> bool:
     if not isinstance(payload, Mapping):
         return default
@@ -217,23 +201,6 @@ def _optional_bool_with_default(payload: Any, key: str, default: bool) -> bool:
     if isinstance(value, bool):
         return value
     raise ValueError(f"Catchment report config key {key!r} must be a boolean.")
-
-
-def _optional_string_tuple(payload: Any, key: str) -> tuple[str, ...] | None:
-    if not isinstance(payload, Mapping):
-        return None
-    value = payload.get(key)
-    if value is None:
-        return None
-    if not isinstance(value, list) or not value:
-        raise ValueError(
-            f"Catchment report config key {key!r} must be a non-empty string array."
-        )
-    if not all(isinstance(item, str) for item in value):
-        raise ValueError(
-            f"Catchment report config key {key!r} must be a non-empty string array."
-        )
-    return tuple(value)
 
 
 def _optional_path(

@@ -39,7 +39,6 @@ context_outputs_dir = "context"
     assert settings.pipeline.run_simulation is False
     assert settings.pipeline.build_report_html is True
     assert settings.pipeline.strict_figure_postflight is False
-    assert settings.pipeline.context_builder_command is None
     assert not hasattr(settings, "simulation_export")
 
     assert inputs.context_summary == (
@@ -62,37 +61,7 @@ def test_inputs_from_toml_delegate_to_settings() -> None:
     assert settings.pipeline.run_overview is True
     assert settings.pipeline.run_simulation is True
     assert settings.pipeline.stream_run_logs is False
-    assert settings.pipeline.strict_figure_postflight is False
-    assert settings.pipeline.context_builder_command is None
-
-
-def test_settings_parse_context_builder_command(tmp_path) -> None:
-    config_path = tmp_path / "catchment_report.toml"
-    config_path.write_text(
-        """
-[report]
-site_label = "Test"
-station_label = "Test outlet"
-output_dir = "report"
-
-[layout]
-watershed_project_dir = "."
-context_outputs_dir = "context"
-
-[pipeline]
-context_builder_command = ["{python}", "build_context.py", "--report-config", "{report_config}"]
-""".lstrip(),
-        encoding="utf-8",
-    )
-
-    settings = CatchmentReportSettings.from_toml(config_path)
-
-    assert settings.pipeline.context_builder_command == (
-        "{python}",
-        "build_context.py",
-        "--report-config",
-        "{report_config}",
-    )
+    assert settings.pipeline.strict_figure_postflight is True
 
 
 def test_settings_validate_boolean_pipeline_fields(tmp_path) -> None:
@@ -115,27 +84,4 @@ run_simulation = "yes"
     )
 
     with pytest.raises(ValueError, match="run_simulation"):
-        CatchmentReportSettings.from_toml(config_path)
-
-
-def test_settings_validate_context_builder_command(tmp_path) -> None:
-    config_path = tmp_path / "catchment_report.toml"
-    config_path.write_text(
-        """
-[report]
-site_label = "Test"
-station_label = "Test outlet"
-output_dir = "report"
-
-[layout]
-watershed_project_dir = "."
-context_outputs_dir = "context"
-
-[pipeline]
-context_builder_command = "python build_context.py"
-""".lstrip(),
-        encoding="utf-8",
-    )
-
-    with pytest.raises(ValueError, match="context_builder_command"):
         CatchmentReportSettings.from_toml(config_path)

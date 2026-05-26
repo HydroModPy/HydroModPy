@@ -9,7 +9,6 @@ from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
 from hydromodpy.display.catchment_report.pipeline import run_catchment_report_pipeline
 from hydromodpy.display.catchment_report.presets import (
     GENERIC_REPORT_PRESET,
-    NANCON_REPORT_PRESET,
     CatchmentReportPreset,
     preset_from_name,
 )
@@ -21,7 +20,6 @@ __all__ = [
     "CatchmentReportSettings",
     "CatchmentReportPreset",
     "GENERIC_REPORT_PRESET",
-    "NANCON_REPORT_PRESET",
     "build_context_from_report_config",
     "build_catchment_report",
     "preset_from_name",

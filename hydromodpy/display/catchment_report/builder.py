@@ -54,7 +54,6 @@ class CatchmentReportConfig:
     overview_standard_html: Path
     transient_config: Path
     overview_config: Path
-    allow_gallery_fallbacks: bool = True
     preset: CatchmentReportPreset = field(default=GENERIC_REPORT_PRESET)
     artifact_specs: tuple[ReportArtifactSpec, ...] | None = None
     block_specs: tuple[ReportBlockSpec, ...] | None = None
@@ -65,7 +64,6 @@ class CatchmentReportConfig:
         inputs: CatchmentReportInputs,
         *,
         preset: CatchmentReportPreset | None = None,
-        allow_gallery_fallbacks: bool | None = None,
         artifact_specs: tuple[ReportArtifactSpec, ...] | None = None,
         block_specs: tuple[ReportBlockSpec, ...] | None = None,
     ) -> CatchmentReportConfig:
@@ -76,13 +74,6 @@ class CatchmentReportConfig:
             if inputs.preset_name
             else GENERIC_REPORT_PRESET
         )
-        effective_allow_gallery_fallbacks = allow_gallery_fallbacks
-        if effective_allow_gallery_fallbacks is None:
-            effective_allow_gallery_fallbacks = (
-                inputs.allow_gallery_fallbacks
-                if inputs.allow_gallery_fallbacks is not None
-                else effective_preset.allow_gallery_fallbacks
-            )
         return cls(
             output_dir=inputs.output_dir,
             site_label=inputs.site_label,
@@ -99,7 +90,6 @@ class CatchmentReportConfig:
             overview_standard_html=inputs.overview_standard_html,
             transient_config=inputs.transient_config,
             overview_config=inputs.overview_config,
-            allow_gallery_fallbacks=effective_allow_gallery_fallbacks,
             preset=effective_preset,
             artifact_specs=artifact_specs,
             block_specs=block_specs,
@@ -125,7 +115,6 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         overview_figures=config.overview_figures,
         data_overview_figures=config.data_overview_figures,
         simulation_figures=config.simulation_figures,
-        allow_gallery_fallbacks=config.allow_gallery_fallbacks,
         artifact_specs=artifact_specs,
     )
     generate_generated_network_context_figure(
@@ -147,7 +136,6 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         simulation_figures=config.simulation_figures,
         geographic_scratch=config.geographic_scratch,
         generated_network_root=config.generated_network_root,
-        allow_gallery_fallbacks=config.allow_gallery_fallbacks,
     )
     report_artifact_paths = artifact_paths(
         context_html=config.context_html,
@@ -230,6 +218,6 @@ def _subtitle(level: str, *, site_label: str) -> str:
         "by_block": "vue avec niveau choisi bloc par bloc",
     }
     return (
-        f"Aggregation des figures {site_label} existantes: contexte jauge, hydrographie, "
+        f"Aggregation des figures {site_label} existantes: contexte bassin, hydrographie, "
         f"forcages, run transitoire de reference et artefacts associes - {labels.get(level, level)}."
     )
