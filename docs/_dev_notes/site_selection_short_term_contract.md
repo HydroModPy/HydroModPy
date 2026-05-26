@@ -292,3 +292,19 @@ La stabilisation court terme est terminee quand:
 Apres ces validations, la refonte structurelle `site_selection` doit etre
 consideree comme arretee pour le court terme. Les travaux suivants doivent etre
 planifies comme evolutions fonctionnelles separees.
+
+Validation executee le 2026-05-26:
+
+- lint cible `site_selection` passe;
+- `tests/unit/site_selection` passe;
+- `tests/unit/launchers/test_site_selection_bridge_examples.py` passe;
+- l'exemple `calvados_dem_area_light_100km2_fast.toml` produit 26 candidats,
+  10 sites selectionnes, 16 rejetes et le rapport
+  `examples/projects/17_site_selection_workflow/outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html`;
+- l'exemple `bretagne_hydrometry_50_500_small_bdtopage.toml` produit 6
+  candidats, 6 sites selectionnes, 0 rejete et le rapport
+  `examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html`.
+
+Les deux manifests exposent `strategy.effective_profile`. La refonte de
+structure et la suppression des alias historiques peuvent donc etre considerees
+comme cloturees pour le contrat court terme.

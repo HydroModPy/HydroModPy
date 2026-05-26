@@ -386,6 +386,21 @@ The bounded short-term contract is documented in
 The matching business doctrine is documented in
 `docs/_dev_notes/site_selection_final_business_doctrine.md`.
 
+## Closure Validation Examples
+
+The two small examples used to validate the stabilized package structure are:
+
+- `examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml`
+  (`area_only`): 26 candidates, 10 selected, 16 rejected, with
+  `outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html`.
+- `examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml`
+  (`gauged_downstream_station`): 6 candidates, 6 selected, 0 rejected, with
+  `outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html`.
+
+The output paths above are relative to
+`examples/projects/17_site_selection_workflow/`. The map to inspect alongside
+each HTML report is `review/site_selection_map.png`.
+
 ## Manifest Validation
 
 `site_selection_manifest.json` is the official hand-off contract. Use
