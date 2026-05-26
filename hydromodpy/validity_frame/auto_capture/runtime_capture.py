@@ -18,8 +18,9 @@ class RuntimeAutoCapture:
         *,
         context: ExecutionContext | None = None,
         output_dir: str | Path | None = None,
+        probes: dict | None = None,
     ) -> None:
-        self.collector = AutoCaptureCollector(context)
+        self.collector = AutoCaptureCollector(context, probes=probes)
         self.output_dir = (
             Path(output_dir).expanduser().resolve() if output_dir is not None else None
         )
