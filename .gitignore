@@ -135,6 +135,8 @@ hydromodpy/spatial/**/cases/outputs/**
 hydromodpy/spatial/**/outputs/**
 !hydromodpy/spatial/site_selection/outputs/
 !hydromodpy/spatial/site_selection/outputs/**
+hydromodpy/spatial/site_selection/outputs/__pycache__/
+hydromodpy/spatial/site_selection/outputs/**/*.pyc
 hydromodpy/solver/**/cases/outputs/**
 **/.ipynb_checkpoints/
 examples/*.duckdb
@@ -160,17 +162,15 @@ examples/data/**/*.tif.json
 examples/data/etp/etp_sim2_*.nc
 examples/data/precipitation/precipitation_*_sim2_*.nc
 examples/data/recharge/recharge_sim2_*.nc
+examples/projects/**/data/cache.duckdb*
 
-# Generated HTML reports from example workflows.
+# Generated reports and run outputs from example workflows.
+# Documentation galleries and named fixtures live outside outputs/ and remain
+# versioned intentionally.
 examples/projects/**/web/
 examples/projects/**/web_review/
-examples/projects/06_vire_selune/outputs/
-examples/projects/16_nancon_natural_calibration/outputs/html_blocks_smoke/
-examples/projects/16_nancon_natural_calibration/outputs/html_blocks_simulation_smoke/
-examples/projects/16_nancon_natural_calibration/outputs/nancon_context/
-examples/projects/16_nancon_natural_calibration/outputs/nancon_real_figures/
-examples/projects/16_nancon_natural_calibration/outputs/selune_portability_probe/
-examples/projects/17_site_selection_workflow/outputs/
+examples/projects/**/outputs/**
+!examples/projects/**/outputs/.gitignore
 
 # Lockfiles emitted by validation and regression test runs (``hmp run`` writes
 # ``hydromodpy.lock`` next to the project config; tests should opt out via
@@ -180,6 +180,7 @@ validation_cases/**/hydromodpy.lock
 tests/regression/**/hydromodpy.lock
 
 # Large generated comparison payloads kept out of Git.
+validation_cases/analytical/transient/linearized_unconfined_boundary_step_1d/comparison/lu_boundary_step_same_support/
 examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/comparison_metrics.json
 examples/projects/09_capability_gallery/simulation_comparison/site_08_natural_n1_10km2_mf6_bouss/observables.csv
 docs/_dev_notes/diagnostics/boussinesq_*/
@@ -241,6 +242,8 @@ hmp_wbw_*/
 reports*/
 !hydromodpy/spatial/site_selection/reports/
 !hydromodpy/spatial/site_selection/reports/**
+hydromodpy/spatial/site_selection/reports/__pycache__/
+hydromodpy/spatial/site_selection/reports/**/*.pyc
 timing_reports/
 _profile_launcher_*/
 _profiling_out/

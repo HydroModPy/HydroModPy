@@ -106,13 +106,15 @@ types = [
 # ---- DEM (custom local raster) --------------------------------------
 # The IGN BD ALTI WCS endpoint is currently returning HTTP 403, so the
 # DEM is the one variable kept on a local file. Uncomment the
-# `ign_bdalti` block once IGN access is restored.
+# `ign_geoplateforme_dem` block once IGN access is restored.
 [[data.dem.sources]]
 source = "custom"
 path = "../../data/dem/DEM_armorican_massif.tif"
 
 # [[data.dem.sources]]
-# source = "ign_bdalti"
+# source = "ign_geoplateforme_dem"
+# dataset = "bd-alti"
+# resolution_m = 25.0
 # extent = "watershed"
 
 

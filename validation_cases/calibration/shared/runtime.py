@@ -9,6 +9,7 @@ import shutil
 import time
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -914,7 +915,7 @@ def _extract_head_at_point_from_dir(
         return None
     cell_index = _resolve_cell_index_from_model(model, x=x, y=y)
     if cell_index is None:
-        cell_index = _nearest_cell_index_legacy(mesh_planar, x=x, y=y)
+        cell_index = _resolve_cell_index_from_mesh_planar(mesh_planar, x=x, y=y)
     if cell_index is None:
         return None
     k, i, j, flat = cell_index
@@ -1068,18 +1069,18 @@ def _model_cell_centroids(model: Any) -> np.ndarray | None:
                 return None
     runtime_planar = getattr(model, "runtime_mesh_planar", None)
     if runtime_planar is not None:
-        legacy = getattr(runtime_planar, "cell_centroids", None)
-        if legacy is None:
-            legacy = getattr(runtime_planar, "centroids", None)
-        if legacy is not None:
+        centroids = getattr(runtime_planar, "cell_centroids", None)
+        if centroids is None:
+            centroids = getattr(runtime_planar, "centroids", None)
+        if centroids is not None:
             try:
-                return np.asarray(legacy, dtype=float)
+                return np.asarray(centroids, dtype=float)
             except Exception:
                 return None
     return None
 
 
-def _nearest_cell_index_legacy(
+def _resolve_cell_index_from_mesh_planar(
     mesh: Any,
     *,
     x: float,
@@ -1127,21 +1128,17 @@ def _normalise_outputs_for_extraction(
                 if observed_values is not None and str(name) in observed_values
                 else getattr(decl, "observed_values", None)
             )
-            wrapper = type(
-                "_DeclShim",
-                (),
-                {
-                    "name": str(name),
-                    "variable": str(getattr(decl, "variable", "")),
-                    "support": str(getattr(decl, "support", "point")),
-                    "x": _quantity_magnitude(getattr(decl, "x", None)),
-                    "y": _quantity_magnitude(getattr(decl, "y", None)),
-                    "boundary_id": getattr(decl, "boundary_id", None),
-                    "time": getattr(decl, "time", "all"),
-                    "reducer": getattr(decl, "reducer", None),
-                    "observed_values": obs,
-                },
-            )()
+            wrapper = SimpleNamespace(
+                name=str(name),
+                variable=str(getattr(decl, "variable", "")),
+                support=str(getattr(decl, "support", "point")),
+                x=_quantity_magnitude(getattr(decl, "x", None)),
+                y=_quantity_magnitude(getattr(decl, "y", None)),
+                boundary_id=getattr(decl, "boundary_id", None),
+                time=getattr(decl, "time", "all"),
+                reducer=getattr(decl, "reducer", None),
+                observed_values=obs,
+            )
             out.append((str(name), wrapper))
         return tuple(out)
     return tuple()
@@ -1445,7 +1442,7 @@ def _write_iteration_history_jsonl(
     path: Path,
     iterations_df: Any,
 ) -> None:
-    """Write the iteration trace as a legacy-shaped JSONL file."""
+    """Write the iteration trace as JSONL for calibration reporting."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as stream:
         for _, row in iterations_df.iterrows():

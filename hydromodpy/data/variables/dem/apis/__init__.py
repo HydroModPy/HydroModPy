@@ -8,7 +8,6 @@ from types import ModuleType
 _API_MODULES = frozenset(
     {
         "geoplateforme_download",
-        "ign_bdalti",
         "ign_dem_fr",
     }
 )

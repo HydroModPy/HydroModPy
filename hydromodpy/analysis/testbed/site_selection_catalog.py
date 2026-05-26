@@ -15,8 +15,6 @@ from hydromodpy.schema.site_selection_manifest import (
 SITE_SELECTION_CATALOG_CONTROL_KEYS = (
     "from_site_selection_manifest",
     "output",
-    "site_selection_output",
-    "site_selection_output_key",
 )
 
 
@@ -92,15 +90,7 @@ def _manifest_output_key(
     *,
     default_output_key: str,
 ) -> str:
-    return (
-        _optional_text(
-            mapping.get(
-                "site_selection_output_key",
-                mapping.get("site_selection_output", mapping.get("output")),
-            )
-        )
-        or default_output_key
-    )
+    return _optional_text(mapping.get("output")) or default_output_key
 
 
 def _optional_text(value: object) -> str | None:

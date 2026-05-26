@@ -91,7 +91,7 @@ def add_catchment_report_arguments(
 
 
 def options_from_args(args: argparse.Namespace) -> CatchmentReportCommandOptions:
-    """Resolve CLI-only aliases into the pipeline's optional override values."""
+    """Resolve CLI flags into the pipeline's optional override values."""
     if args.context_only and args.report_only:
         raise ValueError("--context-only and --report-only are mutually exclusive.")
 

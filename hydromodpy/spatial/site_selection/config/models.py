@@ -198,9 +198,11 @@ class TerritoryConfig(HydroModelBase):
 class DemConfig(HydroModelBase):
     """DEM source requested by site selection."""
 
-    source: Annotated[str, Profile.USER] = Field(
+    source: Annotated[Literal["custom", "data", "ign_geoplateforme_dem"], Profile.USER] = Field(
         default="custom",
-        description="DEM source identifier, for example custom or ign_bdalti.",
+        description=(
+            "DEM source identifier: custom path, data section, or ign_geoplateforme_dem."
+        ),
     )
     path: Annotated[Path | None, Profile.USER] = Field(
         default=None,

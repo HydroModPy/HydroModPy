@@ -19,10 +19,7 @@ from validation_cases.shared.loaders import (
     load_case_metadata,
     load_case_tolerances,
     load_field,
-    load_last_npy_array,
-    load_last_npy_array_on_expected_grid,
-    load_npy_time_series_arrays,
-    load_npy_time_series_arrays_with_elapsed_seconds,
+    load_field_on_expected_grid,
     load_time_series_fields,
     merge_case_flow_section,
 )
@@ -36,6 +33,7 @@ from validation_cases.shared.runtime import (
     ValidationRunResult,
     resolve_validation_results_dir,
     run_launcher_validation_case,
+    write_validation_fields_to_store,
 )
 
 __all__ = [
@@ -47,10 +45,7 @@ __all__ = [
     "load_case_metadata",
     "load_case_tolerances",
     "load_field",
-    "load_last_npy_array",
-    "load_last_npy_array_on_expected_grid",
-    "load_npy_time_series_arrays",
-    "load_npy_time_series_arrays_with_elapsed_seconds",
+    "load_field_on_expected_grid",
     "max_abs_error",
     "max_std_along_axis",
     "mean_along_axis",
@@ -61,4 +56,5 @@ __all__ = [
     "rmse",
     "run_case_main",
     "run_launcher_validation_case",
+    "write_validation_fields_to_store",
 ]

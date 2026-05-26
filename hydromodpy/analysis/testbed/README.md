@@ -130,8 +130,8 @@ itself is used as the base payload after removing `[testbed]`.
 Generic testbeds and regional-lab profiles can consume the stable
 `site_selection_manifest.json` hand-off. The catalog resolver reads the
 manifest `outputs` map and turns the selected output into the actual CSV path.
-The default output key is `regional_lab_sites_csv`; `output`,
-`site_selection_output` and `site_selection_output_key` are accepted aliases.
+The default output key is `regional_lab_sites_csv`; use `output` to select a
+different manifest output.
 
 Generic testbed catalog:
 

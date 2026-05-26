@@ -23,8 +23,8 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
-    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
+    write_validation_fields_to_store,
 )
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -209,7 +209,7 @@ def _write_uniform_square_bundle(
     return bundle_dir
 
 
-def _project_head_history_to_reference_grid(
+def _project_head_history_to_reference_fields(
     model,
     *,
     xmin: float,
@@ -219,8 +219,8 @@ def _project_head_history_to_reference_grid(
     nx: int,
     ny: int,
     z_top_m: float,
-) -> None:
-    """Overwrite the default cell-vector outputs with regular 2D head rasters."""
+) -> dict[str, dict[int, np.ndarray]]:
+    """Project cell-vector outputs to regular 2D validation fields."""
     if model.state is None or model.mesh is None:
         raise RuntimeError("Boussinesq validation case requires a solved model state.")
 
@@ -256,10 +256,10 @@ def _project_head_history_to_reference_grid(
         watertable_elevation[int(time_index)] = head_grid
         watertable_depth[int(time_index)] = np.maximum(float(z_top_m) - head_grid, 0.0)
 
-    postprocess_dir = Path(model.full_path) / "_postprocess"
-    postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
+    return {
+        "watertable_elevation": watertable_elevation,
+        "watertable_depth": watertable_depth,
+    }
 
 
 def run_boussinesq_late_time_unconfined_pumping_case(
@@ -375,7 +375,7 @@ def run_boussinesq_late_time_unconfined_pumping_case(
 
     result = BoussinesqFlowAdapter().execute(ctx)
     model = result.primary_model
-    _project_head_history_to_reference_grid(
+    field_series = _project_head_history_to_reference_fields(
         model,
         xmin=xmin,
         xmax=xmax,
@@ -389,9 +389,9 @@ def run_boussinesq_late_time_unconfined_pumping_case(
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
-    store, sim_id = materialize_postprocess_fields_to_store(
+    store, sim_id = write_validation_fields_to_store(
         out_path=out_path,
-        postprocess_dir=postprocess_dir,
+        fields=field_series,
         solver_name="boussinesq",
         flow_regime="transient",
     )

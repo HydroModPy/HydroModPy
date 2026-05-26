@@ -65,8 +65,9 @@ def _load_heads_for_comparison(
     observable_name: str,
     expected_shape: tuple[int, ...] | None = None,
 ) -> tuple[int, np.ndarray]:
-    """Load heads from the store, postprocess dir, or MODFLOW head file."""
+    """Load heads from the store or MODFLOW head file."""
 
+    store_error: Exception | None = None
     if result.store is not None and result.sim_id is not None:
         try:
             return load_field(
@@ -75,16 +76,15 @@ def _load_heads_for_comparison(
                 observable_name=observable_name,
                 expected_shape=expected_shape,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            store_error = exc
 
-    try:
-        from validation_cases.shared import load_last_npy_array
-
-        return load_last_npy_array(result.postprocess_dir, observable_name)
-    except FileNotFoundError:
-        if observable_name != "watertable_elevation":
-            raise
+    if observable_name != "watertable_elevation":
+        if store_error is not None:
+            raise store_error
+        raise ValueError(
+            f"Cannot load field '{observable_name}': no store/sim_id provided."
+        )
 
     head_path = result.model_ws / f"{result.model_ws.name}.hds"
     head_fpu = fpu.HeadFile(str(head_path))

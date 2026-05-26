@@ -24,8 +24,8 @@ from validation_cases.shared.boussinesq_analytical_runtime import (
 )
 from validation_cases.shared.runtime import (
     ValidationRunResult,
-    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
+    write_validation_fields_to_store,
 )
 
 CASE_DIR = Path(__file__).resolve().parent
@@ -94,7 +94,6 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
                     apply_analytical_boussinesq_runtime_defaults(
                         {
                             "flow_regime": "steady",
-                            "runtime_backend": "local",
                             "ic": {"type": "custom", "value": 1.0},
                             "active_sinks_sources": ["recharge", "wells"],
                             "active_bc": ["ocean"],
@@ -142,14 +141,17 @@ def run_boussinesq_dupuit_circular_island_ocean_case(
 
     result = BoussinesqFlowAdapter().execute(ctx)
     model = result.primary_model
-    circular_runtime._aggregate_triangle_history_to_reference_grid(model, reference_cfg)
+    field_series = circular_runtime._aggregate_triangle_history_to_reference_fields(
+        model,
+        reference_cfg,
+    )
 
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
-    store, sim_id = materialize_postprocess_fields_to_store(
+    store, sim_id = write_validation_fields_to_store(
         out_path=out_path,
-        postprocess_dir=postprocess_dir,
+        fields=field_series,
         solver_name="boussinesq",
     )
     return ValidationRunResult(

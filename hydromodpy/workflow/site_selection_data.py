@@ -105,7 +105,7 @@ def _with_project_extent(
     changed = False
     for source in config.sources:
         if (
-            getattr(source, "source", None) in {"ign_bdalti", "ign_geoplateforme_dem"}
+            getattr(source, "source", None) == "ign_geoplateforme_dem"
             and getattr(source, "mask_path", None) is None
             and getattr(source, "extent", None) is None
         ):

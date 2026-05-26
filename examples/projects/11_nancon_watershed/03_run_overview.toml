@@ -86,7 +86,9 @@ path = "../../data/dem/DEM_armorican_massif.tif"
 
 # Uncomment once IGN BD ALTI access is restored:
 # [[data.dem.sources]]
-# source = "ign_bdalti"
+# source = "ign_geoplateforme_dem"
+# dataset = "bd-alti"
+# resolution_m = 25.0
 # extent = "watershed"
 
 

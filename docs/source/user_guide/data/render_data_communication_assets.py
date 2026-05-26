@@ -22,7 +22,7 @@ from matplotlib.patches import FancyBboxPatch
 
 HERE = Path(__file__).resolve()
 SOURCE_ROOT = HERE.parents[2]
-REPO_ROOT = HERE.parents[5]
+REPO_ROOT = HERE.parents[4]
 OUTPUT_DIR = SOURCE_ROOT / "_static" / "user_guide" / "data"
 
 if str(REPO_ROOT) not in sys.path:
@@ -40,7 +40,14 @@ class Family:
 
 
 FAMILIES: tuple[Family, ...] = (
-    Family("dem", "Spatial", ("custom", "ign_bdalti"), "Raster", "DEM + basin", "support"),
+    Family(
+        "dem",
+        "Spatial",
+        ("custom", "ign_geoplateforme_dem"),
+        "Raster",
+        "DEM + basin",
+        "support",
+    ),
     Family(
         "geology",
         "Spatial",
@@ -128,7 +135,11 @@ FAMILIES: tuple[Family, ...] = (
 
 SOURCE_COLUMNS: tuple[tuple[str, tuple[str, ...], str], ...] = (
     ("custom", ("custom",), "#5578A6"),
-    ("public geo", ("ign_bdalti", "brgm_1m", "brgm_50k", "bdtopage", "osm", "euhydro"), "#7BAA64"),
+    (
+        "public geo",
+        ("ign_geoplateforme_dem", "brgm_1m", "brgm_50k", "bdtopage", "osm", "euhydro"),
+        "#7BAA64",
+    ),
     ("Hub'Eau", ("hubeau",), "#C78B48"),
     ("SIM2", ("sim2",), "#6A8EC9"),
     ("SHOM", ("shom",), "#5AA6A6"),
@@ -379,7 +390,7 @@ def render_run_roadmap() -> Path:
         color="#333333",
     )
 
-    for x, width, header in zip(xs, widths, headers):
+    for x, width, header in zip(xs, widths, headers, strict=True):
         ax.add_patch(
             FancyBboxPatch(
                 (x, y_top - 0.25),
@@ -404,7 +415,7 @@ def render_run_roadmap() -> Path:
     row_colors = ["#EEF3F8", "#F3F6ED", "#F7EFE4", "#EEF3F8", "#F3F0F7"]
     for ridx, row in enumerate(rows):
         y = y_top - 0.78 - ridx * 0.78
-        for cidx, (x, width, text) in enumerate(zip(xs, widths, row)):
+        for x, width, text in zip(xs, widths, row, strict=True):
             ax.add_patch(
                 FancyBboxPatch(
                     (x, y - 0.28),

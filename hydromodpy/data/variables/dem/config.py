@@ -78,18 +78,6 @@ class _FrenchAdministrativeDemSource(_DemSourceBase):
         return self
 
 
-class IgnBdaltiDemSource(_FrenchAdministrativeDemSource):
-    """Historical compatibility source for IGN BD ALTI 25 m."""
-
-    source: Annotated[Literal["ign_bdalti"], Profile.USER] = Field(
-        default="ign_bdalti",
-        description=(
-            "Discriminator tag selecting the historical IGN BD ALTI 25 m DEM path. "
-            "Use 'ign_geoplateforme_dem' for new dynamic Geoplateforme workflows."
-        ),
-    )
-
-
 class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
     """Recommended dynamic IGN DEM source discovered through Geoplateforme."""
 
@@ -119,14 +107,13 @@ class IgnGeoplateformeDemSource(_FrenchAdministrativeDemSource):
 
 
 DemSourceConfig: TypeAlias = Annotated[
-    CustomDemSource | IgnBdaltiDemSource | IgnGeoplateformeDemSource,
+    CustomDemSource | IgnGeoplateformeDemSource,
     Field(
         discriminator="source",
         description=(
             "Discriminated union of DEM data sources tagged by the 'source' provider key. "
-            "Use 'custom' for a user file (TIF/ASC/NC), 'ign_bdalti' for the "
-            "legacy IGN BD ALTI 25 m MNT path, and 'ign_geoplateforme_dem' for "
-            "dynamic IGN DEM discovery."
+            "Use 'custom' for a user file (TIF/ASC/NC) and "
+            "'ign_geoplateforme_dem' for dynamic IGN DEM discovery."
         ),
     ),
 ]
@@ -141,10 +128,6 @@ class DemConfig(HydroModelBase):
     Example TOML::
 
         [data.dem]
-
-        [[data.dem.sources]]
-        source = "ign_bdalti"
-        regions = ["Bretagne"]
 
         [[data.dem.sources]]
         source = "ign_geoplateforme_dem"
@@ -167,11 +150,6 @@ class DemConfig(HydroModelBase):
     def from_geotiff(cls, path: str | Path, **overrides) -> DemConfig:
         """DemConfig reading a user GeoTIFF (or ASC/NC) file."""
         return cls(sources=[CustomDemSource(path=Path(path), **overrides)])
-
-    @classmethod
-    def ign_bdalti(cls, **overrides) -> DemConfig:
-        """DemConfig pulling from the IGN BD ALTI 25 m national DEM."""
-        return cls(sources=[IgnBdaltiDemSource(**overrides)])
 
     @classmethod
     def ign_geoplateforme_dem(cls, **overrides) -> DemConfig:

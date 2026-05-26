@@ -50,8 +50,7 @@ def write_site_selection_evidence_outputs(
     """Write specialized and normalized evidence artifacts.
 
     ``observation_evidence`` is the complete observation table. The optional
-    ``piezometer_evidence`` subset is written separately for compatibility with
-    existing artifact names.
+    ``piezometer_evidence`` subset is written separately for focused review.
     """
 
     destination_root = Path(root)

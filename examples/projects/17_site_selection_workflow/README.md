@@ -20,7 +20,8 @@ Principe:
 - les stations de debit sont le critere d'entree principal ;
 - les controles de non-influence, de surface et de geologie viennent ensuite ;
 - l'exemple part d'un CSV d'exutoires et de stations pre-normalisees ;
-- le DEM est declare dans `[data.dem]` avec la source `ign_bdalti`, puis mis en
+- le DEM est declare dans `[data.dem]` avec la source `ign_geoplateforme_dem`,
+  puis mis en
   cache hors du depot dans l'espace de donnees HydroModPy
   (`HYDROMODPY_WORKSPACE/data` si defini, sinon `~/hydromodpy/data`) ;
 - la region `Bretagne` est declaree dans `[data.dem]`; le gestionnaire DEM

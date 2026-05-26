@@ -109,5 +109,7 @@ require_observations = true
 types = ["dem"]
 
 [[data.dem.sources]]
-source = "ign_bdalti"
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0
 regions = ["Bretagne"]

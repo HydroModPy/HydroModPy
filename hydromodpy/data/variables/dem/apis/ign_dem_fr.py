@@ -188,7 +188,7 @@ def fetch_ign_dem(
         department_code_to_padded,
         find_departments_in_bbox,
     )
-    from hydromodpy.data.variables.dem.apis.ign_bdalti import (
+    from hydromodpy.data.variables.dem.apis.bdalti_static import (
         _extract_7z,
         _find_asc_files,
         _request_hash_str,
@@ -358,7 +358,7 @@ def _static_bdalti_files(
         return []
     if file_format.upper() != "ASC":
         return []
-    from hydromodpy.data.variables.dem.apis.ign_bdalti import _BDALTI_ARCHIVES
+    from hydromodpy.data.variables.dem.apis.bdalti_static import _BDALTI_ARCHIVES
 
     padded = department[1:] if department.startswith("D") else department
     archive_name = _BDALTI_ARCHIVES.get(padded)

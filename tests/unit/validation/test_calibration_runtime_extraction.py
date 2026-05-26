@@ -16,7 +16,7 @@ import pytest
 from validation_cases.calibration.shared.runtime import (
     _extract_outputs_from_trial_ctx,
     _model_cell_centroids,
-    _nearest_cell_index_legacy,
+    _resolve_cell_index_from_mesh_planar,
     _resolve_cell_index_from_model,
 )
 
@@ -83,15 +83,15 @@ class TestResolveCellIndexFromModel:
         assert cell == (0, 0, 2, 2)
 
 
-class TestNearestCellIndexLegacy:
+class TestResolveCellIndexFromMeshPlanar:
     def test_handles_none_mesh(self):
-        assert _nearest_cell_index_legacy(None, x=0.0, y=0.0) is None
+        assert _resolve_cell_index_from_mesh_planar(None, x=0.0, y=0.0) is None
 
     def test_resolves_via_centroids_and_shape(self):
         nrow, ncol = 2, 3
         centroids = _make_structured_centroids(nrow, ncol, dx=10.0, dy=5.0)
         mesh = SimpleNamespace(cell_centroids=centroids, shape=(1, nrow, ncol))
-        cell = _nearest_cell_index_legacy(mesh, x=14.0, y=2.0)
+        cell = _resolve_cell_index_from_mesh_planar(mesh, x=14.0, y=2.0)
         assert cell == (0, 0, 1, 1)
 
 

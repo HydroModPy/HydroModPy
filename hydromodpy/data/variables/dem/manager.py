@@ -1,8 +1,8 @@
 """DEM variable manager - standard data-manager pattern.
 
-Downloads, caches, and serves DEM data from IGN BD ALTI or custom
-files. Returns a ``LoadResult`` containing ``FieldRecord`` objects
-pointing to cached GeoTIFF files.
+Downloads, caches, and serves DEM data from IGN Geoplateforme or custom
+files. Returns a ``LoadResult`` containing ``FieldRecord`` objects pointing to
+cached GeoTIFF files.
 """
 
 from __future__ import annotations
@@ -13,10 +13,6 @@ from typing import Any
 from hydromodpy.core.state.paths import cache_dir as _hmp_cache_dir
 from hydromodpy.data.contracts.load_result import LoadResult
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.data.registry.constants import (
-    SENTINEL_CUSTOM,
-    SENTINEL_EMPTY,
-)
 
 
 class DemManager:
@@ -63,14 +59,11 @@ class DemManager:
 
     def _fetch_from_source(self, source_cfg) -> list:
         """Dispatch to the right loader based on source type."""
-        if source_cfg.source == "ign_bdalti":
-            return self._fetch_ign_bdalti(source_cfg)
-        elif source_cfg.source == "ign_geoplateforme_dem":
+        if source_cfg.source == "ign_geoplateforme_dem":
             return self._fetch_ign_geoplateforme_dem(source_cfg)
-        elif source_cfg.source == "custom":
+        if source_cfg.source == "custom":
             return self._fetch_custom(source_cfg)
-        else:
-            raise ValueError(f"Unknown DEM source: {source_cfg.source}")
+        raise ValueError(f"Unknown DEM source: {source_cfg.source}")
 
     # ------------------------------------------------------------------
     # Bbox resolution
@@ -101,11 +94,10 @@ class DemManager:
         return None
 
     def _resolve_bbox_2154(self, source_cfg) -> tuple | None:
-        """Resolve bbox and reproject to EPSG:2154 (IGN BD ALTI CRS)."""
+        """Resolve bbox and reproject to EPSG:2154 for IGN DEM requests."""
         bbox = self._resolve_bbox(source_cfg)
         if bbox is None:
             return None
-        # BD ALTI data is in EPSG:2154 - reproject bbox if needed.
         if self.geographic is not None:
             watershed_shp = getattr(self.geographic, "watershed_shp", None)
             if watershed_shp:
@@ -120,81 +112,6 @@ class DemManager:
                 bounds = gdf_2154.total_bounds
                 return tuple(bounds)
         return bbox
-
-    # ------------------------------------------------------------------
-    # IGN BD ALTI 25 m
-    # ------------------------------------------------------------------
-
-    def _fetch_ign_bdalti(self, source_cfg) -> list[FieldRecord]:
-        """Fetch BD ALTI 25 m MNT from IGN GéoPlateforme."""
-        bbox = self._resolve_bbox_2154(source_cfg)
-        if bbox is None:
-            raise ValueError(
-                "ign_bdalti source requires a bbox (set mask_path, extent, or geographic)"
-            )
-        force_refresh = getattr(source_cfg, "force_refresh", False)
-        department_codes = _department_codes_for_ign_bdalti(source_cfg)
-        explicit_departments = bool(department_codes)
-
-        # Check cache
-        if not force_refresh and not explicit_departments and self.catalog is not None:
-            cached = self.catalog.find_cached(
-                variable="dem",
-                source="ign_bdalti",
-                bbox=bbox,
-            )
-            if cached is not None and cached.file_path not in (SENTINEL_CUSTOM, SENTINEL_EMPTY):
-                cached_path = Path(cached.file_path)
-                if cached_path.exists():
-                    return [
-                        FieldRecord(
-                            variable="dem",
-                            source="ign_bdalti",
-                            unit="m",
-                            data=cached_path,
-                            bbox=bbox,
-                            crs="EPSG:2154",
-                        )
-                    ]
-
-        from hydromodpy.data.variables.dem.apis.ign_bdalti import fetch_bdalti
-
-        output_dir = self.data_dir or (_hmp_cache_dir() / "dem")
-        tif_path = fetch_bdalti(
-            output_dir=output_dir,
-            bbox=bbox,
-            department_codes=department_codes,
-        )
-
-        record = FieldRecord(
-            variable="dem",
-            source="ign_bdalti",
-            unit="m",
-            data=tif_path,
-            bbox=bbox,
-            crs="EPSG:2154",
-        )
-
-        # Register in catalog
-        if self.catalog is not None:
-            entry_id = self.catalog.register(
-                variable="dem",
-                source="ign_bdalti",
-                file_path=str(tif_path),
-                bbox=bbox,
-                crs="EPSG:2154",
-            )
-            if not explicit_departments:
-                self.catalog.subsume_entries(
-                    variable="dem",
-                    source="ign_bdalti",
-                    bbox=bbox,
-                    date_start=None,
-                    date_end=None,
-                    exclude_id=entry_id,
-                )
-
-        return [record]
 
     # ------------------------------------------------------------------
     # IGN DEM through dynamic Geoplateforme discovery
@@ -274,7 +191,6 @@ class DemManager:
             data_dir=self.data_dir,
         )
 
-        # Register custom entries (never subsumed)
         if self.catalog is not None:
             for rec in records:
                 if isinstance(rec, FieldRecord) and isinstance(rec.data, Path):
@@ -288,10 +204,6 @@ class DemManager:
                     )
 
         return records
-
-
-def _department_codes_for_ign_bdalti(source_cfg: Any) -> list[str] | None:
-    return _department_codes_for_french_dem_source(source_cfg)
 
 
 def _department_codes_for_french_dem_source(source_cfg: Any) -> list[str] | None:

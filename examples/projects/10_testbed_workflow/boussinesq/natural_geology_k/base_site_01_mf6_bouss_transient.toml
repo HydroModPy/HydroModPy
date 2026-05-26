@@ -169,7 +169,7 @@ inference_mode = "warn"
 
 # At least one DEM data source.
 [[data.dem.sources]]
-# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_bdalti' for the IGN BD ALTI 25 m MNT.
+# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_geoplateforme_dem' for IGN DEM discovery.
 source = "custom"
 # Path to custom DEM file or directory (TIF, ASC, NC).
 path = "../../../../data/dem/DEM_armorican_massif.tif"

@@ -12,18 +12,18 @@ from validation_cases.shared.boussinesq_piecewise_strip import (
 )
 
 
-def test_analytical_boussinesq_defaults_use_steady_petsc_vi() -> None:
+def test_analytical_boussinesq_defaults_fill_steady_petsc_vi() -> None:
     flow = apply_analytical_boussinesq_runtime_defaults(
-        {"flow_regime": "steady", "runtime_backend": "scipy_sparse"}
+        {"flow_regime": "steady"}
     )
 
     assert flow["runtime_backend"] == "petsc"
     assert flow["surface_interaction_model"] == "vi_obstacle"
 
 
-def test_analytical_boussinesq_defaults_use_transient_petsc_ts_vi() -> None:
+def test_analytical_boussinesq_defaults_fill_transient_petsc_ts_vi() -> None:
     flow = apply_analytical_boussinesq_runtime_defaults(
-        {"flow_regime": "transient", "runtime_backend": "local"}
+        {"flow_regime": "transient"}
     )
 
     assert flow["runtime_backend"] == "petsc"
@@ -59,21 +59,21 @@ def test_analytical_boussinesq_defaults_force_replaces_explicit_model() -> None:
     assert flow["surface_interaction_model"] == "vi_obstacle"
 
 
-def test_piecewise_launcher_config_can_preserve_explicit_sparse_backend(tmp_path) -> None:
+def test_piecewise_launcher_config_can_preserve_explicit_runtime_defaults(tmp_path) -> None:
     config_path = write_piecewise_strip_launcher_config(
-        tmp_path / "run_sparse.toml",
-        run_id="sparse_regression",
+        tmp_path / "run_petsc.toml",
+        run_id="petsc_regression",
         process_id="flow_main",
-        simulation_name="Sparse regression",
-        simulation_description="Sparse regression backend fixture",
+        simulation_name="PETSc regression",
+        simulation_description="Explicit PETSc backend fixture",
         bundle_dir=tmp_path / "mesh_bundle",
         initial_head_m=6.0,
-        runtime_backend="scipy_sparse",
-        surface_interaction_model="regularized_partition",
+        runtime_backend="petsc",
+        surface_interaction_model="vi_obstacle",
         apply_runtime_defaults=False,
     )
 
     payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
 
-    assert payload["flow"]["runtime_backend"] == "scipy_sparse"
-    assert payload["flow"]["surface_interaction_model"] == "regularized_partition"
+    assert payload["flow"]["runtime_backend"] == "petsc"
+    assert payload["flow"]["surface_interaction_model"] == "vi_obstacle"
