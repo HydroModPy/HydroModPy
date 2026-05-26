@@ -148,6 +148,7 @@ def close(store_obj: SimulationZarr) -> None:
         if hasattr(store_obj._store, "close"):
             store_obj._store.close()
         store_obj._store = None
+    store_obj._root = None
     if store_obj._on_close is not None:
         callback = store_obj._on_close
         store_obj._on_close = None

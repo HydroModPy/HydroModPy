@@ -20,12 +20,17 @@ Build according to the report TOML pipeline defaults:
 If ``[pipeline].run_simulation = true`` and
 ``[pipeline].build_report_html = true``, this single command relaunches the
 configured simulation and then produces the HTML report from its outputs.
+When ``[pipeline].context_builder_command`` is declared, the context artifacts
+are produced by that command instead of the built-in generic context builder.
 
 Only rebuild the final HTML from existing context artifacts:
 
 .. code-block:: bash
 
    hmp report catchment path/to/catchment_report.toml --report-only
+
+This mode also skips optional overview/simulation run steps by default, even
+when they are enabled in ``[pipeline]``.
 
 Only rebuild the context artifacts:
 
@@ -48,6 +53,17 @@ pointing at the same run outputs.
 By default, logs from these optional ``hmp run`` steps are captured so the
 report command only prints the generated report paths. Use
 ``--stream-run-logs`` to stream the full simulation logs to the console.
+
+Before executing the selected steps, the pipeline runs a preflight check on the
+resolved paths. It reports missing required execution inputs such as the
+simulation TOML, simulation export when context is rebuilt without rerunning the
+simulation, or the context summary in ``--report-only`` mode.
+
+After the final HTML is rendered, the pipeline writes
+``block_report_postflight.json`` next to the manifest. This postflight report
+lists expected, present, missing and dangling figure artifacts. Use
+``--strict-figure-postflight`` to fail the command when any expected figure is
+missing.
 
 Run the configured overview first:
 
@@ -175,10 +191,24 @@ CLI override is supplied.
    * - ``stream_run_logs``
      - ``false``
      - Stream logs from optional ``hmp run`` steps instead of capturing them.
+   * - ``strict_figure_postflight``
+     - ``false``
+     - Fail after HTML rendering if expected figures are missing from the
+       generated figure manifest.
+   * - ``context_builder_command``
+     - unset
+     - Optional string array command used to build context artifacts instead of
+       the built-in generic context builder.
 
 CLI flags override these TOML defaults. For example,
 ``--no-run-simulation`` rebuilds the context and HTML without relaunching a
 simulation even when ``run_simulation = true`` in the TOML.
+
+``context_builder_command`` runs from the report TOML directory. It supports
+the placeholders ``{python}``, ``{report_config}``, ``{report_config_dir}``,
+``{context_outputs_dir}``, ``{watershed_project_dir}``,
+``{simulation_workspace_dir}``, ``{simulation_name}``, ``{site_label}``, and
+``{station_label}``.
 
 Observed discharge
 ------------------
@@ -213,6 +243,7 @@ Minimal generic example
    transient_config_name = "run_selune_nwt_report.toml"
 
    [pipeline]
+   run_overview = true
    run_simulation = true
    build_context_artifacts = true
    build_report_html = true
@@ -245,12 +276,19 @@ preset:
    simulation_name = "transient_nwt"
    context_summary_name = "nancon_gauged_context_summary.json"
    transient_config_name = "run_transient_nwt.toml"
-   overview_config_name = "config_overview.toml"
+   overview_config_name = "run_overview_all_apis.toml"
 
    [pipeline]
-   run_simulation = false
-   build_context_artifacts = false
+   run_overview = true
+   run_simulation = true
+   build_context_artifacts = true
    build_report_html = true
+   context_builder_command = [
+     "{python}",
+     "../15_nancon_gauged_context/build_nancon_gauged_context.py",
+     "--report-config",
+     "{report_config}",
+   ]
 
 This preset exists only to preserve the validated reference layout and labels.
 New basins should normally omit ``preset`` and use the generic default.

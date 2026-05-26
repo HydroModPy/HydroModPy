@@ -48,6 +48,7 @@ InfluenceType = Literal[
     "major_withdrawal_upstream",
     "major_regulated_reach",
 ]
+StationInfluenceUnknownPolicy = Literal["neutral", "warning"]
 
 
 def _normalize_report_mode(value: object) -> object:
@@ -616,6 +617,39 @@ class FlowStationCriteriaConfig(HydroModelBase):
         return _normalize_report_mode(value)
 
 
+class StationInfluenceCriteriaConfig(HydroModelBase):
+    """Criteria applied to station influence metadata."""
+
+    mode: Annotated[CriterionMode, Profile.USER] = Field(default="report_only")
+    source: Annotated[str, Profile.USER] = Field(default="hubeau_station_metadata")
+    warn_if_general_influence: Annotated[bool, Profile.USER] = Field(default=True)
+    warn_if_local_influence: Annotated[bool, Profile.USER] = Field(default=True)
+    warn_if_comment_keyword: Annotated[bool, Profile.USER] = Field(default=True)
+    unknown_policy: Annotated[StationInfluenceUnknownPolicy, Profile.USER] = Field(
+        default="neutral",
+    )
+    comment_keywords: Annotated[list[str], Profile.USER] = Field(
+        default_factory=lambda: [
+            "barrage",
+            "retenue",
+            "derivation",
+            "canal",
+            "ecluse",
+            "ouvrage",
+            "regulation",
+            "turbinage",
+            "hydroelectrique",
+            "usine",
+        ],
+        description="Keywords searched in station influence comments.",
+    )
+
+    @field_validator("mode", mode="before")
+    @classmethod
+    def _normalize_mode(cls, value: object) -> object:
+        return _normalize_report_mode(value)
+
+
 class PiezometerLayerConfig(HydroModelBase):
     """Vector layer used to compute piezometer evidence."""
 
@@ -661,6 +695,9 @@ class ObservationsCriteriaConfig(HydroModelBase):
     )
     flow_station: Annotated[FlowStationCriteriaConfig, Profile.USER] = Field(
         default_factory=FlowStationCriteriaConfig,
+    )
+    station_influence: Annotated[StationInfluenceCriteriaConfig, Profile.USER] = Field(
+        default_factory=StationInfluenceCriteriaConfig,
     )
     piezometer_layers: Annotated[list[PiezometerLayerConfig], Profile.USER] = Field(
         default_factory=list,

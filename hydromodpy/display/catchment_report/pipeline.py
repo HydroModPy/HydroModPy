@@ -14,9 +14,10 @@ from hydromodpy.display.catchment_report.builder import (
 )
 from hydromodpy.display.catchment_report.context import build_context
 from hydromodpy.display.catchment_report.inputs import CatchmentReportInputs
+from hydromodpy.display.catchment_report.postflight import write_figure_postflight_report
+from hydromodpy.display.catchment_report.preflight import validate_catchment_report_preflight
 from hydromodpy.display.catchment_report.presets import (
     CatchmentReportPreset,
-    preset_from_name,
 )
 
 
@@ -26,6 +27,29 @@ class CatchmentReportPipelineResult:
     simulation_config: Path | None
     context_summary: Path | None
     html_report: Path | None
+    postflight_report: Path | None = None
+
+
+@dataclass(frozen=True)
+class _PipelineOverrides:
+    run_overview: bool | None
+    run_simulation: bool | None
+    build_context_artifacts: bool | None
+    build_report_html: bool | None
+    no_lock: bool | None
+    stream_run_logs: bool | None
+    strict_figure_postflight: bool | None
+
+
+@dataclass(frozen=True)
+class _PipelineOptions:
+    run_overview: bool
+    run_simulation: bool
+    build_context_artifacts: bool
+    build_report_html: bool
+    no_lock: bool
+    stream_run_logs: bool
+    strict_figure_postflight: bool
 
 
 def run_catchment_report_pipeline(
@@ -38,56 +62,152 @@ def run_catchment_report_pipeline(
     build_report_html: bool | None = None,
     no_lock: bool | None = None,
     stream_run_logs: bool | None = None,
+    strict_figure_postflight: bool | None = None,
 ) -> CatchmentReportPipelineResult:
     """Run the selected report-production steps from one report config."""
     inputs = CatchmentReportInputs.from_toml(report_config)
-    effective_run_overview = inputs.pipeline_run_overview if run_overview is None else run_overview
-    effective_run_simulation = (
-        inputs.pipeline_run_simulation if run_simulation is None else run_simulation
+    options = _resolve_pipeline_options(
+        inputs,
+        _PipelineOverrides(
+            run_overview=run_overview,
+            run_simulation=run_simulation,
+            build_context_artifacts=build_context_artifacts,
+            build_report_html=build_report_html,
+            no_lock=no_lock,
+            stream_run_logs=stream_run_logs,
+            strict_figure_postflight=strict_figure_postflight,
+        ),
     )
-    effective_build_context_artifacts = (
-        inputs.pipeline_build_context_artifacts
-        if build_context_artifacts is None
-        else build_context_artifacts
+    validate_catchment_report_preflight(
+        inputs,
+        run_overview=options.run_overview,
+        run_simulation=options.run_simulation,
+        build_context_artifacts=options.build_context_artifacts,
+        build_report_html=options.build_report_html,
     )
-    effective_build_report_html = (
-        inputs.pipeline_build_report_html if build_report_html is None else build_report_html
+    return _run_pipeline_steps(report_config, inputs, options, preset=preset)
+
+
+def _resolve_pipeline_options(
+    inputs: CatchmentReportInputs,
+    overrides: _PipelineOverrides,
+) -> _PipelineOptions:
+    return _PipelineOptions(
+        run_overview=_override_or_default(
+            overrides.run_overview,
+            inputs.pipeline_run_overview,
+        ),
+        run_simulation=_override_or_default(
+            overrides.run_simulation,
+            inputs.pipeline_run_simulation,
+        ),
+        build_context_artifacts=_override_or_default(
+            overrides.build_context_artifacts,
+            inputs.pipeline_build_context_artifacts,
+        ),
+        build_report_html=_override_or_default(
+            overrides.build_report_html,
+            inputs.pipeline_build_report_html,
+        ),
+        no_lock=_override_or_default(overrides.no_lock, inputs.pipeline_no_lock),
+        stream_run_logs=_override_or_default(
+            overrides.stream_run_logs,
+            inputs.pipeline_stream_run_logs,
+        ),
+        strict_figure_postflight=_override_or_default(
+            overrides.strict_figure_postflight,
+            inputs.pipeline_strict_figure_postflight,
+        ),
     )
-    effective_no_lock = inputs.pipeline_no_lock if no_lock is None else no_lock
-    effective_stream_run_logs = (
-        inputs.pipeline_stream_run_logs if stream_run_logs is None else stream_run_logs
-    )
-    overview_config = inputs.overview_config if effective_run_overview else None
-    simulation_config = inputs.transient_config if effective_run_simulation else None
+
+
+def _override_or_default(value: bool | None, default: bool) -> bool:
+    return default if value is None else value
+
+
+def _run_pipeline_steps(
+    report_config: Path,
+    inputs: CatchmentReportInputs,
+    options: _PipelineOptions,
+    *,
+    preset: CatchmentReportPreset | None,
+) -> CatchmentReportPipelineResult:
+    overview_config = inputs.overview_config if options.run_overview else None
+    simulation_config = inputs.transient_config if options.run_simulation else None
     context_summary = None
     html_report = None
+    postflight_report = None
 
-    if effective_run_overview:
-        _run_hydromodpy(
-            inputs.overview_config,
-            no_lock=effective_no_lock,
-            stream_logs=effective_stream_run_logs,
-        )
-    if effective_run_simulation:
-        _run_hydromodpy(
-            inputs.transient_config,
-            no_lock=effective_no_lock,
-            stream_logs=effective_stream_run_logs,
-        )
-        _validate_simulation_outputs(inputs)
-    if effective_build_context_artifacts:
-        context_summary = build_context(inputs)
-    if effective_build_report_html:
-        html_report = build_catchment_report(
-            CatchmentReportConfig.from_inputs(inputs, preset=preset)
-        )
+    if options.run_overview:
+        _run_overview(inputs, options)
+    if options.run_simulation:
+        _run_simulation(inputs, options)
+    if options.build_context_artifacts:
+        context_summary = _build_context_artifacts(report_config, inputs, options)
+    if options.build_report_html:
+        html_report, postflight_report = _build_report_html(inputs, options, preset=preset)
 
     return CatchmentReportPipelineResult(
         overview_config=overview_config,
         simulation_config=simulation_config,
         context_summary=context_summary,
         html_report=html_report,
+        postflight_report=postflight_report,
     )
+
+
+def _run_overview(inputs: CatchmentReportInputs, options: _PipelineOptions) -> None:
+    _run_hydromodpy(
+        inputs.overview_config,
+        no_lock=options.no_lock,
+        stream_logs=options.stream_run_logs,
+    )
+
+
+def _run_simulation(inputs: CatchmentReportInputs, options: _PipelineOptions) -> None:
+    _run_hydromodpy(
+        inputs.transient_config,
+        no_lock=options.no_lock,
+        stream_logs=options.stream_run_logs,
+    )
+    _validate_simulation_outputs(inputs)
+
+
+def _build_context_artifacts(
+    report_config: Path,
+    inputs: CatchmentReportInputs,
+    options: _PipelineOptions,
+) -> Path:
+    if inputs.pipeline_context_builder_command is None:
+        return build_context(inputs)
+
+    _run_context_builder_command(
+        report_config,
+        inputs,
+        inputs.pipeline_context_builder_command,
+        stream_logs=options.stream_run_logs,
+    )
+    if not inputs.context_summary.exists():
+        raise FileNotFoundError(
+            "Context builder command completed but the expected context summary "
+            f"was not found: {inputs.context_summary}"
+        )
+    return inputs.context_summary
+
+
+def _build_report_html(
+    inputs: CatchmentReportInputs,
+    options: _PipelineOptions,
+    *,
+    preset: CatchmentReportPreset | None,
+) -> tuple[Path, Path]:
+    config = CatchmentReportConfig.from_inputs(inputs, preset=preset)
+    html_report = build_catchment_report(config)
+    postflight_report = write_figure_postflight_report(
+        config,
+        strict=options.strict_figure_postflight,
+    )
+    return html_report, postflight_report
 
 
 def _run_hydromodpy(config_path: Path, *, no_lock: bool, stream_logs: bool) -> None:
@@ -101,11 +221,79 @@ def _run_hydromodpy(config_path: Path, *, no_lock: bool, stream_logs: bool) -> N
     completed = subprocess.run(
         command,
         capture_output=True,
+        encoding="utf-8",
+        errors="replace",
         text=True,
     )
     if completed.returncode != 0:
-        _print_subprocess_tail(completed.stdout, "stdout")
-        _print_subprocess_tail(completed.stderr, "stderr")
+        _print_subprocess_tail(completed.stdout, "hydromodpy run stdout")
+        _print_subprocess_tail(completed.stderr, "hydromodpy run stderr")
+        completed.check_returncode()
+
+
+def _run_context_builder_command(
+    report_config: Path,
+    inputs: CatchmentReportInputs,
+    command_template: tuple[str, ...],
+    *,
+    stream_logs: bool,
+) -> None:
+    report_config = report_config.expanduser().resolve()
+    command = _format_context_builder_command(report_config, inputs, command_template)
+    _run_subprocess(
+        command,
+        cwd=report_config.parent,
+        stream_logs=stream_logs,
+        label="context builder",
+    )
+
+
+def _format_context_builder_command(
+    report_config: Path,
+    inputs: CatchmentReportInputs,
+    command_template: tuple[str, ...],
+) -> list[str]:
+    replacements = {
+        "python": sys.executable,
+        "report_config": str(report_config),
+        "report_config_dir": str(report_config.parent),
+        "context_outputs_dir": str(inputs.context_outputs_dir),
+        "watershed_project_dir": str(inputs.watershed_project_dir),
+        "simulation_workspace_dir": str(inputs.simulation_workspace_dir),
+        "simulation_name": inputs.simulation_name,
+        "site_label": inputs.site_label,
+        "station_label": inputs.station_label,
+    }
+    try:
+        return [token.format_map(replacements) for token in command_template]
+    except KeyError as exc:
+        raise ValueError(
+            f"Unknown placeholder in context_builder_command: {{{exc.args[0]}}}"
+        ) from exc
+
+
+def _run_subprocess(
+    command: list[str],
+    *,
+    cwd: Path | None = None,
+    stream_logs: bool,
+    label: str,
+) -> None:
+    if stream_logs:
+        subprocess.run(command, check=True, cwd=cwd)
+        return
+
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        cwd=cwd,
+        encoding="utf-8",
+        errors="replace",
+        text=True,
+    )
+    if completed.returncode != 0:
+        _print_subprocess_tail(completed.stdout, f"{label} stdout")
+        _print_subprocess_tail(completed.stderr, f"{label} stderr")
         completed.check_returncode()
 
 
@@ -115,7 +303,7 @@ def _print_subprocess_tail(text: str | None, label: str, *, max_lines: int = 80)
     lines = text.splitlines()
     tail = lines[-max_lines:]
     print(
-        f"--- hydromodpy run {label} (last {len(tail)} lines) ---",
+        f"--- {label} (last {len(tail)} lines) ---",
         file=sys.stderr,
     )
     print("\n".join(tail), file=sys.stderr)
@@ -136,72 +324,24 @@ def _validate_simulation_outputs(inputs: CatchmentReportInputs) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from hydromodpy.display.catchment_report.cli import (
+        add_catchment_report_arguments,
+        print_catchment_report_result,
+        run_catchment_report_from_args,
+    )
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--report-config", type=Path, required=True)
-    parser.add_argument(
-        "--preset",
-        choices=sorted({"generic_catchment_report", "nancon_reference", "generic", "nancon"}),
-        default=None,
-        help="Override the catchment report preset declared in the TOML.",
-    )
-    parser.add_argument(
-        "--run-overview",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Run the configured overview before building context/report artifacts.",
-    )
-    parser.add_argument(
-        "--run-simulation",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Run the configured simulation before building context/report artifacts.",
-    )
-    parser.add_argument(
-        "--no-context",
-        dest="build_context_artifacts",
-        action="store_false",
-        default=None,
-        help="Skip context artifact generation.",
-    )
-    parser.add_argument(
-        "--no-report",
-        dest="build_report_html",
-        action="store_false",
-        default=None,
-        help="Skip final HTML report generation.",
-    )
-    parser.add_argument(
-        "--with-lock",
-        dest="no_lock",
-        action="store_false",
-        default=None,
-        help="Do not pass --no-lock to hydromodpy run.",
-    )
-    parser.add_argument(
-        "--stream-run-logs",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Stream logs from optional hydromodpy run steps.",
+    add_catchment_report_arguments(
+        parser,
+        report_config_option=True,
+        include_legacy_skip_aliases=True,
     )
     args = parser.parse_args(argv)
-    result = run_catchment_report_pipeline(
-        args.report_config,
-        preset=preset_from_name(args.preset) if args.preset else None,
-        run_overview=args.run_overview,
-        run_simulation=args.run_simulation,
-        build_context_artifacts=args.build_context_artifacts,
-        build_report_html=args.build_report_html,
-        no_lock=args.no_lock,
-        stream_run_logs=args.stream_run_logs,
-    )
-    if result.overview_config is not None:
-        print(f"overview_config={result.overview_config}")
-    if result.simulation_config is not None:
-        print(f"simulation_config={result.simulation_config}")
-    if result.context_summary is not None:
-        print(f"context_summary={result.context_summary}")
-    if result.html_report is not None:
-        print(f"html_report={result.html_report}")
+    try:
+        result = run_catchment_report_from_args(args)
+    except ValueError as exc:
+        parser.error(str(exc))
+    print_catchment_report_result(result)
     return 0
 
 

@@ -5,6 +5,9 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from hydromodpy.spatial.site_selection.station_influence import (
+    station_influence_diagnostics,
+)
 from hydromodpy.spatial.site_selection.types import (
     ObservationEvidence,
     ObservationSpatialMatch,
@@ -129,6 +132,13 @@ def _evidence_from_prefixed_attributes(
     }
     if x is not None and y is not None:
         evidence_json["provider_location"] = {"x": x, "y": y, "crs": crs or ""}
+    influence = station_influence_diagnostics(attributes)
+    evidence_json["station_influence"] = {
+        "status": influence.status,
+        "flags": list(influence.flags),
+        "matched_keywords": list(influence.matched_keywords),
+        "raw_fields": dict(influence.raw_fields),
+    }
 
     return ObservationEvidence(
         site_id=site_id,
@@ -146,7 +156,8 @@ def _evidence_from_prefixed_attributes(
             attributes,
             *(f"{prefix}_influence_status" for prefix in prefixes),
         )
-        or "unknown",
+        or influence.status,
+        influence_flags=influence.flags,
         evidence_json=evidence_json,
     )
 

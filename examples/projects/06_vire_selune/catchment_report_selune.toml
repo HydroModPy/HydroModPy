@@ -14,10 +14,12 @@ transient_config_name = "run_selune_nwt_report.toml"
 overview_config_name = "overview_selune.toml"
 
 [pipeline]
+run_overview = true
 run_simulation = true
 build_context_artifacts = true
 build_report_html = true
 stream_run_logs = false
+strict_figure_postflight = false
 
 [context.observed_discharge]
 path = "../../data/hydrometry/hydrometry_hubeau_I922102001_20200101_20201231_D.csv"

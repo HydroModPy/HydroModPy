@@ -42,6 +42,8 @@ def test_observation_evidence_from_hubeau_point_record_separates_provider_and_sp
                 "station_name": "La Riviere a Exemple",
                 "city": "Exemple",
                 "department": "Ille-et-Vilaine",
+                "influence_generale_site": "1",
+                "commentaire_influence_generale_site": "Retenue en amont.",
             },
         ),
     )
@@ -64,9 +66,17 @@ def test_observation_evidence_from_hubeau_point_record_separates_provider_and_sp
     assert evidence.feature_label == "La Riviere a Exemple"
     assert evidence.distance_to_outlet_km == pytest.approx(0.25)
     assert evidence.inside_basin is True
-    assert evidence.influence_status == "unknown"
+    assert evidence.influence_status == "general_influence"
+    assert evidence.influence_flags == [
+        "general_influence",
+        "general_influence_comment_keyword",
+    ]
     assert evidence.upstream_dam_count is None
     assert evidence.evidence_json["provider_metadata"]["department"] == "Ille-et-Vilaine"
+    assert (
+        evidence.evidence_json["station_influence"]["raw_fields"]["influence_generale_site"]
+        == "1"
+    )
     assert evidence.evidence_json["provider_location"]["crs"] == "EPSG:4326"
 
 
@@ -110,6 +120,7 @@ def test_build_observation_evidence_from_attributes_supports_imported_station_po
             "flow_station_record_years": "9.0",
             "station_to_outlet_distance_km": "0.12",
             "station_inside_or_at_outlet": "true",
+            "flow_station_influence_locale_station": "1",
             "piezometer_id": "PZB0001",
             "piezometer_label": "Piezometre fixture",
             "piezometer_x": "266000",
@@ -124,4 +135,5 @@ def test_build_observation_evidence_from_attributes_supports_imported_station_po
     assert flow.feature_id == "J100000001"
     assert flow.distance_to_outlet_km == pytest.approx(0.12)
     assert flow.inside_basin is True
+    assert flow.influence_status == "local_influence"
     assert flow.evidence_json["provider_location"]["crs"] == "EPSG:2154"

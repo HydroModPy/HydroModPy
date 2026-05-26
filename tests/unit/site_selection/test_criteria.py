@@ -14,6 +14,7 @@ from hydromodpy.spatial.site_selection.criteria import (
     evaluate_geology_criterion,
     evaluate_influence_criterion,
     evaluate_piezometer_criterion,
+    evaluate_station_influence_criterion,
 )
 
 
@@ -160,6 +161,133 @@ def test_evaluate_influence_hard_reject_blocks_major_dam_flag():
     assert component.criterion_status == "failed"
     assert component.blocking is True
     assert component.criterion_id == "influence"
+
+
+@pytest.mark.fast
+def test_evaluate_station_influence_warning_flags_hubeau_general_influence():
+    cfg = ObservationsCriteriaConfig.model_validate(
+        {
+            "station_influence": {
+                "mode": "warning",
+            }
+        }
+    )
+
+    component = evaluate_station_influence_criterion(
+        site_id="site_001",
+        attributes={
+            "flow_station_id": "J123456701",
+            "influence_generale_site": "1",
+        },
+        config=cfg,
+        selection_principle="observation_led",
+        evaluation_order=2,
+    )
+
+    assert component.criterion_status == "warning"
+    assert component.blocking is False
+    assert component.raw_value == "general_influence"
+    assert "general hydrologic influence" in component.reason
+    assert component.evidence_json["evidence_ref"] == "flow_station:site_001:J123456701"
+
+
+@pytest.mark.fast
+def test_evaluate_station_influence_hard_reject_can_block_general_influence():
+    cfg = ObservationsCriteriaConfig.model_validate(
+        {
+            "station_influence": {
+                "mode": "hard_reject",
+            }
+        }
+    )
+
+    component = evaluate_station_influence_criterion(
+        site_id="site_001",
+        attributes={
+            "flow_station_id": "J123456701",
+            "flow_station_influence_generale_site": "oui",
+        },
+        config=cfg,
+        selection_principle="observation_led",
+        evaluation_order=2,
+    )
+
+    assert component.criterion_status == "failed"
+    assert component.blocking is True
+
+
+@pytest.mark.fast
+def test_evaluate_station_influence_passes_explicit_no_known_influence():
+    cfg = ObservationsCriteriaConfig.model_validate(
+        {
+            "station_influence": {
+                "mode": "warning",
+            }
+        }
+    )
+
+    component = evaluate_station_influence_criterion(
+        site_id="site_001",
+        attributes={
+            "flow_station_id": "J123456701",
+            "influence_generale_site": "0",
+        },
+        config=cfg,
+        selection_principle="observation_led",
+        evaluation_order=2,
+    )
+
+    assert component.criterion_status == "passed"
+    assert component.blocking is False
+
+
+@pytest.mark.fast
+def test_evaluate_station_influence_unknown_policy_can_warn():
+    cfg = ObservationsCriteriaConfig.model_validate(
+        {
+            "station_influence": {
+                "mode": "warning",
+                "unknown_policy": "warning",
+            }
+        }
+    )
+
+    component = evaluate_station_influence_criterion(
+        site_id="site_001",
+        attributes={"flow_station_id": "J123456701"},
+        config=cfg,
+        selection_principle="observation_led",
+        evaluation_order=2,
+    )
+
+    assert component.criterion_status == "warning"
+    assert "missing" in component.reason
+
+
+@pytest.mark.fast
+def test_evaluate_station_influence_comment_keyword_warns():
+    cfg = ObservationsCriteriaConfig.model_validate(
+        {
+            "station_influence": {
+                "mode": "warning",
+            }
+        }
+    )
+
+    component = evaluate_station_influence_criterion(
+        site_id="site_001",
+        attributes={
+            "flow_station_id": "J123456701",
+            "commentaire_station": "Station proche d'une retenue.",
+        },
+        config=cfg,
+        selection_principle="observation_led",
+        evaluation_order=2,
+    )
+
+    assert component.criterion_status == "warning"
+    assert component.raw_value == "local_influence"
+    assert "retenue" in component.evidence_json["matched_keywords"]
 
 
 @pytest.mark.fast

@@ -139,6 +139,7 @@ def build_catchment_report(config: CatchmentReportConfig) -> Path:
         output_dir,
         copied,
         site_label=config.site_label,
+        expected_figure_ids=(spec.figure_id for spec in artifact_specs),
         context_summary=config.context_summary,
         context_assets=config.context_assets,
         overview_figures=config.overview_figures,

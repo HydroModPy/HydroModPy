@@ -71,6 +71,7 @@ def test_write_report_page_renders_metrics_tables_and_figures(tmp_path: Path) ->
     assert "Metadonnees" in html
     assert "Source" in html
     assert "figure" in html
+    assert all(line == line.rstrip() for line in html.splitlines())
 
 
 def test_write_report_page_with_block_variants_renders_per_block_controls(
@@ -109,3 +110,4 @@ def test_write_report_page_with_block_variants_renders_per_block_controls(
     assert "hydromodpy:block-level:" in html
     assert "Debit observe" in html
     assert "Debit simule" in html
+    assert all(line == line.rstrip() for line in html.splitlines())

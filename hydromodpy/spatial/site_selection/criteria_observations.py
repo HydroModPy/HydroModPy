@@ -15,6 +15,9 @@ from hydromodpy.spatial.site_selection.criteria_common import (
 from hydromodpy.spatial.site_selection.evidence_refs import (
     observation_evidence_ref,
 )
+from hydromodpy.spatial.site_selection.station_influence import (
+    station_influence_diagnostics,
+)
 
 
 def evaluate_flow_station_criterion(
@@ -197,6 +200,143 @@ def evaluate_flow_station_criterion(
     )
 
 
+def evaluate_station_influence_criterion(
+    *,
+    site_id: str,
+    attributes: dict[str, Any],
+    config: ObservationsCriteriaConfig,
+    selection_principle: str,
+    evaluation_order: int,
+) -> CriteriaComponent:
+    """Evaluate hydrologic influence metadata attached to a flow station."""
+
+    detail = config.station_influence
+    mode = detail.mode
+    diagnostics = station_influence_diagnostics(
+        attributes,
+        comment_keywords=detail.comment_keywords,
+    )
+    station_id = _first_text(
+        attributes,
+        "flow_station_id",
+        "hydro_station_id",
+        "station_id",
+        "source_feature_id",
+    )
+    evidence = {
+        "source_dataset": detail.source,
+        "provider_source": attributes.get("provider_source"),
+        "source_feature_id": station_id,
+        "station_influence_status": diagnostics.status,
+        "station_influence_flags": list(diagnostics.flags),
+        "station_influence_raw_fields": dict(diagnostics.raw_fields),
+        "matched_keywords": list(diagnostics.matched_keywords),
+        "unknown_policy": detail.unknown_policy,
+        "evidence_ref": observation_evidence_ref(
+            site_id=site_id,
+            observation_type="flow_station",
+            feature_id=station_id,
+        ),
+    }
+    has_evidence = diagnostics.has_raw_evidence
+    issues = _station_influence_issues(
+        status=diagnostics.status,
+        flags=diagnostics.flags,
+        has_evidence=has_evidence,
+        detail=detail,
+    )
+
+    if mode == "report_only":
+        return CriteriaComponent(
+            site_id=site_id,
+            selection_principle=selection_principle,
+            criterion_id="station_influence",
+            criterion_family="observations",
+            criterion_mode=mode,
+            evaluation_stage="criteria",
+            evaluation_order=evaluation_order,
+            criterion_status="reported" if has_evidence else "missing",
+            raw_value=diagnostics.status,
+            reason=(
+                "station influence metadata reported without automatic decision"
+                if has_evidence
+                else "station influence metadata is missing"
+            ),
+            evidence_json=evidence,
+        )
+
+    if mode == "score":
+        score = _station_influence_score(diagnostics.status)
+        return CriteriaComponent(
+            site_id=site_id,
+            selection_principle=selection_principle,
+            criterion_id="station_influence",
+            criterion_family="observations",
+            criterion_mode=mode,
+            evaluation_stage="criteria",
+            evaluation_order=evaluation_order,
+            criterion_status="scored" if has_evidence else "missing",
+            raw_value=diagnostics.status,
+            threshold="non_influenced_station",
+            weight=1.0 if has_evidence else None,
+            score_component=score if has_evidence else None,
+            reason=(
+                "station influence metadata scored"
+                if has_evidence
+                else "station influence metadata is missing for score mode"
+            ),
+            evidence_json=evidence,
+        )
+
+    if mode == "stratify":
+        return CriteriaComponent(
+            site_id=site_id,
+            selection_principle=selection_principle,
+            criterion_id="station_influence",
+            criterion_family="observations",
+            criterion_mode=mode,
+            evaluation_stage="criteria",
+            evaluation_order=evaluation_order,
+            criterion_status="stratified" if has_evidence else "missing",
+            raw_value=diagnostics.status,
+            reason=(
+                "station influence metadata available for stratification"
+                if has_evidence
+                else "station influence metadata is missing"
+            ),
+            evidence_json=evidence,
+        )
+
+    failed = bool(issues)
+    if failed:
+        status = "failed" if mode == "hard_reject" else "warning"
+    elif diagnostics.status == "no_known_influence":
+        status = "passed"
+    elif not has_evidence:
+        status = "missing"
+    else:
+        status = "reported"
+    return CriteriaComponent(
+        site_id=site_id,
+        selection_principle=selection_principle,
+        criterion_id="station_influence",
+        criterion_family="observations",
+        criterion_mode=mode,
+        evaluation_stage="criteria",
+        evaluation_order=evaluation_order,
+        criterion_status=status,
+        raw_value=diagnostics.status,
+        threshold="non_influenced_station",
+        blocking=failed and mode == "hard_reject",
+        reason=(
+            "; ".join(issues)
+            if issues
+            else _station_influence_pass_reason(diagnostics.status, has_evidence)
+        ),
+        evidence_json=evidence,
+    )
+
+
 def evaluate_piezometer_criterion(
     *,
     site_id: str,
@@ -357,7 +497,50 @@ def _flow_station_threshold_label(
     return "; ".join(parts)
 
 
+def _station_influence_issues(
+    *,
+    status: str,
+    flags: list[str],
+    has_evidence: bool,
+    detail: Any,
+) -> list[str]:
+    issues: list[str] = []
+    if status == "general_influence" and detail.warn_if_general_influence:
+        issues.append("station has general hydrologic influence metadata")
+    elif status == "local_influence" and detail.warn_if_local_influence:
+        issues.append("station has local hydrologic influence metadata")
+
+    if detail.warn_if_comment_keyword and any(flag.endswith("_keyword") for flag in flags):
+        if not issues:
+            issues.append("station comments mention possible hydraulic influence")
+
+    if not has_evidence and detail.unknown_policy == "warning":
+        issues.append("station influence metadata is missing")
+    elif status == "unknown" and detail.unknown_policy == "warning":
+        issues.append("station influence status is unknown")
+    return issues
+
+
+def _station_influence_score(status: str) -> float:
+    if status == "no_known_influence":
+        return 1.0
+    if status == "unknown":
+        return 0.5
+    return 0.0
+
+
+def _station_influence_pass_reason(status: str, has_evidence: bool) -> str:
+    if status == "no_known_influence":
+        return "station influence metadata reports no known influence"
+    if not has_evidence:
+        return "station influence metadata is missing"
+    if status == "unknown":
+        return "station influence status is unknown"
+    return "station influence metadata reported"
+
+
 __all__ = [
     "evaluate_flow_station_criterion",
     "evaluate_piezometer_criterion",
+    "evaluate_station_influence_criterion",
 ]

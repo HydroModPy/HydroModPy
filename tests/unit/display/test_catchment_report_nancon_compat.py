@@ -58,9 +58,16 @@ def _write_nancon_cli_report_config(config_path: Path, output_dir: Path) -> None
                 f'overview_config_name = "{inputs.overview_config.name}"',
                 "",
                 "[pipeline]",
+                f"run_overview = {str(inputs.pipeline_run_overview).lower()}",
                 f"run_simulation = {str(inputs.pipeline_run_simulation).lower()}",
                 f"build_context_artifacts = {str(inputs.pipeline_build_context_artifacts).lower()}",
                 f"build_report_html = {str(inputs.pipeline_build_report_html).lower()}",
+                "context_builder_command = [",
+                *(
+                    f'  "{item}",'
+                    for item in (inputs.pipeline_context_builder_command or ())
+                ),
+                "]",
                 "",
             ]
         ),
@@ -163,7 +170,11 @@ def test_nancon_inputs_can_be_derived_from_project_layout() -> None:
         context_summary_name="nancon_gauged_context_summary.json",
         allow_gallery_fallbacks=False,
         preset_name="nancon_reference",
-        pipeline_build_context_artifacts=False,
+        overview_config_name="run_overview_all_apis.toml",
+        pipeline_run_overview=True,
+        pipeline_run_simulation=True,
+        pipeline_build_context_artifacts=True,
+        pipeline_context_builder_command=NANCON_REPORT_INPUTS.pipeline_context_builder_command,
     )
 
     assert derived == NANCON_REPORT_INPUTS
@@ -193,6 +204,7 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
     )
     assert inputs.observed_discharge_station_id == "I922102001"
     assert inputs.preset_name is None
+    assert inputs.pipeline_run_overview is True
     assert inputs.pipeline_run_simulation is True
     assert inputs.pipeline_build_context_artifacts is True
     assert inputs.pipeline_build_report_html is True

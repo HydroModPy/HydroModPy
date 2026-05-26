@@ -93,7 +93,8 @@ fixtures, catalogs and frozen data extracts, not for direct provider access.
 - `criteria.py`: compatibility facade for criterion evaluators.
 - `criteria_common.py`: shared `CriteriaComponent` and parsing helpers.
 - `criteria_area.py`: basin-area criterion.
-- `criteria_observations.py`: flow-station and piezometer criteria.
+- `criteria_observations.py`: flow-station, station-influence and piezometer
+  criteria.
 - `criteria_influence.py`: anthropic-influence criterion.
 - `criteria_geology.py`: geology criterion.
 - `evidence_refs.py`: stable references linking decisions to evidence rows.
@@ -354,6 +355,8 @@ The current criterion layer is intentionally extensible:
   report-only attribute;
 - flow-station evidence can check record length, station-to-outlet distance and
   whether the station is inside or at the outlet;
+- station-influence evidence can use hydrometry station metadata to warn or
+  reject stations whose site or station is explicitly reported as influenced;
 - piezometer evidence can be reported, scored, warned on, stratified or used as
   a hard criterion through `piezometer_mode`;
 - influence checks consume explicit flags such as upstream dam, major
@@ -365,6 +368,12 @@ Unknown influence evidence is not treated as a hard rejection by default. A
 hard rejection is applied only when a configured rejection flag is explicitly
 present. This avoids silently discarding candidates because a regional data
 layer has not yet been loaded.
+
+For station-led campaigns, `station_influence` is a hydrometric metadata check.
+It is useful for filtering stations whose own reference metadata reports a
+local or general hydrologic influence. It is not a substitute for a spatial
+obstacle inventory such as ROE: it cannot prove that no dam exists upstream of
+the delineated basin.
 
 ## Short-Term Profiles
 

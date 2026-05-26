@@ -83,6 +83,48 @@ def test_select_delineated_catchments_rejects_configured_major_influence():
 
 
 @pytest.mark.fast
+def test_select_delineated_catchments_rejects_configured_station_influence():
+    influenced = DelineatedCatchment(
+        site_id="station_influenced",
+        outlet=CandidateOutlet(
+            "station_influenced",
+            0.0,
+            0.0,
+            "EPSG:2154",
+            "hubeau_hydrometrie",
+            source_feature_id="J123456701",
+            attributes={
+                "flow_station_id": "J123456701",
+                "influence_generale_site": "1",
+            },
+        ),
+        area_km2=100.0,
+    )
+
+    result = select_delineated_catchments(
+        [influenced, _catchment("ok", 100.0)],
+        criteria=CriteriaConfig.model_validate(
+            {
+                "area": {"mode": "report_only"},
+                "observations": {
+                    "station_influence": {
+                        "mode": "hard_reject",
+                    },
+                },
+            }
+        ),
+        spatial_selection=SpatialSelectionConfig(),
+        selection_principle="observation_led",
+    )
+
+    assert [catchment.site_id for catchment in result.selected] == ["ok"]
+    rejected_decision = next(
+        decision for decision in result.decisions if decision.site_id == "station_influenced"
+    )
+    assert rejected_decision.blocking_flags == ["station_influence"]
+
+
+@pytest.mark.fast
 def test_select_delineated_catchments_keeps_piezometer_warning_auditable():
     catchment = DelineatedCatchment(
         site_id="far_piezometer",

@@ -5,6 +5,7 @@ import pytest
 from hydromodpy.spatial.site_selection.config import (
     AreaCriteriaConfig,
     DemAreaLightConfig,
+    ObservationsCriteriaConfig,
     OutletsConfig,
     SiteSelectionConfig,
     StrategyConfig,
@@ -188,6 +189,21 @@ def test_gauged_downstream_station_profile_requires_flow_station(tmp_path):
                 },
             }
         )
+
+
+@pytest.mark.fast
+def test_station_influence_config_normalizes_report_alias():
+    cfg = ObservationsCriteriaConfig.model_validate(
+        {
+            "station_influence": {
+                "mode": "report",
+                "unknown_policy": "warning",
+            }
+        }
+    )
+
+    assert cfg.station_influence.mode == "report_only"
+    assert cfg.station_influence.unknown_policy == "warning"
 
 
 @pytest.mark.fast

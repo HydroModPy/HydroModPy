@@ -61,7 +61,7 @@ def build_context(inputs: CatchmentReportInputs) -> Path:
     simulated = _read_series(inputs.simulation_export)
     observed = (
         _read_series(inputs.observed_discharge_path)
-        if inputs.observed_discharge_path is not None
+        if inputs.observed_discharge_path is not None and inputs.observed_discharge_path.exists()
         else None
     )
     _write_timeseries(context_dir, simulated, observed)
