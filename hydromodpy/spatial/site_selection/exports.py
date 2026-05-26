@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hydromodpy.spatial.site_selection.decisions import (
+    aggregate_site_selection_decisions,
+    decision_records_from_selection_result,
+    write_decision_records_jsonl,
+    write_site_decision_summary_csv,
+)
 from hydromodpy.spatial.site_selection.exports_geojson import (
     write_basins_geojson,
     write_observation_points_geojson,
@@ -127,6 +133,16 @@ def write_selection_result(
         root / "criteria_components.jsonl",
         result.criteria_components,
     )
+    decision_records = decision_records_from_selection_result(result, run_id=selection_id)
+    decision_summaries = aggregate_site_selection_decisions(decision_records)
+    paths["site_selection_decisions_csv"] = write_site_decision_summary_csv(
+        root / "site_selection_decisions.csv",
+        decision_summaries,
+    )
+    paths["site_selection_decisions_jsonl"] = write_decision_records_jsonl(
+        root / "site_selection_decisions.jsonl",
+        decision_records,
+    )
     return paths
 
 
@@ -147,7 +163,9 @@ __all__ = [
     "write_selection_geopackage",
     "write_selection_geoparquet_layers",
     "write_outlets_geojson",
+    "write_decision_records_jsonl",
     "write_regional_lab_sites_csv",
     "write_selected_sites_csv",
+    "write_site_decision_summary_csv",
     "write_selection_result",
 ]

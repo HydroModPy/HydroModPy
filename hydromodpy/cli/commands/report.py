@@ -82,12 +82,14 @@ def register(subparsers) -> argparse.ArgumentParser:
     )
     catchment_p.add_argument(
         "--run-overview",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Run the configured overview before building report artifacts.",
     )
     catchment_p.add_argument(
         "--run-simulation",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Run the configured simulation before building report artifacts.",
     )
     catchment_p.add_argument(
@@ -104,6 +106,12 @@ def register(subparsers) -> argparse.ArgumentParser:
         "--with-lock",
         action="store_true",
         help="Do not pass --no-lock to the optional hydromodpy run steps.",
+    )
+    catchment_p.add_argument(
+        "--stream-run-logs",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Stream logs from optional hydromodpy run steps.",
     )
     catchment_p.add_argument(
         "--preset",
@@ -200,14 +208,24 @@ def _cmd_catchment(args: argparse.Namespace) -> None:
         )
         sys.exit(EXIT_CONFIG)
 
+    build_context_artifacts = None
+    build_report_html = None
+    if args.context_only:
+        build_context_artifacts = True
+        build_report_html = False
+    elif args.report_only:
+        build_context_artifacts = False
+        build_report_html = True
+
     result = run_catchment_report_pipeline(
         args.report_config,
         preset=preset_from_name(args.preset) if args.preset else None,
         run_overview=args.run_overview,
         run_simulation=args.run_simulation,
-        build_context_artifacts=not args.report_only,
-        build_report_html=not args.context_only,
-        no_lock=not args.with_lock,
+        build_context_artifacts=build_context_artifacts,
+        build_report_html=build_report_html,
+        no_lock=False if args.with_lock else None,
+        stream_run_logs=args.stream_run_logs,
     )
     if result.overview_config is not None:
         print(f"overview_config={result.overview_config}")

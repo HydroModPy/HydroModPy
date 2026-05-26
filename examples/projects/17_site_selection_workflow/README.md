@@ -247,6 +247,9 @@ La sortie ecrit notamment:
 - `rejected_basins.geojson` ;
 - `criteria_components.jsonl` ;
 - `selection_decisions.jsonl` ;
+- `site_selection_decisions.csv` ;
+- `site_selection_decisions.jsonl` ;
+- `site_selection_evidence.jsonl` si des preuves normalisees existent ;
 - `site_selection_manifest.json`.
 
 Le rapport HTML est derive du manifest et des artefacts ci-dessus. Il est active

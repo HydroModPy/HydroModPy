@@ -149,6 +149,9 @@ Every executed run writes:
 
 - ``selection_decisions.jsonl``;
 - ``criteria_components.jsonl``;
+- ``site_selection_decisions.csv``;
+- ``site_selection_decisions.jsonl``;
+- ``site_selection_evidence.jsonl`` when normalized evidence exists;
 - ``site_selection_manifest.json``;
 - ``selected_sites.csv`` and ``rejected_sites.csv``;
 - ``regional_lab_sites.csv``;

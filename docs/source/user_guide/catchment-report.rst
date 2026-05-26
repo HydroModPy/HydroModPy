@@ -5,16 +5,21 @@ Catchment HTML Reports
 from a single report TOML. The command is intentionally separate from the
 simulation TOML: the simulation TOML produces model outputs, while the report
 TOML declares where to find the overview, context, simulation, and report
-artifacts.
+artifacts. The optional ``[pipeline]`` section can also command which steps are
+executed, including simulation relaunch and final HTML creation.
 
 Standard command
 ----------------
 
-Build context artifacts and the final HTML from existing simulation outputs:
+Build according to the report TOML pipeline defaults:
 
 .. code-block:: bash
 
    hmp report catchment path/to/catchment_report.toml
+
+If ``[pipeline].run_simulation = true`` and
+``[pipeline].build_report_html = true``, this single command relaunches the
+configured simulation and then produces the HTML report from its outputs.
 
 Only rebuild the final HTML from existing context artifacts:
 
@@ -33,6 +38,16 @@ Run the configured simulation first, then rebuild context and HTML:
 .. code-block:: bash
 
    hmp report catchment path/to/catchment_report.toml --run-simulation
+
+After the simulation command completes, the report pipeline checks that the
+expected ``exports/<simulation_name>/timeseries.csv`` file and
+``figures/<simulation_name>`` directory exist under the configured simulation
+workspace. If they do not, the report TOML and the simulation TOML are not
+pointing at the same run outputs.
+
+By default, logs from these optional ``hmp run`` steps are captured so the
+report command only prints the generated report paths. Use
+``--stream-run-logs`` to stream the full simulation logs to the console.
 
 Run the configured overview first:
 
@@ -129,6 +144,42 @@ Optional ``[layout]`` fields:
      - Overview TOML file name under ``data_overview_project_dir``. Defaults to
        ``config_overview.toml``.
 
+Pipeline fields
+---------------
+
+The optional ``[pipeline]`` section controls which steps are executed when no
+CLI override is supplied.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 18 54
+
+   * - Field
+     - Default
+     - Meaning
+   * - ``run_overview``
+     - ``false``
+     - Run the configured overview TOML before context/report production.
+   * - ``run_simulation``
+     - ``false``
+     - Run the configured simulation TOML before context/report production.
+   * - ``build_context_artifacts``
+     - ``true``
+     - Build the context JSON, context HTML and context images.
+   * - ``build_report_html``
+     - ``true``
+     - Build the final catchment HTML report.
+   * - ``no_lock``
+     - ``true``
+     - Pass ``--no-lock`` to the optional ``hmp run`` steps.
+   * - ``stream_run_logs``
+     - ``false``
+     - Stream logs from optional ``hmp run`` steps instead of capturing them.
+
+CLI flags override these TOML defaults. For example,
+``--no-run-simulation`` rebuilds the context and HTML without relaunching a
+simulation even when ``run_simulation = true`` in the TOML.
+
 Observed discharge
 ------------------
 
@@ -161,6 +212,12 @@ Minimal generic example
    simulation_name = "selune_nwt_report"
    transient_config_name = "run_selune_nwt_report.toml"
 
+   [pipeline]
+   run_simulation = true
+   build_context_artifacts = true
+   build_report_html = true
+   stream_run_logs = false
+
    [context.observed_discharge]
    path = "../../data/hydrometry/hydrometry_hubeau_I922102001_20200101_20201231_D.csv"
    station_id = "I922102001"
@@ -189,6 +246,11 @@ preset:
    context_summary_name = "nancon_gauged_context_summary.json"
    transient_config_name = "run_transient_nwt.toml"
    overview_config_name = "config_overview.toml"
+
+   [pipeline]
+   run_simulation = false
+   build_context_artifacts = false
+   build_report_html = true
 
 This preset exists only to preserve the validated reference layout and labels.
 New basins should normally omit ``preset`` and use the generic default.

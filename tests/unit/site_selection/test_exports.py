@@ -82,6 +82,8 @@ def test_write_selection_result_outputs_core_files(tmp_path):
     assert paths["selected_outlets_geojson"].is_file()
     assert paths["selected_basins_geojson"].is_file()
     assert paths["criteria_components_jsonl"].is_file()
+    assert paths["site_selection_decisions_csv"].is_file()
+    assert paths["site_selection_decisions_jsonl"].is_file()
 
     with paths["regional_lab_sites_csv"].open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
@@ -90,6 +92,19 @@ def test_write_selection_result_outputs_core_files(tmp_path):
 
     first_component = json.loads(paths["criteria_components_jsonl"].read_text().splitlines()[0])
     assert first_component["criterion_id"] == "area"
+
+    decision_records = [
+        json.loads(line)
+        for line in paths["site_selection_decisions_jsonl"].read_text().splitlines()
+    ]
+    assert {record["criterion_id"] for record in decision_records} == {
+        "area",
+        "final_selection",
+    }
+    with paths["site_selection_decisions_csv"].open(newline="", encoding="utf-8") as handle:
+        summary_rows = list(csv.DictReader(handle))
+    assert summary_rows[0]["catchment_id"] == "site_001"
+    assert summary_rows[0]["global_decision"] == "ACCEPT"
 
     geojson = json.loads(paths["selected_outlets_geojson"].read_text(encoding="utf-8"))
     assert geojson["features"][0]["geometry"]["type"] == "Point"
@@ -188,6 +203,8 @@ def test_write_selection_result_honors_tabular_output_switches(tmp_path):
     assert paths["selected_basins_geojson"].is_file()
     assert paths["selection_decisions_jsonl"].is_file()
     assert paths["criteria_components_jsonl"].is_file()
+    assert paths["site_selection_decisions_csv"].is_file()
+    assert paths["site_selection_decisions_jsonl"].is_file()
 
 
 @pytest.mark.fast
