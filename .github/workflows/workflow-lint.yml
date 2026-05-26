@@ -4,12 +4,12 @@ name: CI / Workflow Lint
 
 on:
   push:
-    branches: [master, dev]
+    branches: [main, dev]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
   pull_request:
-    branches: [master, dev]
+    branches: [main, dev]
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"

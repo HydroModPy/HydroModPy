@@ -10,8 +10,8 @@ contributor opens the logs.
 Main CI gate
 ------------
 
-``CI / Main Gate`` runs on every push and pull request targeting ``dev`` or
-``master``. For a direct-push workflow, this is the main signal to read after
+``CI / Main Gate`` runs on every push and pull request targeting ``main`` or
+``dev``. For a direct-push workflow, this is the main signal to read after
 each push. It replaces the older split between ``CI Fast`` and ``Tests``.
 
 .. list-table::
@@ -94,7 +94,7 @@ Scheduled workflows
 Scheduled workflows keep expensive or noisy checks out of the per-commit
 path.
 
-``Nightly / Linux Suites`` checks ``dev`` and ``master`` every night. It runs
+``Nightly / Linux Suites`` checks ``main`` and ``dev`` every night. It runs
 extensive regression tests, validation tests excluding PETSc, and integration
 coverage.
 
@@ -103,7 +103,7 @@ Sunday. It checks the supported Python versions across Linux, macOS, and
 Windows, then runs Linux end-to-end and full regression jobs.
 
 ``Docs / Nightly Refresh`` refreshes generated documentation artifacts on
-``dev`` and ``master`` and pushes only those generated outputs when they
+``main`` and ``dev`` and pushes only those generated outputs when they
 change.
 
 ``Solver / PETSc Smoke`` also has a Monday scheduled run because PETSc and

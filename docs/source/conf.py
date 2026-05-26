@@ -333,7 +333,7 @@ typehints_document_rtype = True
 issues_github_path = "HydroModPy/HydroModPy"
 
 rediraffe_redirects = "redirects.txt"
-rediraffe_branch = "master~1"
+rediraffe_branch = "main~1"
 
 # sphinx-favicon: declare logo variants used as favicon. Files live in
 # docs/source/_static/ and are copied via html_static_path.
@@ -343,7 +343,7 @@ favicons = [
 ]
 
 # sphinx-sitemap and sphinxext-opengraph: shared base URL for the public docs.
-html_baseurl = "https://hydromodpy.readthedocs.io/en/dev/"
+html_baseurl = "https://hydromodpy.readthedocs.io/en/main/"
 sitemap_url_scheme = "{link}"
 ogp_site_url = html_baseurl
 ogp_site_name = "HydroModPy"

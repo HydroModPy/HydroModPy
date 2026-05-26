@@ -24,8 +24,9 @@ Each release section includes the following standard categories:
 ### How to update it
 
 1. During development, document all notable changes under the **[Unreleased]** section.
-2. When creating a new release (e.g., `v0.1.1`), move that content into a new section
-   named `## [v0.1.1] - YYYY-MM-DD`.
+2. When creating a new release (e.g., `v1.1.0`, `v2.0.0a1`, `v2.0.0b1`,
+   or `v2.0.0rc1`), move that content into a new section named
+   `## [vX.Y.Z] - YYYY-MM-DD` or the matching pre-release tag.
 3. Keep the `[Unreleased]` section empty to start recording changes for the next release.
 
 ---
@@ -38,6 +39,11 @@ Each release section includes the following standard categories:
   `hydromodpy.config.schema_export` instead.
 
 ### Changed
+- Documented the release policy for SemVer/PEP 440 versions, alpha/beta/rc
+  pre-releases, the new `main` default line, the frozen `archive-v1` branch,
+  release branches, tags, and GitHub Releases.
+- Prepared the v2 line as `2.0.0a1` and updated project metadata, docs links,
+  source links, and GitHub workflow branch filters from `master` to `main`.
 - Per-simulation `timeseries`, `budgets`, and `mass_balance` rows now live as
   Parquet files under `simulations/<uuid>.parquet/` instead of DuckDB tables
   inside `hydromodpy.duckdb`. DuckDB views with the original table names

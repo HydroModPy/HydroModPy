@@ -6,14 +6,14 @@ name: Docker / Build Smoke
 
 on:
   push:
-    branches: [master, dev]
+    branches: [main, dev]
     paths:
       - "Dockerfile"
       - "pyproject.toml"
       - "hydromodpy/**"
       - ".github/workflows/docker-build.yml"
   pull_request:
-    branches: [master, dev]
+    branches: [main, dev]
     paths:
       - "Dockerfile"
       - "pyproject.toml"

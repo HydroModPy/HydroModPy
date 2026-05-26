@@ -20,7 +20,7 @@ on:
       - "validation_cases/shared/**"
       - "tools/ci/run_boussinesq_petsc_smoke.sh"
   push:
-    branches: [master, dev]
+    branches: [main, dev]
     paths:
       - ".github/workflows/petsc-smoke.yml"
       - "hydromodpy/solver/boussinesq/**"

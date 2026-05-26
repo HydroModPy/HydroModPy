@@ -9,7 +9,7 @@ and the project adheres to
 
 For the full history with every entry, see the file on GitHub:
 `CHANGELOG.md
-<https://github.com/HydroModPy/HydroModPy/blob/master/CHANGELOG.md>`_.
+<https://github.com/HydroModPy/HydroModPy/blob/main/CHANGELOG.md>`_.
 
 Recent releases
 ---------------
