@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import hydromodpy.workflow_dispatch as workflow_dispatch
 from hydromodpy.cli.commands.run import _infer_workflow_from_sections
+from hydromodpy.project.dispatch import workflow as project_workflow
 from hydromodpy.workflow.dispatch import KNOWN_WORKFLOWS, resolve_workflow
 
 
@@ -27,7 +27,7 @@ def test_site_selection_is_registered_workflow(tmp_path: Path):
     )
 
     assert "site_selection" in KNOWN_WORKFLOWS
-    assert "site_selection" in workflow_dispatch.DISPATCH
+    assert "site_selection" in project_workflow.DISPATCH
     assert resolve_workflow(config_path, cli_workflow=None, require_toml_field=True) == (
         "site_selection"
     )

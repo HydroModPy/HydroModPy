@@ -4,8 +4,8 @@ Each pipeline step records a row at start (status ``running``) and the runner
 finalises it at end (status ``completed`` / ``failed`` / ``aborted``). The
 journal is the source of truth for resume decisions: it stores stable
 ``inputs_hash`` / ``outputs_hash`` digests and the workspace-relative
-``artifact_uris`` written by the step. Live simulations also poke
-``simulations.last_heartbeat`` so that ``hmp gc`` can mark zombies failed.
+``artifact_uris`` written by the step. Live-simulation heartbeats are emitted
+through ``workflow_events`` by :class:`hydromodpy.workflow.heartbeat.HeartbeatPulse`.
 """
 
 from __future__ import annotations
@@ -220,17 +220,6 @@ class WorkflowJournal:
         ).fetchone()
         _ = result
         return int(count_row[0]) if count_row else 0
-
-    @with_lock_retry()
-    def update_heartbeat(self, sim_id: str) -> None:
-        """Refresh ``simulations.last_heartbeat`` for ``sim_id``."""
-        if not sim_id:
-            return
-        db = self._catalog.connection
-        db.execute(
-            "UPDATE simulations SET last_heartbeat = ? WHERE sim_id = ?",
-            [_utcnow(), sim_id],
-        )
 
     # ------------------------------------------------------------------
     # Hash helpers

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_USER_ABORT
+from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_SIGINT
 
 NAME: str = "delete"
 HELP: str = "Delete a project and its catalog data"
@@ -26,15 +26,15 @@ def run(args: argparse.Namespace) -> None:
     if not args.force:
         if not sys.stdin.isatty():
             print("Refusing to delete without --force in non-interactive mode.", file=sys.stderr)
-            sys.exit(EXIT_USER_ABORT)
+            sys.exit(EXIT_SIGINT)
         try:
             resp = input(f"Delete project {args.project!r}? [y/N] ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             print("\nAborted.", file=sys.stderr)
-            sys.exit(EXIT_USER_ABORT)
+            sys.exit(EXIT_SIGINT)
         if resp not in {"y", "yes"}:
             print("Aborted.", file=sys.stderr)
-            sys.exit(EXIT_USER_ABORT)
+            sys.exit(EXIT_SIGINT)
 
     try:
         result = delete_project(args.project, workspace=args.workspace, force=args.force)

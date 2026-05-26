@@ -33,6 +33,17 @@ def test_top_level_help_lists_every_subcommand(monkeypatch, capsys) -> None:
         assert name in out, f"'{name}' missing from --help"
 
 
+def test_legacy_init_alias_is_not_a_top_level_subcommand(monkeypatch, capsys) -> None:
+    assert "init" not in SUBCOMMANDS
+
+    code = _run_cli(monkeypatch, ["hmp", "init", "--help"])
+
+    assert code == 2
+    err = capsys.readouterr().err.lower()
+    assert "invalid choice" in err
+    assert "workspace" in err
+
+
 @pytest.mark.parametrize("name", SUBCOMMANDS)
 def test_subcommand_help_exits_zero(monkeypatch, capsys, name: str) -> None:
     code = _run_cli(monkeypatch, ["hmp", name, "--help"])
@@ -55,7 +66,7 @@ def test_completion_emits_script(monkeypatch, capsys, shell: str) -> None:
     out = capsys.readouterr().out
     assert "hmp" in out
     # Each completion script should mention at least one of our subcommands.
-    assert any(name in out for name in ("run", "init", "doctor"))
+    assert any(name in out for name in ("run", "workspace", "doctor"))
 
 
 def test_run_dry_run_lists_steps(monkeypatch, capsys, tmp_path) -> None:

@@ -99,7 +99,6 @@ Restent hors perimetre site-selection:
 1. Verifier le chemin Geoplateforme en test reseau/CLI controle.
 2. Decider le niveau de support RGE ALTI avant de declarer le chantier DEM
    completement clos.
-3. Faire une passe globale sur les autres compatibilites declarees comme
-   legacy (`workflow_dispatch`, aliases CLI, colonnes de heartbeat
-   historiques), a traiter dans un chantier separe car le risque de casse
-   publique est plus large.
+3. Les compatibilites workflow declarees comme legacy (`workflow_dispatch`,
+   hooks testbed et colonne historique de heartbeat) ont ete traitees dans
+   `docs/_dev_notes/workflow_legacy_cleanup_report.md`.

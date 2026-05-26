@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from hydromodpy.cli.helpers import EXIT_NOT_FOUND, EXIT_RUN_FAILED
+from hydromodpy.cli.helpers import EXIT_GENERIC, EXIT_NOT_FOUND
 
 NAME: str = "import"
 HELP: str = "Import a .hmp archive and dematerialise its bundled inputs"
@@ -38,13 +38,13 @@ def run(args: argparse.Namespace) -> None:
         )
     except InputCollisionError as exc:
         print(str(exc), file=sys.stderr)
-        sys.exit(EXIT_RUN_FAILED)
+        sys.exit(EXIT_GENERIC)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         sys.exit(EXIT_NOT_FOUND)
     except ValueError as exc:
         print(f"Import failed: {exc}", file=sys.stderr)
-        sys.exit(EXIT_RUN_FAILED)
+        sys.exit(EXIT_GENERIC)
 
     if args.dry_run:
         print(f"Dry-run OK. Archive would import sim {sim_id}")

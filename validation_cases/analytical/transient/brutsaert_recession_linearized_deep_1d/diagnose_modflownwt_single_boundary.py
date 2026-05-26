@@ -116,12 +116,11 @@ def _build_transient_flow(base_flow: Flow, *, recharge_value_m_s: float = 0.0) -
     return flow
 
 
-def _load_outlet_series(model_ws: Path) -> tuple[float, ...]:
-    """Return the saved east-side outlet discharge series as plain scalars."""
-    payload = np.load(
-        model_ws / "_postprocess" / f"{OUTLET_OBSERVABLE}.npy",
-        allow_pickle=True,
-    ).item()
+def _load_outlet_series(model) -> tuple[float, ...]:
+    """Return the computed east-side outlet discharge series as plain scalars."""
+    payload = getattr(model, f"dict_{OUTLET_OBSERVABLE}", None)
+    if not payload:
+        return ()
     ordered = sorted((int(key), np.asarray(value, dtype=float)) for key, value in payload.items())
     return tuple(float(np.asarray(value, dtype=float).reshape(-1)[0]) for _, value in ordered)
 
@@ -209,7 +208,7 @@ def _run_probe(
             )
         )
         model_ws = Path(model.full_path)
-        outlet_series = _load_outlet_series(model_ws)
+        outlet_series = _load_outlet_series(model)
         final_head = _load_restart_head(model_ws, model.model_name)
     else:
         model_ws = Path(model.full_path)

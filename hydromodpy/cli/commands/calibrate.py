@@ -12,7 +12,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_USER_ABORT
+from hydromodpy.cli.helpers import EXIT_CONFIG, EXIT_NOT_FOUND, EXIT_SIGINT
 
 NAME: str = "calibrate"
 HELP: str = "Run a calibration workflow from a TOML config"
@@ -40,7 +40,7 @@ def run(args: argparse.Namespace) -> None:
         result = hmp.calibrate(target)
     except KeyboardInterrupt:
         print("Aborted by user.", file=sys.stderr)
-        sys.exit(EXIT_USER_ABORT)
+        sys.exit(EXIT_SIGINT)
     except ValidationError as exc:
         print(f"Config invalid: {exc}", file=sys.stderr)
         sys.exit(EXIT_CONFIG)

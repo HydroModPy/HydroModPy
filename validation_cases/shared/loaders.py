@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
@@ -13,6 +14,46 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config, merge_toml_payloads
 
 logger = get_logger(__name__)
+
+
+def _legacy_npy_enabled() -> bool:
+    """Return whether legacy validation .npy loading is explicitly enabled."""
+    return os.environ.get("HMP_ALLOW_LEGACY_NPY_VALIDATION") == "1"
+
+
+def load_npy_dict(path: Path) -> dict:
+    """Load one legacy HydroModPy dictionary payload serialized as ``.npy``."""
+    if not _legacy_npy_enabled():
+        raise RuntimeError(
+            "Legacy validation .npy loading is disabled. Read validation outputs "
+            "through the result store, or set HMP_ALLOW_LEGACY_NPY_VALIDATION=1 "
+            "for archived pre-v1 artifacts."
+        )
+    return np.load(path, allow_pickle=True).item()
+
+
+def load_last_npy_array(postprocess_dir: Path, observable_name: str) -> tuple[int, np.ndarray]:
+    """Load the last timestep array from one legacy HydroModPy ``.npy`` output."""
+    payload = load_npy_dict(postprocess_dir / f"{observable_name}.npy")
+    assert payload, f"{observable_name}.npy is empty."
+    last_key = sorted(payload)[-1]
+    return int(last_key), np.asarray(payload[last_key], dtype=float)
+
+
+def load_npy_time_series_arrays(
+    postprocess_dir: Path,
+    observable_name: str,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Load one full legacy HydroModPy ``.npy`` time series as stacked arrays."""
+    payload = load_npy_dict(postprocess_dir / f"{observable_name}.npy")
+    assert payload, f"{observable_name}.npy is empty."
+
+    ordered_items = sorted(
+        (int(key), np.asarray(value, dtype=float)) for key, value in payload.items()
+    )
+    indices = np.asarray([key for key, _ in ordered_items], dtype=int)
+    arrays = np.stack([value for _, value in ordered_items], axis=0)
+    return indices, arrays
 
 
 def _aggregate_triangles_to_grid(

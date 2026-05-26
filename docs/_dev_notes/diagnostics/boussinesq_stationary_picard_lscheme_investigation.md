@@ -5,7 +5,7 @@
 This note documents proposal 1: a strict bounded Picard / L-scheme initializer for the
 stationary Boussinesq head problem.
 
-The prototype deliberately removes the previous numerical adaptations:
+The prototype deliberately removes the previous numerical adaptations
 
 - no minimum saturated-thickness floor;
 - no artificial surface or drainage conductance;

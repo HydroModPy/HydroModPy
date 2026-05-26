@@ -165,6 +165,39 @@ _LEGACY_FLAT_KEYS: frozenset[str] = frozenset(
 )
 
 
+def normalize_geographic_catchment_payload(data: Any) -> Any:
+    """Fold top-level catchment keys into the canonical ``catchment`` block.
+
+    This helper keeps the remaining flat-payload compatibility in one place
+    until committed TOML examples and fixtures have been migrated.
+    """
+    if not isinstance(data, dict):
+        return data
+
+    flat_keys = _LEGACY_FLAT_KEYS.intersection(data.keys())
+    if not flat_keys:
+        return data
+
+    new_data = dict(data)
+    nested = new_data.get("catchment")
+    if nested is None:
+        nested_payload: dict[str, Any] = {}
+    elif isinstance(nested, dict):
+        nested_payload = dict(nested)
+    else:
+        return data
+
+    for key in flat_keys:
+        value = new_data.pop(key)
+        if value is None:
+            continue
+        nested_payload.setdefault(key, value)
+
+    if nested_payload:
+        new_data["catchment"] = nested_payload
+    return new_data
+
+
 class RiverNetworkConfig(HydroModelBase):
     """Optional DEM-based river network extraction settings.
 
@@ -475,41 +508,8 @@ class GeographicConfig(HydroModelBase):
     @model_validator(mode="before")
     @classmethod
     def _remap_legacy_flat_payload(cls, data: Any) -> Any:
-        """Remap legacy flat ``catch_def`` payloads to the nested ``catchment`` form.
-
-        Supports two intake shapes for the catchment block:
-
-        * Legacy flat (TOML and Python kwargs): ``{catch_def, dem_init_path, ...}``
-          living at the top level of the geographic mapping.
-        * New nested: ``{catchment: {catch_def, dem_init_path, ...}}``.
-
-        When both are mixed, nested wins for already-set keys.
-        """
-        if not isinstance(data, dict):
-            return data
-
-        flat_keys = _LEGACY_FLAT_KEYS.intersection(data.keys())
-        if not flat_keys:
-            return data
-
-        new_data = dict(data)
-        nested = new_data.get("catchment")
-        if nested is None:
-            nested_payload: dict[str, Any] = {}
-        elif isinstance(nested, dict):
-            nested_payload = dict(nested)
-        else:
-            return data
-
-        for key in flat_keys:
-            value = new_data.pop(key)
-            if value is None:
-                continue
-            nested_payload.setdefault(key, value)
-
-        if nested_payload:
-            new_data["catchment"] = nested_payload
-        return new_data
+        """Remap flat ``catch_def`` payloads to the nested ``catchment`` form."""
+        return normalize_geographic_catchment_payload(data)
 
     @model_validator(mode="after")
     def _check_source_mode_payload(self, info: ValidationInfo) -> GeographicConfig:
@@ -538,4 +538,5 @@ __all__ = [
     "PolygonCatchDef",
     "RiverNetworkConfig",
     "TxtCatchDef",
+    "normalize_geographic_catchment_payload",
 ]

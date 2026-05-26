@@ -25,7 +25,7 @@ to audit the experiment.
 
 The CLI entry point lives outside this package:
 
-- `hydromodpy/workflow_dispatch.py::run_testbed`
+- `hydromodpy/project/dispatch/workflow.py::run_testbed`
 - `hydromodpy/cli/commands/run.py`
 
 ## Design Contract
@@ -244,8 +244,8 @@ Targeted checks:
 
 ```powershell
 python -m pytest tests/unit/launchers/test_testbed_launcher.py tests/unit/launchers/test_hmp_simulation_cli.py -q
-python -m ruff check hydromodpy/analysis/testbed hydromodpy/workflow_dispatch.py hydromodpy/workflow/dispatch.py hydromodpy/cli/commands/run.py tests/unit/launchers/test_testbed_launcher.py tests/unit/launchers/test_hmp_simulation_cli.py
-python -m compileall -q hydromodpy/analysis/testbed hydromodpy/workflow_dispatch.py hydromodpy/workflow/dispatch.py hydromodpy/cli/commands/run.py
+python -m ruff check hydromodpy/analysis/testbed hydromodpy/project/dispatch/workflow.py hydromodpy/workflow/dispatch.py hydromodpy/cli/commands/run.py tests/unit/launchers/test_testbed_launcher.py tests/unit/launchers/test_hmp_simulation_cli.py
+python -m compileall -q hydromodpy/analysis/testbed hydromodpy/project/dispatch/workflow.py hydromodpy/workflow/dispatch.py hydromodpy/cli/commands/run.py
 ```
 
 Example dry plans:

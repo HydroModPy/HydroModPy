@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -23,8 +22,6 @@ from hydromodpy.physics.flow.history_contract import (
     snapshot_elapsed_seconds_from_payload,
     step_end_elapsed_seconds_from_payload,
     step_history_from_history,
-    time_axis_sidecar_path,
-    write_time_series_npy,
 )
 from hydromodpy.physics.flow.sinks_sources import FlowEtpConfig
 from hydromodpy.physics.flow.structure_binders import (
@@ -67,7 +64,7 @@ def _point(values: list[float], *, x: float | None = None, y: float | None = Non
     )
 
 
-def test_history_contract_aligns_snapshots_and_step_histories(tmp_path: Path) -> None:
+def test_history_contract_aligns_snapshots_and_step_histories() -> None:
     axes = build_transient_time_axes([10.0, 20.0, 30.0])
 
     assert axes.n_steps == 3
@@ -88,21 +85,6 @@ def test_history_contract_aligns_snapshots_and_step_histories(tmp_path: Path) ->
 
     with pytest.raises(ValueError, match="expected 3 step rows"):
         step_history_from_history(np.zeros((2, 2)), n_steps=3, name="h")
-
-    payload_path = tmp_path / "history.npy"
-    write_time_series_npy(
-        payload_path,
-        np.asarray([[1.0, 2.0], [3.0, 4.0]]),
-        time_keys=[2, 5],
-        elapsed_seconds=[20.0, 50.0],
-    )
-    saved = np.load(payload_path, allow_pickle=True).item()
-    sidecar = np.load(time_axis_sidecar_path(payload_path), allow_pickle=True).item()
-    assert sorted(saved) == [2, 5]
-    assert sidecar["elapsed_seconds"].tolist() == [20.0, 50.0]
-
-    write_time_series_npy(payload_path, np.asarray([7.0, 8.0]), time_keys=[0, 1])
-    assert not time_axis_sidecar_path(payload_path).exists()
 
 
 def test_history_contract_payload_axes_validate_explicit_lengths() -> None:

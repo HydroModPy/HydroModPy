@@ -4,6 +4,9 @@ import pytest
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.spatial.geographic import GeographicConfig
+from hydromodpy.spatial.geographic.geographic_config import (
+    normalize_geographic_catchment_payload,
+)
 
 
 def test_geographic_config_txt_accepts_cell_size_with_unit_string():
@@ -15,6 +18,25 @@ def test_geographic_config_txt_accepts_cell_size_with_unit_string():
         }
     )
     assert float(cfg.cell_size) == pytest.approx(150.0)
+
+
+def test_geographic_flat_payload_normalization_is_centralized() -> None:
+    payload = {
+        "catch_def": "from_outlet_coord",
+        "dem_init_path": "dem.tif",
+        "x_outlet": 1.0,
+        "y_outlet": 2.0,
+        "snap_dist": "50 m",
+        "buff_area": "10%",
+        "catchment": {"buff_area": "20%"},
+    }
+
+    normalized = normalize_geographic_catchment_payload(payload)
+
+    assert "catch_def" not in normalized
+    assert normalized["catchment"]["catch_def"] == "from_outlet_coord"
+    assert normalized["catchment"]["dem_init_path"] == "dem.tif"
+    assert normalized["catchment"]["buff_area"] == "20%"
 
 
 def test_geographic_config_txt_accepts_cell_size_with_km_unit():

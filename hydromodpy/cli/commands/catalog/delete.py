@@ -8,7 +8,7 @@ from pathlib import Path
 
 from hydromodpy.cli.helpers import (
     EXIT_NOT_FOUND,
-    EXIT_USER_ABORT,
+    EXIT_SIGINT,
     find_catalog_root,
 )
 
@@ -40,15 +40,15 @@ def run(args: argparse.Namespace) -> None:
     if not args.yes:
         if not sys.stdin.isatty():
             print("Refusing to delete without -y in non-interactive mode.", file=sys.stderr)
-            sys.exit(EXIT_USER_ABORT)
+            sys.exit(EXIT_SIGINT)
         try:
             resp = input(f"Delete simulation {args.sim_id!r}? [y/N] ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             print("\nAborted.", file=sys.stderr)
-            sys.exit(EXIT_USER_ABORT)
+            sys.exit(EXIT_SIGINT)
         if resp not in {"y", "yes"}:
             print("Aborted.", file=sys.stderr)
-            sys.exit(EXIT_USER_ABORT)
+            sys.exit(EXIT_SIGINT)
 
     try:
         result = delete_simulation(

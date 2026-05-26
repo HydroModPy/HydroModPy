@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import hydromodpy.config.toml_section_loader as toml_section_loader
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config
 
@@ -115,6 +116,12 @@ def test_hydromodpy_config_from_toml_supports_base_config(tmp_path: Path) -> Non
     assert cfg.workspace.catch_name == "demo"
     assert str(cfg.geographic.dem_init_path) == str(dem_path.resolve())
     assert cfg.flow.active_bc == ["ocean", "drainage"]
+
+
+def test_toml_loader_delegates_geographic_payload_normalization() -> None:
+    source = Path(toml_section_loader.__file__).read_text(encoding="utf-8")
+    assert "normalize_geographic_catchment_payload" in source
+    assert "legacy_keys" not in source
 
 
 def test_from_toml_requires_workspace_project_root(tmp_path: Path) -> None:

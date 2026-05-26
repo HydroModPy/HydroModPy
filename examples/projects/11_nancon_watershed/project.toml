@@ -27,7 +27,7 @@
 # Workflow selector configuration.
 # ----------------------------------------------------------------------
 # `[workflow].mode` is the SINGLE dispatcher key read by `hmp run`. Each
-# value maps to one entry of hydromodpy/workflow_dispatch.py::DISPATCH.
+# value maps to one entry of hydromodpy.project.dispatch.workflow.DISPATCH.
 # Run TOMLs override it; the base value is "simulation" because most of
 # the time we just compute one MODFLOW run.
 
