@@ -197,6 +197,14 @@ configuration -> donnees -> candidats -> produits DEM -> delimitation
 -> annotations -> selection -> sorties -> manifest/rapport
 ```
 
+Depuis la refonte de structure, le package spatial n'est plus organise en
+fichiers plats a la racine. Les anciens modules `candidate_outlets.py`,
+`selection.py`, `exports.py`, `manifest.py`, `html_report.py`,
+`plan_report.py` et `reporting.py` ont ete supprimes. Les imports internes
+doivent viser les sous-packages `candidates`, `config`, `domain`,
+`evaluation`, `evidence`, `hydrology`, `outputs`, `pipelines` et `reports`, ou
+la facade `hydromodpy.spatial.site_selection` pour les symboles publics.
+
 ### Configuration
 
 Les configurations sont validees par les modeles `SiteSelectionConfig`. Elles
@@ -363,14 +371,23 @@ Profil `gauged_downstream_station`:
 Validation effectuee le 2026-05-26:
 
 - `calvados_dem_area_light_100km2_fast.toml`: profil effectif `area_only`, 26
-  bassins delimites, 10 sites selectionnes, 16 rejetes, manifest valide;
+  bassins delimites, 10 sites selectionnes, 16 rejetes, manifest valide,
+  rapport HTML:
+  `examples/projects/17_site_selection_workflow/outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html`;
 - `bretagne_hydrometry_50_500_small_bdtopage.toml`: profil effectif
   `gauged_downstream_station`, 7 stations chargees, 6 candidats apres
   espacement, 6 sites selectionnes, 0 rejete, preuves normalisees ecrites,
-  manifest valide.
+  manifest valide, rapport HTML:
+  `examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html`;
 - sonde Hub'Eau autour de Lecousse/Nancon: l'emprise retourne la station
   `J001401001`, avec `influence_locale_station = 1`; le critere
   `station_influence` en `hard_reject` produit bien un rejet bloquant.
+
+Validation technique associee au meme etat:
+
+- `python -m ruff check hydromodpy/spatial/site_selection hydromodpy/workflow/site_selection.py hydromodpy/cli/commands/site_selection.py tests/unit/site_selection examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/build_bouss_stationary_site_maps.py`;
+- `python -m pytest tests/unit/site_selection -q`;
+- `python -m pytest tests/unit/launchers/test_site_selection_bridge_examples.py -q`.
 
 Ces validations bornent l'etat stable court terme. Les autres modes peuvent
 etre utiles, mais ne doivent pas etre traites comme le contrat principal sans
