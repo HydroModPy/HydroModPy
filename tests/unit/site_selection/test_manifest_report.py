@@ -11,6 +11,7 @@ from hydromodpy.spatial.site_selection.manifest import (
     validate_selection_manifest,
     write_selection_manifest,
 )
+from hydromodpy.spatial.site_selection.report_blocks import build_site_selection_result_blocks
 from hydromodpy.workflow.site_selection import select_delineated_catchments_from_csv
 
 
@@ -142,6 +143,55 @@ def test_render_site_selection_html_report_supports_custom_output(tmp_path):
 
     assert custom_html == tmp_path / "custom" / "report.html"
     assert custom_html.is_file()
+
+
+@pytest.mark.fast
+def test_site_selection_report_blocks_show_station_influence(tmp_path):
+    map_path = tmp_path / "map.png"
+    map_path.write_bytes(b"fake")
+
+    blocks = build_site_selection_result_blocks(
+        {
+            "selection_id": "station_influence_report",
+            "counts": {},
+            "strategy": {"principle": "observation_led", "candidate_mode": "station_outlets"},
+            "territory": {},
+            "criteria": {},
+            "dem": {},
+            "flow_products": {},
+            "outputs": {},
+        },
+        manifest_path=tmp_path / "site_selection_manifest.json",
+        output_root=tmp_path,
+        map_path=map_path,
+        selected=[],
+        rejected=[],
+        decisions=[],
+        evidence=[],
+        components=[
+            {
+                "site_id": "site_001",
+                "criterion_id": "station_influence",
+                "criterion_family": "observations",
+                "criterion_status": "warning",
+                "raw_value": "general_influence",
+                "reason": "station has general hydrologic influence metadata",
+                "evidence_json": {
+                    "source_feature_id": "J123456701",
+                    "station_influence_status": "general_influence",
+                    "station_influence_flags": ["general_influence"],
+                    "matched_keywords": ["retenue"],
+                },
+            }
+        ],
+    )
+
+    block = next(item for item in blocks if item.block_id == "station_influence")
+
+    assert block.status == "available"
+    assert block.tables[0].rows[0]["station_id"] == "J123456701"
+    assert block.tables[0].rows[0]["decision"] == "general_influence"
+    assert "absence d'obstacle amont" in block.warnings[0]
 
 
 @pytest.mark.fast

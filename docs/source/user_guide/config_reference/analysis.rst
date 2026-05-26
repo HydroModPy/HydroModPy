@@ -61,7 +61,7 @@ Fields
               <code class="hmp-field-name">config_path</code>
             </div>
 
-         :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L556>`__
+         :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L587>`__
 
             Resolved path to the source TOML file.
 
@@ -75,7 +75,7 @@ Fields
               <code class="hmp-field-name">base_dir</code>
             </div>
 
-         :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L559>`__
+         :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L590>`__
 
             Directory used to resolve relative paths.
 
@@ -89,7 +89,7 @@ Fields
               <code class="hmp-field-name">lab_id</code>
             </div>
 
-         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L562>`__
+         :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L593>`__
 
             Regional-lab identifier.
 
@@ -103,7 +103,7 @@ Fields
               <code class="hmp-field-name">output_root</code>
             </div>
 
-         :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L563>`__
+         :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L594>`__
 
             Directory where lab artifacts are written.
 
@@ -117,7 +117,7 @@ Fields
               <code class="hmp-field-name">execute</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L566>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L597>`__
 
             If False, the planner runs but no child workflows are launched.
 
@@ -131,7 +131,7 @@ Fields
               <code class="hmp-field-name">continue_on_error</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L570>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L601>`__
 
             If True, keep dispatching siblings after a child failure.
 
@@ -145,7 +145,7 @@ Fields
               <code class="hmp-field-name">validate_config_paths</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L574>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L605>`__
 
             If True, ensure each rendered child config path exists before run.
 
@@ -159,7 +159,7 @@ Fields
               <code class="hmp-field-name">resume_from_report</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L578>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L609>`__
 
             If True, replay the previous report to skip already-completed cases.
 
@@ -173,7 +173,7 @@ Fields
               <code class="hmp-field-name">skip_completed_cases</code>
             </div>
 
-         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L582>`__
+         :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L613>`__
 
             If True, do not re-run cases marked as completed in the report.
 
@@ -189,7 +189,7 @@ Fields
               <code class="hmp-field-toml">[analysis.batch.catalog]</code>
             </div>
 
-         :bdg-primary:`RegionalLabCatalogConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L586>`__
+         :bdg-primary:`RegionalLabCatalogConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L617>`__
 
             Site catalog source declaring the columns and filters used to enumerate runs.
 
@@ -208,7 +208,7 @@ Fields
                     <code class="hmp-field-name">path</code>
                   </div>
 
-               :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L146>`__
+               :bdg-primary:`Path` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L150>`__
 
                   Resolved path to the site catalog (CSV or JSONL).
 
@@ -222,7 +222,7 @@ Fields
                     <code class="hmp-field-name">format</code>
                   </div>
 
-               :bdg-primary:`Literal['auto', 'csv', 'jsonl']` :bdg-secondary:`default = "auto"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L149>`__
+               :bdg-primary:`Literal['auto', 'csv', 'jsonl']` :bdg-secondary:`default = "auto"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L153>`__
 
                   Catalog format. 'auto' infers from suffix.
 
@@ -236,7 +236,7 @@ Fields
                     <code class="hmp-field-name">site_id_field</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = "site_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L153>`__
+               :bdg-primary:`str` :bdg-secondary:`default = "site_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L157>`__
 
                   Catalog column carrying the site identifier.
 
@@ -250,7 +250,7 @@ Fields
                     <code class="hmp-field-name">site_label_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "site_label"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L157>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "site_label"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L161>`__
 
                   Catalog column carrying a human-readable site label.
 
@@ -264,7 +264,7 @@ Fields
                     <code class="hmp-field-name">cluster_id_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L161>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L165>`__
 
                   Catalog column carrying the cluster identifier.
 
@@ -278,7 +278,7 @@ Fields
                     <code class="hmp-field-name">cluster_label_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_label"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L165>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_label"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L169>`__
 
                   Catalog column carrying the cluster label.
 
@@ -292,7 +292,7 @@ Fields
                     <code class="hmp-field-name">cluster_family_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_family"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L169>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_family"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L173>`__
 
                   Catalog column carrying the cluster family name.
 
@@ -306,7 +306,7 @@ Fields
                     <code class="hmp-field-name">cluster_scale_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_scale"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L173>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "cluster_scale"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L177>`__
 
                   Catalog column carrying the cluster spatial scale tag.
 
@@ -320,7 +320,7 @@ Fields
                     <code class="hmp-field-name">region_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "region_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L177>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "region_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L181>`__
 
                   Catalog column carrying the region identifier.
 
@@ -334,7 +334,7 @@ Fields
                     <code class="hmp-field-name">source_selection_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "source_selection_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L181>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "source_selection_id"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L185>`__
 
                   Catalog column carrying the data-source selection identifier.
 
@@ -348,7 +348,7 @@ Fields
                     <code class="hmp-field-name">status_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "site_status"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L185>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "site_status"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L189>`__
 
                   Catalog column carrying the site lifecycle status.
 
@@ -362,7 +362,7 @@ Fields
                     <code class="hmp-field-name">maturity_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "maturity"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L189>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "maturity"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L193>`__
 
                   Catalog column carrying the site maturity level.
 
@@ -376,7 +376,7 @@ Fields
                     <code class="hmp-field-name">x_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "x"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L193>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "x"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L197>`__
 
                   Catalog column carrying the X coordinate (CRS units).
 
@@ -390,7 +390,7 @@ Fields
                     <code class="hmp-field-name">y_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "y"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L197>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "y"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L201>`__
 
                   Catalog column carrying the Y coordinate (CRS units).
 
@@ -404,7 +404,7 @@ Fields
                     <code class="hmp-field-name">area_km2_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "area_km2"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L201>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "area_km2"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L205>`__
 
                   Catalog column carrying the catchment area in km^2.
 
@@ -418,7 +418,7 @@ Fields
                     <code class="hmp-field-name">tags_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "tags"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L205>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "tags"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L209>`__
 
                   Catalog column carrying free-form tags joined by tag_separator.
 
@@ -432,7 +432,7 @@ Fields
                     <code class="hmp-field-name">enabled_field</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = "enabled"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L209>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = "enabled"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L213>`__
 
                   Catalog column flagging whether a site is active.
 
@@ -446,7 +446,7 @@ Fields
                     <code class="hmp-field-name">required_fields</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L213>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L217>`__
 
                   Catalog columns that must be present and non-empty per row.
 
@@ -460,7 +460,7 @@ Fields
                     <code class="hmp-field-name">path_fields</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L217>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L221>`__
 
                   Catalog columns whose values are resolved as filesystem paths.
 
@@ -474,9 +474,37 @@ Fields
                     <code class="hmp-field-name">tag_separator</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-secondary:`default = ";"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L221>`__
+               :bdg-primary:`str` :bdg-secondary:`default = ";"` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L225>`__
 
                   Separator splitting the tags column into individual tags.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: analysis-batch-catalog-source-manifest-path
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.source_manifest_path">
+                    <code class="hmp-field-name">source_manifest_path</code>
+                  </div>
+
+               :bdg-primary:`Path | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L229>`__
+
+                  Optional site-selection manifest used to resolve the site catalog.
+
+
+            .. container:: hmp-field hmp-field-level-user
+               :name: analysis-batch-catalog-source-manifest-output-key
+
+               .. raw:: html
+
+                  <div class="hmp-field-header" data-toml-path="analysis.batch.catalog.source_manifest_output_key">
+                    <code class="hmp-field-name">source_manifest_output_key</code>
+                  </div>
+
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L233>`__
+
+                  Output key read from the site-selection manifest.
 
 
 
@@ -492,7 +520,7 @@ Fields
               <code class="hmp-field-toml">[analysis.batch.selection]</code>
             </div>
 
-         :bdg-primary:`RegionalLabSelectionConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L589>`__
+         :bdg-primary:`RegionalLabSelectionConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L620>`__
 
             Top-level site selection filters applied before cluster rules and recipes.
 
@@ -511,7 +539,7 @@ Fields
                     <code class="hmp-field-name">site_ids</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L291>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L322>`__
 
                   Whitelist of site identifiers to keep. Empty means no filter.
 
@@ -525,7 +553,7 @@ Fields
                     <code class="hmp-field-name">cluster_ids</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L295>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L326>`__
 
                   Whitelist of cluster identifiers to keep. Empty means no filter.
 
@@ -539,7 +567,7 @@ Fields
                     <code class="hmp-field-name">regions</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L299>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L330>`__
 
                   Whitelist of region identifiers to keep. Empty means no filter.
 
@@ -553,7 +581,7 @@ Fields
                     <code class="hmp-field-name">families</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L303>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L334>`__
 
                   Whitelist of cluster family names to keep. Empty means no filter.
 
@@ -567,7 +595,7 @@ Fields
                     <code class="hmp-field-name">scales</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L307>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L338>`__
 
                   Whitelist of cluster scale tags to keep. Empty means no filter.
 
@@ -581,7 +609,7 @@ Fields
                     <code class="hmp-field-name">statuses</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L311>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L342>`__
 
                   Whitelist of site lifecycle statuses to keep. Empty means no filter.
 
@@ -595,7 +623,7 @@ Fields
                     <code class="hmp-field-name">maturity_levels</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L315>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L346>`__
 
                   Whitelist of site maturity levels to keep. Empty means no filter.
 
@@ -609,7 +637,7 @@ Fields
                     <code class="hmp-field-name">tags</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L319>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L350>`__
 
                   Required tags. A site must carry every tag listed here to pass.
 
@@ -623,7 +651,7 @@ Fields
                     <code class="hmp-field-name">limit</code>
                   </div>
 
-               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L323>`__
+               :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L354>`__
 
                   Maximum number of sites to retain after filtering. None disables.
 
@@ -637,7 +665,7 @@ Fields
                     <code class="hmp-field-name">include_disabled</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L327>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L358>`__
 
                   If True, also keep sites flagged as disabled in the catalog.
 
@@ -655,7 +683,7 @@ Fields
               <code class="hmp-field-toml">[analysis.batch.cluster_rules]</code>
             </div>
 
-         :bdg-primary:`tuple[RegionalLabClusterRuleConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L592>`__
+         :bdg-primary:`tuple[RegionalLabClusterRuleConfig, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L623>`__
 
             Optional cluster enrichment rules applied on top of the catalog.
 
@@ -674,7 +702,7 @@ Fields
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L356>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L387>`__
 
                   Unique rule identifier.
 
@@ -688,7 +716,7 @@ Fields
                     <code class="hmp-field-name">label</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L357>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L388>`__
 
                   Human-readable rule label.
 
@@ -702,7 +730,7 @@ Fields
                     <code class="hmp-field-name">enabled</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L358>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L389>`__
 
                   If False, the rule is parsed but skipped during enrichment.
 
@@ -716,7 +744,7 @@ Fields
                     <code class="hmp-field-name">priority</code>
                   </div>
 
-               :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L362>`__
+               :bdg-primary:`int` :bdg-secondary:`default = 100` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L393>`__
 
                   Application order (lower runs first) when several rules match.
 
@@ -732,7 +760,7 @@ Fields
                     <code class="hmp-field-toml">[analysis.batch.cluster_rules.selection]</code>
                   </div>
 
-               :bdg-primary:`RegionalLabSelectionConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L366>`__
+               :bdg-primary:`RegionalLabSelectionConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L397>`__
 
                   Site filters (ids, regions, families, tags) restricting which sites the rule applies to.
 
@@ -751,7 +779,7 @@ Fields
                           <code class="hmp-field-name">site_ids</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L291>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L322>`__
 
                         Whitelist of site identifiers to keep. Empty means no filter.
 
@@ -765,7 +793,7 @@ Fields
                           <code class="hmp-field-name">cluster_ids</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L295>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L326>`__
 
                         Whitelist of cluster identifiers to keep. Empty means no filter.
 
@@ -779,7 +807,7 @@ Fields
                           <code class="hmp-field-name">regions</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L299>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L330>`__
 
                         Whitelist of region identifiers to keep. Empty means no filter.
 
@@ -793,7 +821,7 @@ Fields
                           <code class="hmp-field-name">families</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L303>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L334>`__
 
                         Whitelist of cluster family names to keep. Empty means no filter.
 
@@ -807,7 +835,7 @@ Fields
                           <code class="hmp-field-name">scales</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L307>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L338>`__
 
                         Whitelist of cluster scale tags to keep. Empty means no filter.
 
@@ -821,7 +849,7 @@ Fields
                           <code class="hmp-field-name">statuses</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L311>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L342>`__
 
                         Whitelist of site lifecycle statuses to keep. Empty means no filter.
 
@@ -835,7 +863,7 @@ Fields
                           <code class="hmp-field-name">maturity_levels</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L315>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L346>`__
 
                         Whitelist of site maturity levels to keep. Empty means no filter.
 
@@ -849,7 +877,7 @@ Fields
                           <code class="hmp-field-name">tags</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L319>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L350>`__
 
                         Required tags. A site must carry every tag listed here to pass.
 
@@ -863,7 +891,7 @@ Fields
                           <code class="hmp-field-name">limit</code>
                         </div>
 
-                     :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L323>`__
+                     :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L354>`__
 
                         Maximum number of sites to retain after filtering. None disables.
 
@@ -877,7 +905,7 @@ Fields
                           <code class="hmp-field-name">include_disabled</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L327>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L358>`__
 
                         If True, also keep sites flagged as disabled in the catalog.
 
@@ -893,7 +921,7 @@ Fields
                     <code class="hmp-field-name">field_equals</code>
                   </div>
 
-               :bdg-primary:`tuple[tuple[str, str], ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L369>`__
+               :bdg-primary:`tuple[tuple[str, str], ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L400>`__
 
                   Column equality constraints applied on top of selection (key=value).
 
@@ -907,7 +935,7 @@ Fields
                     <code class="hmp-field-name">set_cluster_id</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L373>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L404>`__
 
                   Cluster id to assign to matched sites. None leaves it untouched.
 
@@ -921,7 +949,7 @@ Fields
                     <code class="hmp-field-name">set_cluster_label</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L377>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L408>`__
 
                   Cluster label to assign to matched sites. None leaves it untouched.
 
@@ -935,7 +963,7 @@ Fields
                     <code class="hmp-field-name">set_cluster_family</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L381>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L412>`__
 
                   Cluster family to assign to matched sites. None leaves it untouched.
 
@@ -949,7 +977,7 @@ Fields
                     <code class="hmp-field-name">set_cluster_scale</code>
                   </div>
 
-               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L385>`__
+               :bdg-primary:`str | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L416>`__
 
                   Cluster scale tag to assign to matched sites. None leaves it untouched.
 
@@ -963,7 +991,7 @@ Fields
                     <code class="hmp-field-name">cluster_tags</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L389>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L420>`__
 
                   Extra tags appended to the cluster of matched sites.
 
@@ -977,7 +1005,7 @@ Fields
                     <code class="hmp-field-name">override_existing_cluster</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L393>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L424>`__
 
                   If True, overwrite cluster fields already set on matched sites.
 
@@ -995,7 +1023,7 @@ Fields
               <code class="hmp-field-toml">[analysis.batch.recipes]</code>
             </div>
 
-         :bdg-primary:`tuple[RegionalLabRecipeConfig, ...]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L596>`__
+         :bdg-primary:`tuple[RegionalLabRecipeConfig, ...]` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L627>`__
 
             Per-recipe expansion plans declaring which child launchers run on which sites.
 
@@ -1014,7 +1042,7 @@ Fields
                     <code class="hmp-field-name">id</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L450>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L481>`__
 
                   Unique recipe identifier.
 
@@ -1028,7 +1056,7 @@ Fields
                     <code class="hmp-field-name">label</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L451>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L482>`__
 
                   Human-readable recipe label.
 
@@ -1042,7 +1070,7 @@ Fields
                     <code class="hmp-field-name">launcher</code>
                   </div>
 
-               :bdg-primary:`Literal['simulation', 'comparison']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L452>`__
+               :bdg-primary:`Literal['simulation', 'comparison']` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L483>`__
 
                   Child launcher dispatched per site.
 
@@ -1056,7 +1084,7 @@ Fields
                     <code class="hmp-field-name">config_path_template</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L455>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L486>`__
 
                   Template producing the child config path from a site context.
 
@@ -1070,7 +1098,7 @@ Fields
                     <code class="hmp-field-name">enabled</code>
                   </div>
 
-               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L458>`__
+               :bdg-primary:`bool` :bdg-secondary:`default = True` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L489>`__
 
                   If False, the recipe is parsed but skipped during dispatch.
 
@@ -1086,7 +1114,7 @@ Fields
                     <code class="hmp-field-toml">[analysis.batch.recipes.selection]</code>
                   </div>
 
-               :bdg-primary:`RegionalLabSelectionConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L462>`__
+               :bdg-primary:`RegionalLabSelectionConfig` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L493>`__
 
                   Site filters restricting which sites this recipe expands over.
 
@@ -1105,7 +1133,7 @@ Fields
                           <code class="hmp-field-name">site_ids</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L291>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L322>`__
 
                         Whitelist of site identifiers to keep. Empty means no filter.
 
@@ -1119,7 +1147,7 @@ Fields
                           <code class="hmp-field-name">cluster_ids</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L295>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L326>`__
 
                         Whitelist of cluster identifiers to keep. Empty means no filter.
 
@@ -1133,7 +1161,7 @@ Fields
                           <code class="hmp-field-name">regions</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L299>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L330>`__
 
                         Whitelist of region identifiers to keep. Empty means no filter.
 
@@ -1147,7 +1175,7 @@ Fields
                           <code class="hmp-field-name">families</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L303>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L334>`__
 
                         Whitelist of cluster family names to keep. Empty means no filter.
 
@@ -1161,7 +1189,7 @@ Fields
                           <code class="hmp-field-name">scales</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L307>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L338>`__
 
                         Whitelist of cluster scale tags to keep. Empty means no filter.
 
@@ -1175,7 +1203,7 @@ Fields
                           <code class="hmp-field-name">statuses</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L311>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L342>`__
 
                         Whitelist of site lifecycle statuses to keep. Empty means no filter.
 
@@ -1189,7 +1217,7 @@ Fields
                           <code class="hmp-field-name">maturity_levels</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L315>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L346>`__
 
                         Whitelist of site maturity levels to keep. Empty means no filter.
 
@@ -1203,7 +1231,7 @@ Fields
                           <code class="hmp-field-name">tags</code>
                         </div>
 
-                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L319>`__
+                     :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L350>`__
 
                         Required tags. A site must carry every tag listed here to pass.
 
@@ -1217,7 +1245,7 @@ Fields
                           <code class="hmp-field-name">limit</code>
                         </div>
 
-                     :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L323>`__
+                     :bdg-primary:`int | None` :bdg-secondary:`default = None` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L354>`__
 
                         Maximum number of sites to retain after filtering. None disables.
 
@@ -1231,7 +1259,7 @@ Fields
                           <code class="hmp-field-name">include_disabled</code>
                         </div>
 
-                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L327>`__
+                     :bdg-primary:`bool` :bdg-secondary:`default = False` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L358>`__
 
                         If True, also keep sites flagged as disabled in the catalog.
 
@@ -1247,7 +1275,7 @@ Fields
                     <code class="hmp-field-name">required_fields</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L465>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L496>`__
 
                   Catalog columns that must be present per site for this recipe.
 
@@ -1261,7 +1289,7 @@ Fields
                     <code class="hmp-field-name">allowed_platforms</code>
                   </div>
 
-               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L469>`__
+               :bdg-primary:`tuple[str, ...]` :bdg-secondary:`default = ()` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/analysis/testbed/regional_lab_config.py#L500>`__
 
                   Platforms (linux, darwin, windows) on which the recipe may run.
 

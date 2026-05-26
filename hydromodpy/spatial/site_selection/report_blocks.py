@@ -303,6 +303,7 @@ def build_site_selection_result_blocks(
                 ),
             ),
         ),
+        _station_influence_block(components),
         ReportBlock(
             block_id="criteria_components",
             title="Criteres et evidences",
@@ -497,6 +498,73 @@ def _candidate_generation_row(row: Mapping[str, Any]) -> dict[str, Any]:
         "nearest_selected_distance_m": _format_score(row.get("nearest_selected_distance_m")),
         "reference_network_distance_m": _format_score(row.get("reference_network_distance_m")),
         "reference_network_status": row.get("reference_network_status"),
+    }
+
+
+def _station_influence_block(components: list[dict[str, Any]]) -> ReportBlock:
+    rows = [
+        _station_influence_row(component)
+        for component in components
+        if str(component.get("criterion_id") or "") == "station_influence"
+    ]
+    if not rows:
+        return ReportBlock(
+            block_id="station_influence",
+            title="Influence hydrometrique des stations",
+            level="standard",
+            status="not_applicable",
+        )
+    status_counts = Counter(str(row.get("decision") or "unknown") for row in rows)
+    return ReportBlock(
+        block_id="station_influence",
+        title="Influence hydrometrique des stations",
+        level="standard",
+        lead=(
+            "Controle des metadonnees d'influence associees aux stations de debit. "
+            "Ce filtre signale une station ou un site hydrometrique declare influence; "
+            "il ne prouve pas l'absence de barrage en amont du bassin."
+        ),
+        metrics=(
+            ReportMetric("Sans influence connue", status_counts.get("no_known_influence", 0)),
+            ReportMetric("Influence locale", status_counts.get("local_influence", 0)),
+            ReportMetric("Influence generale", status_counts.get("general_influence", 0)),
+            ReportMetric("Inconnu", status_counts.get("unknown", 0)),
+        ),
+        tables=(
+            ReportTable(
+                "station_influence_table",
+                "Influence station",
+                columns=(
+                    ("site_id", "Site"),
+                    ("station_id", "Station"),
+                    ("decision", "Influence"),
+                    ("criterion_status", "Decision critere"),
+                    ("flags", "Flags"),
+                    ("keywords", "Mots-cles"),
+                    ("reason", "Raison"),
+                ),
+                rows=tuple(rows),
+                empty_message="Aucun critere station_influence trace.",
+            ),
+        ),
+        warnings=(
+            "Le controle station_influence utilise les metadonnees hydrometriques "
+            "disponibles. Pour prouver spatialement l'absence d'obstacle amont, il "
+            "faudra une couche dediee type ROE.",
+        ),
+    )
+
+
+def _station_influence_row(component: Mapping[str, Any]) -> dict[str, Any]:
+    evidence = _mapping(component.get("evidence_json"))
+    return {
+        "site_id": component.get("site_id"),
+        "station_id": evidence.get("source_feature_id"),
+        "decision": evidence.get("station_influence_status") or component.get("raw_value"),
+        "criterion_status": component.get("criterion_status"),
+        "flags": _join_flags(evidence.get("station_influence_flags")),
+        "keywords": _join_flags(evidence.get("matched_keywords")),
+        "reason": component.get("reason"),
     }
 
 
