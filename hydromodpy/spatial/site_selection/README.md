@@ -74,9 +74,10 @@ fixtures, catalogs and frozen data extracts, not for direct provider access.
 
 ## Main Modules
 
-The package is organized by workflow phase. Code should import from the
-subpackages below, or from the top-level `hydromodpy.spatial.site_selection`
-facade when a symbol is part of the public package API.
+The package is organized by workflow phase. Code should import detailed
+processing primitives from the subpackages below. The top-level
+`hydromodpy.spatial.site_selection` facade is intentionally small and exposes
+only stable workflow entrypoints, manifest helpers and report renderers.
 
 - `config/`: Pydantic configuration and validation models.
 - `domain/`: shared domain records that are not tied to one processing phase.
@@ -97,10 +98,6 @@ facade when a symbol is part of the public package API.
 - `decisions/`: normalized `DecisionRecord`, `EvidenceRecord` and
   per-catchment summary helpers built from criteria and final selections.
 - `pipelines/build.py`: orchestration of the end-to-end spatial build phases.
-
-The historical flat modules such as `candidate_outlets.py`, `selection.py`,
-`exports.py`, `manifest.py`, `figures.py`, `html_report.py`, `plan_report.py`
-and `reporting.py` have been removed after the package split.
 
 ## Output Contract
 
@@ -290,8 +287,6 @@ output = "regional_lab_sites_csv"
 ```
 
 If `output` is omitted, the downstream loader uses `regional_lab_sites_csv`.
-The aliases `site_selection_output` and `site_selection_output_key` are also
-accepted for compatibility with more explicit configuration styles.
 
 `selected_sites.csv` contains the same core fields plus review fields for the
 snapped outlet when available:

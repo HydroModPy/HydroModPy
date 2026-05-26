@@ -19,10 +19,6 @@ Accepted sources
    * - ``custom``
      - A local raster is authoritative.
      - ``custom``
-   * - ``ign_bdalti``
-     - The project should retrieve IGN BD ALTI coverage from the configured
-       spatial window through the historical compatibility path.
-     - ``ign-bdalti``
    * - ``ign_geoplateforme_dem``
      - A regional French workflow should discover, download, assemble, and
        cache public IGN DEM archives through Geoplateforme.
@@ -37,24 +33,13 @@ Minimal example
    types = ["dem"]
 
    [[data.dem.sources]]
-   source = "ign_bdalti"
-   extent = "watershed"
-   # Optional for regional workflows:
-   # regions = ["Auvergne-Rhone-Alpes"]
-
-For new French regional workflows, prefer the dynamic Geoplateforme source:
-
-.. code-block:: toml
-
-   [data]
-   types = ["dem"]
-
-   [[data.dem.sources]]
    source = "ign_geoplateforme_dem"
    dataset = "bd-alti"
    resolution_m = 25.0
    file_format = "ASC"
-   regions = ["Bretagne"]
+   extent = "watershed"
+   # Optional for regional workflows:
+   # regions = ["Bretagne"]
 
 Loaded shape
 ------------
@@ -125,48 +110,6 @@ Expected figure
 Open the DEM overview panel from the family page and confirm that local terrain
 and watershed support agree. A custom DEM should not require solver-side
 compensation.
-
-
-DEM Source: ign_bdalti
-^^^^^^^^^^^^^^^^^^^^^^
-
-Use ``source = "ign_bdalti"`` when the project should retrieve public IGN BD
-ALTI elevation data from the configured spatial support through the historical
-HydroModPy source key. New regional French workflows should prefer
-``source = "ign_geoplateforme_dem"`` because it carries the explicit
-Geoplateforme dataset, resolution and format fields.
-
-Minimal example
-"""""""""""""""
-
-.. code-block:: toml
-
-   [[data.dem.sources]]
-   source = "ign_bdalti"
-   extent = "watershed"
-
-Operational checks
-""""""""""""""""""
-
-- ``extent`` should match the support needed by the workflow:
-  ``watershed`` for basin runs, ``study_area`` for broader preprocessing.
-- ``regions`` can be used for French regional workflows; HydroModPy resolves
-  the corresponding departments before downloading IGN archives.
-- API-backed files should be visible in the workspace data cache when a
-  workspace is active.
-- Rebuild or refresh only when the configured extent or data policy changes.
-- ``ign_bdalti`` currently resolves BD ALTI 25 m archives by department,
-  extracts ASC tiles, and writes a merged GeoTIFF clipped to the requested
-  support.
-- Keep ``ign_bdalti`` for existing TOML files and compatibility tests. Treat
-  ``ign_geoplateforme_dem`` as the recommended source for new work.
-
-Expected figure
-"""""""""""""""
-
-The expected visual result is the same DEM support panel used by custom DEMs:
-terrain, watershed boundary, and outlet context must be spatially coherent.
-
 
 DEM Source: ign_geoplateforme_dem
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

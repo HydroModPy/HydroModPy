@@ -2,6 +2,11 @@
 
 Date: 2026-05-23
 
+Mise a jour 2026-05-27: la compatibilite publique `ign_bdalti` a ete retiree
+au profit de `ign_geoplateforme_dem`. Les sections ci-dessous conservent
+l'historique du chantier; l'etat courant et les validations du lot de
+suppression sont dans `docs/_dev_notes/dem_ign_legacy_cleanup_report.md`.
+
 ## Objectif
 
 Mettre en place un outil robuste pour telecharger automatiquement les MNT/DEM

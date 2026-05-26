@@ -69,14 +69,7 @@ def test_resolve_catalog_source_uses_manifest_default_output(tmp_path: Path) -> 
     assert source.source_manifest_output_key == "regional_lab_sites_csv"
 
 
-@pytest.mark.parametrize(
-    "alias",
-    ["output", "site_selection_output", "site_selection_output_key"],
-)
-def test_resolve_catalog_source_accepts_output_aliases(
-    tmp_path: Path,
-    alias: str,
-) -> None:
+def test_resolve_catalog_source_accepts_output_key(tmp_path: Path) -> None:
     custom_catalog_path = tmp_path / "selected_sites.csv"
     custom_catalog_path.write_text("site_id,enabled\nsite_01,true\n", encoding="utf-8")
     (tmp_path / "regional_lab_sites.csv").write_text(
@@ -95,7 +88,7 @@ def test_resolve_catalog_source_accepts_output_aliases(
         base_dir=tmp_path,
         mapping={
             "from_site_selection_manifest": "site_selection_manifest.json",
-            alias: "selected_sites_csv",
+            "output": "selected_sites_csv",
         },
         catalog_label="regional_lab.catalog",
     )

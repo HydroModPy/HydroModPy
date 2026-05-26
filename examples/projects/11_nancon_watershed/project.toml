@@ -172,9 +172,9 @@ types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff", "e
 # DEM source. `custom` points to the same file as [geographic]. The
 # bare filename is auto-resolved against `<workspace>/data/dem/`.
 [[data.dem.sources]]
-# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_bdalti' for
-# the IGN BD ALTI 25 m MNT.
-# Type: Literal['custom', 'ign_bdalti'] | REQUIRED
+# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_geoplateforme_dem' for
+# IGN DEM discovery.
+# Type: Literal['custom', 'ign_geoplateforme_dem'] | REQUIRED
 source = "custom"
 path = "DEM_armorican_massif.tif"
 

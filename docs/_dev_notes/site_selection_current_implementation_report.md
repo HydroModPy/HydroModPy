@@ -202,8 +202,9 @@ fichiers plats a la racine. Les anciens modules `candidate_outlets.py`,
 `selection.py`, `exports.py`, `manifest.py`, `html_report.py`,
 `plan_report.py` et `reporting.py` ont ete supprimes. Les imports internes
 doivent viser les sous-packages `candidates`, `config`, `domain`,
-`evaluation`, `evidence`, `hydrology`, `outputs`, `pipelines` et `reports`, ou
-la facade `hydromodpy.spatial.site_selection` pour les symboles publics.
+`evaluation`, `evidence`, `hydrology`, `outputs`, `pipelines` et `reports`.
+La facade `hydromodpy.spatial.site_selection` reste volontairement courte:
+points d'entree de workflow, manifest et rendu de rapport.
 
 ### Configuration
 

@@ -4,14 +4,18 @@ import os
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 import validation_cases.shared.runtime as runtime
-from validation_cases.shared.loaders import load_case_tolerances
+from validation_cases.shared.loaders import load_case_tolerances, load_time_series_fields
 from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
     run_launcher_validation_case,
+    write_validation_fields_to_store,
 )
+
+MINIMAL_SIMULATION_WORKFLOW = '[workflow]\nmode = "simulation"\n'
 
 
 @pytest.mark.parametrize(
@@ -20,7 +24,6 @@ from validation_cases.shared.runtime import (
         pytest.param(
             {
                 "case_id": "case_demo",
-                "launcher": "launcher_simulation",
                 "config_file": "config_modflownwt.toml",
                 "workspace": {},
             },
@@ -28,12 +31,11 @@ from validation_cases.shared.runtime import (
             "case_demo",
             "modflow_nwt",
             ("config_modflownwt.toml",),
-            id="legacy-single-config",
+            id="single-config-file",
         ),
         pytest.param(
             {
                 "case_id": "case_demo",
-                "launcher": "launcher_simulation",
                 "default_solver": "modflow_nwt",
                 "config_files": {
                     "modflow_nwt": "config_modflownwt.toml",
@@ -50,7 +52,6 @@ from validation_cases.shared.runtime import (
         pytest.param(
             {
                 "case_id": "case_demo",
-                "launcher": "launcher_simulation",
                 "default_solver": "modflow_nwt",
                 "config_files": {
                     "modflow_nwt": "config_modflownwt.toml",
@@ -66,7 +67,6 @@ from validation_cases.shared.runtime import (
         pytest.param(
             {
                 "case_id": "case_demo",
-                "launcher": "launcher_simulation",
                 "default_solver": "modflow_nwt",
                 "config_files": {
                     "modflow_nwt": "config_modflownwt.toml",
@@ -94,7 +94,7 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
     case_dir = tmp_path / "case"
     case_dir.mkdir()
     for config_file in config_files:
-        (case_dir / config_file).write_text("", encoding="utf-8")
+        (case_dir / config_file).write_text(MINIMAL_SIMULATION_WORKFLOW, encoding="utf-8")
 
     captured: dict[str, str] = {}
 
@@ -195,9 +195,9 @@ def test_resolve_validation_results_dir_reuses_existing_run_dir(
     out_dir.mkdir(parents=True)
     stale_file = out_dir / "stale-output.txt"
     stale_file.write_text("stale", encoding="utf-8")
-    legacy_out_dir = out_dir.with_name(f"{out_dir.name}_deadbeef")
-    legacy_out_dir.mkdir()
-    (legacy_out_dir / "old-output.txt").write_text("old", encoding="utf-8")
+    stale_out_dir = out_dir.with_name(f"{out_dir.name}_deadbeef")
+    stale_out_dir.mkdir()
+    (stale_out_dir / "old-output.txt").write_text("old", encoding="utf-8")
 
     resolved_again = resolve_validation_results_dir(
         test_file=tmp_path / "test_dupuit_fixed_head_1d.py",
@@ -206,7 +206,7 @@ def test_resolve_validation_results_dir_reuses_existing_run_dir(
 
     assert resolved_again == out_dir
     assert not stale_file.exists()
-    assert not legacy_out_dir.exists()
+    assert not stale_out_dir.exists()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows path budget regression")
@@ -244,12 +244,30 @@ def test_load_case_tolerances_prefers_solver_specific_file(tmp_path: Path) -> No
     )
 
     tolerances = load_case_tolerances(case_dir, solver="modflow6")
-    legacy_tolerances = load_case_tolerances(case_dir, solver="modflow_nwt")
+    nwt_tolerances = load_case_tolerances(case_dir, solver="modflow_nwt")
     fallback_tolerances = load_case_tolerances(case_dir, solver="unknown_solver")
 
     assert float(tolerances["head_profile"]["rmse"]) == pytest.approx(0.05)
-    assert float(legacy_tolerances["head_profile"]["rmse"]) == pytest.approx(0.03)
+    assert float(nwt_tolerances["head_profile"]["rmse"]) == pytest.approx(0.03)
     assert float(fallback_tolerances["head_profile"]["rmse"]) == pytest.approx(0.01)
+
+
+def test_validation_launcher_config_requires_explicit_workflow(tmp_path: Path) -> None:
+    case_dir = tmp_path / "case"
+    case_dir.mkdir()
+    config_path = case_dir / "config_modflownwt.toml"
+    config_path.write_text("[simulation]\nname = \"missing workflow\"\n", encoding="utf-8")
+    (case_dir / "metadata.toml").write_text(
+        'case_id = "case_demo"\nconfig_file = "config_modflownwt.toml"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="must define \\[workflow\\]"):
+        runtime._build_validation_launcher_config(
+            case_dir=case_dir,
+            config_path=config_path,
+            solver_name="modflow_nwt",
+        )
 
 
 def test_run_launcher_validation_case_reports_failure_even_when_outputs_exist(
@@ -258,13 +276,15 @@ def test_run_launcher_validation_case_reports_failure_even_when_outputs_exist(
 ) -> None:
     case_dir = tmp_path / "case"
     case_dir.mkdir()
-    (case_dir / "config_modflownwt.toml").write_text("", encoding="utf-8")
+    (case_dir / "config_modflownwt.toml").write_text(
+        MINIMAL_SIMULATION_WORKFLOW,
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(
         "validation_cases.shared.runtime.load_case_metadata",
         lambda _case_dir: {
             "case_id": "case_demo",
-            "launcher": "launcher_simulation",
             "config_file": "config_modflownwt.toml",
             "workspace": {},
         },
@@ -305,13 +325,15 @@ def test_run_launcher_validation_case_reports_subprocess_failure_when_outputs_mi
 ) -> None:
     case_dir = tmp_path / "case"
     case_dir.mkdir()
-    (case_dir / "config_modflownwt.toml").write_text("", encoding="utf-8")
+    (case_dir / "config_modflownwt.toml").write_text(
+        MINIMAL_SIMULATION_WORKFLOW,
+        encoding="utf-8",
+    )
 
     monkeypatch.setattr(
         "validation_cases.shared.runtime.load_case_metadata",
         lambda _case_dir: {
             "case_id": "case_demo",
-            "launcher": "launcher_simulation",
             "config_file": "config_modflownwt.toml",
             "workspace": {},
         },
@@ -335,3 +357,50 @@ def test_run_launcher_validation_case_reports_subprocess_failure_when_outputs_mi
 
     with pytest.raises(AssertionError, match="hydromodpy.__main__ failed"):
         run_launcher_validation_case(case_dir=case_dir, test_file=__file__)
+
+
+def test_write_validation_fields_to_store_writes_gridded_series(tmp_path: Path) -> None:
+    fields = {
+        "watertable_elevation": {
+            0: np.asarray([[1.0, 2.0], [3.0, 4.0]], dtype=float),
+            1: np.asarray([[5.0, 6.0], [7.0, 8.0]], dtype=float),
+        },
+        "watertable_depth": {
+            0: np.asarray([[9.0, 8.0], [7.0, 6.0]], dtype=float),
+            1: np.asarray([[5.0, 4.0], [3.0, 2.0]], dtype=float),
+        },
+    }
+
+    store, sim_id = write_validation_fields_to_store(
+        out_path=tmp_path,
+        fields=fields,
+        solver_name="boussinesq",
+        flow_regime="transient",
+    )
+    try:
+        assert sim_id is not None
+        geo_meta = store.read_geographic_metadata(sim_id)
+        assert int(geo_meta["nrow"]) == 2
+        assert int(geo_meta["ncol"]) == 2
+
+        indices, arrays = load_time_series_fields(
+            store=store,
+            sim_id=sim_id,
+            observable_name="watertable_elevation",
+            expected_spatial_shape=(2, 2),
+        )
+
+        np.testing.assert_array_equal(indices, np.asarray([0, 1], dtype=int))
+        np.testing.assert_allclose(
+            arrays,
+            np.asarray(
+                [
+                    [[1.0, 2.0], [3.0, 4.0]],
+                    [[5.0, 6.0], [7.0, 8.0]],
+                ],
+                dtype=float,
+            ),
+        )
+    finally:
+        if store is not None:
+            store.close()

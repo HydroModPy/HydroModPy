@@ -127,7 +127,8 @@ class DataOverviewLauncher:
                 "No dem_init_path and no [data.dem] source configured. "
                 "Either set geographic.dem_init_path or add:\n"
                 '  [data]\n  types = [..., "dem"]\n'
-                '  [[data.dem.sources]]\n  source = "ign_bdalti"\n'
+                '  [[data.dem.sources]]\n  source = "ign_geoplateforme_dem"\n'
+                '  dataset = "bd-alti"\n  resolution_m = 25.0\n'
                 "or:\n"
                 '  [[data.dem.sources]]\n  source = "custom"\n  path = "..."'
             )

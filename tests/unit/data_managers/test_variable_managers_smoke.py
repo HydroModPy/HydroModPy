@@ -17,7 +17,6 @@ import pytest
 from hydromodpy.data.variables.dem.config import (
     CustomDemSource,
     DemConfig,
-    IgnBdaltiDemSource,
     IgnGeoplateformeDemSource,
 )
 from hydromodpy.data.variables.etp.config import EtpConfig, EtpSourceConfig
@@ -101,10 +100,6 @@ class TestDemConfig:
         assert cfg.source == "custom"
         assert cfg.path == tmp_path
 
-    def test_valid_ign_source(self):
-        cfg = IgnBdaltiDemSource()
-        assert cfg.source == "ign_bdalti"
-
     def test_valid_ign_geoplateforme_source(self):
         cfg = IgnGeoplateformeDemSource(dataset="bd-alti", resolution_m=25.0)
         assert cfg.source == "ign_geoplateforme_dem"
@@ -118,6 +113,10 @@ class TestDemConfig:
     def test_invalid_source_rejected(self):
         with pytest.raises(ValueError):
             DemConfig(sources=[{"source": "invalid_source"}])
+
+    def test_ign_bdalti_source_rejected(self):
+        with pytest.raises(ValueError):
+            DemConfig(sources=[{"source": "ign_bdalti", "resolution_m": 25.0}])
 
     def test_top_level_config(self, tmp_path):
         cfg = DemConfig(sources=[CustomDemSource(path=tmp_path)])

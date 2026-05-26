@@ -10,6 +10,7 @@ from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_ov
 )
 from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_overflow_1d.diagnostics import (
     _align_period_values_to_elapsed_days,
+    _resolve_mean_head_profiles_m,
     _resolve_recharge_series_mm_day,
     compute_overflow_footprint_metrics,
 )
@@ -23,6 +24,7 @@ from validation_cases.numerical.transient.boussinesq_hillslope_recharge_pulse_ov
     resolve_solver_variant,
 )
 from validation_cases.shared.loaders import load_case_metadata
+from validation_cases.shared.runtime import ValidationRunResult, write_validation_fields_to_store
 
 
 def test_resolve_solver_variant_exposes_both_petsc_surface_formulations() -> None:
@@ -210,6 +212,50 @@ def test_align_period_values_to_elapsed_days_pads_initial_state() -> None:
     )
 
     assert np.allclose(aligned, [3.0, 3.0, 7.0])
+
+
+def test_overflow_head_profile_fallback_reads_catalog_fields(tmp_path: Path) -> None:
+    store, sim_id = write_validation_fields_to_store(
+        out_path=tmp_path,
+        fields={
+            "watertable_elevation": {
+                0: np.asarray([[1.0, 3.0], [5.0, 7.0]], dtype=float),
+                1: np.asarray([[2.0, 4.0], [6.0, 8.0]], dtype=float),
+            }
+        },
+        solver_name="boussinesq",
+        flow_regime="transient",
+    )
+    try:
+        result = ValidationRunResult(
+            case_dir=tmp_path,
+            solver_name="petsc_partition",
+            out_path=tmp_path,
+            model_ws=tmp_path,
+            postprocess_dir=tmp_path / "_postprocess",
+            particles_dir=tmp_path / "_postprocess" / "_particles",
+            store=store,
+            sim_id=sim_id,
+        )
+
+        profiles = _resolve_mean_head_profiles_m(
+            result=result,
+            state_history={},
+            cell_x_m=np.asarray([], dtype=float),
+            cell_y_m=np.asarray([], dtype=float),
+            nx=2,
+            ny=2,
+            length_x_m=2.0,
+            width_y_m=2.0,
+        )
+
+        np.testing.assert_allclose(
+            profiles,
+            np.asarray([[3.0, 5.0], [4.0, 6.0]], dtype=float),
+        )
+    finally:
+        if store is not None:
+            store.close()
 
 
 def test_real_strong_and_extreme_presets_cover_40_days() -> None:

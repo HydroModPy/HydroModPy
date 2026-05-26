@@ -2,7 +2,6 @@ case_id = "boussinesq_hillslope_interception_1d"
 category = "analytical"
 regime = "steady"
 dimension = "1d"
-launcher = "launcher_simulation"
 config_file = "config_boussinesq.toml"
 default_solver = "boussinesq"
 

@@ -1,4 +1,4 @@
-# Site selection - rapport de suppression legacy, lot 1
+# Site selection - rapport de suppression legacy
 
 Date: 2026-05-27
 
@@ -63,13 +63,43 @@ Le coeur d'audit canonique est:
 - `site_selection_decisions.csv`;
 - `site_selection_evidence.jsonl` quand des preuves normalisees existent.
 
-## Suite proposee
+## Suite
 
-1. Lancer le lot 2 DEM: remplacer les exemples restants `ign_bdalti` par
-   `ign_geoplateforme_dem`, puis retirer la branche runtime `ign_bdalti`.
-2. Regenerer les references de documentation/API si le chantier inclut les
-   artefacts ignores sous `docs/source/api/generated/`.
-3. Faire une passe globale hors `site_selection` sur les autres compatibilites
-   declarees comme legacy (`workflow_dispatch`, aliases CLI, colonnes de
-   heartbeat historiques), a traiter dans un chantier separe car le risque de
-   casse publique est plus large.
+Le lot 2 DEM a ete traite dans
+`docs/_dev_notes/dem_ign_legacy_cleanup_report.md`.
+
+## Lot 3 - aliases aval
+
+Les aliases de configuration aval `site_selection_output` et
+`site_selection_output_key` ont ete retires du resolver de catalogue
+`hydromodpy.analysis.testbed.site_selection_catalog`. Le contrat conserve est:
+
+- `from_site_selection_manifest` pour pointer vers le manifest;
+- `output` pour choisir une cle explicite du manifest;
+- `regional_lab_sites_csv` comme cle par defaut si `output` est absent.
+
+Validation associee:
+
+```powershell
+python -m pytest tests/unit/analysis/test_site_selection_catalog.py -q
+python -m pytest tests/unit/launchers/test_testbed_launcher.py tests/unit/launchers/test_regional_lab_launcher.py -q
+python -m pytest tests/unit/launchers/test_site_selection_bridge_examples.py -q
+python -m pytest tests/unit/site_selection -q
+```
+
+Resultats:
+
+- `7 passed` pour le resolver de catalogue site-selection;
+- `41 passed` pour les launchers testbed/regional-lab;
+- `2 passed` pour les exemples de bridge site-selection;
+- `142 passed` pour les tests unitaires `site_selection`.
+
+Restent hors perimetre site-selection:
+
+1. Verifier le chemin Geoplateforme en test reseau/CLI controle.
+2. Decider le niveau de support RGE ALTI avant de declarer le chantier DEM
+   completement clos.
+3. Faire une passe globale sur les autres compatibilites declarees comme
+   legacy (`workflow_dispatch`, aliases CLI, colonnes de heartbeat
+   historiques), a traiter dans un chantier separe car le risque de casse
+   publique est plus large.

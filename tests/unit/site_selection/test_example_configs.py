@@ -29,7 +29,7 @@ def test_bretagne_hydrometry_primary_example_loads():
     assert site_cfg.strategy.primary_observation_type == "flow_station"
     assert site_cfg.input.mode == "delineated_catchments"
     assert dem_cfg is not None
-    assert dem_cfg.sources[0].source == "ign_bdalti"
+    assert dem_cfg.sources[0].source == "ign_geoplateforme_dem"
     assert dem_cfg.sources[0].regions == ["Bretagne"]
     assert hydrometry_cfg.sources[0].source == "hubeau"
     assert hydrometry_cfg.sources[0].product == "QmnJ"
@@ -50,7 +50,7 @@ def test_bretagne_hydrometry_hubeau_preview_uses_generic_loader():
     assert site_cfg.criteria.area.ranges[0].min_area_km2 == pytest.approx(50.0)
     assert site_cfg.criteria.area.ranges[0].max_area_km2 == pytest.approx(500.0)
     assert dem_cfg is not None
-    assert dem_cfg.sources[0].source == "ign_bdalti"
+    assert dem_cfg.sources[0].source == "ign_geoplateforme_dem"
     assert dem_cfg.sources[0].regions == ["Bretagne"]
     assert hydrometry_cfg.sources[0].source == "hubeau"
     assert hydrometry_cfg.sources[0].product == "QmnJ"
@@ -224,13 +224,15 @@ def test_bretagne_hydrometry_primary_example_runs_from_fixture(tmp_path, monkeyp
     config_path = work_example / "configs" / "bretagne_hydrometry_primary.toml"
     fixture_dem = work_example / "fixtures" / "dem" / "bretagne_synthetic_dem.tif"
 
-    def fake_fetch_bdalti(*, output_dir, bbox, department_codes=None):
-        assert department_codes == ["022", "029", "035", "056"]
+    def fake_fetch_ign_dem(*, output_dir, bbox, departments=None, **kwargs):
+        assert departments == ["022", "029", "035", "056"]
+        assert kwargs["dataset"] == "bd-alti"
+        assert kwargs["resolution_m"] == 25.0
         return fixture_dem
 
     monkeypatch.setattr(
-        "hydromodpy.data.variables.dem.apis.ign_bdalti.fetch_bdalti",
-        fake_fetch_bdalti,
+        "hydromodpy.data.variables.dem.apis.ign_dem_fr.fetch_ign_dem",
+        fake_fetch_ign_dem,
     )
 
     summary = run_site_selection_workflow(config_path)

@@ -76,7 +76,7 @@ docs/
 | `hydromodpy/spatial/site_selection/outputs/` | CSV, JSONL, GeoJSON, GPKG/GeoParquet, manifest and artifact writers. |
 | `hydromodpy/spatial/site_selection/pipelines/build.py` | Main spatial build orchestration. |
 | `hydromodpy/spatial/site_selection/reports/` | Static map, HTML report, plan report and report blocks built from the manifest contract. |
-| `hydromodpy/spatial/site_selection/__init__.py` | Public package entrypoint for site-selection helpers. |
+| `hydromodpy/spatial/site_selection/__init__.py` | Small public facade for stable workflow entrypoints, manifest helpers and report renderers. |
 
 This is the right home for the basin-choice map/report layer. It is not
 Boussinesq-specific.

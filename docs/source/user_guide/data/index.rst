@@ -132,7 +132,7 @@ Family inventory
      - Payload shape
      - Main selectors
    * - ``dem``
-     - ``custom``, ``ign_bdalti``, ``ign_geoplateforme_dem``
+     - ``custom``, ``ign_geoplateforme_dem``
      - Elevation raster
      - ``path``, ``mask_path``, ``extent``
    * - ``geology``
@@ -265,7 +265,7 @@ Provider families
      - Source values
      - Typical role
    * - Public geographic layers
-     - ``ign_bdalti``, ``ign_geoplateforme_dem``, ``brgm_1m``, ``brgm_50k``,
+     - ``ign_geoplateforme_dem``, ``brgm_1m``, ``brgm_50k``,
        ``bdtopage``, ``euhydro``, ``osm``
      - Build watershed context: DEM, geology, and stream-network support.
    * - Hub'Eau observations

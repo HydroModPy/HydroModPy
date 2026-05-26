@@ -20,11 +20,14 @@ from hydromodpy.solver.boussinesq.adapters.flow import BoussinesqFlowAdapter
 from validation_cases.shared.boussinesq_analytical_runtime import (
     apply_analytical_boussinesq_runtime_defaults,
 )
+from validation_cases.shared.boussinesq_uniform_strip import (
+    aggregate_triangle_history_to_structured_fields,
+)
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
-    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
+    write_validation_fields_to_store,
 )
 
 
@@ -210,75 +213,6 @@ def write_uniform_strip_bundle(
     return bundle_dir
 
 
-def aggregate_triangle_history_to_structured_grids(
-    model,
-    *,
-    nx: int,
-    ny: int,
-    export_initial_state: bool = False,
-) -> None:
-    """Overwrite the default cell-vector postprocess with a regular profile grid."""
-    if model.state is None or model.mesh is None:
-        raise RuntimeError("Boussinesq validation case requires a solved model state.")
-
-    head_history = np.asarray(model.state.head_history_m, dtype=float)
-    if head_history.ndim == 1:
-        head_history = head_history.reshape(1, -1)
-    if not bool(export_initial_state) and head_history.shape[0] > 1:
-        head_history = head_history[1:, :]
-
-    dx = (float(model.mesh.x_max_m) - float(model.mesh.x_min_m)) / float(nx)
-    dy = (float(model.mesh.y_max_m) - float(model.mesh.y_min_m)) / float(ny)
-    col_index = np.clip(
-        np.floor(
-            (np.asarray(model.mesh.cell_centroid_x_m, dtype=float) - float(model.mesh.x_min_m)) / dx
-        ).astype(int),
-        0,
-        int(nx) - 1,
-    )
-    row_index = np.clip(
-        np.floor(
-            (np.asarray(model.mesh.cell_centroid_y_m, dtype=float) - float(model.mesh.y_min_m)) / dy
-        ).astype(int),
-        0,
-        int(ny) - 1,
-    )
-
-    top_sum = np.zeros((int(ny), int(nx)), dtype=float)
-    counts = np.zeros((int(ny), int(nx)), dtype=int)
-    for cell_idx in range(model.mesh.n_cells):
-        row = int(row_index[cell_idx])
-        col = int(col_index[cell_idx])
-        top_sum[row, col] += float(model.mesh.z_top_m[cell_idx])
-        counts[row, col] += 1
-    if np.any(counts == 0):
-        raise AssertionError("Every structured validation bin must receive at least one triangle.")
-    top_grid = top_sum / counts
-
-    watertable_elevation: dict[int, np.ndarray] = {}
-    watertable_depth: dict[int, np.ndarray] = {}
-    for time_index, head_values in enumerate(head_history):
-        head_sum = np.zeros((int(ny), int(nx)), dtype=float)
-        head_count = np.zeros((int(ny), int(nx)), dtype=int)
-        for cell_idx in range(model.mesh.n_cells):
-            row = int(row_index[cell_idx])
-            col = int(col_index[cell_idx])
-            head_sum[row, col] += float(head_values[cell_idx])
-            head_count[row, col] += 1
-        if np.any(head_count == 0):
-            raise AssertionError(
-                "Every structured validation bin must receive at least one triangle."
-            )
-        head_grid = head_sum / head_count
-        watertable_elevation[int(time_index)] = head_grid
-        watertable_depth[int(time_index)] = np.maximum(top_grid - head_grid, 0.0)
-
-    postprocess_dir = Path(model.full_path) / "_postprocess"
-    postprocess_dir.mkdir(parents=True, exist_ok=True)
-    np.save(postprocess_dir / "watertable_elevation.npy", watertable_elevation)
-    np.save(postprocess_dir / "watertable_depth.npy", watertable_depth)
-
-
 def run_boussinesq_transient_uniform_strip_case(
     *,
     case_dir: Path,
@@ -360,7 +294,7 @@ def run_boussinesq_transient_uniform_strip_case(
 
     result = BoussinesqFlowAdapter().execute(ctx)
     model = result.primary_model
-    aggregate_triangle_history_to_structured_grids(
+    field_series = aggregate_triangle_history_to_structured_fields(
         model,
         nx=int(nx),
         ny=int(ny),
@@ -371,10 +305,10 @@ def run_boussinesq_transient_uniform_strip_case(
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
     solver_name = str(public_solver_label or "boussinesq")
-    store, sim_id = materialize_postprocess_fields_to_store(
+    store, sim_id = write_validation_fields_to_store(
         out_path=out_path,
-        postprocess_dir=postprocess_dir,
-        solver_name=solver_name,
+        fields=field_series,
+        solver_name="boussinesq",
         flow_regime="transient",
     )
     return ValidationRunResult(
@@ -393,7 +327,7 @@ def run_boussinesq_transient_uniform_strip_case(
 
 
 __all__ = [
-    "aggregate_triangle_history_to_structured_grids",
+    "aggregate_triangle_history_to_structured_fields",
     "build_flow_config",
     "run_boussinesq_transient_uniform_strip_case",
     "write_uniform_strip_bundle",

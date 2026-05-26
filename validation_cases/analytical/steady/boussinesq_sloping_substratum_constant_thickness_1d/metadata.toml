@@ -2,7 +2,6 @@ case_id = "boussinesq_sloping_substratum_constant_thickness_1d"
 category = "analytical"
 regime = "steady"
 dimension = "1d"
-launcher = "launcher_simulation"
 default_solver = "modflow_nwt"
 base_config = "config_common.toml"
 

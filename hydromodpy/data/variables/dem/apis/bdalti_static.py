@@ -1,40 +1,17 @@
-"""Download and cache IGN BD ALTI® 25 m MNT.
-
-Source: https://geoservices.ign.fr/bdalti (GéoPlateforme)
-License: Licence Ouverte / Open Licence (Etalab v2.0)
-
-Workflow:
-1. Detect which departments overlap the requested bbox
-2. Download .7z archive for each department
-3. Extract ASC tiles
-4. Merge all tiles and crop to the requested bbox
-5. Save as GeoTIFF
-"""
+"""Shared BD ALTI 25 m static archive metadata and extraction helpers."""
 
 from __future__ import annotations
 
 import hashlib
-import shutil
 import subprocess
-import tempfile
-import urllib.request
 from collections.abc import Sequence
 from pathlib import Path
 
-from hydromodpy.core.logging import get_logger
-from hydromodpy.data.common.progress import iter_progress, log_step
-
-logger = get_logger(__name__)
-
-# Base URL for BD ALTI downloads on GéoPlateforme.
-_BASE_URL = "https://data.geopf.fr/telechargement/download/BDALTI"
-_USER_AGENT = "hydromodpy/1.0"
-
-# Mapping of department code (BRGM 3-char) → archive name (without .7z).
+# Mapping of department code (BRGM 3-char) to archive name (without .7z).
 # Mainland France uses LAMB93-IGN69, Corsica uses LAMB93-IGN78C,
 # overseas territories use their respective local CRS.
 _BDALTI_ARCHIVES: dict[str, str] = {
-    # --- Métropole (EPSG:2154 / Lambert-93, altimétrie IGN69) ---
+    # --- Mainland France (EPSG:2154 / Lambert-93, IGN69 altimetry) ---
     "001": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN69_D001_2023-08-08",
     "002": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN69_D002_2020-09-04",
     "003": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN69_D003_2023-08-10",
@@ -129,7 +106,7 @@ _BDALTI_ARCHIVES: dict[str, str] = {
     "093": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN69_D093_2020-07-30",
     "094": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN69_D094_2021-03-03",
     "095": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN69_D095_2020-07-30",
-    # --- Corse (EPSG:2154 / Lambert-93, altimétrie IGN78C) ---
+    # --- Corsica (EPSG:2154 / Lambert-93, IGN78C altimetry) ---
     "02A": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN78C_D02A_2020-04-16",
     "02B": "BDALTIV2_2-0_25M_ASC_LAMB93-IGN78C_D02B_2020-04-16",
     # --- Outre-mer (CRS locaux) ---
@@ -190,159 +167,14 @@ def _extract_7z(archive_path: Path, output_dir: Path) -> None:
         ) from None
 
 
-def _download_department(
-    dept_code: str,
-    *,
-    cache_dir: Path,
-) -> Path | None:
-    """Download and extract one department's BD ALTI .7z archive.
-
-    Returns path to the extracted directory containing ASC files,
-    or ``None`` if the department is unavailable.
-    """
-    archive_name = _BDALTI_ARCHIVES.get(dept_code)
-    if archive_name is None:
-        logger.warning("No BD ALTI archive for department %s", dept_code)
-        return None
-
-    url = f"{_BASE_URL}/{archive_name}/{archive_name}.7z"
-
-    dept_dir = cache_dir / f"D{dept_code}"
-    marker = dept_dir / ".extracted"
-
-    if marker.exists():
-        return dept_dir
-
-    archive_path = cache_dir / f"{archive_name}.7z"
-
-    if not archive_path.exists():
-        logger.info("Downloading BD ALTI 25 m for department %s...", dept_code)
-        try:
-            request = urllib.request.Request(
-                url,
-                headers={"User-Agent": _USER_AGENT},
-            )
-            with urllib.request.urlopen(request) as response:
-                with archive_path.open("wb") as handle:
-                    shutil.copyfileobj(response, handle)
-        except Exception as exc:
-            logger.warning("Failed to download department %s: %s", dept_code, exc)
-            return None
-
-    logger.info("Extracting %s...", archive_name)
-    try:
-        with tempfile.TemporaryDirectory(prefix=f"bdalti_{dept_code}_") as tmp:
-            tmp_dir = Path(tmp)
-            _extract_7z(archive_path, tmp_dir)
-            extracted_root = tmp_dir / archive_name
-            if not extracted_root.exists():
-                extracted_root = tmp_dir
-            if dept_dir.exists():
-                shutil.rmtree(dept_dir)
-            shutil.move(str(extracted_root), str(dept_dir))
-            marker.touch()
-    except Exception as exc:
-        logger.warning("Failed to extract department %s: %s", dept_code, exc)
-        archive_path.unlink(missing_ok=True)
-        return None
-
-    return dept_dir
-
-
 def _find_asc_files(directory: Path) -> list[Path]:
     """Find all ASC files recursively in a directory."""
     return sorted(directory.rglob("*.asc"))
 
 
-def fetch_bdalti(
-    *,
-    output_dir: Path,
-    bbox: tuple[float, float, float, float],
-    department_codes: Sequence[str] | None = None,
-) -> Path:
-    """Download, merge, and crop BD ALTI 25 m for the given bbox.
-
-    Parameters
-    ----------
-    output_dir : cache directory
-    bbox : (xmin, ymin, xmax, ymax) in EPSG:2154
-
-    Returns
-    -------
-    Path to the merged and cropped GeoTIFF.
-    """
-    from hydromodpy.data.common.administrative.france import (
-        department_code_to_padded,
-        find_departments_in_bbox,
-    )
-
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    if department_codes:
-        dept_codes = sorted({department_code_to_padded(code) for code in department_codes})
-    else:
-        dept_codes = find_departments_in_bbox(bbox)
-    bbox_h = _request_hash_str(bbox, dept_codes=dept_codes)
-    merged_tif = output_dir / f"dem_bdalti_25m_{bbox_h}.tif"
-
-    if merged_tif.exists():
-        return merged_tif
-
-    # Step 1: validate requested departments or infer overlapping departments.
-    if not dept_codes:
-        raise ValueError(
-            f"No department found overlapping bbox {bbox}. "
-            "Ensure the bbox is in EPSG:2154 (Lambert-93)."
-        )
-    log_step("IGN BD ALTI: departments {}".format(", ".join(sorted(dept_codes))))
-
-    # Step 2: download each department.
-    dept_cache = output_dir / "departments_bdalti"
-    dept_cache.mkdir(parents=True, exist_ok=True)
-
-    import rasterio
-    from rasterio.merge import merge
-
-    all_asc_files: list[Path] = []
-    for code in iter_progress(sorted(dept_codes), desc="Downloading"):
-        dept_dir = _download_department(code, cache_dir=dept_cache)
-        if dept_dir is not None:
-            asc_files = _find_asc_files(dept_dir)
-            all_asc_files.extend(asc_files)
-
-    if not all_asc_files:
-        raise ValueError(f"No ASC files found for departments: {list(dept_codes)}")
-
-    log_step(f"Merging {len(all_asc_files)} ASC tiles...")
-
-    # Step 3: open all datasets and merge with bbox crop.
-    datasets = []
-    try:
-        for asc_path in all_asc_files:
-            ds = rasterio.open(str(asc_path))
-            datasets.append(ds)
-
-        mosaic, mosaic_transform = merge(datasets, bounds=bbox)
-    finally:
-        for ds in datasets:
-            ds.close()
-
-    # Step 4: write merged GeoTIFF.
-    profile = {
-        "driver": "GTiff",
-        "height": mosaic.shape[1],
-        "width": mosaic.shape[2],
-        "count": mosaic.shape[0],
-        "transform": mosaic_transform,
-        "crs": "EPSG:2154",
-        "dtype": mosaic.dtype,
-        "compress": "deflate",
-        "nodata": -9999,
-    }
-
-    with rasterio.open(str(merged_tif), "w", **profile) as dst:
-        dst.write(mosaic)
-
-    log_step(f"Merged BD ALTI MNT: {merged_tif.name}")
-    return merged_tif
+__all__ = [
+    "_BDALTI_ARCHIVES",
+    "_extract_7z",
+    "_find_asc_files",
+    "_request_hash_str",
+]

@@ -92,7 +92,6 @@ def build_boussinesq_hillslope_interception_comparison(
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
     expected_shape = tuple(output_cfg.get("expected_shape", ())) or None
     timestep, heads = load_field(
-        postprocess_dir=result.postprocess_dir,
         store=result.store,
         sim_id=result.sim_id,
         observable_name=observable_name,

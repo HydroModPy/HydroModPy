@@ -29,6 +29,18 @@ Les champs gridded vivent en **Zarr v2** (sortie split
 **Parquet v2.6**. Les exports GeoTIFF, CSV, STAC, RO-Crate et PROV-O
 sont des sidecars utilisateur, pas la source de vérité V1.
 
+## Artefacts versionnes
+
+Les sorties de run ne sont pas versionnees : `outputs/`, `web/`,
+`web_review/`, `figures/`, `simulations/`, `catalog.duckdb` et
+`data/cache.duckdb` sont des artefacts regenerables localement.
+
+Les galeries et fixtures documentaires restent versionnees par intention.
+C'est le cas notamment de `07_mesh_gallery`, `08_mesh_viewer`,
+`09_capability_gallery` et des dossiers `fixtures/`. Ces fichiers servent
+de references stables pour la documentation, les exemples inspectables et
+les tests de contrat.
+
 ## Catalog facade Python
 
 | Appel | Retour | Namespaces |

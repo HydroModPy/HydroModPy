@@ -474,8 +474,10 @@ def _maybe_resolve_map_dem_for_review(
     data_dem_config: DataDemConfig | None = None
     if config_path is not None:
         data_dem_config = load_data_dem_config_for_site_selection(config_path)
-    if data_dem_config is None and config.dem.source == "ign_bdalti":
-        data_dem_config = DataDemConfig.ign_bdalti(force_refresh=config.dem.force_refresh)
+    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
+        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
+            force_refresh=config.dem.force_refresh
+        )
     if data_dem_config is None:
         return {}
     map_dem_path = load_dem_path(
@@ -510,8 +512,10 @@ def _resolve_dem_path_for_delineation(
     if config_path is not None:
         data_dem_config = load_data_dem_config_for_site_selection(config_path)
 
-    if data_dem_config is None and config.dem.source == "ign_bdalti":
-        data_dem_config = DataDemConfig.ign_bdalti(force_refresh=config.dem.force_refresh)
+    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
+        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
+            force_refresh=config.dem.force_refresh
+        )
 
     if data_dem_config is None:
         raise ConfigMissingError(
@@ -550,8 +554,10 @@ def _resolve_dem_path_for_observed_selection(
     if config_path is not None:
         data_dem_config = load_data_dem_config_for_site_selection(config_path)
 
-    if data_dem_config is None and config.dem.source == "ign_bdalti":
-        data_dem_config = DataDemConfig.ign_bdalti(force_refresh=config.dem.force_refresh)
+    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
+        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
+            force_refresh=config.dem.force_refresh
+        )
 
     if data_dem_config is None:
         raise ConfigMissingError(
@@ -592,8 +598,10 @@ def _resolve_dem_path_for_generated_selection(
     if config_path is not None:
         data_dem_config = load_data_dem_config_for_site_selection(config_path)
 
-    if data_dem_config is None and config.dem.source == "ign_bdalti":
-        data_dem_config = DataDemConfig.ign_bdalti(force_refresh=config.dem.force_refresh)
+    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
+        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
+            force_refresh=config.dem.force_refresh
+        )
 
     if data_dem_config is None:
         raise ConfigMissingError(
@@ -634,8 +642,10 @@ def _resolve_map_dem_path_for_review(
     data_dem_config: DataDemConfig | None = None
     if config_path is not None:
         data_dem_config = load_data_dem_config_for_site_selection(config_path)
-    if data_dem_config is None and config.dem.source == "ign_bdalti":
-        data_dem_config = DataDemConfig.ign_bdalti(force_refresh=config.dem.force_refresh)
+    if data_dem_config is None and config.dem.source == "ign_geoplateforme_dem":
+        data_dem_config = DataDemConfig.ign_geoplateforme_dem(
+            force_refresh=config.dem.force_refresh
+        )
     if data_dem_config is None:
         return delineation_dem_path
 

@@ -2,26 +2,17 @@
 
 from __future__ import annotations
 
-import os
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 
 from hydromodpy.core.logging import get_logger
 from hydromodpy.core.toml_io.loader import load_toml_with_base_config, merge_toml_payloads
 
-if TYPE_CHECKING:
-    from hydromodpy.results.store import ResultStore
-
 logger = get_logger(__name__)
-
-
-def _legacy_npy_enabled() -> bool:
-    """Return whether legacy validation .npy loading is explicitly enabled."""
-    return os.environ.get("HMP_ALLOW_LEGACY_NPY_VALIDATION") == "1"
 
 
 def _aggregate_triangles_to_grid(
@@ -159,84 +150,55 @@ def load_case_tolerances(case_dir: Path, solver: str | None = None) -> dict:
     return _load_toml(case_dir / "tolerances.toml")
 
 
-def load_npy_dict(path: Path) -> dict:
-    """Load one HydroModPy dictionary payload serialized in ``.npy`` format."""
-    if not _legacy_npy_enabled():
-        raise RuntimeError(
-            "Legacy validation .npy loading is disabled. Read validation outputs "
-            "through the result store, or set HMP_ALLOW_LEGACY_NPY_VALIDATION=1 "
-            "for archived pre-v1 artifacts."
-        )
-    return np.load(path, allow_pickle=True).item()
-
-
-def load_last_npy_array(postprocess_dir: Path, observable_name: str) -> tuple[int, np.ndarray]:
-    """Load the last timestep array from one HydroModPy ``.npy`` dictionary output."""
-    payload = load_npy_dict(postprocess_dir / f"{observable_name}.npy")
-    assert payload, f"{observable_name}.npy is empty."
-    last_key = sorted(payload)[-1]
-    return int(last_key), np.asarray(payload[last_key], dtype=float)
-
-
-def _load_last_array_from_store_or_npy(
+def _load_last_array_from_store(
     *,
-    postprocess_dir: Path | None,
     observable_name: str,
     store: Any,
     sim_id: str | None,
     expected_shape: tuple[int, ...] | None = None,
 ) -> tuple[int, np.ndarray]:
-    """Return ``(timestep, values)`` for the last timestep of one variable.
+    """Return ``(timestep, values)`` for the last stored timestep."""
+    if store is None or sim_id is None:
+        raise ValueError(f"Cannot load '{observable_name}': no store/sim_id provided.")
 
-    Uses the :class:`ResultStore` when ``store`` and ``sim_id`` are set.
-    Legacy ``.npy`` loading is used only when no store context is provided.
-    """
-    if store is not None and sim_id is not None:
-        sz = None
-        try:
-            sz = store.open_zarr(sim_id)
-            grp = sz.root
-            arr = None
-            for loc in (grp, grp.get("derived"), grp.get("budget")):
-                if loc is not None and observable_name in loc:
-                    arr = loc[observable_name][:]
-                    break
-            if arr is not None:
-                data = np.asarray(arr, dtype=float)
-                if data.ndim == 3 and data.shape[1] == 1:
-                    data = data[:, 0, :]
-                n_ts = int(data.shape[0])
-                last_values = np.asarray(data[n_ts - 1], dtype=float)
-                eff_shape = expected_shape
-                if (
-                    eff_shape is not None
-                    and tuple(last_values.shape) != tuple(eff_shape)
-                    and last_values.size == int(np.prod(eff_shape))
-                ):
-                    last_values = last_values.reshape(tuple(eff_shape))
-                return n_ts - 1, last_values
-            raise KeyError(
-                f"Variable '{observable_name}' not found in result store for sim_id={sim_id}."
-            )
-        except Exception as exc:
-            raise RuntimeError(
-                f"ResultStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
-            ) from exc
-        finally:
-            if sz is not None:
-                sz.close()
-
-    if postprocess_dir is None:
-        raise ValueError(
-            f"Cannot load '{observable_name}': no store provided and postprocess_dir is None."
+    sz = None
+    try:
+        sz = store.open_zarr(sim_id)
+        grp = sz.root
+        arr = None
+        for loc in (grp, grp.get("derived"), grp.get("budget")):
+            if loc is not None and observable_name in loc:
+                arr = loc[observable_name][:]
+                break
+        if arr is not None:
+            data = np.asarray(arr, dtype=float)
+            if data.ndim == 3 and data.shape[1] == 1:
+                data = data[:, 0, :]
+            n_ts = int(data.shape[0])
+            last_values = np.asarray(data[n_ts - 1], dtype=float)
+            eff_shape = expected_shape
+            if (
+                eff_shape is not None
+                and tuple(last_values.shape) != tuple(eff_shape)
+                and last_values.size == int(np.prod(eff_shape))
+            ):
+                last_values = last_values.reshape(tuple(eff_shape))
+            return n_ts - 1, last_values
+        raise KeyError(
+            f"Variable '{observable_name}' not found in result store for sim_id={sim_id}."
         )
-    return load_last_npy_array(postprocess_dir, observable_name)
+    except Exception as exc:
+        raise RuntimeError(
+            f"ResultStore query failed for last-timestep '{observable_name}' (sim_id={sim_id})."
+        ) from exc
+    finally:
+        if sz is not None:
+            sz.close()
 
 
-def load_last_npy_array_on_expected_grid(
-    postprocess_dir: Path | None,
-    observable_name: str,
+def load_field_on_expected_grid(
     *,
+    observable_name: str,
     case_dir: Path,
     metadata: Mapping[str, object],
     solver: str | None,
@@ -252,17 +214,13 @@ def load_last_npy_array_on_expected_grid(
     """Load one validation output and regrid irregular meshes when needed.
 
     Structured launcher runs already emit arrays matching ``expected_shape``.
-    For irregular-triangle launcher runs, the postprocessed watertable output is
-    stored as one cell vector. This helper either projects that vector back onto
-    the expected structured grid, or reduces it to one area-weighted x-profile
+    For irregular-triangle launcher runs, the stored watertable output can be
+    one cell vector. This helper either projects that vector back onto the
+    expected structured grid, or reduces it to one area-weighted x-profile
     when ``collapse_y_to_x_profile`` is requested.
-
-    When a :class:`ResultStore` and ``sim_id`` are provided, values are read
-    from the store. Legacy ``.npy`` loading is used only without store context.
     """
 
-    timestep, values = _load_last_array_from_store_or_npy(
-        postprocess_dir=postprocess_dir,
+    timestep, values = _load_last_array_from_store(
         observable_name=observable_name,
         store=store,
         sim_id=sim_id,
@@ -358,19 +316,16 @@ def load_last_npy_array_on_expected_grid(
 
 def load_field(
     *,
-    postprocess_dir: Path | None = None,
     store: Any = None,
     sim_id: str | None = None,
     observable_name: str,
     timestep: int = -1,
     expected_shape: tuple[int, ...] | None = None,
 ) -> tuple[int, np.ndarray]:
-    """Load one spatial field, preferring the ResultStore when available.
+    """Load one spatial field from the result store.
 
     Parameters
     ----------
-    postprocess_dir : Path, optional
-        Legacy ``_postprocess`` directory containing ``.npy`` files.
     store : ResultStore, optional
         Open :class:`~hydromodpy.results.store.ResultStore` instance.
     sim_id : str, optional
@@ -379,13 +334,12 @@ def load_field(
         Variable name (e.g. ``"head"``, ``"watertable_elevation"``).
     timestep : int
         Timestep index to load.  ``-1`` (the default) loads the last
-        available timestep, matching the legacy ``load_last_npy_array``
-        behaviour.
+        available timestep.
     expected_shape : tuple[int, ...], optional
         When provided and the loaded array has compatible element count
         but a different shape, reshape it.  This bridges the flat
         per-cell vectors returned by the SimulationCatalog with the
-        ``(nrow, ncol)`` grids that legacy ``.npy`` files stored.
+        ``(nrow, ncol)`` grids expected by validation comparisons.
 
     Returns
     -------
@@ -396,69 +350,64 @@ def load_field(
     resolved_ts: int
     data: np.ndarray
 
-    if store is not None and sim_id is not None:
-        try:
-            raw = store.query_field(sim_id, observable_name, timestep)
-            resolved_ts = timestep
-            if timestep < 0:
-                sz = None
-                try:
-                    sz = store.open_zarr(sim_id)
-                    grp = sz.root
-                    for loc in (grp, grp.get("derived"), grp.get("budget")):
-                        if loc is not None and observable_name in loc:
-                            n_ts = loc[observable_name].shape[0]
-                            resolved_ts = n_ts + timestep
-                            break
-                except Exception:
-                    resolved_ts = timestep
-                finally:
-                    if sz is not None:
-                        sz.close()
-            data = np.asarray(raw, dtype=float)
-            eff_shape = expected_shape
-            if eff_shape is None and data.ndim == 1:
-                try:
-                    geo_meta = store.read_geographic_metadata(sim_id)
-                    nrow = int(geo_meta.get("nrow", 0))
-                    ncol = int(geo_meta.get("ncol", 0))
-                    if nrow > 0 and ncol > 0 and nrow * ncol == data.size:
-                        eff_shape = (nrow, ncol)
-                except Exception:
-                    pass
-            if (
-                eff_shape is not None
-                and tuple(data.shape) != eff_shape
-                and data.size == int(np.prod(eff_shape))
-            ):
-                data = data.reshape(eff_shape)
-            elif (
-                eff_shape is not None
-                and tuple(data.shape) != eff_shape
-                and data.size != int(np.prod(eff_shape))
-            ):
-                data = _aggregate_triangles_to_grid(
-                    data,
-                    eff_shape,
-                    store,
-                    sim_id,
-                )
-            return int(resolved_ts), data
-        except Exception as exc:
-            raise RuntimeError(
-                f"ResultStore query failed for variable '{observable_name}' (sim_id={sim_id})."
-            ) from exc
+    if store is None or sim_id is None:
+        raise ValueError(f"Cannot load field '{observable_name}': no store/sim_id provided.")
 
-    if postprocess_dir is None:
-        raise ValueError(
-            f"Cannot load field '{observable_name}': no store provided and postprocess_dir is None."
-        )
-    return load_last_npy_array(postprocess_dir, observable_name)
+    try:
+        raw = store.query_field(sim_id, observable_name, timestep)
+        resolved_ts = timestep
+        if timestep < 0:
+            sz = None
+            try:
+                sz = store.open_zarr(sim_id)
+                grp = sz.root
+                for loc in (grp, grp.get("derived"), grp.get("budget")):
+                    if loc is not None and observable_name in loc:
+                        n_ts = loc[observable_name].shape[0]
+                        resolved_ts = n_ts + timestep
+                        break
+            except Exception:
+                resolved_ts = timestep
+            finally:
+                if sz is not None:
+                    sz.close()
+        data = np.asarray(raw, dtype=float)
+        eff_shape = expected_shape
+        if eff_shape is None and data.ndim == 1:
+            try:
+                geo_meta = store.read_geographic_metadata(sim_id)
+                nrow = int(geo_meta.get("nrow", 0))
+                ncol = int(geo_meta.get("ncol", 0))
+                if nrow > 0 and ncol > 0 and nrow * ncol == data.size:
+                    eff_shape = (nrow, ncol)
+            except Exception:
+                pass
+        if (
+            eff_shape is not None
+            and tuple(data.shape) != eff_shape
+            and data.size == int(np.prod(eff_shape))
+        ):
+            data = data.reshape(eff_shape)
+        elif (
+            eff_shape is not None
+            and tuple(data.shape) != eff_shape
+            and data.size != int(np.prod(eff_shape))
+        ):
+            data = _aggregate_triangles_to_grid(
+                data,
+                eff_shape,
+                store,
+                sim_id,
+            )
+        return int(resolved_ts), data
+    except Exception as exc:
+        raise RuntimeError(
+            f"ResultStore query failed for variable '{observable_name}' (sim_id={sim_id})."
+        ) from exc
 
 
 def load_time_series_fields(
     *,
-    postprocess_dir: Path | None = None,
     store: Any = None,
     sim_id: str | None = None,
     observable_name: str,
@@ -470,209 +419,119 @@ def load_time_series_fields(
     y_max_m: float | None = None,
     collapse_y_to_x_profile: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Load all timesteps for one variable, preferring the store.
+    """Load all timesteps for one variable from the result store.
 
     Returns ``(period_indices, stacked_arrays)`` where
     ``stacked_arrays`` has shape ``(n_timesteps, *spatial_shape)``.
     """
-    if store is not None and sim_id is not None:
-        errors: list[Exception] = []
-        sz = None
-        try:
-            sz = store.open_zarr(sim_id)
-            grp = sz.root
-            arr = None
-            for loc in (grp, grp.get("derived"), grp.get("budget")):
-                if loc is not None and observable_name in loc:
-                    arr = loc[observable_name][:]
-                    break
-            if arr is not None:
-                data = np.asarray(arr, dtype=float)
-                # Zarr shape is (n_timesteps, n_layers, n_cells) or (n_timesteps, n_cells)
-                # Remove singleton layer dim if present
-                if data.ndim == 3 and data.shape[1] == 1:
-                    data = data[:, 0, :]
-                n_ts = data.shape[0]
-                indices = np.arange(n_ts, dtype=int)
-                # Resolve expected shape from metadata if not provided
-                eff_shape = expected_spatial_shape
-                if eff_shape is None and data.ndim == 2:
-                    try:
-                        geo_meta = store.read_geographic_metadata(sim_id)
-                        nrow = int(geo_meta.get("nrow", 0))
-                        ncol = int(geo_meta.get("ncol", 0))
-                        if nrow > 0 and ncol > 0 and nrow * ncol == data.shape[1]:
-                            eff_shape = (nrow, ncol)
-                    except Exception:
-                        pass
-                if (
-                    eff_shape is not None
-                    and tuple(data.shape[1:]) != eff_shape
-                    and data[:1].size > 0
-                    and int(np.prod(data.shape[1:])) == int(np.prod(eff_shape))
-                ):
-                    data = data.reshape(n_ts, *eff_shape)
-                elif (
-                    eff_shape is not None
-                    and tuple(data.shape[1:]) != eff_shape
-                    and data.ndim == 2
-                    and data[:1].size > 0
-                ):
-                    if mesh_bundle_dir is not None and len(tuple(eff_shape)) == 2:
-                        from validation_cases.shared.gmsh_irregular_strip import (
-                            interpolate_bundle_history_to_structured_grids,
-                        )
-
-                        data = interpolate_bundle_history_to_structured_grids(
-                            data,
-                            bundle_dir=Path(mesh_bundle_dir),
-                            nx=int(eff_shape[1]),
-                            ny=int(eff_shape[0]),
-                            x_min_m=x_min_m,
-                            x_max_m=x_max_m,
-                            y_min_m=y_min_m,
-                            y_max_m=y_max_m,
-                            collapse_y_to_x_profile=collapse_y_to_x_profile,
-                        )
-                    else:
-                        data = _aggregate_triangle_history_to_grid(
-                            data,
-                            eff_shape,
-                            store,
-                            sim_id,
-                        )
-                return indices, data
-        except Exception as exc:
-            errors.append(exc)
-        finally:
-            if sz is not None:
-                sz.close()
-
-        # Try DuckDB timeseries (scalar per timestep, e.g. outlet discharge)
-        try:
-            ts = store.query_timeseries(sim_id, "_catchment", observable_name)
-            values = np.asarray(ts.values, dtype=float)
-            indices = np.arange(values.shape[0], dtype=int)
-            return indices, values
-        except Exception as exc:
-            errors.append(exc)
-
-        # Derive outlet discharge from budget table (constant head flux_out).
-        # NOTE: the ``unit`` column is a free-text label and does not reliably
-        # describe the numerical values (the extractors currently record
-        # everything as ``"m3/d"`` regardless of the model's real time unit),
-        # so no unit conversion is applied here - callers are responsible for
-        # interpreting the values in the model's native units.
-        if "outlet_discharge" in observable_name:
-            try:
-                budgets = store.query_budget(sim_id)
-                if not budgets.empty:
-                    chd_names = ("constant head", "chd")
-                    chd = budgets[budgets["component"].str.lower().isin(chd_names)]
-                    if not chd.empty:
-                        chd_sorted = chd.sort_values("timestep")
-                        values = np.asarray(chd_sorted["flux_out"].values, dtype=float)
-                        indices = np.arange(values.shape[0], dtype=int)
-                        return indices, values
-            except Exception as exc:
-                errors.append(exc)
-
-        cause = errors[-1] if errors else None
-        raise RuntimeError(
-            f"ResultStore queries failed for time-series '{observable_name}' (sim_id={sim_id})."
-        ) from cause
-
-    if postprocess_dir is None:
+    if store is None or sim_id is None:
         raise ValueError(
-            f"Cannot load time-series '{observable_name}': no store provided and "
-            "postprocess_dir is None."
+            f"Cannot load time-series '{observable_name}': no store/sim_id provided."
         )
-    indices, arrays = load_npy_time_series_arrays(postprocess_dir, observable_name)
-    eff_shape = expected_spatial_shape
-    if eff_shape is not None and tuple(arrays.shape[1:]) != tuple(eff_shape):
-        if (
-            arrays.ndim == 2
-            and mesh_bundle_dir is not None
-            and len(tuple(eff_shape)) == 2
-            and arrays[:1].size > 0
-        ):
-            from validation_cases.shared.gmsh_irregular_strip import (
-                interpolate_bundle_history_to_structured_grids,
-            )
 
-            arrays = interpolate_bundle_history_to_structured_grids(
-                arrays,
-                bundle_dir=Path(mesh_bundle_dir),
-                nx=int(eff_shape[1]),
-                ny=int(eff_shape[0]),
-                x_min_m=x_min_m,
-                x_max_m=x_max_m,
-                y_min_m=y_min_m,
-                y_max_m=y_max_m,
-                collapse_y_to_x_profile=collapse_y_to_x_profile,
-            )
-        elif arrays[:1].size > 0 and int(np.prod(arrays.shape[1:])) == int(np.prod(eff_shape)):
-            arrays = arrays.reshape(arrays.shape[0], *tuple(eff_shape))
-    return indices, arrays
-
-
-def load_npy_time_series_arrays(
-    postprocess_dir: Path,
-    observable_name: str,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Load one full HydroModPy ``.npy`` time series as sorted stacked arrays."""
-    payload = load_npy_dict(postprocess_dir / f"{observable_name}.npy")
-    assert payload, f"{observable_name}.npy is empty."
-
-    ordered_items = sorted(
-        (int(key), np.asarray(value, dtype=float)) for key, value in payload.items()
-    )
-    indices = np.asarray([key for key, _ in ordered_items], dtype=int)
-    arrays = np.stack([value for _, value in ordered_items], axis=0)
-    return indices, arrays
-
-
-def load_npy_time_series_arrays_with_elapsed_seconds(
-    postprocess_dir: Path,
-    observable_name: str,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray | None]:
-    """Load one time series and its optional elapsed-seconds sidecar."""
-    payload_path = Path(postprocess_dir) / f"{observable_name}.npy"
-    indices, arrays = load_npy_time_series_arrays(postprocess_dir, observable_name)
-
-    from hydromodpy.physics.flow.history_contract import time_axis_sidecar_path
-
-    sidecar_path = time_axis_sidecar_path(payload_path)
-    if not sidecar_path.exists():
-        return indices, arrays, None
-
-    sidecar = load_npy_dict(sidecar_path)
-    raw_time_keys = sidecar.get("time_keys")
-    raw_elapsed_seconds = sidecar.get("elapsed_seconds")
-    if raw_time_keys is None or raw_elapsed_seconds is None:
-        return indices, arrays, None
-
-    sidecar_keys = np.asarray(raw_time_keys, dtype=int).reshape(-1)
-    sidecar_elapsed = np.asarray(raw_elapsed_seconds, dtype=float).reshape(-1)
-    if sidecar_keys.size != sidecar_elapsed.size:
-        raise ValueError(
-            f"{sidecar_path} has {sidecar_keys.size} time keys but "
-            f"{sidecar_elapsed.size} elapsed-second values."
-        )
-    if np.array_equal(sidecar_keys, indices):
-        return indices, arrays, sidecar_elapsed
-
-    elapsed_by_key = {
-        int(key): float(elapsed)
-        for key, elapsed in zip(sidecar_keys.tolist(), sidecar_elapsed.tolist(), strict=True)
-    }
+    errors: list[Exception] = []
+    sz = None
     try:
-        elapsed = np.asarray([elapsed_by_key[int(key)] for key in indices.tolist()], dtype=float)
-    except KeyError as exc:
-        raise ValueError(
-            f"{sidecar_path} does not cover time key {int(exc.args[0])} from {payload_path}."
-        ) from exc
-    return indices, arrays, elapsed
+        sz = store.open_zarr(sim_id)
+        grp = sz.root
+        arr = None
+        for loc in (grp, grp.get("derived"), grp.get("budget")):
+            if loc is not None and observable_name in loc:
+                arr = loc[observable_name][:]
+                break
+        if arr is not None:
+            data = np.asarray(arr, dtype=float)
+            # Zarr shape is (n_timesteps, n_layers, n_cells) or (n_timesteps, n_cells).
+            if data.ndim == 3 and data.shape[1] == 1:
+                data = data[:, 0, :]
+            n_ts = data.shape[0]
+            indices = np.arange(n_ts, dtype=int)
+            eff_shape = expected_spatial_shape
+            if eff_shape is None and data.ndim == 2:
+                try:
+                    geo_meta = store.read_geographic_metadata(sim_id)
+                    nrow = int(geo_meta.get("nrow", 0))
+                    ncol = int(geo_meta.get("ncol", 0))
+                    if nrow > 0 and ncol > 0 and nrow * ncol == data.shape[1]:
+                        eff_shape = (nrow, ncol)
+                except Exception:
+                    pass
+            if (
+                eff_shape is not None
+                and tuple(data.shape[1:]) != eff_shape
+                and data[:1].size > 0
+                and int(np.prod(data.shape[1:])) == int(np.prod(eff_shape))
+            ):
+                data = data.reshape(n_ts, *eff_shape)
+            elif (
+                eff_shape is not None
+                and tuple(data.shape[1:]) != eff_shape
+                and data.ndim == 2
+                and data[:1].size > 0
+            ):
+                if mesh_bundle_dir is not None and len(tuple(eff_shape)) == 2:
+                    from validation_cases.shared.gmsh_irregular_strip import (
+                        interpolate_bundle_history_to_structured_grids,
+                    )
+
+                    data = interpolate_bundle_history_to_structured_grids(
+                        data,
+                        bundle_dir=Path(mesh_bundle_dir),
+                        nx=int(eff_shape[1]),
+                        ny=int(eff_shape[0]),
+                        x_min_m=x_min_m,
+                        x_max_m=x_max_m,
+                        y_min_m=y_min_m,
+                        y_max_m=y_max_m,
+                        collapse_y_to_x_profile=collapse_y_to_x_profile,
+                    )
+                else:
+                    data = _aggregate_triangle_history_to_grid(
+                        data,
+                        eff_shape,
+                        store,
+                        sim_id,
+                    )
+            return indices, data
+    except Exception as exc:
+        errors.append(exc)
+    finally:
+        if sz is not None:
+            sz.close()
+
+    # Try DuckDB timeseries (scalar per timestep, e.g. outlet discharge).
+    try:
+        ts = store.query_timeseries(sim_id, "_catchment", observable_name)
+        values = np.asarray(ts.values, dtype=float)
+        indices = np.arange(values.shape[0], dtype=int)
+        return indices, values
+    except Exception as exc:
+        errors.append(exc)
+
+    # Derive outlet discharge from budget table (constant head flux_out).
+    # NOTE: the ``unit`` column is a free-text label and does not reliably
+    # describe the numerical values (the extractors currently record
+    # everything as ``"m3/d"`` regardless of the model's real time unit),
+    # so no unit conversion is applied here - callers are responsible for
+    # interpreting the values in the model's native units.
+    if "outlet_discharge" in observable_name:
+        try:
+            budgets = store.query_budget(sim_id)
+            if not budgets.empty:
+                chd_names = ("constant head", "chd")
+                chd = budgets[budgets["component"].str.lower().isin(chd_names)]
+                if not chd.empty:
+                    chd_sorted = chd.sort_values("timestep")
+                    values = np.asarray(chd_sorted["flux_out"].values, dtype=float)
+                    indices = np.arange(values.shape[0], dtype=int)
+                    return indices, values
+        except Exception as exc:
+            errors.append(exc)
+
+    cause = errors[-1] if errors else None
+    raise RuntimeError(
+        f"ResultStore queries failed for time-series '{observable_name}' (sim_id={sim_id})."
+    ) from cause
 
 
 def align_snapshot_series_to_expected_count(

@@ -26,14 +26,14 @@ from validation_cases.shared.boussinesq_piecewise_strip import (
     PIECEWISE_STRIP_X_ZONE_BREAKS_M,
     PIECEWISE_STRIP_Z_BOTTOM_M,
     PIECEWISE_STRIP_Z_TOP_M,
-    aggregate_triangle_history_to_structured_grids,
+    aggregate_triangle_history_to_structured_fields,
     write_piecewise_strip_bundle,
 )
 from validation_cases.shared.loaders import merge_case_flow_section
 from validation_cases.shared.runtime import (
     ValidationRunResult,
-    materialize_postprocess_fields_to_store,
     resolve_validation_results_dir,
+    write_validation_fields_to_store,
 )
 
 CASE_ID = "boussinesq_fixed_head_piecewise_k_1d"
@@ -68,8 +68,10 @@ def _write_piecewise_strip_bundle(bundle_dir: Path) -> Path:
     return write_piecewise_strip_bundle(bundle_dir)
 
 
-def _aggregate_triangle_history_to_structured_grids(model) -> None:
-    aggregate_triangle_history_to_structured_grids(
+def _aggregate_triangle_history_to_structured_fields(
+    model,
+) -> dict[str, dict[int, object]]:
+    return aggregate_triangle_history_to_structured_fields(
         model,
         nx=NX,
         ny=NY,
@@ -140,14 +142,14 @@ def run_boussinesq_fixed_head_piecewise_k_case(
 
     result = BoussinesqFlowAdapter().execute(ctx)
     model = result.primary_model
-    _aggregate_triangle_history_to_structured_grids(model)
+    field_series = _aggregate_triangle_history_to_structured_fields(model)
 
     model_ws = Path(model.full_path)
     postprocess_dir = model_ws / "_postprocess"
     particles_dir = postprocess_dir / "_particles"
-    store, sim_id = materialize_postprocess_fields_to_store(
+    store, sim_id = write_validation_fields_to_store(
         out_path=out_path,
-        postprocess_dir=postprocess_dir,
+        fields=field_series,
         solver_name="boussinesq",
     )
     return ValidationRunResult(

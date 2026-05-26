@@ -273,9 +273,11 @@ types = [
 
 # At least one DEM data source.
 [[data.dem.sources]]
-# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_bdalti' for the IGN BD ALTI 25 m MNT.
-# Type: Literal['custom', 'ign_bdalti'] | one of: "custom", "ign_bdalti" | REQUIRED
-source = "ign_bdalti"
+# Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_geoplateforme_dem' for IGN DEM discovery.
+# Type: Literal['custom', 'ign_geoplateforme_dem'] | one of: "custom", "ign_geoplateforme_dem" | REQUIRED
+source = "ign_geoplateforme_dem"
+dataset = "bd-alti"
+resolution_m = 25.0
 
 # Path to custom DEM file or directory (TIF, ASC, NC).
 # Type: path (optional) | Optional

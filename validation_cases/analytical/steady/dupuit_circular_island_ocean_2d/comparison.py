@@ -13,7 +13,7 @@ from validation_cases.shared import (
     ValidationRunResult,
     load_case_metadata,
     load_case_tolerances,
-    load_last_npy_array_on_expected_grid,
+    load_field_on_expected_grid,
     max_abs_error,
     rmse,
     run_launcher_validation_case,
@@ -151,8 +151,7 @@ def build_dupuit_circular_island_ocean_comparison(
     reference_cfg = dict(case_metadata.get("reference", {}))
     observable_name = str(output_cfg.get("observable_name", "watertable_elevation"))
     expected_shape = tuple(output_cfg.get("expected_shape", ()))
-    timestep, heads = load_last_npy_array_on_expected_grid(
-        postprocess_dir=result.postprocess_dir,
+    timestep, heads = load_field_on_expected_grid(
         observable_name=observable_name,
         case_dir=CASE_DIR,
         metadata=case_metadata,

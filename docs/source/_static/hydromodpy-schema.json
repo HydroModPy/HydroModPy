@@ -7522,96 +7522,6 @@
       "title": "HydrometrySourceConfig",
       "type": "object"
     },
-    "IgnBdaltiDemSource": {
-      "additionalProperties": false,
-      "description": "Historical compatibility source for IGN BD ALTI 25 m.",
-      "properties": {
-        "mask_path": {
-          "anyOf": [
-            {
-              "format": "path",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SHP/GPKG/GeoJSON mask for spatial filtering/clipping.",
-          "title": "Mask Path",
-          "x-hmp-profile": "user"
-        },
-        "extent": {
-          "anyOf": [
-            {
-              "enum": [
-                "watershed",
-                "study_area"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Use project extent for bbox-based data retrieval.",
-          "title": "Extent",
-          "x-hmp-profile": "user"
-        },
-        "force_refresh": {
-          "default": false,
-          "description": "Ignore cache and re-download from API.",
-          "examples": [
-            false
-          ],
-          "title": "Force Refresh",
-          "type": "boolean",
-          "x-hmp-profile": "dev"
-        },
-        "departments": {
-          "description": "Optional French department codes to fetch. When set, these codes constrain archive downloads instead of inferring departments only from the bbox.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Departments",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "country": {
-          "default": "FR",
-          "description": "Country code used for administrative DEM selectors.",
-          "examples": [
-            "FR"
-          ],
-          "title": "Country",
-          "type": "string",
-          "x-hmp-profile": "user"
-        },
-        "regions": {
-          "description": "Optional French administrative regions used to infer department downloads.",
-          "items": {
-            "type": "string"
-          },
-          "title": "Regions",
-          "type": "array",
-          "x-hmp-profile": "user"
-        },
-        "source": {
-          "const": "ign_bdalti",
-          "default": "ign_bdalti",
-          "description": "Discriminator tag selecting the historical IGN BD ALTI 25 m DEM path. Use 'ign_geoplateforme_dem' for new dynamic Geoplateforme workflows.",
-          "examples": [
-            "ign_bdalti"
-          ],
-          "title": "Source",
-          "type": "string",
-          "x-hmp-profile": "user"
-        }
-      },
-      "title": "IgnBdaltiDemSource",
-      "type": "object"
-    },
     "IgnGeoplateformeDemSource": {
       "additionalProperties": false,
       "description": "Recommended dynamic IGN DEM source discovered through Geoplateforme.",
@@ -18356,16 +18266,15 @@
     },
     "hydromodpy__data__variables__dem__config__DemConfig": {
       "additionalProperties": false,
-      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_bdalti\"\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"bd-alti\"\n    resolution_m = 25.0\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
+      "description": "Top-level DEM variable configuration.\n\nThe section declares one or more elevation sources. The loaded DEM can feed\ngeographic preprocessing directly or be cached as a reusable data product.\n\nExample TOML::\n\n    [data.dem]\n\n    [[data.dem.sources]]\n    source = \"ign_geoplateforme_dem\"\n    dataset = \"bd-alti\"\n    resolution_m = 25.0\n    regions = [\"Bretagne\"]\n\n    [[data.dem.sources]]\n    source = \"custom\"\n    path = \"data/my_dem.tif\"",
       "properties": {
         "sources": {
           "description": "At least one DEM data source.",
           "items": {
-            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC), 'ign_bdalti' for the legacy IGN BD ALTI 25 m MNT path, and 'ign_geoplateforme_dem' for dynamic IGN DEM discovery.",
+            "description": "Discriminated union of DEM data sources tagged by the 'source' provider key. Use 'custom' for a user file (TIF/ASC/NC) and 'ign_geoplateforme_dem' for dynamic IGN DEM discovery.",
             "discriminator": {
               "mapping": {
                 "custom": "#/$defs/CustomDemSource",
-                "ign_bdalti": "#/$defs/IgnBdaltiDemSource",
                 "ign_geoplateforme_dem": "#/$defs/IgnGeoplateformeDemSource"
               },
               "propertyName": "source"
@@ -18373,9 +18282,6 @@
             "oneOf": [
               {
                 "$ref": "#/$defs/CustomDemSource"
-              },
-              {
-                "$ref": "#/$defs/IgnBdaltiDemSource"
               },
               {
                 "$ref": "#/$defs/IgnGeoplateformeDemSource"
@@ -18400,7 +18306,12 @@
       "properties": {
         "source": {
           "default": "custom",
-          "description": "DEM source identifier, for example custom or ign_bdalti.",
+          "description": "DEM source identifier: custom path, data section, or ign_geoplateforme_dem.",
+          "enum": [
+            "custom",
+            "data",
+            "ign_geoplateforme_dem"
+          ],
           "examples": [
             "custom"
           ],

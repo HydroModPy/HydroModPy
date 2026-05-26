@@ -127,16 +127,29 @@ def test_generated_report_artifacts_are_ignored_by_git() -> None:
     gitignore = GITIGNORE.read_text(encoding="utf-8")
 
     for pattern in (
-        "examples/projects/06_vire_selune/outputs/",
+        "examples/projects/**/outputs/**",
+        "!examples/projects/**/outputs/.gitignore",
+        "examples/projects/**/data/cache.duckdb*",
         "examples/projects/**/web/",
         "examples/projects/**/web_review/",
-        "examples/projects/16_nancon_natural_calibration/outputs/nancon_context/",
-        "examples/projects/16_nancon_natural_calibration/outputs/nancon_real_figures/",
         "examples/data/etp/etp_sim2_*.nc",
         "examples/data/recharge/recharge_sim2_*.nc",
         "examples/projects/**/hydromodpy.lock",
     ):
         assert pattern in gitignore
+
+
+def test_generated_report_ignore_policy_is_not_basin_specific() -> None:
+    gitignore = GITIGNORE.read_text(encoding="utf-8")
+
+    legacy_patterns = (
+        "examples/projects/06_vire_selune/outputs/",
+        "examples/projects/16_nancon_natural_calibration/outputs/nancon_context/",
+        "examples/projects/16_nancon_natural_calibration/outputs/nancon_real_figures/",
+        "examples/projects/16_nancon_natural_calibration/outputs/selune_portability_probe/",
+    )
+
+    assert all(pattern not in gitignore for pattern in legacy_patterns)
 
 
 def test_nancon_inputs_can_be_derived_from_project_layout() -> None:

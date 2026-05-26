@@ -145,7 +145,7 @@ Loaded Data Families
      - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.dem.sources]``
      - Configured providers used to load the `dem` family in this case.
-     - ign_bdalti
+     - ign_geoplateforme_dem
      - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[data.geology.sources]``
      - Configured providers used to load the `geology` family in this case.
@@ -237,7 +237,7 @@ Overview Panels
      - Source
    * - ``[overview] name``
      - Title injected into the generated overview panels.
-     - Canut
+     - Nancon
      - ``examples/projects/05_nancon_data_overview/config_overview.toml``
    * - ``[overview.panels] enabled``
      - Panel toggles enabled for this overview run.
