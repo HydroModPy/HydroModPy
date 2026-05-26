@@ -1,4 +1,4 @@
-"""Tests for the drag-and-drop scaffold layout created by `hmp init`."""
+"""Tests for the drag-and-drop scaffold layout created by workspace init."""
 
 from __future__ import annotations
 

@@ -163,7 +163,7 @@ def load_workspace_toml(workspace: Path) -> WorkspaceToml:
     if not toml_path.is_file():
         raise FileNotFoundError(
             f"No {WORKSPACE_TOML_FILENAME} at {toml_path}. "
-            "Run `hmp init` to scaffold the workspace."
+            "Run `hmp workspace init` to scaffold the workspace."
         )
     data = tomllib.loads(toml_path.read_text(encoding="utf-8"))
     return WorkspaceToml.model_validate(data)

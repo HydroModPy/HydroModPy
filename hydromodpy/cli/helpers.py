@@ -113,7 +113,7 @@ def resolve_workspace(workspace_arg: str | None) -> Path:
     root = Path(workspace_arg).expanduser().resolve() if workspace_arg else DEFAULT_ROOT
     if not root.is_dir():
         print(
-            f"Workspace {root} does not exist. Run 'hmp init' first.",
+            f"Workspace {root} does not exist. Run 'hmp workspace init' first.",
             file=sys.stderr,
         )
         sys.exit(EXIT_NOT_FOUND)

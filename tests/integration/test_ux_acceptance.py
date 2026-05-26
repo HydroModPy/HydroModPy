@@ -88,7 +88,7 @@ def test_list_empty_workspace(monkeypatch, capsys, tmp_path) -> None:
         ["hmp", "project", "list", "--workspace", str(ws)],
     )
     # No projects yet; should just return quietly with exit 0.
-    # (``hmp init`` creates projects/ but doesn't put any project inside.)
+    # (``hmp workspace init`` creates projects/ but doesn't put any project inside.)
 
 
 def test_doctor_reports_without_crash(monkeypatch, capsys) -> None:

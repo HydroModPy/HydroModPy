@@ -78,7 +78,7 @@ hydromodpy/data/
 ├── plan.py                     # DataLoadPlan (frozen dataclass)
 ├── loader.py                   # DataManagersRuntimeLoader (dispatch)
 ├── store.py                    # DataStore (facade utilisateur)
-├── scaffold.py                 # Initialisation workspace (hmp init)
+├── scaffold.py                 # Initialisation workspace (hmp workspace init)
 ├── _dispatch.py                # Registre {variable -> Manager}
 ├── base_manager_variable.py    # BaseVariableManager (donnees ponctuelles)
 ├── base_manager_field.py       # BaseFieldManager (donnees grille)

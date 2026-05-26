@@ -234,7 +234,7 @@ def _format_hint(project_root: Path) -> str:
     return (
         f"Cannot locate a HydroModPy workspace for project at {project_root}.\n"
         "Pick one of:\n"
-        "  (a) scaffold: run `hmp init <workspace-dir>` then place\n"
+        "  (a) scaffold: run `hmp workspace init <workspace-dir>` then place\n"
         f"      this TOML at <workspace>/projects/<name>/{PROJECT_TOML_FILENAME}\n"
         "  (b) env var:  export HMP_WORKSPACE=/path/to/workspace\n"
         "  (c) explicit: add to [workspace]:\n"

@@ -1,7 +1,7 @@
 """End-to-end: from-scratch user workflow.
 
 Walks the chain a new user would follow:
-1. ``hmp init`` to scaffold a workspace.
+1. ``hmp workspace init`` to scaffold a workspace.
 2. Inspect ``workspace.toml`` and the scaffolded layout.
 3. ``hmp data fetch`` for a variable that does not require network (the
    sub-verb writes a deterministic placeholder + sidecar).
@@ -84,7 +84,7 @@ def _seed_minimal_simulation(workspace: Path, *, project: str, sim_id: str) -> t
 
 @pytest.mark.e2e
 def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
-    """Drive ``hmp init`` + ``hmp data fetch`` + catalog access end-to-end."""
+    """Drive ``hmp workspace init`` + ``hmp data fetch`` + catalog access end-to-end."""
     workspace = tmp_path / "fresh_workspace"
 
     # ----- Step 1: hmp workspace init ----------------------------------------
@@ -107,7 +107,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
 
     # ----- Step 2: workspace.toml carries the fields we passed --------------
     workspace_toml = workspace / "workspace.toml"
-    assert workspace_toml.is_file(), "workspace.toml must be created by hmp init"
+    assert workspace_toml.is_file(), "workspace.toml must be created by hmp workspace init"
     metadata = tomllib.loads(workspace_toml.read_text(encoding="utf-8"))
     assert metadata["workspace"]["name"] == "foo"
     assert metadata["workspace"]["contact"] == "test@example.com"

@@ -22,9 +22,6 @@ Command inventory
    * - Command
      - Main role
      - Typical use
-   * - ``hmp init``
-     - Workspace scaffold shortcut
-     - Compatibility alias for ``hmp workspace init``.
    * - ``hmp workspace``
      - Workspace lifecycle and global-index registration
      - ``init`` scaffolds a workspace, ``list`` enumerates registered
