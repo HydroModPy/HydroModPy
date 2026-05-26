@@ -14,3 +14,9 @@ simulation_name = "transient_nwt"
 context_summary_name = "nancon_gauged_context_summary.json"
 transient_config_name = "run_transient_nwt.toml"
 overview_config_name = "config_overview.toml"
+
+[pipeline]
+run_simulation = false
+build_context_artifacts = false
+build_report_html = true
+stream_run_logs = false

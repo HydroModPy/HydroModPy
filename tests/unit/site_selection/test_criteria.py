@@ -141,6 +141,7 @@ def test_evaluate_flow_station_hard_reject_blocks_short_records():
     assert component.criterion_status == "failed"
     assert component.blocking is True
     assert "below" in component.reason
+    assert component.evidence_json["evidence_ref"] is None
 
 
 @pytest.mark.fast
@@ -194,6 +195,7 @@ def test_evaluate_piezometer_warning_flags_far_observation():
     assert component.criterion_status == "warning"
     assert component.blocking is False
     assert "exceeds" in component.reason
+    assert component.evidence_json["evidence_ref"] is None
 
 
 @pytest.mark.fast

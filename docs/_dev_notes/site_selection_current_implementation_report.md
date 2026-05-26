@@ -1375,3 +1375,80 @@ Etapes progressives:
 Ce chemin evite de melanger trois responsabilites: `site_selection` choisit et
 documente les sites, `hydromodpy.data.variables.dem` recupere les DEM, et le
 workspace porte les donnees reutilisables.
+
+## Couche generique de decisions
+
+Objectif court terme: rendre les deux modes utilises maintenant plus lisibles et
+preparer les extensions sans reecrire le workflow:
+
+- selection par surface de bassin seule;
+- selection de bassins jauges par station hydrometrique a l'aval;
+- rejet ou avertissement via les influences deja materialisees en couches
+  locales, par exemple un barrage majeur en amont.
+
+Mise en place:
+
+- ajout du sous-paquet `hydromodpy.spatial.site_selection.decisions`;
+- ajout de `DecisionRecord`, `EvidenceRecord` et `SiteDecisionSummary`;
+- conversion automatique des `CriteriaComponent` existants en decisions
+  normalisees `ACCEPT`, `WARNING`, `REJECT` ou `NEUTRAL`;
+- ajout d'une decision finale par bassin pour rendre auditables les rejets qui
+  ne sont pas des criteres metier, par exemple `target_count_reached` ou un
+  echec de delimitation;
+- ajout des exports `site_selection_decisions.jsonl` et
+  `site_selection_decisions.csv`.
+
+Cette etape ne remplace pas les fichiers existants. `selection_decisions.jsonl`
+et `criteria_components.jsonl` restent le contrat historique; les nouveaux
+fichiers sont une couche plus generique et plus stable pour l'evolution vers un
+dossier de decision complet.
+
+## Decoupage des criteres par famille
+
+Le fichier historique `criteria.py` portait tous les evaluateurs de criteres.
+Il reste maintenant une facade de compatibilite: les imports publics existants
+continuent de fonctionner, mais le code metier est range par famille:
+
+- `criteria_common.py`: `CriteriaComponent` et helpers de parsing;
+- `criteria_area.py`: critere de surface de bassin;
+- `criteria_observations.py`: station hydrometrique et piezometres;
+- `criteria_influence.py`: influences anthropiques deja normalisees en flags;
+- `criteria_geology.py`: geologie.
+
+Ce decoupage ne change pas le comportement. Il rend explicite l'endroit ou
+ajouter une regle metier, par exemple enrichir l'hydrometrie dans
+`criteria_observations.py` ou remplacer progressivement les flags locaux
+d'influence par des regles provider dans `criteria_influence.py`.
+
+## Couche generique de preuves
+
+Objectif: relier les decisions normalisees a des preuves auditables sans
+remplacer les exports specialises deja disponibles.
+
+Mise en place:
+
+- ajout de `evidence_refs.py` pour construire des identifiants deterministes:
+  `flow_station:<site>:<station>`,
+  `influence:<site>:<type>:<feature>` et
+  `geology:<site>:<source>:<classe>`;
+- ajout d'adaptateurs vers `EvidenceRecord` pour:
+  - `ObservationEvidence`, utilise pour les stations hydrometriques et les
+    piezometres;
+  - `InfluenceEvidence`, utilise pour les couches locales d'influence;
+  - `GeologyEvidence`, utilise pour les intersections geologiques;
+- ajout de l'export `site_selection_evidence.jsonl` quand au moins une preuve
+  normalisee existe;
+- ajout de `evidence_ref` dans les `DecisionRecord` lorsque le critere peut
+  etre relie a une preuve concrete.
+
+Limites assumees a ce stade:
+
+- la surface de bassin reste une metrique de critere, pas une preuve externe;
+- les influences utilisent encore les couches vectorielles locales deja
+  configurees; ROE/BNPE restent une evolution provider future;
+- une decision d'influence peut referencer la premiere preuve bloquante et
+  conserve la liste complete dans `properties.evidence_json.evidence_refs`.
+
+Cette etape rend le cas court terme plus auditable: un rejet pour barrage amont
+renvoie maintenant a une preuve d'influence stable, et une selection par station
+peut renvoyer a la station hydrometrique normalisee correspondante.

@@ -57,6 +57,11 @@ def _write_nancon_cli_report_config(config_path: Path, output_dir: Path) -> None
                 f'transient_config_name = "{inputs.transient_config.name}"',
                 f'overview_config_name = "{inputs.overview_config.name}"',
                 "",
+                "[pipeline]",
+                f"run_simulation = {str(inputs.pipeline_run_simulation).lower()}",
+                f"build_context_artifacts = {str(inputs.pipeline_build_context_artifacts).lower()}",
+                f"build_report_html = {str(inputs.pipeline_build_report_html).lower()}",
+                "",
             ]
         ),
         encoding="utf-8",
@@ -158,6 +163,7 @@ def test_nancon_inputs_can_be_derived_from_project_layout() -> None:
         context_summary_name="nancon_gauged_context_summary.json",
         allow_gallery_fallbacks=False,
         preset_name="nancon_reference",
+        pipeline_build_context_artifacts=False,
     )
 
     assert derived == NANCON_REPORT_INPUTS
@@ -187,6 +193,9 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
     )
     assert inputs.observed_discharge_station_id == "I922102001"
     assert inputs.preset_name is None
+    assert inputs.pipeline_run_simulation is True
+    assert inputs.pipeline_build_context_artifacts is True
+    assert inputs.pipeline_build_report_html is True
     assert inputs.observed_discharge_path == (
         REPO_ROOT
         / "examples"

@@ -230,6 +230,7 @@ def test_workflow_writes_geology_and_piezometer_outputs_from_configured_layers(t
     assert paths["geology_basins_geojson"].is_file()
     assert paths["piezometer_evidence_jsonl"].is_file()
     assert paths["observation_evidence_jsonl"].is_file()
+    assert paths["site_selection_evidence_jsonl"].is_file()
     assert paths["observation_points_geojson"].is_file()
     assert paths["site_selection_gpkg"].is_file()
     layers = set(gpd.list_layers(paths["site_selection_gpkg"])["name"])

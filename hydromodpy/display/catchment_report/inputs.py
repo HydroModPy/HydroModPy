@@ -36,6 +36,12 @@ class CatchmentReportInputs:
     observed_discharge_path: Path | None = None
     observed_discharge_station_id: str | None = None
     preset_name: str | None = None
+    pipeline_run_overview: bool = False
+    pipeline_run_simulation: bool = False
+    pipeline_build_context_artifacts: bool = True
+    pipeline_build_report_html: bool = True
+    pipeline_no_lock: bool = True
+    pipeline_stream_run_logs: bool = False
 
     @classmethod
     def from_toml(cls, path: Path) -> CatchmentReportInputs:
@@ -45,6 +51,7 @@ class CatchmentReportInputs:
         report = _section(payload, "report")
         layout = _section(payload, "layout")
         context = payload.get("context", {})
+        pipeline = payload.get("pipeline", {})
         observed = context.get("observed_discharge", {}) if isinstance(context, Mapping) else {}
         watershed_project_dir = _path(base_dir, _required(layout, "watershed_project_dir"))
         data_overview_project_dir = _optional_path(
@@ -76,6 +83,32 @@ class CatchmentReportInputs:
             overview_config_name=str(layout.get("overview_config_name", "config_overview.toml")),
             observed_discharge_path=_optional_context_path(base_dir, observed, "path"),
             observed_discharge_station_id=_optional_string(observed, "station_id"),
+            pipeline_run_overview=_optional_bool_with_default(
+                pipeline,
+                "run_overview",
+                False,
+            ),
+            pipeline_run_simulation=_optional_bool_with_default(
+                pipeline,
+                "run_simulation",
+                False,
+            ),
+            pipeline_build_context_artifacts=_optional_bool_with_default(
+                pipeline,
+                "build_context_artifacts",
+                True,
+            ),
+            pipeline_build_report_html=_optional_bool_with_default(
+                pipeline,
+                "build_report_html",
+                True,
+            ),
+            pipeline_no_lock=_optional_bool_with_default(pipeline, "no_lock", True),
+            pipeline_stream_run_logs=_optional_bool_with_default(
+                pipeline,
+                "stream_run_logs",
+                False,
+            ),
         )
 
     @classmethod
@@ -98,6 +131,12 @@ class CatchmentReportInputs:
         observed_discharge_path: Path | None = None,
         observed_discharge_station_id: str | None = None,
         preset_name: str | None = None,
+        pipeline_run_overview: bool = False,
+        pipeline_run_simulation: bool = False,
+        pipeline_build_context_artifacts: bool = True,
+        pipeline_build_report_html: bool = True,
+        pipeline_no_lock: bool = True,
+        pipeline_stream_run_logs: bool = False,
     ) -> CatchmentReportInputs:
         data_overview_project_dir = data_overview_project_dir or watershed_project_dir
         simulation_workspace_dir = simulation_workspace_dir or watershed_project_dir
@@ -136,6 +175,12 @@ class CatchmentReportInputs:
             observed_discharge_path=observed_discharge_path,
             observed_discharge_station_id=observed_discharge_station_id,
             preset_name=preset_name,
+            pipeline_run_overview=pipeline_run_overview,
+            pipeline_run_simulation=pipeline_run_simulation,
+            pipeline_build_context_artifacts=pipeline_build_context_artifacts,
+            pipeline_build_report_html=pipeline_build_report_html,
+            pipeline_no_lock=pipeline_no_lock,
+            pipeline_stream_run_logs=pipeline_stream_run_logs,
         )
 
 
@@ -171,6 +216,17 @@ def _optional_bool(payload: Mapping[str, Any], key: str) -> bool | None:
     value = payload.get(key)
     if value is None:
         return None
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"Catchment report config key {key!r} must be a boolean.")
+
+
+def _optional_bool_with_default(payload: Any, key: str, default: bool) -> bool:
+    if not isinstance(payload, Mapping):
+        return default
+    value = payload.get(key)
+    if value is None:
+        return default
     if isinstance(value, bool):
         return value
     raise ValueError(f"Catchment report config key {key!r} must be a boolean.")

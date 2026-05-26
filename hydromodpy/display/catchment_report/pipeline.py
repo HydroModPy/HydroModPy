@@ -32,26 +32,52 @@ def run_catchment_report_pipeline(
     report_config: Path,
     *,
     preset: CatchmentReportPreset | None = None,
-    run_overview: bool = False,
-    run_simulation: bool = False,
-    build_context_artifacts: bool = True,
-    build_report_html: bool = True,
-    no_lock: bool = True,
+    run_overview: bool | None = None,
+    run_simulation: bool | None = None,
+    build_context_artifacts: bool | None = None,
+    build_report_html: bool | None = None,
+    no_lock: bool | None = None,
+    stream_run_logs: bool | None = None,
 ) -> CatchmentReportPipelineResult:
     """Run the selected report-production steps from one report config."""
     inputs = CatchmentReportInputs.from_toml(report_config)
-    overview_config = inputs.overview_config if run_overview else None
-    simulation_config = inputs.transient_config if run_simulation else None
+    effective_run_overview = inputs.pipeline_run_overview if run_overview is None else run_overview
+    effective_run_simulation = (
+        inputs.pipeline_run_simulation if run_simulation is None else run_simulation
+    )
+    effective_build_context_artifacts = (
+        inputs.pipeline_build_context_artifacts
+        if build_context_artifacts is None
+        else build_context_artifacts
+    )
+    effective_build_report_html = (
+        inputs.pipeline_build_report_html if build_report_html is None else build_report_html
+    )
+    effective_no_lock = inputs.pipeline_no_lock if no_lock is None else no_lock
+    effective_stream_run_logs = (
+        inputs.pipeline_stream_run_logs if stream_run_logs is None else stream_run_logs
+    )
+    overview_config = inputs.overview_config if effective_run_overview else None
+    simulation_config = inputs.transient_config if effective_run_simulation else None
     context_summary = None
     html_report = None
 
-    if run_overview:
-        _run_hydromodpy(inputs.overview_config, no_lock=no_lock)
-    if run_simulation:
-        _run_hydromodpy(inputs.transient_config, no_lock=no_lock)
-    if build_context_artifacts:
+    if effective_run_overview:
+        _run_hydromodpy(
+            inputs.overview_config,
+            no_lock=effective_no_lock,
+            stream_logs=effective_stream_run_logs,
+        )
+    if effective_run_simulation:
+        _run_hydromodpy(
+            inputs.transient_config,
+            no_lock=effective_no_lock,
+            stream_logs=effective_stream_run_logs,
+        )
+        _validate_simulation_outputs(inputs)
+    if effective_build_context_artifacts:
         context_summary = build_context(inputs)
-    if build_report_html:
+    if effective_build_report_html:
         html_report = build_catchment_report(
             CatchmentReportConfig.from_inputs(inputs, preset=preset)
         )
@@ -64,11 +90,49 @@ def run_catchment_report_pipeline(
     )
 
 
-def _run_hydromodpy(config_path: Path, *, no_lock: bool) -> None:
+def _run_hydromodpy(config_path: Path, *, no_lock: bool, stream_logs: bool) -> None:
     command = [sys.executable, "-m", "hydromodpy", "run", str(config_path)]
     if no_lock:
         command.append("--no-lock")
-    subprocess.run(command, check=True)
+    if stream_logs:
+        subprocess.run(command, check=True)
+        return
+
+    completed = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        _print_subprocess_tail(completed.stdout, "stdout")
+        _print_subprocess_tail(completed.stderr, "stderr")
+        completed.check_returncode()
+
+
+def _print_subprocess_tail(text: str | None, label: str, *, max_lines: int = 80) -> None:
+    if not text:
+        return
+    lines = text.splitlines()
+    tail = lines[-max_lines:]
+    print(
+        f"--- hydromodpy run {label} (last {len(tail)} lines) ---",
+        file=sys.stderr,
+    )
+    print("\n".join(tail), file=sys.stderr)
+
+
+def _validate_simulation_outputs(inputs: CatchmentReportInputs) -> None:
+    missing = []
+    if not inputs.simulation_export.exists():
+        missing.append(f"simulation export: {inputs.simulation_export}")
+    if not inputs.simulation_figures.exists():
+        missing.append(f"simulation figures directory: {inputs.simulation_figures}")
+    if missing:
+        details = "\n".join(f"- {item}" for item in missing)
+        raise FileNotFoundError(
+            "Simulation completed but the catchment report expected outputs "
+            f"were not found:\n{details}"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -82,28 +146,42 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--run-overview",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Run the configured overview before building context/report artifacts.",
     )
     parser.add_argument(
         "--run-simulation",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Run the configured simulation before building context/report artifacts.",
     )
     parser.add_argument(
         "--no-context",
-        action="store_true",
+        dest="build_context_artifacts",
+        action="store_false",
+        default=None,
         help="Skip context artifact generation.",
     )
     parser.add_argument(
         "--no-report",
-        action="store_true",
+        dest="build_report_html",
+        action="store_false",
+        default=None,
         help="Skip final HTML report generation.",
     )
     parser.add_argument(
         "--with-lock",
-        action="store_true",
+        dest="no_lock",
+        action="store_false",
+        default=None,
         help="Do not pass --no-lock to hydromodpy run.",
+    )
+    parser.add_argument(
+        "--stream-run-logs",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Stream logs from optional hydromodpy run steps.",
     )
     args = parser.parse_args(argv)
     result = run_catchment_report_pipeline(
@@ -111,9 +189,10 @@ def main(argv: list[str] | None = None) -> int:
         preset=preset_from_name(args.preset) if args.preset else None,
         run_overview=args.run_overview,
         run_simulation=args.run_simulation,
-        build_context_artifacts=not args.no_context,
-        build_report_html=not args.no_report,
-        no_lock=not args.with_lock,
+        build_context_artifacts=args.build_context_artifacts,
+        build_report_html=args.build_report_html,
+        no_lock=args.no_lock,
+        stream_run_logs=args.stream_run_logs,
     )
     if result.overview_config is not None:
         print(f"overview_config={result.overview_config}")

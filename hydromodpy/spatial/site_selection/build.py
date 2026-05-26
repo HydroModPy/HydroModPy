@@ -32,11 +32,16 @@ from hydromodpy.spatial.site_selection.config import (
     SiteSelectionConfig,
 )
 from hydromodpy.spatial.site_selection.context_evidence import (
+    GeologyEvidence,
     annotate_catchments_with_geology_layers,
     annotate_catchments_with_piezometer_layers,
     write_geology_evidence_geojson,
     write_geology_evidence_geopackage,
     write_geology_evidence_geoparquet,
+)
+from hydromodpy.spatial.site_selection.decisions import (
+    evidence_records_from_site_selection_evidence,
+    write_evidence_records_jsonl,
 )
 from hydromodpy.spatial.site_selection.delineation import (
     DelineatedCatchment,
@@ -57,6 +62,7 @@ from hydromodpy.spatial.site_selection.flow_products_adapter import (
     build_site_selection_flow_products,
 )
 from hydromodpy.spatial.site_selection.influence import (
+    InfluenceEvidence,
     annotate_catchments_with_influence_layers,
     write_influence_evidence_geojson,
     write_influence_evidence_geopackage,
@@ -281,6 +287,15 @@ def build_site_selection_from_point_records(
                 )
                 if geoparquet_path is not None:
                     output_paths["geology_basins_geoparquet"] = geoparquet_path
+        output_paths.update(
+            _write_normalized_evidence_records(
+                root=root,
+                selection_id=config.selection_id,
+                observation_evidence=observation_evidence,
+                influence_evidence=influence_evidence,
+                geology_evidence=geology_evidence,
+            )
+        )
         flow_manifest = flow_products.to_manifest_record()
         flow_manifest["dem_path"] = str(dem_path)
         flow_manifest["dem_source"] = config.dem.source
@@ -516,6 +531,15 @@ def build_site_selection_from_generated_network(
                 )
                 if geoparquet_path is not None:
                     output_paths["geology_basins_geoparquet"] = geoparquet_path
+        output_paths.update(
+            _write_normalized_evidence_records(
+                root=root,
+                selection_id=config.selection_id,
+                observation_evidence=observation_evidence,
+                influence_evidence=influence_evidence,
+                geology_evidence=geology_evidence,
+            )
+        )
         flow_manifest = flow_products.to_manifest_record()
         flow_manifest["dem_path"] = str(dem_path)
         flow_manifest["dem_source"] = config.dem.source
@@ -699,6 +723,15 @@ def build_site_selection_from_dem_area_light(
                 root / "geology_evidence.jsonl",
                 [evidence.to_record() for evidence in geology_evidence],
             )
+        output_paths.update(
+            _write_normalized_evidence_records(
+                root=root,
+                selection_id=config.selection_id,
+                observation_evidence=observation_evidence,
+                influence_evidence=influence_evidence,
+                geology_evidence=geology_evidence,
+            )
+        )
         flow_manifest = flow_products.to_manifest_record()
         flow_manifest["dem_path"] = str(dem_path)
         flow_manifest["dem_source"] = config.dem.source
@@ -758,6 +791,30 @@ def _write_observation_evidence_jsonl(
         for row in evidence:
             handle.write(json.dumps(row.to_record(), ensure_ascii=True, sort_keys=True) + "\n")
     return destination
+
+
+def _write_normalized_evidence_records(
+    *,
+    root: Path,
+    selection_id: str,
+    observation_evidence: Iterable[ObservationEvidence],
+    influence_evidence: Iterable[InfluenceEvidence],
+    geology_evidence: Iterable[GeologyEvidence],
+) -> dict[str, Path]:
+    records = evidence_records_from_site_selection_evidence(
+        run_id=selection_id,
+        observation_evidence=observation_evidence,
+        influence_evidence=influence_evidence,
+        geology_evidence=geology_evidence,
+    )
+    if not records:
+        return {}
+    return {
+        "site_selection_evidence_jsonl": write_evidence_records_jsonl(
+            root / "site_selection_evidence.jsonl",
+            records,
+        )
+    }
 
 
 def _first_region_id(config: SiteSelectionConfig) -> str:

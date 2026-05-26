@@ -21,7 +21,6 @@ if __name__ == "__main__":
             "report",
             "catchment",
             str(default_config),
-            "--report-only",
             *sys.argv[1:],
         ]
     )

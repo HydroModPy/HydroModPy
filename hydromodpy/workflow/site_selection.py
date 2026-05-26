@@ -44,6 +44,10 @@ from hydromodpy.spatial.site_selection.context_evidence import (
     write_geology_evidence_geopackage,
     write_geology_evidence_geoparquet,
 )
+from hydromodpy.spatial.site_selection.decisions import (
+    evidence_records_from_site_selection_evidence,
+    write_evidence_records_jsonl,
+)
 from hydromodpy.spatial.site_selection.delineation import (
     DelineatedCatchment,
     try_delineate_candidate_outlet,
@@ -454,6 +458,17 @@ def select_delineated_catchments_from_csv(
             )
             if geoparquet_path is not None:
                 paths["geology_basins_geoparquet"] = geoparquet_path
+    normalized_evidence = evidence_records_from_site_selection_evidence(
+        run_id=cfg.selection_id,
+        observation_evidence=observation_evidence,
+        influence_evidence=influence_evidence,
+        geology_evidence=geology_evidence,
+    )
+    if normalized_evidence:
+        paths["site_selection_evidence_jsonl"] = write_evidence_records_jsonl(
+            target_root / "site_selection_evidence.jsonl",
+            normalized_evidence,
+        )
     paths.update(
         write_manifest_and_optional_report(
             config=cfg_for_outputs,

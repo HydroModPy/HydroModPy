@@ -82,8 +82,15 @@ fixtures, catalogs and frozen data extracts, not for direct provider access.
   hydrographic network before local DEM snapping.
 - `context_evidence.py`: optional geology and piezometer evidence computed from
   configured vector layers.
-- `criteria.py`: auditable criterion components for area, observation evidence,
-  anthropic influence and geology evidence.
+- `criteria.py`: compatibility facade for criterion evaluators.
+- `criteria_common.py`: shared `CriteriaComponent` and parsing helpers.
+- `criteria_area.py`: basin-area criterion.
+- `criteria_observations.py`: flow-station and piezometer criteria.
+- `criteria_influence.py`: anthropic-influence criterion.
+- `criteria_geology.py`: geology criterion.
+- `evidence_refs.py`: stable references linking decisions to evidence rows.
+- `decisions/`: normalized `DecisionRecord`, `EvidenceRecord` and per-catchment
+  summary helpers built from the current criteria and final selections.
 - `selection.py`: selected/rejected catchment decisions.
 - `schemas.py`: stable output schemas and row builders.
 - `exports_tabular.py`: CSV and JSONL writers.
@@ -102,6 +109,10 @@ Completed selection runs always write the audit core:
 
 - `selection_decisions.jsonl`
 - `criteria_components.jsonl`
+- `site_selection_decisions.csv`
+- `site_selection_decisions.jsonl`
+- `site_selection_evidence.jsonl` when at least one normalized evidence row is
+  available
 - `site_selection_manifest.json`
 
 With the default GeoJSON switch they also write:
@@ -286,6 +297,17 @@ snapped outlet rather than trusting an imported pre-snap distance.
 those decisions. This separation is intentional: downstream tools can use the
 final decision file directly, while review tools can inspect the criterion
 components without re-running selection.
+
+`site_selection_decisions.jsonl` is the normalized decision layer for future
+extensions. It converts each criterion component and each final site decision
+into a stable `DecisionRecord` with `ACCEPT`, `WARNING`, `REJECT` or `NEUTRAL`.
+`site_selection_decisions.csv` aggregates those records into one readable row
+per catchment, with the global decision and rejection or warning reasons.
+
+`site_selection_evidence.jsonl` is the normalized evidence layer. It converts
+flow-station, piezometer, influence and geology evidence into stable
+`EvidenceRecord` rows. Decision records use the same `evidence_ref` convention
+when a criterion can be linked to a concrete evidence feature.
 
 `selected_basins.geojson` is the spatial association between selected sites and
 their watershed contours. It is intentionally separate from `selected_sites.csv`:

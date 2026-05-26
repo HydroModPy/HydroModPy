@@ -82,6 +82,9 @@ def test_influence_layer_sets_rejection_flag_from_basin_intersection(tmp_path):
     assert evidence[0].major is True
     assert annotated[0].outlet.attributes["major_dam_upstream"] is True
     assert annotated[0].outlet.attributes["upstream_dam_count"] == 1
+    assert annotated[0].outlet.attributes["major_dam_upstream_evidence_refs"] == [
+        "influence:site_001:major_dam_upstream:DAM001"
+    ]
 
     result = select_delineated_catchments(
         annotated,
@@ -91,7 +94,16 @@ def test_influence_layer_sets_rejection_flag_from_basin_intersection(tmp_path):
     )
     assert result.selected == []
     assert result.rejected[0].site_id == "site_001"
-    assert any(component.criterion_id == "influence" and component.blocking for component in result.criteria_components)
+    component = next(
+        component
+        for component in result.criteria_components
+        if component.criterion_id == "influence"
+    )
+    assert component.blocking
+    assert (
+        component.evidence_json["evidence_ref"]
+        == "influence:site_001:major_dam_upstream:DAM001"
+    )
 
 
 @pytest.mark.fast

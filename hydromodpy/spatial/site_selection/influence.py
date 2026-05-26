@@ -15,6 +15,7 @@ from hydromodpy.spatial.site_selection.delineation import (
     DelineatedCatchment,
     outlet_display_xy,
 )
+from hydromodpy.spatial.site_selection.evidence_refs import influence_evidence_ref
 
 INFLUENCE_FLAG_TO_COUNT = {
     "major_dam_upstream": "upstream_dam_count",
@@ -286,11 +287,22 @@ def _apply_influence_flags(
     attributes: dict[str, Any],
     evidence: Iterable[InfluenceEvidence],
 ) -> None:
+    materialized = list(evidence)
     major_counts: dict[str, int] = {key: 0 for key in INFLUENCE_FLAG_TO_COUNT}
     total_counts: dict[str, int] = {key: 0 for key in INFLUENCE_FLAG_TO_COUNT}
-    for item in evidence:
+    refs_by_type: dict[str, list[str]] = {key: [] for key in INFLUENCE_FLAG_TO_COUNT}
+    all_refs: list[str] = []
+    for item in materialized:
         if item.influence_type not in major_counts:
             continue
+        evidence_ref = influence_evidence_ref(
+            site_id=item.site_id,
+            influence_type=item.influence_type,
+            feature_id=item.feature_id,
+            feature_index=item.feature_index,
+        )
+        all_refs.append(evidence_ref)
+        refs_by_type[item.influence_type].append(evidence_ref)
         total_counts[item.influence_type] += 1
         if item.major:
             major_counts[item.influence_type] += 1
@@ -300,9 +312,11 @@ def _apply_influence_flags(
         attributes[flag] = major_counts[flag] > 0
         attributes[count_field] = major_counts[flag]
         attributes[f"{flag}_feature_count"] = total_counts[flag]
+        attributes[f"{flag}_evidence_refs"] = refs_by_type[flag]
     if any(total_counts.values()):
         attributes["influence_status"] = "known"
         attributes["influence_source"] = "vector_layers"
+        attributes["influence_evidence_refs"] = all_refs
 
 
 def _is_major_feature(row: Mapping[str, Any], *, layer_cfg: object) -> bool:
