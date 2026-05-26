@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from hydromodpy.spatial.site_selection.candidate_outlets import CandidateOutlet
+from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
 from hydromodpy.spatial.site_selection.config import (
     CriteriaConfig,
     GeologyCriteriaConfig,
@@ -13,13 +13,13 @@ from hydromodpy.spatial.site_selection.config import (
     PiezometerLayerConfig,
     SpatialSelectionConfig,
 )
-from hydromodpy.spatial.site_selection.context_evidence import (
+from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
+from hydromodpy.spatial.site_selection.evidence.context import (
     annotate_catchments_with_geology_layers,
     annotate_catchments_with_piezometer_layers,
     write_geology_evidence_geojson,
 )
-from hydromodpy.spatial.site_selection.delineation import DelineatedCatchment
-from hydromodpy.spatial.site_selection.selection import select_delineated_catchments
+from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
 from hydromodpy.workflow.site_selection import select_delineated_catchments_from_csv
 
 

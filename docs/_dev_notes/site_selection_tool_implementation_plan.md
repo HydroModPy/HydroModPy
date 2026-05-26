@@ -2906,7 +2906,7 @@ Taches:
 - lire un catalogue existant de type `natural_regional_lab_sites.csv` ;
 - lire les candidats/imports issus de `examples/projects/07_mesh_gallery` ;
 - reutiliser `hydromodpy.analysis.catalog` pour les lectures generiques ;
-- reutiliser `hydromodpy.spatial.site_selection.reporting` pour la page HTML ;
+- reutiliser `hydromodpy.spatial.site_selection.reports.legacy_review` pour la page HTML ;
 - ecrire un `site_selection_manifest.json` minimal ;
 - ecrire `selected_sites.csv` et `regional_lab_sites.csv` ;
 - ecrire `criteria_components.parquet` minimal avec au moins provenance,

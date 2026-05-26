@@ -7,13 +7,13 @@ import pytest
 
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.spatial.site_selection.observations import (
-    build_observation_evidence,
-    build_observation_evidence_from_attributes,
-)
-from hydromodpy.spatial.site_selection.types import (
+from hydromodpy.spatial.site_selection.domain.observations import (
     ObservationEvidence,
     ObservationSpatialMatch,
+)
+from hydromodpy.spatial.site_selection.evidence.observations import (
+    build_observation_evidence,
+    build_observation_evidence_from_attributes,
 )
 
 

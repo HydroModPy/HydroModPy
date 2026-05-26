@@ -4,8 +4,8 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString
 
-from hydromodpy.spatial.site_selection.candidate_outlets import CandidateOutlet
-from hydromodpy.spatial.site_selection.reference_network import (
+from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
+from hydromodpy.spatial.site_selection.candidates.reference_network import (
     snap_outlet_to_reference_network,
 )
 

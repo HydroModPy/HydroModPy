@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import pytest
 
-from hydromodpy.spatial.site_selection.criteria import CriteriaComponent
 from hydromodpy.spatial.site_selection.decisions import (
     DecisionRecord,
     aggregate_site_selection_decisions,
     decision_records_from_selection_result,
 )
-from hydromodpy.spatial.site_selection.selection import SelectionDecision, SelectionResult
+from hydromodpy.spatial.site_selection.evaluation.criteria import CriteriaComponent
+from hydromodpy.spatial.site_selection.evaluation.selection import (
+    SelectionDecision,
+    SelectionResult,
+)
 
 
 def _record(decision: str, catchment_id: str = "site_001") -> DecisionRecord:

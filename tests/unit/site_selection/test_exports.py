@@ -5,19 +5,22 @@ import json
 
 import pytest
 
-from hydromodpy.spatial.site_selection.candidate_outlets import CandidateOutlet
+from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
 from hydromodpy.spatial.site_selection.config import AreaCriteriaConfig, CriteriaConfig
-from hydromodpy.spatial.site_selection.criteria import evaluate_area_criterion
-from hydromodpy.spatial.site_selection.delineation import DelineatedCatchment
-from hydromodpy.spatial.site_selection.exports import (
+from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
+from hydromodpy.spatial.site_selection.evaluation.criteria import evaluate_area_criterion
+from hydromodpy.spatial.site_selection.evaluation.selection import (
+    SelectionDecision,
+    SelectionResult,
+)
+from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
+from hydromodpy.spatial.site_selection.outputs.writer import (
     SELECTED_SITES_FIELDS,
     SELECTED_SITES_SCHEMA,
     site_record_from_catchment,
     write_observation_points_geojson,
     write_selection_result,
 )
-from hydromodpy.spatial.site_selection.selection import SelectionDecision, SelectionResult
-from hydromodpy.spatial.site_selection.types import ObservationEvidence
 
 
 @pytest.mark.fast

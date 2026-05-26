@@ -8,7 +8,7 @@ import pytest
 
 from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.timeseries import PointRecord
-from hydromodpy.spatial.site_selection.candidate_pipeline import (
+from hydromodpy.spatial.site_selection.candidates.pipeline import (
     build_station_candidate_outlets,
     site_selection_search_geometry,
 )

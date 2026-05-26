@@ -8,7 +8,7 @@ from hydromodpy.spatial.site_selection.config import (
     InfluenceCriteriaConfig,
     ObservationsCriteriaConfig,
 )
-from hydromodpy.spatial.site_selection.criteria import (
+from hydromodpy.spatial.site_selection.evaluation.criteria import (
     evaluate_area_criterion,
     evaluate_flow_station_criterion,
     evaluate_geology_criterion,

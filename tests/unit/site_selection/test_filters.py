@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from shapely.geometry import Polygon, box
 
-from hydromodpy.spatial.site_selection.filters import (
+from hydromodpy.spatial.site_selection.evaluation.spatial_filters import (
     basin_overlap_fraction,
     is_overlap_allowed,
 )

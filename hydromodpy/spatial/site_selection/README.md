@@ -74,8 +74,9 @@ fixtures, catalogs and frozen data extracts, not for direct provider access.
 
 ## Main Modules
 
-The package is organized by workflow phase. The old flat module names remain
-as compatibility wrappers, but new code should import from the subpackages.
+The package is organized by workflow phase. Code should import from the
+subpackages below, or from the top-level `hydromodpy.spatial.site_selection`
+facade when a symbol is part of the public package API.
 
 - `config/`: Pydantic configuration and validation models.
 - `domain/`: shared domain records that are not tied to one processing phase.
@@ -98,9 +99,9 @@ as compatibility wrappers, but new code should import from the subpackages.
   per-catchment summary helpers built from criteria and final selections.
 - `pipelines/build.py`: orchestration of the end-to-end spatial build phases.
 
-Compatibility wrappers at the package root include `candidate_outlets.py`,
-`candidate_generation.py`, `selection.py`, `exports.py`, `manifest.py`,
-`figures.py`, `html_report.py`, `plan_report.py` and related historical names.
+The historical flat modules such as `candidate_outlets.py`, `selection.py`,
+`exports.py`, `manifest.py`, `figures.py`, `html_report.py`, `plan_report.py`
+and `reporting.py` have been removed after the package split.
 
 ## Output Contract
 
