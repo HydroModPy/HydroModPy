@@ -9,7 +9,7 @@ TOML section: ``[solver]``
 
 Pydantic model: ``SolverConfig`` defined in ``hydromodpy.solver.base.solver_config``.
 
-`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L82>`__
+`Source on GitHub <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L82>`__
 
 Configuration block defining the active groundwater solver engine.
 
@@ -42,7 +42,7 @@ Fields
         <code class="hmp-field-toml">[solver.backend]</code>
       </div>
 
-   :bdg-primary:`backend = "modflow6" | "modflow_nwt" | "boussinesq" | "custom"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L90>`__
+   :bdg-primary:`backend = "modflow6" | "modflow_nwt" | "boussinesq" | "custom"` :bdg-info:`factory` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L90>`__
 
       Active flow backend selector (discriminated union).
 
@@ -86,7 +86,7 @@ Fields
                     <code class="hmp-field-name">name</code>
                   </div>
 
-               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/master/hydromodpy/solver/base/solver_config.py#L59>`__
+               :bdg-primary:`str` :bdg-danger:`required` :bdg-success:`user` `source <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/solver/base/solver_config.py#L59>`__
 
                   Plugin-registered flow backend name (matches registry).
 

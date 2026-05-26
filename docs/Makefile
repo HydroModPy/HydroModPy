@@ -45,7 +45,7 @@ help:
 	@echo "Please use \`make <target>' where <target> is one of"
 	@echo "  html       to make standalone HTML files"
 	@echo "  livehtml   to serve HTML with sphinx-autobuild and reload on save"
-	@echo "  polyversion       to build a merged multi-version site (master + dev + tags)"
+	@echo "  polyversion       to build a merged multi-version site (main + dev + archive-v1 + tags)"
 	@echo "  polyversion-local to build only the current working tree under docs/build/html"
 	@echo "  dirhtml    to make HTML files named index.html in directories"
 	@echo "  singlehtml to make a single large HTML file"

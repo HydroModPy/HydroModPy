@@ -16,19 +16,19 @@ HydroModPy
 
 .. container:: hmp-badges
 
-   .. image:: https://img.shields.io/badge/version-1.0.0-22c55e?style=flat-square
+   .. image:: https://img.shields.io/badge/version-2.0.0a1-f59e0b?style=flat-square
       :target: https://github.com/HydroModPy/HydroModPy/releases
-      :alt: Version 1.0.0
+      :alt: Version 2.0.0a1
 
    .. image:: https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-3776AB?style=flat-square&logo=python&logoColor=white
       :target: https://www.python.org/downloads/
       :alt: Python 3.11-3.13
 
    .. image:: https://img.shields.io/badge/license-EPL--2.0-2563eb?style=flat-square
-      :target: https://github.com/HydroModPy/HydroModPy/blob/master/LICENSE
+      :target: https://github.com/HydroModPy/HydroModPy/blob/main/LICENSE
       :alt: License EPL-2.0
 
-   .. image:: https://img.shields.io/readthedocs/hydromodpy/dev?style=flat-square&logo=readthedocs&logoColor=white&label=docs
+   .. image:: https://img.shields.io/readthedocs/hydromodpy/main?style=flat-square&logo=readthedocs&logoColor=white&label=docs
       :target: https://hydromodpy.readthedocs.io/
       :alt: Documentation status
 
@@ -44,6 +44,12 @@ HydroModPy
       :target: https://github.com/HydroModPy/HydroModPy
       :alt: GitHub stars
 
+.. important::
+
+   This documentation tracks the v2 alpha line, currently ``2.0.0a1``.
+   Install it with ``pip install --pre hydromodpy``. Existing v1 projects
+   should stay pinned to exact tags such as ``v1.0.0``.
+
 .. grid:: 1 2 4 4
    :gutter: 2 2 3 3
    :class-container: hmp-landing-cta
@@ -53,7 +59,7 @@ HydroModPy
       :link: install
       :link-type: doc
 
-      ``pip install hydromodpy`` or use the conda environment, then
+      ``pip install --pre hydromodpy`` or use the conda environment, then
       check the prerequisites.
 
    .. grid-item-card:: Get started

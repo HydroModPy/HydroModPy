@@ -17,7 +17,7 @@ on:
       - "docs/source/capability_gallery/**"
       - "docs/source/_static/capability_gallery/**"
   push:
-    branches: [master, dev]
+    branches: [main, dev]
     paths:
       - ".github/workflows/docs-gallery-check.yml"
       - "tools/doc_gallery/**"

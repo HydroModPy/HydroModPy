@@ -5,8 +5,9 @@
 #   1. Build wheel + sdist with `python -m build`.
 #   2. Generate a CycloneDX SBOM (`cyclonedx-bom`) from a fresh wheel install.
 #   3. Upload to PyPI via Trusted Publishers (OIDC, no API token).
-#   4. Create a GitHub release with the matching CHANGELOG section as body
-#      and attach both the distribution files and the SBOM as release assets.
+#   4. Create a GitHub release with the matching CHANGELOG section as body,
+#      mark PEP 440 a/b/rc tags as pre-releases, and attach both the
+#      distribution files and the SBOM as release assets.
 #
 # Trusted Publisher prerequisite (one-time, on PyPI):
 #   project = hydromodpy
@@ -179,6 +180,16 @@ jobs:
           sys.stdout.write(match.group(1).strip() + "\n")
           PY
 
+      - name: Classify release tag
+        id: release-kind
+        run: |
+          tag="${{ inputs.tag || github.ref_name }}"
+          if [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(a|b|rc)[0-9]+$ ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -190,4 +201,4 @@ jobs:
             sbom/*
           fail_on_unmatched_files: true
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.release-kind.outputs.prerelease }}
