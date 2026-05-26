@@ -81,6 +81,9 @@ Liste à jour via `hmp --help`. Les nouveautés à connaître :
 | 13 | [`projects/13_transport_mf6_gwt_disv_visual_guard/`](projects/13_transport_mf6_gwt_disv_visual_guard/) | Transport MF6 GWT DISV (visual guard) | MF6-GWT | visual guard | non |
 | 14 | [`projects/14_transport_nancon_gwt_visual_guard/`](projects/14_transport_nancon_gwt_visual_guard/) | Transport GWT sur Nançon (visual guard) | MF6-GWT | visual guard | non |
 | 15 | [`projects/15_nancon_gauged_context/`](projects/15_nancon_gauged_context/) | Contexte jaugé Nançon | aucun | runnable/context | oui |
+| 16 | [`projects/16_nancon_natural_calibration/`](projects/16_nancon_natural_calibration/) | Calibration naturelle Nançon | MODFLOW-NWT | dev/long | oui |
+| 17 | [`projects/17_site_selection_workflow/`](projects/17_site_selection_workflow/) | Site selection et exports downstream | aucun | runnable/preview | oui |
+| 18 | [`projects/18_site_selection_to_testbed/`](projects/18_site_selection_to_testbed/) | Hand-off site selection vers testbed/regional_lab | mixte | dry-run only | oui |
 
 ## Ordre de lecture recommandé
 

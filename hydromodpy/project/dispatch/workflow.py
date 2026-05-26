@@ -91,6 +91,10 @@ class ProjectTestbedRunnerProvider:
         """Run one comparison child configuration."""
         return dict(run_comparison(config_path))
 
+    def run_calibration(self, config_path: Path) -> Mapping[str, Any]:
+        """Run one calibration child configuration."""
+        return dict(run_calibration(config_path))
+
 
 def run_testbed(config_path: str | Path) -> dict[str, Any]:
     """Run a method-testbed workflow from a TOML file."""

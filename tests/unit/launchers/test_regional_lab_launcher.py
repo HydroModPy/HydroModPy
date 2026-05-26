@@ -267,6 +267,100 @@ def test_regional_lab_builds_plan_without_execution(tmp_path: Path) -> None:
     assert report["skipped_cases"][0]["reason"] == "missing_required_fields"
 
 
+def test_regional_lab_catalog_can_resolve_site_selection_manifest(tmp_path: Path) -> None:
+    catalog_path = _write_csv_catalog(tmp_path)
+    _write_planned_configs(tmp_path)
+    manifest_path = tmp_path / "site_selection_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "site_selection_manifest_v1",
+                "selection_id": "scan_headwater_100km2",
+                "output_root": str(tmp_path),
+                "outputs": {
+                    "regional_lab_sites_csv": catalog_path.name,
+                    "selected_sites_csv": "selected_sites.csv",
+                },
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            'path = "site_catalog.csv"',
+            "\n".join(
+                [
+                    'from_site_selection_manifest = "site_selection_manifest.json"',
+                    'output = "regional_lab_sites_csv"',
+                ]
+            ),
+        ),
+        encoding="utf-8",
+    )
+
+    cfg = RegionalLabConfig.from_file(config_path)
+    assert cfg.catalog.path == catalog_path.resolve()
+    assert cfg.catalog.source_manifest_path == manifest_path.resolve()
+    assert cfg.catalog.source_manifest_output_key == "regional_lab_sites_csv"
+
+    sites = load_site_catalog(cfg.catalog)
+    selected_sites, planned_cases, skipped_cases = build_regional_lab_plan(cfg, sites)
+    assert [site.site_id for site in selected_sites] == [
+        "headwater_100km2_outlet_2",
+        "headwater_100km2_outlet_3",
+    ]
+    payload = build_plan_payload(
+        cfg=cfg,
+        selected_sites=selected_sites,
+        planned_cases=planned_cases,
+        skipped_cases=skipped_cases,
+    )
+    assert payload["site_catalog_path"] == str(catalog_path.resolve())
+    assert payload["catalog"]["source_manifest_path"] == str(manifest_path.resolve())
+    assert payload["catalog"]["source_manifest_output_key"] == "regional_lab_sites_csv"
+
+    summary = RegionalLabProfileLauncher(config_path).run()
+    plan = json.loads(Path(summary["plan_path"]).read_text(encoding="utf-8"))
+    report = json.loads(Path(summary["report_path"]).read_text(encoding="utf-8"))
+    markdown = Path(summary["summary_markdown"]).read_text(encoding="utf-8")
+    assert plan["catalog"]["source_manifest_path"] == str(manifest_path.resolve())
+    assert report["catalog"]["source_manifest_output_key"] == "regional_lab_sites_csv"
+    assert f"Site-selection manifest: `{manifest_path.resolve()}`" in markdown
+
+
+def test_regional_lab_catalog_manifest_source_requires_requested_output(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "site_selection_manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "site_selection_manifest_v1",
+                "selection_id": "scan_headwater_100km2",
+                "output_root": str(tmp_path),
+                "outputs": {"selected_sites_csv": "selected_sites.csv"},
+            },
+            ensure_ascii=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    config_path = _write_regional_lab_config(tmp_path, execute=False)
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            'path = "site_catalog.csv"',
+            'from_site_selection_manifest = "site_selection_manifest.json"',
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="does not contain output 'regional_lab_sites_csv'"):
+        RegionalLabConfig.from_file(config_path)
+
+
 def test_regional_lab_runs_as_testbed_profile(tmp_path: Path) -> None:
     config_path = _write_regional_lab_testbed_profile_config(tmp_path, execute=False)
     _write_csv_catalog(tmp_path)

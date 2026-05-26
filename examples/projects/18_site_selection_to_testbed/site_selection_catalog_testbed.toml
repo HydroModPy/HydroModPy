@@ -1,0 +1,49 @@
+[workflow]
+mode = "testbed"
+
+[testbed]
+id = "site_selection_manifest_mesh_testbed"
+subject = "mesh"
+purpose = "site_selection_catalog_bridge"
+base_config = "base_mesh_simulation.toml"
+output_root = "outputs/site_selection_manifest_mesh_testbed"
+execute = false
+continue_on_error = true
+
+[testbed.runner]
+type = "simulation"
+no_display = true
+
+[testbed.catalog]
+from_site_selection_manifest = "fixtures/site_selection_manifest.json"
+output = "regional_lab_sites_csv"
+format = "csv"
+id_field = "site_id"
+label_field = "site_label"
+axis_field = "region_id"
+tags_field = "tags"
+enabled_field = "enabled"
+required_fields = ["site_id", "x_outlet", "y_outlet", "area_km2"]
+tags = ["selected", "simulation"]
+
+[[testbed.variant_from_catalog]]
+id_template = "{site_id}"
+label_template = "{site_label}"
+axis_template = "{region_id}"
+required_fields = ["x_outlet", "y_outlet"]
+
+[testbed.variant_from_catalog.overlay.workspace]
+project_root = "outputs/site_selection_manifest_mesh_testbed/workspaces/{site_id}"
+
+[testbed.variant_from_catalog.overlay.simulation]
+name = "{site_id}_mesh_from_site_selection"
+
+[testbed.variant_from_catalog.overlay.geographic]
+x_outlet = "{x_outlet}"
+y_outlet = "{y_outlet}"
+buff_area = "10%"
+
+[testbed.variant_from_catalog.overlay.mesh_catchment.zone_meshing]
+global_size = 2000.0
+min_size = 900.0
+max_size = 3500.0

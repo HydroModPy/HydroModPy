@@ -18,6 +18,7 @@ from hydromodpy.analysis.testbed.config import (
 from hydromodpy.analysis.testbed.io import _jsonable
 
 RUNNER_WORKFLOWS = {
+    "calibration": "calibration",
     "comparison": "comparison",
     "simulation": "simulation",
 }
@@ -477,6 +478,12 @@ def _catalog_manifest_payload(cfg: TestbedConfig) -> dict[str, Any] | None:
         "exclude_tags": list(cfg.catalog.exclude_tags),
         "include_disabled": cfg.catalog.include_disabled,
         "limit": cfg.catalog.limit,
+        "source_manifest_path": (
+            None
+            if cfg.catalog.source_manifest_path is None
+            else str(cfg.catalog.source_manifest_path)
+        ),
+        "source_manifest_output_key": cfg.catalog.source_manifest_output_key,
     }
 
 
