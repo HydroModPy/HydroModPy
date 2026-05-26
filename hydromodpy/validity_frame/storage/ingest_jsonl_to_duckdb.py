@@ -217,7 +217,12 @@ def ingest_jsonl_file(
     table_name: str = TABLE_NAME,
     on_conflict: str = "replace",
 ) -> IngestionResult:
-    import duckdb
+    try:
+        import duckdb  # imported lazily so package is optional
+    except Exception as exc:  # pragma: no cover - environment dependent
+        raise ImportError(
+            "DuckDB is required for ingestion. Install with `pip install duckdb` "
+            "or avoid ingestion and keep raw JSONL files.") from exc
 
     jsonl_path = Path(jsonl_path).expanduser().resolve()
     duckdb_path = Path(duckdb_path).expanduser().resolve()

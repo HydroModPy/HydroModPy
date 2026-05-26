@@ -87,6 +87,9 @@ calibration = ["cma>=4.4.4,<5", "cmaes>=0.12.0,<1"]
 delineation = ["whitebox-workflows>=1.3.5,<2"]
 mesh = ["gmsh>=4.15.2,<5"]
 ui = ["streamlit>=1.51.0,<2"]
+duckdb = ["duckdb"]
+metrics = ["psutil", "pynvml"]
+all = ["duckdb", "psutil", "pynvml"]
 viz = [
     "datashader>=0.16,<1",
     "lttb>=0.3,<1",
