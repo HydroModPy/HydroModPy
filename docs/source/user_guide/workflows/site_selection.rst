@@ -32,6 +32,7 @@ Minimal structure
 
    [site_selection.strategy]
    principle = "observation_led"
+   profile = "gauged_downstream_station"
    primary_observation_type = "flow_station"
    candidate_mode = "station_outlets"
 
@@ -71,6 +72,86 @@ workflow loads the stations first. With ``site_selection.dem.request_extent =
 "outlets"``, it uses those projected station outlets to bound the DEM request
 before building flow products, delineating catchments, and handing the spatial
 artifacts to the selection/reporting layer.
+
+Short-term profiles
+-------------------
+
+Two profiles are considered operational for the current site-selection work.
+They keep the configuration readable while leaving room for later
+multi-criteria extensions.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 38 38
+
+   * - Profile
+     - Use when
+     - Required shape
+   * - ``area_only``
+     - The goal is to find DEM-delineated catchments around a target drainage
+       area, without using observations as selection evidence.
+     - ``principle = "criteria_crossing"``, ``primary_axes = ["area"]``, and a
+       candidate source such as ``candidate_mode = "dem_area_light"``.
+   * - ``gauged_downstream_station``
+     - The goal is to select gauged catchments whose outlet is represented by a
+       downstream flow station.
+     - ``principle = "observation_led"``, ``primary_observation_type =
+       "flow_station"``, and ``candidate_mode = "station_outlets"``.
+
+Provider status
+---------------
+
+The workflow separates provider loading from site-selection criteria. This is
+intentional: provider code lives under ``hydromodpy.data``; the
+``site_selection`` package consumes normalized layers, stations, outlets, and
+basins.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 39 39
+
+   * - Theme
+     - Available in ``site_selection`` now
+     - Natural next providers
+   * - Dams and human influences
+     - No direct ROE or BNPE provider is wired into ``site_selection`` yet.
+       The current criterion consumes user-declared vector layers through
+       ``[[site_selection.criteria.influence.layers]]`` and can mark
+       ``major_dam_upstream``, ``major_withdrawal_upstream``, or
+       ``major_regulated_reach``. For gauged catchments, Hub'Eau hydrometry
+       station metadata can also be used through the ``station_influence``
+       observation criterion; this is a station-quality filter, not a spatial
+       proof that no upstream dam exists.
+     - ROE for obstacles such as dams and weirs; BNPE or Hub'Eau withdrawals
+       for water-abstraction pressure; local DREAL, DDT, SAGE, EPTB, or
+       operator inventories when they are more complete locally.
+   * - Geology
+     - ``site_selection`` can intersect configured geology polygon layers and
+       report geology evidence. It does not yet automatically transform
+       ``[data.geology]`` provider outputs into a site-selection criterion.
+     - BRGM ``brgm_1m`` and ``brgm_50k`` already exist in the data package;
+       BDLISA is a relevant later source when the question is
+       hydrogeological units rather than geological formations.
+   * - DEM candidate generation
+     - The ``dem_area_light`` mode generates area-driven candidate outlets and
+       caps the number of DEM delineations before final selection.
+     - A future network-aware generator could favor hydrologically meaningful
+       outlets, reduce nested or near-duplicate basins, improve coastal
+       behavior, and make large territories faster to review.
+
+For hydrometry-led selections, station influence metadata can be made active
+without adding a separate dam layer:
+
+.. code-block:: toml
+
+   [site_selection.criteria.observations.station_influence]
+   mode = "warning"
+   source = "hubeau_station_metadata"
+   unknown_policy = "neutral"
+
+Use ``mode = "hard_reject"`` only when the campaign should exclude stations
+whose hydrometric metadata explicitly reports a local or general hydrologic
+influence. Unknown influence metadata is not rejected by default.
 
 Input modes
 -----------

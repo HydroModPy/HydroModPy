@@ -8,6 +8,8 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from hydromodpy.spatial.site_selection.station_influence import STATION_INFLUENCE_FIELDS
+
 
 @dataclass(frozen=True)
 class CandidateOutlet:
@@ -81,7 +83,13 @@ def candidate_outlets_from_point_records(
             "n_records": int(getattr(record, "n_records", 0) or 0),
             "provider_source": getattr(record, "source", None),
             "source_location_crs": crs,
+            "flow_station_id": station_id,
+            "flow_station_label": label,
+            "flow_station_x": x,
+            "flow_station_y": y,
+            "flow_station_crs": outlet_crs,
         }
+        attributes.update(_station_influence_attributes(metadata))
         candidates.append(
             CandidateOutlet(
                 candidate_id=_make_candidate_id(candidate_prefix, station_id),
@@ -96,6 +104,17 @@ def candidate_outlets_from_point_records(
             )
         )
     return candidates
+
+
+def _station_influence_attributes(metadata: Mapping[str, Any]) -> dict[str, Any]:
+    attributes: dict[str, Any] = {}
+    for field_name in STATION_INFLUENCE_FIELDS:
+        value = metadata.get(field_name)
+        if value in (None, ""):
+            continue
+        attributes[field_name] = value
+        attributes[f"flow_station_{field_name}"] = value
+    return attributes
 
 
 def _location_coordinates_for_target(

@@ -45,6 +45,7 @@ from hydromodpy.spatial.site_selection.criteria import (
     evaluate_geology_criterion,
     evaluate_influence_criterion,
     evaluate_piezometer_criterion,
+    evaluate_station_influence_criterion,
 )
 from hydromodpy.spatial.site_selection.decisions import (
     DecisionRecord,
@@ -165,6 +166,7 @@ __all__ = [
     "evaluate_geology_criterion",
     "evaluate_influence_criterion",
     "evaluate_piezometer_criterion",
+    "evaluate_station_influence_criterion",
     "generate_network_candidate_outlets",
     "geology_evidence_ref",
     "influence_evidence_ref",

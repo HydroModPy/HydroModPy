@@ -35,6 +35,13 @@ COVERAGE = {
 _DISCHARGE_VARS = {"QmnJ", "QmM", "QINM", "QINnJ", "QixM", "QIXnJ"}
 _HEIGHT_VARS = {"HIXM", "HIXnJ"}
 MAX_DAYS_PER_CHUNK = 20_000
+_STATION_INFLUENCE_FIELDS = (
+    "influence_generale_site",
+    "commentaire_influence_generale_site",
+    "influence_locale_station",
+    "commentaire_influence_locale_station",
+    "commentaire_station",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -237,21 +244,30 @@ def _fetch_station_location(station_id: str) -> StationLocation | None:
     if lon is None or lat is None:
         return None
 
+    metadata = {
+        "station_name": info.get("libelle_station"),
+        "x_l93": info.get("coordonnee_x_station"),
+        "y_l93": info.get("coordonnee_y_station"),
+        "city": info.get("libelle_commune"),
+        "department": info.get("libelle_departement"),
+        "altitude": info.get("altitude_ref_alti_station"),
+        "start_date": info.get("date_ouverture_station"),
+        "end_date": info.get("date_fermeture_station"),
+    }
+    metadata.update(
+        {
+            key: info.get(key)
+            for key in _STATION_INFLUENCE_FIELDS
+            if info.get(key) not in (None, "")
+        }
+    )
+
     return StationLocation(
         id=station_id,
         x=float(lon),
         y=float(lat),
         crs="EPSG:4326",
-        metadata={
-            "station_name": info.get("libelle_station"),
-            "x_l93": info.get("coordonnee_x_station"),
-            "y_l93": info.get("coordonnee_y_station"),
-            "city": info.get("libelle_commune"),
-            "department": info.get("libelle_departement"),
-            "altitude": info.get("altitude_ref_alti_station"),
-            "start_date": info.get("date_ouverture_station"),
-            "end_date": info.get("date_fermeture_station"),
-        },
+        metadata=metadata,
     )
 
 

@@ -42,6 +42,8 @@ def test_candidate_outlets_from_point_records_use_station_metadata():
     assert candidates[0].source_feature_id == "J123456701"
     assert candidates[0].source_label == "La Riviere a Exemple"
     assert candidates[0].priority == pytest.approx(2.0)
+    assert candidates[0].attributes["flow_station_id"] == "J123456701"
+    assert candidates[0].attributes["flow_station_crs"] == "EPSG:2154"
 
 
 @pytest.mark.fast
@@ -64,6 +66,7 @@ def test_candidate_outlets_from_hubeau_records_use_lambert93_metadata_when_reque
                 "station_name": "Station HubEau",
                 "x_l93": "352000.5",
                 "y_l93": "6812000.25",
+                "influence_generale_site": "0",
             },
         ),
     )
@@ -79,6 +82,7 @@ def test_candidate_outlets_from_hubeau_records_use_lambert93_metadata_when_reque
     assert candidates[0].y == pytest.approx(6812000.25)
     assert candidates[0].crs == "EPSG:2154"
     assert candidates[0].attributes["source_location_crs"] == "EPSG:4326"
+    assert candidates[0].attributes["flow_station_influence_generale_site"] == "0"
 
 
 @pytest.mark.fast

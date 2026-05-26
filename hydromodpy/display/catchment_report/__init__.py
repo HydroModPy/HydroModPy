@@ -13,10 +13,12 @@ from hydromodpy.display.catchment_report.presets import (
     CatchmentReportPreset,
     preset_from_name,
 )
+from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
 
 __all__ = [
     "CatchmentReportConfig",
     "CatchmentReportInputs",
+    "CatchmentReportSettings",
     "CatchmentReportPreset",
     "GENERIC_REPORT_PRESET",
     "NANCON_REPORT_PRESET",

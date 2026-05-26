@@ -28,6 +28,7 @@ def test_catchment_report_documentation_mentions_contract_fields() -> None:
         "--run-simulation",
         "--run-overview",
         "--stream-run-logs",
+        "--strict-figure-postflight",
         "site_label",
         "station_label",
         "output_dir",
@@ -42,6 +43,10 @@ def test_catchment_report_documentation_mentions_contract_fields() -> None:
         "build_context_artifacts",
         "build_report_html",
         "stream_run_logs",
+        "strict_figure_postflight",
+        "context_builder_command",
+        "preflight",
+        "postflight",
         "generic_catchment_report",
         "nancon_reference",
     ):
@@ -57,11 +62,17 @@ def test_documented_example_configs_resolve_to_expected_presets() -> None:
 
     assert nancon_config.preset is NANCON_REPORT_PRESET
     assert selune_config.preset is GENERIC_REPORT_PRESET
-    assert nancon_inputs.pipeline_build_context_artifacts is False
+    assert nancon_inputs.pipeline_run_overview is True
+    assert nancon_inputs.pipeline_run_simulation is True
+    assert nancon_inputs.pipeline_build_context_artifacts is True
+    assert nancon_inputs.pipeline_context_builder_command is not None
     assert nancon_inputs.pipeline_build_report_html is True
+    assert selune_inputs.pipeline_run_overview is True
     assert selune_inputs.pipeline_run_simulation is True
     assert selune_inputs.pipeline_build_report_html is True
     assert selune_inputs.pipeline_stream_run_logs is False
+    assert selune_inputs.pipeline_strict_figure_postflight is False
     assert nancon_inputs.transient_config.name == "run_transient_nwt.toml"
+    assert nancon_inputs.overview_config.name == "run_overview_all_apis.toml"
     assert selune_inputs.transient_config.name == "run_selune_nwt_report.toml"
     assert selune_inputs.observed_discharge_path is not None

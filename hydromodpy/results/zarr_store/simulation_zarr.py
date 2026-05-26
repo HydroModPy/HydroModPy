@@ -61,7 +61,7 @@ class SimulationZarr:
         self._on_close: Callable[[SimulationZarr], None] | None = None
         if is_zip_store_path(self._path):
             self._store: Any = zarr.storage.ZipStore(str(self._path), mode="r")
-            self._root: zarr.Group = self._open_root_strict(read_only=True)
+            self._root: zarr.Group | None = self._open_root_strict(read_only=True)
             self._lock: FileLock | _DummyLock = _DummyLock()
         else:
             self._store = local_store(self._path)
@@ -105,6 +105,8 @@ class SimulationZarr:
 
     @property
     def root(self) -> zarr.Group:
+        if self._root is None:
+            raise RuntimeError("SimulationZarr handle is closed")
         return self._root
 
     @property

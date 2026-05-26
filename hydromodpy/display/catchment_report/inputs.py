@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import tomllib
-from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+
+from hydromodpy.display.catchment_report.settings import CatchmentReportSettings
 
 
 @dataclass(frozen=True)
@@ -42,73 +41,44 @@ class CatchmentReportInputs:
     pipeline_build_report_html: bool = True
     pipeline_no_lock: bool = True
     pipeline_stream_run_logs: bool = False
+    pipeline_strict_figure_postflight: bool = False
+    pipeline_context_builder_command: tuple[str, ...] | None = None
 
     @classmethod
     def from_toml(cls, path: Path) -> CatchmentReportInputs:
-        config_path = Path(path).expanduser().resolve()
-        payload = tomllib.loads(config_path.read_text(encoding="utf-8-sig"))
-        base_dir = config_path.parent
-        report = _section(payload, "report")
-        layout = _section(payload, "layout")
-        context = payload.get("context", {})
-        pipeline = payload.get("pipeline", {})
-        observed = context.get("observed_discharge", {}) if isinstance(context, Mapping) else {}
-        watershed_project_dir = _path(base_dir, _required(layout, "watershed_project_dir"))
-        data_overview_project_dir = _optional_path(
-            base_dir,
-            layout,
-            "data_overview_project_dir",
-            default=watershed_project_dir,
-        )
-        simulation_workspace_dir = _optional_path(
-            base_dir,
-            layout,
-            "simulation_workspace_dir",
-            default=watershed_project_dir,
-        )
+        return cls.from_settings(CatchmentReportSettings.from_toml(path))
+
+    @classmethod
+    def from_settings(
+        cls,
+        settings: CatchmentReportSettings,
+    ) -> CatchmentReportInputs:
+        observed = settings.observed_discharge
         return cls.from_project_layout(
-            output_dir=_path(base_dir, _required(report, "output_dir")),
-            site_label=str(_required(report, "site_label")),
-            station_label=str(_required(report, "station_label")),
-            title=str(report.get("title", "")),
-            allow_gallery_fallbacks=_optional_bool(report, "allow_gallery_fallbacks"),
-            preset_name=_optional_string(report, "preset"),
-            watershed_project_dir=watershed_project_dir,
-            context_outputs_dir=_path(base_dir, _required(layout, "context_outputs_dir")),
-            data_overview_project_dir=data_overview_project_dir,
-            simulation_workspace_dir=simulation_workspace_dir,
-            simulation_name=str(layout.get("simulation_name", "transient_nwt")),
-            context_summary_name=_optional_string(layout, "context_summary_name"),
-            transient_config_name=_optional_string(layout, "transient_config_name"),
-            overview_config_name=str(layout.get("overview_config_name", "config_overview.toml")),
-            observed_discharge_path=_optional_context_path(base_dir, observed, "path"),
-            observed_discharge_station_id=_optional_string(observed, "station_id"),
-            pipeline_run_overview=_optional_bool_with_default(
-                pipeline,
-                "run_overview",
-                False,
-            ),
-            pipeline_run_simulation=_optional_bool_with_default(
-                pipeline,
-                "run_simulation",
-                False,
-            ),
-            pipeline_build_context_artifacts=_optional_bool_with_default(
-                pipeline,
-                "build_context_artifacts",
-                True,
-            ),
-            pipeline_build_report_html=_optional_bool_with_default(
-                pipeline,
-                "build_report_html",
-                True,
-            ),
-            pipeline_no_lock=_optional_bool_with_default(pipeline, "no_lock", True),
-            pipeline_stream_run_logs=_optional_bool_with_default(
-                pipeline,
-                "stream_run_logs",
-                False,
-            ),
+            output_dir=settings.report.output_dir,
+            site_label=settings.report.site_label,
+            station_label=settings.report.station_label,
+            title=settings.report.title,
+            allow_gallery_fallbacks=settings.report.allow_gallery_fallbacks,
+            preset_name=settings.report.preset_name,
+            watershed_project_dir=settings.layout.watershed_project_dir,
+            context_outputs_dir=settings.layout.context_outputs_dir,
+            data_overview_project_dir=settings.layout.data_overview_project_dir,
+            simulation_workspace_dir=settings.layout.simulation_workspace_dir,
+            simulation_name=settings.layout.simulation_name,
+            context_summary_name=settings.layout.context_summary_name,
+            transient_config_name=settings.layout.transient_config_name,
+            overview_config_name=settings.layout.overview_config_name,
+            observed_discharge_path=observed.path if observed else None,
+            observed_discharge_station_id=observed.station_id if observed else None,
+            pipeline_run_overview=settings.pipeline.run_overview,
+            pipeline_run_simulation=settings.pipeline.run_simulation,
+            pipeline_build_context_artifacts=settings.pipeline.build_context_artifacts,
+            pipeline_build_report_html=settings.pipeline.build_report_html,
+            pipeline_no_lock=settings.pipeline.no_lock,
+            pipeline_stream_run_logs=settings.pipeline.stream_run_logs,
+            pipeline_strict_figure_postflight=settings.pipeline.strict_figure_postflight,
+            pipeline_context_builder_command=settings.pipeline.context_builder_command,
         )
 
     @classmethod
@@ -127,7 +97,7 @@ class CatchmentReportInputs:
         allow_gallery_fallbacks: bool | None = None,
         context_summary_name: str | None = None,
         transient_config_name: str | None = None,
-        overview_config_name: str = "config_overview.toml",
+        overview_config_name: str | None = None,
         observed_discharge_path: Path | None = None,
         observed_discharge_station_id: str | None = None,
         preset_name: str | None = None,
@@ -137,6 +107,8 @@ class CatchmentReportInputs:
         pipeline_build_report_html: bool = True,
         pipeline_no_lock: bool = True,
         pipeline_stream_run_logs: bool = False,
+        pipeline_strict_figure_postflight: bool = False,
+        pipeline_context_builder_command: tuple[str, ...] | None = None,
     ) -> CatchmentReportInputs:
         data_overview_project_dir = data_overview_project_dir or watershed_project_dir
         simulation_workspace_dir = simulation_workspace_dir or watershed_project_dir
@@ -145,6 +117,7 @@ class CatchmentReportInputs:
             site_label,
         )
         transient_config_name = transient_config_name or f"run_{simulation_name}.toml"
+        overview_config_name = overview_config_name or "config_overview.toml"
         return cls(
             output_dir=output_dir,
             site_label=site_label,
@@ -181,6 +154,8 @@ class CatchmentReportInputs:
             pipeline_build_report_html=pipeline_build_report_html,
             pipeline_no_lock=pipeline_no_lock,
             pipeline_stream_run_logs=pipeline_stream_run_logs,
+            pipeline_strict_figure_postflight=pipeline_strict_figure_postflight,
+            pipeline_context_builder_command=pipeline_context_builder_command,
         )
 
 
@@ -189,80 +164,6 @@ def _context_summary_name(context_outputs_dir: Path, site_label: str) -> str:
     if len(candidates) == 1:
         return candidates[0].name
     return f"{_slug(site_label)}_gauged_context_summary.json"
-
-
-def _section(payload: Mapping[str, Any], name: str) -> Mapping[str, Any]:
-    value = payload.get(name)
-    if not isinstance(value, Mapping):
-        raise ValueError(f"Missing [{name}] section in catchment report config.")
-    return value
-
-
-def _required(payload: Mapping[str, Any], key: str) -> Any:
-    try:
-        return payload[key]
-    except KeyError as exc:
-        raise ValueError(f"Missing required catchment report config key: {key!r}.") from exc
-
-
-def _optional_string(payload: Mapping[str, Any], key: str) -> str | None:
-    value = payload.get(key)
-    if value is None:
-        return None
-    return str(value)
-
-
-def _optional_bool(payload: Mapping[str, Any], key: str) -> bool | None:
-    value = payload.get(key)
-    if value is None:
-        return None
-    if isinstance(value, bool):
-        return value
-    raise ValueError(f"Catchment report config key {key!r} must be a boolean.")
-
-
-def _optional_bool_with_default(payload: Any, key: str, default: bool) -> bool:
-    if not isinstance(payload, Mapping):
-        return default
-    value = payload.get(key)
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    raise ValueError(f"Catchment report config key {key!r} must be a boolean.")
-
-
-def _optional_path(
-    base_dir: Path,
-    payload: Mapping[str, Any],
-    key: str,
-    *,
-    default: Path,
-) -> Path:
-    value = payload.get(key)
-    if value is None:
-        return default
-    return _path(base_dir, value)
-
-
-def _optional_context_path(
-    base_dir: Path,
-    payload: Any,
-    key: str,
-) -> Path | None:
-    if not isinstance(payload, Mapping):
-        return None
-    value = payload.get(key)
-    if value is None:
-        return None
-    return _path(base_dir, value)
-
-
-def _path(base_dir: Path, value: Any) -> Path:
-    path = Path(str(value)).expanduser()
-    if not path.is_absolute():
-        path = base_dir / path
-    return path.resolve()
 
 
 def _slug(value: str) -> str:

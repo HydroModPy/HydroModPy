@@ -7,6 +7,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from hydromodpy.spatial.site_selection.station_influence import (
+    station_influence_diagnostics,
+)
+
 
 @dataclass(frozen=True)
 class ObservationSpatialMatch:
@@ -76,6 +80,13 @@ class ObservationEvidence:
         quality_status = _quality_status(record)
         match = spatial_match or ObservationSpatialMatch()
         source = source_dataset or str(getattr(record, "source", "") or "unknown")
+        influence = station_influence_diagnostics(metadata)
+        resolved_influence_status = (
+            influence.status if influence_status == "unknown" else influence_status
+        )
+        resolved_influence_flags = (
+            list(influence.flags) if influence_flags is None else list(influence_flags)
+        )
 
         evidence = {
             "provider_station_id": station_id,
@@ -86,6 +97,12 @@ class ObservationEvidence:
             "n_records": int(getattr(record, "n_records", 0) or 0),
             "provider_metadata": _jsonable_mapping(metadata),
             "quality": _jsonable_mapping(getattr(record, "quality", None) or {}),
+            "station_influence": {
+                "status": influence.status,
+                "flags": list(influence.flags),
+                "matched_keywords": list(influence.matched_keywords),
+                "raw_fields": _jsonable_mapping(influence.raw_fields),
+            },
         }
         if location is not None:
             evidence["provider_location"] = {
@@ -107,8 +124,8 @@ class ObservationEvidence:
             record_end=_date_to_iso(record_end),
             record_year_count=_record_year_count(record_start, record_end),
             quality_status=quality_status,
-            influence_status=influence_status,
-            influence_flags=list(influence_flags or []),
+            influence_status=resolved_influence_status,
+            influence_flags=resolved_influence_flags,
             upstream_dam_count=upstream_dam_count,
             upstream_major_withdrawal_count=upstream_major_withdrawal_count,
             regulated_reach_flag=regulated_reach_flag,

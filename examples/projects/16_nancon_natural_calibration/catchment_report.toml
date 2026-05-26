@@ -13,10 +13,18 @@ simulation_workspace_dir = "../02_nancon_watershed"
 simulation_name = "transient_nwt"
 context_summary_name = "nancon_gauged_context_summary.json"
 transient_config_name = "run_transient_nwt.toml"
-overview_config_name = "config_overview.toml"
+overview_config_name = "run_overview_all_apis.toml"
 
 [pipeline]
-run_simulation = false
-build_context_artifacts = false
+run_overview = true
+run_simulation = true
+build_context_artifacts = true
 build_report_html = true
 stream_run_logs = false
+strict_figure_postflight = false
+context_builder_command = [
+  "{python}",
+  "../15_nancon_gauged_context/build_nancon_gauged_context.py",
+  "--report-config",
+  "{report_config}",
+]

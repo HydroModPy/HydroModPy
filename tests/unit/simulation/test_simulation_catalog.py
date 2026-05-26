@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from hydromodpy.results.catalog import SimulationCatalog
+from hydromodpy.results.catalog import registration as registration_mod
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
 from tests._helpers.fixtures_catalog import simulation_catalog
 
@@ -27,6 +29,37 @@ def _register(catalog, sim_id=None, **kwargs):
     defaults.update(kwargs)
     reg = catalog.register_simulation(sid, **defaults)
     return sid, reg.zarr
+
+
+def test_staged_zarr_promotion_retries_transient_permission_error(tmp_path, monkeypatch):
+    source = tmp_path / ".staging.zarr"
+    target = tmp_path / "final.zarr"
+    source.mkdir()
+    (source / "marker").write_text("ok", encoding="utf-8")
+    original_rename = Path.rename
+    calls = 0
+
+    def flaky_rename(self, target_path):
+        nonlocal calls
+        if self == source and calls == 0:
+            calls += 1
+            raise PermissionError(5, "Access denied")
+        return original_rename(self, target_path)
+
+    monkeypatch.setattr(registration_mod, "_windows_long_path", lambda path: path)
+    monkeypatch.setattr(
+        registration_mod,
+        "_is_retryable_staged_zarr_rename_error",
+        lambda exc: True,
+    )
+    monkeypatch.setattr(registration_mod.time, "sleep", lambda _delay: None)
+    monkeypatch.setattr(Path, "rename", flaky_rename)
+
+    registration_mod._promote_staged_zarr(source, target)
+
+    assert calls == 1
+    assert not source.exists()
+    assert (target / "marker").read_text(encoding="utf-8") == "ok"
 
 
 _V2_SIM_SELECT = (

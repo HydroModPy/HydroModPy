@@ -14,6 +14,7 @@ from hydromodpy.spatial.site_selection.criteria import (
     evaluate_geology_criterion,
     evaluate_influence_criterion,
     evaluate_piezometer_criterion,
+    evaluate_station_influence_criterion,
 )
 from hydromodpy.spatial.site_selection.delineation import (
     DelineatedCatchment,
@@ -122,19 +123,26 @@ def select_delineated_catchments(
                 selection_principle=selection_principle,
                 evaluation_order=2,
             ),
+            evaluate_station_influence_criterion(
+                site_id=catchment.site_id,
+                attributes=attributes,
+                config=criteria.observations,
+                selection_principle=selection_principle,
+                evaluation_order=3,
+            ),
             evaluate_influence_criterion(
                 site_id=catchment.site_id,
                 attributes=attributes,
                 config=criteria.influence,
                 selection_principle=selection_principle,
-                evaluation_order=3,
+                evaluation_order=4,
             ),
             evaluate_geology_criterion(
                 site_id=catchment.site_id,
                 attributes=attributes,
                 config=criteria.geology,
                 selection_principle=selection_principle,
-                evaluation_order=4,
+                evaluation_order=5,
             ),
         ]
         components.extend(catchment_components)

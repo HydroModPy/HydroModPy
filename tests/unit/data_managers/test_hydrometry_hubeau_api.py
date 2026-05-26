@@ -42,3 +42,33 @@ def test_hubeau_fetch_limits_discovered_stations_before_downloading(monkeypatch)
 
     assert downloaded == ["J000000001", "J000000002"]
     assert [record.station_id for record in records] == ["J000000001", "J000000002"]
+
+
+@pytest.mark.fast
+def test_hubeau_station_location_keeps_influence_metadata(monkeypatch):
+    def fake_get_json(_url, params):
+        assert params["code_station"] == "J000000001"
+        return {
+            "data": [
+                {
+                    "code_station": "J000000001",
+                    "libelle_station": "Station influencee",
+                    "longitude_station": -1.5,
+                    "latitude_station": 48.1,
+                    "coordonnee_x_station": 352000.0,
+                    "coordonnee_y_station": 6812000.0,
+                    "influence_generale_site": "1",
+                    "commentaire_influence_generale_site": "Retenue en amont.",
+                    "influence_locale_station": "0",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(hubeau, "get_json", fake_get_json)
+
+    location = hubeau._fetch_station_location("J000000001")
+
+    assert location is not None
+    assert location.metadata["influence_generale_site"] == "1"
+    assert location.metadata["commentaire_influence_generale_site"] == "Retenue en amont."
+    assert location.metadata["influence_locale_station"] == "0"

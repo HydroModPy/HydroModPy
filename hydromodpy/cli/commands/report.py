@@ -22,6 +22,7 @@ from hydromodpy.cli.helpers import (
     find_catalog_root,
 )
 from hydromodpy.core.state.paths import CATALOG_FILENAME
+from hydromodpy.display.catchment_report.cli import add_catchment_report_arguments
 
 NAME: str = "report"
 HELP: str = "Render HTML reports and pairwise comparisons"
@@ -74,51 +75,7 @@ def register(subparsers) -> argparse.ArgumentParser:
         "catchment",
         help="Build a catchment HTML report from one TOML configuration",
     )
-    catchment_p.add_argument(
-        "report_config",
-        type=Path,
-        metavar="REPORT_CONFIG",
-        help="Catchment report TOML configuration.",
-    )
-    catchment_p.add_argument(
-        "--run-overview",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Run the configured overview before building report artifacts.",
-    )
-    catchment_p.add_argument(
-        "--run-simulation",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Run the configured simulation before building report artifacts.",
-    )
-    catchment_p.add_argument(
-        "--context-only",
-        action="store_true",
-        help="Build only the context artifacts, not the final HTML report.",
-    )
-    catchment_p.add_argument(
-        "--report-only",
-        action="store_true",
-        help="Build only the final HTML report from existing context artifacts.",
-    )
-    catchment_p.add_argument(
-        "--with-lock",
-        action="store_true",
-        help="Do not pass --no-lock to the optional hydromodpy run steps.",
-    )
-    catchment_p.add_argument(
-        "--stream-run-logs",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Stream logs from optional hydromodpy run steps.",
-    )
-    catchment_p.add_argument(
-        "--preset",
-        choices=("generic", "generic_catchment_report", "nancon", "nancon_reference"),
-        default=None,
-        help="Override the catchment report preset declared in the TOML.",
-    )
+    add_catchment_report_arguments(catchment_p, report_config_option=False)
 
     parser.set_defaults(_handler=run)
     return parser
@@ -196,42 +153,18 @@ def _cmd_compare(args: argparse.Namespace) -> None:
 
 
 def _cmd_catchment(args: argparse.Namespace) -> None:
-    from hydromodpy.display.catchment_report.pipeline import (
-        run_catchment_report_pipeline,
+    from hydromodpy.display.catchment_report.cli import (
+        print_catchment_report_result,
+        run_catchment_report_from_args,
     )
-    from hydromodpy.display.catchment_report.presets import preset_from_name
 
-    if args.context_only and args.report_only:
+    try:
+        result = run_catchment_report_from_args(args)
+    except ValueError as exc:
         print(
-            "--context-only and --report-only are mutually exclusive.",
+            str(exc),
             file=sys.stderr,
         )
         sys.exit(EXIT_CONFIG)
 
-    build_context_artifacts = None
-    build_report_html = None
-    if args.context_only:
-        build_context_artifacts = True
-        build_report_html = False
-    elif args.report_only:
-        build_context_artifacts = False
-        build_report_html = True
-
-    result = run_catchment_report_pipeline(
-        args.report_config,
-        preset=preset_from_name(args.preset) if args.preset else None,
-        run_overview=args.run_overview,
-        run_simulation=args.run_simulation,
-        build_context_artifacts=build_context_artifacts,
-        build_report_html=build_report_html,
-        no_lock=False if args.with_lock else None,
-        stream_run_logs=args.stream_run_logs,
-    )
-    if result.overview_config is not None:
-        print(f"overview_config={result.overview_config}")
-    if result.simulation_config is not None:
-        print(f"simulation_config={result.simulation_config}")
-    if result.context_summary is not None:
-        print(f"context_summary={result.context_summary}")
-    if result.html_report is not None:
-        print(f"html_report={result.html_report}")
+    print_catchment_report_result(result)

@@ -9,6 +9,7 @@ from hydromodpy.spatial.site_selection.criteria_influence import evaluate_influe
 from hydromodpy.spatial.site_selection.criteria_observations import (
     evaluate_flow_station_criterion,
     evaluate_piezometer_criterion,
+    evaluate_station_influence_criterion,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "evaluate_geology_criterion",
     "evaluate_influence_criterion",
     "evaluate_piezometer_criterion",
+    "evaluate_station_influence_criterion",
 ]

@@ -69,6 +69,10 @@ min_record_years = 5.0
 max_station_to_outlet_distance_km = 1.0
 require_station_inside_or_at_outlet = true
 
+[site_selection.criteria.observations.station_influence]
+mode = "hard_reject"
+unknown_policy = "neutral"
+
 [site_selection.criteria.influence]
 mode = "hard_reject"
 reject_major_dam_upstream = true

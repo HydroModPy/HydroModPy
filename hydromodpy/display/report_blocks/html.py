@@ -29,13 +29,15 @@ def write_report_page(
     """Write one standalone HTML page and return its path."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
-        render_report_page(
-            title=title,
-            blocks=blocks,
-            web_dir=output_path.parent,
-            subtitle=subtitle,
-            current_level=current_level,
-            level_links=level_links,
+        _without_trailing_whitespace(
+            render_report_page(
+                title=title,
+                blocks=blocks,
+                web_dir=output_path.parent,
+                subtitle=subtitle,
+                current_level=current_level,
+                level_links=level_links,
+            )
         ),
         encoding="utf-8",
     )
@@ -56,14 +58,16 @@ def write_report_page_with_block_variants(
     """Write one page where each block can choose its own detail level."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
-        render_report_page_with_block_variants(
-            title=title,
-            block_variants=block_variants,
-            web_dir=output_path.parent,
-            subtitle=subtitle,
-            current_level=current_level,
-            default_level=default_level,
-            level_links=level_links,
+        _without_trailing_whitespace(
+            render_report_page_with_block_variants(
+                title=title,
+                block_variants=block_variants,
+                web_dir=output_path.parent,
+                subtitle=subtitle,
+                current_level=current_level,
+                default_level=default_level,
+                level_links=level_links,
+            )
         ),
         encoding="utf-8",
     )
@@ -506,6 +510,10 @@ def _link_href(web_dir: Path, path: Path | str) -> str:
     if "://" in text or text.startswith("#"):
         return text
     return _link_relative(web_dir, Path(path))
+
+
+def _without_trailing_whitespace(text: str) -> str:
+    return "\n".join(line.rstrip() for line in text.splitlines()) + "\n"
 
 
 _STYLE = """    :root {
