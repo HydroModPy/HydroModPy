@@ -1,7 +1,7 @@
 # Plan d'implementation - outil de selection de sites HydroModPy
 
 Date: 2026-05-12
-Mise a jour: 2026-05-16
+Mise a jour: 2026-05-26
 
 Statut: document de conception et de planification. Ce fichier detaille une
 brique specifique: un outil independant de selection de sites, place en amont
@@ -19,6 +19,16 @@ Document d'inventaire associe:
 
 Rapport d'implementation actuel:
 `docs/_dev_notes/site_selection_current_implementation_report.md`.
+
+Note 2026-05-26: ce fichier reste le plan long historique. Le contrat court
+terme stabilise est decrit dans
+`docs/_dev_notes/site_selection_short_term_contract.md`, et l'etat courant dans
+`docs/_dev_notes/site_selection_current_implementation_report.md`. Le package
+spatial est maintenant organise en sous-packages
+`candidates`, `config`, `domain`, `evaluation`, `evidence`, `hydrology`,
+`outputs`, `pipelines` et `reports`; les anciens fichiers plats cites plus bas
+doivent etre lus comme des references historiques, pas comme les chemins
+actuels.
 
 Note 2026-05-16: les premieres consolidations v0 sont implementees dans le code:
 validation du manifest, schema CSV documente, criteres auditables
