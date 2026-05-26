@@ -38,6 +38,14 @@ class EtpSourceConfig(TimeseriesColumnsMixin, TimeseriesSelectionMixin):
         default=None,
         description="Directory containing location file and chronicle CSVs, or a single .nc/.tif file.",
     )
+    crs: Annotated[str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional CRS fallback for custom gridded NetCDF inputs that do not declare CRS metadata.",
+    )
+    nodata: Annotated[float | int | str | None, Profile.USER] = Field(
+        default=None,
+        description="Optional nodata fallback for custom gridded NetCDF inputs that do not declare nodata metadata.",
+    )
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> EtpSourceConfig:

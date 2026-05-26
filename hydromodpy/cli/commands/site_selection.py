@@ -15,6 +15,10 @@ NAME: str = "site-selection"
 HELP: str = "Plan and inspect site-selection workflows"
 
 
+def _progress(message: str) -> None:
+    print(f"[site_selection] {message}", file=sys.stderr)
+
+
 def register(subparsers) -> argparse.ArgumentParser:
     parser = subparsers.add_parser(NAME, help=HELP)
     sub = parser.add_subparsers(dest="site_selection_command", required=True)
@@ -208,6 +212,7 @@ def run_build_observed(args: argparse.Namespace) -> None:
             output_root=args.output_root,
             workspace_root=args.workspace_root,
             data_root=args.data_root,
+            progress_callback=_progress,
         )
     except (ValueError, ValidationError) as exc:
         print(f"Invalid site-selection input: {exc}", file=sys.stderr)
@@ -234,6 +239,7 @@ def run_build_generated(args: argparse.Namespace) -> None:
             output_root=args.output_root,
             workspace_root=args.workspace_root,
             data_root=args.data_root,
+            progress_callback=_progress,
         )
     except (ValueError, ValidationError) as exc:
         print(f"Invalid site-selection input: {exc}", file=sys.stderr)

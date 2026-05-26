@@ -328,6 +328,7 @@ def build_site_selection_from_generated_network(
     if dem_path is None:
         raise ValueError("build_site_selection_from_generated_network requires dem_init_path or dem.path.")
     target_crs = crs_project or _read_raster_crs(dem_path) or _default_project_crs(config)
+    search_geometry = _territory_search_geometry(config, target_crs=target_crs)
 
     flow_products = build_site_selection_flow_products(
         dem_init_path=dem_path,
@@ -341,6 +342,7 @@ def build_site_selection_from_generated_network(
         flow_products=flow_products,
         outlets=config.outlets,
         hydrology=config.hydrology,
+        search_geometry=search_geometry,
     )
     reference_network, reference_bundle = _maybe_load_reference_network_for_generated_candidates(
         config=config,
@@ -431,6 +433,7 @@ def build_site_selection_from_generated_network(
                 flow_products=flow_products,
                 hydrology=config.hydrology,
                 max_cells=config.outlets.max_generated_network_cells,
+                search_geometry=search_geometry,
             )
         if observation_evidence:
             output_paths["observation_evidence_jsonl"] = _write_observation_evidence_jsonl(
@@ -565,6 +568,7 @@ def build_site_selection_from_dem_area_light(
     if dem_path is None:
         raise ValueError("build_site_selection_from_dem_area_light requires dem_init_path or dem.path.")
     target_crs = crs_project or _read_raster_crs(dem_path) or _default_project_crs(config)
+    search_geometry = _territory_search_geometry(config, target_crs=target_crs)
 
     flow_products = build_site_selection_flow_products(
         dem_init_path=dem_path,
@@ -596,6 +600,7 @@ def build_site_selection_from_dem_area_light(
         dem_area_light=config.dem_area_light,
         hydrology=config.hydrology,
         accumulation_cells_path=raw_accumulation_path,
+        search_geometry=search_geometry,
         max_candidates_before_delineation=config.dem_area_light.max_candidates_before_delineation,
     )
     delineated = [
@@ -672,6 +677,7 @@ def build_site_selection_from_dem_area_light(
                 flow_products=flow_products,
                 hydrology=config.hydrology,
                 max_cells=config.outlets.max_generated_network_cells,
+                search_geometry=search_geometry,
             )
         if observation_evidence:
             output_paths["observation_evidence_jsonl"] = _write_observation_evidence_jsonl(
@@ -964,6 +970,64 @@ def _dem_area_light_diagnostic_rows(
         {"metric": "valid_basins", "count": valid_basins},
         {"metric": "selected_basins", "count": len(selection.selected)},
     ]
+
+
+def _territory_search_geometry(
+    config: SiteSelectionConfig,
+    *,
+    target_crs: str | None,
+) -> object | None:
+    territory = config.territory
+    if not territory.clip_to_territory:
+        return None
+    mode = territory.mode
+    if mode == "admin_departments" and (territory.country or "").upper() == "FR":
+        from hydromodpy.data.common.administrative.france import geometry_for_departments
+
+        return _make_search_geometry_valid(
+            geometry_for_departments(territory.departments, target_crs=target_crs)
+        )
+    if mode == "admin_regions" and (territory.country or "").upper() == "FR":
+        from hydromodpy.data.common.administrative.france import geometry_for_regions
+
+        return _make_search_geometry_valid(
+            geometry_for_regions(territory.regions, target_crs=target_crs)
+        )
+    if mode == "polygon_file" and territory.polygon_file is not None:
+        try:
+            import geopandas as gpd
+        except ImportError as exc:  # pragma: no cover - optional geospatial dependency.
+            raise ImportError("geopandas is required for site_selection territory polygons.") from exc
+
+        frame = gpd.read_file(territory.polygon_file)
+        if target_crs and frame.crs is not None and str(frame.crs) != str(target_crs):
+            frame = frame.to_crs(target_crs)
+        return _make_search_geometry_valid(_union_geometries(frame))
+    if mode == "bbox" and territory.bbox is not None:
+        from shapely.geometry import box
+
+        return box(*territory.bbox)
+    return None
+
+
+def _union_geometries(frame: object) -> object:
+    geometry = frame.geometry[frame.geometry.notna() & (~frame.geometry.is_empty)]
+    if hasattr(geometry, "union_all"):
+        return geometry.union_all()
+    return geometry.unary_union
+
+
+def _make_search_geometry_valid(geometry: object | None) -> object | None:
+    if geometry is None:
+        return None
+    if bool(getattr(geometry, "is_valid", True)):
+        return geometry
+    try:
+        from shapely.validation import make_valid
+
+        return make_valid(geometry)
+    except Exception:
+        return geometry.buffer(0)
 
 
 def _first_candidate_crs(candidates: list[CandidateOutlet]) -> str | None:

@@ -643,6 +643,32 @@ class TestLoadCustomNc:
         with pytest.raises(ValueError, match="CRS"):
             load_custom_nc(nc_path, variable="soil_k", unit="m/s")
 
+    def test_load_uses_explicit_grid_metadata_fallbacks(self, tmp_path):
+        times = pd.date_range("2020-01-01", periods=3, freq="D")
+        ds = xr.Dataset(
+            {"etp": (["time", "y", "x"], np.ones((3, 2, 2)))},
+            coords={
+                "time": times,
+                "y": [6_813_000.0, 6_821_000.0],
+                "x": [383_000.0, 391_000.0],
+            },
+        )
+        nc_path = tmp_path / "etp_missing_metadata.nc"
+        ds.to_netcdf(nc_path)
+
+        records = load_custom_nc(
+            nc_path,
+            variable="etp",
+            unit="mm/day",
+            crs="EPSG:2154",
+            nodata=-9999.0,
+        )
+
+        rec = records[0]
+        assert rec.crs == "EPSG:2154"
+        assert rec.bbox == (383_000.0, 6_813_000.0, 391_000.0, 6_821_000.0)
+        assert rec.data["etp"].attrs["nodata"] == -9999.0
+
     def test_load_rejects_missing_nodata(self, tmp_path):
         ds = xr.Dataset(
             {"soil_k": (["x", "y"], np.ones((2, 2)))},

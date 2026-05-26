@@ -6,10 +6,8 @@ selection_id = "bretagne_hydrometry_50_500_small_v1"
 output_root = "../outputs/bretagne_hydrometry_50_500_small_v1"
 
 [site_selection.input]
-mode = "delineated_catchments"
-catchments_csv = "../fixtures/bretagne_hubeau_50_500_candidates_small.csv"
+mode = "hydrometry"
 region_id = "Bretagne"
-delineate_from_outlets = true
 
 [site_selection.strategy]
 principle = "observation_led"
@@ -87,6 +85,26 @@ prefer_diversity = true
 
 [site_selection.output]
 write_report_html = true
+
+[hydrometry]
+date_start = "2015-01-01"
+date_end = "2025-01-01"
+
+[[hydrometry.sources]]
+source = "hubeau"
+product = "QmnJ"
+extent = "study_area"
+require_observations = true
+station_ids = [
+  "J061161001",
+  "J062661001",
+  "J110301001",
+  "J111401001",
+  "J131301001",
+  "J132401001",
+  "J151301001",
+]
+max_stations = 7
 
 [data]
 types = ["dem"]

@@ -25,6 +25,10 @@ from validation_cases.shared.loaders import load_case_metadata
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+_WINDOWS_VALIDATION_PATH_LIMIT = 240
+_VALIDATION_GENERATED_PATH_HEADROOM = 96
+_VALIDATION_COMPONENT_LENGTHS = (28, 24, 20, 16, 12)
+
 _NWT_VALIDATION_PROFILE_SIMPLE = """[modflownwt.runtime.nwt]
 version = "mfnwt"
 listunit = 2
@@ -364,26 +368,106 @@ def _short_validation_name(value: str | Path, *, max_length: int = 28) -> str:
     return f"{text[:keep]}_{digest}"
 
 
+def _resolve_path_best_effort(path: Path) -> Path:
+    """Resolve *path* without failing only because the target is not creatable yet."""
+    try:
+        return path.expanduser().resolve()
+    except OSError:
+        return path.expanduser().absolute()
+
+
+def _default_validation_results_root() -> Path:
+    return Path(tempfile.gettempdir()) / "hydromodpy_validation_outputs"
+
+
+def _fallback_validation_results_root(base_out_path: str) -> Path:
+    digest = hashlib.sha1(str(base_out_path).encode("utf-8")).hexdigest()[:10]
+    return Path(tempfile.gettempdir()) / f"hydromodpy_validation_outputs_{digest}"
+
+
+def _windows_path_budget_exceeded(path: Path, *, headroom: int = 0) -> bool:
+    """Return True when *path* is likely to exceed legacy Windows path limits."""
+    if os.name != "nt":
+        return False
+    return len(str(path)) + int(headroom) >= _WINDOWS_VALIDATION_PATH_LIMIT
+
+
+def _candidate_validation_results_dir(
+    *,
+    results_root: Path,
+    test_file: str | Path,
+    run_name: str,
+    component_length: int,
+) -> Path:
+    test_stem = _short_validation_name(
+        Path(test_file).resolve().stem,
+        max_length=component_length,
+    )
+    safe_run_name = _short_validation_name(run_name, max_length=component_length)
+    return results_root / test_stem / safe_run_name
+
+
+def _resolve_budgeted_validation_results_dir(
+    *,
+    results_root: Path,
+    test_file: str | Path,
+    run_name: str,
+) -> Path:
+    last_candidate: Path | None = None
+    for component_length in _VALIDATION_COMPONENT_LENGTHS:
+        candidate = _candidate_validation_results_dir(
+            results_root=results_root,
+            test_file=test_file,
+            run_name=run_name,
+            component_length=component_length,
+        )
+        last_candidate = candidate
+        if not _windows_path_budget_exceeded(
+            candidate,
+            headroom=_VALIDATION_GENERATED_PATH_HEADROOM,
+        ):
+            return candidate
+    assert last_candidate is not None
+    return last_candidate
+
+
 def resolve_validation_results_dir(*, test_file: str | Path, run_name: str) -> Path:
     """Create one deterministic output directory for a validation run."""
     base_out_path = os.environ.get("HMP_OUT_PATH")
     if base_out_path:
-        results_root = Path(base_out_path).expanduser().resolve() / "validation"
+        results_root = _resolve_path_best_effort(Path(base_out_path)) / "validation"
         probe_dir = results_root / f".__probe_{os.getpid()}_{time.time_ns()}"
         try:
             results_root.mkdir(parents=True, exist_ok=True)
             probe_dir.mkdir()
         except OSError:
-            results_root = Path(tempfile.gettempdir()) / "hydromodpy_validation_outputs"
+            results_root = _fallback_validation_results_root(base_out_path)
         else:
             probe_dir.rmdir()
     else:
-        results_root = Path(tempfile.gettempdir()) / "hydromodpy_validation_outputs"
+        results_root = _default_validation_results_root()
 
-    test_stem = _short_validation_name(Path(test_file).resolve().stem)
-    safe_run_name = _short_validation_name(run_name)
-    parent_dir = results_root / test_stem
-    out_dir = parent_dir / safe_run_name
+    out_dir = _resolve_budgeted_validation_results_dir(
+        results_root=results_root,
+        test_file=test_file,
+        run_name=run_name,
+    )
+    if (
+        base_out_path
+        and _windows_path_budget_exceeded(
+            out_dir,
+            headroom=_VALIDATION_GENERATED_PATH_HEADROOM,
+        )
+    ):
+        results_root = _fallback_validation_results_root(base_out_path)
+        out_dir = _resolve_budgeted_validation_results_dir(
+            results_root=results_root,
+            test_file=test_file,
+            run_name=run_name,
+        )
+
+    parent_dir = out_dir.parent
+    safe_run_name = out_dir.name
     if parent_dir.is_dir():
         legacy_prefix = f"{safe_run_name}_"
         for sibling in parent_dir.iterdir():
@@ -560,6 +644,7 @@ def run_example_script(
     env[out_env_var] = str(out_path)
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
+    env["HMP_AUTO_REGISTER_WORKSPACE"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
     if extra_env:
         for key, value in extra_env.items():
@@ -577,6 +662,8 @@ def run_example_script(
         cwd=str(cwd),
         env=env,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         timeout=timeout,
     )
@@ -740,6 +827,7 @@ def run_launcher_validation_case(
     env = os.environ.copy()
     env["HMP_PROJECT_ROOT"] = str(out_path)
     env["HMP_WORKSPACE"] = str(out_path)
+    env["HMP_AUTO_REGISTER_WORKSPACE"] = "0"
     env.setdefault("MPLBACKEND", "Agg")
 
     # Validation runs never persist ``hydromodpy.lock``: the lockfile would
@@ -761,6 +849,8 @@ def run_launcher_validation_case(
             cwd=str(REPO_ROOT),
             env=env,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             timeout=timeout,
         )

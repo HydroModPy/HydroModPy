@@ -74,16 +74,14 @@ configs/bretagne_hydrometry_50_500_hubeau_preview.toml
 
 Principe:
 
-- les candidats sont des stations/sites Hub'Eau de Bretagne est materialises
-  dans `fixtures/bretagne_hubeau_50_500_candidates.csv` ;
-- `build_bretagne_hubeau_50_500_candidates.py` interroge le referentiel
-  Hub'Eau, filtre les stations existantes qui respectent les criteres amont
-  et ecrit aussi `fixtures/bretagne_hubeau_50_500_station_inventory.csv` ;
+- les candidats sont charges directement depuis Hub'Eau par les gestionnaires
+  de donnees HydroModPy, via `site_selection.input.mode = "hydrometry"` ;
+- l'emprise de la Bretagne est transformee en WGS84 pour interroger Hub'Eau,
+  sans script regional ni CSV intermediaire obligatoire ;
 - la station de jaugeage reste le point d'entree: elle fixe l'exutoire ;
-- la surface 50-500 km2 sert de filtre amont dans l'inventaire Hub'Eau; apres
-  recalcul DEM, elle est reportee en avertissement pour conserver tous les
-  bassins trouves et visualiser les ecarts possibles entre surfaces de
-  reference et surfaces recalculees ;
+- la surface 50-500 km2 est controlee apres recalcul DEM et reportee en
+  avertissement, afin de visualiser les ecarts possibles entre surfaces
+  provider et surfaces recalculees ;
 - cette plage est ecrite explicitement dans
   `[[site_selection.criteria.area.ranges]]` avec `min_area_km2` et
   `max_area_km2`, pour que la configuration reste lisible ;
@@ -102,10 +100,10 @@ Commande utile:
 hmp run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_hubeau_preview.toml
 ```
 
-Cette variante sert de support de discussion sur un inventaire reel: le CSV de
-candidats contient toutes les stations bretonnes trouvees par le script dans la
-gamme 50-500 km2 avec les filtres amont declares, et la carte montre tous les
-bassins qui ont ete retenus par le workflow.
+Cette variante sert de support de discussion sur un inventaire reel charge par
+le workflow generique. Les variantes reduites ci-dessous utilisent le meme
+chargement Hub'Eau, mais limitent le nombre de stations telechargees avec
+`max_stations`.
 
 Une variante reduite est fournie pour les iterations rapides sur la carte:
 
@@ -113,11 +111,13 @@ Une variante reduite est fournie pour les iterations rapides sur la carte:
 configs/bretagne_hydrometry_50_500_small.toml
 ```
 
-Elle utilise 7 stations situees dans une emprise compacte de Bretagne. Le DEM
-reste declare dans `[data.dem]` avec `source = "ign_geoplateforme_dem"`,
+Elle charge 7 stations Hub'Eau explicites, situees dans une emprise compacte
+de Bretagne, via `station_ids`; `max_stations = 7` garde la preview bornee. Le
+DEM reste declare dans `[data.dem]` avec `source = "ign_geoplateforme_dem"`,
 `dataset = "bd-alti"` et `regions = ["Bretagne"]`: le code passe donc par le
-client Geoplateforme dynamique, mais le nombre de delimitations est beaucoup
-plus faible.
+client Geoplateforme dynamique. Comme `site_selection.dem.request_extent =
+"outlets"`, le workflow charge les stations avant le DEM et limite le DEM de
+calcul a l'enveloppe des stations, plus la marge configuree.
 Cette variante sert a verifier rapidement l'organisation du rapport HTML, la
 presence de la carte, les symboles des stations et les contours de bassins; elle
 ne remplace pas l'exemple complet pour l'analyse regionale.
@@ -224,8 +224,9 @@ Principe:
 - le DEM est declare dans `[data.dem]` par region administrative avec la source
   `ign_geoplateforme_dem`, ce qui permet de charger un fond DEM regional sans
   coder manuellement les 12 departements ;
-- `build_aura_area_50_150_candidates.py` genere 20 bassins reproductibles,
-  non superposes, avec des surfaces reparties entre 52 et 149 km2 ;
+- la fixture `aura_area_50_150_catchments.csv` contient 20 bassins
+  reproductibles, non superposes, avec des surfaces reparties entre 52 et
+  149 km2 ;
 - la carte utilise la meme symbolisation par classes de surface que l'exemple
   Bretagne.
 
@@ -381,9 +382,11 @@ Principe:
 - le DEM est charge par Geoplateforme uniquement pour ce departement;
 - le mode `dem_area_light` cherche des exutoires dont la surface amont est
   proche de 100 km2, dans la fenetre 75-125 km2;
-- `n_basins = 3` limite le nombre de bassins retenus;
+- `n_basins = 10` limite le nombre de bassins retenus;
 - `max_candidates_before_delineation = 30` limite le nombre de candidats DEM
   a delimiter avant le tri final, ce qui rend l'exemple plus rapide;
+- les candidats et le reseau DEM exporte sont limites a la geometrie terrestre
+  du departement, pas seulement a l'emprise rectangulaire du raster;
 - le rapport HTML reste actif pour controler visuellement les exutoires, le
   reseau DEM et les contours de bassins.
 

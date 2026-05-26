@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+import validation_cases.shared.runtime as runtime
 from validation_cases.shared.loaders import load_case_tolerances
 from validation_cases.shared.runtime import (
     resolve_validation_results_dir,
@@ -109,13 +111,18 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
         "validation_cases.shared.runtime.resolve_validation_results_dir",
         _resolve_results_dir,
     )
-    monkeypatch.setattr(
-        "validation_cases.shared.runtime.subprocess.run",
-        lambda *args, **kwargs: SimpleNamespace(
+    def _fake_subprocess_run(*args, **kwargs):
+        del args
+        captured["auto_register"] = kwargs["env"].get("HMP_AUTO_REGISTER_WORKSPACE")
+        return SimpleNamespace(
             returncode=0,
             stdout="ok",
             stderr="",
-        ),
+        )
+
+    monkeypatch.setattr(
+        "validation_cases.shared.runtime.subprocess.run",
+        _fake_subprocess_run,
     )
     model_ws = tmp_path / "outputs" / "watershed" / "results_simulations" / "model"
     postprocess_dir = model_ws / "_postprocess"
@@ -128,6 +135,7 @@ def test_run_launcher_validation_case_resolves_solver_name_and_output_run_name(
     result = run_launcher_validation_case(case_dir=case_dir, test_file=__file__, solver=solver)
 
     assert captured["run_name"] == expected_run_name
+    assert captured["auto_register"] == "0"
     assert result.solver_name == expected_solver_name
     assert result.model_ws == model_ws
 
@@ -158,6 +166,7 @@ def test_resolve_validation_results_dir_uses_deterministic_solver_specific_names
     run_name: str,
     expected_dir_name: str,
 ) -> None:
+    monkeypatch.setattr(runtime, "_WINDOWS_VALIDATION_PATH_LIMIT", 10_000)
     out_root = tmp_path / "validation_root"
     monkeypatch.setenv("HMP_OUT_PATH", str(out_root))
 
@@ -175,6 +184,7 @@ def test_resolve_validation_results_dir_reuses_existing_run_dir(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
+    monkeypatch.setattr(runtime, "_WINDOWS_VALIDATION_PATH_LIMIT", 10_000)
     out_root = tmp_path / "validation_root"
     monkeypatch.setenv("HMP_OUT_PATH", str(out_root))
 
@@ -199,6 +209,24 @@ def test_resolve_validation_results_dir_reuses_existing_run_dir(
     assert not legacy_out_dir.exists()
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows path budget regression")
+def test_resolve_validation_results_dir_falls_back_from_long_windows_output_root(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    long_root = tmp_path / ("root_" + "x" * 60) / ("nested_" + "y" * 60)
+    monkeypatch.setenv("HMP_OUT_PATH", str(long_root))
+
+    out_dir = resolve_validation_results_dir(
+        test_file=tmp_path / "test_dupuit_fixed_head_1d.py",
+        run_name="dupuit_fixed_head_1d_modflow6",
+    )
+
+    assert long_root.resolve() not in out_dir.parents
+    scratch_probe = out_dir / ".solver_scratch" / "_preprocessing" / "geographic"
+    assert len(str(scratch_probe)) < runtime._WINDOWS_VALIDATION_PATH_LIMIT
+
+
 def test_load_case_tolerances_prefers_solver_specific_file(tmp_path: Path) -> None:
     case_dir = tmp_path / "case"
     case_dir.mkdir()
@@ -210,11 +238,17 @@ def test_load_case_tolerances_prefers_solver_specific_file(tmp_path: Path) -> No
         "[head_profile]\nrmse = 0.05\n",
         encoding="utf-8",
     )
+    (case_dir / "tolerances_modflownwt.toml").write_text(
+        "[head_profile]\nrmse = 0.03\n",
+        encoding="utf-8",
+    )
 
     tolerances = load_case_tolerances(case_dir, solver="modflow6")
-    fallback_tolerances = load_case_tolerances(case_dir, solver="modflow_nwt")
+    legacy_tolerances = load_case_tolerances(case_dir, solver="modflow_nwt")
+    fallback_tolerances = load_case_tolerances(case_dir, solver="unknown_solver")
 
     assert float(tolerances["head_profile"]["rmse"]) == pytest.approx(0.05)
+    assert float(legacy_tolerances["head_profile"]["rmse"]) == pytest.approx(0.03)
     assert float(fallback_tolerances["head_profile"]["rmse"]) == pytest.approx(0.01)
 
 

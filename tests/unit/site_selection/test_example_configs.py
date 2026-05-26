@@ -36,6 +36,28 @@ def test_bretagne_hydrometry_primary_example_loads():
 
 
 @pytest.mark.fast
+def test_bretagne_hydrometry_hubeau_preview_uses_generic_loader():
+    config_path = EXAMPLE_ROOT / "configs" / "bretagne_hydrometry_50_500_hubeau_preview.toml"
+
+    site_cfg = load_site_selection_config(config_path)
+    dem_cfg = load_data_dem_config_for_site_selection(config_path)
+    hydrometry_cfg = load_hydrometry_config_for_site_selection(config_path)
+
+    assert site_cfg.input.mode == "hydrometry"
+    assert site_cfg.input.catchments_csv is None
+    assert site_cfg.strategy.principle == "observation_led"
+    assert site_cfg.territory.regions == ["Bretagne"]
+    assert site_cfg.criteria.area.ranges[0].min_area_km2 == pytest.approx(50.0)
+    assert site_cfg.criteria.area.ranges[0].max_area_km2 == pytest.approx(500.0)
+    assert dem_cfg is not None
+    assert dem_cfg.sources[0].source == "ign_bdalti"
+    assert dem_cfg.sources[0].regions == ["Bretagne"]
+    assert hydrometry_cfg.sources[0].source == "hubeau"
+    assert hydrometry_cfg.sources[0].product == "QmnJ"
+    assert hydrometry_cfg.sources[0].extent == "study_area"
+
+
+@pytest.mark.fast
 def test_auvergne_rhone_alpes_hydrometry_example_loads():
     config_path = EXAMPLE_ROOT / "configs" / "auvergne_rhone_alpes_hydrometry_50_150.toml"
 
@@ -85,16 +107,51 @@ def test_bretagne_hydrometry_small_example_loads():
 
     site_cfg = load_site_selection_config(config_path)
     dem_cfg = load_data_dem_config_for_site_selection(config_path)
+    hydrometry_cfg = load_hydrometry_config_for_site_selection(config_path)
 
-    assert site_cfg.input.mode == "delineated_catchments"
-    assert site_cfg.input.delineate_from_outlets is True
-    assert site_cfg.input.catchments_csv is not None
-    assert site_cfg.input.catchments_csv.name == "bretagne_hubeau_50_500_candidates_small.csv"
+    assert site_cfg.input.mode == "hydrometry"
+    assert site_cfg.input.catchments_csv is None
     assert site_cfg.criteria.area.ranges[0].min_area_km2 == pytest.approx(50.0)
     assert site_cfg.criteria.area.ranges[0].max_area_km2 == pytest.approx(500.0)
     assert dem_cfg is not None
     assert dem_cfg.sources[0].source == "ign_geoplateforme_dem"
     assert dem_cfg.sources[0].regions == ["Bretagne"]
+    assert hydrometry_cfg.sources[0].source == "hubeau"
+    assert hydrometry_cfg.sources[0].extent == "study_area"
+    assert hydrometry_cfg.sources[0].station_ids == [
+        "J061161001",
+        "J062661001",
+        "J110301001",
+        "J111401001",
+        "J131301001",
+        "J132401001",
+        "J151301001",
+    ]
+    assert hydrometry_cfg.sources[0].max_stations == 7
+
+
+@pytest.mark.fast
+def test_bretagne_hydrometry_small_bdtopage_example_loads():
+    config_path = EXAMPLE_ROOT / "configs" / "bretagne_hydrometry_50_500_small_bdtopage.toml"
+
+    site_cfg = load_site_selection_config(config_path)
+    hydrometry_cfg = load_hydrometry_config_for_site_selection(config_path)
+
+    assert site_cfg.input.mode == "hydrometry"
+    assert site_cfg.input.catchments_csv is None
+    assert site_cfg.outlets.snap_strategy == "bdtopage_then_dem"
+    assert hydrometry_cfg.sources[0].source == "hubeau"
+    assert hydrometry_cfg.sources[0].extent == "study_area"
+    assert hydrometry_cfg.sources[0].station_ids == [
+        "J061161001",
+        "J062661001",
+        "J110301001",
+        "J111401001",
+        "J131301001",
+        "J132401001",
+        "J151301001",
+    ]
+    assert hydrometry_cfg.sources[0].max_stations == 7
 
 
 @pytest.mark.fast
@@ -129,11 +186,30 @@ def test_calvados_dem_area_light_fast_example_loads():
     assert site_cfg.territory.departments == ["014"]
     assert site_cfg.dem_area_light is not None
     assert site_cfg.dem_area_light.target_area_km2 == pytest.approx(100.0)
-    assert site_cfg.dem_area_light.n_basins == 3
+    assert site_cfg.dem_area_light.n_basins == 10
     assert site_cfg.dem_area_light.max_candidates_before_delineation == 30
     assert dem_cfg is not None
     assert dem_cfg.sources[0].source == "ign_geoplateforme_dem"
     assert dem_cfg.sources[0].departments == ["014"]
+
+
+@pytest.mark.fast
+def test_manche_dem_area_light_fast_example_loads():
+    config_path = EXAMPLE_ROOT / "configs" / "manche_dem_area_light_100km2_fast.toml"
+
+    site_cfg = load_site_selection_config(config_path)
+    dem_cfg = load_data_dem_config_for_site_selection(config_path)
+
+    assert site_cfg.input.mode == "dem_area_light"
+    assert site_cfg.territory.mode == "admin_departments"
+    assert site_cfg.territory.departments == ["050"]
+    assert site_cfg.dem_area_light is not None
+    assert site_cfg.dem_area_light.target_area_km2 == pytest.approx(100.0)
+    assert site_cfg.dem_area_light.n_basins == 10
+    assert site_cfg.dem_area_light.max_candidates_before_delineation == 30
+    assert dem_cfg is not None
+    assert dem_cfg.sources[0].source == "ign_geoplateforme_dem"
+    assert dem_cfg.sources[0].departments == ["050"]
 
 
 @pytest.mark.fast

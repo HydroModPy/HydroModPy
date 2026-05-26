@@ -294,6 +294,9 @@ def _basins_gdf(
             continue
         if frame.empty:
             continue
+        frame = _repair_frame_geometries(frame)
+        if frame.empty:
+            continue
         if frame.crs is None and catchment.outlet.crs:
             frame = frame.set_crs(catchment.outlet.crs, allow_override=True)
         if not target_crs:
@@ -337,6 +340,41 @@ def _basins_gdf(
 def _write_gpkg_layer(frame: object, destination: Path, *, layer: str) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
     frame.to_file(str(destination), layer=layer, driver="GPKG")
+
+
+def _repair_frame_geometries(frame):
+    frame = frame.copy()
+    frame.geometry = [_repair_geometry_for_export(geometry) for geometry in frame.geometry]
+    frame = frame[frame.geometry.notna()]
+    if frame.empty:
+        return frame
+    return frame[~frame.geometry.is_empty]
+
+
+def _repair_geometry_for_export(geometry):
+    if geometry is None or geometry.is_empty:
+        return None
+    if bool(getattr(geometry, "is_valid", True)):
+        return geometry
+    try:
+        from shapely import make_valid
+    except ImportError:  # pragma: no cover - depends on Shapely version.
+        try:
+            from shapely.validation import make_valid
+        except ImportError:
+            make_valid = None
+    if make_valid is not None:
+        try:
+            repaired = make_valid(geometry)
+            if repaired is not None and not repaired.is_empty:
+                return repaired
+        except Exception:
+            pass
+    try:
+        repaired = geometry.buffer(0)
+    except Exception:
+        return geometry
+    return None if repaired is None or repaired.is_empty else repaired
 
 
 def _observation_location(row: Mapping[str, Any]) -> tuple[float, float, str] | None:

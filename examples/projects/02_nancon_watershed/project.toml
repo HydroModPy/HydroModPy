@@ -195,6 +195,9 @@ date_end = "2002-12-31"
 source = "custom"
 # Bare filename resolved under `<workspace>/data/etp/`.
 path = "etp_sim2_5347fa22_20000101_20251231.nc"
+# The shipped NetCDF exposes Lambert-93 x/y coordinates but no CRS/nodata attrs.
+crs = "EPSG:2154"
+nodata = -9999.0
 
 
 # ----------------------------------------------------------------------

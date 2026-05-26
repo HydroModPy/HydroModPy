@@ -651,6 +651,8 @@ def run_piecewise_strip_boussinesq_launcher_case(
         cwd=str(REPO_ROOT),
         env=env,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         capture_output=True,
         timeout=timeout,
     )

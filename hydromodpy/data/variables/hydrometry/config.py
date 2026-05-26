@@ -47,6 +47,14 @@ class HydrometrySourceConfig(
     require_observations: Annotated[bool, Profile.DEV] = Field(
         default=True, description="Only keep stations that have observations in the period."
     )
+    max_stations: Annotated[int | None, Profile.USER] = Field(
+        default=None,
+        gt=0,
+        description=(
+            "Maximum number of Hub'Eau stations to download after discovery. "
+            "Useful for fast preview runs over a larger territory."
+        ),
+    )
 
     @model_validator(mode="after")
     def _check_source_requirements(self) -> HydrometrySourceConfig:

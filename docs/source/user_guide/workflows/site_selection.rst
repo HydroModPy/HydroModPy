@@ -27,9 +27,8 @@ Minimal structure
    output_root = "../outputs/bretagne_hydrometry_50_500_small_v1"
 
    [site_selection.input]
-   mode = "delineated_catchments"
-   catchments_csv = "../fixtures/bretagne_hubeau_50_500_candidates_small.csv"
-   delineate_from_outlets = true
+   mode = "hydrometry"
+   region_id = "Bretagne"
 
    [site_selection.strategy]
    principle = "observation_led"
@@ -46,6 +45,17 @@ Minimal structure
    request_extent = "outlets"
    map_background_extent = "territory"
 
+   [hydrometry]
+   date_start = "2015-01-01"
+   date_end = "2025-01-01"
+
+   [[hydrometry.sources]]
+   source = "hubeau"
+   product = "QmnJ"
+   extent = "study_area"
+   require_observations = true
+   max_stations = 7
+
    [data]
    types = ["dem"]
 
@@ -56,9 +66,11 @@ Minimal structure
    file_format = "ASC"
    regions = ["Bretagne"]
 
-The DEM is deliberately declared under ``[data.dem]``. The workflow resolves
-the DEM path, builds flow products, delineates catchments, and then hands the
-spatial artifacts to the selection/reporting layer.
+The DEM is deliberately declared under ``[data.dem]``. In hydrometry mode, the
+workflow loads the stations first. With ``site_selection.dem.request_extent =
+"outlets"``, it uses those projected station outlets to bound the DEM request
+before building flow products, delineating catchments, and handing the spatial
+artifacts to the selection/reporting layer.
 
 Input modes
 -----------
@@ -93,6 +105,9 @@ The workflow keeps data-provider access outside the spatial selection package:
 - DEM loading goes through ``hydromodpy.data.variables.dem`` and should be
   configured in ``[data.dem]``.
 - Hub'Eau station loading goes through the hydrometry data manager.
+- In hydrometry mode, ``request_extent = "outlets"`` limits the calculation DEM
+  to the station envelope plus ``margin_km``; the map background can still use
+  a broader territory DEM.
 - French administrative regions are resolved to departments by the data layer.
 - Hub'Eau station coordinates are requested in WGS84 for provider queries, then
   projected to Lambert-93 for DEM delineation. When Hub'Eau exposes official
