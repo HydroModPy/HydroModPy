@@ -3,10 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from hydromodpy.display.catchment_report import CatchmentReportConfig, CatchmentReportInputs
-from hydromodpy.display.catchment_report.presets import (
-    GENERIC_REPORT_PRESET,
-    NANCON_REPORT_PRESET,
-)
+from hydromodpy.display.catchment_report.presets import GENERIC_REPORT_PRESET
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DOC_PATH = REPO_ROOT / "docs" / "source" / "user_guide" / "catchment-report.rst"
@@ -44,11 +41,9 @@ def test_catchment_report_documentation_mentions_contract_fields() -> None:
         "build_report_html",
         "stream_run_logs",
         "strict_figure_postflight",
-        "context_builder_command",
         "preflight",
         "postflight",
         "generic_catchment_report",
-        "nancon_reference",
     ):
         assert token in text
 
@@ -60,19 +55,20 @@ def test_documented_example_configs_resolve_to_expected_presets() -> None:
     nancon_config = CatchmentReportConfig.from_inputs(nancon_inputs)
     selune_config = CatchmentReportConfig.from_inputs(selune_inputs)
 
-    assert nancon_config.preset is NANCON_REPORT_PRESET
+    assert nancon_config.preset is GENERIC_REPORT_PRESET
     assert selune_config.preset is GENERIC_REPORT_PRESET
     assert nancon_inputs.pipeline_run_overview is True
     assert nancon_inputs.pipeline_run_simulation is True
     assert nancon_inputs.pipeline_build_context_artifacts is True
-    assert nancon_inputs.pipeline_context_builder_command is not None
     assert nancon_inputs.pipeline_build_report_html is True
+    assert nancon_inputs.pipeline_strict_figure_postflight is True
     assert selune_inputs.pipeline_run_overview is True
     assert selune_inputs.pipeline_run_simulation is True
     assert selune_inputs.pipeline_build_report_html is True
     assert selune_inputs.pipeline_stream_run_logs is False
-    assert selune_inputs.pipeline_strict_figure_postflight is False
+    assert selune_inputs.pipeline_strict_figure_postflight is True
     assert nancon_inputs.transient_config.name == "run_transient_nwt.toml"
     assert nancon_inputs.overview_config.name == "run_overview_all_apis.toml"
+    assert nancon_inputs.observed_discharge_path is not None
     assert selune_inputs.transient_config.name == "run_selune_nwt_report.toml"
     assert selune_inputs.observed_discharge_path is not None

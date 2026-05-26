@@ -85,7 +85,7 @@ def run_catchment_report_pipeline(
         build_context_artifacts=options.build_context_artifacts,
         build_report_html=options.build_report_html,
     )
-    return _run_pipeline_steps(report_config, inputs, options, preset=preset)
+    return _run_pipeline_steps(inputs, options, preset=preset)
 
 
 def _resolve_pipeline_options(
@@ -126,7 +126,6 @@ def _override_or_default(value: bool | None, default: bool) -> bool:
 
 
 def _run_pipeline_steps(
-    report_config: Path,
     inputs: CatchmentReportInputs,
     options: _PipelineOptions,
     *,
@@ -143,7 +142,7 @@ def _run_pipeline_steps(
     if options.run_simulation:
         _run_simulation(inputs, options)
     if options.build_context_artifacts:
-        context_summary = _build_context_artifacts(report_config, inputs, options)
+        context_summary = _build_context_artifacts(inputs)
     if options.build_report_html:
         html_report, postflight_report = _build_report_html(inputs, options, preset=preset)
 
@@ -173,26 +172,8 @@ def _run_simulation(inputs: CatchmentReportInputs, options: _PipelineOptions) ->
     _validate_simulation_outputs(inputs)
 
 
-def _build_context_artifacts(
-    report_config: Path,
-    inputs: CatchmentReportInputs,
-    options: _PipelineOptions,
-) -> Path:
-    if inputs.pipeline_context_builder_command is None:
-        return build_context(inputs)
-
-    _run_context_builder_command(
-        report_config,
-        inputs,
-        inputs.pipeline_context_builder_command,
-        stream_logs=options.stream_run_logs,
-    )
-    if not inputs.context_summary.exists():
-        raise FileNotFoundError(
-            "Context builder command completed but the expected context summary "
-            f"was not found: {inputs.context_summary}"
-        )
-    return inputs.context_summary
+def _build_context_artifacts(inputs: CatchmentReportInputs) -> Path:
+    return build_context(inputs)
 
 
 def _build_report_html(
@@ -228,72 +209,6 @@ def _run_hydromodpy(config_path: Path, *, no_lock: bool, stream_logs: bool) -> N
     if completed.returncode != 0:
         _print_subprocess_tail(completed.stdout, "hydromodpy run stdout")
         _print_subprocess_tail(completed.stderr, "hydromodpy run stderr")
-        completed.check_returncode()
-
-
-def _run_context_builder_command(
-    report_config: Path,
-    inputs: CatchmentReportInputs,
-    command_template: tuple[str, ...],
-    *,
-    stream_logs: bool,
-) -> None:
-    report_config = report_config.expanduser().resolve()
-    command = _format_context_builder_command(report_config, inputs, command_template)
-    _run_subprocess(
-        command,
-        cwd=report_config.parent,
-        stream_logs=stream_logs,
-        label="context builder",
-    )
-
-
-def _format_context_builder_command(
-    report_config: Path,
-    inputs: CatchmentReportInputs,
-    command_template: tuple[str, ...],
-) -> list[str]:
-    replacements = {
-        "python": sys.executable,
-        "report_config": str(report_config),
-        "report_config_dir": str(report_config.parent),
-        "context_outputs_dir": str(inputs.context_outputs_dir),
-        "watershed_project_dir": str(inputs.watershed_project_dir),
-        "simulation_workspace_dir": str(inputs.simulation_workspace_dir),
-        "simulation_name": inputs.simulation_name,
-        "site_label": inputs.site_label,
-        "station_label": inputs.station_label,
-    }
-    try:
-        return [token.format_map(replacements) for token in command_template]
-    except KeyError as exc:
-        raise ValueError(
-            f"Unknown placeholder in context_builder_command: {{{exc.args[0]}}}"
-        ) from exc
-
-
-def _run_subprocess(
-    command: list[str],
-    *,
-    cwd: Path | None = None,
-    stream_logs: bool,
-    label: str,
-) -> None:
-    if stream_logs:
-        subprocess.run(command, check=True, cwd=cwd)
-        return
-
-    completed = subprocess.run(
-        command,
-        capture_output=True,
-        cwd=cwd,
-        encoding="utf-8",
-        errors="replace",
-        text=True,
-    )
-    if completed.returncode != 0:
-        _print_subprocess_tail(completed.stdout, f"{label} stdout")
-        _print_subprocess_tail(completed.stderr, f"{label} stderr")
         completed.check_returncode()
 
 

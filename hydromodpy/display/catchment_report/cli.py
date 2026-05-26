@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from hydromodpy.display.catchment_report.pipeline import CatchmentReportPipelineResult
 
 
-PRESET_CHOICES = ("generic", "generic_catchment_report", "nancon", "nancon_reference")
+PRESET_CHOICES = ("generic", "generic_catchment_report")
 
 
 @dataclass(frozen=True)

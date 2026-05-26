@@ -31,7 +31,6 @@ class CatchmentReportInputs:
     transient_config: Path
     overview_config: Path
     title: str = ""
-    allow_gallery_fallbacks: bool | None = None
     observed_discharge_path: Path | None = None
     observed_discharge_station_id: str | None = None
     preset_name: str | None = None
@@ -42,7 +41,6 @@ class CatchmentReportInputs:
     pipeline_no_lock: bool = True
     pipeline_stream_run_logs: bool = False
     pipeline_strict_figure_postflight: bool = False
-    pipeline_context_builder_command: tuple[str, ...] | None = None
 
     @classmethod
     def from_toml(cls, path: Path) -> CatchmentReportInputs:
@@ -59,7 +57,6 @@ class CatchmentReportInputs:
             site_label=settings.report.site_label,
             station_label=settings.report.station_label,
             title=settings.report.title,
-            allow_gallery_fallbacks=settings.report.allow_gallery_fallbacks,
             preset_name=settings.report.preset_name,
             watershed_project_dir=settings.layout.watershed_project_dir,
             context_outputs_dir=settings.layout.context_outputs_dir,
@@ -78,7 +75,6 @@ class CatchmentReportInputs:
             pipeline_no_lock=settings.pipeline.no_lock,
             pipeline_stream_run_logs=settings.pipeline.stream_run_logs,
             pipeline_strict_figure_postflight=settings.pipeline.strict_figure_postflight,
-            pipeline_context_builder_command=settings.pipeline.context_builder_command,
         )
 
     @classmethod
@@ -94,7 +90,6 @@ class CatchmentReportInputs:
         simulation_workspace_dir: Path | None = None,
         simulation_name: str = "transient_nwt",
         title: str = "",
-        allow_gallery_fallbacks: bool | None = None,
         context_summary_name: str | None = None,
         transient_config_name: str | None = None,
         overview_config_name: str | None = None,
@@ -108,7 +103,6 @@ class CatchmentReportInputs:
         pipeline_no_lock: bool = True,
         pipeline_stream_run_logs: bool = False,
         pipeline_strict_figure_postflight: bool = False,
-        pipeline_context_builder_command: tuple[str, ...] | None = None,
     ) -> CatchmentReportInputs:
         data_overview_project_dir = data_overview_project_dir or watershed_project_dir
         simulation_workspace_dir = simulation_workspace_dir or watershed_project_dir
@@ -144,7 +138,6 @@ class CatchmentReportInputs:
             transient_config=watershed_project_dir / transient_config_name,
             overview_config=data_overview_project_dir / overview_config_name,
             title=title,
-            allow_gallery_fallbacks=allow_gallery_fallbacks,
             observed_discharge_path=observed_discharge_path,
             observed_discharge_station_id=observed_discharge_station_id,
             preset_name=preset_name,
@@ -155,7 +148,6 @@ class CatchmentReportInputs:
             pipeline_no_lock=pipeline_no_lock,
             pipeline_stream_run_logs=pipeline_stream_run_logs,
             pipeline_strict_figure_postflight=pipeline_strict_figure_postflight,
-            pipeline_context_builder_command=pipeline_context_builder_command,
         )
 
 

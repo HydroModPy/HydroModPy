@@ -253,17 +253,11 @@ def _forcing_flux_content(context: BlockBuildContext) -> BlockContent:
     config = context.config
     stats = context.stats
     observed = _mapping(stats.get("observed_discharge"))
-    recharge_ex04 = _mapping(stats.get("recharge_ex04"))
-    recharge_nancon = _mapping(stats.get("recharge_nancon"))
-    runoff_ex04 = _mapping(stats.get("runoff_ex04"))
-    runoff_nancon = _mapping(stats.get("runoff_nancon"))
+    simulated = _mapping(stats.get("baseline_simulated_discharge"))
     rows = _stats_rows(
         (
             ("Debit observe", observed, "m3/s"),
-            ("Recharge EX04", recharge_ex04, "mm/day"),
-            ("Recharge NANCON", recharge_nancon, "mm/day"),
-            ("Runoff EX04", runoff_ex04, "mm/day"),
-            ("Runoff NANCON", runoff_nancon, "mm/day"),
+            ("Debit simule", simulated, "m3/s"),
         )
     )
     table = ReportTable(
@@ -310,7 +304,10 @@ def _simulation_outputs_content(context: BlockBuildContext) -> BlockContent:
         metrics=_for_level(
             context.detail_level,
             (
-                ("audit", ReportMetric("Solveur", "MODFLOW-NWT")),
+                (
+                    "audit",
+                    ReportMetric("Simulation", baseline.get("simulation_name", "unknown")),
+                ),
                 ("audit", ReportMetric("Pas temporels", baseline.get("n_timesteps", "unknown"))),
                 (
                     "audit",
@@ -334,7 +331,7 @@ def _artifacts_content(context: BlockBuildContext) -> BlockContent:
     links = (
         ReportLink("Manifest du rapport blocs", context.manifest, kind="json"),
         ReportLink(
-            f"Contexte jauge {context.site_label} HTML",
+            f"Contexte {context.site_label} HTML",
             artifact_paths["context_html"],
             kind="html",
         ),
@@ -343,7 +340,7 @@ def _artifacts_content(context: BlockBuildContext) -> BlockContent:
             artifact_paths["overview_standard_html"],
             kind="html",
         ),
-        ReportLink("Resume contexte jauge", artifact_paths["context_summary"], kind="json"),
+        ReportLink("Resume contexte bassin", artifact_paths["context_summary"], kind="json"),
         ReportLink(
             "Config run transitoire",
             artifact_paths["transient_config"],
@@ -355,15 +352,7 @@ def _artifacts_content(context: BlockBuildContext) -> BlockContent:
             kind="toml",
         ),
     )
-    return BlockContent(
-        links=links,
-        warnings=(
-            "Travail restant: fabriquer automatiquement observed_network_active_mask.npz "
-            "et observed_network_distance_by_cell.npz sur un vrai maillage de calibration.",
-            f"Travail restant: brancher de vrais runs candidats {context.site_label} sur "
-            "score_natural_network_transient_candidate(...).",
-        ),
-    )
+    return BlockContent(links=links)
 
 
 _CONTENT_BUILDERS: dict[str, Callable[[BlockBuildContext], BlockContent]] = {

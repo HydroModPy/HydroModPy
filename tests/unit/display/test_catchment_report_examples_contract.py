@@ -9,18 +9,11 @@ import pytest
 
 from hydromodpy.display.catchment_report import (
     GENERIC_REPORT_PRESET,
-    NANCON_REPORT_PRESET,
     CatchmentReportConfig,
     CatchmentReportInputs,
 )
-from hydromodpy.display.catchment_report.artifacts import (
-    DEFAULT_ARTIFACT_SPECS,
-    NANCON_ARTIFACT_SPECS,
-)
-from hydromodpy.display.catchment_report.block_specs import (
-    DEFAULT_BLOCK_SPECS,
-    NANCON_BLOCK_SPECS,
-)
+from hydromodpy.display.catchment_report.artifacts import DEFAULT_ARTIFACT_SPECS
+from hydromodpy.display.catchment_report.block_specs import DEFAULT_BLOCK_SPECS
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 NANCON_EXAMPLE_DIR = REPO_ROOT / "examples" / "projects" / "16_nancon_natural_calibration"
@@ -44,8 +37,6 @@ def _write_nancon_cli_report_config(config_path: Path, output_dir: Path) -> None
                 f'site_label = "{inputs.site_label}"',
                 f'station_label = "{inputs.station_label}"',
                 f'output_dir = "{output_dir.as_posix()}"',
-                f"allow_gallery_fallbacks = {str(inputs.allow_gallery_fallbacks).lower()}",
-                f'preset = "{inputs.preset_name}"',
                 "",
                 "[layout]",
                 f'watershed_project_dir = "{inputs.watershed_project_dir.as_posix()}"',
@@ -62,12 +53,11 @@ def _write_nancon_cli_report_config(config_path: Path, output_dir: Path) -> None
                 f"run_simulation = {str(inputs.pipeline_run_simulation).lower()}",
                 f"build_context_artifacts = {str(inputs.pipeline_build_context_artifacts).lower()}",
                 f"build_report_html = {str(inputs.pipeline_build_report_html).lower()}",
-                "context_builder_command = [",
-                *(
-                    f'  "{item}",'
-                    for item in (inputs.pipeline_context_builder_command or ())
-                ),
-                "]",
+                f"strict_figure_postflight = {str(inputs.pipeline_strict_figure_postflight).lower()}",
+                "",
+                "[context.observed_discharge]",
+                f'path = "{inputs.observed_discharge_path.as_posix()}"',
+                f'station_id = "{inputs.observed_discharge_station_id}"',
                 "",
             ]
         ),
@@ -75,7 +65,9 @@ def _write_nancon_cli_report_config(config_path: Path, output_dir: Path) -> None
     )
 
 
-def test_nancon_example_report_config_keeps_reference_paths() -> None:
+def test_nancon_example_report_config_uses_generic_contract() -> None:
+    config = CatchmentReportConfig.from_inputs(NANCON_REPORT_INPUTS)
+
     assert NANCON_REPORT_INPUTS.output_dir == (
         REPO_ROOT
         / "examples"
@@ -88,71 +80,46 @@ def test_nancon_example_report_config_keeps_reference_paths() -> None:
         REPO_ROOT
         / "examples"
         / "projects"
-        / "15_nancon_gauged_context"
+        / "16_nancon_natural_calibration"
         / "outputs"
+        / "nancon_context"
         / "context"
-        / "nancon_gauged_context_summary.json"
+        / "nancon_catchment_context_summary.json"
+    )
+    assert NANCON_REPORT_INPUTS.preset_name is None
+    assert config.preset is GENERIC_REPORT_PRESET
+    assert config.artifact_specs is None
+    assert config.block_specs is None
+    assert NANCON_REPORT_INPUTS.observed_discharge_path == (
+        REPO_ROOT
+        / "examples"
+        / "data"
+        / "hydrometry"
+        / "hydrometry_custom_NANCON_19820201_20220125_D.csv"
     )
 
 
-def test_nancon_preset_groups_reference_specs() -> None:
-    assert NANCON_REPORT_PRESET.name == "nancon_reference"
-    assert NANCON_REPORT_PRESET.artifact_specs is NANCON_ARTIFACT_SPECS
-    assert NANCON_REPORT_PRESET.block_specs is NANCON_BLOCK_SPECS
-    assert NANCON_REPORT_PRESET.allow_gallery_fallbacks is True
+def test_generic_specs_do_not_include_gallery_or_nancon_fallbacks() -> None:
+    candidates = [candidate for spec in DEFAULT_ARTIFACT_SPECS for candidate in spec.candidates]
 
-
-def test_generic_specs_do_not_include_nancon_gallery_fallbacks() -> None:
-    assert GENERIC_REPORT_PRESET.artifact_specs is DEFAULT_ARTIFACT_SPECS
-    assert NANCON_ARTIFACT_SPECS is not DEFAULT_ARTIFACT_SPECS
-
-    generic_candidates = [
-        candidate for spec in DEFAULT_ARTIFACT_SPECS for candidate in spec.candidates
-    ]
-    nancon_candidates = [
-        candidate for spec in NANCON_ARTIFACT_SPECS for candidate in spec.candidates
-    ]
-
-    assert all(not candidate.gallery_fallback for candidate in generic_candidates)
-    assert all("nancon" not in candidate.relative_path.lower() for candidate in generic_candidates)
-    assert any(candidate.gallery_fallback for candidate in nancon_candidates)
-    assert any("nancon" in candidate.relative_path.lower() for candidate in nancon_candidates)
+    assert all(candidate.root != "gallery_geo" for candidate in candidates)
+    assert all(candidate.root != "gallery_sim" for candidate in candidates)
+    assert all("nancon" not in candidate.relative_path.lower() for candidate in candidates)
 
 
 def test_generic_block_specs_do_not_carry_nancon_wording() -> None:
-    assert GENERIC_REPORT_PRESET.block_specs is DEFAULT_BLOCK_SPECS
-    assert NANCON_BLOCK_SPECS is not DEFAULT_BLOCK_SPECS
-
     generic_text = "\n".join(
         [
             *(spec.title for spec in DEFAULT_BLOCK_SPECS),
             *(spec.lead for spec in DEFAULT_BLOCK_SPECS),
             *(figure.title for spec in DEFAULT_BLOCK_SPECS for figure in spec.figures),
         ]
-    )
-    nancon_text = "\n".join(spec.lead for spec in NANCON_BLOCK_SPECS)
+    ).lower()
 
-    assert "nancon" not in generic_text.lower()
-    assert "massif armoricain" not in generic_text.lower()
-    assert "smoke" not in generic_text.lower()
-    assert "2000-2002" not in generic_text
-    assert "future calibration naturelle" in nancon_text.lower()
-
-
-def test_nancon_inputs_build_reference_config() -> None:
-    config = CatchmentReportConfig.from_inputs(
-        NANCON_REPORT_INPUTS,
-        preset=NANCON_REPORT_PRESET,
-    )
-
-    assert NANCON_REPORT_INPUTS.preset_name == "nancon_reference"
-    assert config.output_dir == NANCON_REPORT_INPUTS.output_dir
-    assert config.site_label == "Nancon"
-    assert config.station_label == "Nancon a Lecousse"
-    assert config.preset is NANCON_REPORT_PRESET
-    assert config.artifact_specs is None
-    assert config.block_specs is None
-    assert config.allow_gallery_fallbacks is False
+    assert "nancon" not in generic_text
+    assert "massif armoricain" not in generic_text
+    assert "smoke" not in generic_text
+    assert "future calibration" not in generic_text
 
 
 def test_nancon_inputs_can_be_derived_from_project_layout() -> None:
@@ -164,17 +131,25 @@ def test_nancon_inputs_can_be_derived_from_project_layout() -> None:
         context_outputs_dir=REPO_ROOT
         / "examples"
         / "projects"
-        / "15_nancon_gauged_context"
-        / "outputs",
+        / "16_nancon_natural_calibration"
+        / "outputs"
+        / "nancon_context",
+        data_overview_project_dir=REPO_ROOT / "examples" / "projects" / "02_nancon_watershed",
+        simulation_workspace_dir=REPO_ROOT / "examples" / "projects" / "02_nancon_watershed",
         simulation_name="transient_nwt",
-        context_summary_name="nancon_gauged_context_summary.json",
-        allow_gallery_fallbacks=False,
-        preset_name="nancon_reference",
+        context_summary_name="nancon_catchment_context_summary.json",
         overview_config_name="run_overview_all_apis.toml",
+        observed_discharge_path=REPO_ROOT
+        / "examples"
+        / "data"
+        / "hydrometry"
+        / "hydrometry_custom_NANCON_19820201_20220125_D.csv",
+        observed_discharge_station_id="NANCON",
         pipeline_run_overview=True,
         pipeline_run_simulation=True,
         pipeline_build_context_artifacts=True,
-        pipeline_context_builder_command=NANCON_REPORT_INPUTS.pipeline_context_builder_command,
+        pipeline_build_report_html=True,
+        pipeline_strict_figure_postflight=True,
     )
 
     assert derived == NANCON_REPORT_INPUTS
@@ -208,6 +183,7 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
     assert inputs.pipeline_run_simulation is True
     assert inputs.pipeline_build_context_artifacts is True
     assert inputs.pipeline_build_report_html is True
+    assert inputs.pipeline_strict_figure_postflight is True
     assert inputs.observed_discharge_path == (
         REPO_ROOT
         / "examples"
@@ -216,11 +192,10 @@ def test_generic_inputs_support_separate_simulation_workspace_and_observed_serie
         / "hydrometry_hubeau_I922102001_20200101_20201231_D.csv"
     )
     assert config.preset is GENERIC_REPORT_PRESET
-    assert config.allow_gallery_fallbacks is False
 
 
 @pytest.mark.regression
-def test_report_catchment_cli_regenerates_existing_nancon_reference_report(
+def test_report_catchment_cli_regenerates_existing_nancon_report(
     tmp_path,
 ) -> None:
     from hydromodpy.cli.main import main as hmp_cli_main
@@ -234,9 +209,11 @@ def test_report_catchment_cli_regenerates_existing_nancon_reference_report(
         reference / "web_review" / "by_block" / "index.html",
     )
     if not all(path.exists() for path in required_reference_files):
-        pytest.skip("Local Nancon reference HTML outputs are not available.")
+        pytest.skip("Local Nancon HTML outputs are not available.")
     if not (reference / "web" / "figures").exists():
-        pytest.skip("Local Nancon reference figures are not available.")
+        pytest.skip("Local Nancon report figures are not available.")
+    if not NANCON_REPORT_INPUTS.context_summary.exists():
+        pytest.skip("Local Nancon generic context summary is not available.")
 
     generated = reference.parent / f"_nancon_regen_test_{uuid.uuid4().hex}"
     shutil.rmtree(generated, ignore_errors=True)

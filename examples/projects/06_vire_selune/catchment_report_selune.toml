@@ -2,7 +2,6 @@
 site_label = "Selune"
 station_label = "Selune outlet"
 output_dir = "outputs/selune_catchment_report"
-allow_gallery_fallbacks = false
 
 [layout]
 watershed_project_dir = "."
@@ -19,7 +18,7 @@ run_simulation = true
 build_context_artifacts = true
 build_report_html = true
 stream_run_logs = false
-strict_figure_postflight = false
+strict_figure_postflight = true
 
 [context.observed_discharge]
 path = "../../data/hydrometry/hydrometry_hubeau_I922102001_20200101_20201231_D.csv"

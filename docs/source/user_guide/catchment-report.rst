@@ -20,8 +20,6 @@ Build according to the report TOML pipeline defaults:
 If ``[pipeline].run_simulation = true`` and
 ``[pipeline].build_report_html = true``, this single command relaunches the
 configured simulation and then produces the HTML report from its outputs.
-When ``[pipeline].context_builder_command`` is declared, the context artifacts
-are produced by that command instead of the built-in generic context builder.
 
 Only rebuild the final HTML from existing context artifacts:
 
@@ -110,13 +108,9 @@ Optional ``[report]`` fields:
      - Meaning
    * - ``title``
      - Override the generated HTML page title.
-   * - ``allow_gallery_fallbacks``
-     - Whether missing figures may be copied from documentation gallery
-       fallbacks. The generic preset defaults to ``false``.
    * - ``preset``
-     - Report preset. Use ``generic_catchment_report`` for normal basins.
-       ``nancon_reference`` is a compatibility preset that preserves the
-       validated Nancon reference HTML exactly.
+     - Report preset. The current public preset is
+       ``generic_catchment_report``.
 
 Required ``[layout]`` fields:
 
@@ -195,20 +189,10 @@ CLI override is supplied.
      - ``false``
      - Fail after HTML rendering if expected figures are missing from the
        generated figure manifest.
-   * - ``context_builder_command``
-     - unset
-     - Optional string array command used to build context artifacts instead of
-       the built-in generic context builder.
 
 CLI flags override these TOML defaults. For example,
 ``--no-run-simulation`` rebuilds the context and HTML without relaunching a
 simulation even when ``run_simulation = true`` in the TOML.
-
-``context_builder_command`` runs from the report TOML directory. It supports
-the placeholders ``{python}``, ``{report_config}``, ``{report_config_dir}``,
-``{context_outputs_dir}``, ``{watershed_project_dir}``,
-``{simulation_workspace_dir}``, ``{simulation_name}``, ``{site_label}``, and
-``{station_label}``.
 
 Observed discharge
 ------------------
@@ -248,16 +232,16 @@ Minimal generic example
    build_context_artifacts = true
    build_report_html = true
    stream_run_logs = false
+   strict_figure_postflight = true
 
    [context.observed_discharge]
    path = "../../data/hydrometry/hydrometry_hubeau_I922102001_20200101_20201231_D.csv"
    station_id = "I922102001"
 
-Nancon compatibility example
-----------------------------
+Second basin example
+--------------------
 
-The Nancon reference report is intentionally pinned to its compatibility
-preset:
+The Nancon example uses the same generic report contract as any other basin:
 
 .. code-block:: toml
 
@@ -265,16 +249,14 @@ preset:
    site_label = "Nancon"
    station_label = "Nancon a Lecousse"
    output_dir = "outputs/nancon_real_figures"
-   allow_gallery_fallbacks = false
-   preset = "nancon_reference"
 
    [layout]
    watershed_project_dir = "../02_nancon_watershed"
-   context_outputs_dir = "../15_nancon_gauged_context/outputs"
+   context_outputs_dir = "outputs/nancon_context"
    data_overview_project_dir = "../02_nancon_watershed"
    simulation_workspace_dir = "../02_nancon_watershed"
    simulation_name = "transient_nwt"
-   context_summary_name = "nancon_gauged_context_summary.json"
+   context_summary_name = "nancon_catchment_context_summary.json"
    transient_config_name = "run_transient_nwt.toml"
    overview_config_name = "run_overview_all_apis.toml"
 
@@ -283,12 +265,8 @@ preset:
    run_simulation = true
    build_context_artifacts = true
    build_report_html = true
-   context_builder_command = [
-     "{python}",
-     "../15_nancon_gauged_context/build_nancon_gauged_context.py",
-     "--report-config",
-     "{report_config}",
-   ]
+   strict_figure_postflight = true
 
-This preset exists only to preserve the validated reference layout and labels.
-New basins should normally omit ``preset`` and use the generic default.
+   [context.observed_discharge]
+   path = "../../data/hydrometry/hydrometry_custom_NANCON_19820201_20220125_D.csv"
+   station_id = "NANCON"

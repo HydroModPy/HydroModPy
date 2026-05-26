@@ -10,8 +10,6 @@ from pathlib import Path
 from typing import Any
 
 from hydromodpy.display.catchment_report.resources import (
-    GALLERY_GEO,
-    GALLERY_SIM,
     GEOLOGY_DATA_ROOT,
     REPO_ROOT,
 )
@@ -21,7 +19,6 @@ from hydromodpy.display.catchment_report.resources import (
 class ArtifactCandidate:
     root: str
     relative_path: str
-    gallery_fallback: bool = False
 
 
 @dataclass(frozen=True)
@@ -37,8 +34,6 @@ class ArtifactPathContext:
             "overview_figures": self.overview_figures,
             "data_overview_figures": self.data_overview_figures,
             "simulation_figures": self.simulation_figures,
-            "gallery_geo": GALLERY_GEO,
-            "gallery_sim": GALLERY_SIM,
         }
         try:
             return roots[root]
@@ -51,11 +46,10 @@ class ReportArtifactSpec:
     figure_id: str
     candidates: tuple[ArtifactCandidate, ...]
 
-    def resolve(self, context: ArtifactPathContext, *, allow_gallery_fallbacks: bool) -> Path:
+    def resolve(self, context: ArtifactPathContext) -> Path:
         candidates = [
             context.root_path(candidate.root) / candidate.relative_path
             for candidate in self.candidates
-            if allow_gallery_fallbacks or not candidate.gallery_fallback
         ]
         return prefer(*candidates)
 
@@ -63,10 +57,8 @@ class ReportArtifactSpec:
 def artifact_candidate(
     root: str,
     relative_path: str,
-    *,
-    gallery_fallback: bool = False,
 ) -> ArtifactCandidate:
-    return ArtifactCandidate(root, relative_path, gallery_fallback=gallery_fallback)
+    return ArtifactCandidate(root, relative_path)
 
 
 def artifact_spec(
@@ -100,7 +92,7 @@ DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
         artifact_candidate("overview_figures", "climatic_summary.png"),
     ),
     artifact_spec(
-        "observed_discharge_gallery",
+        "observed_discharge_overview",
         artifact_candidate("overview_figures", "timeseries_discharge.png"),
     ),
     artifact_spec(
@@ -150,103 +142,6 @@ DEFAULT_ARTIFACT_SPECS: tuple[ReportArtifactSpec, ...] = (
     artifact_spec("water_budget", artifact_candidate("simulation_figures", "water_budget.png")),
 )
 
-NANCON_GALLERY_FALLBACKS: dict[str, tuple[ArtifactCandidate, ...]] = {
-    "identity_stats": (
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_stats_card.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "station_inventory": (
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_station_inventory.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "dem_map": (
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_map_dem.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "geology_map": (
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_map_geology.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "hydrography_map": (
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_map_hydrography.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "climate_summary": (
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_identity_card_climatic_summary.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "observed_discharge_gallery": (
-        artifact_candidate(
-            "gallery_geo",
-            "geographic_nancon_timeseries_discharge.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "network_comparison": (
-        artifact_candidate(
-            "gallery_sim",
-            "nancon_transient_nwt_hydrographic_network_comparison.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "active_network_overlay": (
-        artifact_candidate(
-            "gallery_sim",
-            "nancon_transient_nwt_simulated_active_network_reference_overlay.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "piezometric_map": (
-        artifact_candidate(
-            "gallery_sim",
-            "nancon_transient_nwt_piezometric_map.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "simulated_hydrograph": (
-        artifact_candidate(
-            "gallery_sim",
-            "nancon_transient_nwt_hydrograph.png",
-            gallery_fallback=True,
-        ),
-    ),
-    "water_budget": (
-        artifact_candidate(
-            "gallery_sim",
-            "nancon_transient_nwt_water_budget.png",
-            gallery_fallback=True,
-        ),
-    ),
-}
-
-NANCON_ARTIFACT_SPECS = tuple(
-    artifact_spec(
-        spec.figure_id,
-        *spec.candidates,
-        *NANCON_GALLERY_FALLBACKS.get(spec.figure_id, ()),
-    )
-    for spec in DEFAULT_ARTIFACT_SPECS
-)
-
-
 def copy_real_figures(
     figures_dir: Path,
     *,
@@ -254,7 +149,6 @@ def copy_real_figures(
     overview_figures: Path,
     data_overview_figures: Path,
     simulation_figures: Path,
-    allow_gallery_fallbacks: bool,
     artifact_specs: Iterable[ReportArtifactSpec] = DEFAULT_ARTIFACT_SPECS,
 ) -> dict[str, Path]:
     context = ArtifactPathContext(
@@ -265,7 +159,7 @@ def copy_real_figures(
     )
     copied: dict[str, Path] = {}
     for spec in artifact_specs:
-        source = spec.resolve(context, allow_gallery_fallbacks=allow_gallery_fallbacks)
+        source = spec.resolve(context)
         if not source.exists():
             continue
         target = figures_dir / source.name
@@ -458,7 +352,6 @@ def write_manifest(
     simulation_figures: Path,
     geographic_scratch: Path,
     generated_network_root: Path,
-    allow_gallery_fallbacks: bool,
     expected_figure_ids: Iterable[str] = (),
 ) -> Path:
     manifest = output_dir / "block_report_manifest.json"
@@ -478,10 +371,7 @@ def write_manifest(
             "simulation_figures": rel(simulation_figures),
             "geographic_scratch": rel(geographic_scratch),
             "generated_network_root": rel(generated_network_root),
-            "gallery_geographic": rel(GALLERY_GEO),
-            "gallery_simulation": rel(GALLERY_SIM),
         },
-        "allow_gallery_fallbacks": allow_gallery_fallbacks,
         "copied_figures": {key: rel(path) for key, path in sorted(copied.items())},
     }
     manifest.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
