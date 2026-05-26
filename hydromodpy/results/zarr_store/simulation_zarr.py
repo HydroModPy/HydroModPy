@@ -38,7 +38,7 @@ from hydromodpy.results.zarr_store.zarr_schema import (
 from hydromodpy.results.zarr_store.zarr_schema import (
     initialise_root,
     is_zip_store_path,
-    local_store_path_arg,
+    local_store,
     open_root_strict,
 )
 from hydromodpy.results.zarr_store.zarr_schema import (
@@ -64,7 +64,7 @@ class SimulationZarr:
             self._root: zarr.Group = self._open_root_strict(read_only=True)
             self._lock: FileLock | _DummyLock = _DummyLock()
         else:
-            self._store = zarr.storage.LocalStore(local_store_path_arg(self._path))
+            self._store = local_store(self._path)
             self._root = self._open_root_strict(read_only=False)
             self._lock = FileLock(str(self._path / LOCK_FILE_NAME))
 
