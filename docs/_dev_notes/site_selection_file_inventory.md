@@ -1,6 +1,6 @@
 # Site selection file inventory
 
-Date: 2026-05-15
+Date: 2026-05-26
 
 This note locates the current files involved in choosing basin sites in a
 region, rendering a map/HTML review, and passing selected sites downstream to
@@ -13,6 +13,15 @@ hydromodpy/
   spatial/
     site_selection/
       __init__.py
+      candidates/
+      config/
+      decisions/
+      domain/
+      evaluation/
+      evidence/
+      hydrology/
+      outputs/
+      pipelines/
       reports/
         legacy_review.py
   analysis/
@@ -60,6 +69,15 @@ docs/
 
 | file | role |
 |---|---|
+| `hydromodpy/spatial/site_selection/candidates/` | Candidate outlet records, station-led outlet building, DEM candidate generation and reference-network snapping. |
+| `hydromodpy/spatial/site_selection/config/` | `SiteSelectionConfig` and related Pydantic models. |
+| `hydromodpy/spatial/site_selection/domain/` | Shared candidate, catchment and observation domain records. |
+| `hydromodpy/spatial/site_selection/evaluation/` | Criteria, final selected/rejected decisions, overlap and spacing filters. |
+| `hydromodpy/spatial/site_selection/evidence/` | Observation, context, influence, geology, piezometry and station-influence evidence helpers. |
+| `hydromodpy/spatial/site_selection/hydrology/` | Thin adapters to DEM flow products and catchment delineation utilities. |
+| `hydromodpy/spatial/site_selection/outputs/` | CSV, JSONL, GeoJSON, GPKG/GeoParquet, manifest and artifact writers. |
+| `hydromodpy/spatial/site_selection/pipelines/build.py` | Main spatial build orchestration. |
+| `hydromodpy/spatial/site_selection/reports/` | Static map, HTML report, plan report, report blocks and legacy review renderer. |
 | `hydromodpy/spatial/site_selection/reports/legacy_review.py` | Reusable legacy map/HTML renderer for a site selection in a region. Reads site and mesh inventories, filters rows, optionally applies spatial balancing, writes `index.html`, `map_selection.png`, and GeoJSON. |
 | `hydromodpy/spatial/site_selection/__init__.py` | Public package entrypoint for site-selection helpers. |
 
@@ -141,8 +159,8 @@ docs/_dev_notes/diagnostics/boussinesq_stationary_site_inventory/
 
 ## Workflow status
 
-The basin-choice map is currently a reusable reporting component, not a complete
-workflow by itself.
+The basin-choice map is now one reporting component of a complete upstream
+workflow.
 
 The intended workflow boundary is:
 
@@ -151,9 +169,9 @@ The intended workflow boundary is:
 3. selected rows are exported as a regional-lab-compatible site catalog;
 4. regional-lab/testbed expands sites into simulation/comparison cases.
 
-The current gap is the upstream candidate discovery workflow. Existing files
-already document the target design in
-`docs/_dev_notes/site_selection_tool_implementation_plan.md`.
+The upstream candidate discovery workflow exists for the two short-term
+profiles: `area_only` and `gauged_downstream_station`. Broader automatic
+hydrographic design remains a later functional evolution.
 
 ## Other realized selection/list mechanisms
 

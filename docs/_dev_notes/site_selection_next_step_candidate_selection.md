@@ -120,14 +120,14 @@ court terme.
 
 ## Implementation suggeree
 
-L'implementation devrait rester localisee:
+L'implementation est restee localisee dans la nouvelle structure:
 
-- `hydromodpy/spatial/site_selection/selection.py` pour la selection finale et
-  les raisons de rejet;
-- `hydromodpy/spatial/site_selection/filters.py` pour les helpers de
-  recouvrement ou de distance deja presents ou etendus;
-- `hydromodpy/spatial/site_selection/config.py` pour les quelques options de
-  quota si necessaire;
+- `hydromodpy/spatial/site_selection/evaluation/selection.py` pour la selection
+  finale et les raisons de rejet;
+- `hydromodpy/spatial/site_selection/evaluation/spatial_filters.py` pour les
+  helpers de recouvrement ou de distance;
+- `hydromodpy/spatial/site_selection/config/models.py` pour les options de
+  quota;
 - `tests/unit/site_selection/` pour les cas synthetiques.
 
 Il faut eviter d'ajouter un nouveau sous-systeme. Une fonction ou classe de
@@ -203,3 +203,15 @@ delimiter les bassins,
 choisir proprement les meilleurs selon des regles explicites,
 et expliquer chaque decision dans ses sorties.
 ```
+
+Cloture verifiee le 2026-05-26:
+
+- `calvados_dem_area_light_100km2_fast.toml` tourne et produit
+  `outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html`;
+- `bretagne_hydrometry_50_500_small_bdtopage.toml` tourne et produit
+  `outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html`;
+- les tests unitaires `tests/unit/site_selection` et les tests de bridge
+  exemples passent;
+- l'index API local pointe maintenant vers les sous-packages
+  `candidates`, `evaluation`, `evidence`, `hydrology`, `outputs`,
+  `pipelines` et `reports`.
