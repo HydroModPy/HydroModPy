@@ -4,7 +4,7 @@ import pytest
 
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
 from hydromodpy.spatial.site_selection.config import HydrologyConfig
-from hydromodpy.spatial.site_selection.flow_products_adapter import (
+from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     build_site_selection_flow_products,
 )
 

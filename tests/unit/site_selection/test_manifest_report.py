@@ -4,14 +4,14 @@ import json
 
 import pytest
 
-from hydromodpy.spatial.site_selection.html_report import render_site_selection_html_report
-from hydromodpy.spatial.site_selection.manifest import (
+from hydromodpy.spatial.site_selection.outputs.manifest import (
     MANIFEST_SCHEMA_VERSION,
     SITE_SELECTION_MANIFEST_NAME,
     validate_selection_manifest,
     write_selection_manifest,
 )
-from hydromodpy.spatial.site_selection.report_blocks import build_site_selection_result_blocks
+from hydromodpy.spatial.site_selection.reports.blocks import build_site_selection_result_blocks
+from hydromodpy.spatial.site_selection.reports.html import render_site_selection_html_report
 from hydromodpy.workflow.site_selection import select_delineated_catchments_from_csv
 
 

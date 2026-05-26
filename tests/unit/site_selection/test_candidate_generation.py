@@ -8,7 +8,7 @@ import pytest
 
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.site_selection.candidate_generation import (
+from hydromodpy.spatial.site_selection.candidates.generation import (
     accumulation_to_area_km2,
     candidate_generation_evidence_with_candidate_attributes,
     generate_dem_area_light_candidate_outlets,
@@ -17,15 +17,15 @@ from hydromodpy.spatial.site_selection.candidate_generation import (
     write_candidate_outlets_geojson,
     write_generated_network_geojson,
 )
+from hydromodpy.spatial.site_selection.candidates.reference_network import (
+    score_outlets_against_reference_network,
+)
 from hydromodpy.spatial.site_selection.config import (
     DemAreaLightConfig,
     HydrologyConfig,
     OutletsConfig,
 )
-from hydromodpy.spatial.site_selection.flow_products_adapter import SiteSelectionFlowProducts
-from hydromodpy.spatial.site_selection.reference_network import (
-    score_outlets_against_reference_network,
-)
+from hydromodpy.spatial.site_selection.hydrology.flow_products import SiteSelectionFlowProducts
 from hydromodpy.workflow.site_selection import (
     build_dem_area_light_site_selection_from_toml,
     build_generated_site_selection_from_toml,

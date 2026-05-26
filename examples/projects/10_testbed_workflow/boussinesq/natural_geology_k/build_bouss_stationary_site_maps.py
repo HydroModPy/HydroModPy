@@ -9,7 +9,7 @@ REPO_ROOT = Path(__file__).resolve().parents[5]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hydromodpy.spatial.site_selection.reporting import main  # noqa: E402,I001
+from hydromodpy.spatial.site_selection.reports.legacy_review import main  # noqa: E402,I001
 
 
 if __name__ == "__main__":

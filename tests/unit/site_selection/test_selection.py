@@ -5,14 +5,14 @@ import json
 import pytest
 from shapely.geometry import box
 
-from hydromodpy.spatial.site_selection.candidate_outlets import CandidateOutlet
+from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
 from hydromodpy.spatial.site_selection.config import (
     AreaCriteriaConfig,
     CriteriaConfig,
     SpatialSelectionConfig,
 )
-from hydromodpy.spatial.site_selection.delineation import DelineatedCatchment
-from hydromodpy.spatial.site_selection.selection import select_delineated_catchments
+from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
+from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
 
 
 def _catchment(

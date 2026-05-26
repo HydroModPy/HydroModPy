@@ -12,10 +12,10 @@ from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.site_selection.build import (
+from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
+from hydromodpy.spatial.site_selection.pipelines.build import (
     build_site_selection_from_point_records,
 )
-from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
 from hydromodpy.workflow.site_selection import (
     build_observed_site_selection_from_toml,
     build_site_selection_from_hydrometry_config,

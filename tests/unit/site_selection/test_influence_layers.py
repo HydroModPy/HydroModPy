@@ -4,19 +4,19 @@ import json
 
 import pytest
 
-from hydromodpy.spatial.site_selection.candidate_outlets import CandidateOutlet
+from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
 from hydromodpy.spatial.site_selection.config import (
     CriteriaConfig,
     InfluenceCriteriaConfig,
     InfluenceLayerConfig,
     SpatialSelectionConfig,
 )
-from hydromodpy.spatial.site_selection.delineation import DelineatedCatchment
-from hydromodpy.spatial.site_selection.influence import (
+from hydromodpy.spatial.site_selection.evaluation.selection import select_delineated_catchments
+from hydromodpy.spatial.site_selection.evidence.influence import (
     annotate_catchments_with_influence_layers,
     write_influence_evidence_geojson,
 )
-from hydromodpy.spatial.site_selection.selection import select_delineated_catchments
+from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
 
 
 @pytest.mark.fast

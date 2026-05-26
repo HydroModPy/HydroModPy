@@ -5,13 +5,13 @@ import json
 import pytest
 from shapely.geometry import Point, Polygon
 
-from hydromodpy.spatial.site_selection.context_evidence import GeologyEvidence
 from hydromodpy.spatial.site_selection.decisions import (
     evidence_records_from_site_selection_evidence,
     write_evidence_records_jsonl,
 )
-from hydromodpy.spatial.site_selection.influence import InfluenceEvidence
-from hydromodpy.spatial.site_selection.types import ObservationEvidence
+from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
+from hydromodpy.spatial.site_selection.evidence.context import GeologyEvidence
+from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
 
 
 @pytest.mark.fast

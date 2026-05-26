@@ -8,12 +8,12 @@ from shapely.geometry import LineString
 
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
-from hydromodpy.spatial.site_selection.candidate_outlets import CandidateOutlet
-from hydromodpy.spatial.site_selection.delineation import (
+from hydromodpy.spatial.site_selection.candidates.outlets import CandidateOutlet
+from hydromodpy.spatial.site_selection.hydrology.delineation import (
     delineate_candidate_outlet,
     try_delineate_candidate_outlet,
 )
-from hydromodpy.spatial.site_selection.delineation_pipeline import (
+from hydromodpy.spatial.site_selection.hydrology.pipeline import (
     delineate_site_selection_candidates,
 )
 
