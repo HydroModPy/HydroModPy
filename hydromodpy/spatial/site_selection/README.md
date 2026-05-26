@@ -15,6 +15,7 @@ The package is responsible for:
 - auditable criterion components and selection decisions;
 - CSV/JSONL exports for selected and rejected sites;
 - the official `site_selection_manifest.json` contract;
+- downstream hand-off references for catalog consumers;
 - an optional static HTML review page generated from the manifest.
 
 The package is not responsible for:
@@ -22,6 +23,7 @@ The package is not responsible for:
 - Hub'Eau API details or cache management;
 - reimplementing D8, flow accumulation or watershed delineation;
 - `regional_lab` recipe expansion;
+- testbed child-workflow orchestration;
 - MF6, Boussinesq, calibration or comparison execution.
 
 Observation and hydrometry loading lives in `hydromodpy.workflow.site_selection`
@@ -76,8 +78,14 @@ fixtures, catalogs and frozen data extracts, not for direct provider access.
 - `candidate_outlets.py`: candidate outlet records and spacing helpers.
 - `candidate_generation.py`: DEM-accumulation candidate sampling for
   `generated_candidates` runs.
+- `candidate_pipeline.py`: shared candidate-building phase for station-led,
+  generated-network and `dem_area_light` runs.
+- `annotation_pipeline.py`: shared annotation phase applying influence,
+  geology and piezometer evidence layers to delineated catchments.
 - `flow_products_adapter.py`: thin adapter to existing regional DEM flow products.
 - `delineation.py`: thin adapter to existing catchment-from-point utilities.
+- `delineation_pipeline.py`: shared batch delineation phase for candidate
+  outlets.
 - `reference_network.py`: optional projection of station outlets to a reference
   hydrographic network before local DEM snapping.
 - `context_evidence.py`: optional geology and piezometer evidence computed from
@@ -89,6 +97,9 @@ fixtures, catalogs and frozen data extracts, not for direct provider access.
 - `criteria_influence.py`: anthropic-influence criterion.
 - `criteria_geology.py`: geology criterion.
 - `evidence_refs.py`: stable references linking decisions to evidence rows.
+- `evidence_exports.py`: shared writers for specialized and normalized
+  evidence artifacts.
+- `output_pipeline.py`: shared core-output writer used by build workflows.
 - `decisions/`: normalized `DecisionRecord`, `EvidenceRecord` and per-catchment
   summary helpers built from the current criteria and final selections.
 - `selection.py`: selected/rejected catchment decisions.
@@ -101,7 +112,7 @@ fixtures, catalogs and frozen data extracts, not for direct provider access.
 - `figures.py`: static map figure generated from manifest artifacts.
 - `html_report.py`: optional HTML v0 renderer from the manifest.
 - `plan_report.py`: optional HTML renderer for plan-only runs.
-- `build.py`: station-led spatial build from already-loaded observations.
+- `build.py`: orchestration of the end-to-end spatial build phases.
 
 ## Output Contract
 
@@ -274,6 +285,27 @@ default until their writers are implemented.
 - `tags`: semicolon-separated provenance tags.
 - `enabled`: boolean flag used by downstream catalog loaders.
 
+Downstream catalog consumers should prefer the selection manifest over a
+hard-coded CSV path. The manifest declares which file currently satisfies the
+`regional_lab_sites_csv` output key, and both `testbed` and `regional_lab`
+catalog loaders can resolve that key directly:
+
+```toml
+[testbed.catalog]
+from_site_selection_manifest = "outputs/site_selection/site_selection_manifest.json"
+output = "regional_lab_sites_csv"
+```
+
+```toml
+[regional_lab.catalog]
+from_site_selection_manifest = "outputs/site_selection/site_selection_manifest.json"
+output = "regional_lab_sites_csv"
+```
+
+If `output` is omitted, the downstream loader uses `regional_lab_sites_csv`.
+The aliases `site_selection_output` and `site_selection_output_key` are also
+accepted for compatibility with more explicit configuration styles.
+
 `selected_sites.csv` contains the same core fields plus review fields for the
 snapped outlet when available:
 
@@ -334,6 +366,26 @@ hard rejection is applied only when a configured rejection flag is explicitly
 present. This avoids silently discarding candidates because a regional data
 layer has not yet been loaded.
 
+## Short-Term Profiles
+
+Two profiles are treated as the supported short-term contract:
+
+- `area_only`: select basins from DEM/candidate geometry using basin area as
+  the active criterion. This is the profile behind `dem_area_light` examples.
+- `gauged_downstream_station`: select gauged basins from downstream flow
+  stations. It requires `principle = "observation_led"`,
+  `primary_observation_type = "flow_station"` and
+  `candidate_mode = "station_outlets"`. Optional influence layers can reject
+  basins with major upstream dams or other configured major influences.
+
+Older hydrometry TOML files without an explicit profile remain valid. Reports
+and manifests expose an `effective_profile` field so those runs are still
+classified as `gauged_downstream_station` when their strategy matches the
+station-led pattern.
+
+The bounded short-term contract is documented in
+`docs/_dev_notes/site_selection_short_term_contract.md`.
+
 ## Manifest Validation
 
 `site_selection_manifest.json` is the official hand-off contract. Use
@@ -341,3 +393,9 @@ layer has not yet been loaded.
 the manifest has the expected schema version and that referenced output files
 exist. The HTML report is intentionally derived from the manifest and its
 declared artifacts; it should not become a second source of truth.
+
+Downstream workflows should receive the manifest path, not a copied catalog
+path. This keeps site-selection output naming, review artifacts and later
+catalog schema additions behind one stable contract. The end-to-end dry-run
+examples in `examples/projects/18_site_selection_to_testbed/` show the same
+manifest feeding a generic `testbed` plan and a `regional_lab` plan.

@@ -13,6 +13,9 @@ from hydromodpy.spatial.site_selection.delineation import (
     delineate_candidate_outlet,
     try_delineate_candidate_outlet,
 )
+from hydromodpy.spatial.site_selection.delineation_pipeline import (
+    delineate_site_selection_candidates,
+)
 
 
 @pytest.mark.fast
@@ -128,3 +131,39 @@ def test_try_delineate_candidate_outlet_returns_rejected_record_on_failure(tmp_p
     assert result.status == "rejected_delineation_failed"
     assert "snap failed" in result.failure_reason
     assert result.to_record()["candidate_id"] == "station_A"
+
+
+@pytest.mark.fast
+def test_delineate_site_selection_candidates_batches_candidates(tmp_path):
+    calls = []
+
+    def fake_builder(**kwargs):
+        calls.append(kwargs)
+        output_dir = Path(kwargs["output_dir"])
+        return CatchmentFromPointProducts(
+            outlet_shp=str(output_dir / "outlet.shp"),
+            outlet_snap_shp=str(output_dir / "outlet_snap.shp"),
+            watershed_tif=str(output_dir / "watershed.tif"),
+            watershed_shp=str(output_dir / "watershed.shp"),
+        )
+
+    candidates = [
+        CandidateOutlet("station_A", 350000.0, 6810000.0, "EPSG:2154", "station"),
+        CandidateOutlet("station_B", 351000.0, 6811000.0, "EPSG:2154", "station"),
+    ]
+    flow_products = FlowProducts(correc="dem_fill.tif", direc="dem_direc.tif", acc="dem_acc.tif")
+
+    results = delineate_site_selection_candidates(
+        candidates,
+        flow_products=flow_products,
+        output_root=tmp_path,
+        snap_dist_m=250,
+        crs_project="EPSG:2154",
+        delineation_builder=fake_builder,
+        area_reader=lambda _path: 42.0,
+    )
+
+    assert [result.site_id for result in results] == ["station_A", "station_B"]
+    assert [result.area_km2 for result in results] == [42.0, 42.0]
+    assert [call["x_outlet"] for call in calls] == [350000.0, 351000.0]
+    assert all(call["snap_dist"] == 250 for call in calls)

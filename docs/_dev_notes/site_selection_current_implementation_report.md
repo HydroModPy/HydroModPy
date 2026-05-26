@@ -1452,3 +1452,209 @@ Limites assumees a ce stade:
 Cette etape rend le cas court terme plus auditable: un rejet pour barrage amont
 renvoie maintenant a une preuve d'influence stable, et une selection par station
 peut renvoyer a la station hydrometrique normalisee correspondante.
+
+## Centralisation des exports de preuves
+
+Objectif: reduire la duplication dans `build.py` et
+`workflow/site_selection.py` apres l'ajout des preuves normalisees.
+
+Mise en place:
+
+- ajout de `evidence_exports.py`;
+- regroupement dans `write_site_selection_evidence_outputs()` des exports:
+  - `observation_evidence.jsonl`;
+  - `piezometer_evidence.jsonl`;
+  - `influence_evidence.jsonl`;
+  - `geology_evidence.jsonl`;
+  - couches GeoJSON/GPKG/GeoParquet associees quand le mode les ecrit deja;
+  - `site_selection_evidence.jsonl`;
+- remplacement des blocs repetes dans les trois chemins de `build.py`;
+- remplacement du meme bloc dans le workflow CSV pre-delimite.
+
+Le comportement est conserve par mode. Les chemins hydrometrie, candidats
+generes et CSV pre-delimite gardent les exports vecteur de preuves. Le chemin
+`dem_area_light` garde son profil plus leger et n'ecrit que les JSONL de
+preuves, comme avant, tout en ajoutant la preuve normalisee quand elle existe.
+
+## Decoupage de `build.py` en phases
+
+Objectif: rendre `build.py` plus lisible en retirant les blocs transverses qui
+etaient repetes dans chaque mode.
+
+Mise en place:
+
+- ajout de `annotation_pipeline.py`, qui porte la phase:
+  `bassins delimites -> bassins annotes + preuves`;
+- ajout de `output_pipeline.py`, qui porte la phase:
+  `selection + preuves -> sorties coeur + sorties de preuves`;
+- `build.py` conserve les responsabilites propres aux modes:
+  - construction des candidats;
+  - construction des produits hydrologiques;
+  - delimitation;
+  - regles particulieres comme le quota `dem_area_light`;
+  - assemblage du manifest.
+
+Cette etape ne change pas le comportement. Elle reduit surtout la surface de
+code dans chaque workflow et rend les prochaines evolutions plus localisees:
+les nouvelles couches de preuves iront dans `annotation_pipeline.py` ou dans
+les modules de contexte, les changements d'artefacts iront dans
+`output_pipeline.py` / `evidence_exports.py`.
+
+## Decoupage des candidats et de la delimitation
+
+Objectif: faire de `build.py` un orchestrateur lisible, ou les etapes metier
+sont visibles dans l'ordre, sans details de generation de candidats ni boucle
+technique de delimitation.
+
+Mise en place:
+
+- ajout de `candidate_pipeline.py`, qui porte la phase:
+  `configuration + donnees d'entree -> exutoires candidats`;
+- ce module couvre les trois chemins deja presents:
+  - candidats issus de stations hydrometriques;
+  - candidats generes depuis le reseau DEM;
+  - candidats `dem_area_light` autour d'une surface cible;
+- le meme module gere aussi la geometrie de recherche du territoire et le
+  chargement/scoring optionnel du reseau de reference BD Topage/custom;
+- ajout de `delineation_pipeline.py`, qui porte la phase:
+  `exutoires candidats + produits DEM -> bassins delimites`;
+- `build.py` ne lance plus directement `try_delineate_candidate_outlet` et ne
+  manipule plus directement les generateurs DEM bas niveau.
+
+Le comportement reste le meme: les stations, les candidats DEM, le profil
+`dem_area_light`, le snap BD Topage optionnel et les exports gardent les memes
+contrats. La difference est surtout organisationnelle: la sequence du workflow
+est maintenant plus lisible:
+
+```text
+candidats -> produits DEM -> delimitation -> annotations -> selection -> sorties
+```
+
+Ce decoupage ferme la partie structurelle principale. Les prochaines etapes
+doivent rester bornees: formaliser les deux profils prioritaires, consolider
+les tests d'integration courts, puis documenter le contrat final avant les
+evolutions provider plus ambitieuses.
+
+## Profils courts termes explicites
+
+Objectif: eviter que les deux cas que l'on utilise vraiment a court terme
+soient seulement des combinaisons implicites de champs TOML.
+
+Les deux profils de reference sont maintenant:
+
+- `area_only`: selection de bassins par surface, avec les autres familles de
+  criteres au plus en information ou ignorees;
+- `gauged_downstream_station`: selection de bassins jauges, ou une station de
+  debit fournit l'exutoire aval candidat.
+
+Mise en place:
+
+- `strategy.profile` accepte maintenant explicitement
+  `gauged_downstream_station` pour les strategies `observation_led`;
+- ce profil impose la structure minimale attendue:
+  `primary_observation_type = "flow_station"` et
+  `candidate_mode = "station_outlets"`;
+- les anciens TOML hydrometriques sans profil restent valides;
+- les manifests et plans exposent maintenant `effective_profile`, qui vaut
+  `gauged_downstream_station` quand la configuration correspond au patron
+  station aval, meme si le TOML historique n'avait pas encore declare le profil;
+- les exemples hydrometriques principaux declarent maintenant explicitement
+  `profile = "gauged_downstream_station"`;
+- l'affichage HTML lit le profil effectif pour que le rapport montre le profil
+  metier reel.
+
+Ce changement ne modifie pas les decisions. Il rend le contrat plus clair:
+les criteres restent parametrables, mais le type de selection attendu est
+nomme, valide et visible dans les sorties.
+
+## Contrat court terme
+
+Le contrat court terme est maintenant documente dans:
+
+```text
+docs/_dev_notes/site_selection_short_term_contract.md
+```
+
+Ce document borne explicitement ce qui est supporte maintenant:
+
+- `area_only`;
+- `gauged_downstream_station`;
+- les sorties minimales attendues;
+- les exemples maintenus;
+- les validations de fin de chantier;
+- les sujets volontairement remis a des chantiers separes.
+
+Il sert de garde-fou pour arreter la refonte structurelle une fois les deux
+petits exemples de validation relances.
+
+## Validation finale court terme
+
+Validation effectuee le 2026-05-26 sur les deux profils supportes.
+
+### Profil `area_only`
+
+Configuration lancee:
+
+```text
+examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
+```
+
+Commande:
+
+```bash
+python -m hydromodpy.cli.main run examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
+```
+
+Resultat:
+
+- action: `dem_area_light`;
+- `strategy.effective_profile`: `area_only`;
+- candidats bruts: 3951;
+- candidats retenus apres echantillonnage avant delimitation: 26;
+- bassins delimites et valides: 26;
+- bassins selectionnes: 10;
+- bassins rejetes: 16;
+- manifest valide par `validate_selection_manifest()`.
+
+HTML de controle:
+
+```text
+examples/projects/17_site_selection_workflow/outputs/calvados_dem_area_light_100km2_fast_v1/review/index.html
+```
+
+### Profil `gauged_downstream_station`
+
+Configuration lancee:
+
+```text
+examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
+```
+
+Commande:
+
+```bash
+python -m hydromodpy.cli.main run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
+```
+
+Resultat:
+
+- action: `hydrometry`;
+- `strategy.effective_profile`: `gauged_downstream_station`;
+- stations Hub'Eau chargees: 7;
+- candidats apres espacement: 6;
+- bassins selectionnes: 6;
+- bassins rejetes: 0;
+- BD Topage charge 465 troncons pour le snap de reference;
+- `site_selection_evidence.jsonl` ecrit;
+- manifest valide par `validate_selection_manifest()`.
+
+HTML de controle:
+
+```text
+examples/projects/17_site_selection_workflow/outputs/bretagne_hydrometry_50_500_small_bdtopage_v1/review/index.html
+```
+
+Conclusion: les deux profils court terme sont maintenant executables,
+documentes, audites et valides par manifest. La refonte structurelle court
+terme peut etre consideree comme terminee. Les travaux suivants doivent etre
+traites comme evolutions fonctionnelles separees.

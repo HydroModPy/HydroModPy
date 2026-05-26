@@ -9,29 +9,19 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from hydromodpy.schema.site_selection_manifest import (
+    MANIFEST_SCHEMA_VERSION,
+    REQUIRED_MANIFEST_KEYS,
+    REQUIRED_OUTPUT_KEYS,
+    SITE_SELECTION_MANIFEST_NAME,
+    load_selection_manifest,
+    manifest_output_path,
+    manifest_output_root as _manifest_output_root,
+    resolve_manifest_output_path as _resolve_manifest_output_path,
+    write_selection_manifest,
+)
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
 from hydromodpy.spatial.site_selection.selection import SelectionResult
-
-SITE_SELECTION_MANIFEST_NAME = "site_selection_manifest.json"
-MANIFEST_SCHEMA_VERSION = "site_selection_manifest_v1"
-REQUIRED_MANIFEST_KEYS = (
-    "schema_version",
-    "created_at_utc",
-    "selection_id",
-    "action",
-    "output_root",
-    "strategy",
-    "territory",
-    "input",
-    "criteria",
-    "counts",
-    "outputs",
-)
-REQUIRED_OUTPUT_KEYS = (
-    "criteria_components_jsonl",
-    "selection_decisions_jsonl",
-    "site_selection_manifest_json",
-)
 
 
 def build_selection_manifest(
@@ -56,6 +46,7 @@ def build_selection_manifest(
         "strategy": {
             "principle": config.strategy.principle,
             "profile": config.strategy.profile,
+            "effective_profile": config.effective_profile,
             "primary_axes": list(config.strategy.primary_axes),
             "primary_observation_type": config.strategy.primary_observation_type,
             "candidate_mode": config.strategy.candidate_mode or config.outlets.candidate_mode,
@@ -143,24 +134,6 @@ def build_selection_manifest(
     }
 
 
-def write_selection_manifest(path: str | Path, manifest: dict[str, Any]) -> Path:
-    """Write a site-selection manifest as stable JSON."""
-
-    destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=True, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    return destination
-
-
-def load_selection_manifest(path: str | Path) -> dict[str, Any]:
-    """Load a site-selection manifest."""
-
-    return json.loads(Path(path).read_text(encoding="utf-8"))
-
-
 def validate_selection_manifest(
     path: str | Path,
     *,
@@ -235,24 +208,6 @@ def validate_selection_manifest_data(
     return errors
 
 
-def manifest_output_path(
-    manifest: Mapping[str, Any],
-    key: str,
-    *,
-    manifest_path: str | Path | None = None,
-) -> Path | None:
-    """Resolve one output path from a manifest, or return ``None`` when absent."""
-
-    outputs = manifest.get("outputs")
-    if not isinstance(outputs, Mapping):
-        return None
-    value = outputs.get(key)
-    if not value:
-        return None
-    output_root = _manifest_output_root(manifest, manifest_path=manifest_path)
-    return _resolve_manifest_output_path(str(value), output_root=output_root)
-
-
 def _relative_path(path: str | Path, *, root: Path) -> str:
     resolved = Path(path).expanduser().resolve()
     try:
@@ -263,33 +218,6 @@ def _relative_path(path: str | Path, *, root: Path) -> str:
 
 def _path_or_none(path: Path | None) -> str | None:
     return None if path is None else str(path)
-
-
-def _manifest_output_root(
-    manifest: Mapping[str, Any],
-    *,
-    manifest_path: str | Path | None,
-) -> Path:
-    raw_root = manifest.get("output_root")
-    if raw_root:
-        root = Path(str(raw_root)).expanduser()
-        if root.is_absolute():
-            return root.resolve()
-    if manifest_path is not None:
-        base = Path(manifest_path).expanduser().resolve().parent
-        if raw_root:
-            return (base / str(raw_root)).resolve()
-        return base
-    if raw_root:
-        return Path(str(raw_root)).expanduser().resolve()
-    return Path.cwd().resolve()
-
-
-def _resolve_manifest_output_path(value: str, *, output_root: Path) -> Path:
-    path = Path(value).expanduser()
-    if path.is_absolute():
-        return path.resolve()
-    return (output_root / path).resolve()
 
 
 def _validate_output_artifact(key: str, path: Path) -> list[str]:

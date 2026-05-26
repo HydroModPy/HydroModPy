@@ -69,7 +69,7 @@ def build_site_selection_plan_blocks(
                     "Parametres de strategie",
                     (
                         ("Principe", strategy.get("principle")),
-                        ("Profil", strategy.get("profile")),
+                        ("Profil", strategy.get("effective_profile") or strategy.get("profile")),
                         ("Mode candidats", strategy.get("candidate_mode")),
                         ("Observation principale", strategy.get("primary_observation_type")),
                         ("Axes principaux", _format_value(strategy.get("primary_axes"))),
@@ -225,7 +225,7 @@ def build_site_selection_result_blocks(
                     "Parametres de strategie",
                     (
                         ("Principe", strategy.get("principle")),
-                        ("Profil", strategy.get("profile")),
+                        ("Profil", strategy.get("effective_profile") or strategy.get("profile")),
                         ("Mode candidats", strategy.get("candidate_mode")),
                         ("Observation principale", strategy.get("primary_observation_type")),
                         ("Territoire", _territory_label(territory)),
