@@ -128,6 +128,8 @@ def test_generated_report_artifacts_are_ignored_by_git() -> None:
 
     for pattern in (
         "examples/projects/06_vire_selune/outputs/",
+        "examples/projects/**/web/",
+        "examples/projects/**/web_review/",
         "examples/projects/16_nancon_natural_calibration/outputs/nancon_context/",
         "examples/projects/16_nancon_natural_calibration/outputs/nancon_real_figures/",
         "examples/data/etp/etp_sim2_*.nc",

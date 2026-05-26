@@ -231,7 +231,6 @@ Outputs
 
 Every executed run writes:
 
-- ``selection_decisions.jsonl``;
 - ``criteria_components.jsonl``;
 - ``site_selection_decisions.csv``;
 - ``site_selection_decisions.jsonl``;

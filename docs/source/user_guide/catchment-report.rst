@@ -235,9 +235,12 @@ Minimal generic example
    [layout]
    watershed_project_dir = "."
    context_outputs_dir = "outputs/selune_context"
+   data_overview_project_dir = "outputs/selune_overview"
    simulation_workspace_dir = "outputs/selune_nwt"
    simulation_name = "selune_nwt_report"
+   context_summary_name = "selune_catchment_context_summary.json"
    transient_config_name = "run_selune_nwt_report.toml"
+   overview_config_name = "../../overview_selune.toml"
 
    [pipeline]
    run_overview = true
@@ -283,3 +286,41 @@ The Nancon example uses the same generic report contract as any other basin:
    [context.observed_discharge]
    path = "../../data/hydrometry/hydrometry_custom_NANCON_19820201_20220125_D.csv"
    station_id = "NANCON"
+
+Adding a New Basin
+------------------
+
+Adding a basin to the catchment report pipeline should not require Python code.
+The reproducible unit is the report TOML, plus any simulation or overview TOML
+overlay needed to point the existing generic producers at the new basin.
+
+The expected pattern is:
+
+1. create or reuse an overview TOML for the basin outlet;
+2. create or reuse a simulation TOML whose ``[display].figures`` list includes
+   the report figures consumed by the generic preset;
+3. create a ``catchment_report_*.toml`` that points to those TOMLs, declares the
+   report output directory, and enables ``strict_figure_postflight``;
+4. run one command:
+
+.. code-block:: bash
+
+   hmp report catchment path/to/catchment_report_<basin>.toml
+
+The command must print the generated ``context_summary``, ``html_report`` and
+``postflight_report`` paths. A valid new-basin run has
+``missing_count = 0`` and ``dangling_count = 0`` in
+``block_report_postflight.json``.
+
+The Vire example is a third basin using this contract:
+
+.. code-block:: bash
+
+   hmp report catchment examples/projects/06_vire_selune/catchment_report_vire.toml
+
+It reuses ``overview_vire.toml`` and adds only a simulation overlay,
+``run_vire_nwt_report.toml``, to request the generic report figures from the
+existing Vire MODFLOW-NWT run configuration. Its overview TOML writes to
+``outputs/vire_overview`` and the report TOML declares this directory as
+``data_overview_project_dir`` so the shared project-level ``web/`` folder is not
+rewritten during report generation.

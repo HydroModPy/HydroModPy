@@ -454,43 +454,15 @@ def test_pipeline_main_uses_shared_report_only_arguments(
     assert f"html_report={tmp_path / 'web' / 'index.html'}" in capsys.readouterr().out
 
 
-def test_pipeline_main_keeps_legacy_no_report_alias(
-    monkeypatch,
+@pytest.mark.parametrize("legacy_flag", ["--no-context", "--no-report"])
+def test_pipeline_main_rejects_legacy_skip_aliases(
+    capsys,
+    legacy_flag: str,
     tmp_path,
 ) -> None:
     config_path = tmp_path / "catchment_report.toml"
-    captured = {}
 
-    def fake_pipeline(
-        report_config: Path,
-        *,
-        preset,
-        run_overview: bool | None,
-        run_simulation: bool | None,
-        build_context_artifacts: bool | None,
-        build_report_html: bool | None,
-        no_lock: bool | None,
-        stream_run_logs: bool | None,
-        strict_figure_postflight: bool | None,
-    ) -> CatchmentReportPipelineResult:
-        captured.update(
-            build_context_artifacts=build_context_artifacts,
-            build_report_html=build_report_html,
-        )
-        return CatchmentReportPipelineResult(
-            overview_config=None,
-            simulation_config=None,
-            context_summary=tmp_path / "context_summary.json",
-            html_report=None,
-        )
+    with pytest.raises(SystemExit):
+        pipeline_module.main(["--report-config", str(config_path), legacy_flag])
 
-    monkeypatch.setattr(
-        "hydromodpy.display.catchment_report.pipeline.run_catchment_report_pipeline",
-        fake_pipeline,
-    )
-
-    result = pipeline_module.main(["--report-config", str(config_path), "--no-report"])
-
-    assert result == 0
-    assert captured["build_context_artifacts"] is True
-    assert captured["build_report_html"] is False
+    assert f"unrecognized arguments: {legacy_flag}" in capsys.readouterr().err

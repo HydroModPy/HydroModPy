@@ -23,7 +23,6 @@ hydromodpy/
       outputs/
       pipelines/
       reports/
-        legacy_review.py
   analysis/
     testbed/
       regional_lab_bootstrap.py
@@ -56,7 +55,6 @@ examples/
           natural_regional_lab_sites.csv
           natural_10km2_sites.csv
           build_bouss_stationary_site_inventories.py
-          build_bouss_stationary_site_maps.py
 
 docs/
   _dev_notes/
@@ -77,8 +75,7 @@ docs/
 | `hydromodpy/spatial/site_selection/hydrology/` | Thin adapters to DEM flow products and catchment delineation utilities. |
 | `hydromodpy/spatial/site_selection/outputs/` | CSV, JSONL, GeoJSON, GPKG/GeoParquet, manifest and artifact writers. |
 | `hydromodpy/spatial/site_selection/pipelines/build.py` | Main spatial build orchestration. |
-| `hydromodpy/spatial/site_selection/reports/` | Static map, HTML report, plan report, report blocks and legacy review renderer. |
-| `hydromodpy/spatial/site_selection/reports/legacy_review.py` | Reusable legacy map/HTML renderer for a site selection in a region. Reads site and mesh inventories, filters rows, optionally applies spatial balancing, writes `index.html`, `map_selection.png`, and GeoJSON. |
+| `hydromodpy/spatial/site_selection/reports/` | Static map, HTML report, plan report and report blocks built from the manifest contract. |
 | `hydromodpy/spatial/site_selection/__init__.py` | Public package entrypoint for site-selection helpers. |
 
 This is the right home for the basin-choice map/report layer. It is not
@@ -104,7 +101,6 @@ site catalog; it does not itself discover new basins.
 | file | role |
 |---|---|
 | `examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/build_bouss_stationary_site_inventories.py` | Boussinesq-specific inventory builder. It joins regional-lab sites, existing child bundles, mesh-gallery bundles, and Boussinesq readiness/K metrics. |
-| `examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/build_bouss_stationary_site_maps.py` | Thin compatibility wrapper around `hydromodpy.spatial.site_selection.reports.legacy_review`. Kept so existing project commands still work. |
 | `examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/natural_regional_lab.toml` | Current regional-lab config for natural Boussinesq campaigns. |
 | `examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/natural_regional_lab_sites.csv` | Current hand-maintained/bootstrapped site catalog for regional-lab runs. |
 | `examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/natural_10km2_sites.csv` | Earlier 10 km2 site table used by natural workflows. |
@@ -165,7 +161,7 @@ workflow.
 The intended workflow boundary is:
 
 1. site-selection workflow discovers or imports basin candidates;
-2. `hydromodpy.spatial.site_selection.reports.legacy_review` renders a map/HTML review;
+2. `hydromodpy.spatial.site_selection.reports.html` renders the manifest-based HTML review;
 3. selected rows are exported as a regional-lab-compatible site catalog;
 4. regional-lab/testbed expands sites into simulation/comparison cases.
 

@@ -39,11 +39,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Download IGN BD ALTI/RGE ALTI archives by French department.",
     )
-    parser.add_argument(
+    selector = parser.add_mutually_exclusive_group(required=True)
+    selector.add_argument(
         "--departements",
         nargs="+",
-        required=True,
         help="French department codes, e.g. 29 35 D075 971.",
+    )
+    selector.add_argument(
+        "--regions",
+        nargs="+",
+        help="French administrative region names, e.g. Bretagne or Auvergne-Rhone-Alpes.",
     )
     parser.add_argument(
         "--dataset",
@@ -104,6 +109,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Re-download files even when a non-empty local file exists.",
     )
+    parser.add_argument(
+        "--include-md5",
+        action="store_true",
+        help="Include provider checksum metadata in dry-run output when available.",
+    )
     return parser
 
 
@@ -111,7 +121,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    departments = [normalize_department_code(value) for value in args.departements]
+    departments = _resolve_departments(args.departements, args.regions)
     if args.dry_run:
         files = discover_ign_dem_files(
             departments=departments,
@@ -126,7 +136,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             files = files[: args.max_files]
         print(f"Found {len(files)} file(s).")
         for file in files:
-            print(f"{file.department or 'D???'} {file.file_name} {file.url}")
+            suffix = f" md5={file.checksum}" if args.include_md5 and file.checksum else ""
+            print(f"{file.department or 'D???'} {file.file_name} {file.url}{suffix}")
         return 0
 
     paths = download_ign_dem_departments(
@@ -146,6 +157,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     for path in paths:
         print(path)
     return 0
+
+
+def _resolve_departments(
+    departments: Sequence[str] | None,
+    regions: Sequence[str] | None,
+) -> list[str]:
+    if departments:
+        return [normalize_department_code(value) for value in departments]
+    if regions:
+        from hydromodpy.data.common.administrative.france import find_departments_in_regions
+
+        return [normalize_department_code(value) for value in find_departments_in_regions(regions)]
+    raise ValueError("Either departments or regions must be provided.")
 
 
 if __name__ == "__main__":

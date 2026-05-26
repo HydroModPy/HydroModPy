@@ -571,7 +571,7 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-dem-sources>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L157>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L160>`__
    * - ``data.dem.sources.custom.mask_path``
      - ``Path | None``
      - user
@@ -649,67 +649,67 @@ per-section page (anchor) and to the source declaration on GitHub.
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-mask-path>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.extent``
      - ``Optional[Literal['watershed', 'study_area']]``
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-extent>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.force_refresh``
      - ``bool``
      - dev
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-force-refresh>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.departments``
      - ``list[str]``
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-departments>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.country``
      - ``str``
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-country>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.regions``
      - ``list[str]``
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-regions>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.source``
      - ``Literal['ign_geoplateforme_dem']``
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-source>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L96>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.dataset``
      - ``Literal['bd-alti', 'rge-alti']``
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-dataset>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L97>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L100>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.resolution_m``
      - ``float | None``
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-resolution-m>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L101>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L104>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.file_format``
      - ``str``
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-file-format>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L108>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L111>`__
    * - ``data.dem.sources.ign_geoplateforme_dem.crs``
      - ``str | None``
      - user
      - -
      - `data <data.html#data-dem-sources-ign-geoplateforme-dem-crs>`__
-     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L112>`__
+     - `link <https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L115>`__
    * - ``data.geology``
      - ``GeologyConfig | None``
      - user

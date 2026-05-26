@@ -20,24 +20,15 @@ Script:
 python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/build_bouss_stationary_site_inventories.py
 ```
 
-Map and HTML review script:
+The historical map/HTML review script for the Boussinesq inventory has been
+removed. Current site-selection reviews are generated from a
+`site_selection_manifest.json` with the standard report command:
 
 ```bash
-python examples/projects/10_testbed_workflow/boussinesq/natural_geology_k/build_bouss_stationary_site_maps.py \
-  --selection-id headwater_10km2_catalog \
-  --selection-label "headwater 10 km2" \
-  --map-title "headwater 10 km2" \
-  --scale 10km2 \
-  --cluster-family headwater \
-  --max-sites 8 \
-  --spatial-balance
+hmp site-selection report SITE_SELECTION_MANIFEST
 ```
 
-The reusable implementation lives in
-`hydromodpy/spatial/site_selection/reporting.py`; the script above is a
-project-level compatibility wrapper.
-
-It uses:
+The inventory builder uses:
 
 - `hydromodpy.analysis.testbed.regional_lab_catalog.load_site_catalog`;
 - `hydromodpy.analysis.testbed.regional_lab_site_selection.filter_sites`;
@@ -49,9 +40,9 @@ Generated local artifacts:
 - `docs/_dev_notes/diagnostics/boussinesq_stationary_site_inventory/bouss_stationary_mesh_inventory.csv`;
 - `docs/_dev_notes/diagnostics/boussinesq_stationary_site_inventory/bouss_stationary_site_inventory_summary.json`;
 - `docs/_dev_notes/diagnostics/boussinesq_stationary_site_inventory/bouss_stationary_site_inventory_summary.md`.
-- `docs/_dev_notes/diagnostics/boussinesq_stationary_site_inventory/selections/headwater_10km2_catalog/index.html`;
-- `docs/_dev_notes/diagnostics/boussinesq_stationary_site_inventory/selections/headwater_10km2_catalog/bouss_stationary_site_emprises.geojson`;
-- `docs/_dev_notes/diagnostics/boussinesq_stationary_site_inventory/selections/headwater_10km2_catalog/map_selection.png`.
+- historical map/HTML artifacts under
+  `docs/_dev_notes/diagnostics/boussinesq_stationary_site_inventory/selections/`,
+  when regenerated from older revisions.
 
 The diagnostics directory is intentionally git-ignored; regenerate the CSV/JSON
 artifacts with the script when needed.

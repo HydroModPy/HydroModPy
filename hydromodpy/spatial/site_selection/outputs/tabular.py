@@ -8,7 +8,6 @@ from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
-from hydromodpy.spatial.site_selection.evaluation.selection import SelectionDecision
 from hydromodpy.spatial.site_selection.hydrology.delineation import DelineatedCatchment
 from hydromodpy.spatial.site_selection.outputs.schemas import (
     REGIONAL_LAB_SITES_FIELDS,
@@ -55,12 +54,6 @@ def write_regional_lab_sites_csv(
         for catchment in catchments
     ]
     return write_csv(path, rows, fieldnames=REGIONAL_LAB_SITES_FIELDS)
-
-
-def write_decisions_jsonl(path: str | Path, decisions: Iterable[SelectionDecision]) -> Path:
-    """Write selection decisions as JSON Lines."""
-
-    return write_jsonl(path, [decision.to_record() for decision in decisions])
 
 
 def write_criteria_components_jsonl(
@@ -120,7 +113,6 @@ def _fieldnames_from_rows(rows: list[dict[str, Any]]) -> list[str]:
 __all__ = [
     "write_criteria_components_jsonl",
     "write_csv",
-    "write_decisions_jsonl",
     "write_jsonl",
     "write_regional_lab_sites_csv",
     "write_selected_sites_csv",

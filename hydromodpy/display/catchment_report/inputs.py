@@ -123,7 +123,7 @@ class CatchmentReportInputs:
             simulation_name=simulation_name,
             context_summary=context_outputs_dir / "context" / context_summary_name,
             context_assets=context_outputs_dir / "web" / "assets",
-            overview_figures=watershed_project_dir / "figures" / "overview",
+            overview_figures=data_overview_project_dir / "figures" / "overview",
             data_overview_figures=data_overview_project_dir / "figures" / "overview",
             simulation_figures=simulation_workspace_dir / "figures" / simulation_name,
             simulation_export=(
@@ -134,9 +134,11 @@ class CatchmentReportInputs:
             ),
             generated_network_root=simulation_workspace_dir / "simulations",
             context_html=context_outputs_dir / "web" / "index.html",
-            overview_standard_html=watershed_project_dir / "web_review" / "standard" / "index.html",
-            transient_config=watershed_project_dir / transient_config_name,
-            overview_config=data_overview_project_dir / overview_config_name,
+            overview_standard_html=(
+                data_overview_project_dir / "web_review" / "standard" / "index.html"
+            ),
+            transient_config=(watershed_project_dir / transient_config_name).resolve(),
+            overview_config=(data_overview_project_dir / overview_config_name).resolve(),
             title=title,
             observed_discharge_path=observed_discharge_path,
             observed_discharge_station_id=observed_discharge_station_id,

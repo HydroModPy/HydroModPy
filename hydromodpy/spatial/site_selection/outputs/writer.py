@@ -32,7 +32,6 @@ from hydromodpy.spatial.site_selection.outputs.schemas import (
 from hydromodpy.spatial.site_selection.outputs.tabular import (
     write_criteria_components_jsonl,
     write_csv,
-    write_decisions_jsonl,
     write_jsonl,
     write_regional_lab_sites_csv,
     write_selected_sites_csv,
@@ -125,10 +124,6 @@ def write_selection_result(
                 region_id=region_id,
             )
         )
-    paths["selection_decisions_jsonl"] = write_decisions_jsonl(
-        root / "selection_decisions.jsonl",
-        result.decisions,
-    )
     paths["criteria_components_jsonl"] = write_criteria_components_jsonl(
         root / "criteria_components.jsonl",
         result.criteria_components,
@@ -155,7 +150,6 @@ __all__ = [
     "write_basins_geojson",
     "write_criteria_components_jsonl",
     "write_csv",
-    "write_decisions_jsonl",
     "write_jsonl",
     "write_observation_points_geojson",
     "write_observation_points_geopackage",

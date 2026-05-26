@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-from hydromodpy.spatial.site_selection.decisions.adapters import (
-    decision_records_from_criteria_components,
-    decision_records_from_selection_decisions,
-    decision_records_from_selection_result,
-)
 from hydromodpy.spatial.site_selection.decisions.aggregate import (
     aggregate_site_selection_decisions,
 )
@@ -29,6 +24,11 @@ from hydromodpy.spatial.site_selection.decisions.models import (
     GlobalDecisionValue,
     MetricValue,
     SiteDecisionSummary,
+)
+from hydromodpy.spatial.site_selection.decisions.records import (
+    decision_records_from_criteria_components,
+    decision_records_from_selection_decisions,
+    decision_records_from_selection_result,
 )
 
 __all__ = [

@@ -200,7 +200,6 @@ dependre d'un chemin CSV recopie a la main.
 Sorties minimales d'un run de selection:
 
 - `site_selection_manifest.json`;
-- `selection_decisions.jsonl`;
 - `criteria_components.jsonl`;
 - `site_selection_decisions.csv`;
 - `site_selection_decisions.jsonl`;

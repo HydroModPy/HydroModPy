@@ -127,9 +127,11 @@ Etat au 2026-05-24.
 
 ### Reste a developper
 
-- Conserver `ign_bdalti` comme source historique ou alias compatible, mais
-  clarifier quand elle utilise la table statique et quand elle utilise la
-  decouverte Geoplateforme.
+- Decision court terme sur `ign_bdalti`: le conserver comme chemin historique
+  compatible. Les nouveaux workflows regionaux doivent preferer
+  `ign_geoplateforme_dem`. Le fallback statique `_BDALTI_ARCHIVES` reste un
+  secours BD ALTI 25 m ASC tant que la fiabilite de la decouverte dynamique
+  n'est pas confirmee par tests reseau reguliers.
 - Finaliser la documentation publique:
   - relire la nouvelle page RTD `site_selection`;
   - verifier que les captures/rapports HTML a montrer sont les bons;
@@ -142,19 +144,14 @@ Etat au 2026-05-24.
 - Utiliser ou documenter plus explicitement l'etape `capabilities`:
   aujourd'hui `ign_dem_fr.py` appelle directement les ressources fixes
   `BDALTI`/`RGEALTI`.
-- Implementer les options encore absentes du CLI cible:
-  - `--include-md5`;
-  - fallback HTML experimental Geoservices;
+- Completer le CLI cible au-dela du socle actuel:
+  - fallback HTML experimental Geoservices si la page publique reste utile;
   - logs plus structurants pour expliquer decouverte/fallback/cache.
-- Ajouter des tests reseau optionnels marques `network`:
+- Executer periodiquement les tests reseau optionnels marques `network`:
   - dry-run sur un petit departement;
   - telechargement limite `--max-files 1`;
   - verification bout en bout du manager `ign_geoplateforme_dem` sur BD ALTI
-    25 m ASC.
-- Decider du futur de `ign_bdalti`:
-  - le garder comme chemin historique compatible;
-  - ou le transformer progressivement en alias documente vers
-    `ign_geoplateforme_dem` pour BD ALTI 25 m.
+    25 m ASC, protegee par une variable d'environnement dediee.
 - Ne pas afficher BD Topage dans les cartes `site_selection` par defaut:
   - BD Topage reste utile comme reference technique pour `bdtopage_then_dem`;
   - son affichage sur fond DEM regional induit en erreur car il peut etre
@@ -963,17 +960,14 @@ par defaut devrait rester prudent:
 Les tests unitaires principaux ont ete ajoutes et sont detailles plus haut dans
 la section "Tests developpes et execution". Les manques de couverture sont:
 
-- retry verifie explicitement sur `429` et `500`;
-- generation correcte des URLs de download sur plusieurs cas d'encodage;
 - filtrage dataset/format/zone sur une fixture plus proche des flux
   Geoplateforme reels;
-- CLI `main(...)` teste directement, pas seulement les fonctions importees;
-- assemblage raster BD ALTI 25 m ASC teste avec petites fixtures locales;
-- cache produit `processed/` teste sans reseau;
-- tests reseau optionnels marques `network`:
+- fixtures Atom plus representatives des sous-ressources RGE ALTI fragmentees;
+- tests reseau optionnels a executer manuellement ou en CI planifiee:
   - dry-run sur un petit departement;
   - telechargement limite avec `--max-files 1`;
-  - verification bout en bout du manager `ign_geoplateforme_dem`.
+  - verification bout en bout du manager `ign_geoplateforme_dem`, protegee par
+    `HMP_RUN_IGN_ASSEMBLY_TESTS=1`.
 
 ## Documentation a livrer
 
@@ -995,13 +989,10 @@ lxml
 
 ### Reste
 
-- Ajouter dans la documentation HydroModPy utilisateur que le CLI est un outil
-  de preparation/cache, tandis que le workflow normal doit passer par
-  `[data.dem]`.
-- Documenter la source `ign_geoplateforme_dem` dans la documentation utilisateur
-  HydroModPy.
 - Documenter les regions francaises acceptees dans la reference de configuration
   si ce n'est pas encore synchronise avec les pages generees.
+- Regenerer les pages de reference de configuration si l'on veut publier les
+  descriptions mises a jour de `ign_bdalti` et `ign_geoplateforme_dem`.
 
 ## Plan de developpement - statut
 
@@ -1017,17 +1008,21 @@ lxml
 
 Livrable atteint: outil executable hors workflow.
 
-### Phase 2 - Factorisation package: fait, a durcir
+### Phase 2 - Factorisation package: fait, couverture offline renforcee
 
 - client stable deplace dans
   `hydromodpy/data/variables/dem/apis/geoplateforme_download.py`;
 - logique produit deplacee dans
   `hydromodpy/data/variables/dem/apis/ign_dem_fr.py`;
 - CLI adapte pour importer ces fonctions;
-- tests unitaires package ajoutes.
+- tests unitaires package ajoutes;
+- retry HTTP transitoire, erreurs finales, encodage strict des composants
+  d'URL, reprise `.part`, redemarrage quand le serveur ignore `Range`, cache
+  `processed` incompatible et telechargement brut RGE ALTI couverts par tests
+  offline.
 
-Reste a durcir: couverture de retry, cas d'encodage d'URL, fixtures Atom plus
-representatives, tests directs du CLI.
+Reste a durcir: fixtures Atom plus representatives des flux reels, notamment
+RGE ALTI fragmente, et execution periodique des tests reseau optionnels.
 
 ### Phase 3 - Integration DEM manager: partiel avance
 
@@ -1041,14 +1036,14 @@ Fait:
 - `DemManager` appelle `fetch_ign_dem(...)`;
 - le bootstrap `resolver.py` reconnait `ign_geoplateforme_dem`;
 - BD ALTI 25 m ASC dispose d'un flux telechargement/extraction/fusion/crop
-  vers GeoTIFF.
+  vers GeoTIFF;
+- les metadonnees dataset/resolution/format/departements sont propagees au
+  catalogue HydroModPy pour `ign_geoplateforme_dem`.
 
 Reste:
 
 - renforcer les tests d'assemblage raster avec des fixtures locales plus proches
   des archives IGN reelles;
-- propager les metadonnees dataset/resolution dans le catalogue HydroModPy, en
-  plus du sidecar `processed/*.json` deja ecrit a cote du GeoTIFF assemble;
 - etendre le flux a RGE ALTI ou le garder comme telechargement brut uniquement.
 
 Livrable atteint pour BD ALTI 25 m ASC. RGE ALTI est maintenant refuse
@@ -1086,22 +1081,24 @@ Livrable atteint pour les rapports de controle Bretagne et AURA avec fond DEM
 reel issu de Geoplateforme. Le run AURA hydrometrique complet reste trop lourd
 pour etre l'exemple par defaut.
 
-### Phase 5 - Remplacement progressif de la table statique: partiel
+### Phase 5 - Remplacement progressif de la table statique: decision court terme
 
 Fait:
 
 - decouverte Geoplateforme dynamique disponible pour BD ALTI et RGE ALTI;
 - source `ign_geoplateforme_dem` disponible dans la configuration et le
   manager pour BD ALTI 25 m ASC;
-- `_BDALTI_ARCHIVES` conserve comme fallback documente pour BD ALTI 25 m ASC.
+- `_BDALTI_ARCHIVES` conserve comme fallback documente pour BD ALTI 25 m ASC;
+- `ign_bdalti` conserve comme source historique compatible;
+- `ign_geoplateforme_dem` recommande pour les nouveaux workflows regionaux.
 
 Reste:
 
-- basculer ou aliaser progressivement `ign_bdalti` vers le nouveau chemin si
-  l'on veut remplacer le comportement historique;
-- garder `_BDALTI_ARCHIVES` seulement comme fallback de secours;
+- basculer ou aliaser `ign_bdalti` vers le nouveau chemin seulement apres
+  confirmation reseau reguliere;
 - supprimer ou reduire le fallback quand la fiabilite API aura ete confirmee;
-- verifier le comportement sur RGE ALTI et archives fragmentees.
+- verifier le comportement sur RGE ALTI et archives fragmentees avant tout
+  assemblage automatique.
 
 ## Validation complementaire du 2026-05-23
 
@@ -1155,6 +1152,55 @@ Les deux skips sont attendus ici: la decouverte dynamique n'a pas retourne de
 fichier BD ALTI pour `D029`, et le test de telechargement reel est protege par
 `HMP_RUN_IGN_DOWNLOAD_TESTS=1`.
 
+## Validation complementaire du 2026-05-26
+
+Changements ajoutes:
+
+- `build_download_url(...)` encode maintenant chaque composant de chemin avec
+  `safe=""`, afin qu'un nom de sous-ressource ou de fichier contenant espace,
+  accent, `+` ou `/` ne modifie pas la structure de l'URL;
+- `tools/download_dem_fr/download_dem_fr.py` accepte maintenant `--regions`
+  comme alternative a `--departements`;
+- `--include-md5` ajoute le checksum fournisseur dans la sortie dry-run quand
+  il est expose;
+- le cache `extracted_ign/` installe maintenant le repertoire commun des dalles
+  `.asc` plutot que toute la hierarchie fournisseur. Cela raccourcit fortement
+  les chemins Windows et evite les echecs d'assemblage lies aux chemins longs;
+- tests directs du CLI `main(...)` ajoutes;
+- tests offline ajoutes pour retry `429`/`503`, reprise `.part`, serveur qui
+  ignore `Range`, cache `processed` incompatible et layout de telechargement
+  brut RGE ALTI;
+- test reseau optionnel ajoute pour le chemin
+  `DemManager -> ign_geoplateforme_dem -> fetch_ign_dem(...)`, protege par
+  `HMP_RUN_IGN_ASSEMBLY_TESTS=1`.
+
+Commandes validees:
+
+```powershell
+python -m tools.doc_config
+python -m pytest -q tests/unit/data_managers/test_geoplateforme_dem_downloader.py tests/unit/tools/test_download_dem_fr_cli.py -m fast -o addopts=""
+python -m pytest -q tests/unit/data_managers/test_geoplateforme_dem_downloader.py tests/unit/data_managers/test_france_administrative_regions.py tests/unit/data_managers/test_dem_manager.py tests/unit/config/test_discriminated_unions.py tests/unit/site_selection/test_config.py tests/unit/site_selection/test_example_configs.py tests/unit/tools/test_download_dem_fr_cli.py -m fast -o addopts=""
+python -m pytest -q tests/unit/test_docs_config_consistency.py tests/unit/tools/test_verify_docs_refresh_outputs.py -o addopts=""
+$env:HMP_RUN_IGN_NETWORK_TESTS='1'; python -m pytest -q tests/integration/test_geoplateforme_dem_network.py -o addopts=""
+$env:HMP_RUN_IGN_NETWORK_TESTS='1'; $env:HMP_RUN_IGN_DOWNLOAD_TESTS='1'; $env:HMP_RUN_IGN_ASSEMBLY_TESTS='1'; python -m pytest -q tests/integration/test_geoplateforme_dem_network.py -o addopts=""
+python -m pytest -q tests/integration/test_geoplateforme_dem_network.py -o addopts=""
+```
+
+Resultat observe:
+
+```text
+26 passed
+79 passed
+29 passed
+2 passed, 1 skipped
+3 skipped
+```
+
+Le skip reseau restant est attendu dans l'environnement courant: la decouverte
+dynamique Geoplateforme ne retourne pas de fichier BD ALTI pour `D029`. Les
+deux chemins bornes reposant sur le fallback BD ALTI 25 m, telechargement d'une
+archive et assemblage via `DemManager`, passent.
+
 ## Decisions recommandees
 
 1. Oui, HydroModPy doit savoir recuperer les departements necessaires
@@ -1165,3 +1211,5 @@ fichier BD ALTI pour `D029`, et le test de telechargement reel est protege par
 4. `site_selection` ne doit jamais connaitre les endpoints Geoplateforme.
 5. Pour AURA, commencer par BD ALTI/RGE ALTI 5 m pour le fond regional; ne pas
    lancer RGE ALTI 1 m sur toute la region sans une demande explicite.
+6. Court terme: conserver `ign_bdalti` comme compatibilite et recommander
+   `ign_geoplateforme_dem` pour les nouveaux workflows.

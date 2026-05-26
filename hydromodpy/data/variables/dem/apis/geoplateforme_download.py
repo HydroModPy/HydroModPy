@@ -261,8 +261,8 @@ def build_download_url(resource_name: str, subresource_name: str, file_name: str
     """Build a canonical Geoplateforme download URL."""
 
     return (
-        f"{DOWNLOAD_URL}/{quote(resource_name.strip())}/"
-        f"{quote(subresource_name.strip())}/{quote(file_name.strip())}"
+        f"{DOWNLOAD_URL}/{_quote_path_component(resource_name)}/"
+        f"{_quote_path_component(subresource_name)}/{_quote_path_component(file_name)}"
     )
 
 
@@ -428,6 +428,10 @@ def _local_name(tag: str) -> str:
 
 def _normalized_token(value: str) -> str:
     return "".join(char for char in value.upper() if char.isalnum())
+
+
+def _quote_path_component(value: str) -> str:
+    return quote(str(value).strip(), safe="")
 
 
 __all__ = [

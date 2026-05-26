@@ -118,7 +118,6 @@ from hydromodpy.spatial.site_selection.pipelines.build import (
 )
 from hydromodpy.spatial.site_selection.reports.figures import render_site_selection_map
 from hydromodpy.spatial.site_selection.reports.html import render_site_selection_html_report
-from hydromodpy.spatial.site_selection.reports.legacy_review import main as render_selection_report
 from hydromodpy.spatial.site_selection.reports.plan import render_site_selection_plan_html_report
 
 __all__ = [
@@ -177,7 +176,6 @@ __all__ = [
     "load_selection_manifest",
     "observation_evidence_ref",
     "render_site_selection_html_report",
-    "render_selection_report",
     "render_site_selection_plan_html_report",
     "render_site_selection_map",
     "select_delineated_catchments",

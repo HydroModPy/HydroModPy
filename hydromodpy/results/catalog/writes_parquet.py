@@ -25,7 +25,7 @@ from hydromodpy.core.logging import get_logger
 from hydromodpy.core.state.paths import encode_workspace_path as _encode_workspace_path
 from hydromodpy.core.version import __version__ as _HMP_VERSION
 from hydromodpy.results.catalog.constants import GLOBAL_ZONE
-from hydromodpy.results.catalog.parquet_views import ensure_parquet_views
+from hydromodpy.results.catalog.parquet_views import ensure_parquet_views, view_name_for
 from hydromodpy.results.catalog.storage_paths import sanitize_segment
 from hydromodpy.results.catalog.writes_helpers import (
     _merge_with_existing,
@@ -401,6 +401,26 @@ class WritesMixinParquet:
         """
         ensure_parquet_views(self._db, self._simulations_dir)
 
+    def _drop_parquet_view_before_write(self, view_name: str) -> None:
+        """Drop a DuckDB Parquet view before replacing its backing file.
+
+        DuckDB can keep ``read_parquet`` file handles open on Windows after a
+        view has been materialized. Dropping the view before the atomic replace
+        releases that handle; ``_refresh_parquet_view`` recreates it after the
+        write.
+        """
+
+        existing_tables = {
+            str(row[0])
+            for row in self._db.execute(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_type='BASE TABLE'"
+            ).fetchall()
+        }
+        duckdb_view = view_name_for(view_name, existing_tables)
+        escaped = duckdb_view.replace('"', '""')
+        self._db.execute(f'DROP VIEW IF EXISTS "{escaped}"')
+
     def _kv_metadata_for_sim(self, sim_id: str) -> dict[str, str]:
         """Return Parquet KV metadata keys for ``sim_id``.
 
@@ -510,9 +530,9 @@ class WritesMixinParquet:
         else:
             merged = new_table
         kv = self._kv_metadata_for_sim(sim_id)
+        self._drop_parquet_view_before_write(target.stem)
         write_table_atomic(merged, target, kv_metadata=kv, pk_cols=tuple(pk_cols))
-        if not existing:
-            self._refresh_parquet_view(target.stem)
+        self._refresh_parquet_view(target.stem)
 
 
 __all__ = ["WritesMixinParquet"]

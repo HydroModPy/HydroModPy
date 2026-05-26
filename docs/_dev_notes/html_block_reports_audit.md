@@ -2,6 +2,13 @@
 
 Date: 2026-05-24
 
+Note 2026-05-26: les chemins `hydromodpy/spatial/site_selection/html_report.py`,
+`plan_report.py`, `report_blocks.py`, `figures.py` et `reporting.py` cites dans
+les sections historiques ont ete remplaces par le sous-package
+`hydromodpy/spatial/site_selection/reports/` (`html.py`, `plan.py`,
+`blocks.py`, `figures.py`). Le contenu de fond du chantier
+HTML reste valable, mais les chemins plats ne sont plus les chemins courants.
+
 Ce document reprend le chantier de production de rapports HTML par blocs. Il
 vise a clarifier ce qui existe deja, ce qui reste disperse dans des templates
 HTML specifiques, et comment reprendre la migration sans perdre le fil.

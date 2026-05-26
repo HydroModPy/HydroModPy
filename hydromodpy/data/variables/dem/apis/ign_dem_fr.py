@@ -459,12 +459,18 @@ def _install_extracted_archive(
 ) -> None:
     """Move an extracted archive into the stable cache directory."""
 
+    import os
     import shutil
 
+    asc_files = sorted(tmp_dir.rglob("*.asc"))
     archive_root = tmp_dir / archive_path.stem
     if archive_extract_dir.exists():
         shutil.rmtree(archive_extract_dir)
     archive_extract_dir.parent.mkdir(parents=True, exist_ok=True)
+    if asc_files:
+        common_asc_dir = Path(os.path.commonpath([str(path.parent) for path in asc_files]))
+        shutil.move(str(common_asc_dir), str(archive_extract_dir))
+        return
     if archive_root.exists():
         shutil.move(str(archive_root), str(archive_extract_dir))
         return

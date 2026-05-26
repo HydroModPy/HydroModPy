@@ -198,7 +198,7 @@ def test_site_selection_report_blocks_show_station_influence(tmp_path):
 def test_validate_selection_manifest_checks_schema_and_outputs(tmp_path):
     root = tmp_path / "out"
     root.mkdir()
-    (root / "selection_decisions.jsonl").write_text("", encoding="utf-8")
+    (root / "site_selection_decisions.jsonl").write_text("", encoding="utf-8")
     (root / "criteria_components.jsonl").write_text("", encoding="utf-8")
     manifest_path = root / SITE_SELECTION_MANIFEST_NAME
     manifest = {
@@ -213,8 +213,8 @@ def test_validate_selection_manifest_checks_schema_and_outputs(tmp_path):
         "criteria": {},
         "counts": {},
         "outputs": {
-            "selection_decisions_jsonl": "selection_decisions.jsonl",
             "criteria_components_jsonl": "criteria_components.jsonl",
+            "site_selection_decisions_jsonl": "site_selection_decisions.jsonl",
             "site_selection_manifest_json": SITE_SELECTION_MANIFEST_NAME,
         },
         "flow_products": {},
@@ -258,7 +258,7 @@ def test_validate_selection_manifest_rejects_bad_schema_version(tmp_path):
 def test_validate_selection_manifest_rejects_invalid_geojson_artifact(tmp_path):
     root = tmp_path / "out"
     root.mkdir()
-    (root / "selection_decisions.jsonl").write_text("", encoding="utf-8")
+    (root / "site_selection_decisions.jsonl").write_text("", encoding="utf-8")
     (root / "criteria_components.jsonl").write_text("", encoding="utf-8")
     (root / "selected_outlets.geojson").write_text('{"type":"FeatureCollection"}', encoding="utf-8")
     manifest_path = root / SITE_SELECTION_MANIFEST_NAME
@@ -276,8 +276,8 @@ def test_validate_selection_manifest_rejects_invalid_geojson_artifact(tmp_path):
             "criteria": {},
             "counts": {},
             "outputs": {
-                "selection_decisions_jsonl": "selection_decisions.jsonl",
                 "criteria_components_jsonl": "criteria_components.jsonl",
+                "site_selection_decisions_jsonl": "site_selection_decisions.jsonl",
                 "site_selection_manifest_json": SITE_SELECTION_MANIFEST_NAME,
                 "selected_outlets_geojson": "selected_outlets.geojson",
             },
@@ -293,7 +293,7 @@ def test_validate_selection_manifest_rejects_invalid_geojson_artifact(tmp_path):
 def test_validate_selection_manifest_rejects_invalid_png_artifact(tmp_path):
     root = tmp_path / "out"
     root.mkdir()
-    (root / "selection_decisions.jsonl").write_text("", encoding="utf-8")
+    (root / "site_selection_decisions.jsonl").write_text("", encoding="utf-8")
     (root / "criteria_components.jsonl").write_text("", encoding="utf-8")
     (root / "site_selection_map.png").write_bytes(b"not-a-png")
     manifest_path = root / SITE_SELECTION_MANIFEST_NAME
@@ -311,8 +311,8 @@ def test_validate_selection_manifest_rejects_invalid_png_artifact(tmp_path):
             "criteria": {},
             "counts": {},
             "outputs": {
-                "selection_decisions_jsonl": "selection_decisions.jsonl",
                 "criteria_components_jsonl": "criteria_components.jsonl",
+                "site_selection_decisions_jsonl": "site_selection_decisions.jsonl",
                 "site_selection_manifest_json": SITE_SELECTION_MANIFEST_NAME,
                 "site_selection_map_png": "site_selection_map.png",
             },
@@ -334,7 +334,7 @@ def test_validate_selection_manifest_accepts_production_vector_artifacts(tmp_pat
 
     root = tmp_path / "out"
     root.mkdir()
-    (root / "selection_decisions.jsonl").write_text("", encoding="utf-8")
+    (root / "site_selection_decisions.jsonl").write_text("", encoding="utf-8")
     (root / "criteria_components.jsonl").write_text("", encoding="utf-8")
     frame = gpd.GeoDataFrame(
         {"site_id": ["site_001"]},
@@ -358,8 +358,8 @@ def test_validate_selection_manifest_accepts_production_vector_artifacts(tmp_pat
             "criteria": {},
             "counts": {},
             "outputs": {
-                "selection_decisions_jsonl": "selection_decisions.jsonl",
                 "criteria_components_jsonl": "criteria_components.jsonl",
+                "site_selection_decisions_jsonl": "site_selection_decisions.jsonl",
                 "site_selection_manifest_json": SITE_SELECTION_MANIFEST_NAME,
                 "site_selection_gpkg": "site_selection.gpkg",
                 "selected_outlets_geoparquet": "selected_outlets.parquet",

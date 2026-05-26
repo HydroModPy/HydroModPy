@@ -57,7 +57,7 @@ def test_aggregate_site_selection_decisions_handles_non_reject_states(
 
 
 @pytest.mark.fast
-def test_decision_records_from_selection_result_adapts_components_and_final_decision():
+def test_decision_records_from_selection_result_converts_components_and_final_decision():
     result = SelectionResult(
         selected=[],
         rejected=[],

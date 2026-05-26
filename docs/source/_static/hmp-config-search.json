@@ -1109,7 +1109,7 @@
     "section": "data",
     "anchor": "data-dem-sources",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L157",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L160",
     "description": "At least one DEM data source."
   },
   {
@@ -1265,7 +1265,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-mask-path",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93",
     "description": ""
   },
   {
@@ -1277,7 +1277,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-extent",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93",
     "description": ""
   },
   {
@@ -1289,7 +1289,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-force-refresh",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93",
     "description": ""
   },
   {
@@ -1301,7 +1301,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-departments",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93",
     "description": ""
   },
   {
@@ -1313,7 +1313,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-country",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93",
     "description": ""
   },
   {
@@ -1325,7 +1325,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-regions",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L90",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93",
     "description": ""
   },
   {
@@ -1337,7 +1337,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-source",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L93",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L96",
     "description": ""
   },
   {
@@ -1349,7 +1349,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-dataset",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L97",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L100",
     "description": ""
   },
   {
@@ -1361,7 +1361,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-resolution-m",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L101",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L104",
     "description": ""
   },
   {
@@ -1373,7 +1373,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-file-format",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L108",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L111",
     "description": ""
   },
   {
@@ -1385,7 +1385,7 @@
     "section": "data",
     "anchor": "data-dem-sources-ign-geoplateforme-dem-crs",
     "page": "data.html",
-    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L112",
+    "source": "https://github.com/HydroModPy/HydroModPy/blob/main/hydromodpy/data/variables/dem/config.py#L115",
     "description": ""
   },
   {

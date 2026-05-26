@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import inspect
 import os
+import time
 import uuid
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -131,8 +132,24 @@ def write_table_atomic(
         except FileNotFoundError:
             pass
         raise
-    os.replace(tmp_io, target_io)
+    _replace_with_retry(tmp_io, target_io)
     return target
+
+
+def _replace_with_retry(tmp_io: str, target_io: str) -> None:
+    """Promote ``tmp_io`` over ``target_io``, tolerating short Windows locks."""
+
+    attempts = 6 if os.name == "nt" else 1
+    delay_s = 0.05
+    for attempt in range(attempts):
+        try:
+            os.replace(tmp_io, target_io)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(delay_s)
+            delay_s *= 2
 
 
 def read_kv_metadata(path: Path | str) -> dict[str, str]:

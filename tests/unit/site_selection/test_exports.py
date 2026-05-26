@@ -204,7 +204,6 @@ def test_write_selection_result_honors_tabular_output_switches(tmp_path):
     assert "regional_lab_sites_csv" not in paths
     assert paths["selected_outlets_geojson"].is_file()
     assert paths["selected_basins_geojson"].is_file()
-    assert paths["selection_decisions_jsonl"].is_file()
     assert paths["criteria_components_jsonl"].is_file()
     assert paths["site_selection_decisions_csv"].is_file()
     assert paths["site_selection_decisions_jsonl"].is_file()

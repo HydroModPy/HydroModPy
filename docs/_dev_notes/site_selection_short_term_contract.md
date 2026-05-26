@@ -223,7 +223,6 @@ dependre davantage des donnees disponibles.
 Un run execute doit produire:
 
 - `site_selection_manifest.json`;
-- `selection_decisions.jsonl`;
 - `criteria_components.jsonl`;
 - `site_selection_decisions.csv`;
 - `site_selection_decisions.jsonl`;
