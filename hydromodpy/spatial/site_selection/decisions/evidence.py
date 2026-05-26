@@ -5,15 +5,15 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from hydromodpy.spatial.site_selection.context_evidence import GeologyEvidence
 from hydromodpy.spatial.site_selection.decisions.models import EvidenceRecord
-from hydromodpy.spatial.site_selection.evidence_refs import (
+from hydromodpy.spatial.site_selection.domain.observations import ObservationEvidence
+from hydromodpy.spatial.site_selection.evidence.context import GeologyEvidence
+from hydromodpy.spatial.site_selection.evidence.influence import InfluenceEvidence
+from hydromodpy.spatial.site_selection.evidence.refs import (
     geology_evidence_ref,
     influence_evidence_ref,
     observation_evidence_ref,
 )
-from hydromodpy.spatial.site_selection.influence import InfluenceEvidence
-from hydromodpy.spatial.site_selection.types import ObservationEvidence
 
 
 def evidence_records_from_site_selection_evidence(

@@ -151,7 +151,10 @@ without adding a separate dam layer:
 
 Use ``mode = "hard_reject"`` only when the campaign should exclude stations
 whose hydrometric metadata explicitly reports a local or general hydrologic
-influence. Unknown influence metadata is not rejected by default.
+influence through ``influence_locale_station`` or
+``influence_generale_site``. Unknown influence metadata is not rejected by
+default. Comment keyword matches are shown as warnings for review; they are not
+treated as hard-reject evidence.
 
 Input modes
 -----------

@@ -133,6 +133,8 @@ hydromodpy/data/variables/*/cases/outputs/**
 hydromodpy/data/variables/*/outputs/**
 hydromodpy/spatial/**/cases/outputs/**
 hydromodpy/spatial/**/outputs/**
+!hydromodpy/spatial/site_selection/outputs/
+!hydromodpy/spatial/site_selection/outputs/**
 hydromodpy/solver/**/cases/outputs/**
 **/.ipynb_checkpoints/
 examples/*.duckdb
@@ -155,10 +157,13 @@ examples/data/**/*.csv.json
 examples/data/**/*.gpkg.json
 examples/data/**/*.nc.json
 examples/data/**/*.tif.json
+examples/data/etp/etp_sim2_*.nc
 examples/data/precipitation/precipitation_*_sim2_*.nc
+examples/data/recharge/recharge_sim2_*.nc
 examples/projects/06_vire_selune/outputs/
 examples/projects/16_nancon_natural_calibration/outputs/html_blocks_smoke/
 examples/projects/16_nancon_natural_calibration/outputs/html_blocks_simulation_smoke/
+examples/projects/16_nancon_natural_calibration/outputs/nancon_context/
 examples/projects/16_nancon_natural_calibration/outputs/nancon_real_figures/
 examples/projects/16_nancon_natural_calibration/outputs/selune_portability_probe/
 examples/projects/17_site_selection_workflow/outputs/
@@ -166,6 +171,7 @@ examples/projects/17_site_selection_workflow/outputs/
 # Lockfiles emitted by validation and regression test runs (``hmp run`` writes
 # ``hydromodpy.lock`` next to the project config; tests should opt out via
 # ``--no-lock`` but this is a safety net).
+examples/projects/**/hydromodpy.lock
 validation_cases/**/hydromodpy.lock
 tests/regression/**/hydromodpy.lock
 
@@ -229,6 +235,8 @@ hmp_wbw_*/
 # Reports & profiling
 # ──────────────────────────────────────────────
 reports*/
+!hydromodpy/spatial/site_selection/reports/
+!hydromodpy/spatial/site_selection/reports/**
 timing_reports/
 _profile_launcher_*/
 _profiling_out/

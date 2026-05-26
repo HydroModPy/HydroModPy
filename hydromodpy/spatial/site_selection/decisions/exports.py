@@ -10,7 +10,7 @@ from hydromodpy.spatial.site_selection.decisions.models import (
     EvidenceRecord,
     SiteDecisionSummary,
 )
-from hydromodpy.spatial.site_selection.exports_tabular import write_csv, write_jsonl
+from hydromodpy.spatial.site_selection.outputs.tabular import write_csv, write_jsonl
 
 SITE_DECISION_SUMMARY_FIELDS = [
     "run_id",

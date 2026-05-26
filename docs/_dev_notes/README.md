@@ -32,6 +32,15 @@ New investigation reports (Boussinesq, transport, MF6 PRT, calibration audits, e
 go straight into `diagnostics/`. The root folder is reserved for the README and a
 small number of cross-cutting documents kept for historical reasons.
 
+## Cross-cutting notes
+
+- `site_selection_final_business_doctrine.md`: final short-term business
+  doctrine for the stabilized `site_selection` profiles.
+- `site_selection_short_term_contract.md`: bounded implementation contract for
+  the same short-term scope.
+- `site_selection_current_implementation_report.md`: current implementation
+  snapshot and available commands.
+
 ## Current diagnostics
 
 - `diagnostics/boussinesq_failing_cases_inventory.md`: inventory of current

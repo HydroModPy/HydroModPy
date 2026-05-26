@@ -5,13 +5,16 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-from hydromodpy.spatial.site_selection.criteria import CriteriaComponent
 from hydromodpy.spatial.site_selection.decisions.models import (
     DecisionRecord,
     DecisionValue,
     MetricValue,
 )
-from hydromodpy.spatial.site_selection.selection import SelectionDecision, SelectionResult
+from hydromodpy.spatial.site_selection.evaluation.criteria import CriteriaComponent
+from hydromodpy.spatial.site_selection.evaluation.selection import (
+    SelectionDecision,
+    SelectionResult,
+)
 
 _DECISION_SEVERITY: dict[DecisionValue, int] = {
     "NEUTRAL": 0,

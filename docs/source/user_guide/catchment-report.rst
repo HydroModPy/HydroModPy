@@ -76,6 +76,19 @@ The command prints the generated paths, for example:
    context_summary=.../outputs/selune_context/context/selune_catchment_context_summary.json
    html_report=.../outputs/selune_catchment_report/web/index.html
 
+Generated outputs
+-----------------
+
+Report outputs are build products, not the source of truth. Example TOMLs are
+kept under version control; generated context summaries, HTML pages, copied
+figures, API caches, local NetCDF provider files, and ``hydromodpy.lock`` files
+are expected to be regenerated locally by rerunning ``hmp report catchment``.
+
+When regression confidence is needed, prefer a small contract test around the
+TOML, manifest, or regenerated file fingerprints rather than committing the full
+HTML and figure tree. The full report can still be inspected locally after a
+run through the printed ``html_report`` path.
+
 TOML contract
 -------------
 

@@ -34,7 +34,7 @@ pipeline.
 For station-led French workflows, observation APIs and hydrologic products do
 not use the same CRS. Hub'Eau station locations are fetched in WGS84 for API
 queries, while IGN DEMs and catchment delineation use Lambert-93. The workflow
-therefore resolves the observation bbox in WGS84, then `candidate_outlets.py`
+therefore resolves the observation bbox in WGS84, then `candidates/outlets.py`
 projects station locations to the DEM/project CRS before delineation. When
 Hub'Eau provides `x_l93` and `y_l93` metadata, those official Lambert-93
 coordinates are used directly.
@@ -74,46 +74,33 @@ fixtures, catalogs and frozen data extracts, not for direct provider access.
 
 ## Main Modules
 
-- `config.py`: Pydantic configuration and validation.
-- `candidate_outlets.py`: candidate outlet records and spacing helpers.
-- `candidate_generation.py`: DEM-accumulation candidate sampling for
-  `generated_candidates` runs.
-- `candidate_pipeline.py`: shared candidate-building phase for station-led,
-  generated-network and `dem_area_light` runs.
-- `annotation_pipeline.py`: shared annotation phase applying influence,
-  geology and piezometer evidence layers to delineated catchments.
-- `flow_products_adapter.py`: thin adapter to existing regional DEM flow products.
-- `delineation.py`: thin adapter to existing catchment-from-point utilities.
-- `delineation_pipeline.py`: shared batch delineation phase for candidate
-  outlets.
-- `reference_network.py`: optional projection of station outlets to a reference
-  hydrographic network before local DEM snapping.
-- `context_evidence.py`: optional geology and piezometer evidence computed from
-  configured vector layers.
-- `criteria.py`: compatibility facade for criterion evaluators.
-- `criteria_common.py`: shared `CriteriaComponent` and parsing helpers.
-- `criteria_area.py`: basin-area criterion.
-- `criteria_observations.py`: flow-station, station-influence and piezometer
-  criteria.
-- `criteria_influence.py`: anthropic-influence criterion.
-- `criteria_geology.py`: geology criterion.
-- `evidence_refs.py`: stable references linking decisions to evidence rows.
-- `evidence_exports.py`: shared writers for specialized and normalized
-  evidence artifacts.
-- `output_pipeline.py`: shared core-output writer used by build workflows.
-- `decisions/`: normalized `DecisionRecord`, `EvidenceRecord` and per-catchment
-  summary helpers built from the current criteria and final selections.
-- `selection.py`: selected/rejected catchment decisions.
-- `schemas.py`: stable output schemas and row builders.
-- `exports_tabular.py`: CSV and JSONL writers.
-- `exports_geojson.py`: GeoJSON writers for outlets, basins and observations.
-- `exports.py`: public export facade used by workflow code and callers.
-- `manifest.py`: official manifest construction and IO.
-- `artifacts.py`: final manifest/report assembly.
-- `figures.py`: static map figure generated from manifest artifacts.
-- `html_report.py`: optional HTML v0 renderer from the manifest.
-- `plan_report.py`: optional HTML renderer for plan-only runs.
-- `build.py`: orchestration of the end-to-end spatial build phases.
+The package is organized by workflow phase. The old flat module names remain
+as compatibility wrappers, but new code should import from the subpackages.
+
+- `config/`: Pydantic configuration and validation models.
+- `domain/`: shared domain records that are not tied to one processing phase.
+- `candidates/`: candidate outlet records, DEM/network generation,
+  station-led candidate building, thinning, and reference-network snapping.
+- `hydrology/`: thin adapters to existing DEM flow-product and
+  catchment-from-point utilities, plus batch delineation.
+- `evidence/`: observation evidence, context-layer annotation, influence,
+  geology, piezometry, stable evidence references, and evidence exports.
+- `evaluation/criteria/`: auditable area, observation, influence and geology
+  criterion components.
+- `evaluation/selection.py`: final selected/rejected catchment decisions,
+  including spatial quota, outlet spacing and overlap rules.
+- `evaluation/spatial_filters.py`: geometry overlap helpers used by selection.
+- `outputs/`: stable output schemas, CSV/JSONL/GeoJSON/geospatial writers,
+  manifest IO, core output orchestration and final artifact assembly.
+- `reports/`: static map, HTML report, plan report, report blocks and legacy
+  review renderer.
+- `decisions/`: normalized `DecisionRecord`, `EvidenceRecord` and
+  per-catchment summary helpers built from criteria and final selections.
+- `pipelines/build.py`: orchestration of the end-to-end spatial build phases.
+
+Compatibility wrappers at the package root include `candidate_outlets.py`,
+`candidate_generation.py`, `selection.py`, `exports.py`, `manifest.py`,
+`figures.py`, `html_report.py`, `plan_report.py` and related historical names.
 
 ## Output Contract
 
@@ -373,7 +360,8 @@ For station-led campaigns, `station_influence` is a hydrometric metadata check.
 It is useful for filtering stations whose own reference metadata reports a
 local or general hydrologic influence. It is not a substitute for a spatial
 obstacle inventory such as ROE: it cannot prove that no dam exists upstream of
-the delineated basin.
+the delineated basin. Hard rejection is based only on explicit influence fields;
+comment keyword matches remain warnings for human review.
 
 ## Short-Term Profiles
 
@@ -394,6 +382,8 @@ station-led pattern.
 
 The bounded short-term contract is documented in
 `docs/_dev_notes/site_selection_short_term_contract.md`.
+The matching business doctrine is documented in
+`docs/_dev_notes/site_selection_final_business_doctrine.md`.
 
 ## Manifest Validation
 

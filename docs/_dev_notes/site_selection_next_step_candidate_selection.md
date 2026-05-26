@@ -2,6 +2,8 @@
 
 Date: 2026-05-26
 
+Statut: implemente dans la phase commune `select_delineated_catchments()`.
+
 Ce rapport propose une suite bornee pour `site_selection` avant cloture du
 chantier court terme. L'objectif n'est pas de construire un nouveau moteur
 hydrographique complet, mais d'ameliorer la selection finale parmi des candidats
@@ -134,23 +136,44 @@ lisible et auditable.
 
 ## Configuration minimale envisagee
 
-Une configuration simple pourrait ressembler a:
+La configuration ajoutee reste dans `[site_selection.spatial_selection]`:
 
 ```toml
 [site_selection.spatial_selection]
 max_selected_sites = 10
 overlap_mode = "hard_reject"
-max_overlap_fraction = 0.20
-min_distance_between_outlets_km = 2.0
-
-[site_selection.spatial_selection.spatial_quota]
-mode = "grid"
-cell_size_km = 25.0
-max_sites_per_cell = 1
+max_pairwise_basin_overlap_fraction = 0.20
+min_outlet_distance_km = 2.0
+spatial_quota_mode = "grid"
+spatial_quota_cell_size_km = 25.0
+spatial_quota_max_sites_per_cell = 1
 ```
 
-Si les champs existants couvrent deja une partie de ces besoins, il faut les
-reutiliser au lieu d'ajouter une configuration parallele.
+Les champs existants `max_pairwise_basin_overlap_fraction`, `overlap_reference`
+et `overlap_mode` restent utilises pour le recouvrement. Les nouveaux champs
+sont limites au plafonnement global et au quota spatial grille.
+
+## Mise en oeuvre
+
+La mise en oeuvre est volontairement localisee:
+
+- `SpatialSelectionConfig` porte les options `max_selected_sites`,
+  `spatial_quota_mode`, `spatial_quota_cell_size_km` et
+  `spatial_quota_max_sites_per_cell`;
+- `select_delineated_catchments()` applique maintenant, apres les criteres
+  metier, le plafonnement global, le recouvrement, la distance minimale entre
+  exutoires et le quota spatial;
+- `dem_area_light` utilise `max_selected_sites = n_basins` dans cette phase
+  commune, au lieu d'un post-traitement separe;
+- chaque rejet produit un composant auditable: `target_count`,
+  `basin_overlap`, `outlet_spacing` ou `spatial_quota`.
+
+Tests ajoutes:
+
+- limite globale de sites selectionnes;
+- rejet par distance minimale entre exutoires;
+- quota spatial grille;
+- validation de la configuration du quota grille.
 
 ## Critere de fin
 
@@ -180,4 +203,3 @@ delimiter les bassins,
 choisir proprement les meilleurs selon des regles explicites,
 et expliquer chaque decision dans ses sorties.
 ```
-
