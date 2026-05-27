@@ -61,6 +61,24 @@ Les champs historiques restent presents pour compatibilite aval:
 Les rapports testbed lisent prioritairement `case_*` puis retombent sur
 `variant_*` pour les runs existants.
 
+### Lot 4 - migration des exemples TOML et des tests inline
+
+Les TOML publics des exemples testbed ont ete migres vers le vocabulaire
+canonique:
+
+- `examples/projects/10_testbed_workflow/**/*.toml`;
+- `examples/projects/18_site_selection_to_testbed/**/*.toml`.
+
+Les TOML inline de `tests/unit/launchers/test_testbed_launcher.py` utilisent
+maintenant `[[testbed.case]]` et `[[testbed.case_from_catalog]]`, sauf les tests
+dedies a la compatibilite legacy:
+
+- acceptation temporaire de `[[testbed.variant]]`;
+- acceptation temporaire de `[[testbed.variant_from_catalog]]`;
+- rejet des alias retires `[[testbed.variants]]` et
+  `[[testbed.catalog_variant]]`;
+- rejet d'un TOML qui melange `case` et `variant`.
+
 ## Fichiers principaux touches
 
 - `hydromodpy/analysis/testbed/config.py`
@@ -69,6 +87,8 @@ Les rapports testbed lisent prioritairement `case_*` puis retombent sur
 - `hydromodpy/analysis/testbed/catalog_variants.py`
 - `hydromodpy/analysis/testbed/README.md`
 - `tests/unit/launchers/test_testbed_launcher.py`
+- `examples/projects/10_testbed_workflow/**/*.toml`
+- `examples/projects/18_site_selection_to_testbed/**/*.toml`
 - `examples/projects/10_testbed_workflow/reporting/generate_testbed_web_report.py`
 - `examples/projects/10_testbed_workflow/generate_nwt_flux_testbed_web_report.py`
 
@@ -84,7 +104,7 @@ python -m pytest tests\unit\launchers\test_site_selection_bridge_examples.py tes
 
 Resultats:
 
-- `21 passed` pour le launcher testbed generique;
+- `21 passed` pour le launcher testbed generique avant le lot 4;
 - `1 passed` pour le rapport web testbed;
 - `5 passed` pour le bridge site-selection et le testbed de regression PETSc.
 
@@ -120,18 +140,19 @@ consommateurs peuvent continuer a lire `variant_id` / `variant_label`.
 
 ## Dette restante
 
-1. Les exemples TOML publics utilisent encore majoritairement
-   `[[testbed.variant]]` et `[[testbed.variant_from_catalog]]`.
-2. La reference de configuration generee expose encore les champs Pydantic
+1. La reference de configuration generee expose encore les champs Pydantic
    internes `testbed.variants` et `testbed.catalog_variants`.
-3. Les noms internes Python restent centres sur `variant`:
+2. Les noms internes Python restent centres sur `variant`:
    `TestbedVariantConfig`, `TestbedCatalogVariantConfig`,
    `catalog_variants.py`, `expand_catalog_variants`.
-4. Certains scripts et rapports aval conservent des variables locales
+3. Certains scripts et rapports aval conservent des variables locales
    `variant_id` meme lorsqu'ils lisent maintenant `case_id`.
-5. La politique de deprecation n'est pas encore fixee: aucune date ou version
+4. La politique de deprecation n'est pas encore fixee: aucune date ou version
    de retrait n'est associee aux spellings TOML historiques ni aux colonnes
    `variant_*`.
+5. Les documents generes ou historiques hors perimetre peuvent encore citer
+   `variant`; ces occurrences doivent etre traitees par familles, pas par
+   remplacement global.
 
 ## Risques
 
@@ -145,25 +166,26 @@ consommateurs peuvent continuer a lire `variant_id` / `variant_label`.
 
 ## Prochaine etape recommandee
 
-Lot 4 faible risque: migrer les TOML exemples et la documentation proche vers
-`case`, sans renommer encore les classes Python internes.
+Lot 5: traiter la reference de configuration generee.
 
-Perimetre propose:
+Objectif: la documentation publique de configuration doit exposer `testbed.case`
+et `testbed.case_from_catalog`, pas `testbed.variants` /
+`testbed.catalog_variants`.
 
-- `examples/projects/10_testbed_workflow/**/*.toml`;
-- `examples/projects/18_site_selection_to_testbed/**/*.toml`;
-- `hydromodpy/analysis/testbed/README.md` deja amorce;
-- tests qui construisent des TOML inline dans
-  `tests/unit/launchers/test_testbed_launcher.py`, en gardant quelques tests
-  explicites pour les spellings legacy.
+Deux strategies possibles:
 
-Validation attendue:
+1. Renommer les champs Pydantic internes vers `cases` et `catalog_cases`, avec
+   aliases de compatibilite Python si necessaire.
+2. Adapter le generateur de reference pour mapper les noms internes legacy vers
+   le vocabulaire public `case`, sans renommer encore les classes et attributs.
+
+Approche recommandee: commencer par auditer le generateur de reference et les
+tests associes, puis choisir l'option qui minimise le churn public.
+
+Validation attendue apres lot 5:
 
 ```powershell
 python -m pytest tests\unit\launchers\test_testbed_launcher.py
 python -m pytest tests\unit\launchers\test_site_selection_bridge_examples.py tests\unit\launchers\test_boussinesq_petsc_vi_regression_testbed.py
+python -m pytest tests\unit\config tests\unit\schema
 ```
-
-Apres ce lot, le chantier suivant pourra traiter la reference de configuration
-generee, soit par renommage controle des champs Pydantic, soit par adaptation du
-generateur de docs pour exposer `case` sans casser les noms internes.
