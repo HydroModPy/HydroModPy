@@ -63,7 +63,7 @@ class SyntheticGridConfig(HydroModelBase):
         ):
             raise ValueError(
                 "Synthetic geographic v1 requires square cells so one scalar "
-                "resolution can still be exposed to legacy solvers."
+                "resolution can still be exposed to downstream solvers."
             )
         return self
 

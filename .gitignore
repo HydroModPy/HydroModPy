@@ -112,6 +112,7 @@ docs/source/_generated/
 # ──────────────────────────────────────────────
 # HydroModPy workspace outputs
 # ──────────────────────────────────────────────
+_workspace/
 out/
 **/simulations/
 **/exports/

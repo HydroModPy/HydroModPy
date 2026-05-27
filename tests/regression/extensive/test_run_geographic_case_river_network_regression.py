@@ -80,7 +80,7 @@ def _write_tmp_config(tmp_path: Path) -> Path:
 def _collect_case_signature(case_summary: dict[str, object]) -> dict:
     summary = case_summary.get("river_network_summary")
     if not isinstance(summary, dict):
-        summary_path = case_summary.get("river_network_summary_json")
+        summary_path = case_summary.get("hydrographic_network_generated_summary_json")
         raise AssertionError(f"Missing river network summary payload: {summary_path}")
 
     return {

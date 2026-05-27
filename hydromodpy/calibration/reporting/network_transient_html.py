@@ -1219,7 +1219,7 @@ def _save_outflow_map_grid(
                     topo = _topography_context(run, origin)
                     watershed = _safe_geographic(run, "watershed")
                     watershed_contour = _safe_geographic(run, "watershed_contour")
-                    river_network = _safe_geographic(run, "river_network")
+                    river_network = _safe_geographic(run, "hydrographic_network_generated")
             finally:
                 catalog.close()
 
@@ -1371,7 +1371,7 @@ def _save_dem_context_map(truth_dir: Path | None, reference_root: Path, path: Pa
                         source_label = "raster DEM watershed_dem"
                     watershed = _safe_geographic(run, "watershed")
                     watershed_contour = _safe_geographic(run, "watershed_contour")
-                    river_network = _safe_geographic(run, "river_network")
+                    river_network = _safe_geographic(run, "hydrographic_network_generated")
             finally:
                 catalog.close()
 

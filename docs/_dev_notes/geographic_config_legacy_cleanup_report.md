@@ -87,6 +87,15 @@ Resultats:
   tests qui mentionnaient encore la normalisation TOML;
 - `ruff`: aucun probleme.
 
+## Documentation generee locale
+
+`docs/_build` et `docs/build` ne sont pas suivis par Git. Un build Sphinx HTML
+complet a ete tente pour rafraichir les pages locales, mais il n'a pas termine
+dans le timeout local de 15 minutes. Les pages HTML locales concernees et leurs
+`_sources` ont donc ete rafraichies mecaniquement pour retirer les anciens
+libelles qui associaient directement les champs de bassin a `[geographic]`
+dans les artefacts non suivis.
+
 ## Etat
 
 Le chantier `[geographic]` plat est clos cote contrat de configuration: les
@@ -129,10 +138,86 @@ Resultats:
 - `ruff`: aucun probleme;
 - `15 passed` sur les tests geographic cibles.
 
-## Proposition du lot suivant
+## Proposition appliquee
 
 Auditer `hydromodpy/spatial/geographic/README.md`,
 `structure_binders.py`, `synthetic/*` et `core/hydrographic_network.py`: ces
 occurrences `legacy` correspondent encore a des APIs de compatibilite reelles.
 La prochaine etape doit decider ce qui reste contractuel, puis renommer les
 descriptions ou supprimer les alias quand ils ne sont plus consommes.
+
+Audit detaille ouvert dans
+`docs/_dev_notes/geographic_runtime_compatibility_audit.md`.
+
+## Lot suivant applique: vocabulaire geographic et transition hydrographic
+
+- Le vocabulaire de feature historique a ete retire du contrat hydrographique.
+- Une etape transitoire a d'abord renomme l'ancien nom de feature en alias de
+  compatibilite avant sa suppression complete dans le lot suivant.
+- L'ingestion du store ecrit maintenant seulement le nom canonique
+  `hydrographic_network_generated`.
+- Les docstrings/commentaires de `README.md`, `structure_binders.py`,
+  `synthetic/*`, `flow_products.py` et `river_network.py` decrivent le contrat
+  courant sans vocabulaire `legacy`.
+- Le commentaire du cas `run_geographic_config.toml` ne reference plus
+  `examples_legacy`.
+
+Controles executes:
+
+```powershell
+rg -n "legacy|Legacy|examples_legacy" hydromodpy/spatial/geographic tests/unit/geographic -g "*.py" -g "*.toml" -g "*.md"
+rg -n "legacy_feature_name|legacy_feature_name_for_role|HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME|_ROLE_TO_LEGACY" hydromodpy tests examples docs -g "*.py" -g "*.md" -g "*.toml" --glob "!docs/_dev_notes/geographic_config_legacy_cleanup_report.md"
+python -m ruff check hydromodpy/spatial/geographic/core/hydrographic_network.py hydromodpy/spatial/geographic/store_ingestion.py hydromodpy/results/run_hydrographic.py hydromodpy/spatial/geographic/structure_binders.py hydromodpy/spatial/geographic/synthetic/config.py hydromodpy/spatial/geographic/synthetic/synthetic_geographic.py hydromodpy/spatial/geographic/core/flow_products.py hydromodpy/spatial/geographic/core/river_network.py tests/unit/geographic/test_hydrographic_network.py tests/unit/simulation/test_simulation_api.py
+python -m pytest tests/unit/geographic/test_hydrographic_network.py -q
+python -m pytest tests/unit/simulation/test_simulation_api.py -q
+```
+
+Resultats:
+
+- les scans cibles ne retournent plus d'occurrence active;
+- `ruff`: aucun probleme;
+- `6 passed` sur `tests/unit/geographic/test_hydrographic_network.py`;
+- `63 passed` sur `tests/unit/simulation/test_simulation_api.py`.
+
+## Lot suivant applique: suppression du nom de feature `river_network`
+
+- La constante et le helper d'alias hydrographique genere sont retires.
+- `hydrographic_network_naming_contract(...)` n'expose plus de cle d'alias.
+- `persist_geographic_to_store(...)` n'ecrit plus la feature alias
+  `river_network`; seule `hydrographic_network_generated` est persistee pour
+  le reseau genere.
+- Les rapports calibration qui lisaient encore `river_network` via
+  `run.geographic(...)` lisent maintenant la feature canonique.
+- Les runners de reference geographic n'exportent plus les cles payload
+  `river_network_shp` / `river_network_summary_json`; ils exposent les cles
+  canoniques `hydrographic_network_generated_*`.
+- `GeographicPaths` n'expose plus les champs `river_network_shp` et
+  `river_network_summary_json`; le contrat interne utilise directement
+  `hydrographic_network_generated_shp` et
+  `hydrographic_network_generated_summary_json`.
+- Les filenames disque `river_network.shp` et `river_network_summary.json`
+  restent inchanges.
+
+Controles executes:
+
+```powershell
+rg -n "legacy_feature_name|legacy_feature_name_for_role|HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME|_ROLE_TO_LEGACY|alias_feature_name|alias_feature_name_for_role|HYDROGRAPHIC_NETWORK_GENERATED_ALIAS_FEATURE_NAME|_ROLE_TO_ALIAS|_RIVER_NETWORK_STORE_NAME" hydromodpy tests examples docs -g "*.py" -g "*.md" --glob "!docs/_dev_notes/geographic_config_legacy_cleanup_report.md"
+rg -n "_safe_geographic\\([^\\n]*river_network|run\\.geographic\\([^\\n]*river_network|geographic\\([^\\n]*river_network|write_geographic_feature\\([^\\n]*river_network|\"river_network\" in store\\.feature_names|feature_crs\\[\"river_network\"\\]" hydromodpy tests examples -g "*.py"
+python -m ruff check hydromodpy/spatial/geographic/core/hydrographic_network.py hydromodpy/spatial/geographic/store_ingestion.py hydromodpy/results/run_hydrographic.py hydromodpy/calibration/reporting/network_transient_html.py tests/unit/geographic/test_hydrographic_network.py tests/unit/simulation/test_simulation_api.py tests/unit/workflow/test_hydrographic_network_persistence.py
+python -m pytest tests/unit/geographic/test_hydrographic_network.py tests/unit/workflow/test_hydrographic_network_persistence.py tests/unit/simulation/test_simulation_api.py::TestSimulationData::test_hydrographic_network_comparison_accessor_and_capability -q
+python -m pytest tests/unit/geographic/test_reference_river_network_nancon_case.py -q
+```
+
+Resultats:
+
+- les scans cibles ne retournent plus d'occurrence active;
+- `ruff`: aucun probleme;
+- `12 passed` sur les tests hydrographic/store/simulation cibles;
+- `1 passed` sur le runner de reference river-network.
+
+## Proposition du lot suivant
+
+Elargir le nettoyage hors `hydromodpy/spatial/geographic`: commencer par
+`hydromodpy/results`, `hydromodpy/analysis/comparison` et les tests associes,
+ou la plupart des occurrences restantes semblent etre des aliases/resultats de
+compatibilite encore exposes.

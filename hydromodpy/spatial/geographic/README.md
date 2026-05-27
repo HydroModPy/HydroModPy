@@ -9,12 +9,12 @@ and simulation steps:
 - domain support polygons (catchment, box, buffered box),
 - clipped DEM products used by domain gridding,
 - optional DEM-derived river network products,
-- compatibility payload consumed by legacy and modern runtimes,
+- runtime payload consumed by the current facade and modern entrypoints,
 - canonical hydrographic-network objects shared with comparison and display layers.
 
 ## Package Layout
 
-- `geographic.py`: compatibility facade (`Geographic` class) used by existing runtime code.
+- `catchment_delineation.py`: runtime facade (`CatchmentDelineation`) used by existing code.
 - `geographic_config.py`: validated configuration model (`GeographicConfig`, `RiverNetworkConfig`).
 - `dem_metadata.py`: DEM-derived metadata contract used by `Geographic`.
 - `domain_rasters.py`: historical raster bundle builder kept near the canonical pipeline.
@@ -67,7 +67,7 @@ For `standard`, `catch_def` selects the domain definition:
 8. Optionally build the generated hydrographic network (`geographic.river_network`).
 
 The `domain_geographic_pipeline` module orchestrates this sequence for modern
-domain entrypoints. The `Geographic` class preserves historical behavior using
+domain entrypoints. The `CatchmentDelineation` class preserves the runtime contract using
 compatibility payloads that now live directly in this package, with old import
 paths served only through centralized aliases.
 
@@ -87,8 +87,8 @@ Outputs can include:
 - optional pruned streams raster,
 - optional Strahler order raster,
 - optional stream-link raster,
-- vector generated network (`river_network.shp`, legacy filename),
-- summary JSON (`river_network_summary.json`, legacy filename).
+- vector generated network (`river_network.shp`, established filename),
+- summary JSON (`river_network_summary.json`, established filename).
 
 Canonical concept:
 
@@ -103,9 +103,8 @@ Canonical persisted names:
 - `hydrographic_network_generated` for the generated network,
 - `hydrographic_network_reference` for the loaded reference network.
 
-Legacy aliases still kept for compatibility:
+Established filenames still kept for existing outputs:
 
-- `river_network` as the generated feature alias,
 - `streams.shp` / `streams.tif` for the loaded reference files,
 - `river_network.shp` / `river_network_summary.json` for generated on-disk products.
 
@@ -153,7 +152,7 @@ python hydromodpy/spatial/geographic/cases/review_cases.py
 
 ## Design Notes
 
-- The package keeps backward compatibility via `Geographic` facade while
+- The package keeps backward compatibility via `CatchmentDelineation` while
   progressively moving logic into `core/`.
 - Core modules are intentionally small and explicit to simplify testing and
   maintenance.

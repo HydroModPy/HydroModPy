@@ -41,10 +41,10 @@ def build_catchment_zone_field_from_geographic(
     *,
     geographic: object | None,
 ) -> tuple[CatchmentZonesField | None, str | None, str | None]:
-    """Build one catchment-zone field from legacy or V2 geographic payloads.
+    """Build one catchment-zone field from geographic runtime payloads.
 
     Supported inputs include:
-    - legacy ``CatchmentDelineation`` objects exposing ``watershed_shp`` / ``box_buff``,
+    - ``CatchmentDelineation`` objects exposing ``watershed_shp`` / ``box_buff``,
     - ``DomainGeographicContext`` exposing ``watershed_shp`` / ``box_buff_shp``.
 
     Returns

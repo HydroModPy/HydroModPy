@@ -74,7 +74,7 @@ def _resolve_lon_lat_metadata(
     ymax: float,
     centroid: list[float],
 ) -> dict[str, object]:
-    """Project synthetic bounds/centroid to WGS84 for legacy data-managers."""
+    """Project synthetic bounds/centroid to WGS84 for data managers."""
     transformer = Transformer.from_crs(crs_project, "EPSG:4326", always_xy=True)
 
     centroid_lon, centroid_lat = transformer.transform(centroid[0], centroid[1])
@@ -102,7 +102,7 @@ class SyntheticGeographic:
     """Synthetic replacement for the historical geographic runtime object.
 
     The object intentionally exposes the subset of attributes still read by
-    launchers, domain binders, and legacy flow solvers.
+    launchers, domain binders, and flow solvers.
     """
 
     def __init__(
@@ -218,7 +218,7 @@ class SyntheticGeographic:
         self.river_mesh_trace = None
 
     def _hydrate_workspace_paths(self) -> None:
-        """Expose legacy workspace-derived paths expected by post-processors."""
+        """Expose workspace-derived paths expected by post-processors."""
         catch_folder = Path(getattr(self.workspace, "project_root", self.output_dir.parent))
 
         self.out_dir_path = str(catch_folder)

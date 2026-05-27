@@ -21,6 +21,7 @@ from hydromodpy.spatial.site_selection.reports.figures import (
     _choose_display_bounds,
     _prefer_dem_extent_from_manifest,
 )
+from tests.unit.site_selection._geojson import write_polygon_geojson
 
 
 @pytest.mark.fast
@@ -29,7 +30,7 @@ def test_synthetic_spatial_review_contains_basins_observations_map_and_html(tmp_
 
     selected_basin = tmp_path / "selected_basin.geojson"
     rejected_basin = tmp_path / "rejected_basin.geojson"
-    _write_polygon_geojson(
+    write_polygon_geojson(
         selected_basin,
         coordinates=[
             [0.0, 0.0],
@@ -39,7 +40,7 @@ def test_synthetic_spatial_review_contains_basins_observations_map_and_html(tmp_
             [0.0, 0.0],
         ],
     )
-    _write_polygon_geojson(
+    write_polygon_geojson(
         rejected_basin,
         coordinates=[
             [8.0, 0.0],
@@ -171,28 +172,6 @@ def test_manifest_prefers_dem_extent_for_territory_background():
     }
 
     assert _prefer_dem_extent_from_manifest(manifest) is True
-
-
-def _write_polygon_geojson(path, *, coordinates: list[list[float]]) -> None:
-    path.write_text(
-        json.dumps(
-            {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "Polygon",
-                            "coordinates": [coordinates],
-                        },
-                        "properties": {},
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-
 
 def _evidence(
     site_id: str,

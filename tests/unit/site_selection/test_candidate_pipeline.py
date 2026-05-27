@@ -1,49 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
-from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.spatial.site_selection.candidates.pipeline import (
     build_station_candidate_outlets,
     site_selection_search_geometry,
 )
 from hydromodpy.spatial.site_selection.config import SiteSelectionConfig
-
-
-def _record(
-    station_id: str,
-    *,
-    x: float,
-    y: float,
-    n_values: int,
-) -> PointRecord:
-    return PointRecord(
-        station_id=station_id,
-        variable="discharge",
-        source="hubeau",
-        unit="m3/s",
-        frequency="D",
-        data=pd.DataFrame(
-            {
-                "datetime": [f"2020-01-{day:02d}" for day in range(1, n_values + 1)],
-                "value": [float(day) for day in range(n_values)],
-            }
-        ),
-        date_start=datetime(2020, 1, 1),
-        date_end=datetime(2020, 1, max(n_values, 1)),
-        location=StationLocation(
-            id=station_id,
-            x=x,
-            y=y,
-            crs="EPSG:2154",
-            metadata={"station_name": f"Station {station_id}"},
-        ),
-    )
+from tests.unit.site_selection._records import make_point_record
 
 
 def _config(tmp_path: Path, *, min_distance_km: float | None = None) -> SiteSelectionConfig:
@@ -78,9 +44,9 @@ def _config(tmp_path: Path, *, min_distance_km: float | None = None) -> SiteSele
 def test_build_station_candidate_outlets_applies_configured_thinning(tmp_path):
     candidates = build_station_candidate_outlets(
         [
-            _record("A", x=0.0, y=0.0, n_values=5),
-            _record("B", x=500.0, y=0.0, n_values=2),
-            _record("C", x=2500.0, y=0.0, n_values=1),
+            make_point_record("A", x=0.0, y=0.0, n_values=5),
+            make_point_record("B", x=500.0, y=0.0, n_values=2),
+            make_point_record("C", x=2500.0, y=0.0, n_values=1),
         ],
         config=_config(tmp_path, min_distance_km=1.0),
         target_crs="EPSG:2154",

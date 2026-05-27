@@ -58,11 +58,26 @@ _V_SIMULATION_SUMMARY_DDL = """
 CREATE OR REPLACE VIEW v_simulation_summary AS
 SELECT
     s.sim_id,
+    s.name,
     s.project,
     st.code AS status,
     sv.code AS solver,
+    sv.category AS solver_category,
     fr.code AS flow_regime,
+    mt.code AS mesh_topology,
+    s.study_area_name,
+    s.scientific_objective,
+    s.description,
+    s.contact_email,
+    s.principal_id,
+    s.bbox_xmin,
+    s.bbox_ymin,
+    s.bbox_xmax,
+    s.bbox_ymax,
+    s.period_start,
+    s.period_end,
     s.created_at,
+    s.updated_at,
     s.duration_s,
     MAX(CASE WHEN m.metric_name = 'nse'
              AND m.station_id = '__outlet__'
@@ -80,8 +95,31 @@ FROM simulations s
 JOIN solvers sv ON s.solver_id = sv.id
 JOIN statuses st ON s.status_id = st.id
 LEFT JOIN flow_regimes fr ON s.flow_regime_id = fr.id
+LEFT JOIN mesh_topologies mt ON s.mesh_topology_id = mt.id
 LEFT JOIN metrics m ON s.sim_id = m.sim_id
-GROUP BY s.sim_id, s.project, st.code, sv.code, fr.code, s.created_at, s.duration_s
+GROUP BY
+    s.sim_id,
+    s.name,
+    s.project,
+    st.code,
+    sv.code,
+    sv.category,
+    fr.code,
+    mt.code,
+    s.study_area_name,
+    s.scientific_objective,
+    s.description,
+    s.contact_email,
+    s.principal_id,
+    s.bbox_xmin,
+    s.bbox_ymin,
+    s.bbox_xmax,
+    s.bbox_ymax,
+    s.period_start,
+    s.period_end,
+    s.created_at,
+    s.updated_at,
+    s.duration_s
 """
 
 _V_BEST_PER_PROJECT_DDL = """

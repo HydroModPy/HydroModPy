@@ -189,14 +189,10 @@ class CatchmentDelineation:
         river_products = getattr(self, "_river_network_products", None)
         if not isinstance(river_products, RiverNetworkProducts):
             generated_network_shp = (
-                str(getattr(self, "hydrographic_network_generated_shp", ""))
-                or str(getattr(self, "river_network_shp", ""))
-                or None
+                str(getattr(self, "hydrographic_network_generated_shp", "")) or None
             )
             generated_summary_json = (
-                str(getattr(self, "hydrographic_network_generated_summary_json", ""))
-                or str(getattr(self, "river_network_summary_json", ""))
-                or None
+                str(getattr(self, "hydrographic_network_generated_summary_json", "")) or None
             )
             river_products = RiverNetworkProducts(
                 enabled=bool(getattr(self, "river_mesh_trace", None) is not None),

@@ -161,6 +161,24 @@ def test_from_dict_keeps_api_workspace_default(tmp_path: Path) -> None:
     assert cfg.workspace.project_root == tmp_path.resolve()
 
 
+def test_workspace_rejects_filename_safe_windows_path_tokens() -> None:
+    drive_token = chr(0xF03A)
+    separator_token = chr(0xF05C)
+    encoded_path = (
+        f"C{drive_token}{separator_token}codes{separator_token}"
+        f"HydroModPy{separator_token}outputs"
+    )
+
+    with pytest.raises(ValueError, match="encoded as a safe filename"):
+        HydroModPyConfig.from_dict(
+            {
+                "workflow": {"mode": "simulation"},
+                "workspace": {"project_root": encoded_path},
+                "geographic": {"source_mode": "synthetic"},
+            }
+        )
+
+
 def test_launcher_simulation_example_config_inheritance_keeps_only_relevant_data_types() -> None:
     example_config = (
         Path(__file__).resolve().parents[3]

@@ -9,6 +9,19 @@ les sections historiques ont ete remplaces par le sous-package
 `blocks.py`, `figures.py`). Le contenu de fond du chantier
 HTML reste valable, mais les chemins plats ne sont plus les chemins courants.
 
+Note 2026-05-27: la documentation de reference ne doit plus etre ce fichier
+d'audit. Les pages RTD a maintenir sont:
+
+- `docs/source/user_guide/catchment-report.rst` pour l'usage du rapport bassin;
+- `docs/source/user_guide/workflows/site_selection.rst` pour les sorties HTML
+  site-selection;
+- `docs/source/architecture/how-to/add-a-block-html-report.rst` pour la recette
+  developer;
+- `docs/source/architecture/packages/display.rst` pour l'ownership du socle
+  `hydromodpy.display.report_blocks`;
+- `docs/source/architecture/packages/reporting.rst` pour la frontiere avec les
+  composites HTML de plus haut niveau.
+
 Ce document reprend le chantier de production de rapports HTML par blocs. Il
 vise a clarifier ce qui existe deja, ce qui reste disperse dans des templates
 HTML specifiques, et comment reprendre la migration sans perdre le fil.
@@ -38,8 +51,8 @@ Le chantier n'est pas totalement ferme:
 - le rapport testbed volumineux reste hors migration;
 - `network_transient/sections.py` reste present pour compatibilite de tests et
   de helpers, meme si le rendu final passe par les blocs;
-- il faut encore faire une revue visuelle humaine et stabiliser une courte
-  documentation "comment creer un rapport HTML par blocs".
+- il faut encore faire une revue visuelle humaine et maintenir la courte
+  documentation "comment creer un rapport HTML par blocs" dans RTD.
 
 ## Validation plug-and-play au 2026-05-24
 

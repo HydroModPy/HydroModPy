@@ -59,7 +59,7 @@ class RunHydrographicMixin:
             ) from exc
 
     def hydrographic_network_naming(self, role: str = "generated") -> dict[str, str | None]:
-        """Return canonical and legacy naming hints for one hydrographic-network role."""
+        """Return canonical naming hints for one hydrographic-network role."""
         from hydromodpy.spatial.geographic.core.hydrographic_network import (
             hydrographic_network_naming_contract,
         )

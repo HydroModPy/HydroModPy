@@ -129,12 +129,16 @@ Ce lot retire la compatibilite restante dans le contrat executable
   plus ce profil depuis le mode d'entree.
 
 Les contrats et rapports courants ont ete alignes. Le plan long
-`site_selection_tool_implementation_plan.md` reste un document historique et
-peut encore citer les anciennes options, mais elles ne sont plus supportees par
-les modeles Pydantic.
+`legacy/site_selection_tool_implementation_plan.md` est archive comme document
+historique et peut encore citer les anciennes options, mais elles ne sont plus
+supportees par les modeles Pydantic.
 
 L'audit des duplications potentielles est documente dans
 `docs/_dev_notes/site_selection_duplication_audit.md`.
+
+Decision de perimetre 2026-05-27: `generated_candidates` est conserve comme
+capacite experimentale testee. Il ne fait pas partie du contrat metier court
+terme stabilise, mais il n'est pas supprime comme legacy morte.
 
 Validation associee:
 
@@ -145,5 +149,17 @@ python -m ruff check hydromodpy/spatial/site_selection hydromodpy/workflow/site_
 
 Resultats:
 
-- `146 passed` pour les tests unitaires `site_selection`;
+- `151 passed` pour les tests unitaires `site_selection`;
 - `ruff`: aucun probleme.
+
+Validation exemples executee depuis le checkout local:
+
+```powershell
+python -m hydromodpy run examples/projects/17_site_selection_workflow/configs/calvados_dem_area_light_100km2_fast.toml
+python -m hydromodpy run examples/projects/17_site_selection_workflow/configs/bretagne_hydrometry_50_500_small_bdtopage.toml
+```
+
+Resultats:
+
+- Calvados DEM-light: 26 candidats, 10 selectionnes, 16 rejetes;
+- Bretagne hydrometrie BD Topage: 6 candidats, 6 selectionnes, 0 rejete.

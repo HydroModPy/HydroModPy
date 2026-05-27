@@ -14,7 +14,6 @@ from typing import Any
 from hydromodpy.core.logging import get_logger
 from hydromodpy.spatial.geographic.core.hydrographic_network import (
     HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME,
-    HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME,
 )
 from hydromodpy.spatial.geographic.geographic_io import (
     backend_has_callables,
@@ -38,10 +37,6 @@ _SHAPEFILE_ATTRS = [
 ]
 
 _GENERATED_HYDROGRAPHIC_NETWORK_ATTR = "hydrographic_network_generated_shp"
-_GENERATED_HYDROGRAPHIC_NETWORK_LEGACY_ATTR = "river_network_shp"
-_RIVER_NETWORK_STORE_NAME = HYDROGRAPHIC_NETWORK_GENERATED_LEGACY_FEATURE_NAME
-
-
 def persist_geographic_to_store(
     geographic: Any,
     store: Any,
@@ -155,8 +150,6 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
     generated_network_crs = None
     path = getattr(geographic, _GENERATED_HYDROGRAPHIC_NETWORK_ATTR, None)
     if path is None:
-        path = getattr(geographic, _GENERATED_HYDROGRAPHIC_NETWORK_LEGACY_ATTR, None)
-    if path is None:
         products = getattr(geographic, "_river_network_products", None)
         if products is not None:
             path = getattr(products, "hydrographic_network_generated_shp", None)
@@ -199,7 +192,6 @@ def _ingest_river_network(geographic: Any, store: Any, sim_id: str) -> None:
         if fallback_crs not in (None, ""):
             gdf = gdf.set_crs(str(fallback_crs), allow_override=True)
 
-    store.write_geographic_feature(sim_id, _RIVER_NETWORK_STORE_NAME, gdf)
     store.write_geographic_feature(sim_id, HYDROGRAPHIC_NETWORK_GENERATED_FEATURE_NAME, gdf)
     logger.debug(
         "Ingested river network (%d segments, %s)",

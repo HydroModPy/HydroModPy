@@ -18,7 +18,7 @@ Documents associes:
 - prochaine etape proposee:
   `docs/_dev_notes/site_selection_next_step_candidate_selection.md`;
 - plan long historique:
-  `docs/_dev_notes/site_selection_tool_implementation_plan.md`.
+  `docs/_dev_notes/legacy/site_selection_tool_implementation_plan.md`.
 
 ## Role du workflow
 

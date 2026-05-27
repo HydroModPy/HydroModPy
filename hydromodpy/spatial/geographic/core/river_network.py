@@ -39,12 +39,12 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class RiverNetworkProducts:
-    """Legacy-compatible technical bundle for one DEM-derived network build.
+    """Technical bundle for one DEM-derived network build.
 
     The canonical conceptual object is now :class:`HydrographicNetwork`, but
     this bundle remains the low-level output contract produced directly by the
-    ``geographic.river_network`` preprocessing step and consumed by legacy
-    runtime layers.
+    ``geographic.river_network`` preprocessing step and consumed by runtime
+    layers.
     """
 
     enabled: bool

@@ -1,37 +1,23 @@
 from __future__ import annotations
 
-from datetime import datetime
-
-import pandas as pd
 import pytest
 
-from hydromodpy.data.contracts.location import StationLocation
-from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.spatial.site_selection.candidates.outlets import (
     CandidateOutlet,
     candidate_outlets_from_point_records,
     thin_candidate_outlets,
 )
+from tests.unit.site_selection._records import make_point_record
 
 
 @pytest.mark.fast
 def test_candidate_outlets_from_point_records_use_station_metadata():
-    record = PointRecord(
-        station_id="J123456701",
-        variable="discharge",
-        source="hubeau",
-        unit="m3/s",
-        frequency="D",
-        data=pd.DataFrame({"datetime": ["2020-01-01", "2020-01-02"], "value": [1.0, 2.0]}),
-        date_start=datetime(2020, 1, 1),
-        date_end=datetime(2020, 1, 2),
-        location=StationLocation(
-            id="J123456701",
-            x=352000.0,
-            y=6812000.0,
-            crs="EPSG:2154",
-            metadata={"station_name": "La Riviere a Exemple"},
-        ),
+    record = make_point_record(
+        "J123456701",
+        x=352000.0,
+        y=6812000.0,
+        metadata={"station_name": "La Riviere a Exemple"},
+        n_values=2,
     )
 
     candidates = candidate_outlets_from_point_records([record], candidate_prefix="station")
@@ -47,27 +33,17 @@ def test_candidate_outlets_from_point_records_use_station_metadata():
 
 @pytest.mark.fast
 def test_candidate_outlets_from_hubeau_records_use_lambert93_metadata_when_requested():
-    record = PointRecord(
-        station_id="J123456701",
-        variable="discharge",
-        source="hubeau",
-        unit="m3/s",
-        frequency="D",
-        data=pd.DataFrame({"datetime": ["2020-01-01"], "value": [1.0]}),
-        date_start=datetime(2020, 1, 1),
-        date_end=datetime(2020, 1, 1),
-        location=StationLocation(
-            id="J123456701",
-            x=-1.65,
-            y=48.12,
-            crs="EPSG:4326",
-            metadata={
-                "station_name": "Station HubEau",
-                "x_l93": "352000.5",
-                "y_l93": "6812000.25",
-                "influence_generale_site": "0",
-            },
-        ),
+    record = make_point_record(
+        "J123456701",
+        x=-1.65,
+        y=48.12,
+        crs="EPSG:4326",
+        metadata={
+            "station_name": "Station HubEau",
+            "x_l93": "352000.5",
+            "y_l93": "6812000.25",
+            "influence_generale_site": "0",
+        },
     )
 
     candidates = candidate_outlets_from_point_records(

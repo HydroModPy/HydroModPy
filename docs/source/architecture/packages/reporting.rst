@@ -5,6 +5,10 @@ reporting
 figures from ``display/`` and analysis features from ``analysis/``
 into standalone HTML deliverables: the calibration session report,
 the simulation comparison web report, and the streamlit configurator.
+Not every HTML report lives in this package: workflow-owned reports
+such as site-selection and catchment review pages may live beside their
+workflow code, but should reuse ``hydromodpy.display.report_blocks``
+when they are block-based static pages.
 
 Reporting is a one-way sink: ``display`` and ``analysis`` must not
 import from ``reporting``.
@@ -40,6 +44,17 @@ Key public symbols
 - ``hydromodpy.reporting.comparison.render`` (web report orchestrator)
 - ``hydromodpy.reporting.comparison.compact_network.builder.build_compact_network_synthesis``
 
+Block-based reports
+-------------------
+
+Use ``hydromodpy.display.report_blocks`` for static HTML pages whose
+content can be represented as blocks with metrics, figures, tables,
+links and warnings. Keep the report producer in the package that owns
+the manifest or workflow contract, then delegate HTML rendering to the
+shared display renderer. This keeps ``reporting`` focused on the
+cross-run composites it owns directly and avoids moving workflow logic
+into a generic HTML package.
+
 Recommended reading path
 ------------------------
 
@@ -66,6 +81,8 @@ See also
 --------
 
 - :doc:`display` for the figure catalog reused by every HTML report.
+- :doc:`/architecture/how-to/add-a-block-html-report` for the shared
+  block-report recipe.
 - :doc:`analysis` for the comparison features fed into the web
   report.
 - :doc:`/architecture/calibration/calibration-guide` -- the

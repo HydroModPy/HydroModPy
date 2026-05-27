@@ -254,20 +254,6 @@ def test_build_domain_geographic_context_retries_with_fill_after_empty_breach_wa
                 / "geographic"
                 / "river_stream_link_id.tif"
             ),
-            river_network_shp=str(
-                tmp_path
-                / "results"
-                / ".solver_scratch/_preprocessing"
-                / "geographic"
-                / "river_network.shp"
-            ),
-            river_network_summary_json=str(
-                tmp_path
-                / "results"
-                / ".solver_scratch/_preprocessing"
-                / "geographic"
-                / "river_network_summary.json"
-            ),
             hydrographic_network_generated_shp=str(
                 tmp_path
                 / "results"

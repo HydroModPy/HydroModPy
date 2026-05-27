@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
-from hydromodpy.data.contracts.location import StationLocation
 from hydromodpy.data.contracts.spatial_field import FieldRecord
-from hydromodpy.data.contracts.timeseries import PointRecord
 from hydromodpy.data.variables.hydrometry.config import HydrometryConfig, HydrometrySourceConfig
 from hydromodpy.spatial.geographic.core.catchment_from_point import CatchmentFromPointProducts
 from hydromodpy.spatial.geographic.core.flow_products import FlowProducts
@@ -20,49 +16,24 @@ from hydromodpy.workflow.site_selection import (
     build_observed_site_selection_from_toml,
     build_site_selection_from_hydrometry_config,
 )
+from tests.unit.site_selection._records import make_point_record
 
 
-def _record(station_id: str, *, x: float = 350000.0, y: float = 6810000.0) -> PointRecord:
-    return PointRecord(
-        station_id=station_id,
-        variable="discharge",
-        source="hubeau",
-        unit="m3/s",
-        frequency="D",
-        data=pd.DataFrame({"datetime": ["2020-01-01", "2020-01-02"], "value": [1.0, 2.0]}),
-        date_start=datetime(2020, 1, 1),
-        date_end=datetime(2020, 1, 2),
-        location=StationLocation(
-            id=station_id,
-            x=x,
-            y=y,
-            crs="EPSG:2154",
-            metadata={"station_name": f"Station {station_id}"},
-        ),
-    )
+def _record(station_id: str, *, x: float = 350000.0, y: float = 6810000.0):
+    return make_point_record(station_id, x=x, y=y, n_values=2)
 
 
-def _wgs84_hubeau_record(station_id: str) -> PointRecord:
-    return PointRecord(
-        station_id=station_id,
-        variable="discharge",
-        source="hubeau",
-        unit="m3/s",
-        frequency="D",
-        data=pd.DataFrame({"datetime": ["2020-01-01", "2020-01-02"], "value": [1.0, 2.0]}),
-        date_start=datetime(2020, 1, 1),
-        date_end=datetime(2020, 1, 2),
-        location=StationLocation(
-            id=station_id,
-            x=-1.65,
-            y=48.12,
-            crs="EPSG:4326",
-            metadata={
-                "station_name": f"Station {station_id}",
-                "x_l93": "352000.0",
-                "y_l93": "6812000.0",
-            },
-        ),
+def _wgs84_hubeau_record(station_id: str):
+    return make_point_record(
+        station_id,
+        x=-1.65,
+        y=48.12,
+        crs="EPSG:4326",
+        n_values=2,
+        metadata={
+            "x_l93": "352000.0",
+            "y_l93": "6812000.0",
+        },
     )
 
 
