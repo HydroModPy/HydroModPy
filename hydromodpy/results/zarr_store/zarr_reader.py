@@ -22,6 +22,17 @@ if TYPE_CHECKING:
     from hydromodpy.results.zarr_store.simulation_zarr import SimulationZarr
 
 
+def _optional_dask_array():
+    """Return ``dask.array`` when installed, otherwise ``None``."""
+    try:
+        import dask.array as da
+    except ModuleNotFoundError as exc:
+        if exc.name != "dask":
+            raise
+        return None
+    return da
+
+
 def get_geographic_fingerprint(store_obj: SimulationZarr) -> str | None:
     """Return the persisted geographic fingerprint, if any."""
     value = store_obj._root.attrs.get("geographic_fingerprint")
@@ -127,9 +138,9 @@ def root_attrs_json(store_obj: SimulationZarr) -> str:
 
 def to_xarray(store_obj: SimulationZarr):
     """Return an ``xarray.Dataset`` view over the simulation fields."""
-    import dask.array as da
     import xarray as xr
 
+    da = _optional_dask_array()
     data_vars: dict[str, xr.Variable] = {}
     coords: dict[str, xr.Variable] = {}
 
@@ -157,10 +168,14 @@ def to_xarray(store_obj: SimulationZarr):
         dims = _shape_dims(desc.shape)
         if len(dims) != arr.ndim:
             dims = tuple(f"dim_{i}" for i in range(arr.ndim))
-        chunks = arr.chunks if arr.chunks else "auto"
+        values = (
+            np.asarray(arr)
+            if da is None
+            else da.from_array(arr, chunks=arr.chunks if arr.chunks else "auto")
+        )
         data_vars[name] = xr.Variable(
             dims,
-            da.from_array(arr, chunks=chunks),
+            values,
             attrs=dict(arr.attrs),
         )
 

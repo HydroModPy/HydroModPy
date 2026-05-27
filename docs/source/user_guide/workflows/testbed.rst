@@ -4,7 +4,7 @@ Testbed Workflow
 Use this workflow when the goal is not to run one model, but to organize a
 controlled method testbed.
 
-A testbed expands variants, delegates each variant to a child runner, then
+A testbed expands cases, delegates each case to a child runner, then
 collects evidence artifacts such as generated configs, metrics, manifests, and
 reports.
 
@@ -12,7 +12,7 @@ reports.
    :alt: Testbed orchestration model
    :align: center
 
-   ``testbed`` owns the variant matrix and evidence contract. Mesh, flow, and
+   ``testbed`` owns the case matrix and evidence contract. Mesh, flow, and
    future transport runners keep ownership of their own domain execution.
 
 The first supported subjects are:
@@ -26,7 +26,7 @@ The first supported subjects are:
 This keeps the testbed detached from simulation internals. A mesh testbed can
 evaluate discretization choices without running a flow solver. A flow testbed
 delegates to ordinary generated ``[workflow].mode = "simulation"`` children,
-but the testbed itself only expands variants and gathers evidence. A flow
+but the testbed itself only expands cases and gathers evidence. A flow
 testbed can also delegate to ordinary generated
 ``[workflow].mode = "comparison"`` children when a regional or method campaign
 contains several pairwise comparison configs.
@@ -40,7 +40,7 @@ Profiles
 
 ``[testbed].profile`` selects a specialization of the testbed campaign model.
 When omitted, the profile is ``"generic"`` and the file is parsed as the
-variant matrix documented on this page.
+case matrix documented on this page.
 
 .. code-block:: toml
 
@@ -86,24 +86,24 @@ Declare a testbed with:
    [testbed.runner]
    type = "simulation"
 
-   [[testbed.variant]]
+   [[testbed.case]]
    id = "coarse"
    axis = "resolution"
 
-   [testbed.variant.overlay.mesh_catchment.zone_meshing]
+   [testbed.case.overlay.mesh_catchment.zone_meshing]
    global_size = 400.0
 
-   [[testbed.variant]]
+   [[testbed.case]]
    id = "fine"
    axis = "resolution"
 
-   [testbed.variant.overlay.mesh_catchment.zone_meshing]
+   [testbed.case.overlay.mesh_catchment.zone_meshing]
    global_size = 100.0
 
    [[testbed.metric]]
    name = "n_cells"
 
-The launcher writes one child TOML per variant under:
+The launcher writes one child TOML per case under:
 
 .. code-block:: text
 
@@ -124,17 +124,26 @@ declare processes, the testbed materializer injects:
 Use ``runner.type = "simulation"`` and keep mesh settings in the
 ``[mesh_catchment]`` section consumed by the mesh process.
 
-Catalog-Backed Variants
------------------------
+Compatibility Note
+~~~~~~~~~~~~~~~~~~
 
-Variants can also be generated from a CSV or JSONL catalog. This is the common
+``case`` is the canonical testbed vocabulary. The historical TOML spellings
+``[[testbed.variant]]`` and ``[[testbed.variant_from_catalog]]`` are still
+accepted for compatibility, but they emit ``DeprecationWarning`` and will be
+removed in a future compatibility-breaking release. New configs should use
+``[[testbed.case]]`` and ``[[testbed.case_from_catalog]]``.
+
+Catalog-Backed Cases
+--------------------
+
+Cases can also be generated from a CSV or JSONL catalog. This is the common
 campaign model that the ``regional_lab`` profile specializes for regional site
 inventories.
 
 .. code-block:: toml
 
    [testbed.catalog]
-   path = "variant_catalog.jsonl"
+   path = "case_catalog.jsonl"
    format = "jsonl"
    id_field = "case_id"
    label_field = "title"
@@ -144,22 +153,22 @@ inventories.
    field_equals = { tier = "smoke" }
    tags = ["mesh_ready"]
 
-   [[testbed.variant_from_catalog]]
+   [[testbed.case_from_catalog]]
    required_fields = ["workspace_root", "global_size"]
 
-   [testbed.variant_from_catalog.overlay.workspace]
+   [testbed.case_from_catalog.overlay.workspace]
    project_root = "{workspace_root}"
 
-   [testbed.variant_from_catalog.overlay.mesh_catchment.zone_meshing]
+   [testbed.case_from_catalog.overlay.mesh_catchment.zone_meshing]
    global_size = "{global_size}"
 
 The catalog loader supports CSV and JSONL, optional suffix inference with
 ``format = "auto"``, required fields, path fields resolved relative to the
 catalog file, tag filtering, equality filters, and ``enabled`` rows. The
-``variant_from_catalog`` block is an overlay template: placeholders such as
+``case_from_catalog`` block is an overlay template: placeholders such as
 ``{workspace_root}`` and ``{global_size}`` are taken from the selected row.
-Explicit ``[[testbed.variant]]`` blocks and catalog-generated variants can be
-combined as long as variant identifiers remain unique.
+Explicit ``[[testbed.case]]`` blocks and catalog-generated cases can be
+combined as long as case identifiers remain unique.
 
 Catalog-Backed Comparisons
 --------------------------
@@ -184,14 +193,14 @@ script:
    tags_field = "tags"
    tags = ["natural_10km2", "comparison"]
 
-   [[testbed.variant_from_catalog]]
+   [[testbed.case_from_catalog]]
    id_template = "{site_id}"
 
-   [testbed.variant_from_catalog.overlay.comparison]
+   [testbed.case_from_catalog.overlay.comparison]
    comparison_id = "{site_id}_natural_10km2_mf6_bouss"
    output_root = "outputs/comparisons/{site_id}_natural_10km2_mf6_bouss"
 
-   [testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+   [testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
    x_outlet = "{x_outlet}"
    y_outlet = "{y_outlet}"
 
@@ -216,7 +225,7 @@ Flow Example
 ------------
 
 A flow testbed uses the same orchestration contract, but delegates each child
-variant to the simulation workflow:
+case to the simulation workflow:
 
 .. code-block:: toml
 
@@ -233,24 +242,24 @@ variant to the simulation workflow:
    [testbed.runner]
    type = "simulation"
 
-   [[testbed.variant]]
+   [[testbed.case]]
    id = "low_k"
    axis = "hydraulic_conductivity"
 
-   [testbed.variant.overlay.simulation]
+   [testbed.case.overlay.simulation]
    name = "flow_low_k"
 
-   [testbed.variant.overlay.flow.param.K.field]
+   [testbed.case.overlay.flow.param.K.field]
    value = "5e-6 m/s"
 
-   [[testbed.variant]]
+   [[testbed.case]]
    id = "high_k"
    axis = "hydraulic_conductivity"
 
-   [testbed.variant.overlay.simulation]
+   [testbed.case.overlay.simulation]
    name = "flow_high_k"
 
-   [testbed.variant.overlay.flow.param.K.field]
+   [testbed.case.overlay.flow.param.K.field]
    value = "2e-5 m/s"
 
    [[testbed.metric]]
@@ -296,7 +305,7 @@ heads are exposed as ``flow_metrics.budget_chd_total_out`` and recharge as
 ``required = true`` so switching from ``execute = false`` to ``execute = true``
 fails loudly if the catalog cannot provide the expected evidence.
 
-The full three-variant matrix was also executed locally with ``execute = true``.
+The full three-case matrix was also executed locally with ``execute = true``.
 All children completed successfully with 547 cells and zero mass-balance
 percent error:
 
@@ -304,7 +313,7 @@ percent error:
    :header-rows: 1
    :widths: 18 18 18 22 24
 
-   * - Variant
+   * - Case
      - ``param_K``
      - ``n_cells``
      - ``head_range_m``
@@ -338,7 +347,7 @@ The repository contains two starter testbeds:
 
 Both use ``execute = false`` so they first materialize generated child configs
 without spending solver time. Change that flag to ``true`` when the matrix has
-the intended variants.
+the intended cases.
 
 Mesh As A Testbed Subject
 -------------------------
@@ -348,7 +357,7 @@ workflow. The user-facing question is usually not "build one mesh", but "how
 stable is the discretization choice?"
 
 For mesh studies, ``testbed`` answers:
-"Run this controlled set of mesh variants and collect evidence."
+"Run this controlled set of mesh cases and collect evidence."
 
 This means:
 
@@ -437,8 +446,8 @@ Output Files
 
 A testbed writes:
 
-- ``testbed_plan.json``: planned variants and generated child configs;
-- ``testbed_cases.csv``: one row per variant with status and artifacts;
+- ``testbed_plan.json``: planned cases and generated child configs;
+- ``testbed_cases.csv``: one row per case with status and artifacts;
 - ``testbed_metrics.csv``: configured metrics, or flattened numeric summary
   values when no metrics are declared;
 - ``testbed_manifest.json``: machine-readable run manifest;
@@ -458,10 +467,10 @@ Use this order when reviewing a testbed run:
 
 1. Open ``_generated_configs/`` to verify what each child actually received
    after base-config loading and overlay merging.
-2. Read ``testbed_cases.csv`` to check which variants were planned, skipped,
+2. Read ``testbed_cases.csv`` to check which cases were planned, skipped,
    completed, or failed.
 3. Read ``testbed_metrics.csv`` to compare the declared indicators across
-   variants.
+   cases.
 4. Read ``testbed_manifest.json`` when another tool needs the full
    machine-readable contract.
 5. Read ``testbed_report.md`` for the compact human summary.
@@ -481,7 +490,7 @@ Set ``execute = false`` to materialize the child configs without running them:
    execute = false
 
 This is useful when checking that overlays really isolate the intended method
-axis before spending runtime on the variants.
+axis before spending runtime on the cases.
 
 Vocabulary
 ----------
@@ -491,10 +500,10 @@ The canonical terms are:
 - ``testbed``: reproducible evidence layer;
 - ``subject``: method domain under test, currently ``mesh``, ``flow``, or
   ``transport``;
-- ``axis``: dimension varied by a variant, such as ``resolution`` or
+- ``axis``: dimension varied by a case, such as ``resolution`` or
   ``constraints``;
-- ``variant``: one concrete child case;
-- ``runner``: child launcher used to execute a variant;
+- ``case``: one concrete child execution;
+- ``runner``: child launcher used to execute a case;
 - ``metric``: value extracted from the child summary.
 
 Current Limits
@@ -518,7 +527,7 @@ Implementation Notes
 The code is intentionally split into two small modules:
 
 - ``hydromodpy.analysis.testbed.config`` validates the TOML contract, supported
-  subject/runner pairs, variants, metrics, and path resolution;
+  subject/runner pairs, cases, metrics, and path resolution;
 - ``hydromodpy.analysis.testbed.runtime`` materializes child TOMLs, delegates
   execution, extracts metrics, and writes evidence files.
 

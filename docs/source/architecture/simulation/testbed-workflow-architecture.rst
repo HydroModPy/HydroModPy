@@ -9,7 +9,7 @@ The key design rule is:
 
 .. code-block:: text
 
-   testbed owns variants and evidence
+   testbed owns cases and evidence
    child runners own domain execution
 
 This keeps method experiments reproducible without turning the testbed package
@@ -19,7 +19,7 @@ into another simulation engine.
    :alt: Testbed orchestration model
    :align: center
 
-   The testbed layer expands variants into generated child configs, delegates
+   The testbed layer expands cases into generated child configs, delegates
    execution, then collects evidence artifacts.
 
 Package Boundary
@@ -35,7 +35,7 @@ The implementation is intentionally narrow:
      - Responsibility
    * - ``hydromodpy.analysis.testbed.config``
      - Validate the ``[testbed]`` contract, supported subject/runner pairs,
-       variants, metrics, and path resolution.
+       cases, metrics, and path resolution.
    * - ``hydromodpy.analysis.testbed.runtime``
      - Load the base TOML, materialize generated child TOMLs, delegate child
        execution, extract metrics, and persist evidence files.
@@ -66,7 +66,7 @@ The current contract accepts only explicit subject/runner pairs:
    * - ``flow``
      - ``simulation``
      - ``[workflow].mode = "simulation"``
-     - Parameter sensitivity, boundary-condition variants, solver-option
+     - Parameter sensitivity, boundary-condition cases, solver-option
        robustness.
    * - ``flow``
      - ``comparison``
@@ -93,7 +93,7 @@ One testbed run follows this sequence:
 2. Load ``testbed.base_config`` when present.
 3. Remove ``[testbed]`` from the child payload.
 4. Resolve path-like values to stable paths.
-5. Merge each variant overlay.
+5. Merge each case overlay.
 6. Write one child TOML under ``<output_root>/_generated_configs/``.
 7. Persist a dry evidence set.
 8. If ``execute = true``, run each child sequentially.
@@ -115,8 +115,8 @@ Evidence Model
 
 The evidence files have stable roles:
 
-- ``testbed_plan.json``: planned variants and generated config paths;
-- ``testbed_cases.csv``: status and artifacts per variant;
+- ``testbed_plan.json``: planned cases and generated config paths;
+- ``testbed_cases.csv``: status and artifacts per case;
 - ``testbed_metrics.csv``: configured metrics, or flattened numeric summaries;
 - ``testbed_manifest.json``: machine-readable whole-run contract;
 - ``testbed_report.md``: compact human summary.
@@ -155,7 +155,7 @@ metrics, figures, and child simulation details.
    :header-rows: 1
    :widths: 18 18 18 22 24
 
-   * - Variant
+   * - Case
      - ``param_K``
      - ``n_cells``
      - ``head_range_m``
@@ -205,5 +205,5 @@ the manifest. With ``continue_on_error = false``, the launcher re-raises after
 persisting the failed case.
 
 This is useful for robustness studies because silent metric loss is worse than
-a failed variant: a matrix is only comparable if each declared evidence column
-has the intended meaning across variants.
+a failed case: a matrix is only comparable if each declared evidence column
+has the intended meaning across cases.

@@ -463,7 +463,7 @@ def test_regional_lab_plan_projects_to_testbed_cases(tmp_path: Path) -> None:
     _, planned_cases, _ = build_regional_lab_plan(cfg, load_site_catalog(cfg.catalog))
     testbed_cases = regional_plan_to_testbed_cases(planned_cases)
 
-    assert [case.variant_id for case in testbed_cases] == [
+    assert [case.case_id for case in testbed_cases] == [
         "sim_reference::headwater_100km2_outlet_2",
         "sim_reference::headwater_100km2_outlet_3",
         "backend_compare::headwater_100km2_outlet_2",
@@ -477,8 +477,6 @@ def test_regional_lab_plan_projects_to_testbed_cases(tmp_path: Path) -> None:
     assert testbed_cases[0].to_mapping() == {
         "case_id": "sim_reference::headwater_100km2_outlet_2",
         "case_label": "sim_reference / headwater_100km2_outlet_2",
-        "variant_id": "sim_reference::headwater_100km2_outlet_2",
-        "variant_label": "sim_reference / headwater_100km2_outlet_2",
         "axis": "sim_reference",
         "enabled": True,
         "status": "planned",

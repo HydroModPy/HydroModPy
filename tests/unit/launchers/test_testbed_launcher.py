@@ -8,7 +8,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from hydromodpy.analysis.testbed.config import TestbedConfig as MethodTestbedConfig
+from hydromodpy.analysis.testbed.config import (
+    TestbedCaseConfig as _TestbedCaseConfig,
+    TestbedCatalogCaseConfig as _TestbedCatalogCaseConfig,
+    TestbedCatalogVariantConfig as _TestbedCatalogVariantConfig,
+    TestbedConfig as MethodTestbedConfig,
+    TestbedVariantConfig as _TestbedVariantConfig,
+)
 from hydromodpy.analysis.testbed.contracts import register_testbed_runner_provider
 from hydromodpy.analysis.testbed.runtime import TestbedLauncher as MethodTestbedLauncher
 from hydromodpy.core.toml_io import load_toml_with_base_config
@@ -119,6 +125,11 @@ def _write_calibration_base(path: Path) -> None:
         + "\n",
         encoding="utf-8",
     )
+
+
+def test_testbed_case_config_names_are_canonical_with_legacy_aliases() -> None:
+    assert _TestbedVariantConfig is _TestbedCaseConfig
+    assert _TestbedCatalogVariantConfig is _TestbedCatalogCaseConfig
 
 
 def test_testbed_config_parses_mesh_cases(tmp_path: Path) -> None:
@@ -252,10 +263,41 @@ def test_testbed_config_accepts_legacy_variant_spelling(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    cfg = MethodTestbedConfig.from_file(config_path)
+    with pytest.warns(
+        DeprecationWarning,
+        match=r"testbed\.variant is deprecated; use testbed\.case",
+    ):
+        cfg = MethodTestbedConfig.from_file(config_path)
 
     assert cfg.variants[0].id == "coarse"
     assert cfg.variants[0].overlay["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
+
+
+def test_testbed_config_accepts_legacy_python_variant_field_names(tmp_path: Path) -> None:
+    with pytest.warns(DeprecationWarning) as warning_records:
+        cfg = MethodTestbedConfig(
+            config_path=tmp_path / "testbed.toml",
+            base_dir=tmp_path,
+            id="direct_config",
+            profile="generic",
+            subject="mesh",
+            purpose="robustness",
+            output_root=tmp_path / "outputs",
+            runner={"type": "simulation"},
+            variants=[{"id": "coarse", "label": "Coarse"}],
+            catalog_variants=[{"id_template": "{case_id}"}],
+        )
+
+    assert cfg.case[0].id == "coarse"
+    assert cfg.case_from_catalog[0].id_template == "{case_id}"
+    assert cfg.variants is cfg.case
+    assert cfg.catalog_variants is cfg.case_from_catalog
+    warning_messages = [str(record.message) for record in warning_records]
+    assert any("TestbedConfig.variants is deprecated" in message for message in warning_messages)
+    assert any(
+        "TestbedConfig.catalog_variants is deprecated" in message
+        for message in warning_messages
+    )
 
 
 def test_testbed_config_rejects_removed_mesh_catchment_runner(tmp_path: Path) -> None:
@@ -306,7 +348,7 @@ def test_generic_testbed_config_rejects_profile_launcher_config(tmp_path: Path) 
         MethodTestbedConfig.from_file(config_path)
 
 
-def test_testbed_config_parses_flow_variants(tmp_path: Path) -> None:
+def test_testbed_config_parses_flow_cases(tmp_path: Path) -> None:
     base_config = tmp_path / "flow_base.toml"
     _write_flow_base(base_config)
     config_path = tmp_path / "flow_testbed.toml"
@@ -553,7 +595,6 @@ def test_testbed_launcher_expands_catalog_cases_without_execution(
     summary = MethodTestbedLauncher(config_path).run()
 
     assert summary["case_count"] == 1
-    assert summary["variant_count"] == 1
     generated = Path(summary["generated_configs_dir"]) / "catalog_coarse.toml"
     child_payload = load_toml_with_base_config(generated)
     assert child_payload["workflow"] == "simulation"
@@ -574,8 +615,8 @@ def test_testbed_launcher_expands_catalog_cases_without_execution(
     assert child_payload["mesh_catchment"]["zone_meshing"]["global_size"] == 400.0
     with Path(summary["cases_csv"]).open("r", encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
-    assert rows[0]["variant_id"] == "catalog_coarse"
-    assert rows[0]["variant_label"] == "Catalog coarse"
+    assert "variant_id" not in rows[0]
+    assert "variant_label" not in rows[0]
     assert rows[0]["case_label"] == "Catalog coarse"
     assert rows[0]["axis"] == "resolution"
 
@@ -668,8 +709,15 @@ def test_testbed_config_accepts_legacy_variant_from_catalog_spelling(tmp_path: P
         encoding="utf-8",
     )
 
-    cfg = MethodTestbedConfig.from_file(config_path)
-    summary = MethodTestbedLauncher(config_path).run()
+    with pytest.warns(
+        DeprecationWarning,
+        match=(
+            r"testbed\.variant_from_catalog is deprecated; "
+            r"use testbed\.case_from_catalog"
+        ),
+    ):
+        cfg = MethodTestbedConfig.from_file(config_path)
+        summary = MethodTestbedLauncher(config_path).run()
 
     assert cfg.catalog_variants
     assert summary["case_count"] == 1
@@ -760,7 +808,7 @@ def test_testbed_catalog_can_resolve_site_selection_manifest(tmp_path: Path) -> 
 
     summary = MethodTestbedLauncher(config_path).run()
 
-    assert summary["variant_count"] == 1
+    assert summary["case_count"] == 1
     generated = Path(summary["generated_configs_dir"]) / "site_01.toml"
     child_payload = load_toml_with_base_config(generated)
     assert child_payload["workspace"]["project_root"].endswith("workspaces/site_01")
@@ -862,7 +910,7 @@ def test_testbed_launcher_materializes_comparison_child_configs_without_executin
     assert summary["executed_count"] == 0
 
 
-def test_testbed_launcher_runs_comparison_variants_and_collects_metrics(
+def test_testbed_launcher_runs_comparison_cases_and_collects_metrics(
     tmp_path: Path,
 ) -> None:
     base_config = tmp_path / "comparison_base.toml"
@@ -922,16 +970,16 @@ def test_testbed_launcher_runs_comparison_variants_and_collects_metrics(
     assert summary["successful_count"] == 1
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
     assert (
-        "case_id,case_label,variant_id,variant_label,axis,status,comparison_id,n_metric_rows"
+        "case_id,case_label,axis,status,comparison_id,n_metric_rows"
         in metrics_text
     )
     assert (
-        "candidate,candidate,candidate,candidate,method_pair,ok,candidate_comparison,3"
+        "candidate,candidate,method_pair,ok,candidate_comparison,3"
         in metrics_text
     )
 
 
-def test_testbed_launcher_runs_calibration_variants_and_collects_metrics(
+def test_testbed_launcher_runs_calibration_cases_and_collects_metrics(
     tmp_path: Path,
 ) -> None:
     base_config = tmp_path / "calibration_base.toml"
@@ -1001,16 +1049,16 @@ def test_testbed_launcher_runs_calibration_variants_and_collects_metrics(
     assert child_payload["calibration"]["output_root"].endswith("calibration_outputs/site_01")
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
     assert (
-        "case_id,case_label,variant_id,variant_label,axis,status,calibration_id,best_score"
+        "case_id,case_label,axis,status,calibration_id,best_score"
         in metrics_text
     )
     assert (
-        "site_01,site_01,site_01,site_01,site,ok,site_01_calibration,0.92"
+        "site_01,site_01,site,ok,site_01_calibration,0.92"
         in metrics_text
     )
 
 
-def test_testbed_launcher_runs_catalog_backed_comparison_variants(
+def test_testbed_launcher_runs_catalog_backed_comparison_cases(
     tmp_path: Path,
 ) -> None:
     flow_base = tmp_path / "flow_base.toml"
@@ -1139,16 +1187,16 @@ def test_testbed_launcher_runs_catalog_backed_comparison_variants(
     assert rows[0]["comparison_web_report"].endswith("site_01.html")
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
     assert (
-        "case_id,case_label,variant_id,variant_label,axis,status,comparison_id,audit_status,"
+        "case_id,case_label,axis,status,comparison_id,audit_status,"
         "n_metric_rows,n_difference_rows"
     ) in metrics_text
     assert (
-        "site_01,Site 01,site_01,Site 01,10km2,ok,site_01_mf6_bouss,pass,3,"
+        "site_01,Site 01,10km2,ok,site_01_mf6_bouss,pass,3,"
         in metrics_text
     )
 
 
-def test_testbed_launcher_runs_mesh_variants_and_collects_metrics(
+def test_testbed_launcher_runs_mesh_cases_and_collects_metrics(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "testbed.toml"
@@ -1212,15 +1260,15 @@ def test_testbed_launcher_runs_mesh_variants_and_collects_metrics(
     assert len(calls) == 2
     assert summary["successful_count"] == 2
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
-    assert "case_id,case_label,variant_id,variant_label,axis,status,n_cells" in metrics_text
-    assert "coarse,coarse,coarse,coarse,resolution,ok,10" in metrics_text
-    assert "fine,fine,fine,fine,resolution,ok,40" in metrics_text
+    assert "case_id,case_label,axis,status,n_cells" in metrics_text
+    assert "coarse,coarse,resolution,ok,10" in metrics_text
+    assert "fine,fine,resolution,ok,40" in metrics_text
     manifest = json.loads(Path(summary["manifest_json"]).read_text(encoding="utf-8"))
     assert manifest["schema_version"] == "testbed_manifest_v1"
     assert manifest["successful_count"] == 2
 
 
-def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
+def test_testbed_launcher_runs_flow_cases_and_collects_metrics(
     tmp_path: Path,
 ) -> None:
     base_config = tmp_path / "flow_base.toml"
@@ -1293,13 +1341,13 @@ def test_testbed_launcher_runs_flow_variants_and_collects_metrics(
     assert all(no_display for _, no_display in calls)
     assert summary["successful_count"] == 2
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
-    assert "case_id,case_label,variant_id,variant_label,axis,status,sim_id,k_value" in metrics_text
+    assert "case_id,case_label,axis,status,sim_id,k_value" in metrics_text
     assert (
-        "low_k,low_k,low_k,low_k,hydraulic_conductivity,ok,sim_flow_low_k,5e-6 m/s"
+        "low_k,low_k,hydraulic_conductivity,ok,sim_flow_low_k,5e-6 m/s"
         in metrics_text
     )
     assert (
-        "high_k,high_k,high_k,high_k,hydraulic_conductivity,ok,"
+        "high_k,high_k,hydraulic_conductivity,ok,"
         "sim_flow_high_k,2e-5 m/s"
         in metrics_text
     )
@@ -1452,11 +1500,11 @@ def test_flow_testbed_enriches_metrics_from_simulation_catalog(
     assert summary["successful_count"] == 1
     metrics_text = Path(summary["metrics_csv"]).read_text(encoding="utf-8")
     assert (
-        "case_id,case_label,variant_id,variant_label,axis,status,duration_s,param_K,"
+        "case_id,case_label,axis,status,duration_s,param_K,"
         "max_abs_balance_error,head_range_m,prescribed_head_out"
     ) in metrics_text
     assert (
-        "reference,reference,reference,reference,catalog,ok,12.5,1e-05,0.25,4.0,3.0"
+        "reference,reference,catalog,ok,12.5,1e-05,0.25,4.0,3.0"
         in metrics_text
     )
     manifest = json.loads(Path(summary["manifest_json"]).read_text(encoding="utf-8"))

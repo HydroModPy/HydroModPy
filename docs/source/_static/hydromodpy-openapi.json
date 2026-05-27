@@ -16052,6 +16052,198 @@
         "title": "TerritoryConfig",
         "type": "object"
       },
+      "TestbedCaseConfig": {
+        "additionalProperties": false,
+        "description": "One concrete executable testbed case.",
+        "properties": {
+          "id": {
+            "description": "Stable case identifier.",
+            "examples": [
+              "example"
+            ],
+            "title": "Id",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "label": {
+            "description": "Human-readable case label.",
+            "examples": [
+              "example"
+            ],
+            "title": "Label",
+            "type": "string",
+            "x-hmp-profile": "user"
+          },
+          "axis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional axis tag used to group cases in reports.",
+            "title": "Axis",
+            "x-hmp-profile": "user"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Toggle to skip a case without removing it from the config.",
+            "examples": [
+              true
+            ],
+            "title": "Enabled",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "overlay": {
+            "additionalProperties": true,
+            "description": "TOML overlay merged into the child-runner base config.",
+            "title": "Overlay",
+            "type": "object",
+            "x-hmp-profile": "user"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "title": "TestbedCaseConfig",
+        "type": "object"
+      },
+      "TestbedCatalogCaseConfig": {
+        "additionalProperties": false,
+        "description": "One case-generation rule applied to rows from a testbed catalog.",
+        "properties": {
+          "id_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Format string evaluated against catalog row fields to derive the case id.",
+            "title": "Id Template",
+            "x-hmp-profile": "user"
+          },
+          "label_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Format string used to derive the case label.",
+            "title": "Label Template",
+            "x-hmp-profile": "user"
+          },
+          "axis_template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Format string used to derive the optional axis tag.",
+            "title": "Axis Template",
+            "x-hmp-profile": "user"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Toggle to skip the rule without removing it from the config.",
+            "examples": [
+              true
+            ],
+            "title": "Enabled",
+            "type": "boolean",
+            "x-hmp-profile": "user"
+          },
+          "overlay": {
+            "additionalProperties": true,
+            "description": "TOML overlay rendered against each catalog row.",
+            "title": "Overlay",
+            "type": "object",
+            "x-hmp-profile": "user"
+          },
+          "required_fields": {
+            "default": [],
+            "description": "Catalog columns that must be present and non-empty per row.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Fields",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "field_equals": {
+            "default": [],
+            "description": "Per-field equality filters applied while expanding rows.",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Field Equals",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "tags": {
+            "default": [],
+            "description": "Whitelist of tags applied during rule expansion.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "exclude_tags": {
+            "default": [],
+            "description": "Blacklist of tags applied during rule expansion.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Exclude Tags",
+            "type": "array",
+            "x-hmp-profile": "user"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional cap on the number of cases generated by the rule.",
+            "title": "Limit",
+            "x-hmp-profile": "user"
+          }
+        },
+        "title": "TestbedCatalogCaseConfig",
+        "type": "object"
+      },
       "TestbedCatalogConfig": {
         "additionalProperties": false,
         "description": "Catalog source used to generate testbed cases.",
@@ -16077,10 +16269,10 @@
             "x-hmp-profile": "user"
           },
           "id_field": {
-            "default": "variant_id",
-            "description": "Column carrying the variant identifier.",
+            "default": "case_id",
+            "description": "Column carrying the case identifier.",
             "examples": [
-              "variant_id"
+              "case_id"
             ],
             "title": "Id Field",
             "type": "string",
@@ -16095,10 +16287,10 @@
                 "type": "null"
               }
             ],
-            "default": "variant_label",
-            "description": "Column carrying a human-readable variant label.",
+            "default": "case_label",
+            "description": "Column carrying a human-readable case label.",
             "examples": [
-              "variant_label"
+              "case_label"
             ],
             "title": "Label Field",
             "x-hmp-profile": "user"
@@ -16284,137 +16476,6 @@
         "title": "TestbedCatalogConfig",
         "type": "object"
       },
-      "TestbedCatalogVariantConfig": {
-        "additionalProperties": false,
-        "description": "One case-generation rule applied to rows from a testbed catalog.",
-        "properties": {
-          "id_template": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Format string evaluated against catalog row fields to derive the case id.",
-            "title": "Id Template",
-            "x-hmp-profile": "user"
-          },
-          "label_template": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Format string used to derive the case label.",
-            "title": "Label Template",
-            "x-hmp-profile": "user"
-          },
-          "axis_template": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Format string used to derive the optional axis tag.",
-            "title": "Axis Template",
-            "x-hmp-profile": "user"
-          },
-          "enabled": {
-            "default": true,
-            "description": "Toggle to skip the rule without removing it from the config.",
-            "examples": [
-              true
-            ],
-            "title": "Enabled",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "overlay": {
-            "additionalProperties": true,
-            "description": "TOML overlay rendered against each catalog row.",
-            "title": "Overlay",
-            "type": "object",
-            "x-hmp-profile": "user"
-          },
-          "required_fields": {
-            "default": [],
-            "description": "Catalog columns that must be present and non-empty per row.",
-            "items": {
-              "type": "string"
-            },
-            "title": "Required Fields",
-            "type": "array",
-            "x-hmp-profile": "user"
-          },
-          "field_equals": {
-            "default": [],
-            "description": "Per-field equality filters applied while expanding rows.",
-            "items": {
-              "maxItems": 2,
-              "minItems": 2,
-              "prefixItems": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "string"
-                }
-              ],
-              "type": "array"
-            },
-            "title": "Field Equals",
-            "type": "array",
-            "x-hmp-profile": "user"
-          },
-          "tags": {
-            "default": [],
-            "description": "Whitelist of tags applied during rule expansion.",
-            "items": {
-              "type": "string"
-            },
-            "title": "Tags",
-            "type": "array",
-            "x-hmp-profile": "user"
-          },
-          "exclude_tags": {
-            "default": [],
-            "description": "Blacklist of tags applied during rule expansion.",
-            "items": {
-              "type": "string"
-            },
-            "title": "Exclude Tags",
-            "type": "array",
-            "x-hmp-profile": "user"
-          },
-          "limit": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Optional cap on the number of cases generated by the rule.",
-            "title": "Limit",
-            "x-hmp-profile": "user"
-          }
-        },
-        "title": "TestbedCatalogVariantConfig",
-        "type": "object"
-      },
       "TestbedConfig": {
         "additionalProperties": false,
         "description": "Validated configuration for one method testbed.",
@@ -16516,22 +16577,22 @@
               }
             ],
             "default": null,
-            "description": "Optional child workflow TOML used as the variant base config.",
+            "description": "Optional child workflow TOML used as the case base config.",
             "title": "Base Config Path",
             "x-hmp-profile": "user"
           },
           "runner": {
             "$ref": "#/components/schemas/TestbedRunnerConfig",
-            "description": "Child-runner selection for every variant.",
+            "description": "Child-runner selection for every case.",
             "x-hmp-profile": "user"
           },
-          "variants": {
+          "case": {
             "default": [],
-            "description": "Explicit variants declared in the TOML.",
+            "description": "Explicit executable cases declared in the TOML.",
             "items": {
-              "$ref": "#/components/schemas/TestbedVariantConfig"
+              "$ref": "#/components/schemas/TestbedCaseConfig"
             },
-            "title": "Variants",
+            "title": "Case",
             "type": "array",
             "x-hmp-profile": "user"
           },
@@ -16545,16 +16606,16 @@
               }
             ],
             "default": null,
-            "description": "Optional catalog source used to expand variants from rows.",
+            "description": "Optional catalog source used to expand cases from rows.",
             "x-hmp-profile": "user"
           },
-          "catalog_variants": {
+          "case_from_catalog": {
             "default": [],
-            "description": "Variant-generation rules applied to catalog rows.",
+            "description": "Case-generation rules applied to catalog rows.",
             "items": {
-              "$ref": "#/components/schemas/TestbedCatalogVariantConfig"
+              "$ref": "#/components/schemas/TestbedCatalogCaseConfig"
             },
-            "title": "Catalog Variants",
+            "title": "Case From Catalog",
             "type": "array",
             "x-hmp-profile": "user"
           },
@@ -16606,7 +16667,7 @@
           },
           "required": {
             "default": false,
-            "description": "When true, a missing metric fails the variant.",
+            "description": "When true, a missing metric fails the case.",
             "examples": [
               false
             ],
@@ -16627,7 +16688,7 @@
         "description": "Child-runner selection for one testbed.",
         "properties": {
           "type": {
-            "description": "Runner identifier dispatched for every variant (comparison, simulation).",
+            "description": "Runner identifier dispatched for every case (comparison, simulation).",
             "examples": [
               "example"
             ],
@@ -16650,67 +16711,6 @@
           "type"
         ],
         "title": "TestbedRunnerConfig",
-        "type": "object"
-      },
-      "TestbedVariantConfig": {
-        "additionalProperties": false,
-        "description": "One concrete executable testbed case.",
-        "properties": {
-          "id": {
-            "description": "Stable case identifier.",
-            "examples": [
-              "example"
-            ],
-            "title": "Id",
-            "type": "string",
-            "x-hmp-profile": "user"
-          },
-          "label": {
-            "description": "Human-readable case label.",
-            "examples": [
-              "example"
-            ],
-            "title": "Label",
-            "type": "string",
-            "x-hmp-profile": "user"
-          },
-          "axis": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Optional axis tag used to group cases in reports.",
-            "title": "Axis",
-            "x-hmp-profile": "user"
-          },
-          "enabled": {
-            "default": true,
-            "description": "Toggle to skip a case without removing it from the config.",
-            "examples": [
-              true
-            ],
-            "title": "Enabled",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "overlay": {
-            "additionalProperties": true,
-            "description": "TOML overlay merged into the child-runner base config.",
-            "title": "Overlay",
-            "type": "object",
-            "x-hmp-profile": "user"
-          }
-        },
-        "required": [
-          "id",
-          "label"
-        ],
-        "title": "TestbedVariantConfig",
         "type": "object"
       },
       "TransportConfig": {

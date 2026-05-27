@@ -536,16 +536,16 @@ Sub-models are linked back to their per-section page.
       execute = true
       # When false, the first failure aborts the testbed.
       continue_on_error = true
-      # Optional child workflow TOML used as the variant base config.
+      # Optional child workflow TOML used as the case base config.
       # base_config_path = ...  # default = None
-      # Child-runner selection for every variant.
+      # Child-runner selection for every case.
       # runner = ""  # REQUIRED
-      # Explicit variants declared in the TOML.
-      variants = []
-      # Optional catalog source used to expand variants from rows.
+      # Explicit executable cases declared in the TOML.
+      case = []
+      # Optional catalog source used to expand cases from rows.
       # catalog = ...  # default = None
-      # Variant-generation rules applied to catalog rows.
-      catalog_variants = []
+      # Case-generation rules applied to catalog rows.
+      case_from_catalog = []
       # Metrics extracted from each child-runner summary.
       metrics = []
 

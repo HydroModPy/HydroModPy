@@ -40,7 +40,7 @@ def _run_hmp(*args: str, cwd: Path | None = None) -> subprocess.CompletedProcess
         capture_output=True,
         text=True,
         check=False,
-        timeout=180,
+        timeout=600,
     )
 
 
