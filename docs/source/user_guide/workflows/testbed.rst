@@ -191,7 +191,7 @@ script:
    comparison_id = "{site_id}_natural_10km2_mf6_bouss"
    output_root = "outputs/comparisons/{site_id}_natural_10km2_mf6_bouss"
 
-   [testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+   [testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
    x_outlet = "{x_outlet}"
    y_outlet = "{y_outlet}"
 
@@ -410,6 +410,8 @@ several such children when a sweep is needed):
    project_root = "./my_basin"
 
    [geographic]
+
+   [geographic.catchment]
    catch_def = "from_polyg_shp"
    dem_init_path = "data/regional_dem.tif"
    polyg_shp_path = "data/basin.shp"

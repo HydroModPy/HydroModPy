@@ -4,6 +4,6 @@ base_config = "overview_common.toml"
 project_root = "outputs/vire_overview"
 root = "../.."
 
-[geographic]
+[geographic.catchment]
 x_outlet = 400866.1983
 y_outlet = 6923974.693

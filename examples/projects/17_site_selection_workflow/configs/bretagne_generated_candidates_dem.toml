@@ -11,7 +11,6 @@ region_id = "Bretagne"
 
 [site_selection.strategy]
 principle = "criteria_crossing"
-profile = "dem_only"
 primary_axes = ["area"]
 
 [site_selection.territory]

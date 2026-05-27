@@ -10838,9 +10838,7 @@
             "description": "How candidate outlets are generated.",
             "enum": [
               "network_sampling",
-              "dem_area_light",
-              "station_outlets",
-              "imported_points"
+              "station_outlets"
             ],
             "examples": [
               "network_sampling"
@@ -11043,15 +11041,6 @@
         "additionalProperties": false,
         "description": "Output artifact switches.",
         "properties": {
-          "write_candidates": {
-            "default": false,
-            "examples": [
-              false
-            ],
-            "title": "Write Candidates",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
           "write_rejected": {
             "default": true,
             "examples": [
@@ -11112,15 +11101,6 @@
               true
             ],
             "title": "Write Regional Lab Csv",
-            "type": "boolean",
-            "x-hmp-profile": "user"
-          },
-          "write_report_md": {
-            "default": false,
-            "examples": [
-              false
-            ],
-            "title": "Write Report Md",
             "type": "boolean",
             "x-hmp-profile": "user"
           },
@@ -15091,25 +15071,6 @@
             "type": "string",
             "x-hmp-profile": "user"
           },
-          "same_mainstem_policy": {
-            "anyOf": [
-              {
-                "enum": [
-                  "allow_with_warning",
-                  "reject_downstream",
-                  "keep_best"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Optional policy for candidates on the same mainstem.",
-            "title": "Same Mainstem Policy",
-            "x-hmp-profile": "user"
-          },
           "spatial_quota_mode": {
             "default": "none",
             "description": "Optional coarse spatial quota applied after ranking.",
@@ -15259,9 +15220,7 @@
             "anyOf": [
               {
                 "enum": [
-                  "dem_only",
                   "area_only",
-                  "multicriteria",
                   "gauged_downstream_station"
                 ],
                 "type": "string"
@@ -15353,9 +15312,7 @@
               {
                 "enum": [
                   "network_sampling",
-                  "dem_area_light",
-                  "station_outlets",
-                  "imported_points"
+                  "station_outlets"
                 ],
                 "type": "string"
               },
@@ -15986,9 +15943,7 @@
               "admin_regions",
               "admin_departments",
               "polygon_file",
-              "bbox",
-              "site_catalog_extent",
-              "geoparquet_filter"
+              "bbox"
             ],
             "examples": [
               "admin_regions"

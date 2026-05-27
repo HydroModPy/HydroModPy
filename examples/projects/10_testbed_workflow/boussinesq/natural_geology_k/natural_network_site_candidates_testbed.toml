@@ -53,7 +53,7 @@ output_root = "../../outputs/boussinesq_natural_network_site_candidates_testbed/
 name = "{site_id}_natural_network_shared_case"
 description = "Natural site network benchmark with one fixed set of named method candidates."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 
@@ -75,7 +75,7 @@ output_root = "../../outputs/boussinesq_natural_network_site_candidates_testbed/
 name = "{site_id}_low_k_natural_network_shared_case"
 description = "Natural 10 km2 site network benchmark with lower homogeneous K."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 
@@ -113,7 +113,7 @@ resolution = 160.0
 name = "{site_id}_natural_network_shared_case"
 description = "Natural 100 km2 headwater network benchmark with one fixed set of named method candidates."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 catch_def = "from_polyg_shp"
 polyg_shp_path = "{domain_polygon_path}"
 buff_area = "1.0 m"
@@ -254,7 +254,7 @@ resolution = 160.0
 name = "{site_id}_natural_network_shared_case"
 description = "Natural 100 km2 Strahler-3 network benchmark with one fixed set of named method candidates."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 catch_def = "from_polyg_shp"
 polyg_shp_path = "{domain_polygon_path}"
 buff_area = "1.0 m"

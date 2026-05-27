@@ -58,10 +58,8 @@ def _build_sgrid(
 ):
     cfg_kwargs: dict[str, object] = {
         "top_path": str(top_path),
-        "genmtd_bot": "constant_altitude",
-        "zbot": 0.0,
-        "genmtd_lay": "constant",
-        "nlay": int(nlay),
+        "bottom": {"kind": "constant_altitude", "zbot": 0.0},
+        "layering": {"kind": "constant", "nlay": int(nlay)},
     }
     if nx is not None and ny is not None:
         cfg_kwargs["plan_discretization_mode"] = "resample_to_shape"
@@ -405,9 +403,13 @@ def test_run_discretization_case_from_toml(tmp_path: Path):
 
             [case.sgrid]
             top_path = "{top_path.name}"
-            genmtd_bot = "constant_altitude"
+
+            [case.sgrid.bottom]
+            kind = "constant_altitude"
             zbot = 0.0
-            genmtd_lay = "constant"
+
+            [case.sgrid.layering]
+            kind = "constant"
             nlay = 1
             """
         ),

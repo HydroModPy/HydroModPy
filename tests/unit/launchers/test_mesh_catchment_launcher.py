@@ -129,12 +129,14 @@ def _batch_cfg(tmp_path: Path):
             root=tmp_path,
         ),
         geographic=GeographicConfig(
-            catch_def="from_outlet_coord",
-            dem_init_path=dem_path,
-            x_outlet=389285.910,
-            y_outlet=6816518.749,
-            snap_dist="50 m",
-            buff_area="20%",
+            catchment={
+                "catch_def": "from_outlet_coord",
+                "dem_init_path": dem_path,
+                "x_outlet": 389285.910,
+                "y_outlet": 6816518.749,
+                "snap_dist": "50 m",
+                "buff_area": "20%",
+            },
             crs_project="EPSG:2154",
         ),
     )
@@ -1262,12 +1264,14 @@ def test_mesh_catchment_launcher_batch_rejects_outlets_outside_dem_extent(
             root=tmp_path,
         ),
         geographic=GeographicConfig(
-            catch_def="from_outlet_coord",
-            dem_init_path=dem_path,
-            x_outlet=100.0,
-            y_outlet=100.0,
-            snap_dist="50 m",
-            buff_area="20%",
+            catchment={
+                "catch_def": "from_outlet_coord",
+                "dem_init_path": dem_path,
+                "x_outlet": 100.0,
+                "y_outlet": 100.0,
+                "snap_dist": "50 m",
+                "buff_area": "20%",
+            },
             crs_project="EPSG:2154",
         ),
     )

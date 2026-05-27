@@ -52,6 +52,7 @@ def _config(tmp_path: Path, *, min_distance_km: float | None = None) -> SiteSele
         "output_root": tmp_path / "out",
         "strategy": {
             "principle": "observation_led",
+            "profile": "gauged_downstream_station",
             "primary_observation_type": "flow_station",
             "candidate_mode": "station_outlets",
         },

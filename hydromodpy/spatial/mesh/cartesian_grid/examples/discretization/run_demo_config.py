@@ -76,7 +76,11 @@ def _resolve_field_param_paths(payload: Mapping[str, Any], *, base_dir: Path) ->
 def _resolve_sgrid_paths(payload: Mapping[str, Any], *, base_dir: Path) -> dict[str, Any]:
     out = dict(payload)
     _resolve_optional_mapping_path(out, key="top_path", base_dir=base_dir)
-    _resolve_optional_mapping_path(out, key="bot_path", base_dir=base_dir)
+    bottom = out.get("bottom")
+    if isinstance(bottom, Mapping):
+        bottom_data = dict(bottom)
+        _resolve_optional_mapping_path(bottom_data, key="path", base_dir=base_dir)
+        out["bottom"] = bottom_data
     return out
 
 

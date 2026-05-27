@@ -78,6 +78,27 @@ project_root = "."
 # Type: Literal['standard', 'synthetic'] | Default: "standard"
 source_mode = "standard"
 
+# Project CRS. Lambert-93 (EPSG:2154) is the official French metric CRS.
+crs_project = "EPSG:2154"
+
+# DEM depression correction method.
+# 'breach' (recommended) preserves natural flow paths.
+# 'fill' raises sinks to their pour point.
+# Type: Literal['breach', 'fill'] | Default: "breach"
+dem_correc_type = "breach"
+
+# Reuse cached geographic outputs when nothing changed (DEM/outlet).
+# Speeds up reruns of the same project. Safe to keep on.
+# Type: bool | Default: false
+reuse_existing_outputs = false
+
+
+# Optional DEM-derived river-network extraction settings. Disabled here
+# because the base project relies on the BD TOPAGE reference network.
+# Activate this block to compare a generated network vs the reference
+# (see run_hydrographic_compare.toml for a working example).
+
+[geographic.catchment]
 # Catchment built from an outlet point. The DEM is used for flow
 # accumulation; the outlet is snapped to the nearest stream cell.
 catch_def = "from_outlet_coord"
@@ -101,25 +122,6 @@ snap_dist = "150 m"
 # to avoid wasting cells outside the basin.
 buff_area = "10%"
 
-# Project CRS. Lambert-93 (EPSG:2154) is the official French metric CRS.
-crs_project = "EPSG:2154"
-
-# DEM depression correction method.
-# 'breach' (recommended) preserves natural flow paths.
-# 'fill' raises sinks to their pour point.
-# Type: Literal['breach', 'fill'] | Default: "breach"
-dem_correc_type = "breach"
-
-# Reuse cached geographic outputs when nothing changed (DEM/outlet).
-# Speeds up reruns of the same project. Safe to keep on.
-# Type: bool | Default: false
-reuse_existing_outputs = false
-
-
-# Optional DEM-derived river-network extraction settings. Disabled here
-# because the base project relies on the BD TOPAGE reference network.
-# Activate this block to compare a generated network vs the reference
-# (see run_hydrographic_compare.toml for a working example).
 [geographic.river_network]
 # Enable DEM-based river-network extraction during geographic preprocessing.
 # Type: bool | Default: false
@@ -171,6 +173,7 @@ types = ["dem", "geology", "hydrography", "hydrometry", "recharge", "runoff", "e
 
 # DEM source. `custom` points to the same file as [geographic]. The
 # bare filename is auto-resolved against `<workspace>/data/dem/`.
+
 [[data.dem.sources]]
 # Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_geoplateforme_dem' for
 # IGN DEM discovery.
@@ -181,12 +184,14 @@ path = "DEM_armorican_massif.tif"
 
 # Geology source. BRGM 1:1M is the national French geological map.
 # Good first-pass zonation, no extra files needed.
+
 [[data.geology.sources]]
 # Type: Literal['custom', 'brgm_1m', 'brgm_50k'] | REQUIRED
 source = "brgm_1m"
 
 
 # Stream network for figures. BD TOPAGE is the official French dataset.
+
 [[data.hydrography.sources]]
 # Type: Literal['custom', 'osm', 'bdtopage', 'euhydro'] | REQUIRED
 source = "bdtopage"
@@ -196,6 +201,7 @@ rasterize_field = "FID"
 
 
 # Observed discharge time-series.
+
 [data.hydrometry]
 # Window we will simulate. Other dates in the source files are ignored.
 date_start = "2000-01-01"
@@ -212,6 +218,7 @@ station_ids = []
 
 
 # Recharge time-series.
+
 [data.recharge]
 date_start = "2000-01-01"
 date_end = "2002-12-31"
@@ -229,6 +236,7 @@ station_ids = ["EX04"]
 # component to the simulated DRN baseflow (discharge = DRN + runoff).
 # Skipping this block emits a runtime warning and falls back to
 # baseflow-only comparison.
+
 [data.runoff]
 date_start = "2000-01-01"
 date_end = "2002-12-31"
@@ -242,6 +250,7 @@ station_ids = ["EX04"]
 
 # ETP time-series (potential evapotranspiration). Loaded from the SIM2
 # NetCDF shipped with the repo so the runs stay offline.
+
 [data.etp]
 date_start = "2000-01-01"
 date_end = "2002-12-31"
@@ -289,6 +298,7 @@ description = "Watertable initialised at the topographic surface."
 
 
 # Hydraulic conductivity. Homogeneous = one scalar applied everywhere.
+
 [flow.param.K.field]
 id = "K"
 # Type: Literal['homogeneous'] | Default: "homogeneous"
@@ -311,6 +321,7 @@ value = 1e-5
 
 
 # Cauchy drainage on the aquifer top face (DRN package in MODFLOW).
+
 [flow.bc.cauchy.drainage]
 id = "drainage"
 # Type: Literal['dirichlet', 'cauchy', 'robin'] | Default: "dirichlet"
@@ -323,6 +334,7 @@ value = 0.0
 
 # Diffuse recharge payload. Actual values come from [data.recharge];
 # this block only declares the slot in the flow registry.
+
 [flow.sinks_sources.recharge]
 # Recharge payload: scalar, list (one per stress period), mapping
 # {kper: value}, or runtime series.
@@ -358,6 +370,7 @@ step_value = "1 month"
 
 
 # One process: groundwater flow, solved by MODFLOW-NWT.
+
 [[simulation.process]]
 id = "flow_main"
 type = "flow"

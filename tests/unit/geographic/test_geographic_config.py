@@ -4,47 +4,46 @@ import pytest
 
 from hydromodpy.config import HydroModPyConfig
 from hydromodpy.spatial.geographic import GeographicConfig
-from hydromodpy.spatial.geographic.geographic_config import (
-    normalize_geographic_catchment_payload,
-)
 
 
 def test_geographic_config_txt_accepts_cell_size_with_unit_string():
     cfg = GeographicConfig.model_validate(
         {
-            "catch_def": "txt",
-            "dem_init_path": "dem.xyz",
-            "cell_size": "150.0 m",
+            "catchment": {
+                "catch_def": "txt",
+                "dem_init_path": "dem.xyz",
+                "cell_size": "150.0 m",
+            },
         }
     )
     assert float(cfg.cell_size) == pytest.approx(150.0)
 
 
-def test_geographic_flat_payload_normalization_is_centralized() -> None:
-    payload = {
-        "catch_def": "from_outlet_coord",
-        "dem_init_path": "dem.tif",
-        "x_outlet": 1.0,
-        "y_outlet": 2.0,
-        "snap_dist": "50 m",
-        "buff_area": "10%",
-        "catchment": {"buff_area": "20%"},
-    }
-
-    normalized = normalize_geographic_catchment_payload(payload)
-
-    assert "catch_def" not in normalized
-    assert normalized["catchment"]["catch_def"] == "from_outlet_coord"
-    assert normalized["catchment"]["dem_init_path"] == "dem.tif"
-    assert normalized["catchment"]["buff_area"] == "20%"
+def test_geographic_config_rejects_flat_catchment_payload() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Extra inputs are not permitted",
+    ):
+        GeographicConfig.model_validate(
+            {
+                "catch_def": "from_outlet_coord",
+                "dem_init_path": "dem.tif",
+                "x_outlet": 1.0,
+                "y_outlet": 2.0,
+                "snap_dist": "50 m",
+                "buff_area": "10%",
+            }
+        )
 
 
 def test_geographic_config_txt_accepts_cell_size_with_km_unit():
     cfg = GeographicConfig.model_validate(
         {
-            "catch_def": "txt",
-            "dem_init_path": "dem.xyz",
-            "cell_size": "0.15 km",
+            "catchment": {
+                "catch_def": "txt",
+                "dem_init_path": "dem.xyz",
+                "cell_size": "0.15 km",
+            },
         }
     )
     assert float(cfg.cell_size) == pytest.approx(150.0)

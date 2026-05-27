@@ -33,7 +33,7 @@ def test_site_selection_manifest_testbed_example_expands_catalog() -> None:
     ).resolve()
     assert cfg.catalog.path == (EXAMPLE_ROOT / "fixtures" / "regional_lab_sites.csv").resolve()
     assert [variant.id for variant in variants] == ["demo_site_01", "demo_site_02"]
-    assert variants[0].overlay["geographic"]["x_outlet"] == 131189.1
+    assert variants[0].overlay["geographic"]["catchment"]["x_outlet"] == 131189.1
 
 
 def test_site_selection_manifest_regional_lab_example_builds_plan() -> None:

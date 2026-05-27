@@ -177,13 +177,7 @@ def test_workflow_from_scratch_init_and_catalog(tmp_path: Path) -> None:
     # ----- Step 7: hmp.open + hmp.read return a real field ------------------
     with hmp.open(workspace) as catalog:
         run = catalog[sim_id]
-        da = hmp.read(run, "head")
-        # Either xarray.DataArray (lazy default) or numpy.ndarray; both expose
-        # the values we wrote.
-        if hasattr(da, "values"):
-            data = np.asarray(da.values)
-        else:
-            data = np.asarray(da)
+        data = np.asarray(hmp.read(run, "head", time=0, layer=0))
         assert data.shape[-1] == 4
         assert np.allclose(data, 7.5)
 
@@ -200,6 +194,7 @@ def test_workflow_from_scratch_netcdf_export(tmp_path: Path) -> None:
 
     workspace = tmp_path / "fresh_workspace"
     init = _run_hmp(
+        "workspace",
         "init",
         str(workspace),
         "--project-name",

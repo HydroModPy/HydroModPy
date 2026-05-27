@@ -551,6 +551,11 @@ def test_testbed_catalog_can_resolve_site_selection_manifest(tmp_path: Path) -> 
                 "[testbed.variant_from_catalog.overlay.workspace]",
                 'project_root = "workspaces/{site_id}"',
                 "",
+                "[testbed.variant_from_catalog.overlay.geographic.catchment]",
+                'x_outlet = "{x_outlet}"',
+                'y_outlet = "{y_outlet}"',
+                'buff_area = "10%"',
+                "",
                 "[testbed.variant_from_catalog.overlay.mesh_catchment.zone_meshing]",
                 'global_size = "{area_km2}"',
             ]
@@ -571,6 +576,9 @@ def test_testbed_catalog_can_resolve_site_selection_manifest(tmp_path: Path) -> 
     generated = Path(summary["generated_configs_dir"]) / "site_01.toml"
     child_payload = load_toml_with_base_config(generated)
     assert child_payload["workspace"]["project_root"].endswith("workspaces/site_01")
+    assert child_payload["geographic"]["catchment"]["x_outlet"] == 131189.1
+    assert child_payload["geographic"]["catchment"]["y_outlet"] == 6833784.4
+    assert child_payload["geographic"]["catchment"]["buff_area"] == "10%"
     assert child_payload["mesh_catchment"]["zone_meshing"]["global_size"] == 45.5
     manifest = json.loads(Path(summary["manifest_json"]).read_text(encoding="utf-8"))
     assert manifest["site_catalog_path"] == str(catalog_path.resolve())
@@ -879,9 +887,11 @@ def test_testbed_launcher_runs_catalog_backed_comparison_variants(
                 'comparison_id = "{site_id}_mf6_bouss"',
                 'output_root = "outputs/comparisons/{site_id}"',
                 "",
-                "[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]",
+                "[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]",
                 'x_outlet = "{x_outlet}"',
                 'y_outlet = "{y_outlet}"',
+                "",
+                "[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]",
                 'target_area_km2 = "{target_area_km2}"',
             ]
         )
@@ -920,8 +930,8 @@ def test_testbed_launcher_runs_catalog_backed_comparison_variants(
     assert child_payload["comparison"]["comparison_id"] == "site_01_mf6_bouss"
     assert child_payload["comparison"]["base_simulation_config"] == flow_base.resolve().as_posix()
     geographic = child_payload["comparison"]["base_simulation_overlay"]["geographic"]
-    assert geographic["x_outlet"] == 131189.1
-    assert geographic["y_outlet"] == 6833784.4
+    assert geographic["catchment"]["x_outlet"] == 131189.1
+    assert geographic["catchment"]["y_outlet"] == 6833784.4
     assert geographic["target_area_km2"] == 10.0
     with Path(summary["cases_csv"]).open("r", encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))

@@ -84,6 +84,9 @@ def ensure_schema(
         component=CATALOG_COMPONENT,
         post_apply=_emit_migrate_event,
     )
+    from hydromodpy.results.catalog.views import ensure_views
+
+    ensure_views(connection)
 
 
 def _resolve_db_path_from_connection(

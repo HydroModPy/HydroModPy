@@ -220,8 +220,7 @@ dans les sorties d'audit.
 
 Une campagne stabilisee doit declarer clairement:
 
-- le profil metier ou une configuration permettant de deriver
-  `effective_profile`;
+- le profil metier explicite pour les campagnes hydrometriques;
 - le territoire;
 - les donnees d'entree;
 - les criteres actifs;
@@ -230,11 +229,14 @@ Une campagne stabilisee doit declarer clairement:
 
 Pour `area_only`, les observations et la geologie restent en `report_only` ou
 equivalent non bloquant. Pour `gauged_downstream_station`, la configuration doit
-porter `principle = "observation_led"`, `primary_observation_type =
-"flow_station"` et `candidate_mode = "station_outlets"`.
+porter `principle = "observation_led"`,
+`profile = "gauged_downstream_station"`,
+`primary_observation_type = "flow_station"` et
+`candidate_mode = "station_outlets"`.
 
-Les anciens TOML hydrometriques sans profil explicite restent compatibles si le
-workflow peut deriver `effective_profile = "gauged_downstream_station"`.
+`dem_area_light` peut encore etre classe en `effective_profile = "area_only"`
+depuis son mode d'entree. Les TOML hydrometriques sans profil explicite ne font
+plus partie de la doctrine stabilisee.
 
 ## Hors doctrine finale
 

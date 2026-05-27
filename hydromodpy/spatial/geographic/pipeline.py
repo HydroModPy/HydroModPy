@@ -173,7 +173,7 @@ def _flow_products_from_paths(paths: GeographicPaths, dem_correc_type: str) -> F
 
 
 def _raster_products_from_paths(paths: GeographicPaths) -> DomainRasterProducts:
-    """Reconstruct the legacy raster-products view from canonical cache paths."""
+    """Reconstruct the raster-products view from canonical cache paths."""
     return DomainRasterProducts(
         watershed_box_buff_dem=paths.watershed_box_buff_dem,
         watershed_box_buff_fill=paths.watershed_box_buff_fill,

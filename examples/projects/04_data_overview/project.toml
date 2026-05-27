@@ -13,14 +13,16 @@ mode = "overview"
 project_root = "."
 
 [geographic]
+crs_project = "EPSG:2154"
+dem_correc_type = "breach"
+
+[geographic.catchment]
 catch_def = "from_outlet_coord"
 dem_init_path = "../../data/dem/DEM_armorican_massif.tif"
 x_outlet = 127348.427
 y_outlet = 6835802.564
 snap_dist = "150 m"
 buff_area = "20%"
-crs_project = "EPSG:2154"
-dem_correc_type = "breach"
 
 [domain]
 zone_ids = ["geology"]
@@ -41,6 +43,7 @@ cell_samples_per_axis = 8
 source = "brgm_1m"
 
 [data.hydrography]
+
 [[data.hydrography.sources]]
 source = "custom"
 path = "../../data/hydrography/regional_stream_network.shp"

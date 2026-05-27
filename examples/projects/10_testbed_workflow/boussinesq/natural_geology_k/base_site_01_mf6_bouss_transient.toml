@@ -1,10 +1,12 @@
 # Workflow selector (mandatory). Must be one of 'simulation', 'calibration', 'overview',
 # 'mesh', 'comparison', 'testbed'. Drives dispatch in `hmp run <toml>` and in API-driven callers
 # that instantiate `HydroModPyConfig` from a frontend form.
+
 [workflow]
 mode = "simulation"
 
 # Strict-binary workspace configuration.
+
 [workspace]
 # Path to the project directory. Auto-derived from TOML location when absent.
 project_root = "../../outputs/nwt_small_catchment_flux/comparisons/site_01_refined_mf6_vs_bouss/base_workspace"
@@ -15,6 +17,7 @@ root = "../../../.."
 data_dir = "../../outputs/nwt_small_catchment_flux/data_cache"
 
 # Minimal orchestration block declared under ``[simulation]``.
+
 [simulation]
 # Human-readable simulation name.
 name = "site_01_refined_mf6_bouss_shared_case"
@@ -28,6 +31,7 @@ on_collision = "replace"
 # Optional canonical simulation window used to align solver temporal settings and validate forcing
 # coverage. Required for launcher flow processes and for runtime features that explicitly consume
 # simulation-window dates.
+
 [simulation.time]
 # Simulation window lower datetime bound used by launcher-level time alignment and forcing checks.
 start_datetime = "2000-09-01"
@@ -44,6 +48,7 @@ coverage_policy = "warn"
 
 # Ordered list of requested processes loaded from [[simulation.process]]. At most one process per
 # type is supported.
+
 [[simulation.process]]
 # User-facing identifier for the process. This id is required and must be unique within the
 # simulation.
@@ -55,11 +60,13 @@ solvers = ["modflow6"]
 
 # Results storage and export configuration loaded from [simulation.results]. Controls
 # SimulationCatalog, derived variables, and automated exports.
+
 [simulation.results]
 # Keep raw solver output files (.hds, .cbc, .lst) after ingestion.
 keep_solver_files = false
 
 # Derived variable computation toggles.
+
 [simulation.results.derived]
 # Positive per-cell drain outflow summed over layers.
 outflow_drain = true
@@ -71,15 +78,31 @@ watertable_depth = true
 watertable_elevation = true
 
 # Budget extraction configuration.
+
 [simulation.results.budget]
 # Extract per-cell budget fields (DRN, RCH, etc.) into Zarr.
 spatial_fields = true
 
 # Geographic configuration for watershed delineation.
+
 [geographic]
 # Geographic runtime mode. 'standard' keeps the historical DEM/outlet/polygon workflow.
 # 'synthetic' builds one analytical support from [geographic.synthetic].
 source_mode = "standard"
+# Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.
+crs_project = "EPSG:2154"
+# DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill'
+# raises sinks to their pour point.
+dem_correc_type = "breach"
+# If true, reuse previously generated geographic artifacts when the cached fingerprint matches the
+# current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated
+# simulation runs in the same workspace.
+reuse_existing_outputs = false
+
+# Optional DEM-derived river-network extraction settings. When disabled, no stream network is
+# generated in geographic preprocessing.
+
+[geographic.catchment]
 # Catchment definition mode used when source_mode='standard'. 'dem' = model domain defined
 # directly from a DEM raster (dem_init_path required). 'txt' = model domain from an XYZ text file
 # (dem_init_path, cell_size required). 'from_outlet_coord' = watershed from outlet coordinates
@@ -99,22 +122,11 @@ y_outlet = 6833784.400
 # Maximum snapping distance to move the outlet to the nearest stream cell. Accepts SI-friendly
 # values (for example 50, '50 m', '0.05 km'). Required for 'from_outlet_coord' mode.
 snap_dist = "150 m"
-# Buffer around the watershed polygon. Numeric values keep legacy behavior (percentage of
-# sqrt(area [km^2])). String values are interpreted as explicit distances (for example '500 m', '2
-# km'). Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
+# Buffer around the watershed polygon. Numeric values are interpreted as a percentage of sqrt(area
+# [km^2]). String values are interpreted as explicit distances (for example '500 m', '2 km').
+# Required for 'from_outlet_coord' and 'from_polyg_shp' modes.
 buff_area = "10%"
-# Target projected CRS for all outputs (e.g. 'EPSG:2154'). If not set, derived from the input DEM.
-crs_project = "EPSG:2154"
-# DEM depression correction method. 'breach' (recommended) preserves natural flow paths. 'fill'
-# raises sinks to their pour point.
-dem_correc_type = "breach"
-# If true, reuse previously generated geographic artifacts when the cached fingerprint matches the
-# current DEM, outlet/polygon and geographic settings. This is useful for profiling repeated
-# simulation runs in the same workspace.
-reuse_existing_outputs = false
 
-# Optional DEM-derived river-network extraction settings. When disabled, no stream network is
-# generated in geographic preprocessing.
 [geographic.river_network]
 # Enable DEM-based river-network extraction from flow accumulation during geographic
 # preprocessing.
@@ -134,6 +146,7 @@ compute_stream_links = true
 all_vertices = true
 
 # Domain configuration.
+
 [domain]
 # Ordered list of zone identifiers loaded in the domain registry. Keep this list for actual
 # runtime zones (for example 'catchment', 'geology', or custom zonations). Spatial-support
@@ -144,6 +157,7 @@ zone_ids = ["geology"]
 kind = "geology"
 
 # Vertical domain model configuration. Use 'constant_thickness' or 'flat_substratum'.
+
 [domain.depth_model]
 # Depth-model kind selector. Use 'constant_thickness' to define bottom as top-thickness.
 kind = "constant_thickness"
@@ -151,6 +165,7 @@ kind = "constant_thickness"
 thickness = "30.0 m"
 
 # Top-level ``[data]`` configuration for manager families.
+
 [data]
 # EPSG code or WKT string of the project coordinate reference system. When set, all loaded data is
 # reprojected to this CRS. Example: 'EPSG:2154' (Lambert-93).
@@ -168,6 +183,7 @@ types = ["dem", "hydrography", "geology", "recharge"]
 inference_mode = "warn"
 
 # At least one DEM data source.
+
 [[data.dem.sources]]
 # Data provider: 'custom' for user files (TIF/ASC/NC), 'ign_geoplateforme_dem' for IGN DEM discovery.
 source = "custom"
@@ -175,6 +191,7 @@ source = "custom"
 path = "../../../../data/dem/DEM_armorican_massif.tif"
 
 # At least one hydrography data source.
+
 [[data.hydrography.sources]]
 # Data provider.
 source = "custom"
@@ -184,6 +201,7 @@ path = "../../../../data/hydrography/regional_stream_network.shp"
 rasterize_field = "FID"
 
 # Geology configuration used when 'geology' is listed in data.types.
+
 [data.geology]
 # Identifier of the geology spatial field.
 id = "field_geology"
@@ -192,6 +210,7 @@ id = "field_geology"
 cell_samples_per_axis = 8
 
 # At least one geology data source. Defaults to BRGM 1:1M.
+
 [[data.geology.sources]]
 # Data provider: 'custom' for user files (SHP/GPKG/TIF/CSV), 'brgm_1m' for the 1:1M national
 # geological map, 'brgm_50k' for the 1:50K departmental geological maps.
@@ -203,6 +222,7 @@ path = "../../../../data/geology/GEO1M.shp"
 code_field = "CODE_LEG"
 
 # Recharge configuration (drainage / soil infiltration time series).
+
 [data.recharge]
 # Project start date (ISO format, e.g. '2019-01-01').
 date_start = "2000-09-01"
@@ -210,6 +230,7 @@ date_start = "2000-09-01"
 date_end = "2002-08-31"
 
 # At least one data source.
+
 [[data.recharge.sources]]
 # Data provider: 'custom' for user CSV files, 'sim2' for SIM2 EDR API, 'synthetic' for generated
 # series.
@@ -229,6 +250,7 @@ values = [
 runoff_ratio = 0.0
 
 # Flow-process configuration.
+
 [flow]
 # Global flow simulation regime used by solvers consuming [flow] (steady or transient).
 flow_regime = "transient"
@@ -276,6 +298,7 @@ value = "0.05 -"
 
 # Validated flow initial-condition structure parsed from [flow.ic]. Stored as
 # FlowInitialConditions(h=FlowInitialCondition).
+
 [flow.ic]
 type = "steady_state"
 source = "mean_recharge"
@@ -289,6 +312,7 @@ description = "Cauchy drainage on the aquifer top face."
 value = "0.0 m2/s"
 
 # Diffuse recharge configuration. None = zero recharge for all periods.
+
 [flow.sinks_sources.recharge]
 # Period-0 policy for the transient forcing.
 first_clim = "first"
@@ -297,6 +321,7 @@ first_clim = "first"
 negative_to_evt = true
 
 # Top-level launcher contract for one mono-catchment meshing run.
+
 [mesh_catchment]
 # Meshing compliance target. 'geology_only' conforms the mesh to geology interfaces only,
 # 'rivers_only' conforms the mesh to river traces only, and 'geology_rivers' enforces both sets of
@@ -318,6 +343,7 @@ figure_regional_dpi = 180
 
 # Optional watershed-boundary mesh constraint. Enable it to force a conformal mesh line along the
 # catchment boundary while keeping the geology zonation represented on the whole support domain.
+
 [mesh_catchment.watershed_boundary]
 # If true, inject the watershed boundary as one dedicated linear constraint in addition to geology
 # and/or river constraints.
@@ -328,6 +354,7 @@ boundary_refinement_distance = 150.0
 
 # Optional regularization controls applied before the watershed boundary is converted to a linear
 # constraint.
+
 [mesh_catchment.watershed_boundary.smoothing]
 # If true, apply the smoothing controls below before converting the watershed boundary into one
 # linear constraint.
@@ -346,6 +373,7 @@ outer_bias_distance = 10.0
 
 # Optional coarse-background size field applied outside the regularized watershed while keeping
 # the geology partition unchanged.
+
 [mesh_catchment.watershed_boundary.outside_coarsening]
 # If true, add one regional mesh-size field that keeps the current background size inside the
 # watershed and coarsens the mesh outside it.
@@ -362,6 +390,7 @@ grid_resolution = 180.0
 
 # Optional control of where geology remains conformal relative to the watershed. Keep the default
 # full_domain mode to preserve the current behavior.
+
 [mesh_catchment.watershed_boundary.geology_conformity]
 # Control where geology remains conformal. Use 'full_domain' to keep the current behavior, or
 # 'buffered_watershed_envelope' to keep geology interfaces active only inside one buffered
@@ -377,6 +406,7 @@ buffer_distance = 100.0
 # polygon source represents lithological zones and how those polygons should be interpreted before
 # conformal meshing. Validated through the geology data-source Protocol; stored as a normalized
 # mapping.
+
 [mesh_catchment.geology]
 id = "field_geology"
 cell_samples_per_axis = 8
@@ -389,6 +419,7 @@ reference_raster_path = "../../../../data/dem/DEM_armorican_massif.tif"
 
 # Optional hydraulic-conductivity mapping by geology key. When provided, the bundle exports one
 # `hydraulic_conductivity_m_s` value per cell.
+
 [mesh_catchment.hydraulic_properties.conductivity]
 # Source of the geology-key to property mapping. Use 'inline' for TOML dictionaries or 'csv' for
 # an external table.
@@ -401,6 +432,7 @@ csv_value_column = "K_value"
 
 # Optional storage-coefficient mapping by geology key. When provided, the bundle exports one
 # `storage_coefficient` value per cell.
+
 [mesh_catchment.hydraulic_properties.storage_coefficient]
 # Fallback value applied when one geology zone has no explicit mapping. Leave empty to keep
 # exported cell values undefined for unmapped zones.
@@ -409,6 +441,7 @@ default_value = 0.05
 # Low-level Gmsh sizing and cleanup parameters controlling cell size, simplification, and
 # interface refinement. Defaults are valid, but project examples typically override them to target
 # a desired number of cells.
+
 [mesh_catchment.zone_meshing]
 # Baseline target cell size in projected metres over the full support domain. Think of it as the
 # coarse background resolution before local interface refinement is added.
@@ -437,18 +470,21 @@ interface_sampling = 128
 
 # Optional local hotspot policy used to selectively thin low-priority refinement families when the
 # mixed interface network becomes too dense for one robust Gmsh Delaunay run.
+
 [mesh_catchment.zone_meshing.refinement_policy]
 enabled = true
 # Refinement mode selector. One of 'family_priority_local_budget' or 'grid_local_budget'.
 mode = "grid_local_budget"
 
 # Grid settings used by the locality-first refinement policy.
+
 [mesh_catchment.zone_meshing.refinement_policy.grid]
 neighborhood_rings = 1
 enable_exact_gap_check = false
 max_exact_gap_candidates = 128
 
 # Hotspot-detection thresholds used when budgeting local refinement.
+
 [mesh_catchment.zone_meshing.refinement_policy.hotspot]
 radius = 350.0
 max_curve_count = 180
@@ -471,11 +507,13 @@ enabled = true
 priority = 100
 
 # Display behaviour resolved from the ``[display]`` TOML section.
+
 [display]
 # Master switch. When False, no figure is rendered or saved.
 enabled = false
 
 # MODFLOW 6 runtime options.
+
 [modflow6.runtime]
 # IMS complexity keyword for MODFLOW 6 (e.g. SIMPLE, MODERATE, COMPLEX).
 mf6_ims_complexity = "COMPLEX"
@@ -494,6 +532,7 @@ mf6_enable_rewet = false
 mf_verbose = false
 
 # Process-specific controls for MODFLOW 6 flow packages.
+
 [modflow6.process_specific]
 # Vertical anisotropy factor used to derive k33 from k.
 vka = 1.0
@@ -501,11 +540,13 @@ vka = 1.0
 # Optional temporal discretization payload as TMeshConfig. In launcher mode, stress periods are
 # driven by [simulation.time]; this section is mirrored for compatibility and mainly keeps
 # `firstpersteady`.
+
 [modflow6.tgrid]
 # Whether the first stress period is treated as steady-state.
 firstpersteady = false
 
 # Vertical layering of the solver grid.
+
 [modflow6.sgrid.vertical]
 # Vertical-layering strategy.
 genmtd_lay = "decay"

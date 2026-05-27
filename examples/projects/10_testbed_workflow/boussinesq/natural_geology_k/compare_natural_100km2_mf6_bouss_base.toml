@@ -19,7 +19,7 @@ output_root = "../../outputs/boussinesq_natural_n2_100km2_testbed/comparisons/ba
 timeout_seconds = 7200
 
 # Shared geographic options for the 100 km2 natural campaign.
-[comparison.base_simulation_overlay.geographic]
+[comparison.base_simulation_overlay.geographic.catchment]
 # Larger outlet snapping distance, still small relative to the target basin scale.
 snap_dist = "300.0 m"
 # Larger watershed buffer around each delineated basin.

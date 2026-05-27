@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from math import isclose
 from pathlib import Path
-from typing import Annotated, Any, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 from pydantic import Field, computed_field, model_validator
 
@@ -206,51 +206,6 @@ SyntheticTopographyConfig: TypeAlias = Annotated[
 """Discriminated union of analytical topography variants."""
 
 
-_TOPOGRAPHY_DEFAULT_LEAKS: dict[str, dict[str, Any]] = {
-    "flat": {
-        "right_to_left_amplitude": 0.0,
-        "island_radius": (None, 0.0),
-        "crest_elevation": 10.0,
-        "center_x": (None, 0.0),
-        "center_y": (None, 0.0),
-    },
-    "linear": {
-        "island_radius": (None, 0.0),
-        "crest_elevation": 10.0,
-        "center_x": (None, 0.0),
-        "center_y": (None, 0.0),
-    },
-    "radial_island": {
-        "right_to_left_amplitude": 0.0,
-    },
-}
-"""Pre-discriminated-union default values stripped from raw TOML payloads.
-
-Some legacy ``expert_generated`` TOMLs export every field of the old flat
-``SyntheticTopographyConfig`` regardless of the active ``kind``. With the
-discriminated union those keys would now be rejected by ``extra="forbid"``.
-This map lists, per ``kind``, the default values that may be safely dropped
-when present. Any other value still raises a validation error.
-"""
-
-
-def _strip_default_topography_leaks(payload: dict[str, Any]) -> dict[str, Any]:
-    """Drop default-valued cross-variant fields from a raw topography payload."""
-    kind = str(payload.get("kind", "flat")).strip().lower()
-    leaks = _TOPOGRAPHY_DEFAULT_LEAKS.get(kind)
-    if leaks is None:
-        return payload
-    cleaned = dict(payload)
-    for field_name, accepted in leaks.items():
-        if field_name not in cleaned:
-            continue
-        value = cleaned[field_name]
-        accepted_values = accepted if isinstance(accepted, tuple) else (accepted,)
-        if value in accepted_values:
-            cleaned.pop(field_name)
-    return cleaned
-
-
 class SyntheticGeographicConfig(HydroModelBase):
     """Top-level config for one synthetic geographic build."""
 
@@ -266,28 +221,6 @@ class SyntheticGeographicConfig(HydroModelBase):
         default_factory=FlatTopography,
         description="Synthetic topography definition (shape, elevations, slope).",
     )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _filter_topography_default_leaks(cls, data: Any) -> Any:
-        """Drop default-valued cross-variant fields from raw topography payloads.
-
-        Legacy ``expert_generated`` TOMLs may dump every field of the old flat
-        ``SyntheticTopographyConfig`` regardless of ``kind``. Those keys are now
-        forbidden by the discriminated union. We tolerate them only when their
-        value matches the legacy default, otherwise validation must fail.
-        """
-        if not isinstance(data, dict):
-            return data
-        topography = data.get("topography")
-        if not isinstance(topography, dict):
-            return data
-        cleaned = _strip_default_topography_leaks(topography)
-        if cleaned is topography:
-            return data
-        new_data = dict(data)
-        new_data["topography"] = cleaned
-        return new_data
 
     @classmethod
     def from_toml(cls, path: str | Path) -> SyntheticGeographicConfig:

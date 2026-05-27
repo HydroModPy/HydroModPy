@@ -5,11 +5,13 @@ import pytest
 from hydromodpy.spatial.site_selection.config import (
     AreaCriteriaConfig,
     DemAreaLightConfig,
-    ObservationsCriteriaConfig,
     OutletsConfig,
+    OutputConfig,
     SiteSelectionConfig,
+    SiteSelectionInputConfig,
     SpatialSelectionConfig,
     StrategyConfig,
+    TerritoryConfig,
 )
 
 
@@ -39,10 +41,10 @@ def test_area_only_config_keeps_observations_and_geology_report_only(tmp_path):
                     "hard_max_area_km2": 125.0,
                 },
                 "observations": {
-                    "flow_station_mode": "report",
-                    "piezometer_mode": "report",
+                    "flow_station_mode": "report_only",
+                    "piezometer_mode": "report_only",
                 },
-                "geology": {"mode": "report"},
+                "geology": {"mode": "report_only"},
             },
         }
     )
@@ -106,7 +108,29 @@ def test_observation_led_requires_station_candidate_mode(tmp_path):
                 "output_root": tmp_path / "out",
                 "strategy": {
                     "principle": "observation_led",
+                    "profile": "gauged_downstream_station",
                     "primary_observation_type": "flow_station",
+                },
+                "territory": {
+                    "mode": "admin_regions",
+                    "country": "FR",
+                    "regions": ["Bretagne"],
+                },
+            }
+        )
+
+
+@pytest.mark.fast
+def test_observation_led_requires_explicit_gauged_profile(tmp_path):
+    with pytest.raises(ValueError, match="profile='gauged_downstream_station'"):
+        SiteSelectionConfig.model_validate(
+            {
+                "selection_id": "observed",
+                "output_root": tmp_path / "out",
+                "strategy": {
+                    "principle": "observation_led",
+                    "primary_observation_type": "flow_station",
+                    "candidate_mode": "station_outlets",
                 },
                 "territory": {
                     "mode": "admin_regions",
@@ -125,6 +149,7 @@ def test_observation_led_accepts_station_outlets(tmp_path):
             "output_root": tmp_path / "out",
             "strategy": {
                 "principle": "observation_led",
+                "profile": "gauged_downstream_station",
                 "primary_observation_type": "flow_station",
                 "candidate_mode": "station_outlets",
             },
@@ -193,18 +218,42 @@ def test_gauged_downstream_station_profile_requires_flow_station(tmp_path):
 
 
 @pytest.mark.fast
-def test_station_influence_config_normalizes_report_alias():
-    cfg = ObservationsCriteriaConfig.model_validate(
-        {
-            "station_influence": {
-                "mode": "report",
-                "unknown_policy": "warning",
-            }
-        }
-    )
+def test_criterion_mode_rejects_legacy_report_alias():
+    with pytest.raises(ValueError, match="report_only"):
+        AreaCriteriaConfig(mode="report")
 
-    assert cfg.station_influence.mode == "report_only"
-    assert cfg.station_influence.unknown_policy == "warning"
+
+@pytest.mark.fast
+def test_removed_candidate_modes_are_rejected():
+    with pytest.raises(ValueError, match="imported_points"):
+        OutletsConfig(candidate_mode="imported_points")
+
+
+@pytest.mark.fast
+def test_removed_territory_modes_are_rejected():
+    with pytest.raises(ValueError, match="site_catalog_extent"):
+        TerritoryConfig(mode="site_catalog_extent")
+
+
+@pytest.mark.fast
+def test_removed_spatial_policy_is_rejected():
+    with pytest.raises(ValueError, match="same_mainstem_policy"):
+        SpatialSelectionConfig(same_mainstem_policy="keep_best")
+
+
+@pytest.mark.fast
+def test_removed_output_switches_are_rejected():
+    with pytest.raises(ValueError, match="write_candidates"):
+        OutputConfig(write_candidates=False)
+
+    with pytest.raises(ValueError, match="write_report_md"):
+        OutputConfig(write_report_md=False)
+
+
+@pytest.mark.fast
+def test_auto_input_mode_is_rejected():
+    with pytest.raises(ValueError, match="auto"):
+        SiteSelectionInputConfig(mode="auto")
 
 
 @pytest.mark.fast
@@ -253,6 +302,20 @@ def test_dem_area_light_config_defaults_to_100_km2_window(tmp_path):
             "selection_id": "dem_area_light",
             "output_root": tmp_path / "out",
             "input": {"mode": "dem_area_light"},
+            "strategy": {
+                "principle": "criteria_crossing",
+                "profile": "area_only",
+                "primary_axes": ["area"],
+                "observation_role": "report_only",
+                "geology_role": "report_only",
+            },
+            "criteria": {
+                "area": {
+                    "mode": "hard_reject",
+                    "hard_min_area_km2": 75.0,
+                    "hard_max_area_km2": 125.0,
+                },
+            },
             "territory": {
                 "mode": "admin_regions",
                 "country": "FR",
@@ -267,6 +330,23 @@ def test_dem_area_light_config_defaults_to_100_km2_window(tmp_path):
     assert cfg.dem_area_light.max_area_km2 == pytest.approx(125.0)
     assert cfg.dem_area_light.n_basins == 50
     assert cfg.dem_area_light.max_candidates_before_delineation is None
+
+
+@pytest.mark.fast
+def test_dem_area_light_requires_explicit_area_only_profile(tmp_path):
+    with pytest.raises(ValueError, match="strategy.profile='area_only'"):
+        SiteSelectionConfig.model_validate(
+            {
+                "selection_id": "dem_area_light",
+                "output_root": tmp_path / "out",
+                "input": {"mode": "dem_area_light"},
+                "territory": {
+                    "mode": "admin_regions",
+                    "country": "FR",
+                    "regions": ["Normandie"],
+                },
+            }
+        )
 
 
 @pytest.mark.fast

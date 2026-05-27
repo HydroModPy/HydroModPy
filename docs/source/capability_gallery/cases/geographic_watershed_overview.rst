@@ -81,23 +81,23 @@ Selected Parameters
      - Meaning
      - Value
      - Source
-   * - ``[geographic] catch_def``
+   * - ``[geographic.catchment] catch_def``
      - Watershed extraction mode used to derive the basin from the outlet definition.
      - from_outlet_coord
      - ``examples/projects/04_data_overview/project.toml``
-   * - ``[geographic] x_outlet``
+   * - ``[geographic.catchment] x_outlet``
      - Projected x coordinate of the outlet used by watershed extraction.
      - 127348
      - ``examples/projects/04_data_overview/project.toml``
-   * - ``[geographic] y_outlet``
+   * - ``[geographic.catchment] y_outlet``
      - Projected y coordinate of the outlet used by watershed extraction.
      - 6.8358e+06
      - ``examples/projects/04_data_overview/project.toml``
-   * - ``[geographic] snap_dist``
+   * - ``[geographic.catchment] snap_dist``
      - Maximum snapping distance used to align the requested outlet with the drainage network.
      - 150 m
      - ``examples/projects/04_data_overview/project.toml``
-   * - ``[geographic] buff_area``
+   * - ``[geographic.catchment] buff_area``
      - Extra area kept around the watershed to preserve regional context in overview figures.
      - 20%
      - ``examples/projects/04_data_overview/project.toml``

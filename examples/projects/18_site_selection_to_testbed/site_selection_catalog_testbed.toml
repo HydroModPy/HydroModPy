@@ -38,7 +38,7 @@ project_root = "outputs/site_selection_manifest_mesh_testbed/workspaces/{site_id
 [testbed.variant_from_catalog.overlay.simulation]
 name = "{site_id}_mesh_from_site_selection"
 
-[testbed.variant_from_catalog.overlay.geographic]
+[testbed.variant_from_catalog.overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 buff_area = "10%"

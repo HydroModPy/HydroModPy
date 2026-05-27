@@ -148,37 +148,6 @@ def _location_coordinates_for_target(
     return float(target_x), float(target_y), target_crs
 
 
-def candidate_outlets_from_rows(
-    rows: Iterable[Mapping[str, Any]],
-    *,
-    x_field: str = "x",
-    y_field: str = "y",
-    id_field: str = "candidate_id",
-    crs: str = "EPSG:2154",
-    source: str = "imported_points",
-) -> list[CandidateOutlet]:
-    """Build candidate outlets from tabular rows."""
-
-    candidates: list[CandidateOutlet] = []
-    for index, row in enumerate(rows, start=1):
-        raw_id = row.get(id_field) or f"{source}_{index:05d}"
-        attributes = {str(key): value for key, value in row.items()}
-        candidates.append(
-            CandidateOutlet(
-                candidate_id=_make_candidate_id(source, str(raw_id)),
-                x=float(row[x_field]),
-                y=float(row[y_field]),
-                crs=crs,
-                source=source,
-                source_feature_id=str(raw_id),
-                source_label=str(row.get("label") or row.get("name") or raw_id),
-                priority=float(row.get("priority", 0.0) or 0.0),
-                attributes=attributes,
-            )
-        )
-    return candidates
-
-
 def thin_candidate_outlets(
     candidates: Iterable[CandidateOutlet],
     *,
@@ -267,6 +236,5 @@ def _haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
 __all__ = [
     "CandidateOutlet",
     "candidate_outlets_from_point_records",
-    "candidate_outlets_from_rows",
     "thin_candidate_outlets",
 ]

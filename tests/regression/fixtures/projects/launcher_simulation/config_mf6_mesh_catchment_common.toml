@@ -10,7 +10,7 @@ base_config = "hydromodpy.toml"
 [workflow]
 mode = "mesh"
 
-[geographic]
+[geographic.catchment]
 buff_area = "30%"
 
 [geographic.river_network]

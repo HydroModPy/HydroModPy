@@ -74,7 +74,7 @@ resolution = 120.0
 name = "{site_id}_natural_n3_10km2_mesh_coarse_shared_case"
 description = "Regional-lab N3 natural 10 km2 coarse-mesh MF6/Boussinesq comparison case."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 snap_dist = "150.0 m"
@@ -108,7 +108,7 @@ resolution = 80.0
 name = "{site_id}_natural_n3_10km2_mesh_reference_shared_case"
 description = "Regional-lab N3 natural 10 km2 reference-mesh MF6/Boussinesq comparison case."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 snap_dist = "150.0 m"
@@ -142,7 +142,7 @@ resolution = 60.0
 name = "{site_id}_natural_n3_10km2_mesh_refined_shared_case"
 description = "Regional-lab N3 natural 10 km2 refined-mesh MF6/Boussinesq comparison case."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 snap_dist = "150.0 m"
@@ -176,7 +176,7 @@ resolution = 220.0
 name = "{site_id}_natural_n3_100km2_mesh_coarse_shared_case"
 description = "Regional-lab N3 natural 100 km2 coarse-mesh MF6/Boussinesq comparison case."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 snap_dist = "300.0 m"
@@ -210,7 +210,7 @@ resolution = 160.0
 name = "{site_id}_natural_n3_100km2_mesh_reference_shared_case"
 description = "Regional-lab N3 natural 100 km2 reference-mesh MF6/Boussinesq comparison case."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 snap_dist = "300.0 m"
@@ -244,7 +244,7 @@ resolution = 120.0
 name = "{site_id}_natural_n3_100km2_mesh_refined_shared_case"
 description = "Regional-lab N3 natural 100 km2 refined-mesh MF6/Boussinesq comparison case."
 
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic]
+[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 x_outlet = "{x_outlet}"
 y_outlet = "{y_outlet}"
 snap_dist = "300.0 m"

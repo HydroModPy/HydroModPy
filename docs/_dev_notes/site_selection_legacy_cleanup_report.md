@@ -102,3 +102,44 @@ Restent hors perimetre site-selection:
 3. Les compatibilites workflow declarees comme legacy (`workflow_dispatch`,
    hooks testbed et colonne historique de heartbeat) ont ete traitees dans
    `docs/_dev_notes/workflow_legacy_cleanup_report.md`.
+
+## Lot 4 - contrat de configuration strict
+
+Ce lot retire la compatibilite restante dans le contrat executable
+`site_selection`:
+
+- suppression de l'alias de mode de critere `report` vers `report_only`;
+- retrait des profils de strategie non supportes `dem_only` et
+  `multicriteria`;
+- retrait des modes candidats non branches `dem_area_light` et
+  `imported_points` dans `strategy.candidate_mode` / `outlets.candidate_mode`;
+- retrait des modes de territoire non branches `site_catalog_extent` et
+  `geoparquet_filter`;
+- retrait de `same_mainstem_policy`;
+- retrait des options de sortie non executees `write_candidates` et
+  `write_report_md`;
+- suppression du helper public `candidate_outlets_from_rows`, qui ne servait
+  plus qu'un chemin d'import manuel non branche;
+- obligation de declarer explicitement
+  `profile = "gauged_downstream_station"` pour les runs
+  `principle = "observation_led"`.
+
+Les contrats et rapports courants ont ete alignes. Le plan long
+`site_selection_tool_implementation_plan.md` reste un document historique et
+peut encore citer les anciennes options, mais elles ne sont plus supportees par
+les modeles Pydantic.
+
+L'audit des duplications potentielles est documente dans
+`docs/_dev_notes/site_selection_duplication_audit.md`.
+
+Validation associee:
+
+```powershell
+python -m pytest tests/unit/site_selection -q
+python -m ruff check hydromodpy/spatial/site_selection hydromodpy/workflow/site_selection.py hydromodpy/cli/commands/site_selection.py tests/unit/site_selection
+```
+
+Resultats:
+
+- `146 passed` pour les tests unitaires `site_selection`;
+- `ruff`: aucun probleme.

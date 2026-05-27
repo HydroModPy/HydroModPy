@@ -9,6 +9,13 @@ output_root = "../outputs/normandie_dem_area_light_100km2_v1"
 mode = "dem_area_light"
 region_id = "Normandie"
 
+[site_selection.strategy]
+principle = "criteria_crossing"
+profile = "area_only"
+primary_axes = ["area"]
+observation_role = "report_only"
+geology_role = "report_only"
+
 [site_selection.territory]
 mode = "admin_regions"
 country = "FR"
@@ -32,6 +39,11 @@ target_area_km2 = 100.0
 min_area_km2 = 75.0
 max_area_km2 = 125.0
 n_basins = 50
+
+[site_selection.criteria.area]
+mode = "hard_reject"
+hard_min_area_km2 = 75.0
+hard_max_area_km2 = 125.0
 
 [site_selection.output]
 write_report_html = true
