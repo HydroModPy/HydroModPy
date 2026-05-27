@@ -32,11 +32,12 @@ actuels.
 
 Note 2026-05-27: les alias et options de compatibilite retires du contrat
 courant (`profile = "dem_only"`, `profile = "multicriteria"`,
-`mode = "report"`, `write_candidates`, `write_report_md`,
+`mode = "report"`, `site_selection.input.mode = "auto"`, `write_candidates`,
+`write_report_md`,
 `same_mainstem_policy`, `site_catalog_extent`, `geoparquet_filter` et les TOML
-hydrometriques sans `profile = "gauged_downstream_station"`) peuvent encore
-apparaitre dans ce plan long. Ils decrivent l'historique de conception, pas une
-interface supportee.
+hydrometriques sans `profile = "gauged_downstream_station"` ou DEM-light sans
+`profile = "area_only"`) peuvent encore apparaitre dans ce plan long. Ils
+decrivent l'historique de conception, pas une interface supportee.
 
 Note 2026-05-16: les premieres consolidations v0 sont implementees dans le code:
 validation du manifest, schema CSV documente, criteres auditables

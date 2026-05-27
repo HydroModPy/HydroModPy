@@ -234,9 +234,7 @@ porter `principle = "observation_led"`,
 `primary_observation_type = "flow_station"` et
 `candidate_mode = "station_outlets"`.
 
-`dem_area_light` peut encore etre classe en `effective_profile = "area_only"`
-depuis son mode d'entree. Les TOML hydrometriques sans profil explicite ne font
-plus partie de la doctrine stabilisee.
+Les TOML sans profil explicite ne font plus partie de la doctrine stabilisee.
 
 ## Hors doctrine finale
 

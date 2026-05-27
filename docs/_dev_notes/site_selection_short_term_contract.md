@@ -85,6 +85,13 @@ Pour le mode DEM leger:
 [site_selection.input]
 mode = "dem_area_light"
 
+[site_selection.strategy]
+principle = "criteria_crossing"
+profile = "area_only"
+primary_axes = ["area"]
+observation_role = "report_only"
+geology_role = "report_only"
+
 [site_selection.dem_area_light]
 target_area_km2 = 100.0
 min_area_km2 = 75.0
@@ -93,8 +100,8 @@ n_basins = 10
 max_candidates_before_delineation = 30
 ```
 
-`dem_area_light` est classe en `effective_profile = "area_only"` meme si le TOML
-ne declare pas explicitement `strategy.profile`.
+`dem_area_light` doit declarer `strategy.profile = "area_only"` explicitement.
+Le manifest reprend ce profil dans `strategy.effective_profile`.
 
 ### Criteres actifs
 
@@ -254,11 +261,9 @@ Le contrat d'audit court terme est:
   `EvidenceRecord` dans `site_selection_evidence.jsonl`;
 - les decisions peuvent porter un `evidence_ref` quand une preuve concrete
   existe;
-- le manifest expose `strategy.effective_profile`; les runs hydrometriques
-  maintenus doivent maintenant declarer
-  `profile = "gauged_downstream_station"` explicitement, tandis que
-  `dem_area_light` peut encore etre classe en `area_only` par son mode
-  d'entree.
+- le manifest expose `strategy.effective_profile`; les runs maintenus doivent
+  declarer leur profil explicitement (`area_only` ou
+  `gauged_downstream_station`).
 
 ## Hors perimetre immediat
 

@@ -122,7 +122,11 @@ Ce lot retire la compatibilite restante dans le contrat executable
   plus qu'un chemin d'import manuel non branche;
 - obligation de declarer explicitement
   `profile = "gauged_downstream_station"` pour les runs
-  `principle = "observation_led"`.
+  `principle = "observation_led"`;
+- suppression du mode implicite `site_selection.input.mode = "auto"`;
+- obligation de declarer explicitement `profile = "area_only"` pour les runs
+  `site_selection.input.mode = "dem_area_light"`; `effective_profile` ne deduit
+  plus ce profil depuis le mode d'entree.
 
 Les contrats et rapports courants ont ete alignes. Le plan long
 `site_selection_tool_implementation_plan.md` reste un document historique et
