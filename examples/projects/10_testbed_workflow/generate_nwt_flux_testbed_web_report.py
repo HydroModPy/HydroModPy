@@ -789,7 +789,7 @@ def _render_regional_location_map(
                 zorder=5,
             )
         for case, x, y in zip(valid_cases, xs, ys, strict=False):
-            is_current = current_case is not None and case.variant_id == current_case.variant_id
+            is_current = current_case is not None and case.case_id == current_case.case_id
             ax.annotate(
                 _site_short_label(case),
                 xy=(x, y),
@@ -1695,7 +1695,7 @@ def _render_scatter(
 
         points = []
         for case in cases:
-            diag = diagnostics.get(case.variant_id)
+            diag = diagnostics.get(case.case_id)
             x_value = _diagnostic_value(diag, x_key)
             y_value = _diagnostic_value(diag, y_key)
             if x_value is None or y_value is None:
