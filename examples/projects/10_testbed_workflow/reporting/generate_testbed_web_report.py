@@ -259,7 +259,7 @@ def _render_testbed_index(
 ) -> str:
     title = str(context.get("title") or f"Testbed report - {manifest.get('testbed_id', output_root.name)}")
     summary_cards = [
-        ("Cas", manifest.get("variant_count") or len(cases)),
+        ("Cas", manifest.get("case_count") or manifest.get("variant_count") or len(cases)),
         ("OK", manifest.get("successful_count")),
         ("Echecs", manifest.get("failed_count")),
         ("Comparaisons", len(comparisons)),
@@ -306,7 +306,11 @@ def _render_catalog_testbed_guidance(
     catalog = manifest.get("catalog") if isinstance(manifest.get("catalog"), Mapping) else None
     if catalog is None and isinstance(plan.get("catalog"), Mapping):
         catalog = plan.get("catalog")
-    rules = manifest.get("variant_from_catalog")
+    rules = manifest.get("case_from_catalog")
+    if not isinstance(rules, list):
+        rules = manifest.get("variant_from_catalog")
+    if not isinstance(rules, list) and isinstance(plan.get("case_from_catalog"), list):
+        rules = plan.get("case_from_catalog")
     if not isinstance(rules, list) and isinstance(plan.get("variant_from_catalog"), list):
         rules = plan.get("variant_from_catalog")
     if catalog is None and not rules:
@@ -372,7 +376,8 @@ def _render_testbed_case_page(
     page_dir: Path,
     context: Mapping[str, Any],
 ) -> str:
-    label = _display_value(case.get("variant_label") or case.get("variant_id"))
+    case_id = case.get("case_id") or case.get("variant_id")
+    label = _display_value(case.get("case_label") or case.get("variant_label") or case_id)
     config = case.get("config") if isinstance(case.get("config"), Mapping) else {}
     site = case.get("site") if isinstance(case.get("site"), Mapping) else {}
     figures = list(case.get("figures") or [])
@@ -383,7 +388,7 @@ def _render_testbed_case_page(
     comparison = comparisons[0] if comparisons else {}
     status = _case_display_status(case, comparison)
     facts = [
-        ("Variant id", case.get("variant_id")),
+        ("Case id", case_id),
         ("Status", _status_badge(status)),
         ("Axis", case.get("axis")),
         ("Runner", case.get("runner")),

@@ -48,7 +48,7 @@ __all__ = (
 
 
 class TestbedLauncher:
-    """Expand variants, run child workflows, and collect testbed evidence."""
+    """Expand cases, run child workflows, and collect testbed evidence."""
 
     def __init__(self, config_path: str | Path) -> None:
         self.cfg = TestbedConfig.from_file(config_path)
@@ -100,12 +100,12 @@ class TestbedLauncher:
             ),
         )
         if not variants:
-            raise ValueError("testbed did not expand any variant")
+            raise ValueError("testbed did not expand any case")
         seen: set[str] = set()
         for variant in variants:
             normalized = variant.id.lower()
             if normalized in seen:
-                raise ValueError(f"Duplicate testbed.variant id '{variant.id}'")
+                raise ValueError(f"Duplicate testbed.case id '{variant.id}'")
             seen.add(normalized)
         return variants
 
@@ -168,6 +168,7 @@ class TestbedLauncher:
                 "runner": self.cfg.runner.type,
                 "base_config": str(self._base_config_path()),
                 "catalog": _catalog_manifest_payload(self.cfg),
+                "case_from_catalog": _catalog_variant_manifest_payload(self.cfg),
                 "variant_from_catalog": _catalog_variant_manifest_payload(self.cfg),
                 "cases": [case.to_mapping() for case in cases],
             },
@@ -210,7 +211,9 @@ class TestbedLauncher:
                     None if self.cfg.catalog is None else str(self.cfg.catalog.path)
                 ),
                 "catalog": _catalog_manifest_payload(self.cfg),
+                "case_from_catalog": _catalog_variant_manifest_payload(self.cfg),
                 "variant_from_catalog": _catalog_variant_manifest_payload(self.cfg),
+                "case_count": len(cases),
                 "variant_count": len(cases),
                 "executed_count": len(executions),
                 "successful_count": len([item for item in executions if item.status == "ok"]),
@@ -285,6 +288,7 @@ class TestbedLauncher:
             "purpose": self.cfg.purpose,
             "runner": self.cfg.runner.type,
             "output_root": str(self.cfg.output_root),
+            "case_count": len(cases),
             "variant_count": len(cases),
             "executed_count": len(executions),
             "successful_count": successful_count,

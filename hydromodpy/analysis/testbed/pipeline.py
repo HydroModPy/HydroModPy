@@ -391,6 +391,8 @@ class TestbedPlannedCase:
 
     def to_mapping(self) -> dict[str, Any]:
         return {
+            "case_id": self.variant.id,
+            "case_label": self.variant.label,
             "variant_id": self.variant.id,
             "variant_label": self.variant.label,
             "axis": self.variant.axis or "",
@@ -534,6 +536,8 @@ def _metric_row_for_execution(
     runner_type: str,
 ) -> dict[str, Any]:
     row: dict[str, Any] = {
+        "case_id": execution.case.variant.id,
+        "case_label": execution.case.variant.label,
         "variant_id": execution.case.variant.id,
         "variant_label": execution.case.variant.label,
         "axis": execution.case.variant.axis or "",
@@ -574,14 +578,14 @@ def _build_report(
         f"- Purpose: `{cfg.purpose}`",
         f"- Runner: `{cfg.runner.type}`",
         f"- Execute: {bool(cfg.execute)}",
-        f"- Variants: {len(cases)}",
+        f"- Cases: {len(cases)}",
         f"- Successful: {ok_count}",
         f"- Failed: {failed_count}",
         f"- Pending: {pending_count}",
         "",
-        "## Variants",
+        "## Cases",
         "",
-        "| Variant | Axis | Status | Duration (s) |",
+        "| Case | Axis | Status | Duration (s) |",
         "| --- | --- | --- | ---: |",
     ]
     for case in cases:

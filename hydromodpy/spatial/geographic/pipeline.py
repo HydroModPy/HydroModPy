@@ -204,10 +204,10 @@ def _river_products_from_cache(
         summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
     network_path = Path(paths.hydrographic_network_generated_shp)
-    network_shp = str(network_path) if _vector_artifact_exists(network_path) else None
+    generated_network_shp = str(network_path) if _vector_artifact_exists(network_path) else None
     network_gdf = None
-    if network_shp is not None:
-        network_gdf = gpd.read_file(network_shp)
+    if generated_network_shp is not None:
+        network_gdf = gpd.read_file(generated_network_shp)
     river_mesh_trace = (
         None
         if network_gdf is None
@@ -244,10 +244,12 @@ def _river_products_from_cache(
             if bool(config.river_network.compute_stream_links)
             else None
         ),
-        network_shp=network_shp,
+        hydrographic_network_generated_shp=generated_network_shp,
         network_crs=crs_project,
         river_mesh_trace=river_mesh_trace,
-        summary_json=paths.hydrographic_network_generated_summary_json,
+        hydrographic_network_generated_summary_json=(
+            paths.hydrographic_network_generated_summary_json
+        ),
     )
 
 
@@ -340,7 +342,7 @@ def _load_cached_geographic_products(
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
             if (
                 int(summary.get("segment_count", 0) or 0) > 0
-                and river_network_products.network_shp is None
+                and river_network_products.hydrographic_network_generated_shp is None
             ):
                 return None
 

@@ -48,6 +48,9 @@ from hydromodpy.spatial.site_selection.hydrology.pipeline import (
     delineate_site_selection_candidates,
 )
 from hydromodpy.spatial.site_selection.outputs.artifacts import write_manifest_and_optional_report
+from hydromodpy.spatial.site_selection.outputs.cleanup import (
+    cleanup_site_selection_intermediate_rasters,
+)
 from hydromodpy.spatial.site_selection.outputs.pipeline import (
     write_core_site_selection_outputs,
 )
@@ -161,6 +164,7 @@ def build_site_selection_from_point_records(
         flow_manifest = flow_products.to_manifest_record()
         flow_manifest["dem_path"] = str(dem_path)
         flow_manifest["dem_source"] = config.dem.source
+        flow_manifest["intermediate_rasters_kept"] = config.output.keep_intermediate_rasters
         if reference_bundle is not None:
             flow_manifest["reference_network"] = reference_bundle.to_manifest_record()
         output_paths.update(
@@ -171,6 +175,12 @@ def build_site_selection_from_point_records(
                 action="hydrometry",
                 flow_products=flow_manifest,
             )
+        )
+        _cleanup_intermediate_rasters(
+            config=config,
+            root=root,
+            catchments=delineated,
+            flow_products=flow_products,
         )
 
     return SiteSelectionBuildResult(
@@ -285,6 +295,7 @@ def build_site_selection_from_generated_network(
         flow_manifest = flow_products.to_manifest_record()
         flow_manifest["dem_path"] = str(dem_path)
         flow_manifest["dem_source"] = config.dem.source
+        flow_manifest["intermediate_rasters_kept"] = config.output.keep_intermediate_rasters
         if reference_bundle is not None:
             flow_manifest["reference_network"] = reference_bundle.to_manifest_record()
         output_paths.update(
@@ -295,6 +306,12 @@ def build_site_selection_from_generated_network(
                 action="generated_candidates",
                 flow_products=flow_manifest,
             )
+        )
+        _cleanup_intermediate_rasters(
+            config=config,
+            root=root,
+            catchments=delineated,
+            flow_products=flow_products,
         )
 
     return SiteSelectionBuildResult(
@@ -423,6 +440,7 @@ def build_site_selection_from_dem_area_light(
         flow_manifest = flow_products.to_manifest_record()
         flow_manifest["dem_path"] = str(dem_path)
         flow_manifest["dem_source"] = config.dem.source
+        flow_manifest["intermediate_rasters_kept"] = config.output.keep_intermediate_rasters
         flow_manifest["raw_flow_accumulation_cells_path"] = str(raw_accumulation_path)
         flow_manifest["dem_area_light"] = config.dem_area_light.model_dump(mode="json")
         output_paths.update(
@@ -433,6 +451,12 @@ def build_site_selection_from_dem_area_light(
                 action="dem_area_light",
                 flow_products=flow_manifest,
             )
+        )
+        _cleanup_intermediate_rasters(
+            config=config,
+            root=root,
+            catchments=delineated,
+            flow_products=flow_products,
         )
 
     return SiteSelectionBuildResult(
@@ -465,6 +489,22 @@ def _observation_evidence_for_candidates(
             )
         )
     return evidence
+
+
+def _cleanup_intermediate_rasters(
+    *,
+    config: SiteSelectionConfig,
+    root: Path,
+    catchments: list[DelineatedCatchment],
+    flow_products: SiteSelectionFlowProducts,
+) -> None:
+    if config.output.keep_intermediate_rasters:
+        return
+    cleanup_site_selection_intermediate_rasters(
+        output_root=root,
+        catchments=catchments,
+        flow_products=flow_products,
+    )
 
 
 def _first_region_id(config: SiteSelectionConfig) -> str:

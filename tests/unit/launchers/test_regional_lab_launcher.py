@@ -475,6 +475,8 @@ def test_regional_lab_plan_projects_to_testbed_cases(tmp_path: Path) -> None:
     ]
     assert testbed_cases[0].case.variant.label == ("sim_reference / headwater_100km2_outlet_2")
     assert testbed_cases[0].to_mapping() == {
+        "case_id": "sim_reference::headwater_100km2_outlet_2",
+        "case_label": "sim_reference / headwater_100km2_outlet_2",
         "variant_id": "sim_reference::headwater_100km2_outlet_2",
         "variant_label": "sim_reference / headwater_100km2_outlet_2",
         "axis": "sim_reference",

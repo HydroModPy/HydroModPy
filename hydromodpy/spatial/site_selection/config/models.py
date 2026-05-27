@@ -845,6 +845,13 @@ class OutputConfig(HydroModelBase):
     write_csv: Annotated[bool, Profile.USER] = Field(default=True)
     write_regional_lab_csv: Annotated[bool, Profile.USER] = Field(default=True)
     write_report_html: Annotated[bool, Profile.USER] = Field(default=False)
+    keep_intermediate_rasters: Annotated[bool, Profile.USER] = Field(
+        default=False,
+        description=(
+            "Keep intermediate GeoTIFF rasters such as flow products and "
+            "per-candidate watershed masks after final outputs are written."
+        ),
+    )
 
 
 class MapContextLayerConfig(HydroModelBase):

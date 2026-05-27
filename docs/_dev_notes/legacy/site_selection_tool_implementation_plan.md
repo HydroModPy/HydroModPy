@@ -8,6 +8,13 @@ Archive: ce plan long a ete deplace sous `docs/_dev_notes/legacy/` le
 defini par `docs/_dev_notes/site_selection_short_term_contract.md` et
 `docs/_dev_notes/site_selection_current_implementation_report.md`.
 
+Note de gouvernance 2026-05-27: ne pas nettoyer ce fichier ligne par ligne et
+ne pas l'utiliser comme backlog direct. Quand une idee historique redevient
+actionnable, l'extraire dans une note courte courante puis laisser ici la trace
+historique. Les points actifs deja extraits sont resumes dans la section
+`Points actifs extraits du plan archive` de
+`docs/_dev_notes/site_selection_current_implementation_report.md`.
+
 Statut: document de conception et de planification. Ce fichier detaille une
 brique specifique: un outil independant de selection de sites, place en amont
 des testbeds, regional labs, comparaisons et campagnes de calibration. La mise

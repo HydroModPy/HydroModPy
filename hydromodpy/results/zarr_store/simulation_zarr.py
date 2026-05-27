@@ -52,6 +52,11 @@ from hydromodpy.results.zarr_store.zarr_schema import (
 )
 
 
+def _file_lock_for_store(path: Path) -> FileLock:
+    """Build the store lock using extended-length paths on Windows."""
+    return FileLock(str(_windows_long_path(path / LOCK_FILE_NAME)))
+
+
 class SimulationZarr:
     """Per-simulation Zarr v2 store. Atomic, locked, CF-1.11 + ACDD-1.3."""
 
@@ -66,7 +71,7 @@ class SimulationZarr:
         else:
             self._store = local_store(self._path)
             self._root = self._open_root_strict(read_only=False)
-            self._lock = FileLock(str(self._path / LOCK_FILE_NAME))
+            self._lock = _file_lock_for_store(self._path)
 
     # -- Construction --------------------------------------------------------
 
@@ -94,7 +99,7 @@ class SimulationZarr:
         instance._root = root
         instance._balanced = bool(balanced)
         instance._on_close = None
-        instance._lock = FileLock(str(path / LOCK_FILE_NAME))
+        instance._lock = _file_lock_for_store(path)
         return instance
 
     def _open_root_strict(self, *, read_only: bool) -> zarr.Group:

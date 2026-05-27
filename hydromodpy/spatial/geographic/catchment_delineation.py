@@ -34,6 +34,12 @@ from hydromodpy.spatial.geographic.pipeline import build_geographic_runtime_cont
 logger = get_logger(__name__)
 
 
+def _optional_str_path(path: object) -> str | None:
+    if path in (None, ""):
+        return None
+    return str(path)
+
+
 def DEM_correcflow_analysis(
     dem_init_path: str,
     dem_out_dir_path: str,
@@ -188,16 +194,16 @@ class CatchmentDelineation:
 
         river_products = getattr(self, "_river_network_products", None)
         if not isinstance(river_products, RiverNetworkProducts):
-            generated_network_shp = (
-                str(getattr(self, "hydrographic_network_generated_shp", "")) or None
+            generated_network_shp = _optional_str_path(
+                getattr(self, "hydrographic_network_generated_shp", None)
             )
-            generated_summary_json = (
-                str(getattr(self, "hydrographic_network_generated_summary_json", "")) or None
+            generated_summary_json = _optional_str_path(
+                getattr(self, "hydrographic_network_generated_summary_json", None)
             )
             river_products = RiverNetworkProducts(
                 enabled=bool(getattr(self, "river_mesh_trace", None) is not None),
-                network_shp=generated_network_shp,
-                summary_json=generated_summary_json,
+                hydrographic_network_generated_shp=generated_network_shp,
+                hydrographic_network_generated_summary_json=generated_summary_json,
                 river_mesh_trace=getattr(self, "river_mesh_trace", None),
             )
         generated_network = HydrographicNetwork.from_river_network_products(

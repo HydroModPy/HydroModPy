@@ -1,4 +1,4 @@
-"""Catalog-backed variant expansion for method testbeds."""
+"""Catalog-backed case expansion for method testbeds."""
 
 from __future__ import annotations
 
@@ -121,7 +121,7 @@ def _variant_from_row(
     )
     if missing_fields:
         raise ValueError(
-            "testbed.variant_from_catalog row is missing required field(s): "
+            "testbed.case_from_catalog row is missing required field(s): "
             + ", ".join(missing_fields)
         )
 
@@ -129,7 +129,7 @@ def _variant_from_row(
         variant_id = _format_template(
             rule.id_template,
             context,
-            label="testbed.variant_from_catalog.id_template",
+            label="testbed.case_from_catalog.id_template",
         )
     else:
         variant_id = _catalog_field_value(row, field_name=catalog.id_field)
@@ -143,7 +143,7 @@ def _variant_from_row(
         label = _format_template(
             rule.label_template,
             context,
-            label=f"testbed.variant_from_catalog[{variant_id}].label_template",
+            label=f"testbed.case_from_catalog[{variant_id}].label_template",
         )
     else:
         label = _catalog_field_value(row, field_name=catalog.label_field) or variant_id
@@ -152,7 +152,7 @@ def _variant_from_row(
         axis = _format_template(
             rule.axis_template,
             context,
-            label=f"testbed.variant_from_catalog[{variant_id}].axis_template",
+            label=f"testbed.case_from_catalog[{variant_id}].axis_template",
         )
     else:
         axis = _catalog_field_value(row, field_name=catalog.axis_field)
@@ -160,12 +160,10 @@ def _variant_from_row(
     overlay = _render_template_value(
         rule.overlay,
         context,
-        label=f"testbed.variant_from_catalog[{variant_id}].overlay",
+        label=f"testbed.case_from_catalog[{variant_id}].overlay",
     )
     if not isinstance(overlay, dict):
-        raise ValueError(
-            f"testbed.variant_from_catalog[{variant_id}].overlay must render to a mapping"
-        )
+        raise ValueError(f"testbed.case_from_catalog[{variant_id}].overlay must render to a mapping")
     return TestbedVariantConfig(
         id=variant_id,
         label=label,
@@ -180,7 +178,7 @@ def expand_catalog_variants(
     catalog: TestbedCatalogConfig | None,
     rules: Sequence[TestbedCatalogVariantConfig],
 ) -> tuple[TestbedVariantConfig, ...]:
-    """Expand configured catalog rows into concrete testbed variants."""
+    """Expand configured catalog rows into concrete testbed cases."""
     if catalog is None or not rules:
         return ()
 

@@ -54,7 +54,7 @@ required_fields = [
 tags = ["n1_10km2", "comparison"]
 
 # Rule that turns each selected catalog row into one comparison variant.
-[[testbed.variant_from_catalog]]
+[[testbed.case_from_catalog]]
 # Template for the generated variant id.
 id_template = "{site_id}"
 # Template for the generated variant label.
@@ -65,21 +65,21 @@ axis_template = "{cluster_family}"
 required_fields = ["x_outlet", "y_outlet"]
 
 # Comparison-level overlay rendered for each catalog row.
-[testbed.variant_from_catalog.overlay.comparison]
+[testbed.case_from_catalog.overlay.comparison]
 # Generated comparison id for the current site.
 comparison_id = "{site_id}_natural_n1_10km2_mf6_bouss"
 # Generated comparison output folder for the current site.
 output_root = "../../outputs/boussinesq_natural_n1_10km2_testbed/comparisons/{site_id}_natural_n1_10km2_mf6_bouss"
 
 # Shared simulation metadata injected before solver-specific overlays.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.simulation]
 # Shared simulation name for the site, before child solver suffixes are added.
 name = "{site_id}_natural_10km2_shared_case"
 # Shared simulation description displayed in generated child TOMLs.
 description = "Regional-lab N1 natural 10 km2 MF6/Boussinesq comparison case."
 
 # Shared geographic/site definition injected from the catalog.
-[testbed.variant_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
+[testbed.case_from_catalog.overlay.comparison.base_simulation_overlay.geographic.catchment]
 # Outlet X coordinate in the project CRS.
 x_outlet = "{x_outlet}"
 # Outlet Y coordinate in the project CRS.

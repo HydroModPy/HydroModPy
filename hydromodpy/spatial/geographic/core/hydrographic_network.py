@@ -401,7 +401,6 @@ class HydrographicNetwork:
 
         vector_path = _string_path(
             getattr(river_network_products, "hydrographic_network_generated_shp", None)
-            or getattr(river_network_products, "network_shp", None)
         )
         raster_path = _string_path(
             getattr(river_network_products, "active_streams_tif", None)
@@ -413,7 +412,6 @@ class HydrographicNetwork:
         metrics: dict[str, ScalarMetric] = {}
         summary_json = _string_path(
             getattr(river_network_products, "hydrographic_network_generated_summary_json", None)
-            or getattr(river_network_products, "summary_json", None)
         )
         if summary_json is not None and Path(summary_json).exists():
             with Path(summary_json).open("r", encoding="utf-8") as stream:

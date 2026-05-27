@@ -14,90 +14,90 @@ continue_on_error = false
 type = "simulation"
 no_display = true
 
-[[testbed.variant]]
+[[testbed.case]]
 id = "bouss_patchy_coarse_mesh"
 label = "Boussinesq patchy long-recharge coarse mesh"
 axis = "mesh_resolution"
 
-[testbed.variant.overlay.workspace]
+[testbed.case.overlay.workspace]
 project_root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_coarse_mesh_workspace"
 root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_coarse_mesh_workspace"
 
-[testbed.variant.overlay.simulation]
+[testbed.case.overlay.simulation]
 name = "bouss_patchy_coarse_mesh"
 run_id = "bouss_patchy_coarse_mesh"
 
-[[testbed.variant.overlay.simulation.process]]
+[[testbed.case.overlay.simulation.process]]
 id = "flow_main"
 type = "flow"
 solvers = ["boussinesq"]
 
-[testbed.variant.overlay.mesh_catchment.zone_meshing]
+[testbed.case.overlay.mesh_catchment.zone_meshing]
 global_size = 650.0
 min_size = 250.0
 max_size = 1100.0
 interface_size = 320.0
 interface_distance = 700.0
 
-[testbed.variant.overlay.flow.bc.cauchy.drainage]
+[testbed.case.overlay.flow.bc.cauchy.drainage]
 value = "0.0 m2/s"
 description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
 
-[[testbed.variant]]
+[[testbed.case]]
 id = "bouss_patchy_reference_mesh"
 label = "Boussinesq patchy long-recharge reference mesh"
 axis = "mesh_resolution"
 
-[testbed.variant.overlay.workspace]
+[testbed.case.overlay.workspace]
 project_root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_reference_mesh_workspace"
 root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_reference_mesh_workspace"
 
-[testbed.variant.overlay.simulation]
+[testbed.case.overlay.simulation]
 name = "bouss_patchy_reference_mesh"
 run_id = "bouss_patchy_reference_mesh"
 
-[[testbed.variant.overlay.simulation.process]]
+[[testbed.case.overlay.simulation.process]]
 id = "flow_main"
 type = "flow"
 solvers = ["boussinesq"]
 
-[testbed.variant.overlay.mesh_catchment.zone_meshing]
+[testbed.case.overlay.mesh_catchment.zone_meshing]
 global_size = 450.0
 min_size = 180.0
 max_size = 800.0
 interface_size = 220.0
 interface_distance = 550.0
 
-[testbed.variant.overlay.flow.bc.cauchy.drainage]
+[testbed.case.overlay.flow.bc.cauchy.drainage]
 value = "0.0 m2/s"
 description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
 
-[[testbed.variant]]
+[[testbed.case]]
 id = "bouss_patchy_fine_mesh"
 label = "Boussinesq patchy long-recharge fine mesh"
 axis = "mesh_resolution"
 
-[testbed.variant.overlay.workspace]
+[testbed.case.overlay.workspace]
 project_root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_fine_mesh_workspace"
 root = "../../outputs/boussinesq_synthetic_heterogeneous/testbed_long_recharge/bouss_patchy_fine_mesh_workspace"
 
-[testbed.variant.overlay.simulation]
+[testbed.case.overlay.simulation]
 name = "bouss_patchy_fine_mesh"
 run_id = "bouss_patchy_fine_mesh"
 
-[[testbed.variant.overlay.simulation.process]]
+[[testbed.case.overlay.simulation.process]]
 id = "flow_main"
 type = "flow"
 solvers = ["boussinesq"]
 
-[testbed.variant.overlay.mesh_catchment.zone_meshing]
+[testbed.case.overlay.mesh_catchment.zone_meshing]
 global_size = 320.0
 min_size = 140.0
 max_size = 650.0
 interface_size = 180.0
 interface_distance = 450.0
 
-[testbed.variant.overlay.flow.bc.cauchy.drainage]
+[testbed.case.overlay.flow.bc.cauchy.drainage]
 value = "0.0 m2/s"
 description = "Boussinesq case 1: Cauchy drainage disabled; the VI upper obstacle enforces h <= z_top."
 

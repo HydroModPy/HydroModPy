@@ -55,20 +55,10 @@ class RiverNetworkProducts:
     streams_pruned_tif: str | None = None
     stream_order_strahler_tif: str | None = None
     stream_link_id_tif: str | None = None
-    network_shp: str | None = None
+    hydrographic_network_generated_shp: str | None = None
     network_crs: str | None = None
     river_mesh_trace: RiverMeshTrace | None = None
-    summary_json: str | None = None
-
-    @property
-    def hydrographic_network_generated_shp(self) -> str | None:
-        """Canonical alias of the generated hydrographic-network vector path."""
-        return self.network_shp
-
-    @property
-    def hydrographic_network_generated_summary_json(self) -> str | None:
-        """Canonical alias of the generated hydrographic-network summary path."""
-        return self.summary_json
+    hydrographic_network_generated_summary_json: str | None = None
 
 
 def resolve_stream_threshold_cells(
@@ -241,7 +231,6 @@ def compute_river_network_summary(
     threshold_cells: float,
     active_streams_tif: str | Path,
     watershed_shp: str | Path,
-    network_shp: str | Path | None,
     stream_order_strahler_tif: str | Path | None,
     network_gdf: gpd.GeoDataFrame | None = None,
 ) -> dict[str, float | int | bool | str | None]:
@@ -259,7 +248,6 @@ def compute_river_network_summary(
         )
 
     stream_pixel_count = int(_active_positive_count(active_streams_tif))
-    _ = network_shp
     if network_gdf is None:
         network = gpd.GeoDataFrame(geometry=[], crs=None)
     else:
@@ -472,7 +460,6 @@ def build_river_network_products(
         threshold_cells=float(threshold_cells),
         active_streams_tif=str(active_streams_tif),
         watershed_shp=watershed_shp,
-        network_shp=output_network_shp,
         stream_order_strahler_tif=output_stream_order_tif,
         network_gdf=network_gdf,
     )
@@ -490,8 +477,8 @@ def build_river_network_products(
         streams_pruned_tif=output_pruned_tif,
         stream_order_strahler_tif=output_stream_order_tif,
         stream_link_id_tif=output_stream_link_tif,
-        network_shp=output_network_shp,
+        hydrographic_network_generated_shp=output_network_shp,
         network_crs=network_crs_value,
         river_mesh_trace=river_mesh_trace,
-        summary_json=str(summary_json),
+        hydrographic_network_generated_summary_json=str(summary_json),
     )

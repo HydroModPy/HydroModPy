@@ -53,6 +53,9 @@ from hydromodpy.spatial.site_selection.hydrology.flow_products import (
     build_site_selection_flow_products,
 )
 from hydromodpy.spatial.site_selection.outputs.artifacts import write_manifest_and_optional_report
+from hydromodpy.spatial.site_selection.outputs.cleanup import (
+    cleanup_site_selection_intermediate_rasters,
+)
 from hydromodpy.spatial.site_selection.outputs.pipeline import (
     write_core_site_selection_outputs,
 )
@@ -360,6 +363,11 @@ def select_delineated_catchments_from_csv(
             flow_products=flow_manifest,
         )
     )
+    if not cfg_for_outputs.output.keep_intermediate_rasters:
+        cleanup_site_selection_intermediate_rasters(
+            output_root=target_root,
+            catchments=catchments,
+        )
     return result, paths
 
 
@@ -417,6 +425,7 @@ def _maybe_delineate_from_outlets(
     flow_manifest = flow_products.to_manifest_record()
     flow_manifest["dem_path"] = str(dem_path)
     flow_manifest["dem_source"] = config.dem.source
+    flow_manifest["intermediate_rasters_kept"] = config.output.keep_intermediate_rasters
     if reference_bundle is not None:
         flow_manifest["reference_network"] = reference_bundle.to_manifest_record()
     map_dem_path = _resolve_map_dem_path_for_review(

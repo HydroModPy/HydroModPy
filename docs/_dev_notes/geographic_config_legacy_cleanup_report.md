@@ -221,3 +221,40 @@ Elargir le nettoyage hors `hydromodpy/spatial/geographic`: commencer par
 `hydromodpy/results`, `hydromodpy/analysis/comparison` et les tests associes,
 ou la plupart des occurrences restantes semblent etre des aliases/resultats de
 compatibilite encore exposes.
+
+## Lot suivant applique: alias internes `RiverNetworkProducts`
+
+- `RiverNetworkProducts` n'expose plus les champs internes `network_shp` et
+  `summary_json`.
+- Les champs portes par le bundle technique sont maintenant les noms canoniques
+  `hydrographic_network_generated_shp` et
+  `hydrographic_network_generated_summary_json`.
+- Les consommateurs geographic (`pipeline`, `domain_geographic_pipeline`,
+  `store_ingestion`, `catchment_delineation` et
+  `HydrographicNetwork.from_river_network_products`) lisent ces noms
+  directement, sans fallback vers les anciens champs.
+- Les parametres de bas niveau `network_shp_path` et `summary_json_path` de
+  `build_river_network_products(...)` restent des chemins de fichiers de
+  sortie; ils ne constituent pas une surface de payload runtime.
+
+Controles executes:
+
+```powershell
+rg -n "\.(network_shp|summary_json)\b" hydromodpy/spatial/geographic tests/unit/geographic -g "*.py"
+rg -n 'getattr\([^)]*,\s*"(network_shp|summary_json)"' hydromodpy/spatial/geographic tests/unit/geographic -g "*.py"
+python -m ruff check hydromodpy/spatial/geographic/core/river_network.py hydromodpy/spatial/geographic/pipeline.py hydromodpy/spatial/geographic/core/domain_geographic_pipeline.py hydromodpy/spatial/geographic/catchment_delineation.py hydromodpy/spatial/geographic/store_ingestion.py hydromodpy/spatial/geographic/core/hydrographic_network.py tests/unit/geographic/test_hydrographic_network.py tests/unit/geographic/test_river_network_products.py tests/unit/workflow/test_hydrographic_network_persistence.py
+python -m pytest tests/unit/geographic/test_river_network_products.py tests/unit/geographic/test_hydrographic_network.py tests/unit/geographic/test_domain_geographic_pipeline.py -q
+python -m pytest tests/unit/workflow/test_hydrographic_network_persistence.py -q
+python -m pytest tests/unit/geographic/test_reference_river_network_nancon_case.py tests/unit/geographic/test_run_geographic_river_network_golden.py -q
+python -m pytest tests/unit/geographic/test_river_network_config.py tests/unit/geographic/test_run_geographic_case_golden.py -q
+```
+
+Resultats:
+
+- aucun acces objet aux anciens champs `products.network_shp` /
+  `products.summary_json`;
+- `ruff`: aucun probleme.
+- `14 passed` sur les tests river-network/hydrographic/domain cibles;
+- `5 passed` sur la persistance store hydrographique;
+- `2 passed` sur les runners/goldens river-network;
+- `7 passed` sur les tests config/golden geographic associes.

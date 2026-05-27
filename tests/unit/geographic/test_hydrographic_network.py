@@ -159,10 +159,10 @@ def test_from_river_network_products_builds_generated_network(tmp_path: Path):
         enabled=True,
         threshold_cells=400.0,
         active_streams_tif=str(tmp_path / "river_streams.tif"),
-        network_shp=str(network_path),
+        hydrographic_network_generated_shp=str(network_path),
         network_crs="EPSG:2154",
         river_mesh_trace=trace,
-        summary_json=str(summary_path),
+        hydrographic_network_generated_summary_json=str(summary_path),
     )
 
     network = HydrographicNetwork.from_river_network_products(

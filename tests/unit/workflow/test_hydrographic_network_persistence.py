@@ -90,6 +90,9 @@ class _FakeZarr:
         _ = data, unit, source
         self.fields.append(str(name))
 
+    def close(self) -> None:
+        pass
+
 
 class _FakeStore:
     def __init__(self) -> None:
